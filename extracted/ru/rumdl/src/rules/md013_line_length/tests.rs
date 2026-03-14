@@ -641,6 +641,131 @@ fn test_link_ref_definition_exempt_in_non_strict_mode() {
     assert_eq!(result.len(), 0);
 }
 
+// =============================================================================
+// Issue #528: link reference definitions with titles should be exempt
+// =============================================================================
+
+#[test]
+fn test_link_ref_definition_with_double_quoted_title_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = r#"[polars.expr.qcut]: https://docs.pola.rs/api/python/stable/reference/expressions/api/polars.Expr.qcut.html "Bin continuous values into discrete categories based on their quantiles.""#;
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with double-quoted title should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_with_single_quoted_title_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "[reference]: https://example.com/very/long/url/that/exceeds/the/configured/limit 'A single-quoted title that makes the line even longer'";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with single-quoted title should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_with_parenthesized_title_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "[reference]: https://example.com/very/long/url/that/exceeds/the/configured/limit (A parenthesized title that makes the line even longer)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with parenthesized title should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_non_http_url_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "[reference]: /very/long/relative/path/to/some/document/that/exceeds/the/limit/by/far.md";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with non-HTTP URL should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_non_http_url_with_title_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content =
+        "[reference]: /very/long/relative/path/to/some/document/that/exceeds.md \"A long title for the reference\"";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with non-HTTP URL and title should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_angle_bracket_url_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "[reference]: <https://example.com/very/long/url/that/exceeds/the/configured/limit>";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with angle-bracket URL should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_with_title_in_list_item_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = r#"- [polars.expr.qcut]: https://docs.pola.rs/api/python/stable/reference/api/polars.Expr.qcut.html "Bin continuous values""#;
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with title inside list item should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_with_title_exempt_in_strict_mode() {
+    let rule = MD013LineLength::new(50, false, false, false, true); // strict=true
+    let content = r#"[reference]: https://example.com/very/long/url/that/exceeds/the/configured/limit "Title""#;
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with title should be exempt even in strict mode, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_link_ref_definition_no_space_after_colon_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, true); // strict=true
+    let content = "[reference]:https://example.com/very/long/url/that/exceeds/the/configured/limit";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Link ref definition with no space after colon should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_bracket_colon_non_link_ref_not_exempt() {
+    let rule = MD013LineLength::new(50, false, false, false, true); // strict=true
+    let content = "[WARNING]: Do not use this deprecated API in production code or any other environment because it will cause severe data loss";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        !result.is_empty(),
+        "Non-link-ref-def text starting with [WORD]: should NOT be exempt from MD013"
+    );
+}
+
 #[test]
 fn test_trailing_word_replacement_preserves_warning_length() {
     // The warning message should report ACTUAL line length, not the check_length
@@ -2162,6 +2287,8 @@ fn test_mixed_indentation_3_and_4_spaces() {
 
 #[test]
 fn test_nested_list_in_multi_paragraph_item() {
+    // Nested list items break out of the parent and are processed independently.
+    // The parent item should only contain its own content.
     let config = MD013Config {
         reflow: true,
         reflow_mode: ReflowMode::Normalize,
@@ -2174,18 +2301,24 @@ fn test_nested_list_in_multi_paragraph_item() {
     let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Nested lists at continuation indent should be INCLUDED in parent item
-    assert!(!result.is_empty(), "Should detect and reflow parent item");
-    if let Some(fix) = result[0].fix.as_ref() {
-        // The nested list should be preserved in the output
+    // Parent is single-line "First paragraph." — nothing to normalize, no parent warning.
+    // The nested item "- Nested item\n     continuation" has multi-line content,
+    // so it gets a normalize warning at line 3 (the nested item).
+    let parent_warnings: Vec<_> = result.iter().filter(|w| w.line == 1).collect();
+    assert!(
+        parent_warnings.is_empty(),
+        "Parent single-line item should not produce a warning: {:?}",
+        parent_warnings.iter().map(|w| (&w.message, w.line)).collect::<Vec<_>>()
+    );
+
+    // The nested item at line 3 should be processed independently and may get a normalize warning
+    let nested_warnings: Vec<_> = result.iter().filter(|w| w.line == 3).collect();
+    if !nested_warnings.is_empty() {
+        let fix = nested_warnings[0].fix.as_ref().unwrap();
+        // The nested item fix should contain merged nested content
         assert!(
-            fix.replacement.contains("- Nested"),
-            "Should preserve nested list: {}",
-            fix.replacement
-        );
-        assert!(
-            fix.replacement.contains("Second paragraph"),
-            "Should include content after nested list: {}",
+            fix.replacement.contains("Nested item"),
+            "Nested fix should contain nested content: {}",
             fix.replacement
         );
     }
@@ -2292,6 +2425,8 @@ fn test_sibling_list_item_breaks_parent() {
 
 #[test]
 fn test_nested_list_at_continuation_indent_preserved() {
+    // Nested list items break out of the parent and are processed independently.
+    // The parent collects its own paragraph content; nested items are separate.
     let config = MD013Config {
         reflow: true,
         reflow_mode: ReflowMode::Normalize,
@@ -2300,27 +2435,24 @@ fn test_nested_list_at_continuation_indent_preserved() {
     };
     let rule = MD013LineLength::from_config_struct(config);
 
-    // Nested list at exactly continuation indent (3 spaces for "1. ")
+    // Parent "1. Parent paragraph\n   with continuation." has two content lines → normalize merges them.
+    // Nested items break out and are processed independently.
     let content = "1. Parent paragraph\n   with continuation.\n\n   - Nested at 3 spaces\n   - Another nested\n\n   After nested.";
     let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     if !result.is_empty() {
         let fix = result[0].fix.as_ref().unwrap();
-        // All nested content should be preserved
+        // Parent fix should contain merged parent content
         assert!(
-            fix.replacement.contains("- Nested"),
-            "Should include first nested item: {}",
+            fix.replacement.contains("Parent paragraph with continuation."),
+            "Parent content should be merged: {}",
             fix.replacement
         );
+        // Nested items should NOT be part of the parent fix
         assert!(
-            fix.replacement.contains("- Another"),
-            "Should include second nested item: {}",
-            fix.replacement
-        );
-        assert!(
-            fix.replacement.contains("After nested"),
-            "Should include content after nested list: {}",
+            !fix.replacement.contains("- Nested"),
+            "Nested items should not be in parent fix (they are processed independently): {}",
             fix.replacement
         );
     }
@@ -3346,7 +3478,7 @@ fn test_blockquote_reflow_preserves_hard_break_markers() {
 }
 
 /// Verify that reflow does not introduce double blank lines between blocks.
-/// Tests the dedup guard on all block types (Paragraph, Html, NestedList, SemanticLine).
+/// Tests the dedup guard on all block types (Paragraph, Html, SemanticLine).
 #[test]
 fn test_reflow_no_double_blanks_between_blocks() {
     use crate::fix_coordinator::FixCoordinator;
@@ -3389,7 +3521,7 @@ fn test_reflow_no_double_blanks_between_blocks() {
         );
     }
 
-    // Case 2: Nested list followed by a paragraph (NestedList after-blank dedup).
+    // Case 2: Nested list followed by a paragraph.
     let content2 = "\
 1. Review the workflow configuration
 
@@ -5029,4 +5161,598 @@ fn test_reflow_tab_container_in_list_item() {
         replacement.contains("=== \"Tab One\"") || replacement.contains("Tab content here"),
         "Tab container content should not be silently dropped; got:\n{replacement}"
     );
+}
+
+/// Regression test: ctx.links must be sorted by line number for binary search
+/// in calculate_text_only_length to work correctly. The link parser appends
+/// regex-fallback reference links (from earlier lines) after pulldown-cmark links,
+/// which can produce an unsorted vector.
+#[test]
+fn test_md013_links_sorted_by_line_number() {
+    // This document has:
+    // - An inline link on the last line (found by pulldown-cmark)
+    // - Undefined reference links on earlier lines (found by regex fallback, appended later)
+    // The regex fallback links should not break the sort order.
+    let content = "\
+# Document
+
+See [undefined-ref] for details.
+
+Some text with [another-undef-ref] here.
+
+Short text [link](https://github.com/example/repo/blob/master/keps/sig-node/very-long-name).
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    // Verify links are sorted by line number
+    for i in 1..ctx.links.len() {
+        assert!(
+            ctx.links[i].line >= ctx.links[i - 1].line,
+            "ctx.links must be sorted by line; link[{}].line={} < link[{}].line={}",
+            i,
+            ctx.links[i].line,
+            i - 1,
+            ctx.links[i - 1].line,
+        );
+    }
+
+    // Verify images are sorted by line number
+    for i in 1..ctx.images.len() {
+        assert!(
+            ctx.images[i].line >= ctx.images[i - 1].line,
+            "ctx.images must be sorted by line; image[{}].line={} < image[{}].line={}",
+            i,
+            ctx.images[i].line,
+            i - 1,
+            ctx.images[i - 1].line,
+        );
+    }
+}
+
+/// Regression test: inline link URL subtraction must work even when regex-fallback
+/// reference links from earlier lines are present. Without proper sorting, binary
+/// search in calculate_text_only_length misses the inline link.
+#[test]
+fn test_md013_url_subtraction_with_earlier_reference_links() {
+    // Line 7 is ~95 chars raw, but text-only (without URL) is ~35 chars.
+    // The undefined references on lines 3 and 5 are picked up by regex fallback.
+    let content = "\
+# Document
+
+See [undefined-ref] for details.
+
+Some text with [another-undef-ref] here.
+
+Short text [link](https://github.com/example/repo/blob/master/keps/sig-node/very-long-name).
+";
+    let rule = MD013LineLength::new(80, true, true, true, false);
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Line 7 should NOT produce a warning because the text-only length (excluding URL)
+    // is well under 80 characters.
+    let line7_warnings: Vec<_> = result.iter().filter(|w| w.line == 7).collect();
+    assert!(
+        line7_warnings.is_empty(),
+        "Line 7 should not trigger MD013 — text-only length (excluding URL) is <= 80; got: {:?}",
+        line7_warnings.iter().map(|w| &w.message).collect::<Vec<_>>()
+    );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Issue #530: Nested unordered list items must be reflowed
+// ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_reflow_nested_unordered_list_items() {
+    // Nested unordered items under a "- " parent should be reflowed when they exceed line length.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Short parent.\n\n  - This is a very long nested unordered list item that definitely exceeds the eighty character line length limit and should be reflowed.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // The nested item exceeds 80 chars, so it should produce a warning with a fix
+    let nested_warnings: Vec<_> = result.iter().filter(|w| w.line == 3).collect();
+    assert!(
+        !nested_warnings.is_empty(),
+        "Nested unordered list item exceeding 80 chars should trigger a warning"
+    );
+    let fix = nested_warnings[0]
+        .fix
+        .as_ref()
+        .expect("Should have a fix for nested item");
+    // The fix should contain reflowed text with continuation indent
+    assert!(
+        fix.replacement.contains('\n'),
+        "Fix should reflow the long nested item across multiple lines"
+    );
+}
+
+#[test]
+fn test_reflow_nested_unordered_matches_ordered() {
+    // Nested unordered items should be reflowed the same way nested ordered items are.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let unordered = "- parent\n\n  - This is a very long nested unordered list item that definitely exceeds the eighty character line length limit and should be reflowed properly.";
+    let ordered = "1. parent\n\n   1. This is a very long nested ordered list item that definitely exceeds the eighty character line length limit and should be reflowed properly.";
+
+    let ctx_u = crate::lint_context::LintContext::new(unordered, crate::config::MarkdownFlavor::Standard, None);
+    let ctx_o = crate::lint_context::LintContext::new(ordered, crate::config::MarkdownFlavor::Standard, None);
+    let result_u = rule.check(&ctx_u).unwrap();
+    let result_o = rule.check(&ctx_o).unwrap();
+
+    // Both nested items should trigger warnings
+    let nested_u: Vec<_> = result_u.iter().filter(|w| w.line == 3).collect();
+    let nested_o: Vec<_> = result_o.iter().filter(|w| w.line == 3).collect();
+
+    assert!(!nested_u.is_empty(), "Nested unordered item should trigger a warning");
+    assert!(!nested_o.is_empty(), "Nested ordered item should trigger a warning");
+
+    // Both should have fixes
+    assert!(nested_u[0].fix.is_some(), "Nested unordered should have a fix");
+    assert!(nested_o[0].fix.is_some(), "Nested ordered should have a fix");
+}
+
+#[test]
+fn test_reflow_nested_unordered_multiple_items() {
+    // Multiple nested unordered items should all be reflowed.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Parent item\n\n  - First nested item that is very long and exceeds the eighty character line length limit and needs to be reflowed.\n\n  - Second nested item that is also very long and exceeds the eighty character line length limit and needs reflowing too.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Both nested items should trigger warnings (lines 3 and 5)
+    let warn_3: Vec<_> = result.iter().filter(|w| w.line == 3).collect();
+    let warn_5: Vec<_> = result.iter().filter(|w| w.line == 5).collect();
+    assert!(!warn_3.is_empty(), "First nested item should trigger a warning");
+    assert!(!warn_5.is_empty(), "Second nested item should trigger a warning");
+}
+
+#[test]
+fn test_reflow_nested_unordered_without_blank_line() {
+    // Nested items without a blank line between parent and child should also be reflowed.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- parent\n  - This is a very long nested unordered list item that definitely exceeds the eighty character line length limit and should be reflowed.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let nested_warnings: Vec<_> = result.iter().filter(|w| w.line == 2).collect();
+    assert!(
+        !nested_warnings.is_empty(),
+        "Nested unordered item without blank line should trigger a warning"
+    );
+    assert!(
+        nested_warnings[0].fix.is_some(),
+        "Should have a fix for the long nested item"
+    );
+}
+
+#[test]
+fn test_reflow_deeply_nested_unordered() {
+    // Deeply nested items (grandchild) should also be reflowed.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- parent\n  - child\n    - This is a deeply nested grandchild item that is very long and exceeds the eighty character line length limit.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let nested_warnings: Vec<_> = result.iter().filter(|w| w.line == 3).collect();
+    assert!(
+        !nested_warnings.is_empty(),
+        "Deeply nested grandchild item should trigger a warning"
+    );
+    assert!(
+        nested_warnings[0].fix.is_some(),
+        "Should have a fix for the long deeply nested item"
+    );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Issue #529: Checkbox continuation not recognized
+// ───────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_reflow_checkbox_with_continuation_at_base_indent() {
+    // "- [ ] text\n  continuation" (2-space) should be recognized as continuation
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Content where the combined text exceeds 80 chars and continuation is at 2-space indent
+    let content = "- [ ] This is a checkbox item with a very long description that needs to be reflowed properly across lines.\n  And this is a continuation line at 2-space indent that should be recognized.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should detect the long line and provide a fix that merges both lines
+    assert!(!result.is_empty(), "Should detect long checkbox item");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    // The fix should include content from both lines (merged and reflowed)
+    assert!(
+        fix.replacement.contains("continuation"),
+        "Fix should include the continuation text: {:?}",
+        fix.replacement
+    );
+}
+
+#[test]
+fn test_reflow_checkbox_with_continuation_at_4_spaces() {
+    // "- [ ] text\n    continuation" (4-space) should be recognized as continuation
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- [ ] This is a checkbox item with a very long description that needs to be reflowed properly across lines.\n    And this is a continuation line at 4-space indent that should be recognized.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect long checkbox item");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    assert!(
+        fix.replacement.contains("continuation"),
+        "Fix should include the continuation text: {:?}",
+        fix.replacement
+    );
+}
+
+#[test]
+fn test_reflow_checkbox_output_aligns_with_content() {
+    // Verify that reflow output uses 6-space continuation (aligning with content after "- [ ] ")
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- [ ] This is a checkbox item with a very long description that definitely exceeds the eighty character line length limit and should be reflowed.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect long checkbox item");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+
+    // Continuation lines should be indented to align with content after "- [ ] " (6 spaces)
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            assert!(
+                line.starts_with("      ") && !line.starts_with("       "),
+                "Continuation line should have exactly 6-space indent (marker_len for '- [ ] '), got: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_checkbox_mkdocs_continuation() {
+    // MkDocs flavor should also handle checkbox continuation properly
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- [ ] This is a checkbox item with a very long description that needs to be reflowed properly across multiple lines.\n  And this continuation at 2-space indent should be collected.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect long checkbox item in MkDocs mode");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    assert!(
+        fix.replacement.contains("continuation"),
+        "Fix should include the continuation text in MkDocs mode: {:?}",
+        fix.replacement
+    );
+    // MkDocs requires 4-space continuation indent, not 6-space (content-aligned past checkbox)
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 4,
+                "MkDocs checkbox continuation should use 4-space indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_ordered_checkbox_continuation() {
+    // "1. [ ] text\n   continuation" should work too
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "1. [ ] This is an ordered checkbox item with a very long description that needs to be reflowed properly across lines.\n   And this continuation at 3-space indent should be collected.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect long ordered checkbox item");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    assert!(
+        fix.replacement.contains("continuation"),
+        "Fix should include the continuation text: {:?}",
+        fix.replacement
+    );
+}
+
+#[test]
+fn test_reflow_checkbox_standard_uses_content_aligned_indent() {
+    // Standard flavor should use content-aligned indent (6 spaces for "- [ ] ")
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- [ ] This is a checkbox item with a very long description that needs to be reflowed properly across multiple lines.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect long checkbox item in Standard mode");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    // Standard flavor uses content-aligned indent: 6 spaces for "- [ ] "
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 6,
+                "Standard checkbox continuation should use 6-space (content-aligned) indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_checkbox_mkdocs_semantic_line_breaks() {
+    // MkDocs + semantic line breaks + checkbox should still use 4-space indent
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- [ ] This is a checkbox item with a very long description that needs to be reflowed properly. And another sentence here.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "Should detect long checkbox item in MkDocs semantic mode"
+    );
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 4,
+                "MkDocs checkbox continuation in semantic mode should use 4-space indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_ordered_checkbox_mkdocs_continuation() {
+    // MkDocs ordered list checkbox: "1. [ ] item" should use 4-space continuation
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "1. [ ] This is an ordered checkbox item with a very long description that needs to be reflowed properly across multiple lines.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "Should detect long ordered checkbox item in MkDocs mode"
+    );
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    // MkDocs caps continuation indent at 4 spaces, even for ordered lists with checkbox
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 4,
+                "MkDocs ordered checkbox continuation should use 4-space indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_nested_checkbox_mkdocs_continuation() {
+    // Nested checkbox items should use nesting_indent + 4 for continuation.
+    // For "    - [ ] text" (4-space nesting), continuation should be 8 spaces.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Parent item\n    - [ ] Nested checkbox item that is very long and needs to wrap across multiple lines properly with correct indentation.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "Should detect long nested checkbox item in MkDocs mode"
+    );
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    // Continuation lines should be at 8 spaces (4 nesting + 4 mkdocs)
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 8,
+                "Nested MkDocs checkbox continuation should use 8-space indent (4 nesting + 4 mkdocs), got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_checkbox_mkdocs_idempotent() {
+    // Reflowing a mkdocs checkbox twice should produce identical output
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // First pass: reflow a long checkbox item
+    let content =
+        "- [ ] This checkbox item has a long description that definitely needs to be reflowed across multiple lines.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+    let first_fix = rule.fix(&ctx).unwrap();
+
+    // Verify first fix uses 4-space indent
+    for line in first_fix.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 4,
+                "First fix should use 4-space indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+
+    // Second pass: the fixed output should not trigger further warnings
+    let ctx2 = crate::lint_context::LintContext::new(&first_fix, crate::config::MarkdownFlavor::MkDocs, None);
+    let second_fix = rule.fix(&ctx2).unwrap();
+    assert_eq!(
+        first_fix, second_fix,
+        "MkDocs checkbox reflow should be idempotent.\nFirst:  {first_fix:?}\nSecond: {second_fix:?}"
+    );
+}
+
+#[test]
+fn test_reflow_nested_checkbox_standard_uses_content_aligned() {
+    // Standard flavor nested checkbox should use content-aligned indent (10 for "    - [ ] ")
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Parent item\n    - [ ] Nested checkbox item that is very long and needs to wrap across multiple lines properly with content alignment.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "Should detect long nested checkbox in standard mode"
+    );
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+    // Standard uses content-aligned: "    - [ ] " = 10 chars
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            let indent = line.len() - line.trim_start().len();
+            assert_eq!(
+                indent, 10,
+                "Standard nested checkbox should use 10-space content-aligned indent, got {indent} in: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_mixed_checkbox_and_regular_mkdocs() {
+    // A list with both checkbox and regular items should handle each correctly
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Regular item followed by checkbox item, both long enough to wrap
+    let content = "- This regular item is long enough to need wrapping across multiple lines so we can verify indent.\n- [ ] This checkbox item is also long enough to need wrapping across multiple lines to verify indent.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+
+    // Check each list item's continuation indent
+    let mut in_checkbox_item = false;
+    for line in fixed.lines() {
+        if line.starts_with("- [ ] ") {
+            in_checkbox_item = true;
+        } else if line.starts_with("- ") && !line.starts_with("- [") {
+            in_checkbox_item = false;
+        } else if !line.is_empty() && line.starts_with(' ') {
+            let indent = line.len() - line.trim_start().len();
+            if in_checkbox_item {
+                assert_eq!(
+                    indent, 4,
+                    "MkDocs checkbox continuation should be 4-space, got {indent} in: {line:?}"
+                );
+            }
+            // Regular items may use 2-space or 4-space depending on mode; just verify they're indented
+            assert!(
+                indent >= 2,
+                "Continuation should be indented at least 2, got {indent} in: {line:?}"
+            );
+        }
+    }
 }

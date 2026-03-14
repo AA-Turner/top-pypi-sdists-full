@@ -12,6 +12,7 @@ from tests._compat import ValidationError
 
 from .conftest import py_test_mark_sync
 
+
 today = datetime.date.today()
 
 
@@ -136,8 +137,8 @@ def test_saves_model_and_creates_pk(m):
     assert member2 == member
 
 
-def test_raises_error_with_embedded_models(m):
-    class Address(m.BaseHashModel, index=True):
+def test_raises_error_with_embedded_models(m) -> None:
+    class Address(m.BaseHashModel, index=True):  # type: ignore[call-arg]
         address_line_1: str
         address_line_2: Optional[str]
         city: str

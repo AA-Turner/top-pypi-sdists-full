@@ -10,8 +10,9 @@ class CompilerStrUtil:
 
     @staticmethod
     def to_pascal_case(snake_str: str) -> str:
-        """Converte uma string de snake_case para PascalCase."""
-        components = snake_str.split("_")
+        """Converte uma string livre para PascalCase seguro para identificadores."""
+        sanitized = re.sub(r"[^0-9A-Za-z]+", "_", (snake_str or "").strip())
+        components = [part for part in sanitized.split("_") if part]
         return "".join(x.title() for x in components)
 
     @staticmethod

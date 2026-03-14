@@ -1,12 +1,12 @@
 import math
 from typing import Optional, Union
 
-from sqlalchemy import and_, not_, or_, select
+from sqlalchemy import and_, exists, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager, noload
 
 from dstack._internal.core.backends.base.backend import Backend
-from dstack._internal.core.models.fleets import Fleet, InstanceGroupPlacement
+from dstack._internal.core.models.fleets import FleetSpec, InstanceGroupPlacement
 from dstack._internal.core.models.instances import (
     InstanceAvailability,
     InstanceOfferWithAvailability,
@@ -21,12 +21,19 @@ from dstack._internal.core.models.runs import (
     RunSpec,
 )
 from dstack._internal.core.models.volumes import Volume
-from dstack._internal.server.models import FleetModel, InstanceModel, ProjectModel, RunModel
+from dstack._internal.server.models import (
+    ExportedFleetModel,
+    FleetModel,
+    ImportModel,
+    InstanceModel,
+    ProjectModel,
+    RunModel,
+)
 from dstack._internal.server.services.fleets import (
     check_can_create_new_cloud_instance_in_fleet,
-    fleet_model_to_fleet,
     get_fleet_master_instance_provisioning_data,
     get_fleet_requirements,
+    get_fleet_spec,
 )
 from dstack._internal.server.services.instances import (
     filter_pool_instances,
@@ -206,8 +213,16 @@ async def get_run_candidate_fleet_models_filters(
     # If another job freed the instance but is still trying to detach volumes,
     # do not provision on it to prevent attaching volumes that are currently detaching.
     detaching_instances_ids = await get_instances_ids_with_detaching_volumes(session)
+    is_fleet_imported_subquery = exists().where(
+        ImportModel.project_id == project.id,
+        ImportModel.export_id == ExportedFleetModel.export_id,
+        ExportedFleetModel.fleet_id == FleetModel.id,
+    )
     fleet_filters = [
-        FleetModel.project_id == project.id,
+        or_(
+            FleetModel.project_id == project.id,
+            is_fleet_imported_subquery,
+        ),
         FleetModel.deleted == False,
     ]
     if run_model is not None and run_model.fleet is not None:
@@ -239,9 +254,12 @@ async def select_run_candidate_fleet_models_with_filters(
         .execution_options(populate_existing=True)
     )
     if lock_instances:
-        stmt = stmt.order_by(InstanceModel.id).with_for_update(  # take locks in order
-            key_share=True, of=InstanceModel
-        )
+        # Skip locked instances since waiting for all the instances to unlock may take indefinite time.
+        # TODO: Switch to optimistic locking – implement select-lock-reselect loop.
+        stmt = stmt.where(InstanceModel.lock_expires_at.is_(None))
+        stmt = stmt.order_by(
+            InstanceModel.id  # take locks in order
+        ).with_for_update(skip_locked=True, key_share=True, of=InstanceModel)
     res = await session.execute(stmt)
     fleet_models_with_instances = list(res.unique().scalars().all())
     fleet_models_with_instances_ids = [f.id for f in fleet_models_with_instances]
@@ -317,18 +335,18 @@ async def find_optimal_fleet_with_offers(
         ]
     ] = []
     for candidate_fleet_model in fleet_models:
-        candidate_fleet = fleet_model_to_fleet(candidate_fleet_model)
+        candidate_fleet_spec = get_fleet_spec(candidate_fleet_model)
         if (
             is_multinode_job(job)
-            and candidate_fleet.spec.configuration.placement != InstanceGroupPlacement.CLUSTER
+            and candidate_fleet_spec.configuration.placement != InstanceGroupPlacement.CLUSTER
         ):
             # Limit multinode runs to cluster fleets to guarantee best connectivity.
             continue
 
-        if not _run_can_fit_into_fleet(run_spec, candidate_fleet):
+        if not _run_can_fit_into_fleet(run_spec, candidate_fleet_model, candidate_fleet_spec):
             logger.debug(
                 "Skipping fleet %s from consideration: run cannot fit into fleet",
-                candidate_fleet.name,
+                candidate_fleet_model.name,
             )
             continue
 
@@ -352,7 +370,7 @@ async def find_optimal_fleet_with_offers(
         backend_offers = await _get_backend_offers_in_fleet(
             project=project,
             fleet_model=candidate_fleet_model,
-            fleet=candidate_fleet,
+            fleet_spec=candidate_fleet_spec,
             run_spec=run_spec,
             job=job,
             volumes=volumes,
@@ -413,12 +431,12 @@ async def find_optimal_fleet_with_offers(
 def get_run_profile_and_requirements_in_fleet(
     job: Job,
     run_spec: RunSpec,
-    fleet: Fleet,
+    fleet_spec: FleetSpec,
 ) -> tuple[Profile, Requirements]:
-    profile = combine_fleet_and_run_profiles(fleet.spec.merged_profile, run_spec.merged_profile)
+    profile = combine_fleet_and_run_profiles(fleet_spec.merged_profile, run_spec.merged_profile)
     if profile is None:
         raise ValueError("Cannot combine fleet profile")
-    fleet_requirements = get_fleet_requirements(fleet.spec)
+    fleet_requirements = get_fleet_requirements(fleet_spec)
     requirements = combine_fleet_and_run_requirements(
         fleet_requirements, job.job_spec.requirements
     )
@@ -485,7 +503,9 @@ def _get_instance_offers_in_fleet(
     return instances_with_offers
 
 
-def _run_can_fit_into_fleet(run_spec: RunSpec, fleet: Fleet) -> bool:
+def _run_can_fit_into_fleet(
+    run_spec: RunSpec, fleet_model: FleetModel, fleet_spec: FleetSpec
+) -> bool:
     """
     Returns `False` if the run cannot fit into fleet for sure.
     This is helpful heuristic to avoid even considering fleets too small for a run.
@@ -498,19 +518,19 @@ def _run_can_fit_into_fleet(run_spec: RunSpec, fleet: Fleet) -> bool:
     # how many jobs such fleets can accommodate.
     nodes_required_num = get_nodes_required_num(run_spec)
     if (
-        fleet.spec.configuration.nodes is not None
-        and fleet.spec.configuration.blocks == 1
-        and fleet.spec.configuration.nodes.max is not None
+        fleet_spec.configuration.nodes is not None
+        and fleet_spec.configuration.blocks == 1
+        and fleet_spec.configuration.nodes.max is not None
     ):
-        busy_instances = [i for i in fleet.instances if i.busy_blocks > 0]
-        fleet_available_capacity = fleet.spec.configuration.nodes.max - len(busy_instances)
+        busy_instances = [i for i in fleet_model.instances if i.busy_blocks > 0]
+        fleet_available_capacity = fleet_spec.configuration.nodes.max - len(busy_instances)
         if fleet_available_capacity < nodes_required_num:
             return False
-    elif fleet.spec.configuration.ssh_config is not None:
+    elif fleet_spec.configuration.ssh_config is not None:
         # Currently assume that each idle block can run a job.
         # TODO: Take resources / eligible offers into account.
         total_idle_blocks = 0
-        for instance in fleet.instances:
+        for instance in fleet_model.instances:
             total_blocks = instance.total_blocks or 1
             total_idle_blocks += total_blocks - instance.busy_blocks
         if total_idle_blocks < nodes_required_num:
@@ -524,17 +544,17 @@ async def _get_backend_offers_in_fleet(
     run_spec: RunSpec,
     job: Job,
     volumes: Optional[list[list[Volume]]],
-    fleet: Optional[Fleet] = None,
+    fleet_spec: Optional[FleetSpec] = None,
     max_offers: Optional[int] = None,
 ) -> list[tuple[Backend, InstanceOfferWithAvailability]]:
-    if fleet is None:
-        fleet = fleet_model_to_fleet(fleet_model)
+    if fleet_spec is None:
+        fleet_spec = get_fleet_spec(fleet_model)
     try:
-        check_can_create_new_cloud_instance_in_fleet(fleet)
+        check_can_create_new_cloud_instance_in_fleet(fleet_model, fleet_spec)
         profile, requirements = get_run_profile_and_requirements_in_fleet(
             job=job,
             run_spec=run_spec,
-            fleet=fleet,
+            fleet_spec=fleet_spec,
         )
     except ValueError:
         backend_offers = []
@@ -542,7 +562,7 @@ async def _get_backend_offers_in_fleet(
         # Master job offers must be in the same cluster as existing instances.
         master_instance_provisioning_data = get_fleet_master_instance_provisioning_data(
             fleet_model=fleet_model,
-            fleet_spec=fleet.spec,
+            fleet_spec=fleet_spec,
         )
         # Handle multinode for old jobs that don't have requirements.multinode set.
         # TODO: Drop multinode param.

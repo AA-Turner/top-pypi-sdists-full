@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use bytes::Bytes;
+use guacr_handlers::EncodedFrame;
 use guacr_handlers::{
     // Connection utilities
     connect_tcp_with_timeout,
@@ -30,6 +31,7 @@ use guacr_handlers::{
     // Recording
     RecordingConfig,
     StandardCursor,
+    VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use guacr_protocol::{
@@ -40,6 +42,7 @@ use guacr_terminal::BufferPool;
 use image::{ImageEncoder, RgbaImage};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
@@ -61,6 +64,19 @@ use tokio_rustls::TlsConnector;
 // DisplayControl for dynamic resize
 use ironrdp_displaycontrol::client::DisplayControlClient;
 use ironrdp_displaycontrol::pdu::MonitorLayoutEntry;
+
+// Video session recording (fMP4 + AES-256-GCM + WebSocket upload to router)
+use guacr_recorder::{RecordingSink, VideoRecordingConfig};
+
+// EGFX passthrough (H.264 from Windows GPU encoder)
+use crate::egfx_handler::{EgfxPassthroughHandler, H264Frame};
+use crossbeam_queue::ArrayQueue;
+use ironrdp::dvc::DrdynvcClient;
+use ironrdp_egfx::client::GraphicsPipelineClient;
+
+// Threat detection (optional feature)
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{ThreatDetector, ThreatDetectorConfig};
 
 type TokioTlsStream = tokio_rustls::client::TlsStream<TcpStream>;
 
@@ -168,6 +184,7 @@ impl ProtocolHandler for RdpHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("RDP handler starting connection");
 
@@ -192,6 +209,7 @@ impl ProtocolHandler for RdpHandler {
             settings.jpeg_quality,
             settings.supports_webp,
             settings.supports_jpeg,
+            video_tx,
         );
 
         // Connect and run session
@@ -234,6 +252,7 @@ impl EventBasedHandler for RdpHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         // RDP sends 3 instructions per frame (img, blob, end) and can have multiple
         // frames in flight, so we need a larger buffer than text-based protocols
@@ -252,7 +271,8 @@ impl EventBasedHandler for RdpHandler {
             }
         });
 
-        self.connect(params, to_client, from_client).await?;
+        self.connect(params, to_client, from_client, video_tx)
+            .await?;
 
         Ok(())
     }
@@ -431,8 +451,7 @@ impl RdpSettings {
             .map(|s| s.split(',').map(|f| f.trim()).collect::<Vec<_>>())
             .unwrap_or_else(|| vec!["image/png"]);
 
-        // Force JPEG only - client supports WebP but we'll use JPEG for maximum compatibility
-        let supports_webp = false;
+        let supports_webp = supported_formats.iter().any(|f| f.contains("webp"));
         let supports_jpeg = supported_formats.iter().any(|f| f.contains("jpeg"));
 
         info!(
@@ -741,6 +760,31 @@ struct IronRdpSession {
 
     // Cursor manager for client-side cursor rendering (matches KCM behavior)
     cursor_manager: CursorManager,
+
+    // Video session recording — Some when video_tx is Some and recording params are present
+    video_recording_config: Option<VideoRecordingConfig>,
+    video_recorder: Option<Box<dyn RecordingSink>>,
+
+    // H.264 video output — Some for GuacamoleWithVideo sessions, None for JPEG path
+    video_tx: Option<Arc<dyn VideoOutput>>,
+    // EGFX passthrough queue — Some when video_tx is Some; frames queued by EgfxPassthroughHandler
+    egfx_frames: Option<Arc<ArrayQueue<H264Frame>>>,
+    // Flipped to true on the first EGFX frame.  Used to gate JPEG suppression:
+    // before EGFX negotiation completes (or for servers that never support EGFX,
+    // such as xrdp) the JPEG path still runs normally.
+    egfx_active: Arc<AtomicBool>,
+
+    // AI threat detection — Some when threat_detection_baml_endpoint param is provided
+    #[cfg(feature = "threat-detection")]
+    threat_detector: Option<std::sync::Arc<ThreatDetector>>,
+    // Per-session ID for threat detection state tracking
+    #[cfg(feature = "threat-detection")]
+    threat_session_id: String,
+    // Username and hostname captured for threat detection context
+    #[cfg(feature = "threat-detection")]
+    threat_username: String,
+    #[cfg(feature = "threat-detection")]
+    threat_hostname: String,
 }
 
 impl IronRdpSession {
@@ -761,7 +805,39 @@ impl IronRdpSession {
         jpeg_quality: u8,
         supports_webp: bool,
         supports_jpeg: bool,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Self {
+        // Video output is only useful when the server can send H.264.
+        //
+        //   Windows with EGFX  →  EgfxPassthroughHandler queues GPU-encoded H.264;
+        //                          egfx_active flips true on first frame.
+        //                          Soft encoder is initialised as a fallback for the window
+        //                          between connection and first EGFX frame, then released.
+        //
+        //   xrdp / pre-EGFX   →  EGFX never activates; soft encoder would have to
+        //                          re-encode the entire framebuffer on every small GDI
+        //                          update (8 MB copy + RGBA→YUV + full-frame encode =
+        //                          50-200 ms per keystroke with OpenH264).
+        //                          JPEG dirty-rects is 20-100x faster for these sessions:
+        //                          it only encodes the changed rectangle (<2 ms).
+        //                          Skip the encoder entirely; use video_tx=None so the
+        //                          JPEG path runs unconditionally.
+        //
+        //   video_tx None      →  JPEG path always.
+
+        // Parse video recording config from params (only relevant when video_tx is Some)
+        let video_recording_config = if video_tx.is_some() {
+            VideoRecordingConfig::from_params(params)
+        } else {
+            None
+        };
+
+        let egfx_active = Arc::new(AtomicBool::new(false));
+        let (video_tx, egfx_frames) = if let Some(vtx) = video_tx {
+            (Some(vtx), Some(Arc::new(ArrayQueue::new(4))))
+        } else {
+            (None, None)
+        };
         let frame_size = (width * height * 4) as usize;
         let buffer_pool = Arc::new(BufferPool::new(8, frame_size));
 
@@ -791,6 +867,90 @@ impl IronRdpSession {
         } else {
             None
         };
+
+        // Initialize threat detection if the feature is enabled and baml endpoint is configured
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = {
+            if let Some(baml_endpoint) = params.get("threat_detection_baml_endpoint") {
+                let config = ThreatDetectorConfig {
+                    baml_endpoint: baml_endpoint.clone(),
+                    baml_api_key: params.get("threat_detection_baml_api_key").cloned(),
+                    enabled: true,
+                    auto_terminate: params
+                        .get("threat_detection_auto_terminate")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    min_log_level: params
+                        .get("threat_detection_min_log_level")
+                        .and_then(|s| match s.as_str() {
+                            "critical" => Some(guacr_threat_detection::ThreatLevel::Critical),
+                            "high" => Some(guacr_threat_detection::ThreatLevel::High),
+                            "medium" => Some(guacr_threat_detection::ThreatLevel::Medium),
+                            "low" => Some(guacr_threat_detection::ThreatLevel::Low),
+                            _ => None,
+                        })
+                        .unwrap_or(guacr_threat_detection::ThreatLevel::Low),
+                    command_history_size: params
+                        .get("threat_detection_command_history_size")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(10),
+                    timeout_seconds: params
+                        .get("threat_detection_timeout_seconds")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(5),
+                    deny_tags: HashMap::new(),
+                    allow_tags: HashMap::new(),
+                    enable_tag_checking: true,
+                    proactive_mode: params
+                        .get("threat_detection_proactive_mode")
+                        .map(|s| s == "true")
+                        .unwrap_or(false),
+                    approval_timeout_ms: params
+                        .get("threat_detection_approval_timeout_ms")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(2000),
+                    fail_closed_on_error: params
+                        .get("threat_detection_fail_closed_on_error")
+                        .map(|s| s == "true")
+                        .unwrap_or(false),
+                    show_approval_status: params
+                        .get("threat_detection_show_approval_status")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    auto_approve_safe_commands: params
+                        .get("threat_detection_auto_approve_safe_commands")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    config_allow_ai_session_terminate: params
+                        .get("threat_detection_config_allow_ai_session_terminate")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    resource_ai_session_terminate_enabled: params
+                        .get("threat_detection_resource_ai_session_terminate_enabled")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    level_terminate_flags: HashMap::new(),
+                };
+
+                match ThreatDetector::new(config) {
+                    Ok(detector) => {
+                        info!(
+                            "RDP: Threat detection enabled with BAML endpoint: {}",
+                            baml_endpoint
+                        );
+                        Some(std::sync::Arc::new(detector))
+                    }
+                    Err(e) => {
+                        warn!("RDP: Failed to initialize threat detection: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        };
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = uuid::Uuid::new_v4().to_string();
 
         Self {
             framebuffer: FrameBuffer::new(width, height),
@@ -840,6 +1000,21 @@ impl IronRdpSession {
 
             // Initialize cursor manager for client-side cursor rendering
             cursor_manager: CursorManager::new(supports_jpeg, supports_webp, jpeg_quality),
+
+            video_tx,
+            egfx_frames,
+            egfx_active,
+            video_recording_config,
+            video_recorder: None,
+            #[cfg(feature = "threat-detection")]
+            threat_detector,
+            #[cfg(feature = "threat-detection")]
+            threat_session_id,
+            // Username and hostname are not yet known at new() time; set in connect_and_run
+            #[cfg(feature = "threat-detection")]
+            threat_username: String::new(),
+            #[cfg(feature = "threat-detection")]
+            threat_hostname: String::new(),
         }
     }
 
@@ -855,6 +1030,27 @@ impl IronRdpSession {
         from_client: mpsc::Receiver<Bytes>,
         settings: Option<&RdpSettings>,
     ) -> Result<(), String> {
+        // Initialize video recorder if configuration was parsed from params
+        if let Some(cfg) = self.video_recording_config.take() {
+            match guacr_recorder::build_sink(cfg).await {
+                Ok(sink) => {
+                    self.video_recorder = Some(sink);
+                    info!("RDP: Video recorder initialized");
+                }
+                Err(e) => warn!(
+                    "RDP: Failed to initialize video recorder, recording disabled: {}",
+                    e
+                ),
+            }
+        }
+
+        // Capture hostname and username for threat detection context
+        #[cfg(feature = "threat-detection")]
+        {
+            self.threat_hostname = hostname.to_string();
+            self.threat_username = username.to_string();
+        }
+
         info!(
             "RDP: Connecting to {}:{} (timeout: {}s)",
             hostname, port, self.connection_timeout_secs
@@ -1060,7 +1256,8 @@ impl IronRdpSession {
             autologon,
             enable_audio_playback: false,
             pointer_software_rendering: false, // Client-side cursor rendering via PointerBitmap events (matches KCM)
-            performance_flags: PerformanceFlags::default(),
+            performance_flags: PerformanceFlags::default()
+                | PerformanceFlags::ENABLE_DESKTOP_COMPOSITION,
             desktop_scale_factor: 0,
             hardware_id: None,
             license_cache: None,
@@ -1077,7 +1274,7 @@ impl IronRdpSession {
         stream: TcpStream,
         config: connector::Config,
         server_name: String,
-        drive_settings: Option<(&str, &str, bool, bool)>,
+        _drive_settings: Option<(&str, &str, bool, bool)>,
     ) -> Result<
         (
             ConnectionResult,
@@ -1093,13 +1290,29 @@ impl IronRdpSession {
 
         let mut framed = Framed::<ironrdp_tokio::MovableTokioStream<_>>::new(stream);
 
-        // Note: xrdp doesn't support Dynamic Virtual Channels (DVC), so we don't add DisplayControl
-        // guacd also doesn't use DVC with xrdp for this reason
         let mut connector = ClientConnector::new(config, client_addr);
+
+        // Register DVC channels.
+        // DisplayControlClient enables dynamic resize on Windows servers.
+        // EgfxPassthroughHandler intercepts GPU-encoded H.264 frames when video output is active.
+        // xrdp silently ignores DVC channels it does not support, so this is safe for all servers.
+        {
+            let mut drdynvc = DrdynvcClient::new()
+                .with_dynamic_channel(DisplayControlClient::new(|_| Ok(Vec::new())));
+            if let Some(ref frames) = self.egfx_frames {
+                let egfx_handler = Box::new(EgfxPassthroughHandler::new(
+                    frames.clone(),
+                    self.egfx_active.clone(),
+                ));
+                drdynvc = drdynvc.with_dynamic_channel(GraphicsPipelineClient::new(egfx_handler));
+                info!("RDP: EGFX GraphicsPipeline DVC registered for H.264 passthrough");
+            }
+            connector.attach_static_channel(drdynvc);
+        }
 
         // Register RDPDR for drive redirection
         #[cfg(feature = "drive")]
-        if let Some((path, name, disable_download, disable_upload)) = drive_settings {
+        if let Some((path, name, disable_download, disable_upload)) = _drive_settings {
             use ironrdp_rdpdr::Rdpdr;
 
             #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -1240,6 +1453,26 @@ impl IronRdpSession {
 
         loop {
             tokio::select! {
+                biased;
+
+                // Handle client input — always first so keystrokes are never blocked by encoding
+                msg = from_client.recv() => {
+                    let Some(msg) = msg else {
+                        info!("RDP: Client disconnected");
+                        break;
+                    };
+                    match self.handle_client_input_ironrdp(&mut framed, &msg, &mut active_stage, &mut image).await {
+                        Ok(()) => {}
+                        Err(ref e) if e.starts_with("TERMINATE:") => {
+                            info!("RDP: Session terminated: {}", &e["TERMINATE:".len()..]);
+                            break;
+                        }
+                        Err(e) => {
+                            warn!("RDP: Error handling client input: {}", e);
+                        }
+                    }
+                }
+
                 // Keep-alive ping to detect dead connections
                 _ = keepalive_interval.tick() => {
                     // Check for sync timeout (client not responding)
@@ -1255,7 +1488,7 @@ impl IronRdpSession {
 
                     if let Some(sync_instr) = keepalive.check() {
                         trace!("RDP: Sending keep-alive sync");
-                        if self.to_client.send(sync_instr).await.is_err() {
+                        if shared_send_and_record(&self.to_client, &mut self.recorder, sync_instr).await.is_err() {
                             info!("RDP: Client channel closed, ending session");
                             return Ok(());
                         }
@@ -1272,8 +1505,10 @@ impl IronRdpSession {
                                 .process(&mut image, action, &payload)
                                 .map_err(|e| format!("Failed to process RDP frame: {}", e))?;
 
-                            if outputs.is_empty() && payload.len() > 1000 {
-                                warn!("RDP: Large frame ({} bytes) produced 0 outputs - possible graphics data loss", payload.len());
+                            if outputs.is_empty() && payload.len() > 1000
+                                && !self.egfx_active.load(Ordering::Relaxed)
+                            {
+                                debug!("RDP: Large frame ({} bytes) produced 0 outputs (EGFX PDU or channel data)", payload.len());
                             }
 
                             trace!("RDP: ActiveStage returned {} outputs", outputs.len());
@@ -1298,7 +1533,6 @@ impl IronRdpSession {
                                         let sample_size = std::cmp::min(100, image.data().len());
                                         let sample_pixels = &image.data()[0..sample_size];
                                         let all_zeros = sample_pixels.iter().all(|&b| b == 0);
-                                        let all_same = sample_pixels.windows(4).all(|w| w == &sample_pixels[0..4]);
 
                                         // Skip all-zeros frames ONLY if:
                                         // 1. It's the first frame (initial connection artifact), OR
@@ -1312,15 +1546,25 @@ impl IronRdpSession {
                                             // IronRDP sometimes sends all-zeros on initial connection or with 0x0 rects
                                             // Skip these to avoid black screen artifacts
                                         } else {
-                                            if all_same {
-                                                debug!("RDP: Image appears solid color: RGBA({},{},{},{})",
-                                                    sample_pixels[0], sample_pixels[1], sample_pixels[2], sample_pixels[3]);
-                                            } else {
-                                                trace!("RDP: Image has varied pixel data (first 4 pixels: {:?})",
-                                                    &sample_pixels[0..std::cmp::min(16, sample_size)]);
+                                            if log::log_enabled!(log::Level::Debug) {
+                                                let all_same = sample_pixels.windows(4).all(|w| w == &sample_pixels[0..4]);
+                                                if all_same {
+                                                    debug!("RDP: Image appears solid color: RGBA({},{},{},{})",
+                                                        sample_pixels[0], sample_pixels[1], sample_pixels[2], sample_pixels[3]);
+                                                } else {
+                                                    trace!("RDP: Image has varied pixel data (first 4 pixels: {:?})",
+                                                        &sample_pixels[0..std::cmp::min(16, sample_size)]);
+                                                }
                                             }
 
-                                            self.send_graphics_update_with_rect(&image, rect).await?;
+                                            if self.egfx_active.load(Ordering::Acquire) {
+                                                // EGFX passthrough: GPU-encoded H.264 frames are queued
+                                                // by EgfxPassthroughHandler and drained after this loop.
+                                            } else {
+                                                // JPEG dirty-rect: GuacamoleOnly sessions and all
+                                                // sessions before EGFX activates (including xrdp).
+                                                self.send_graphics_update_with_rect(&image, rect).await?;
+                                            }
                                         }
 
                                         if !self.first_frame_sent {
@@ -1389,22 +1633,66 @@ impl IronRdpSession {
                                     }
                                 }
                             }
+
+                            // Drain H.264 frames queued by the EGFX handler during active_stage.process().
+                            // Each call to process() may push one or more frames; we send all of them
+                            // and follow with a single Guacamole sync to keep the client clock aligned.
+                            if let (Some(ref frames), Some(ref video_tx)) =
+                                (&self.egfx_frames, &self.video_tx)
+                            {
+                                let mut last_timestamp_us = 0u64;
+                                let mut sent_any = false;
+                                while let Some(frame) = frames.pop() {
+                                    // Each frame gets its own timestamp so batched frames have
+                                    // monotonically increasing PTS (rare but possible).
+                                    let timestamp_us = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_micros() as u64;
+                                    let pts = timestamp_us * 9 / 100; // microseconds → 90 kHz RTP clock
+                                    last_timestamp_us = timestamp_us;
+                                    let encoded = EncodedFrame {
+                                        data: bytes::Bytes::from(frame.data),
+                                        is_keyframe: frame.is_keyframe,
+                                        pts,
+                                    };
+                                    // Tee to video recorder before sending to WebRTC
+                                    if let Some(ref mut recorder) = self.video_recorder {
+                                        if let Err(e) = recorder.write_frame(&encoded).await {
+                                            warn!("RDP: Video recording error: {}", e);
+                                            if matches!(e, guacr_recorder::RecorderError::Fatal(_)) {
+                                                return Err(format!("Recording failed: {}", e));
+                                            }
+                                        }
+                                    }
+                                    video_tx
+                                        .send_frame(encoded)
+                                        .await
+                                        .map_err(|e| format!("EGFX send_frame failed: {}", e))?;
+                                    sent_any = true;
+                                }
+                                if sent_any {
+                                    if !self.first_frame_sent {
+                                        self.first_frame_sent = true;
+                                        debug!("RDP: First EGFX frame sent");
+                                    }
+                                    let ts_ms = last_timestamp_us / 1000;
+                                    let sync_instr =
+                                        format_instruction("sync", &[&ts_ms.to_string()]);
+                                    self.to_client
+                                        .send(bytes::Bytes::from(sync_instr))
+                                        .await
+                                        .map_err(|_| {
+                                            "client channel closed during EGFX video sync"
+                                                .to_string()
+                                        })?;
+                                }
+                            }
                         }
                         Err(e) => {
                             error!("RDP: Read error: {}", e);
                             return Err(format!("RDP read error: {}", e));
                         }
-                    }
-                }
-
-                // Handle client input
-                msg = from_client.recv() => {
-                    let Some(msg) = msg else {
-                        info!("RDP: Client disconnected");
-                        break;
-                    };
-                    if let Err(e) = self.handle_client_input_ironrdp(&mut framed, &msg, &mut active_stage, &mut image).await {
-                        warn!("RDP: Error handling client input: {}", e);
                     }
                 }
 
@@ -1418,13 +1706,28 @@ impl IronRdpSession {
         // Send disconnect instruction to client (matches Apache guacd behavior)
         send_disconnect(&self.to_client).await;
 
-        // Finalize recording
+        // Finalize Guacamole .ses recording
         if let Some(recorder) = self.recorder.take() {
             if let Err(e) = recorder.finalize() {
                 warn!("RDP: Failed to finalize recording: {}", e);
             } else {
                 info!("RDP: Session recording finalized");
             }
+        }
+
+        // Finalize video (fMP4) recorder
+        if let Some(recorder) = self.video_recorder.take() {
+            if let Err(e) = recorder.finalize().await {
+                warn!("RDP: Failed to finalize video recorder: {}", e);
+            } else {
+                info!("RDP: Video recording finalized");
+            }
+        }
+
+        // Clean up threat detection session state to prevent memory leak
+        #[cfg(feature = "threat-detection")]
+        if let Some(ref detector) = self.threat_detector {
+            detector.cleanup_session(&self.threat_session_id);
         }
 
         Ok(())
@@ -1699,6 +2002,60 @@ impl IronRdpSession {
 
         // Record client input (if recording is enabled and includes keys/mouse)
         self.record_client_input(msg);
+
+        // Tee key/mouse instructions to the video recorder's embedded data track
+        // and to the threat detector (one intercept, two consumers)
+        if matches!(instr.opcode, "key" | "mouse") {
+            let ts_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            let instr_str = String::from_utf8_lossy(msg).into_owned();
+
+            if let Some(ref mut recorder) = self.video_recorder {
+                if let Err(e) = recorder.write_input(&instr_str, ts_ms).await {
+                    warn!("RDP: Failed to record input event: {}", e);
+                }
+            }
+
+            // Threat detection: analyze key/mouse instructions for threats
+            #[cfg(feature = "threat-detection")]
+            if let Some(ref detector) = self.threat_detector {
+                if detector.should_analyze("rdp", instr.opcode) {
+                    match detector
+                        .analyze_keystroke_sequence(
+                            &self.threat_session_id,
+                            &instr_str,
+                            &self.threat_username,
+                            &self.threat_hostname,
+                            "rdp",
+                        )
+                        .await
+                    {
+                        Ok(threat) => {
+                            if threat.should_terminate() {
+                                error!(
+                                    "RDP: TERMINATING SESSION due to threat in input: {}",
+                                    threat.description
+                                );
+                                let msg_text =
+                                    format!("Session terminated: {}", threat.description);
+                                send_error_best_effort(
+                                    &self.to_client,
+                                    &msg_text,
+                                    517, // RESOURCE_CLOSED
+                                )
+                                .await;
+                                return Err(format!("TERMINATE:{}", threat.description));
+                            }
+                        }
+                        Err(e) => {
+                            debug!("RDP: Threat detection error (non-fatal): {}", e);
+                        }
+                    }
+                }
+            }
+        }
 
         match instr.opcode {
             "sync" => {
@@ -2100,22 +2457,27 @@ impl IronRdpSession {
                     );
                     (webp_data, "image/webp")
                 }
-            } else if self.supports_jpeg && self.use_jpeg && is_large_update {
-                // Fallback: JPEG for large updates with adaptive quality
-                let jpeg_data =
-                    Self::encode_jpeg(&region_pixels, rect.width, rect.height, adaptive_quality)
-                        .map_err(|e| format!("JPEG encoding failed: {}", e))?;
+            } else if self.supports_jpeg && self.use_jpeg {
+                // JPEG for all updates when WebP is unavailable — always smaller than PNG.
+                // Small updates get higher quality (less ringing on sharp text edges).
+                let quality = if is_large_update {
+                    adaptive_quality
+                } else {
+                    self.jpeg_quality.max(adaptive_quality)
+                };
+                let jpeg_data = Self::encode_jpeg(&region_pixels, rect.width, rect.height, quality)
+                    .map_err(|e| format!("JPEG encoding failed: {}", e))?;
 
                 debug!(
-                    "RDP: JPEG encoded - {} bytes (quality {}/{}, {}% of screen)",
+                    "RDP: JPEG encoded - {} bytes (quality {}, {}% of screen)",
                     jpeg_data.len(),
-                    adaptive_quality,
-                    self.jpeg_quality,
+                    quality,
                     (rect_pixels * 100) / total_pixels
                 );
                 (jpeg_data, "image/jpeg")
             } else {
-                // Fallback: PNG (always supported)
+                // PNG: only when neither WebP nor JPEG is available (rare — PNG is always
+                // the protocol fallback but is 3-5x larger than JPEG for most content).
                 let png_data = Self::encode_png(&region_pixels, rect.width, rect.height)
                     .map_err(|e| format!("PNG encoding failed: {}", e))?;
 

@@ -23,7 +23,7 @@ _sym_db = _symbol_database.Default()
 
 
 from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2
-from nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
+from nominal_api_protos.nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n6nominal/nominalinstro/v1/python_package_registry.proto\x12\x18nominal.nominalinstro.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1anominal/gen/v1/error.proto\"!\n\x1fGetPythonPackageRegistryRequest\"h\n GetPythonPackageRegistryResponse\x12\x14\n\x0cregistry_url\x18\x01 \x01(\t\x12\x1b\n\x0eregistry_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x11\n\x0f_registry_token*\xe6\x01\n!NominalInstroPackageRegistryError\x12\x35\n1NOMINAL_INSTRO_PACKAGE_REGISTRY_ERROR_UNSPECIFIED\x10\x00\x12\x89\x01\n3NOMINAL_INSTRO_PACKAGE_REGISTRY_ERROR_NOT_AVAILABLE\x10\x01\x1aP\xb2\xb2\x1aL\n\tNOT_FOUND\x12?nominal-instro package registry is not supported on this stack.2\xec\x01\n#NominalInstroPackageRegistryService\x12\xc4\x01\n\x18GetPythonPackageRegistry\x12\x39.nominal.nominalinstro.v1.GetPythonPackageRegistryRequest\x1a:.nominal.nominalinstro.v1.GetPythonPackageRegistryResponse\"1\x82\xd3\xe4\x93\x02+\x12)/nominalinstro/v1/python-package-registryB\x1f\n\x1bio.nominal.nominalinstro.v1P\x01\x62\x06proto3')

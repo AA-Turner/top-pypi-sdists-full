@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.data_connector.v1 import data_connector_pb2 as nominal_dot_data__connector_dot_v1_dot_data__connector__pb2
+from nominal_api_protos.nominal.data_connector.v1 import data_connector_pb2 as nominal_dot_data__connector_dot_v1_dot_data__connector__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

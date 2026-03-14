@@ -50,6 +50,7 @@ from aiohasupervisor.models.backups import (
     RemoveBackupOptions,
     UploadBackupOptions,
 )
+from aiohasupervisor.models.base import ResponseData
 from aiohasupervisor.models.discovery import (
     Discovery,
     DiscoveryConfig,
@@ -94,6 +95,8 @@ from aiohasupervisor.models.network import (
     AccessPoint,
     AuthMethod,
     DockerNetwork,
+    InterfaceAddrGenMode,
+    InterfaceIp6Privacy,
     InterfaceMethod,
     InterfaceType,
     IPv4,
@@ -221,6 +224,8 @@ __all__ = [
     "InstalledAddon",
     "InstalledAddonComplete",
     "InterfaceMethod",
+    "InterfaceAddrGenMode",
+    "InterfaceIp6Privacy",
     "InterfaceType",
     "Issue",
     "IssueType",
@@ -253,6 +258,7 @@ __all__ = [
     "RemoveBackupOptions",
     "Repository",
     "ResolutionInfo",
+    "ResponseData",
     "RootInfo",
     "Service",
     "ServiceState",

@@ -1,4 +1,4 @@
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 
 import importlib
 import os
@@ -18,6 +18,14 @@ from .rubrics.rubric import Rubric  # noqa # isort: skip
 from .envs.environment import Environment  # noqa # isort: skip
 from .envs.multiturn_env import MultiTurnEnv  # noqa # isort: skip
 from .envs.tool_env import ToolEnv  # noqa # isort: skip
+from .clients.client import Client  # noqa # isort: skip
+from .clients.anthropic_messages_client import AnthropicMessagesClient  # noqa # isort: skip
+from .clients.openai_chat_completions_client import OpenAIChatCompletionsClient  # noqa # isort: skip
+from .clients.openai_chat_completions_token_client import (
+    OpenAIChatCompletionsTokenClient,
+)  # noqa # isort: skip
+
+from .clients.openai_completions_client import OpenAICompletionsClient  # noqa # isort: skip
 
 # main imports
 from .envs.env_group import EnvGroup
@@ -59,6 +67,7 @@ __all__ = [
     "ReasoningGymEnv",
     "GymEnv",
     "CliAgentEnv",
+    "RolloutGatewayMixin",
     "HarborEnv",
     "MCPEnv",
     "BrowserEnv",
@@ -71,6 +80,11 @@ __all__ = [
     "StatefulToolEnv",
     "ToolEnv",
     "EnvGroup",
+    "Client",
+    "AnthropicMessagesClient",
+    "OpenAIChatCompletionsClient",
+    "OpenAIChatCompletionsTokenClient",
+    "OpenAICompletionsClient",
     "extract_boxed_answer",
     "extract_hash_answer",
     "load_example_dataset",
@@ -108,6 +122,7 @@ _LAZY_IMPORTS = {
     "PythonEnv": "verifiers.envs.python_env:PythonEnv",
     "GymEnv": "verifiers.envs.experimental.gym_env:GymEnv",
     "CliAgentEnv": "verifiers.envs.experimental.cli_agent_env:CliAgentEnv",
+    "RolloutGatewayMixin": "verifiers.envs.experimental.rollout_gateway_mixin:RolloutGatewayMixin",
     "HarborEnv": "verifiers.envs.experimental.harbor_env:HarborEnv",
     "MCPEnv": "verifiers.envs.experimental.mcp_env:MCPEnv",
     "ReasoningGymEnv": "verifiers.envs.integrations.reasoninggym_env:ReasoningGymEnv",
@@ -150,6 +165,9 @@ if TYPE_CHECKING:
     from .envs.experimental.gym_env import GymEnv  # noqa: F401
     from .envs.experimental.harbor_env import HarborEnv  # noqa: F401
     from .envs.experimental.mcp_env import MCPEnv  # noqa: F401
+    from .envs.experimental.rollout_gateway_mixin import (
+        RolloutGatewayMixin,  # noqa: F401
+    )
     from .envs.integrations.browser_env import BrowserEnv  # noqa: F401
     from .envs.integrations.openenv_env import OpenEnvEnv  # noqa: F401
     from .envs.integrations.reasoninggym_env import ReasoningGymEnv  # noqa: F401

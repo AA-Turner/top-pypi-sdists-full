@@ -10,13 +10,15 @@ import abc
 
 import pytest
 import pytest
-# We need to run this check as sync code (during tests) even in async mode
-from redis_om import has_redisearch
 
 from redis_om import Field, HashModel, JsonModel, Migrator
 from redis_om.model.model import SINGLE_VALUE_TAG_FIELD_SEPARATOR
 
+# We need to run this check as sync code (during tests) even in async mode
+from redis_om import has_redisearch
+
 from .conftest import py_test_mark_sync
+
 
 if not has_redisearch():
     pytestmark = pytest.mark.skip
@@ -129,9 +131,7 @@ class TestEndToEndWithCustomSeparator:
     """End-to-end tests for custom separator functionality."""
 
     @py_test_mark_sync
-    def test_hash_model_save_and_query_with_custom_separator(
-        self, separator_models
-    ):
+    def test_hash_model_save_and_query_with_custom_separator(self, separator_models):
         """HashModel with custom separator should save and query correctly."""
         HashCustom = separator_models["HashCustom"]
 
@@ -145,9 +145,7 @@ class TestEndToEndWithCustomSeparator:
         assert results[0].tags == "tag1,tag2,tag3"
 
     @py_test_mark_sync
-    def test_json_model_save_and_query_with_custom_separator(
-        self, separator_models
-    ):
+    def test_json_model_save_and_query_with_custom_separator(self, separator_models):
         """JsonModel with custom separator should save and query correctly."""
         JsonCustom = separator_models["JsonCustom"]
 
@@ -236,9 +234,7 @@ class TestFullTextSearchWithCustomSeparator:
     """Test full-text search fields with custom separator."""
 
     @py_test_mark_sync
-    def test_full_text_search_schema_uses_custom_separator(
-        self, key_prefix, redis
-    ):
+    def test_full_text_search_schema_uses_custom_separator(self, key_prefix, redis):
         """Full-text search fields should use custom separator in schema."""
 
         class DocWithFTS(JsonModel, index=True):

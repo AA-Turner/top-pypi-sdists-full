@@ -598,7 +598,7 @@ pub async fn handle_guacd_connection_with_timeout(
     // Note: to_client_tx is consumed by connect() and dropped when it returns,
     // which closes the channel and lets write_task drain naturally.
     let handler_result = handler
-        .connect(connect.params, to_client_tx, from_client_rx)
+        .connect(connect.params, to_client_tx, from_client_rx, None)
         .await;
 
     // Clean up: abort read_task immediately (no more input needed),

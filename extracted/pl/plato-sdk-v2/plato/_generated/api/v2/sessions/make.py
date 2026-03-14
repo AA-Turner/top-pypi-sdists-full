@@ -7,15 +7,11 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import (
-    CreateSessionFromEnvs,
-    CreateSessionFromTestCase,
-    CreateSessionResponse,
-)
+from plato._generated.models import CreateSessionFromEnvs, CreateSessionResponse
 
 
 def _build_request_args(
-    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
+    body: CreateSessionFromEnvs,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,
@@ -47,7 +43,7 @@ def _build_request_args(
 
 def sync(
     client: httpx.Client,
-    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
+    body: CreateSessionFromEnvs,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,
@@ -74,7 +70,7 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
-    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
+    body: CreateSessionFromEnvs,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,

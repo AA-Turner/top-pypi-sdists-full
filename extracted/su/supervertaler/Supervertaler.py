@@ -287,6 +287,7 @@ from modules.find_replace_qt import (
 )  # F&R History and Sets
 from modules.shortcut_manager import ShortcutManager  # Keyboard shortcut management
 from modules.termlens_widget import TermLensWidget  # TermLens widget for glossary display
+from modules.help_system import Topics as HelpTopics, install as install_help_system, set_topic as set_help_topic, open_help
 
 
 STATUS_ORDER = [
@@ -5416,7 +5417,7 @@ class DetachedLogWindow(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
-        self.setWindowTitle("Supervertaler - Session Log")
+        self.setWindowTitle("Supervertaler Workbench - Session Log")
         self.setWindowIcon(self.parent.windowIcon())
         self.resize(800, 600)
 
@@ -7742,7 +7743,7 @@ class SupervertalerQt(QMainWindow):
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(100, self.refresh_theme_colors)
         
-        self.log(f"Welcome to Supervertaler v{__version__}")
+        self.log(f"Welcome to Supervertaler Workbench v{__version__}")
         self.log("Supervertaler: The Ultimate Translation Workbench.")
         
         # Load general settings (including auto-propagation)
@@ -7977,7 +7978,7 @@ class SupervertalerQt(QMainWindow):
             from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QCheckBox, QDialogButtonBox
             
             dialog = QDialog(self)
-            dialog.setWindowTitle("Welcome to Supervertaler!")
+            dialog.setWindowTitle("Welcome to Supervertaler Workbench!")
             dialog.setMinimumWidth(450)
             
             layout = QVBoxLayout(dialog)
@@ -8045,7 +8046,7 @@ class SupervertalerQt(QMainWindow):
             from PyQt6.QtCore import Qt
 
             dialog = QDialog(self)
-            dialog.setWindowTitle("Supervertaler Setup Wizard")
+            dialog.setWindowTitle("Supervertaler Workbench Setup Wizard")
             dialog.setMinimumWidth(600)
             dialog.setMinimumHeight(450)
             dialog.setModal(True)
@@ -8426,7 +8427,7 @@ class SupervertalerQt(QMainWindow):
     def init_ui(self):
         """Initialize the user interface"""
         # Build window title with dev mode indicator
-        title = f"Supervertaler v{__version__}"
+        title = f"Supervertaler Workbench v{__version__}"
         if ENABLE_PRIVATE_FEATURES:
             title += " [🛠️ DEV MODE]"
         self.setWindowTitle(title)
@@ -8460,6 +8461,9 @@ class SupervertalerQt(QMainWindow):
 
         # Setup global shortcuts
         self.setup_global_shortcuts()
+
+        # Install context-sensitive help (F1 opens relevant GitBook page)
+        install_help_system(self)
 
     def setup_global_shortcuts(self):
         """Setup application-wide keyboard shortcuts"""
@@ -8791,11 +8795,15 @@ class SupervertalerQt(QMainWindow):
                 self.raise_()
                 self.activateWindow()
 
-            # Switch to AI tab (index 2)
+            # Switch to Grid tab (index 0) so the right panel is visible
             if hasattr(self, 'main_tabs'):
-                self.main_tabs.setCurrentIndex(2)
+                self.main_tabs.setCurrentIndex(0)
 
-            # Switch to Supervertaler Assistant sub-tab and insert text
+            # Switch the right panel to the AI Assistant tab
+            if hasattr(self, 'right_tabs') and hasattr(self, '_assistant_tab_index'):
+                self.right_tabs.setCurrentIndex(self._assistant_tab_index)
+
+            # Insert text into the assistant chat input
             if hasattr(self, 'prompt_manager_qt') and self.prompt_manager_qt:
                 self.prompt_manager_qt.receive_text_for_assistant(
                     initial_text or "", from_external=external_mode
@@ -9865,10 +9873,17 @@ class SupervertalerQt(QMainWindow):
         # Documentation links (GitHub URLs for universal access)
         # Removed internal manual link — documentation migrated to GitBook
 
+        # Context-sensitive help (F1)
+        context_help_action = QAction("Context Help", self)
+        context_help_action.setShortcut("F1")
+        context_help_action.setToolTip("Open help for the focused panel (F1)")
+        context_help_action.triggered.connect(lambda: open_help())
+        help_menu.addAction(context_help_action)
+
         # Place Supervertaler Help at the top of the Help menu
-        superdocs_action = QAction("Supervertaler Help", self)
+        superdocs_action = QAction("Supervertaler Workbench Help", self)
         superdocs_action.setToolTip("Online documentation (GitBook)")
-        superdocs_action.triggered.connect(lambda: self._open_url("https://supervertaler.gitbook.io/superdocs/"))
+        superdocs_action.triggered.connect(lambda: self._open_url("https://supervertaler.gitbook.io/help/"))
         help_menu.addAction(superdocs_action)
 
         setup_wizard_action = QAction("🚀 Setup Wizard...", self)
@@ -9879,11 +9894,11 @@ class SupervertalerQt(QMainWindow):
         help_menu.addSeparator()
 
         shortcuts_action = QAction("⌨️ Keyboard Shortcuts", self)
-        shortcuts_action.triggered.connect(lambda: self._open_url("https://github.com/michaelbeijer/Supervertaler/blob/main/docs/guides/KEYBOARD_SHORTCUTS.md"))
+        shortcuts_action.triggered.connect(lambda: open_help(HelpTopics.KEYBOARD_SHORTCUTS))
         help_menu.addAction(shortcuts_action)
 
         changelog_action = QAction("📝 Changelog", self)
-        changelog_action.triggered.connect(lambda: self._open_url("https://github.com/michaelbeijer/Supervertaler/blob/main/CHANGELOG.md"))
+        changelog_action.triggered.connect(lambda: self._open_url("https://github.com/Supervertaler/Supervertaler-Workbench/blob/main/CHANGELOG.md"))
         help_menu.addAction(changelog_action)
 
         update_check_action = QAction("🔄 Check for Updates...", self)
@@ -9899,7 +9914,7 @@ class SupervertalerQt(QMainWindow):
         help_menu.addSeparator()
 
         github_action = QAction("🔗 GitHub Repository", self)
-        github_action.triggered.connect(lambda: self._open_url("https://github.com/michaelbeijer/Supervertaler"))
+        github_action.triggered.connect(lambda: self._open_url("https://github.com/Supervertaler/Supervertaler-Workbench"))
         help_menu.addAction(github_action)
 
         help_menu.addSeparator()
@@ -10171,6 +10186,7 @@ class SupervertalerQt(QMainWindow):
         # ===== 2. PROJECT RESOURCES TAB =====
         # Contains TM, Termbases, Non-Translatables
         resources_tab = self.create_resources_tab()
+        set_help_topic(resources_tab, HelpTopics.TM_BASICS)
         self.main_tabs.addTab(resources_tab, "🗂️ Resources")
         
         # ===== 3. PROMPT MANAGER TAB =====
@@ -10179,7 +10195,16 @@ class SupervertalerQt(QMainWindow):
         prompt_widget = QWidget()
         self.prompt_manager_qt = UnifiedPromptManagerQt(self, standalone=False)
         self.prompt_manager_qt.create_tab(prompt_widget)
+        set_help_topic(prompt_widget, HelpTopics.AI_PROMPT_MANAGER)
         self.main_tabs.addTab(prompt_widget, "✨ AI")
+
+        # Add AI Assistant to the right panel at position 1 (right after Match Panel)
+        if hasattr(self, 'right_tabs') and hasattr(self.prompt_manager_qt, 'assistant_tab'):
+            self.right_tabs.insertTab(1, self.prompt_manager_qt.assistant_tab, "💬 AI Assistant")
+            self._assistant_tab_index = 1
+            # Bump stored indices that were shifted by the insert
+            if hasattr(self, '_preview_tab_index'):
+                self._preview_tab_index += 1
         
         # Keep backward compatibility reference
         self.document_views_widget = self.main_tabs
@@ -10716,7 +10741,8 @@ class SupervertalerQt(QMainWindow):
         prompt_widget = QWidget()
         self.prompt_manager_qt = UnifiedPromptManagerQt(self, standalone=False)
         self.prompt_manager_qt.create_tab(prompt_widget)
-        
+        set_help_topic(prompt_widget, HelpTopics.AI_PROMPT_MANAGER)
+
         return prompt_widget
     
     
@@ -11609,7 +11635,7 @@ class SupervertalerQt(QMainWindow):
         # The embedded docs viewer was removed in favor of online documentation.
         placeholder = QWidget()
         layout = QVBoxLayout(placeholder)
-        label = QLabel("📚 Supervertaler Help is now available online.\n\nVisit https://supervertaler.gitbook.io/superdocs/ to view the documentation.")
+        label = QLabel("📚 Supervertaler Help is now available online.\n\nVisit https://supervertaler.gitbook.io/help/ to view the documentation.")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(label)
@@ -11817,7 +11843,7 @@ class SupervertalerQt(QMainWindow):
             
             # Create detached window
             self.lookup_detached_window = QDialog(self)
-            self.lookup_detached_window.setWindowTitle("🔍 Superlookup - Supervertaler")
+            self.lookup_detached_window.setWindowTitle("🔍 Superlookup - Supervertaler Workbench")
             self.lookup_detached_window.setMinimumSize(600, 700)
             self.lookup_detached_window.resize(700, 800)
             
@@ -11993,6 +12019,7 @@ class SupervertalerQt(QMainWindow):
 
         # Add tool tabs (alphabetical order)
         autofingers_tab = AutoFingersWidget(self)
+        set_help_topic(autofingers_tab, HelpTopics.TOOL_AUTOFINGERS)
         modules_tabs.addTab(autofingers_tab, "✋ AutoFingers")
 
         # Superconverter - Format conversion tools
@@ -12000,6 +12027,7 @@ class SupervertalerQt(QMainWindow):
         modules_tabs.addTab(superconverter_tab, "🔄 Superconverter")
 
         pdf_tab = self.create_pdf_rescue_tab()
+        set_help_topic(pdf_tab, HelpTopics.TOOL_PDF_RESCUE)
         modules_tabs.addTab(pdf_tab, "📄 PDF Rescue")
 
         # Superbench
@@ -12017,16 +12045,19 @@ class SupervertalerQt(QMainWindow):
 
         lookup_tab = SuperlookupTab(self, user_data_path=self.user_data_path)
         self.lookup_tab = lookup_tab  # Store reference for later use
+        set_help_topic(lookup_tab, HelpTopics.SUPERLOOKUP)
         modules_tabs.addTab(lookup_tab, "🔍 Superlookup")
 
         # Supervoice - Voice Commands & Dictation
         supervoice_tab = self._create_voice_dictation_settings_tab()
+        set_help_topic(supervoice_tab, HelpTopics.TOOL_VOICE)
         modules_tabs.addTab(supervoice_tab, "🎤 Supervoice")
 
         encoding_tab = self.create_encoding_repair_tab()
         modules_tabs.addTab(encoding_tab, "🔧 Text Encoding Repair")
 
         tmx_tab = self.create_tmx_editor_tab()
+        set_help_topic(tmx_tab, HelpTopics.TOOL_TMX_EDITOR)
         modules_tabs.addTab(tmx_tab, "✏️ TMX Editor")
 
         tracked_tab = self.create_tracked_changes_tab()
@@ -15121,7 +15152,9 @@ class SupervertalerQt(QMainWindow):
         from modules.termbase_manager import TermbaseManager
         termbase_mgr = TermbaseManager(self.db_manager, self.log)
         self.termbase_mgr = termbase_mgr  # Store for later use in get_termbase_code
-        
+
+        set_help_topic(tab, HelpTopics.GLOSSARY_BASICS)
+
         # ========== MAIN SPLITTER ==========
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         
@@ -17539,6 +17572,7 @@ class SupervertalerQt(QMainWindow):
         # Create sidebar navigation (replaces horizontal QTabWidget)
         settings_tabs = SettingsSidebar()
         self.settings_tabs = settings_tabs  # Store for reference
+        set_help_topic(tab, HelpTopics.SETTINGS_GENERAL)
 
         # Scroll area wrapper for each tab (for long content)
         scroll_area_wrapper = lambda widget: self._wrap_in_scroll(widget)
@@ -20013,6 +20047,18 @@ class SupervertalerQt(QMainWindow):
         hide_wrapping_tags_layout.addStretch()
         grid_display_layout.addLayout(hide_wrapping_tags_layout)
 
+        # Status column position checkbox
+        status_col_layout = QHBoxLayout()
+        status_before_target_check = CheckmarkCheckBox("Show Status column before Target column")
+        status_before_target_check.setChecked(font_settings.get('status_column_before_target', False))
+        status_before_target_check.setToolTip(
+            "When enabled, the Status column appears between Source and Target.\n"
+            "When disabled (default), Status appears after Target."
+        )
+        status_col_layout.addWidget(status_before_target_check)
+        status_col_layout.addStretch()
+        grid_display_layout.addLayout(status_col_layout)
+
         grid_display_group.setLayout(grid_display_layout)
         layout.addWidget(grid_display_group)
 
@@ -20678,19 +20724,22 @@ class SupervertalerQt(QMainWindow):
         save_btn.setStyleSheet("font-weight: bold; padding: 8px;")
         
         def save_view_settings_with_scale():
-            # Save the UI scale setting first
+            # Save the UI scale setting first (only if scale actually changed)
             if hasattr(self, '_ui_scale_spin'):
-                self._apply_global_ui_font_scale(self._ui_scale_spin.value())
+                new_scale = self._ui_scale_spin.value()
+                current_scale = self._get_global_ui_font_scale()
+                if new_scale != current_scale:
+                    self._apply_global_ui_font_scale(new_scale)
             # Then save other view settings
             self._save_view_settings_from_ui(
                 grid_font_spin, match_font_spin, compare_font_spin, show_tags_check, tag_color_btn,
                 alt_colors_check, even_color_btn, odd_color_btn, invisible_char_color_btn, grid_font_family_combo,
                 termlens_font_family_combo, termlens_font_spin, termlens_bold_check,
                 border_color_btn, border_thickness_spin, badge_text_color_btn, tabs_above_check,
-                hide_wrapping_tags_check,
+                hide_wrapping_tags_check, status_before_target_check,
                 mp_font_family_combo=mp_font_family_combo, mp_font_spin=mp_font_spin, mp_bold_check=mp_bold_check
             )
-        
+
         save_btn.clicked.connect(save_view_settings_with_scale)
         layout.addWidget(save_btn)
         
@@ -21973,7 +22022,7 @@ class SupervertalerQt(QMainWindow):
                 "# This portable EXE does not support installing extras via pip inside the app.\n"
                 "# To add Local Whisper: Download the FULL Windows build from GitHub releases.\n"
                 "#\n"
-                "# Releases: https://github.com/michaelbeijer/Supervertaler/releases/latest\n\n"
+                "# Releases: https://github.com/Supervertaler/Supervertaler-Workbench/releases/latest\n\n"
             )
         else:
             pypi_prefix = "# If you installed via: pip install supervertaler\n\n"
@@ -22073,7 +22122,7 @@ class SupervertalerQt(QMainWindow):
         
         try:
             with open(filename, 'w', encoding='utf-8') as f:
-                f.write(f"Supervertaler Debug Log\n")
+                f.write(f"Supervertaler Workbench Debug Log\n")
                 f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write("="*80 + "\n\n")
                 
@@ -22746,7 +22795,7 @@ class SupervertalerQt(QMainWindow):
                                      alt_colors_check=None, even_color_btn=None, odd_color_btn=None, invisible_char_color_btn=None,
                                      grid_font_family_combo=None, termlens_font_family_combo=None, termlens_font_spin=None, termlens_bold_check=None,
                                      border_color_btn=None, border_thickness_spin=None, badge_text_color_btn=None, tabs_above_check=None,
-                                     hide_wrapping_tags_check=None,
+                                     hide_wrapping_tags_check=None, status_before_target_check=None,
                                      mp_font_family_combo=None, mp_font_spin=None, mp_bold_check=None):
         """Save view settings from UI"""
         # CRITICAL: Suppress TM saves during view settings update
@@ -22761,7 +22810,7 @@ class SupervertalerQt(QMainWindow):
                 alt_colors_check, even_color_btn, odd_color_btn, invisible_char_color_btn,
                 grid_font_family_combo, termlens_font_family_combo, termlens_font_spin, termlens_bold_check,
                 border_color_btn, border_thickness_spin, badge_text_color_btn, tabs_above_check,
-                hide_wrapping_tags_check,
+                hide_wrapping_tags_check, status_before_target_check,
                 mp_font_family_combo=mp_font_family_combo, mp_font_spin=mp_font_spin, mp_bold_check=mp_bold_check
             )
         finally:
@@ -22771,11 +22820,22 @@ class SupervertalerQt(QMainWindow):
                                      alt_colors_check=None, even_color_btn=None, odd_color_btn=None, invisible_char_color_btn=None,
                                      grid_font_family_combo=None, termlens_font_family_combo=None, termlens_font_spin=None, termlens_bold_check=None,
                                      border_color_btn=None, border_thickness_spin=None, badge_text_color_btn=None, tabs_above_check=None,
-                                     hide_wrapping_tags_check=None,
+                                     hide_wrapping_tags_check=None, status_before_target_check=None,
                                      mp_font_family_combo=None, mp_font_spin=None, mp_bold_check=None):
         """Implementation of save view settings (called with TM saves suppressed)"""
         # Load existing settings first to preserve all values, then update with new ones
         general_settings = self.load_general_settings()
+
+        # Snapshot old values for change detection — only run expensive grid loops
+        # when the relevant setting actually changed
+        _old_tag_color = getattr(EditableGridTextEditor, 'tag_highlight_color', '#7f0001')
+        _old_invisible_color = getattr(self, 'invisible_char_color', '#999999')
+        _old_border_color = getattr(EditableGridTextEditor, 'focus_border_color', '')
+        _old_border_thickness = getattr(EditableGridTextEditor, 'focus_border_thickness', 2)
+        _old_alt_colors = getattr(self, 'enable_alternating_row_colors', True)
+        _old_even_color = getattr(self, 'even_row_color', '#FFFFFF')
+        _old_odd_color = getattr(self, 'odd_row_color', '#F0F0F0')
+        _old_hide_tags = getattr(self, 'hide_outer_wrapping_tags', False)
         general_settings.update({
             'auto_propagate_exact_matches': self.auto_propagate_exact_matches,
             'grid_font_size': grid_spin.value(),
@@ -22837,6 +22897,21 @@ class SupervertalerQt(QMainWindow):
             general_settings['hide_outer_wrapping_tags'] = hide_tags_value
             self.hide_outer_wrapping_tags = hide_tags_value
 
+        # Add status column position setting if provided
+        if status_before_target_check is not None:
+            status_before = status_before_target_check.isChecked()
+            general_settings['status_column_before_target'] = status_before
+            self.status_column_before_target = status_before
+            # Apply column reorder immediately
+            if hasattr(self, 'table') and self.table is not None:
+                header = self.table.horizontalHeader()
+                if status_before:
+                    # Move Status (logical 4) to visual position 3 (before Target)
+                    header.moveSection(header.visualIndex(4), 3)
+                else:
+                    # Move Status (logical 4) back to visual position 4 (after Target)
+                    header.moveSection(header.visualIndex(4), 4)
+
         # Add focus border settings if provided
         if border_color_btn is not None:
             border_color = border_color_btn.property('selected_color')
@@ -22889,7 +22964,7 @@ class SupervertalerQt(QMainWindow):
                 self.termbase_dotted_color = dotted_color
         
         self.save_general_settings(general_settings)
-        
+
         # Apply termlens font settings immediately to BOTH termlens widgets
         if hasattr(self, 'termlens_widget') and self.termlens_widget is not None:
             termlens_family = general_settings.get('termlens_font_family', 'Segoe UI')
@@ -22916,6 +22991,7 @@ class SupervertalerQt(QMainWindow):
         if mp_font_spin is not None or mp_font_family_combo is not None or mp_bold_check is not None:
             self._apply_match_panel_font_size()
 
+
         # Apply font family and size immediately
         font_changed = False
         if grid_font_family_combo is not None and self.default_font_family != grid_font_family_combo.currentText():
@@ -22928,6 +23004,7 @@ class SupervertalerQt(QMainWindow):
             self.apply_font_to_grid()
             self.auto_resize_rows()
         
+
         # Apply results pane font sizes to all panels
         if hasattr(self, 'results_panels'):
             from modules.translation_results_panel import CompactMatchItem
@@ -22967,11 +23044,15 @@ class SupervertalerQt(QMainWindow):
                 from modules.translation_results_panel import CompactMatchItem
                 CompactMatchItem.badge_text_color = badge_text_color
 
-        # Apply invisible char color to grid cells
-        if invisible_char_color_btn and hasattr(self, 'table') and self.table is not None:
+
+        # --- Expensive grid loops: only run when the relevant setting changed ---
+
+        _has_table = hasattr(self, 'table') and self.table is not None
+
+        # Apply invisible char color to grid cells (only if color changed)
+        if invisible_char_color_btn and _has_table:
             invisible_char_color = invisible_char_color_btn.property('selected_color')
-            if invisible_char_color:
-                # Update all cell highlighters (with processEvents to keep UI responsive)
+            if invisible_char_color and invisible_char_color != _old_invisible_color:
                 for row in range(self.table.rowCount()):
                     if row % 50 == 0:
                         QApplication.processEvents()
@@ -22980,42 +23061,50 @@ class SupervertalerQt(QMainWindow):
                         if widget and hasattr(widget, 'highlighter'):
                             widget.highlighter.set_invisible_char_color(invisible_char_color)
 
-        # Apply focus border settings to all grid cells
-        if (border_color_btn is not None or border_thickness_spin is not None) and hasattr(self, 'table') and self.table is not None:
-            # Refresh all EditableGridTextEditor widgets with new border settings
+        # Apply focus border settings to all grid cells (only if border settings changed)
+        if (border_color_btn is not None or border_thickness_spin is not None) and _has_table:
             border_color = EditableGridTextEditor.focus_border_color
             border_thickness = EditableGridTextEditor.focus_border_thickness
-            self.log(f"Applying focus border: color={border_color}, thickness={border_thickness}px")
+            if border_color != _old_border_color or border_thickness != _old_border_thickness:
+                self.log(f"Applying focus border: color={border_color}, thickness={border_thickness}px")
+                for row in range(self.table.rowCount()):
+                    if row % 50 == 0:
+                        QApplication.processEvents()
+                    widget = self.table.cellWidget(row, 3)  # Target column
+                    if widget and isinstance(widget, EditableGridTextEditor):
+                        widget.setStyleSheet(f"""
+                            QTextEdit {{
+                                border: none;
+                                padding: 0px 4px 0px 0px;
+                            }}
+                            QTextEdit:focus {{
+                                border: {border_thickness}px solid {border_color};
+                            }}
+                            QTextEdit::selection {{
+                                background-color: #D0E7FF;
+                                color: black;
+                            }}
+                        """)
 
-            for row in range(self.table.rowCount()):
-                if row % 50 == 0:
-                    QApplication.processEvents()
-                widget = self.table.cellWidget(row, 3)  # Target column
-                if widget and isinstance(widget, EditableGridTextEditor):
-                    # Update the stylesheet with new border settings
-                    widget.setStyleSheet(f"""
-                        QTextEdit {{
-                            border: none;
-                            padding: 0px 4px 0px 0px;
-                        }}
-                        QTextEdit:focus {{
-                            border: {border_thickness}px solid {border_color};
-                        }}
-                        QTextEdit::selection {{
-                            background-color: #D0E7FF;
-                            color: black;
-                        }}
-                    """)
+        # Refresh tag colors (only if tag color changed)
+        if _has_table:
+            new_tag_color = general_settings.get('tag_highlight_color', '#7f0001')
+            if new_tag_color != _old_tag_color:
+                self.refresh_grid_tag_colors()
 
-        # Refresh grid to apply tag colors
-        if hasattr(self, 'table') and self.table is not None:
-            self.refresh_grid_tag_colors()
-            # Also refresh row colors
-            self.apply_alternating_row_colors()
+        # Refresh alternating row colors (only if row color settings changed)
+        if _has_table:
+            new_alt = general_settings.get('enable_alternating_row_colors', True)
+            new_even = general_settings.get('even_row_color', '')
+            new_odd = general_settings.get('odd_row_color', '')
+            if new_alt != _old_alt_colors or new_even != _old_even_color or new_odd != _old_odd_color:
+                self.apply_alternating_row_colors()
 
         # Refresh source column if hide_outer_wrapping_tags setting changed
-        if hide_wrapping_tags_check is not None and hasattr(self, 'table') and self.table is not None:
-            self._refresh_source_column_display()
+        if hide_wrapping_tags_check is not None and _has_table:
+            if hide_wrapping_tags_check.isChecked() != _old_hide_tags:
+                self._refresh_source_column_display()
+
 
         self.log("✓ View settings saved and applied")
         # Use explicit QMessageBox instance to ensure proper dialog closing
@@ -23741,6 +23830,7 @@ class SupervertalerQt(QMainWindow):
         
         # TermLens tab
         self.termlens_widget = TermLensWidget(self, db_manager=self.db_manager, log_callback=self.log, theme_manager=self.theme_manager)
+        set_help_topic(self.termlens_widget, HelpTopics.GLOSSARY_TERMLENS)
         self.termlens_widget.term_insert_requested.connect(self.insert_termlens_text)
         self.termlens_widget.edit_entry_requested.connect(self._on_termlens_edit_entry)
         self.termlens_widget.delete_entry_requested.connect(self._on_termlens_delete_entry)
@@ -23925,13 +24015,24 @@ class SupervertalerQt(QMainWindow):
         # Tab 6: Scratchpad (private translator notes for the whole project)
         right_tabs.addTab(self._scratchpad_widget_for_right_panel, "📝 Scratchpad")
         tab_index += 1
-        
+
+        # Note: AI Assistant tab is added later (after prompt_manager_qt is created)
+        # via _add_assistant_to_right_panel(), since the grid is built before the AI tab.
+        self._right_panel_next_tab_index = tab_index
+
         # Set default selected tab to Match Panel (always show Match Panel first)
         right_tabs.setCurrentIndex(match_panel_tab_index)
         
         # Store reference for later use
         self.right_tabs = right_tabs
-        
+
+        # Update AI Assistant context sidebar when its tab becomes visible
+        def _on_right_tab_changed(index):
+            if hasattr(self, '_assistant_tab_index') and index == self._assistant_tab_index:
+                if hasattr(self, 'prompt_manager_qt') and self.prompt_manager_qt:
+                    self.prompt_manager_qt._on_assistant_shown()
+        right_tabs.currentChanged.connect(_on_right_tab_changed)
+
         # Allow right panel to expand larger for better splitter flexibility
         right_tabs.setMinimumWidth(250)  # Prevent complete collapse
         right_tabs.setMaximumWidth(16777215)  # Remove maximum width constraint (Qt max = 16777215)
@@ -24356,7 +24457,8 @@ class SupervertalerQt(QMainWindow):
     def create_translation_grid(self):
         """Create the translation grid (QTableWidget)"""
         self.table = QTableWidget()
-        
+        set_help_topic(self.table, HelpTopics.TRANSLATION_GRID)
+
         # Configure columns
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["#", "Type", "Source", "Target", "Status"])
@@ -24381,6 +24483,14 @@ class SupervertalerQt(QMainWindow):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Target - stretch to fill space
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)  # Status - allow resizing
         header.setStretchLastSection(False)  # Don't auto-stretch last section (we use Stretch mode for Source/Target)
+
+        # Optional: show Status column before Target
+        # moveSection reorders the display without changing logical indices,
+        # so all code referencing column 3 (Target) and 4 (Status) still works.
+        settings = self.load_general_settings()
+        self.status_column_before_target = settings.get('status_column_before_target', False)
+        if self.status_column_before_target:
+            header.moveSection(4, 3)  # Move Status (logical 4) to visual position 3
 
         # Recalculate row heights when columns are resized (text reflows to new width)
         header.sectionResized.connect(self._on_column_resized)
@@ -34438,6 +34548,7 @@ class SupervertalerQt(QMainWindow):
         
         # Third TermLens instance for Match Panel
         self.termlens_widget_match = TermLensWidget(self, db_manager=self.db_manager, log_callback=self.log, theme_manager=self.theme_manager)
+        set_help_topic(self.termlens_widget_match, HelpTopics.GLOSSARY_TERMLENS)
         # Connect TermLens signals
         self.termlens_widget_match.term_insert_requested.connect(self.insert_termlens_text)
         self.termlens_widget_match.edit_entry_requested.connect(self._on_termlens_edit_entry)
@@ -40963,7 +41074,8 @@ class SupervertalerQt(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle("Find and Replace")
         dialog.setMinimumWidth(700)
-        
+        set_help_topic(dialog, HelpTopics.FIND_REPLACE)
+
         # Re-enable lookups when dialog closes
         def on_dialog_closed():
             self.find_replace_active = False
@@ -46429,7 +46541,7 @@ class SupervertalerQt(QMainWindow):
     
     def update_window_title(self):
         """Update window title with project name and modified state"""
-        title = f"Supervertaler v{__version__}"
+        title = f"Supervertaler Workbench v{__version__}"
         if ENABLE_PRIVATE_FEATURES:
             title += " [🛠️ DEV MODE]"
         if self.current_project:
@@ -47003,12 +47115,12 @@ class SupervertalerQt(QMainWindow):
         """Open the online Supervertaler Help in the user's browser."""
         try:
             # Prefer opening the published online docs
-            self._open_url("https://supervertaler.gitbook.io/superdocs/")
+            self._open_url("https://supervertaler.gitbook.io/help/")
         except Exception:
             QMessageBox.information(
                 self,
                 "Supervertaler Help",
-                "Supervertaler Help is available online at https://supervertaler.gitbook.io/superdocs/"
+                "Supervertaler Help is available online at https://supervertaler.gitbook.io/help/"
             )
 
     def check_for_updates(self):
@@ -47017,7 +47129,7 @@ class SupervertalerQt(QMainWindow):
         # environments (seen as QNetworkReply "Unknown error"). Until this is revisited, open the
         # GitHub releases page directly.
         try:
-            self._open_url("https://github.com/michaelbeijer/Supervertaler/releases/latest")
+            self._open_url("https://github.com/Supervertaler/Supervertaler-Workbench/releases/latest")
         except Exception as e:
             QMessageBox.warning(self, "Check for Updates", f"Could not open releases page: {e}")
         return
@@ -47066,8 +47178,8 @@ class SupervertalerQt(QMainWindow):
         if not hasattr(self, "_update_check_net_mgr") or self._update_check_net_mgr is None:
             self._update_check_net_mgr = QNetworkAccessManager(self)
 
-        api_url = QUrl("https://api.github.com/repos/michaelbeijer/Supervertaler/releases/latest")
-        fallback_url = QUrl("https://github.com/michaelbeijer/Supervertaler/releases/latest")
+        api_url = QUrl("https://api.github.com/repos/Supervertaler/Supervertaler-Workbench/releases/latest")
+        fallback_url = QUrl("https://github.com/Supervertaler/Supervertaler-Workbench/releases/latest")
         timeout_ms = 15000
 
         self._update_check_fallback_attempted = False
@@ -47218,7 +47330,7 @@ class SupervertalerQt(QMainWindow):
                 QMessageBox.StandardButton.Yes,
             )
             if choice == QMessageBox.StandardButton.Yes:
-                self._open_url("https://github.com/michaelbeijer/Supervertaler/releases")
+                self._open_url("https://github.com/Supervertaler/Supervertaler-Workbench/releases")
 
         def start_python_fallback(reason: str = ""):
             """Fallback that uses Python's HTTPS stack (urllib) instead of QtNetwork."""
@@ -47356,7 +47468,7 @@ class SupervertalerQt(QMainWindow):
             except Exception:
                 pass
             latest_version_text = (latest_version_text or "").strip()
-            latest_url = (latest_url or "").strip() or "https://github.com/michaelbeijer/Supervertaler/releases"
+            latest_url = (latest_url or "").strip() or "https://github.com/Supervertaler/Supervertaler-Workbench/releases"
 
             current = self._normalize_version_tuple(__version__)
             latest = self._normalize_version_tuple(latest_version_text)
@@ -47466,7 +47578,7 @@ class SupervertalerQt(QMainWindow):
 
                 if kind == "fallback":
                     # Try to read the redirect location (preferred) because /releases/latest usually 302's.
-                    latest_url_text = "https://github.com/michaelbeijer/Supervertaler/releases"
+                    latest_url_text = "https://github.com/Supervertaler/Supervertaler-Workbench/releases"
                     latest_version_text = ""
 
                     try:
@@ -47505,7 +47617,7 @@ class SupervertalerQt(QMainWindow):
                 tag = (data.get("tag_name") or "").strip()
                 name = (data.get("name") or "").strip()
                 latest_version_text = tag or name
-                latest_url = (data.get("html_url") or "").strip() or "https://github.com/michaelbeijer/Supervertaler/releases"
+                latest_url = (data.get("html_url") or "").strip() or "https://github.com/Supervertaler/Supervertaler-Workbench/releases"
 
                 handle_latest(latest_version_text, latest_url)
             except Exception as e:
@@ -47524,7 +47636,7 @@ class SupervertalerQt(QMainWindow):
         """
         import urllib.request
 
-        api_url = "https://api.github.com/repos/michaelbeijer/Supervertaler/releases/latest"
+        api_url = "https://api.github.com/repos/Supervertaler/Supervertaler-Workbench/releases/latest"
         req = urllib.request.Request(
             api_url,
             headers={
@@ -47539,7 +47651,7 @@ class SupervertalerQt(QMainWindow):
         tag = (data.get("tag_name") or "").strip()
         name = (data.get("name") or "").strip()
         version = tag or name
-        url = (data.get("html_url") or "").strip() or "https://github.com/michaelbeijer/Supervertaler/releases"
+        url = (data.get("html_url") or "").strip() or "https://github.com/Supervertaler/Supervertaler-Workbench/releases"
 
         return {"version": version, "url": url}
 
@@ -47619,7 +47731,7 @@ class SupervertalerQt(QMainWindow):
     def show_about(self):
         """Show about dialog with clickable website link"""
         dialog = QDialog(self)
-        dialog.setWindowTitle("About Supervertaler")
+        dialog.setWindowTitle("About Supervertaler Workbench")
         dialog.setMinimumWidth(400)
         
         layout = QVBoxLayout(dialog)
@@ -47627,7 +47739,7 @@ class SupervertalerQt(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # Title
-        title = QLabel(f"<h2>Supervertaler v{__version__}</h2>")
+        title = QLabel(f"<h2>Supervertaler Workbench v{__version__}</h2>")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
@@ -48917,7 +49029,27 @@ class SupervertalerQt(QMainWindow):
             )
             retry_checkbox.setChecked(True)  # Default to enabled
             options_layout.addWidget(retry_checkbox)
-        
+
+            # Auto-confirm TM matches option
+            auto_confirm_checkbox = CheckmarkCheckBox("✔ Auto-confirm 100% TM matches")
+            auto_confirm_checkbox.setToolTip(
+                "Automatically set 100% TM matches to 'Confirmed' status\n"
+                "instead of the default 'TM 100%' status.\n\n"
+                "This is useful when you trust your TM and want to skip\n"
+                "manual review of exact matches."
+            )
+            auto_confirm_checkbox.setChecked(False)
+            auto_confirm_checkbox.setEnabled(False)  # Only enabled when TM is selected
+            options_layout.addWidget(auto_confirm_checkbox)
+
+            # Enable/disable auto-confirm based on TM selection
+            def on_tm_autoconfirm_toggle(checked):
+                auto_confirm_checkbox.setEnabled(checked)
+                if not checked:
+                    auto_confirm_checkbox.setChecked(False)
+
+            tm_checkbox.toggled.connect(on_tm_autoconfirm_toggle)
+
             options_group.setLayout(options_layout)
             dialog_layout.addWidget(options_group)
 
@@ -48946,11 +49078,13 @@ class SupervertalerQt(QMainWindow):
             use_tm = tm_checkbox.isChecked()
             use_mt = mt_checkbox.isChecked()
             retry_until_complete = retry_checkbox.isChecked()
-            tm_exact_only = tm_exact_only_checkbox.isChecked()  # NEW: Get exact-only setting
+            tm_exact_only = tm_exact_only_checkbox.isChecked()
+            auto_confirm_tm = auto_confirm_checkbox.isChecked()
         
             # Store retry setting for recursive calls
             self._batch_retry_enabled = retry_until_complete
             self._batch_tm_exact_only = tm_exact_only  # Store for retry passes
+            self._batch_auto_confirm_tm = auto_confirm_tm  # Store for auto-confirm
             
             # Initialize model variable (will be set to actual model if LLM is selected)
             model = None
@@ -48969,7 +49103,8 @@ class SupervertalerQt(QMainWindow):
                     return
             
                 mode_str = " (Exact matches only)" if tm_exact_only else " (with fuzzy matching)"
-                self.log(f"📖 Using Translation Memory for batch pre-translation{mode_str}")
+                confirm_str = ", auto-confirm 100%" if auto_confirm_tm else ""
+                self.log(f"📖 Using Translation Memory for batch pre-translation{mode_str}{confirm_str}")
             
             elif use_mt:
                 # Use MT provider
@@ -49164,6 +49299,7 @@ class SupervertalerQt(QMainWindow):
 
             success_count = 0
             no_match_count = 0
+            auto_confirmed_count = 0
 
             for search_source, seg_list in source_to_segments.items():
                 match = match_results.get(search_source)
@@ -49172,7 +49308,10 @@ class SupervertalerQt(QMainWindow):
                         segment.target = match['target']
                         match_pct = match.get('match_pct', 100)
                         segment.match_percent = match_pct
-                        if match_pct >= 100:
+                        if match_pct >= 100 and getattr(self, '_batch_auto_confirm_tm', False):
+                            segment.status = "confirmed"
+                            auto_confirmed_count += 1
+                        elif match_pct >= 100:
                             segment.status = "tm_100"
                         else:
                             segment.status = "tm_fuzzy"
@@ -49212,15 +49351,18 @@ class SupervertalerQt(QMainWindow):
             # Show completion message
             self.log(f"═══════════════════════════════════════════════════════════")
             self.log(f"✓ TM Pre-Translation Complete ({elapsed_str})")
-            self.log(f"   Translated: {success_count} | No match: {no_match_count}")
+            confirm_note = f" ({auto_confirmed_count} auto-confirmed)" if auto_confirmed_count > 0 else ""
+            self.log(f"   Translated: {success_count}{confirm_note} | No match: {no_match_count}")
             self.log(f"   Unique sources: {unique_count} | Total segments: {total_segments}")
             self.log(f"═══════════════════════════════════════════════════════════")
 
+            confirm_msg = f"\n✔ Auto-confirmed: {auto_confirmed_count}" if auto_confirmed_count > 0 else ""
             QMessageBox.information(
                 self, "TM Pre-Translation Complete",
                 f"Pre-translation from TM complete in {elapsed_str}.\n\n"
                 f"✓ Translated: {success_count}\n"
                 f"⊘ No match: {no_match_count}"
+                f"{confirm_msg}"
             )
 
             self.project_modified = True

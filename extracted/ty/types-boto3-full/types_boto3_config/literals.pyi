@@ -45,6 +45,7 @@ __all__ = (
     "DescribeConfigRulesPaginatorName",
     "DescribeConfigurationAggregatorSourcesStatusPaginatorName",
     "DescribeConfigurationAggregatorsPaginatorName",
+    "DescribeConformancePackCompliancePaginatorName",
     "DescribeConformancePackStatusPaginatorName",
     "DescribeConformancePacksPaginatorName",
     "DescribeOrganizationConfigRuleStatusesPaginatorName",
@@ -135,6 +136,7 @@ DescribeConfigurationAggregatorSourcesStatusPaginatorName = Literal[
     "describe_configuration_aggregator_sources_status"
 ]
 DescribeConfigurationAggregatorsPaginatorName = Literal["describe_configuration_aggregators"]
+DescribeConformancePackCompliancePaginatorName = Literal["describe_conformance_pack_compliance"]
 DescribeConformancePackStatusPaginatorName = Literal["describe_conformance_pack_status"]
 DescribeConformancePacksPaginatorName = Literal["describe_conformance_packs"]
 DescribeOrganizationConfigRuleStatusesPaginatorName = Literal[
@@ -1220,6 +1222,7 @@ PaginatorName = Literal[
     "describe_config_rules",
     "describe_configuration_aggregator_sources_status",
     "describe_configuration_aggregators",
+    "describe_conformance_pack_compliance",
     "describe_conformance_pack_status",
     "describe_conformance_packs",
     "describe_organization_config_rule_statuses",

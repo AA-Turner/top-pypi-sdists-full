@@ -21,6 +21,8 @@
 // ```
 
 mod buffer_pool;
+pub mod ratatui_renderer;
+pub use ratatui_renderer::RatatuiRenderer;
 mod clipboard;
 mod config;
 mod copy_detector;
@@ -43,18 +45,15 @@ pub use buffer_pool::{BufferPool, BufferPoolStats};
 pub use clipboard::{RdpClipboard, CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE};
 pub use config::{ColorScheme, TerminalConfig};
 pub use copy_detector::{CellOp, CopyDetector};
-pub use database_renderer::{
-    Action, Alignment, ColumnDef, DatabaseTerminal, GridEvent, GridMode, QueryResult,
-    SpreadsheetRenderer,
-};
+pub use database_renderer::{Action, Alignment, ColumnDef, GridEvent, GridMode, QueryResult};
 pub use dirty_tracker::{DirtyRect, DirtyTracker};
 pub use emulator::{Rect, ScrollbackLine, TerminalEmulator};
 pub use framebuffer::{FrameBuffer, FrameRect};
 pub use guacamole_input::{
-    extract_selection_text, format_clear_selection_instructions, format_clipboard_instructions,
-    format_selection_overlay_instructions, handle_mouse_selection, parse_clipboard_blob,
-    parse_key_instruction, parse_mouse_instruction, KeyEvent, MouseEvent, MouseSelection,
-    SelectionResult,
+    extract_selection_text, extract_selection_text_ratatui, format_clear_selection_instructions,
+    format_clipboard_instructions, format_selection_overlay_instructions, handle_mouse_selection,
+    handle_mouse_selection_ratatui, parse_clipboard_blob, parse_key_instruction,
+    parse_mouse_instruction, KeyEvent, MouseEvent, MouseSelection, SelectionResult,
 };
 pub use input_handler::{RdpInputHandler, RdpKeyEvent, RdpPointerEvent};
 pub use keysym::{

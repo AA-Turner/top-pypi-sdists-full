@@ -8,7 +8,7 @@ readme = "README.md"
 
 [[test]]
 name = "e2e"
-path = "tests/tests.rs"
+path = "tests/e2e/tests.rs"
 required-features = ["e2e_tests"]
 
 [dependencies]
@@ -24,6 +24,7 @@ tokio-util = "0.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
+chrono = { workspace = true }
 futures = { workspace = true }
 regex = { workspace = true }
 indicatif = "0.18.4"
@@ -31,6 +32,8 @@ ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 tensorzero-core = { path = "../tensorzero-core", features = ["e2e_tests"] }
+tensorzero = { path = "../tensorzero-client", features = ["e2e_tests"] }
+googletest = { workspace = true }
 
 [lints]
 workspace = true

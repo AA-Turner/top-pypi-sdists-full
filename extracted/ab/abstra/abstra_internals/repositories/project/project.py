@@ -224,7 +224,7 @@ class HookStage(StageWithFile):
             file=dto["file"],
             path=dto["path"],
             title=dto["title"],
-            enabled=dto["enabled"],
+            enabled=dto.get("enabled", False),
             workflow_position=(x, y),
             workflow_transitions=[
                 WorkflowTransition.from_dict(t) for t in dto["transitions"]
@@ -730,27 +730,44 @@ class FormStage(StageWithFile):
     @staticmethod
     def from_dict(data: dict):
         x, y = data["workflow_position"]
+        raw_notification = data.get("notification_trigger")
+        if isinstance(raw_notification, dict):
+            raw_var_name = raw_notification.get("variable_name")
+            raw_enabled = raw_notification.get("enabled", False)
+            notification_trigger = NotificationTrigger(
+                variable_name=raw_var_name
+                if isinstance(raw_var_name, str) and raw_var_name
+                else "assignee_emails",
+                enabled=raw_enabled if isinstance(raw_enabled, bool) else False,
+            )
+        else:
+            notification_trigger = NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            )
+        raw_access = data.get("access_control")
+        access_control = (
+            AccessSettings.from_dict(raw_access)
+            if isinstance(raw_access, dict) and raw_access
+            else AccessSettings(is_public=False, required_roles=[])
+        )
         return FormStage(
             id=data["id"],
             file=data["file"],
             path=data["path"],
             title=data["title"],
-            end_message=data["end_message"],
-            auto_start=data["auto_start"],
-            start_message=data["start_message"],
-            error_message=data["error_message"],
-            timeout_message=data["timeout_message"],
-            start_button_text=data["start_button_text"],
+            end_message=data.get("end_message"),
+            auto_start=data.get("auto_start", False),
+            start_message=data.get("start_message"),
+            error_message=data.get("error_message"),
+            timeout_message=data.get("timeout_message"),
+            start_button_text=data.get("start_button_text"),
             workflow_position=(x, y),
             is_initial=data["is_initial"],
             workflow_transitions=[
                 WorkflowTransition.from_dict(t) for t in data["transitions"]
             ],
-            notification_trigger=NotificationTrigger(
-                variable_name=data["notification_trigger"]["variable_name"],
-                enabled=data["notification_trigger"]["enabled"],
-            ),
-            access_control=AccessSettings.from_dict(data.get("access_control", {})),
+            notification_trigger=notification_trigger,
+            access_control=access_control,
             input=data.get("input", False),
             output=data.get("output", False),
             task_schema=data.get("task_schema"),

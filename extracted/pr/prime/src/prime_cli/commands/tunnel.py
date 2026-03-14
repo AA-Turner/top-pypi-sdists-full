@@ -94,12 +94,14 @@ def list_tunnels(
 
     table = Table(title="Active Tunnels")
     table.add_column("Tunnel ID", style="cyan")
+    table.add_column("User ID", style="magenta")
     table.add_column("URL", style="green")
     table.add_column("Expires At")
 
     for tunnel in tunnels:
         table.add_row(
             tunnel.tunnel_id,
+            tunnel.user_id or "",
             tunnel.url,
             str(tunnel.expires_at),
         )
@@ -141,7 +143,7 @@ def stop_tunnel(
     tunnel_ids: Optional[List[str]] = typer.Argument(
         None, help="Tunnel ID(s) to stop (space or comma-separated)"
     ),
-    all: bool = typer.Option(False, "--all", help="Stop all tunnels"),
+    all: bool = typer.Option(False, "--all", "-a", help="Stop all tunnels"),
     team_id: Optional[str] = typer.Option(
         None,
         "--team-id",
@@ -151,7 +153,8 @@ def stop_tunnel(
     only_mine: bool = typer.Option(
         True,
         "--only-mine/--all-users",
-        help="Restrict '--all' deletes to only your tunnels (default: only yours)",
+        "-m/-A",
+        help="Restrict '--all' deletes to only your tunnels",
         show_default=True,
     ),
 ) -> None:

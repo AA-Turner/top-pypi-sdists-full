@@ -1,5 +1,9 @@
 from pipenv.patched.pip._internal.index.package_finder import CandidateEvaluator
 from pipenv.patched.pip._internal.models.candidate import InstallationCandidate
+from pipenv.patched.pip._internal.models.release_control import ReleaseControl
+from pipenv.patched.pip._vendor.packaging.specifiers import (
+    SpecifierSet as PipSpecifierSet,
+)
 from pipenv.utils.dependencies import clean_resolved_dep
 from pipenv.vendor.packaging.specifiers import SpecifierSet
 
@@ -53,10 +57,10 @@ class TestPrereleaseFiltering:
         spec_with_prerelease = SpecifierSet(">=4.2.0rc1")
         assert spec_with_prerelease.prereleases is True
 
-        # A specifier without a prerelease version has prereleases=False
-        # (not None, because SpecifierSet.prereleases returns any(s.prereleases for s in self._specs))
+        # A specifier without a prerelease version has prereleases that is falsy
+        # (None or False depending on the packaging version)
         spec_without_prerelease = SpecifierSet(">=4.2.0")
-        assert spec_without_prerelease.prereleases is False
+        assert not spec_without_prerelease.prereleases
 
     def test_filter_with_explicit_false_excludes_prereleases(self):
         """Verify that filter(prereleases=False) excludes prereleases when stable versions exist."""
@@ -209,11 +213,15 @@ class TestCandidateEvaluatorPrereleases:
 
     def _make_evaluator(self, specifier="", allow_prereleases=False):
         """Create a CandidateEvaluator for testing."""
+        # Use ReleaseControl to manage prerelease handling
+        release_control = None
+        if allow_prereleases:
+            release_control = ReleaseControl(all_releases={":all:"})
         return CandidateEvaluator.create(
             project_name="test-package",
             target_python=None,
-            allow_all_prereleases=allow_prereleases,
-            specifier=SpecifierSet(specifier),
+            release_control=release_control,
+            specifier=PipSpecifierSet(specifier),
         )
 
     def test_prerelease_only_package_allowed(self):

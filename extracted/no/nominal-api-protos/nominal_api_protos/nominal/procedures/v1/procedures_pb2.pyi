@@ -3,11 +3,11 @@ import datetime
 from buf.validate import validate_pb2 as _validate_pb2
 from google.api import annotations_pb2 as _annotations_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from nominal.gen.v1 import alias_pb2 as _alias_pb2
-from nominal.gen.v1 import error_pb2 as _error_pb2
-from nominal.procedures.v1 import id_format_pb2 as _id_format_pb2
-from nominal.types import types_pb2 as _types_pb2
-from nominal.versioning.v1 import versioning_pb2 as _versioning_pb2
+from nominal_api_protos.nominal.gen.v1 import alias_pb2 as _alias_pb2
+from nominal_api_protos.nominal.gen.v1 import error_pb2 as _error_pb2
+from nominal_api_protos.nominal.procedures.v1 import id_format_pb2 as _id_format_pb2
+from nominal_api_protos.nominal.types import types_pb2 as _types_pb2
+from nominal_api_protos.nominal.versioning.v1 import versioning_pb2 as _versioning_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -346,18 +346,20 @@ class WebhookDeliveryConfig(_message.Message):
     def __init__(self, max_retries: _Optional[int] = ..., retry_interval_seconds: _Optional[int] = ..., exponential_backoff: bool = ..., max_retry_interval_seconds: _Optional[int] = ..., timeout_seconds: _Optional[int] = ...) -> None: ...
 
 class CompletionActionConfig(_message.Message):
-    __slots__ = ("create_event", "send_notification", "create_run", "apply_workbook_templates", "apply_checklists")
+    __slots__ = ("create_event", "send_notification", "create_run", "apply_workbook_templates", "apply_checklists", "update_run")
     CREATE_EVENT_FIELD_NUMBER: _ClassVar[int]
     SEND_NOTIFICATION_FIELD_NUMBER: _ClassVar[int]
     CREATE_RUN_FIELD_NUMBER: _ClassVar[int]
     APPLY_WORKBOOK_TEMPLATES_FIELD_NUMBER: _ClassVar[int]
     APPLY_CHECKLISTS_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_RUN_FIELD_NUMBER: _ClassVar[int]
     create_event: CreateEventConfig
     send_notification: SendNotificationConfig
     create_run: CreateRunConfig
     apply_workbook_templates: ApplyWorkbookTemplatesConfig
     apply_checklists: ApplyChecklistsConfig
-    def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ..., send_notification: _Optional[_Union[SendNotificationConfig, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunConfig, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesConfig, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsConfig, _Mapping]] = ...) -> None: ...
+    update_run: UpdateRunConfig
+    def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ..., send_notification: _Optional[_Union[SendNotificationConfig, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunConfig, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesConfig, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsConfig, _Mapping]] = ..., update_run: _Optional[_Union[UpdateRunConfig, _Mapping]] = ...) -> None: ...
 
 class CreateEventConfig(_message.Message):
     __slots__ = ("name", "description", "labels", "properties", "asset_field_ids", "asset_references", "property_refs")
@@ -760,7 +762,7 @@ class AssetReference(_message.Message):
     def __init__(self, rid: _Optional[str] = ..., field_id: _Optional[str] = ...) -> None: ...
 
 class TimeRangeReference(_message.Message):
-    __slots__ = ("from_ingest_jobs",)
+    __slots__ = ("from_ingest_jobs", "literal")
     class IngestJobList(_message.Message):
         __slots__ = ("field_ids",)
         FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
@@ -774,8 +776,10 @@ class TimeRangeReference(_message.Message):
         end: TimestampReference
         def __init__(self, start: _Optional[_Union[TimestampReference, _Mapping]] = ..., end: _Optional[_Union[TimestampReference, _Mapping]] = ...) -> None: ...
     FROM_INGEST_JOBS_FIELD_NUMBER: _ClassVar[int]
+    LITERAL_FIELD_NUMBER: _ClassVar[int]
     from_ingest_jobs: TimeRangeReference.IngestJobList
-    def __init__(self, from_ingest_jobs: _Optional[_Union[TimeRangeReference.IngestJobList, _Mapping]] = ...) -> None: ...
+    literal: TimeRangeReference.RangeLiteral
+    def __init__(self, from_ingest_jobs: _Optional[_Union[TimeRangeReference.IngestJobList, _Mapping]] = ..., literal: _Optional[_Union[TimeRangeReference.RangeLiteral, _Mapping]] = ...) -> None: ...
 
 class TimestampReference(_message.Message):
     __slots__ = ("field_id", "constant")

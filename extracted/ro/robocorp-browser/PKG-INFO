@@ -1,18 +1,19 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: robocorp-browser
-Version: 2.3.5
+Version: 2.4.0
 Summary: Robocorp browser automation library
 License: Apache-2.0
-Author: Fabio Z.
-Author-email: fabio@robocorp.com
-Requires-Python: >=3.9.2,<4.0.0
+Author: Sema4.ai
+Author-email: dev@sema4.ai
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: playwright (>=1.32.1,<2.0.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: playwright (>=1.50.0,<2.0.0)
 Requires-Dist: robocorp-tasks (>=1,<5)
 Project-URL: Repository, https://github.com/robocorp/robocorp/
 Description-Content-Type: text/markdown

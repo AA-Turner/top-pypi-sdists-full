@@ -22,6 +22,8 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetNodesAndPodsUIResponse,
     GetPodTimeRangesRequest,
     GetPodTimeRangesResponse,
+    GetResourceGroupServiceDetailRequest,
+    GetResourceGroupServiceDetailResponse,
     GetUsageChartRequest,
     GetUsageChartResponse,
     GetUtilizationRatesRequest,
@@ -112,6 +114,13 @@ class BillingServiceStub:
     ]
     """GetNodeDetail returns detailed information about a specific node and all
     pods that were scheduled on it, from the BigQuery usage data.
+    """
+    GetResourceGroupServiceDetail: UnaryUnaryMultiCallable[
+        GetResourceGroupServiceDetailRequest,
+        GetResourceGroupServiceDetailResponse,
+    ]
+    """GetResourceGroupServiceDetail returns all pods for a given service kind
+    and resource group within a time range, from the BigQuery usage data.
     """
 
 class BillingServiceServicer(metaclass=ABCMeta):
@@ -207,6 +216,15 @@ class BillingServiceServicer(metaclass=ABCMeta):
     ) -> GetNodeDetailResponse:
         """GetNodeDetail returns detailed information about a specific node and all
         pods that were scheduled on it, from the BigQuery usage data.
+        """
+    @abstractmethod
+    def GetResourceGroupServiceDetail(
+        self,
+        request: GetResourceGroupServiceDetailRequest,
+        context: ServicerContext,
+    ) -> GetResourceGroupServiceDetailResponse:
+        """GetResourceGroupServiceDetail returns all pods for a given service kind
+        and resource group within a time range, from the BigQuery usage data.
         """
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

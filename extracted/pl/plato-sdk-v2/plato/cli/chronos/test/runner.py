@@ -278,9 +278,10 @@ class TestRunner:
                 "print(' '.join(set(ep.dist.name for ep in eps)))\" 2>/dev/null || true",
                 timeout=30,
             )
-            if world_pkgs.stdout.strip():
+            installed_world_pkgs = (world_pkgs.stdout or "").strip()
+            if installed_world_pkgs:
                 await self.world_env.execute(
-                    f"uv pip uninstall --system {world_pkgs.stdout.strip()}",
+                    f"uv pip uninstall --system {installed_world_pkgs}",
                     timeout=90,
                 )
 
@@ -561,6 +562,6 @@ class TestRunner:
             await self.plato.close()
 
 
-TestRunner.__test__ = False  # type: ignore[attr-defined]
+TestRunner.__test__ = False
 
 __all__ = ["TestRunner", "select_test_phases"]

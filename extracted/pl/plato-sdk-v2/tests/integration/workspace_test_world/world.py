@@ -360,6 +360,9 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             # --- Concurrent writes ---
             await self._test_concurrent_writes(ssh_key_path, agent_hostname)
 
+            # --- NFS write under backpressure (reproduce EIO) ---
+            await self._test_nfs_write_under_backpressure(ssh_key_path, agent_hostname)
+
         except Exception as e:
             self.test_results.append({"name": "cross_vm_setup", "passed": False, "error": f"Failed: {e}"})
             self.all_passed = False
@@ -685,6 +688,186 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
         (ws_path / f"conc_world_{tag}.txt").unlink(missing_ok=True)
         (ws_path / f"conc_agent_{tag}.txt").unlink(missing_ok=True)
+
+    # ---------------------------------------------------------------
+    # NFS backpressure tests — reproduce Input/Output error (EIO)
+    # ---------------------------------------------------------------
+
+    async def _test_nfs_write_under_backpressure(self, ssh_key_path, hostname) -> None:
+        """Verify NFS mount options are resilient to transient server stalls.
+
+        The agent VM mounts NFS with soft,timeo=150,retrans=5 (15s timeout,
+        5 retries = ~75s total). We block NFS traffic on the agent for 10s
+        then unblock — the write should survive because the NFS client retries
+        within the timeout window. This validates that transient FUSE stalls
+        or load spikes on the world VM don't cause EIO on the agent.
+        """
+        import base64
+
+        self.logger.info("--- NFS write under backpressure ---")
+        tag = secrets.token_hex(4)
+
+        # Baseline: agent can write normally
+        await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"echo -n 'baseline-{tag}' > {self._ws_agent_path(f'bp_baseline_{tag}.txt')}",
+            timeout=10,
+        )
+        baseline_ok = (self._ws.path / f"bp_baseline_{tag}.txt").read_text() == f"baseline-{tag}"
+        self._test(
+            "nfs_backpressure_baseline",
+            lambda: baseline_ok,
+            "Agent write should succeed without NFS disruption",
+        )
+
+        # Helper: run a python write script on the agent via SSH
+        async def agent_write(filename: str, content: str, timeout_s: int = 30) -> tuple[int, str, str]:
+            script = (
+                f"import sys, os\n"
+                f"try:\n"
+                f"    with open('{self._ws_agent_path(filename)}', 'w') as f:\n"
+                f"        f.write('{content}')\n"
+                f"        f.flush()\n"
+                f"        os.fsync(f.fileno())\n"
+                f"    print('OK')\n"
+                f"except OSError as e:\n"
+                f"    print(f'ERROR:{{e}}', file=sys.stderr)\n"
+                f"    sys.exit(1)\n"
+            )
+            b64 = base64.b64encode(script.encode()).decode()
+            return await run_ssh(ssh_key_path, hostname, f"echo {b64} | base64 -d | python3", timeout=timeout_s)
+
+        # Helper: block/unblock NFS on agent VM
+        world_ip = self._ws.transport.world_vm_ip
+        self.logger.info(f"World VM NFS IP: {world_ip}, Agent: {hostname}")
+
+        async def block_nfs():
+            await run_ssh(
+                ssh_key_path,
+                hostname,
+                f"iptables -I OUTPUT -d {world_ip} -p tcp --dport 2049 -j DROP && "
+                f"iptables -I OUTPUT -d {world_ip} -p udp --dport 2049 -j DROP && "
+                f"iptables -I INPUT -s {world_ip} -p tcp --sport 2049 -j DROP && "
+                f"iptables -I INPUT -s {world_ip} -p udp --sport 2049 -j DROP",
+                timeout=10,
+            )
+
+        async def unblock_nfs():
+            await run_ssh(
+                ssh_key_path,
+                hostname,
+                f"iptables -D OUTPUT -d {world_ip} -p tcp --dport 2049 -j DROP 2>/dev/null || true && "
+                f"iptables -D OUTPUT -d {world_ip} -p udp --dport 2049 -j DROP 2>/dev/null || true && "
+                f"iptables -D INPUT -s {world_ip} -p tcp --sport 2049 -j DROP 2>/dev/null || true && "
+                f"iptables -D INPUT -s {world_ip} -p udp --sport 2049 -j DROP 2>/dev/null || true",
+                timeout=10,
+            )
+
+        # Log mount options for diagnostics
+        ec, mount_info, _ = await run_ssh(
+            ssh_key_path,
+            hostname,
+            "mount | grep nfs || true",
+            timeout=10,
+        )
+        self.logger.info(f"Agent NFS mounts:\n{mount_info.strip()}")
+
+        # Test 1: Transient 10s block — write should SURVIVE.
+        # With timeo=150 (15s) the first retry alone covers 10s of downtime.
+        # We block NFS, start the write (which will stall), then unblock after 10s.
+        test_file_survive = f"bp_survive_{tag}.txt"
+        test_content_survive = f"survive-{tag}"
+        try:
+            await block_nfs()
+            self.logger.info("Blocked NFS traffic on agent VM (10s transient)")
+
+            # Start the agent write — it will stall waiting for NFS
+            write_task = asyncio.create_task(agent_write(test_file_survive, test_content_survive, timeout_s=120))
+
+            # Unblock after 10s to simulate a transient stall
+            await asyncio.sleep(10)
+            await unblock_nfs()
+            self.logger.info("Unblocked NFS after 10s")
+
+            ec, stdout, stderr = await write_task
+
+            if ec == 0:
+                try:
+                    content = (self._ws.path / test_file_survive).read_text()
+                    survive_ok = content == test_content_survive
+                except OSError:
+                    survive_ok = False
+                self.logger.info(f"  Transient block: write {'succeeded' if survive_ok else 'content mismatch'}")
+            else:
+                survive_ok = False
+                self.logger.info(f"  Transient block: write failed — {stderr.strip()[:200]}")
+
+            self._test(
+                "nfs_backpressure_survive_10s",
+                lambda: survive_ok,
+                f"Agent write should survive 10s NFS block with timeo=150, got ec={ec} stderr={stderr.strip()[:200] if not survive_ok else ''}",
+            )
+        except Exception as e:
+            await unblock_nfs()
+            self._test("nfs_backpressure_survive_10s", lambda: False, f"Unexpected error: {e}")
+
+        await asyncio.sleep(2)
+
+        # Test 2: Sustained block (>75s) — write SHOULD fail with EIO.
+        # This confirms soft mount still has a finite timeout.
+        test_file_fail = f"bp_fail_{tag}.txt"
+        test_content_fail = f"fail-{tag}"
+        try:
+            await block_nfs()
+            self.logger.info("Blocked NFS traffic on agent VM (sustained)")
+
+            # Agent write should eventually fail with EIO
+            ec, stdout, stderr = await agent_write(test_file_fail, test_content_fail, timeout_s=180)
+
+            if ec != 0:
+                is_eio = "Input/output error" in stderr or "Errno 5" in stderr
+                self.logger.info(f"  Sustained block: write failed as expected, eio={is_eio}")
+                self._test(
+                    "nfs_backpressure_fail_sustained",
+                    lambda: is_eio,
+                    f"Sustained NFS block should cause EIO, got: {stderr.strip()[:200]}",
+                )
+            else:
+                self.logger.error("  Sustained block: write unexpectedly succeeded")
+                self._test(
+                    "nfs_backpressure_fail_sustained",
+                    lambda: False,
+                    "Agent write should fail when NFS is blocked indefinitely",
+                )
+        finally:
+            await unblock_nfs()
+            self.logger.info("Removed iptables NFS block on agent VM")
+
+        # Wait for NFS to recover
+        await asyncio.sleep(3)
+
+        # Test 3: Recovery — writes should work after unblocking
+        recovery_file = f"bp_recovery_{tag}.txt"
+        recovery_content = f"recovery-{tag}"
+        ec, _, stderr = await agent_write(recovery_file, recovery_content)
+        if ec == 0:
+            try:
+                recovery_ok = (self._ws.path / recovery_file).read_text() == recovery_content
+            except OSError:
+                recovery_ok = False
+        else:
+            recovery_ok = False
+            self.logger.warning(f"Recovery write failed: {stderr.strip()[:200]}")
+        self._test(
+            "nfs_backpressure_recovery",
+            lambda: recovery_ok,
+            "Agent write should succeed after NFS traffic is unblocked",
+        )
+
+        # Cleanup
+        for f in [f"bp_baseline_{tag}.txt", test_file_survive, test_file_fail, recovery_file]:
+            (self._ws.path / f).unlink(missing_ok=True)
 
     # ---------------------------------------------------------------
     # Lazy DVC tests — uses the declared tracked_ws (production path)

@@ -20,6 +20,8 @@ DEFAULT_OPTIONS = {
     '--skip-greater-equal': False,
     '--use-default-index': False,
     '--timeout': None,
+    '--minor': False,
+    '--patch': False,
     '-p': [],
     '<requirements_file>': [],
 }
@@ -532,7 +534,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('click>=8.1,<9')
+        name, vers, _pin = detector._expand_package('click>=8.1,<9')
         self.assertEqual(name, 'click')
         self.assertEqual(vers, '8.1')
 
@@ -541,7 +543,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('requests>=2.25.0,<3.0.0')
+        name, vers, _pin = detector._expand_package('requests>=2.25.0,<3.0.0')
         self.assertEqual(name, 'requests')
         self.assertEqual(vers, '2.25.0')
 
@@ -550,7 +552,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('Django==1.10')
+        name, vers, _pin = detector._expand_package('Django==1.10')
         self.assertEqual(name, 'Django')
         self.assertEqual(vers, '1.10')
 
@@ -559,7 +561,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options(**{'--skip-greater-equal': True}))
-        name, vers = detector._expand_package('click>=8.1,<9')
+        name, vers, _pin = detector._expand_package('click>=8.1,<9')
         self.assertIsNone(name)
         self.assertIsNone(vers)
 
@@ -604,7 +606,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('uvicorn[standard]>=0.20.0,<1.0')
+        name, vers, _pin = detector._expand_package('uvicorn[standard]>=0.20.0,<1.0')
         self.assertEqual(name, 'uvicorn')
         self.assertEqual(vers, '0.20.0')
 
@@ -650,3 +652,623 @@ class TestPyprojectDetection(TestCase):
         packages = detector.get_packages()
         self.assertIn('Django==1.10', packages)
         self.assertIn('celery==3.1.1', packages)
+
+
+class TestPoetrySupport(TestCase):
+    """Tests for Poetry pyproject.toml support."""
+
+    def test_requirements_detector_accepts_poetry_pyproject(self):
+        """RequirementsDetector should accept a pyproject.toml with [tool.poetry.dependencies]."""
+        detector = RequirementsDetector(['tests/fixtures/poetry_pyproject.toml'])
+        self.assertIn('tests/fixtures/poetry_pyproject.toml', detector.get_filenames())
+
+    def test_requirements_detector_rejects_poetry_pyproject_without_deps(self):
+        """RequirementsDetector should reject a Poetry pyproject.toml without dependencies."""
+        detector = RequirementsDetector(['tests/fixtures/no_poetry_deps_pyproject.toml'])
+        self.assertEqual(detector.get_filenames(), [])
+
+    def test_packages_detector_parses_poetry_dependencies(self):
+        """PackagesDetector should extract pinned deps from Poetry pyproject.toml."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # == and >= pins should be included
+        self.assertIn('Django==1.10', packages)
+        self.assertIn('celery>=3.1.1', packages)
+        self.assertIn('ipython==6.0.0', packages)
+        # python should be skipped
+        python_pkgs = [p for p in packages if p.startswith('python')]
+        self.assertEqual(python_pkgs, [])
+        # caret (^) and wildcard (*) should be skipped
+        flask_pkgs = [p for p in packages if 'flask' in p.lower()]
+        self.assertEqual(flask_pkgs, [])
+        unpinned_pkgs = [p for p in packages if 'unpinned' in p.lower()]
+        self.assertEqual(unpinned_pkgs, [])
+
+    def test_packages_detector_parses_poetry_dict_format(self):
+        """PackagesDetector should handle Poetry dict format deps with extras."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # Dict format with extras
+        self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
+
+    def test_packages_detector_parses_poetry_groups(self):
+        """PackagesDetector should extract deps from Poetry dependency groups."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # ruff from [tool.poetry.group.dev.dependencies] with == pin
+        self.assertIn('ruff==0.1.0', packages)
+        # pytest from [tool.poetry.group.test.dependencies] has ^ pin, should be skipped
+        pytest_pkgs = [p for p in packages if p.startswith('pytest')]
+        self.assertEqual(pytest_pkgs, [])
+
+    def test_upgrader_poetry_string_format(self):
+        """PackagesUpgrader should update Poetry string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'Django', 'latest_version': '4.2.0'}
+        result = upgrader._maybe_update_line_package('Django = "==1.10"\n', package)
+        self.assertEqual(result, 'Django = "==4.2.0"\n')
+
+    def test_upgrader_poetry_string_gte_format(self):
+        """PackagesUpgrader should update Poetry >= string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'celery', 'latest_version': '5.3.0'}
+        result = upgrader._maybe_update_line_package('celery = ">=3.1.1"\n', package)
+        self.assertEqual(result, 'celery = ">=5.3.0"\n')
+
+    def test_upgrader_poetry_string_gte_with_upper_bound(self):
+        """PackagesUpgrader should preserve upper bound in Poetry format."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests = ">=2.25.0,<3.0.0"\n', package)
+        self.assertEqual(result, 'requests = ">=2.31.0,<3.0.0"\n')
+
+    def test_upgrader_poetry_dict_format(self):
+        """PackagesUpgrader should update Poetry dict format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'django-rest-auth', 'latest_version': '1.0.0'}
+        result = upgrader._maybe_update_line_package(
+            'django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}\n', package
+        )
+        self.assertEqual(result, 'django-rest-auth = {version = "==1.0.0", extras = ["with_social"]}\n')
+
+    def test_upgrader_poetry_dict_gte_format(self):
+        """PackagesUpgrader should update Poetry dict format with >= versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'uvicorn', 'latest_version': '0.30.0'}
+        result = upgrader._maybe_update_line_package(
+            'uvicorn = {version = ">=0.20.0,<1.0", extras = ["standard"]}\n', package
+        )
+        self.assertEqual(result, 'uvicorn = {version = ">=0.30.0,<1.0", extras = ["standard"]}\n')
+
+    def test_upgrader_poetry_skip_gte(self):
+        """PackagesUpgrader should skip >= pins in Poetry format when --skip-greater-equal is set."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options(**{'--skip-greater-equal': True}))
+        package = {'name': 'celery', 'latest_version': '5.3.0'}
+        result = upgrader._maybe_update_line_package('celery = ">=3.1.1"\n', package)
+        self.assertEqual(result, 'celery = ">=3.1.1"\n')  # unchanged
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestPoetryIntegration(TestCase):
+    """Integration tests for Poetry pyproject.toml support."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_pyproject(self, options_mock, checkbox_mock):
+        """Test upgrading packages from a Poetry pyproject.toml."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': False, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_pyproject_version_replacement(self, options_mock, checkbox_mock):
+        """Test that Poetry pyproject.toml versions are actually updated in the file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        shutil.copy('tests/fixtures/poetry_pyproject.toml', tmp_pyproject)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '-p': ['all'],
+                '<requirements_file>': [tmp_pyproject],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_pyproject) as f:
+            content = f.read()
+
+        # Old versions should be replaced
+        self.assertNotIn('"==1.10"', content)
+        self.assertNotIn('"==0.9.0"', content)
+        self.assertNotIn('">=3.1.1"', content)
+        # New versions should be present
+        self.assertIn('Django = "==', content)
+        self.assertIn('celery = ">=', content)
+        # Caret/wildcard packages should remain untouched
+        self.assertIn('flask = "^2.0"', content)
+        self.assertIn('some-unpinned = "*"', content)
+        # Output should confirm success
+        self.assertIn('Updated versions', output)
+
+        shutil.rmtree(tmpdir)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_mixed_with_requirements(self, options_mock, checkbox_mock):
+        """Test upgrading from both requirements.txt and Poetry pyproject.toml."""
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '<requirements_file>': ['requirements.txt', 'tests/fixtures/poetry_pyproject.toml'],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('Dry run complete', output)  # end of TestPoetryIntegration
+
+
+class TestOverlappingPackageNames(TestCase):
+    """Tests for issue #61: overlapping package name regex."""
+
+    def test_upgrader_does_not_match_substring_package(self):
+        """Upgrading 'openai' should NOT modify 'opentelemetry-instrumentation-openai'."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('opentelemetry-instrumentation-openai==1.0.0\n', package)
+        self.assertEqual(result, 'opentelemetry-instrumentation-openai==1.0.0\n')  # unchanged
+
+    def test_upgrader_does_match_exact_package(self):
+        """Upgrading 'openai' SHOULD modify 'openai==1.0.0'."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('openai==1.0.0\n', package)
+        self.assertEqual(result, 'openai==1.50.0\n')
+
+    def test_upgrader_does_not_match_substring_in_pyproject(self):
+        """Upgrading 'openai' should NOT modify a pyproject.toml line with a longer name."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('    "opentelemetry-instrumentation-openai==1.0.0",\n', package)
+        self.assertEqual(result, '    "opentelemetry-instrumentation-openai==1.0.0",\n')
+
+    def test_upgrader_does_not_match_substring_poetry(self):
+        """Upgrading 'openai' should NOT modify Poetry lines with longer package names."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('opentelemetry-instrumentation-openai = "==1.0.0"\n', package)
+        self.assertEqual(result, 'opentelemetry-instrumentation-openai = "==1.0.0"\n')
+
+    def test_upgrader_matches_package_with_extras(self):
+        """Upgrading a package with extras should still work."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('openai[embeddings]==1.0.0\n', package)
+        self.assertEqual(result, 'openai[embeddings]==1.50.0\n')
+
+
+class TestCompatibleRelease(TestCase):
+    """Tests for ~= compatible release support (issue #34)."""
+
+    def test_expand_package_tilde_equal(self):
+        """_expand_package should handle ~= pins."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers, pin_type = detector._expand_package('requests~=2.25.0')
+        self.assertEqual(name, 'requests')
+        self.assertEqual(vers, '2.25.0')
+        self.assertEqual(pin_type, '~=')
+
+    def test_expand_package_skips_tilde_when_skip_gte(self):
+        """_expand_package should skip ~= pins when --skip-greater-equal is set."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--skip-greater-equal': True}))
+        name, vers, pin_type = detector._expand_package('requests~=2.25.0')
+        self.assertIsNone(name)
+        self.assertIsNone(vers)
+
+    def test_compatible_upper_bound_three_parts(self):
+        """~=1.2.3 should have upper bound 1.3."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        bound = PackagesStatusDetector._compute_compatible_upper_bound('1.2.3')
+        self.assertEqual(bound, parse('1.3'))
+
+    def test_compatible_upper_bound_two_parts(self):
+        """~=1.2 should have upper bound 2."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        bound = PackagesStatusDetector._compute_compatible_upper_bound('1.2')
+        self.assertEqual(bound, parse('2'))
+
+    def test_upgrader_tilde_equal(self):
+        """PackagesUpgrader should update ~= pins."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests~=2.25.0\n', package)
+        self.assertEqual(result, 'requests~=2.31.0\n')
+
+    def test_upgrader_tilde_equal_skip_gte(self):
+        """PackagesUpgrader should skip ~= pins when --skip-greater-equal is set."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options(**{'--skip-greater-equal': True}))
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests~=2.25.0\n', package)
+        self.assertEqual(result, 'requests~=2.25.0\n')  # unchanged
+
+    def test_packages_detector_includes_tilde_equal(self):
+        """PackagesDetector should include ~= pinned deps from pyproject.toml."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        with open(tmp_pyproject, 'w') as f:
+            f.write('[project]\nname = "test"\ndependencies = [\n    "requests~=2.25.0",\n]\n')
+        detector = PackagesDetector([tmp_pyproject])
+        packages = detector.get_packages()
+        self.assertIn('requests~=2.25.0', packages)
+        shutil.rmtree(tmpdir)
+
+    def test_version_constraint_applied(self):
+        """_apply_version_constraints should filter versions for ~= upper bound."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        versions = [parse('2.25.0'), parse('2.31.0'), parse('3.0.0'), parse('3.1.0')]
+        current = parse('2.25.0')
+        max_ver = parse('3')
+        result = detector._apply_version_constraints(versions, current, max_version=max_ver)
+        self.assertEqual(result, [parse('2.25.0'), parse('2.31.0')])
+
+
+class TestUpgradeConstraints(TestCase):
+    """Tests for --minor and --patch upgrade constraints (issue #12)."""
+
+    def test_patch_constraint_filters_versions(self):
+        """--patch should only allow same major.minor versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--patch': True}))
+        versions = [parse('1.2.3'), parse('1.2.5'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.2.5')])
+
+    def test_minor_constraint_filters_versions(self):
+        """--minor should only allow same major versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--minor': True}))
+        versions = [parse('1.2.3'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.3.0')])
+
+    def test_no_constraint_keeps_all(self):
+        """No constraint should keep all versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        versions = [parse('1.2.3'), parse('2.0.0'), parse('3.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('2.0.0'), parse('3.0.0')])
+
+    def test_combined_tilde_and_patch_constraint(self):
+        """Both ~= upper bound and --patch should apply together."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--patch': True}))
+        versions = [parse('1.2.3'), parse('1.2.5'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        max_ver = parse('1.3')  # ~=1.2.3 upper bound
+        result = detector._apply_version_constraints(versions, current, max_version=max_ver)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.2.5')])
+
+
+class TestPythonVersionFiltering(TestCase):
+    """Tests for filtering package versions by Python compatibility (issue #60)."""
+
+    @responses.activate
+    def test_filters_incompatible_python_versions(self):
+        """Versions requiring a different Python should be excluded."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        # Build a fake PyPI JSON response with requires_python
+        pypi_data = {
+            'info': {'version': '3.0.0'},
+            'releases': {
+                '1.0.0': [{'upload_time': '2020-01-01T00:00:00', 'requires_python': None}],
+                '2.0.0': [{'upload_time': '2021-01-01T00:00:00', 'requires_python': '>=3.8'}],
+                '3.0.0': [{'upload_time': '2022-01-01T00:00:00', 'requires_python': '>=99.0'}],
+            },
+        }
+        import json
+
+        responses.add(
+            responses.GET,
+            'https://pypi.python.org/pypi/testpkg/json',
+            body=json.dumps(pypi_data),
+            content_type='application/json',
+        )
+
+        from packaging.version import parse
+
+        detector = PackagesStatusDetector([], make_options())
+        current = parse('1.0.0')
+        status, reason = detector._fetch_index_package_info('testpkg', current)
+
+        self.assertIsInstance(status, dict)
+        # v3.0.0 requires Python >=99.0, so latest should be v2.0.0
+        self.assertEqual(status['latest_version'], parse('2.0.0'))
+        self.assertTrue(status['upgrade_available'])
+
+    @responses.activate
+    def test_no_requires_python_passes_through(self):
+        """Versions without requires_python should not be filtered out."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        pypi_data = {
+            'info': {'version': '2.0.0'},
+            'releases': {
+                '1.0.0': [{'upload_time': '2020-01-01T00:00:00'}],
+                '2.0.0': [{'upload_time': '2021-01-01T00:00:00'}],
+            },
+        }
+        import json
+
+        responses.add(
+            responses.GET,
+            'https://pypi.python.org/pypi/testpkg2/json',
+            body=json.dumps(pypi_data),
+            content_type='application/json',
+        )
+
+        from packaging.version import parse
+
+        detector = PackagesStatusDetector([], make_options())
+        current = parse('1.0.0')
+        status, reason = detector._fetch_index_package_info('testpkg2', current)
+
+        self.assertIsInstance(status, dict)
+        self.assertEqual(status['latest_version'], parse('2.0.0'))
+
+
+class TestPipfileSupport(TestCase):
+    """Tests for Pipfile (Pipenv) support."""
+
+    def test_requirements_detector_accepts_pipfile(self):
+        """RequirementsDetector should accept a valid Pipfile."""
+        detector = RequirementsDetector(['tests/fixtures/Pipfile'])
+        self.assertIn('tests/fixtures/Pipfile', detector.get_filenames())
+
+    def test_requirements_detector_rejects_invalid_pipfile(self):
+        """RequirementsDetector should reject a file named Pipfile without [packages]."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pipfile = tmpdir + '/Pipfile'
+        with open(tmp_pipfile, 'w') as f:
+            f.write('[requires]\npython_version = "3.10"\n')
+        detector = RequirementsDetector([tmp_pipfile])
+        self.assertEqual(detector.get_filenames(), [])
+        shutil.rmtree(tmpdir)
+
+    def test_packages_detector_parses_pipfile(self):
+        """PackagesDetector should extract pinned deps from Pipfile."""
+        detector = PackagesDetector(['tests/fixtures/Pipfile'])
+        packages = detector.get_packages()
+        self.assertIn('Django==1.10', packages)
+        self.assertIn('celery>=3.1.1', packages)
+        self.assertIn('ipython==6.0.0', packages)
+        # wildcard should be skipped
+        flask_pkgs = [p for p in packages if 'flask' in p.lower()]
+        self.assertEqual(flask_pkgs, [])
+        ruff_pkgs = [p for p in packages if 'ruff' in p.lower()]
+        self.assertEqual(ruff_pkgs, [])
+
+    def test_packages_detector_parses_pipfile_dict_format(self):
+        """PackagesDetector should handle Pipfile dict format with extras."""
+        detector = PackagesDetector(['tests/fixtures/Pipfile'])
+        packages = detector.get_packages()
+        self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
+
+    def test_upgrader_pipfile_string_format(self):
+        """PackagesUpgrader should update Pipfile string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'Django', 'latest_version': '4.2.0'}
+        result = upgrader._maybe_update_line_package('Django = "==1.10"\n', package)
+        self.assertEqual(result, 'Django = "==4.2.0"\n')
+
+    def test_upgrader_pipfile_dict_format(self):
+        """PackagesUpgrader should update Pipfile dict format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'django-rest-auth', 'latest_version': '1.0.0'}
+        result = upgrader._maybe_update_line_package(
+            'django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}\n', package
+        )
+        self.assertEqual(result, 'django-rest-auth = {version = "==1.0.0", extras = ["with_social"]}\n')
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestPipfileIntegration(TestCase):
+    """Integration tests for Pipfile support."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/Pipfile']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pipfile(self, options_mock, checkbox_mock):
+        """Test upgrading packages from a Pipfile."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': False, '-p': ['all'], '<requirements_file>': ['tests/fixtures/Pipfile']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pipfile_version_replacement(self, options_mock, checkbox_mock):
+        """Test that Pipfile versions are actually updated in the file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pipfile = tmpdir + '/Pipfile'
+        shutil.copy('tests/fixtures/Pipfile', tmp_pipfile)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '-p': ['all'],
+                '<requirements_file>': [tmp_pipfile],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_pipfile) as f:
+            content = f.read()
+
+        # Old versions should be replaced
+        self.assertNotIn('"==1.10"', content)
+        self.assertNotIn('"==0.9.0"', content)
+        self.assertNotIn('">=3.1.1"', content)
+        # New versions should be present
+        self.assertIn('Django = "==', content)
+        self.assertIn('celery = ">=', content)
+        # Wildcard packages should remain untouched
+        self.assertIn('flask = "*"', content)
+        self.assertIn('ruff = "*"', content)
+        # Output should confirm success
+        self.assertIn('Updated versions', output)
+
+        shutil.rmtree(tmpdir)

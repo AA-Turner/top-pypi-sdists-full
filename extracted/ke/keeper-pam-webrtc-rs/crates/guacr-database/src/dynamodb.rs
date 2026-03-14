@@ -4,12 +4,15 @@ use aws_sdk_dynamodb::Client;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::handler_helpers::{
@@ -78,6 +81,7 @@ impl ProtocolHandler for DynamoDbHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("DynamoDB handler starting");
 
@@ -131,6 +135,17 @@ impl ProtocolHandler for DynamoDbHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "DynamoDB", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("DynamoDB: Sent display init instructions");
@@ -152,11 +167,9 @@ impl ProtocolHandler for DynamoDbHandler {
                 warn!("DynamoDB: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -251,6 +264,15 @@ impl ProtocolHandler for DynamoDbHandler {
                     if let Some(command) = pending_query {
                         info!("DynamoDB: Executing command: {}", command);
 
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &command,
+                            "", hostname, "dynamodb",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
+
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &command);
 
@@ -295,11 +317,11 @@ impl ProtocolHandler for DynamoDbHandler {
                         // Check read-only mode for modifying statements
                         if security.base.read_only && is_dynamodb_modifying_statement(&command) {
                             executor
-                                .terminal
+
                                 .write_error("Statement blocked: read-only mode is enabled.")
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             send_render(&mut executor, &to_client, &mut recorder).await?;
@@ -311,7 +333,7 @@ impl ProtocolHandler for DynamoDbHandler {
                             Ok(result) => {
                                 for line in result.lines() {
                                     executor
-                                        .terminal
+
                                         .write_line(line)
                                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                                 }
@@ -320,14 +342,14 @@ impl ProtocolHandler for DynamoDbHandler {
                                 record_error_output(&mut recorder, &e);
 
                                 executor
-                                    .terminal
+
                                     .write_error(&e)
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -782,21 +804,18 @@ async fn handle_dynamodb_command(
             Ok(result) => {
                 for line in result.lines() {
                     executor
-                        .terminal
                         .write_line(line)
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
             }
             Err(e) => {
                 executor
-                    .terminal
                     .write_error(&e)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
         }
 
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -813,7 +832,6 @@ async fn handle_dynamodb_command(
 
         if table_name.is_empty() {
             executor
-                .terminal
                 .write_error("Usage: \\describe <table_name>")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         } else {
@@ -821,14 +839,12 @@ async fn handle_dynamodb_command(
                 Ok(result) => {
                     for line in result.lines() {
                         executor
-                            .terminal
                             .write_line(line)
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
                 }
                 Err(e) => {
                     executor
-                        .terminal
                         .write_error(&e)
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
@@ -836,7 +852,6 @@ async fn handle_dynamodb_command(
         }
 
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -847,11 +862,9 @@ async fn handle_dynamodb_command(
     if command_lower.starts_with("create table ") {
         if security.base.read_only {
             executor
-                .terminal
                 .write_error("CREATE TABLE blocked: read-only mode is enabled.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -870,20 +883,17 @@ async fn handle_dynamodb_command(
         match parse_and_create_table(client, command).await {
             Ok(msg) => {
                 executor
-                    .terminal
                     .write_line(&msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             Err(e) => {
                 executor
-                    .terminal
                     .write_error(&e)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
         }
 
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -894,11 +904,9 @@ async fn handle_dynamodb_command(
     if command_lower.starts_with("drop table ") {
         if security.base.read_only {
             executor
-                .terminal
                 .write_error("DROP TABLE blocked: read-only mode is enabled.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -918,20 +926,17 @@ async fn handle_dynamodb_command(
         match client.delete_table().table_name(table_name).send().await {
             Ok(_) => {
                 executor
-                    .terminal
                     .write_line(&format!("Table '{}' deleted.", table_name))
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             Err(e) => {
                 executor
-                    .terminal
                     .write_error(&format!("DROP TABLE error: {}", e))
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
         }
 
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1114,11 +1119,9 @@ async fn handle_csv_export(
 
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1126,7 +1129,6 @@ async fn handle_csv_export(
     }
 
     executor
-        .terminal
         .write_line(&format!("Executing query: {}...", query))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1167,11 +1169,9 @@ async fn handle_csv_export(
 
     if all_items.is_empty() {
         executor
-            .terminal
             .write_line("No results to export.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1229,7 +1229,6 @@ async fn handle_csv_export(
         )
     };
     executor
-        .terminal
         .write_line(&row_count_msg)
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1242,20 +1241,17 @@ async fn handle_csv_export(
     match exporter.export_query_result(&result, to_client).await {
         Ok(()) => {
             executor
-                .terminal
                 .write_line("Download complete.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Export failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1275,12 +1271,16 @@ impl EventBasedHandler for DynamoDbHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

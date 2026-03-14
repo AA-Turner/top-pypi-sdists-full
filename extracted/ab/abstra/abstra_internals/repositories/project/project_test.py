@@ -976,3 +976,147 @@ class ProjectTests(TestCase):
 
         self.assertEqual(len(loaded_script1.workflow_transitions), 1)
         self.assertEqual(loaded_script1.workflow_transitions[0].id, "valid")
+
+    def test_form_from_dict_missing_optional_fields(self):
+        """Test that FormStage.from_dict handles missing optional fields gracefully"""
+        minimal_form_data = {
+            "id": "form1",
+            "file": "form.py",
+            "path": "/form",
+            "title": "Test Form",
+            "workflow_position": [100, 300],
+            "is_initial": True,
+            "transitions": [],
+            "input": False,
+            "output": False,
+        }
+        form = FormStage.from_dict(minimal_form_data)
+        self.assertEqual(form.id, "form1")
+        self.assertEqual(form.title, "Test Form")
+        self.assertIsNone(form.end_message)
+        self.assertFalse(form.auto_start)
+        self.assertIsNone(form.start_message)
+        self.assertIsNone(form.error_message)
+        self.assertIsNone(form.timeout_message)
+        self.assertIsNone(form.start_button_text)
+        self.assertEqual(form.notification_trigger.variable_name, "assignee_emails")
+        self.assertFalse(form.notification_trigger.enabled)
+        self.assertFalse(form.access_control.is_public)
+        self.assertEqual(form.access_control.required_roles, [])
+
+    def test_form_from_dict_with_empty_access_control(self):
+        """Test that an explicit empty access_control dict keeps the form non-public"""
+        form_data = {
+            "id": "form1",
+            "file": "form.py",
+            "path": "/form",
+            "title": "Test Form",
+            "workflow_position": [100, 300],
+            "is_initial": True,
+            "transitions": [],
+            "input": False,
+            "output": False,
+            "access_control": {},
+        }
+        form = FormStage.from_dict(form_data)
+        self.assertFalse(form.access_control.is_public)
+        self.assertEqual(form.access_control.required_roles, [])
+
+    def test_form_from_dict_with_all_fields(self):
+        """Test that FormStage.from_dict still works when all fields are present"""
+        full_form_data = {
+            "id": "form1",
+            "file": "form.py",
+            "path": "/form",
+            "title": "Test Form",
+            "workflow_position": [100, 300],
+            "is_initial": True,
+            "transitions": [],
+            "input": False,
+            "output": False,
+            "end_message": "Done!",
+            "auto_start": True,
+            "start_message": "Starting...",
+            "error_message": "Error!",
+            "timeout_message": "Timeout!",
+            "start_button_text": "Go",
+            "notification_trigger": {
+                "variable_name": "emails",
+                "enabled": True,
+            },
+        }
+        form = FormStage.from_dict(full_form_data)
+        self.assertEqual(form.end_message, "Done!")
+        self.assertTrue(form.auto_start)
+        self.assertEqual(form.start_message, "Starting...")
+        self.assertEqual(form.error_message, "Error!")
+        self.assertEqual(form.timeout_message, "Timeout!")
+        self.assertEqual(form.start_button_text, "Go")
+        self.assertEqual(form.notification_trigger.variable_name, "emails")
+        self.assertTrue(form.notification_trigger.enabled)
+
+    def test_hook_from_dict_missing_optional_fields(self):
+        """Test that HookStage.from_dict handles missing enabled field gracefully"""
+        from abstra_internals.repositories.project.project import HookStage
+
+        minimal_hook_data = {
+            "id": "hook1",
+            "file": "hook.py",
+            "path": "/hook",
+            "title": "Test Hook",
+            "workflow_position": [0, 0],
+            "is_initial": True,
+            "transitions": [],
+            "input": False,
+            "output": False,
+        }
+        hook = HookStage.from_dict(minimal_hook_data)
+        self.assertEqual(hook.id, "hook1")
+        self.assertFalse(hook.enabled)
+
+    def test_project_loads_form_without_optional_fields(self):
+        """Test that Project.__from_dict loads a form missing optional fields (real customer scenario)"""
+        import json
+
+        customer_data = {
+            "version": "18.0",
+            "workspace": {
+                "name": "Workspace",
+                "language": "en",
+                "theme": None,
+                "logo_url": "./logo.png",
+                "favicon_url": "./favicon.ico",
+                "brand_name": "Abstra Project",
+                "main_color": None,
+                "font_family": None,
+                "font_color": None,
+            },
+            "home": {"access_control": {"is_public": False, "required_roles": []}},
+            "forms": [
+                {
+                    "id": "form1",
+                    "file": "form.py",
+                    "path": "/form",
+                    "title": "My Form",
+                    "workflow_position": [100, 300],
+                    "is_initial": True,
+                    "transitions": [],
+                    "input": False,
+                    "output": False,
+                }
+            ],
+            "hooks": [],
+            "jobs": [],
+            "scripts": [],
+            "components": [],
+        }
+
+        json_path = self.project_repository.get_file_path()
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(customer_data, f, indent=2)
+
+        loaded_project = self.project_repository.load()
+        self.assertEqual(len(loaded_project.forms), 1)
+        self.assertEqual(loaded_project.forms[0].title, "My Form")
+        self.assertFalse(loaded_project.forms[0].access_control.is_public)
+        self.assertEqual(loaded_project.forms[0].access_control.required_roles, [])

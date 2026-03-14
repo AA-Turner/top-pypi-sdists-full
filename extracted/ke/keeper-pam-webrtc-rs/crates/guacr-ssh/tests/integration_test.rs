@@ -80,10 +80,11 @@ mod ssh_handler_tests {
         params.insert("password".to_string(), PASSWORD.to_string());
 
         // Spawn handler in background
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for ready instruction
         let msg = timeout(CONNECT_TIMEOUT, to_client_rx.recv())
@@ -125,10 +126,11 @@ mod ssh_handler_tests {
         params.insert("enable-pipe".to_string(), "true".to_string()); // Enable pipe!
 
         // Spawn handler in background
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Collect initial instructions with longer timeout for first message
         let mut found_pipe = false;
@@ -226,10 +228,11 @@ mod ssh_handler_tests {
         params.insert("enable-pipe".to_string(), "true".to_string());
 
         // Spawn handler
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Skip initial instructions until we get past ready/size
         let mut ready = false;

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai-small-webrtc-prebuilt
-Version: 2.3.0
+Version: 2.4.0
 Summary: A simple, ready-to-use client for testing the SmallWebRTCTransport.
 License: BSD 2-Clause License
 Project-URL: homepage, https://github.com/pipecat-ai/small-webrtc-prebuilt

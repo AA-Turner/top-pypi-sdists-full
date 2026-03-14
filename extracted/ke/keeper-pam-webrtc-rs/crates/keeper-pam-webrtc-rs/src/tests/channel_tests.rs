@@ -107,6 +107,7 @@ async fn test_server_mode_data_flow() -> Result<()> {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(spawned_task_completion_tx),
+        video_output: None,
     })
     .await?;
 
@@ -300,6 +301,7 @@ async fn test_client_mode_data_flow() -> Result<()> {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(spawned_task_completion_tx),
+        video_output: None,
     })
     .await?;
 

@@ -220,7 +220,10 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
         num_args=num_args,
     )
     create_udf_sql = udf_def.to_create_function_sql()
-    logger.info(f"Creating Java UDF for Scala function: {create_udf_sql}")
+    logger.info(
+        f"Creating Java UDF for Scala function: {udf_name}({','.join([str(param) for param in sql_input_params])})"
+    )
+    logger.debug(f"Java UDF with body: {create_udf_sql}")
     session.sql(create_udf_sql).collect()
     return ScalaUdf(udf_name, pciudf._input_types, pciudf._return_type)
 

@@ -1,19 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: robocorp-log
-Version: 3.0.1
+Version: 3.1.2
 Summary: Automatic trace logging for Python
-Home-page: https://github.com/robocorp/robocorp/
 License: Apache-2.0
-Author: Fabio Z.
-Author-email: fabio@robocorp.com
-Requires-Python: >=3.9.2,<4.0.0
+License-File: LICENSE
+Author: Sema4.ai
+Author-email: dev@sema4.ai
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Logging
 Requires-Dist: psutil (>=5.0,<8.0)

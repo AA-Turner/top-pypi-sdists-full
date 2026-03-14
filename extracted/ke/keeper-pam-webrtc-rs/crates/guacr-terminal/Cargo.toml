@@ -17,6 +17,9 @@ base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+# Ratatui (TestBackend only - no crossterm/termion)
+ratatui = { version = "0.29", default-features = false }
+
 # Terminal emulation
 vt100 = "0.15"
 unicode-width = "0.1"

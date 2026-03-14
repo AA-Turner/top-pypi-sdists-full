@@ -1477,6 +1477,213 @@ class TestSmartCommitLiveFuseRepros:
         relpaths = [entry["relpath"] for entry in manifest_entries]
         assert "doomed.txt" not in relpaths
 
+    @pytest.mark.asyncio
+    async def test_live_fuse_cross_device_mv_preserves_file(
+        self,
+        local_fuse_mount_dir,
+        local_fuse_s3_config,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Regression: jq '...' "$FILE" > /tmp/x && mv /tmp/x "$FILE" must not
+        cause the file to disappear from live smart_commit manifests."""
+        _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
+        fuse_bin = shutil.which("plato-fuse")
+        assert fuse_bin, "plato-fuse not found on PATH"
+        monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
+
+        original_data = b'{"tasks": [{"id": "1.1", "is_completed": false}]}\n'
+        _write_cached_file(cache_dir, "progress.json", original_data)
+        manifest = DVCManifest(
+            entries_list=[
+                DVCManifestEntry(
+                    relpath="progress.json",
+                    md5=hashlib.md5(original_data).hexdigest(),
+                    size=len(original_data),
+                ),
+            ],
+            manifest_md5="orig",
+        )
+
+        mount = await mount_lazy(
+            mountpoint=mountpoint,
+            manifest=manifest,
+            s3_config=local_fuse_s3_config,
+            cache_dir=cache_dir,
+        )
+        try:
+            target = mountpoint / "progress.json"
+
+            def assert_visible() -> None:
+                assert target.exists()
+                assert target.read_bytes() == original_data
+
+            _retry_assert(assert_visible)
+
+            # Exact pattern agents use: write to /tmp then mv over the FUSE file
+            updated_data = b'{"tasks": [{"id": "1.1", "is_completed": true}]}\n'
+            tmp_file = tmp_path / "progress_tmp.json"
+            tmp_file.write_bytes(updated_data)
+            subprocess.run(
+                ["mv", str(tmp_file), str(target)],
+                check=True,
+            )
+
+            def assert_updated() -> None:
+                assert target.exists()
+                assert target.read_bytes() == updated_data
+
+            _retry_assert(assert_updated)
+
+            _manifest_md5, _dvc_yaml, manifest_entries = await _smart_commit_with_mocked_s3(
+                mount,
+                local_fuse_s3_config,
+            )
+        finally:
+            await unmount_lazy(mount)
+
+        relpaths = {entry["relpath"] for entry in manifest_entries}
+        assert "progress.json" in relpaths, (
+            f"progress.json disappeared from manifest after cross-device mv! Got: {relpaths}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_fuse_concurrent_cross_device_mv_preserves_file(
+        self,
+        local_fuse_mount_dir,
+        local_fuse_s3_config,
+        monkeypatch,
+        tmp_path,
+    ):
+        """Simulate 4 agents racing to update the same file via
+        jq > /tmp/x && mv /tmp/x $FILE, then verify the file survives
+        a live smart_commit."""
+        _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
+        fuse_bin = shutil.which("plato-fuse")
+        assert fuse_bin, "plato-fuse not found on PATH"
+        monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
+
+        original_data = b'{"tasks": [{"id": "1.1", "is_completed": false}]}\n'
+        _write_cached_file(cache_dir, "progress.json", original_data)
+        manifest = DVCManifest(
+            entries_list=[
+                DVCManifestEntry(
+                    relpath="progress.json",
+                    md5=hashlib.md5(original_data).hexdigest(),
+                    size=len(original_data),
+                ),
+            ],
+            manifest_md5="orig",
+        )
+
+        mount = await mount_lazy(
+            mountpoint=mountpoint,
+            manifest=manifest,
+            s3_config=local_fuse_s3_config,
+            cache_dir=cache_dir,
+        )
+        try:
+            target = mountpoint / "progress.json"
+
+            def assert_visible() -> None:
+                assert target.exists()
+
+            _retry_assert(assert_visible)
+
+            import concurrent.futures
+
+            def agent_update(agent_id: int) -> None:
+                for i in range(5):
+                    data = f'{{"tasks": [{{"id": "1.1", "agent": {agent_id}, "iter": {i}}}]}}\n'
+                    tmp_file = tmp_path / f"progress_tmp_{agent_id}_{i}.json"
+                    tmp_file.write_text(data)
+                    # mv may fail transiently under concurrency; that's fine
+                    subprocess.run(
+                        ["mv", str(tmp_file), str(target)],
+                        check=False,
+                    )
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                futures = [pool.submit(agent_update, i) for i in range(4)]
+                for f in concurrent.futures.as_completed(futures, timeout=10):
+                    f.result()
+
+            def assert_still_exists() -> None:
+                assert target.exists()
+
+            _retry_assert(assert_still_exists)
+
+            _manifest_md5, _dvc_yaml, manifest_entries = await _smart_commit_with_mocked_s3(
+                mount,
+                local_fuse_s3_config,
+            )
+        finally:
+            await unmount_lazy(mount)
+
+        relpaths = {entry["relpath"] for entry in manifest_entries}
+        assert "progress.json" in relpaths, (
+            f"progress.json disappeared from manifest after concurrent cross-device mv! Got: {relpaths}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_fuse_truly_deleted_file_stays_deleted(
+        self,
+        local_fuse_mount_dir,
+        local_fuse_s3_config,
+        monkeypatch,
+    ):
+        """A file that is unlinked and NOT re-created must stay out of the manifest."""
+        _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
+        fuse_bin = shutil.which("plato-fuse")
+        assert fuse_bin, "plato-fuse not found on PATH"
+        monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
+
+        original_data = b"delete me\n"
+        _write_cached_file(cache_dir, "doomed.txt", original_data)
+        manifest = DVCManifest(
+            entries_list=[
+                DVCManifestEntry(
+                    relpath="doomed.txt",
+                    md5=hashlib.md5(original_data).hexdigest(),
+                    size=len(original_data),
+                ),
+            ],
+            manifest_md5="orig",
+        )
+
+        mount = await mount_lazy(
+            mountpoint=mountpoint,
+            manifest=manifest,
+            s3_config=local_fuse_s3_config,
+            cache_dir=cache_dir,
+        )
+        try:
+            target = mountpoint / "doomed.txt"
+
+            def assert_visible() -> None:
+                assert target.exists()
+
+            _retry_assert(assert_visible)
+
+            target.unlink()
+
+            def assert_gone() -> None:
+                assert not target.exists()
+
+            _retry_assert(assert_gone)
+
+            _manifest_md5, _dvc_yaml, manifest_entries = await _smart_commit_with_mocked_s3(
+                mount,
+                local_fuse_s3_config,
+            )
+        finally:
+            await unmount_lazy(mount)
+
+        relpaths = {entry["relpath"] for entry in manifest_entries}
+        assert "doomed.txt" not in relpaths, (
+            f"doomed.txt should have been deleted but is still in manifest! Got: {relpaths}"
+        )
+
 
 @pytest.mark.skipif(not HAS_LOCAL_FUSE, reason="local FUSE support is unavailable")
 class TestFuseVisibleAttrBlocking:

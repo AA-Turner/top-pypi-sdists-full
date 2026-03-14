@@ -456,3 +456,74 @@ def convert_spark_format_to_snowflake(
             continue
 
     return snowflake_format
+
+
+_FILEFORMAT_SEPARATORS = set(" :/-.,")
+
+_sorted_token_pairs: list[tuple[str, str]] = [
+    (k, v)
+    for k, v in sorted(
+        spark_to_snowflake_datetime_mapping.items(),
+        key=lambda t: len(t[0]),
+        reverse=True,
+    )
+    if isinstance(v, str)
+]
+
+
+def convert_java_datetime_format_for_fileformat(java_format: str) -> str:
+    """Convert a Java SimpleDateFormat string to a Snowflake file-format compatible
+    date/timestamp format string.
+
+    Unlike ``convert_spark_format_to_snowflake`` (which wraps separator characters in
+    double quotes for SQL function contexts), this function passes separator characters
+    through directly — Snowflake file-format ``DATE_FORMAT`` / ``TIMESTAMP_FORMAT``
+    options treat ``/ - : . ,`` and space as literal separators without quoting.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(java_format)
+
+    while i < n:
+        ch = java_format[i]
+
+        # Single-quoted literal block ('text')
+        if ch == "'":
+            if java_format[i : i + 2] == "''":
+                result.append("'")
+                i += 2
+                continue
+            i += 1
+            while i < n:
+                if java_format[i] == "'":
+                    if java_format[i : i + 2] == "''":
+                        result.append("'")
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    result.append(java_format[i])
+                    i += 1
+            continue
+
+        # Separator characters pass through directly
+        if ch in _FILEFORMAT_SEPARATORS:
+            result.append(ch)
+            i += 1
+            continue
+
+        # Try to match a Java token (longest first)
+        matched = False
+        for java_tok, sf_tok in _sorted_token_pairs:
+            if java_format[i:].startswith(java_tok):
+                result.append(sf_tok)
+                i += len(java_tok)
+                matched = True
+                break
+
+        if not matched:
+            result.append(ch)
+            i += 1
+
+    return "".join(result)

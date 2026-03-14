@@ -754,6 +754,12 @@ class EDLCompiler:
                 else:
                     if main_property not in properties_structure.main_properties:
                         properties_structure.main_properties.append(main_property)
+        for prop_name, prop_meta in (entity_model.properties or {}).items():
+            if (
+                getattr(prop_meta, "pk", False)
+                and prop_name not in properties_structure.main_properties
+            ):
+                properties_structure.main_properties.append(prop_name)
         if entity_model.required:
             properties_structure.required.extend(entity_model.required)
         if entity_model.partition_data:

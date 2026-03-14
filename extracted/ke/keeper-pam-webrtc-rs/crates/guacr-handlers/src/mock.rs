@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 
 use crate::error::Result;
 use crate::handler::{HandlerStats, HealthStatus, ProtocolHandler};
+use crate::video::VideoOutput;
 
 /// Mock protocol handler for testing
 ///
@@ -57,6 +58,7 @@ impl ProtocolHandler for MockProtocolHandler {
         _params: HashMap<String, String>,
         _to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<()> {
         self.connect_count.fetch_add(1, Ordering::SeqCst);
 
@@ -111,7 +113,7 @@ mod tests {
         let handler_ref = Arc::clone(&handler_clone);
         let connect_task = tokio::spawn(async move {
             handler_ref
-                .connect(HashMap::new(), to_client, from_client)
+                .connect(HashMap::new(), to_client, from_client, None)
                 .await
         });
 
@@ -151,7 +153,7 @@ mod tests {
         let handler_ref = Arc::clone(&handler);
         let connect_task = tokio::spawn(async move {
             handler_ref
-                .connect(HashMap::new(), to_client, from_client)
+                .connect(HashMap::new(), to_client, from_client, None)
                 .await
         });
 

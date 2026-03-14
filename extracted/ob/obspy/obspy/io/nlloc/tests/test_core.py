@@ -104,8 +104,8 @@ class TestNLLOC():
 
         # remove (changing) obspy version number from output
         re_pattern = '<version>ObsPy .*?</version>'
-        quakeml_expected = re.sub(re_pattern, '', quakeml_expected, 1)
-        quakeml_got = re.sub(re_pattern, '', quakeml_got, 1)
+        quakeml_expected = re.sub(re_pattern, '', quakeml_expected, count=1)
+        quakeml_got = re.sub(re_pattern, '', quakeml_got, count=1)
 
         compare_xml_strings(quakeml_expected.encode(), quakeml_got.encode())
 
@@ -345,7 +345,63 @@ class TestNLLOC():
         Tests that we are getting the positioning of items in phase lines
         right. Values for arrivals are shifted by one index to the right in hyp
         files written by newer nonlinloc versions, see #3223
+        Also tests that PUBLIC_ID line is correctly read and assigned to
+        event.resource_id. Tests both literal "None" and actual IDs.
         """
         path = testdata['nlloc_v7.hyp']
+
+        # Test 1: Read file with PUBLIC_ID None (literal string)
+        # The literal "None" should not set resource_id,
+        # so it gets auto-generated
         cat = read_nlloc_hyp(path)
         assert cat[0].origins[0].arrivals[0].azimuth == 107.42
+        # compare test_rejected_origin test case
+        assert cat[0].origins[0].evaluation_status is None
+        ellipsoid = cat[0].origins[0].origin_uncertainty.confidence_ellipsoid
+        assert ellipsoid is not None
+        assert ellipsoid.semi_major_axis_length == 20.2574
+        assert ellipsoid.semi_minor_axis_length == 9.1241
+        assert ellipsoid.semi_intermediate_axis_length == 19.255
+        assert ellipsoid.major_axis_plunge == 42.8141
+        assert ellipsoid.major_axis_azimuth == 86.61
+        assert ellipsoid.major_axis_rotation == 322.815
+        # test that literal "None" leaves resource_id auto-generated
+        auto_generated_id_1 = str(cat[0].resource_id)
+        assert auto_generated_id_1.startswith('smi:local/')
+
+        # Test 2: Dynamically modify PUBLIC_ID to a real value and test
+        with open(path, 'rb') as fh:
+            content = fh.read().decode()
+        # Replace the PUBLIC_ID None line with a real ID
+        modified_content = content.replace(
+            'PUBLIC_ID None',
+            'PUBLIC_ID smi:local/test-event-v7-public-id'
+        )
+        # Write to temporary file and read
+        with io.BytesIO() as tmp:
+            tmp.write(modified_content.encode())
+            tmp.seek(0)
+            cat2 = read_nlloc_hyp(tmp)
+        # test that real PUBLIC_ID is read and set correctly
+        assert str(cat2[0].resource_id) == "smi:local/test-event-v7-public-id"
+
+    def test_rejected_origin(self, testdata):
+        """
+        Tests that we are marking rejected event/origin as such.
+        Also tests that NLLOC header line is written into comment.
+        (testing that evaluation status is left empty on "LOCATED" reported by
+        nonlinloc is tested in other test case.
+        """
+        path = testdata['nlloc_rejected.hyp']
+        cat = read_nlloc_hyp(path)
+        expected_comment = (
+            'NLLOC "./locs/20211214_2020-12-09_manual_loc/20211214_2020-12-09_'
+            'manual.20201209.163708.grid0" "REJECTED" "WARNING: max prob '
+            'location on grid boundary 10, rejecting location."')
+        assert cat[0].origins[0].evaluation_status == "rejected"
+        assert cat[0].origins[0].comments[1].text == expected_comment
+        assert cat[0].comments[1].text == expected_comment
+
+    def test_read_nlloc_doc_resolve_seedid(self):
+        assert 'seedid_map:' in read_nlloc_hyp.__doc__
+        assert 'ph2comp:' in read_nlloc_hyp.__doc__

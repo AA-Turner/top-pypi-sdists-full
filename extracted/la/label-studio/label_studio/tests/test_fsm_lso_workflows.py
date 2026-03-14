@@ -7,12 +7,13 @@ Validates that FSM correctly tracks state changes during actual user journeys.
 This test file focuses on LSO-specific functionality:
 - Project lifecycle: CREATED -> IN_PROGRESS -> COMPLETED
 - Task lifecycle: CREATED -> COMPLETED -> IN_PROGRESS -> COMPLETED
-- Annotation lifecycle: SUBMITTED (on create), SUBMITTED (on update)
+- Annotation lifecycle: CREATED (on create), CREATED (on update)
 
 LSE-specific transitions (reviews, project settings, annotation drafts) are tested in LSE.
 """
 
 import pytest
+from core.current_request import CurrentContext
 from fsm.state_choices import AnnotationStateChoices, ProjectStateChoices, TaskStateChoices
 from fsm.state_manager import StateManager
 from label_studio_sdk.client import LabelStudio
@@ -20,6 +21,16 @@ from projects.models import Project
 from tasks.models import Annotation, Task
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def fsm_context(business_client):
+    """Set CurrentContext so FSM state lookups (e.g. in assert_*_state) work in tests."""
+    CurrentContext.set_user(business_client.user)
+    try:
+        yield
+    finally:
+        CurrentContext.clear()
 
 
 # Helper functions
@@ -49,7 +60,7 @@ def assert_annotation_state(annotation_id, expected_state):
 class TestProjectWorkflows:
     """Test project FSM state tracking through realistic workflows"""
 
-    def test_project_creation_workflow(self, django_live_url, business_client):
+    def test_project_creation_workflow(self, django_live_url, business_client, fsm_context):
         """
         User creates project -> Project state = CREATED
 
@@ -68,7 +79,7 @@ class TestProjectWorkflows:
         # Verify project state
         assert_project_state(project.id, ProjectStateChoices.CREATED)
 
-    def test_project_in_progress_workflow(self, django_live_url, business_client):
+    def test_project_in_progress_workflow(self, django_live_url, business_client, fsm_context):
         """
         First annotation on any task -> Project CREATED -> IN_PROGRESS
 
@@ -104,7 +115,7 @@ class TestProjectWorkflows:
         assert_task_state(tasks[0].id, TaskStateChoices.COMPLETED)
         assert_project_state(project.id, ProjectStateChoices.IN_PROGRESS)
 
-    def test_project_completion_workflow(self, django_live_url, business_client):
+    def test_project_completion_workflow(self, django_live_url, business_client, fsm_context):
         """
         All tasks completed -> Project IN_PROGRESS -> COMPLETED
 
@@ -143,7 +154,7 @@ class TestProjectWorkflows:
         assert_task_state(tasks[1].id, TaskStateChoices.COMPLETED)
         assert_project_state(project.id, ProjectStateChoices.COMPLETED)
 
-    def test_project_back_to_in_progress_workflow(self, django_live_url, business_client):
+    def test_project_back_to_in_progress_workflow(self, django_live_url, business_client, fsm_context):
         """
         Task becomes incomplete -> Project COMPLETED -> IN_PROGRESS
 
@@ -187,7 +198,7 @@ class TestProjectWorkflows:
 class TestTaskWorkflows:
     """Test task FSM state tracking through realistic workflows"""
 
-    def test_task_import_workflow(self, django_live_url, business_client):
+    def test_task_import_workflow(self, django_live_url, business_client, fsm_context):
         """
         User imports tasks -> Each task state = CREATED
 
@@ -213,13 +224,13 @@ class TestTaskWorkflows:
         for task in tasks:
             assert_task_state(task.id, TaskStateChoices.CREATED)
 
-    def test_task_completion_workflow(self, django_live_url, business_client):
+    def test_task_completion_workflow(self, django_live_url, business_client, fsm_context):
         """
         First annotation submitted -> Task CREATED -> COMPLETED
 
         Validates:
         - Task transitions to COMPLETED when annotation is submitted
-        - Annotation is in SUBMITTED state
+        - Annotation is in CREATED state
         """
         ls = LabelStudio(base_url=django_live_url, api_key=business_client.api_key)
 
@@ -244,9 +255,9 @@ class TestTaskWorkflows:
 
         # Verify task completed
         assert_task_state(task_id, TaskStateChoices.COMPLETED)
-        assert_annotation_state(annotation.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation.id, AnnotationStateChoices.CREATED)
 
-    def test_task_in_progress_workflow(self, django_live_url, business_client):
+    def test_task_in_progress_workflow(self, django_live_url, business_client, fsm_context):
         """
         All annotations deleted -> Task COMPLETED -> IN_PROGRESS
 
@@ -278,7 +289,7 @@ class TestTaskWorkflows:
         # Verify task in progress
         assert_task_state(task_id, TaskStateChoices.IN_PROGRESS)
 
-    def test_task_re_completion_workflow(self, django_live_url, business_client):
+    def test_task_re_completion_workflow(self, django_live_url, business_client, fsm_context):
         """
         Annotation submitted on IN_PROGRESS task -> Task IN_PROGRESS -> COMPLETED
 
@@ -319,12 +330,12 @@ class TestTaskWorkflows:
 class TestAnnotationWorkflows:
     """Test annotation FSM state tracking through realistic workflows"""
 
-    def test_annotation_submission_workflow(self, django_live_url, business_client):
+    def test_annotation_submission_workflow(self, django_live_url, business_client, fsm_context):
         """
-        User submits annotation -> Annotation state = SUBMITTED
+        User submits annotation -> Annotation state = CREATED
 
         Validates:
-        - Annotation is created with SUBMITTED state
+        - Annotation is created with CREATED state
         - FSM captures annotation creation
         """
         ls = LabelStudio(base_url=django_live_url, api_key=business_client.api_key)
@@ -345,20 +356,20 @@ class TestAnnotationWorkflows:
         )
 
         # Verify annotation state
-        assert_annotation_state(annotation.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation.id, AnnotationStateChoices.CREATED)
 
         # Verify FSM state record count
         annotation_obj = Annotation.objects.get(pk=annotation.id)
         state_count = StateManager.get_state_history(annotation_obj).count()
         assert state_count == 1, f'Expected 1 state record, got {state_count}'
 
-    def test_annotation_update_workflow(self, django_live_url, business_client):
+    def test_annotation_update_workflow(self, django_live_url, business_client, fsm_context):
         """
-        User updates annotation -> New state record (still SUBMITTED)
+        User updates annotation -> New state record (still CREATED)
 
         Validates:
         - Annotation update creates new FSM state record
-        - State remains SUBMITTED
+        - State remains CREATED
         """
         ls = LabelStudio(base_url=django_live_url, api_key=business_client.api_key)
 
@@ -376,7 +387,7 @@ class TestAnnotationWorkflows:
             result=[{'value': {'choices': ['positive']}, 'from_name': 'label', 'to_name': 'text', 'type': 'choices'}],
             lead_time=5.0,
         )
-        assert_annotation_state(annotation.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation.id, AnnotationStateChoices.CREATED)
 
         # Update annotation
         ls.annotations.update(
@@ -384,8 +395,8 @@ class TestAnnotationWorkflows:
             result=[{'value': {'choices': ['negative']}, 'from_name': 'label', 'to_name': 'text', 'type': 'choices'}],
         )
 
-        # Verify state still SUBMITTED but new state record created
-        assert_annotation_state(annotation.id, AnnotationStateChoices.SUBMITTED)
+        # Verify state still CREATED but new state record created
+        assert_annotation_state(annotation.id, AnnotationStateChoices.CREATED)
         annotation_obj = Annotation.objects.get(pk=annotation.id)
         state_count = StateManager.get_state_history(annotation_obj).count()
         assert state_count == 2, f'Expected 2 state records, got {state_count}'
@@ -394,7 +405,7 @@ class TestAnnotationWorkflows:
 class TestEndToEndWorkflows:
     """Test complete end-to-end workflows"""
 
-    def test_complete_annotation_journey(self, django_live_url, business_client):
+    def test_complete_annotation_journey(self, django_live_url, business_client, fsm_context):
         """
         Complete workflow:
         1. Create project -> Project CREATED
@@ -433,7 +444,7 @@ class TestEndToEndWorkflows:
         )
         assert_task_state(task1_id, TaskStateChoices.COMPLETED)
         assert_project_state(project.id, ProjectStateChoices.IN_PROGRESS)
-        assert_annotation_state(annotation1.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation1.id, AnnotationStateChoices.CREATED)
 
         # Step 4: Submit annotation on task2
         annotation2 = ls.annotations.create(
@@ -443,7 +454,7 @@ class TestEndToEndWorkflows:
         )
         assert_task_state(task2_id, TaskStateChoices.COMPLETED)
         assert_project_state(project.id, ProjectStateChoices.COMPLETED)
-        assert_annotation_state(annotation2.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation2.id, AnnotationStateChoices.CREATED)
 
         # Step 5: Delete annotation from task1
         ls.annotations.delete(id=annotation1.id)
@@ -458,7 +469,7 @@ class TestEndToEndWorkflows:
         )
         assert_task_state(task1_id, TaskStateChoices.COMPLETED)
         assert_project_state(project.id, ProjectStateChoices.COMPLETED)
-        assert_annotation_state(annotation3.id, AnnotationStateChoices.SUBMITTED)
+        assert_annotation_state(annotation3.id, AnnotationStateChoices.CREATED)
 
 
 class TestColdStartScenarios:
@@ -576,7 +587,9 @@ class TestColdStartScenarios:
         latest_project_state = project_states.first()
         assert latest_project_state.state in [ProjectStateChoices.IN_PROGRESS, ProjectStateChoices.COMPLETED]
 
-    def test_project_state_update_with_mixed_task_states(self, django_live_url, business_client, configured_project):
+    def test_project_state_update_with_mixed_task_states(
+        self, django_live_url, business_client, configured_project, fsm_context
+    ):
         """
         Test: Project state update when some tasks have states and some don't.
 
@@ -629,7 +642,7 @@ class TestColdStartScenarios:
         project_state = StateManager.get_current_state_value(configured_project)
         assert project_state == ProjectStateChoices.IN_PROGRESS
 
-    def test_bulk_task_processing_cold_start(self, django_live_url, business_client):
+    def test_bulk_task_processing_cold_start(self, django_live_url, business_client, fsm_context):
         """
         Test: Bulk processing of tasks when none have FSM states.
 
@@ -682,3 +695,42 @@ class TestColdStartScenarios:
         # Step 4: Verify project is COMPLETED (all tasks completed)
         project_state = StateManager.get_current_state_value(project)
         assert project_state == ProjectStateChoices.COMPLETED
+
+
+def test_project_completes_after_deleting_unfinished_tasks(django_live_url, business_client, fsm_context):
+    """
+    Deleting all unfinished tasks should complete the project if the remaining task(s) are completed.
+    Steps:
+    - Create project with 4 tasks
+    - Annotate 1 task (project -> IN_PROGRESS)
+    - Delete the 3 unannotated tasks via Delete Tasks action
+    - Expect project -> COMPLETED (only completed task remains)
+    """
+    ls = LabelStudio(base_url=django_live_url, api_key=business_client.api_key)
+
+    project = ls.projects.create(
+        title='Complete after deleting unfinished',
+        label_config='<View><Text name="text" value="$text"/><Choices name="label" toName="text"><Choice value="positive"/><Choice value="negative"/></Choices></View>',
+    )
+    # Create 4 tasks
+    tasks = [ls.tasks.create(project=project.id, data={'text': f'Task {i}'}) for i in range(4)]
+    assert len(list(ls.tasks.list(project=project.id))) == 4
+
+    # Annotate the first task
+    ls.annotations.create(
+        id=tasks[0].id,
+        result=[{'value': {'choices': ['positive']}, 'from_name': 'label', 'to_name': 'text', 'type': 'choices'}],
+        lead_time=1.0,
+    )
+    # Project should be IN_PROGRESS with mixed completion
+    assert_project_state(project.id, ProjectStateChoices.IN_PROGRESS)
+
+    # Delete remaining 3 unannotated tasks using Data Manager action
+    ids_to_delete = [t.id for t in tasks[1:]]
+    ls.actions.create(project=project.id, id='delete_tasks', selected_items={'all': False, 'included': ids_to_delete})
+
+    # Only one task should remain
+    remaining = list(ls.tasks.list(project=project.id))
+    assert len(remaining) == 1
+    # Project should now be COMPLETED since all remaining tasks are completed
+    assert_project_state(project.id, ProjectStateChoices.COMPLETED)

@@ -1,14 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: done-xblock
-Version: 2.5.0
+Version: 3.0.0
 Summary: done XBlock
 Home-page: https://github.com/openedx/DoneXBlock
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: XBlock
+Requires-Dist: django
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ##########
 DoneXBlock

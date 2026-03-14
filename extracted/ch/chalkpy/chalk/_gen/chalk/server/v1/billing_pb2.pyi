@@ -429,3 +429,79 @@ class GetNodeDetailResponse(_message.Message):
         node: _Optional[_Union[NodeDetailInfo, _Mapping]] = ...,
         pods: _Optional[_Iterable[_Union[NodeDetailPod, _Mapping]]] = ...,
     ) -> None: ...
+
+class GetResourceGroupServiceDetailRequest(_message.Message):
+    __slots__ = ("service_kind", "resource_group", "start_time", "end_time")
+    SERVICE_KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    service_kind: str
+    resource_group: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        service_kind: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ResourceGroupServicePod(_message.Message):
+    __slots__ = (
+        "pod_name",
+        "start_time",
+        "end_time",
+        "workload_type",
+        "node_name",
+        "cpu_request",
+        "cpu_limit",
+        "memory_request",
+        "memory_limit",
+    )
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    CPU_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    CPU_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    pod_name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    workload_type: str
+    node_name: str
+    cpu_request: str
+    cpu_limit: str
+    memory_request: str
+    memory_limit: str
+    def __init__(
+        self,
+        pod_name: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        workload_type: _Optional[str] = ...,
+        node_name: _Optional[str] = ...,
+        cpu_request: _Optional[str] = ...,
+        cpu_limit: _Optional[str] = ...,
+        memory_request: _Optional[str] = ...,
+        memory_limit: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetResourceGroupServiceDetailResponse(_message.Message):
+    __slots__ = ("service_kind", "resource_group", "pods")
+    SERVICE_KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    PODS_FIELD_NUMBER: _ClassVar[int]
+    service_kind: str
+    resource_group: str
+    pods: _containers.RepeatedCompositeFieldContainer[ResourceGroupServicePod]
+    def __init__(
+        self,
+        service_kind: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        pods: _Optional[_Iterable[_Union[ResourceGroupServicePod, _Mapping]]] = ...,
+    ) -> None: ...

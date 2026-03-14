@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # @Author: Jialiang Shi
+import logging
 import netrc
 import requests
 from requests.adapters import HTTPAdapter
 from gerrit.utils.requester import Requester
 from gerrit.utils.common import decode_response, strip_trailing_slash
-from gerrit.config.config import GerritConfig
-from gerrit.projects.projects import GerritProjects
-from gerrit.accounts.accounts import GerritAccounts
-from gerrit.groups.groups import GerritGroups
-from gerrit.plugins.plugins import GerritPlugins
-from gerrit.changes.changes import GerritChanges
+
+logger = logging.getLogger(__name__)
 
 
 class GerritClient:
@@ -107,6 +104,7 @@ class GerritClient:
 
         :return:
         """
+        from gerrit.config.config import GerritConfig
         return GerritConfig(gerrit=self)
 
     @property
@@ -115,6 +113,7 @@ class GerritClient:
         Project related REST APIs
         :return:
         """
+        from gerrit.projects.projects import GerritProjects
         return GerritProjects(gerrit=self)
 
     @property
@@ -124,6 +123,7 @@ class GerritClient:
 
         :return:
         """
+        from gerrit.changes.changes import GerritChanges
         return GerritChanges(gerrit=self)
 
     @property
@@ -133,6 +133,7 @@ class GerritClient:
 
         :return:
         """
+        from gerrit.accounts.accounts import GerritAccounts
         return GerritAccounts(gerrit=self)
 
     @property
@@ -142,6 +143,7 @@ class GerritClient:
 
         :return:
         """
+        from gerrit.groups.groups import GerritGroups
         return GerritGroups(gerrit=self)
 
     @property
@@ -151,6 +153,7 @@ class GerritClient:
 
         :return:
         """
+        from gerrit.plugins.plugins import GerritPlugins
         return GerritPlugins(gerrit=self)
 
     @property
@@ -178,7 +181,9 @@ class GerritClient:
         :param endpoint: The endpoint to send to.
         :return:
         """
-        response = self.requester.get(self.get_endpoint_url(endpoint), **kwargs)
+        url = self.get_endpoint_url(endpoint)
+        logger.debug("Sending GET request to %s", url)
+        response = self.requester.get(url, **kwargs)
         result = decode_response(response)
         return result
 
@@ -189,7 +194,9 @@ class GerritClient:
         :param endpoint: The endpoint to send to.
         :return:
         """
-        response = self.requester.post(self.get_endpoint_url(endpoint), **kwargs)
+        url = self.get_endpoint_url(endpoint)
+        logger.debug("Sending POST request to %s", url)
+        response = self.requester.post(url, **kwargs)
         result = decode_response(response)
         return result
 
@@ -200,7 +207,9 @@ class GerritClient:
         :param endpoint: The endpoint to send to.
         :return:
         """
-        response = self.requester.put(self.get_endpoint_url(endpoint), **kwargs)
+        url = self.get_endpoint_url(endpoint)
+        logger.debug("Sending PUT request to %s", url)
+        response = self.requester.put(url, **kwargs)
         result = decode_response(response)
         return result
 
@@ -211,4 +220,6 @@ class GerritClient:
         :param endpoint: The endpoint to send to.
         :return:
         """
-        self.requester.delete(self.get_endpoint_url(endpoint))
+        url = self.get_endpoint_url(endpoint)
+        logger.debug("Sending DELETE request to %s", url)
+        self.requester.delete(url)

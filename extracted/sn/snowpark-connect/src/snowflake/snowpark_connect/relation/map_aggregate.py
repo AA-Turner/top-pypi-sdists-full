@@ -71,6 +71,11 @@ def map_group_by_aggregate(
         ) or not isinstance(aggregate_original_data_type, StructType):
             continue
 
+        if len(columns.grouping_columns) > 0:
+            # reduceGroups: result has key column(s) + reduce result column.
+            # Let the normal container creation handle it below.
+            break
+
         if not result.columns or len(result.columns) != 1:
             raise ValueError(
                 "Expected result DataFrame to have exactly one column for reduce(StructType)"
@@ -216,10 +221,12 @@ def map_pivot_aggregate(
     final_pivot_names = []
     grouping_columns_qualifiers = []
     grouping_eq_snowpark_names = []
+    grouping_column_types: list[DataType] = []
+    pivot_agg_column_types: list[DataType] = []
 
     grouping_columns = columns.grouping_expressions()
     if grouping_columns:
-        for col in grouping_columns:
+        for idx, col in enumerate(grouping_columns):
             snowpark_name = col.get_name()
             spark_col_name = input_container.column_map.get_spark_column_name_from_snowpark_column_name(
                 snowpark_name
@@ -234,6 +241,7 @@ def map_pivot_aggregate(
                     snowpark_name
                 )
             )
+            grouping_column_types.append(columns.grouping_columns[idx].data_type)
 
     for pv_value in pivot_values:
         pv_value_spark, pv_is_null = map_pivot_value_to_spark_column_name(pv_value)
@@ -271,6 +279,7 @@ def map_pivot_aggregate(
             aggregations.append(curr_expression)
             spark_col_names.append(spark_col_name)
             final_pivot_names.append(snowpark_col_name)
+            pivot_agg_column_types.append(columns.aggregation_columns[i].data_type)
 
     result_df = (
         input_df_actual.group_by(*grouping_columns)
@@ -278,14 +287,14 @@ def map_pivot_aggregate(
         .select(*grouping_columns, *final_pivot_names)
     )
 
+    all_column_types = grouping_column_types + pivot_agg_column_types
+
     return DataFrameContainer.create_with_column_mapping(
         dataframe=result_df,
         spark_column_names=spark_col_names,
-        snowpark_column_names=result_df.columns,
-        snowpark_column_types=[
-            result_df.schema.fields[idx].datatype
-            for idx, _ in enumerate(result_df.columns)
-        ],
+        snowpark_column_names=[col.get_name() for col in grouping_columns]
+        + final_pivot_names,
+        snowpark_column_types=all_column_types,
         column_qualifiers=grouping_columns_qualifiers
         + [set() for _ in final_pivot_names],
         parent_column_name_map=input_container.column_map,
@@ -395,7 +404,7 @@ def map_aggregate_helper(
                 snowpark_column.col if skip_alias else snowpark_column.col.alias(alias),
                 new_name,
                 None if skip_alias else alias,
-                None if pivot else snowpark_column.typ,
+                snowpark_column.typ,
                 qualifiers=snowpark_column.get_qualifiers(),
                 equivalent_snowpark_names=equivalent_snowpark_names,
             )
@@ -415,7 +424,7 @@ def map_aggregate_helper(
         def type_agg_expr(
             agg_exp: TypedColumn, schema_inferrable: bool
         ) -> DataType | None:
-            if pivot or not schema_inferrable:
+            if not schema_inferrable:
                 return None
             try:
                 return agg_exp.typ

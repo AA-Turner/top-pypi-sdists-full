@@ -37,6 +37,10 @@ from .literals import (
     Ac3DynamicRangeCompressionRfType,
     Ac3LfeFilterType,
     Ac3MetadataControlType,
+    Ac4BitstreamModeType,
+    Ac4CodingModeType,
+    Ac4DynamicRangeCompressionDrcProfileType,
+    Ac4StereoDownmixType,
     AccelerationModeType,
     AccelerationStatusType,
     AdvancedInputFilterAddTextureType,
@@ -264,6 +268,7 @@ from .literals import (
     HlsAudioTrackTypeType,
     HlsCaptionLanguageSettingType,
     HlsCaptionSegmentLengthControlType,
+    HlsClearLeadType,
     HlsClientCacheType,
     HlsCodecSpecificationType,
     HlsDescriptiveVideoServiceFlagType,
@@ -490,6 +495,7 @@ else:
 __all__ = (
     "AacSettingsTypeDef",
     "Ac3SettingsTypeDef",
+    "Ac4SettingsTypeDef",
     "AccelerationSettingsTypeDef",
     "AdvancedInputFilterSettingsTypeDef",
     "AiffSettingsTypeDef",
@@ -843,6 +849,22 @@ class Ac3SettingsTypeDef(TypedDict):
     LfeFilter: NotRequired[Ac3LfeFilterType]
     MetadataControl: NotRequired[Ac3MetadataControlType]
     SampleRate: NotRequired[int]
+
+
+class Ac4SettingsTypeDef(TypedDict):
+    Bitrate: NotRequired[int]
+    BitstreamMode: NotRequired[Ac4BitstreamModeType]
+    CodingMode: NotRequired[Ac4CodingModeType]
+    DynamicRangeCompressionFlatPanelTv: NotRequired[Ac4DynamicRangeCompressionDrcProfileType]
+    DynamicRangeCompressionHomeTheater: NotRequired[Ac4DynamicRangeCompressionDrcProfileType]
+    DynamicRangeCompressionPortableHeadphones: NotRequired[Ac4DynamicRangeCompressionDrcProfileType]
+    DynamicRangeCompressionPortableSpeakers: NotRequired[Ac4DynamicRangeCompressionDrcProfileType]
+    LoRoCenterMixLevel: NotRequired[float]
+    LoRoSurroundMixLevel: NotRequired[float]
+    LtRtCenterMixLevel: NotRequired[float]
+    LtRtSurroundMixLevel: NotRequired[float]
+    SampleRate: NotRequired[int]
+    StereoDownmix: NotRequired[Ac4StereoDownmixType]
 
 
 class AccelerationSettingsTypeDef(TypedDict):
@@ -2118,6 +2140,7 @@ class XavcHdProfileSettingsTypeDef(TypedDict):
 class AudioCodecSettingsTypeDef(TypedDict):
     AacSettings: NotRequired[AacSettingsTypeDef]
     Ac3Settings: NotRequired[Ac3SettingsTypeDef]
+    Ac4Settings: NotRequired[Ac4SettingsTypeDef]
     AiffSettings: NotRequired[AiffSettingsTypeDef]
     Codec: NotRequired[AudioCodecType]
     Eac3AtmosSettings: NotRequired[Eac3AtmosSettingsTypeDef]
@@ -3005,6 +3028,7 @@ class RemixSettingsTypeDef(TypedDict):
 CmafEncryptionSettingsOutputTypeDef = TypedDict(
     "CmafEncryptionSettingsOutputTypeDef",
     {
+        "ClearLead": NotRequired[HlsClearLeadType],
         "ConstantInitializationVector": NotRequired[str],
         "EncryptionMethod": NotRequired[CmafEncryptionTypeType],
         "InitializationVectorInManifest": NotRequired[CmafInitializationVectorInManifestType],
@@ -3016,6 +3040,7 @@ CmafEncryptionSettingsOutputTypeDef = TypedDict(
 CmafEncryptionSettingsTypeDef = TypedDict(
     "CmafEncryptionSettingsTypeDef",
     {
+        "ClearLead": NotRequired[HlsClearLeadType],
         "ConstantInitializationVector": NotRequired[str],
         "EncryptionMethod": NotRequired[CmafEncryptionTypeType],
         "InitializationVectorInManifest": NotRequired[CmafInitializationVectorInManifestType],

@@ -31,6 +31,11 @@ class RequirementsDetector(object):
                     self.filenames.append(argument)
                 else:  # pragma: nocover
                     print('Invalid pyproject.toml (no [project.dependencies]): {}'.format(argument))
+            elif os.path.basename(argument) == 'Pipfile':
+                if self._is_valid_pipfile(argument):
+                    self.filenames.append(argument)
+                else:  # pragma: nocover
+                    print('Invalid Pipfile (no [packages]): {}'.format(argument))
             elif self._is_valid_requirements_file(argument):
                 self.filenames.append(argument)
             else:  # pragma: nocover
@@ -41,6 +46,9 @@ class RequirementsDetector(object):
         """Attempt to detect requirements files in the current working directory"""
         if self._is_valid_pyproject('pyproject.toml'):
             self.filenames.append('pyproject.toml')
+
+        if self._is_valid_pipfile('Pipfile'):
+            self.filenames.append('Pipfile')
 
         for candidate in ['requirements.txt', 'requirements.pip', 'requirements.in']:
             if self._is_valid_requirements_file(candidate):
@@ -59,19 +67,33 @@ class RequirementsDetector(object):
 
     @staticmethod
     def _is_valid_pyproject(filename):
-        """Check if file is a pyproject.toml with [project.dependencies]."""
+        """Check if file is a pyproject.toml with [project.dependencies] or [tool.poetry.dependencies]."""
         if not os.path.isfile(filename) or not filename.endswith('pyproject.toml'):
             return False
         try:
             with open(filename, 'rb') as f:
                 data = tomllib.load(f)
-            return 'dependencies' in data.get('project', {})
+            has_pep621 = 'dependencies' in data.get('project', {})
+            has_poetry = 'dependencies' in data.get('tool', {}).get('poetry', {})
+            return has_pep621 or has_poetry
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_valid_pipfile(filename):
+        """Check if file is a Pipfile with [packages]."""
+        if not os.path.isfile(filename) or not os.path.basename(filename) == 'Pipfile':
+            return False
+        try:
+            with open(filename, 'rb') as f:
+                data = tomllib.load(f)
+            return 'packages' in data
         except Exception:
             return False
 
     def _check_inclusions_recursively(self):
         for filename in self.filenames:
-            if not filename.endswith('pyproject.toml'):
+            if not filename.endswith('pyproject.toml') and os.path.basename(filename) != 'Pipfile':
                 self._detect_inclusion(filename)
 
     def _detect_inclusion(self, filename):

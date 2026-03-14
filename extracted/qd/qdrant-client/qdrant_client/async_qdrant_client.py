@@ -77,6 +77,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         local_inference_batch_size: inference batch size used by fastembed when using local inference with `models.Document` and other models.
         pool_size: connection pool size, Default: None. Default value for gRPC connection pool is 3, rest default is
             inherited from `httpx` (default: 100)
+        headers: Custom headers to send with every request.
         **kwargs: Additional arguments passed directly into REST client initialization
     """
 
@@ -100,6 +101,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         local_inference_batch_size: int | None = None,
         check_compatibility: bool = True,
         pool_size: int | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ):
         self._init_options = {
@@ -113,7 +115,6 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
                 "Only one of <location>, <url>, <host> or <path> should be specified."
             )
         self._client: AsyncQdrantBase
-        server_version = None
         if location == ":memory:":
             self._client = AsyncQdrantLocal(
                 location=location, force_disable_check_same_thread=force_disable_check_same_thread
@@ -139,9 +140,9 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
                 auth_token_provider=auth_token_provider,
                 check_compatibility=check_compatibility,
                 pool_size=pool_size,
+                headers=headers,
                 **kwargs,
             )
-            server_version = self._client.server_version
         if isinstance(self._client, AsyncQdrantLocal) and cloud_inference:
             raise ValueError(
                 "Cloud inference is not supported for local Qdrant, consider using FastEmbed or switch to Qdrant Cloud"
@@ -152,7 +153,6 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         super().__init__(
             parser=self._inference_inspector.parser,
             is_local_mode=isinstance(self._client, AsyncQdrantLocal),
-            server_version=server_version,
         )
 
     async def close(self, grpc_grace: float | None = None, **kwargs: Any) -> None:

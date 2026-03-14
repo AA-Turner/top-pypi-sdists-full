@@ -69,7 +69,7 @@ dev = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 include = [".cargo/*", ".sqlx/*"]
-manifest-path = "clients/python/Cargo.toml"
+manifest-path = "tensorzero-python/Cargo.toml"
 
 [tool.uv]
 constraint-dependencies = ["urllib3>=2.6.0"]

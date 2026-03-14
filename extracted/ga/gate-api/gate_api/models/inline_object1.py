@@ -33,113 +33,78 @@ class InlineObject1(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'asset': 'str',
-        'change': 'str',
-        'type': 'str'
+        'price': 'str',
+        'size': 'int'
     }
 
     attribute_map = {
-        'asset': 'asset',
-        'change': 'change',
-        'type': 'type'
+        'price': 'price',
+        'size': 'size'
     }
 
-    def __init__(self, asset=None, change=None, type=None, local_vars_configuration=None):  # noqa: E501
-        # type: (str, str, str, Configuration) -> None
+    def __init__(self, price=None, size=None, local_vars_configuration=None):  # noqa: E501
+        # type: (str, int, Configuration) -> None
         """InlineObject1 - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._asset = None
-        self._change = None
-        self._type = None
+        self._price = None
+        self._size = None
         self.discriminator = None
 
-        self.asset = asset
-        self.change = change
-        self.type = type
+        self.price = price
+        self.size = size
 
     @property
-    def asset(self):
-        """Gets the asset of this InlineObject1.  # noqa: E501
+    def price(self):
+        """Gets the price of this InlineObject1.  # noqa: E501
 
-        Asset type, e.g., USDT, currently only USDT is supported  # noqa: E501
+        Order Price  # noqa: E501
 
-        :return: The asset of this InlineObject1.  # noqa: E501
+        :return: The price of this InlineObject1.  # noqa: E501
         :rtype: str
         """
-        return self._asset
+        return self._price
 
-    @asset.setter
-    def asset(self, asset):
-        """Sets the asset of this InlineObject1.
+    @price.setter
+    def price(self, price):
+        """Sets the price of this InlineObject1.
 
-        Asset type, e.g., USDT, currently only USDT is supported  # noqa: E501
+        Order Price  # noqa: E501
 
-        :param asset: The asset of this InlineObject1.  # noqa: E501
+        :param price: The price of this InlineObject1.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and asset is None:  # noqa: E501
-            raise ValueError("Invalid value for `asset`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and price is None:  # noqa: E501
+            raise ValueError("Invalid value for `price`, must not be `None`")  # noqa: E501
 
-        self._asset = asset
+        self._price = price
 
     @property
-    def change(self):
-        """Gets the change of this InlineObject1.  # noqa: E501
+    def size(self):
+        """Gets the size of this InlineObject1.  # noqa: E501
 
-        Change Quantity, supports up to two decimal places  # noqa: E501
+        Trade amount  # noqa: E501
 
-        :return: The change of this InlineObject1.  # noqa: E501
-        :rtype: str
+        :return: The size of this InlineObject1.  # noqa: E501
+        :rtype: int
         """
-        return self._change
+        return self._size
 
-    @change.setter
-    def change(self, change):
-        """Sets the change of this InlineObject1.
+    @size.setter
+    def size(self, size):
+        """Sets the size of this InlineObject1.
 
-        Change Quantity, supports up to two decimal places  # noqa: E501
+        Trade amount  # noqa: E501
 
-        :param change: The change of this InlineObject1.  # noqa: E501
-        :type: str
+        :param size: The size of this InlineObject1.  # noqa: E501
+        :type: int
         """
-        if self.local_vars_configuration.client_side_validation and change is None:  # noqa: E501
-            raise ValueError("Invalid value for `change`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and size is None:  # noqa: E501
+            raise ValueError("Invalid value for `size`, must not be `None`")  # noqa: E501
 
-        self._change = change
-
-    @property
-    def type(self):
-        """Gets the type of this InlineObject1.  # noqa: E501
-
-        Transaction Type (deposit - transfer in, withdraw - transfer out)  # noqa: E501
-
-        :return: The type of this InlineObject1.  # noqa: E501
-        :rtype: str
-        """
-        return self._type
-
-    @type.setter
-    def type(self, type):
-        """Sets the type of this InlineObject1.
-
-        Transaction Type (deposit - transfer in, withdraw - transfer out)  # noqa: E501
-
-        :param type: The type of this InlineObject1.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
-            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
-        allowed_values = ["deposit", "withdraw"]  # noqa: E501
-        if self.local_vars_configuration.client_side_validation and type not in allowed_values:  # noqa: E501
-            raise ValueError(
-                "Invalid value for `type` ({0}), must be one of {1}"  # noqa: E501
-                .format(type, allowed_values)
-            )
-
-        self._type = type
+        self._size = size
 
     def to_dict(self):
         """Returns the model properties as a dict"""

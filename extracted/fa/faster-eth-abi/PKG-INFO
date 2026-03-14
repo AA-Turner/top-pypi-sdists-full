@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faster_eth_abi
-Version: 5.2.25
+Version: 5.2.26
 Summary: A ~2-6x faster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/faster-eth-abi
 Author: The Ethereum Foundation
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 Requires-Dist: cchecksum<0.5,>=0.3.9
-Requires-Dist: faster-eth-utils==5.3.24
+Requires-Dist: faster-eth-utils==5.3.25
 Requires-Dist: eth-abi==5.2.0
 Requires-Dist: eth-typing==5.2.1
 Requires-Dist: mypy_extensions
@@ -72,11 +72,11 @@ Provides-Extra: tools
 Requires-Dist: hypothesis<6.108.7,>=6.22.0; extra == "tools"
 Provides-Extra: codspeed
 Requires-Dist: pytest>=7.0.0; extra == "codspeed"
-Requires-Dist: pytest-codspeed<4.3,>=4.2; extra == "codspeed"
+Requires-Dist: pytest-codspeed<4.4,>=4.3; extra == "codspeed"
 Requires-Dist: pytest-test-groups; extra == "codspeed"
 Provides-Extra: benchmark
 Requires-Dist: pytest>=7.0.0; extra == "benchmark"
-Requires-Dist: pytest-codspeed<4.3,>=4.2; extra == "benchmark"
+Requires-Dist: pytest-codspeed<4.4,>=4.3; extra == "benchmark"
 Requires-Dist: pytest-test-groups; extra == "benchmark"
 Provides-Extra: mypy
 Requires-Dist: mypy==1.19.1; extra == "mypy"

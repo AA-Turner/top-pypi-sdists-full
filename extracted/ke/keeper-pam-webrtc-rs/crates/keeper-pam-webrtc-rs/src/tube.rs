@@ -12,6 +12,7 @@ use crate::webrtc_core::{create_data_channel, WebRTCPeerConnection};
 use crate::webrtc_data_channel::WebRTCDataChannel;
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwap;
+use guacr_handlers::video::VideoOutput;
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -69,6 +70,11 @@ pub struct Tube {
 
     // Protocol handler registry (for built-in guacr handlers)
     pub(crate) handler_registry: Option<Arc<guacr_handlers::ProtocolHandlerRegistry>>,
+
+    // H.264 video output for GuacamoleWithVideo sessions.
+    // Wrapped in RwLock because it is set after Tube::new() (once create_peer_connection
+    // returns the RTCRtpSender) and then read by every subsequent channel setup.
+    pub(crate) video_output: Arc<TokioRwLock<Option<Arc<dyn VideoOutput>>>>,
 
     // ============================================================================
     // RAII PATTERN: Lifecycle-bound resources owned by Tube
@@ -161,6 +167,7 @@ impl Tube {
             original_conversation_id: original_conversation_id.clone(),
             client_version: Arc::new(TokioRwLock::new(None)),
             handler_registry,
+            video_output: Arc::new(TokioRwLock::new(None)),
 
             // RAII resources (owned by Tube):
             signal_sender,
@@ -194,6 +201,7 @@ impl Tube {
         client_version: &str,
         protocol_settings: HashMap<String, serde_json::Value>,
         signal_sender: UnboundedSender<SignalMessage>,
+        enable_video: bool,
     ) -> Result<()> {
         debug!(
             "[TUBE_DEBUG] Tube {}: create_peer_connection called. trickle_ice: {}, turn_only: {}",
@@ -223,6 +231,7 @@ impl Tube {
             self.original_conversation_id.clone(), // Pass original conversation_id for WebRTC signals
             Some(ksm_config.clone()),              // For TURN credential refresh
             client_version.to_string(),            // For API calls
+            enable_video,
         )
         .await
         .map_err(|e| anyhow!("{}", e))?;
@@ -570,6 +579,7 @@ impl Tube {
                     python_handler_tx, // For PythonHandler protocol mode
                     tube.handler_registry.clone(),
                     Arc::clone(&tube.spawned_task_completion_tx), // For handler task tracking
+                    tube.get_video_output().await, // None unless GuacamoleWithVideo
                 ).await;
 
                 let mut owned_channel = match channel_result {
@@ -794,6 +804,12 @@ impl Tube {
             // This ensures the callback completes immediately and doesn't depend on WebRTC polling
             Box::pin(async {})
         }));
+
+        // If a video track was registered, construct the VideoSender now (before connection_arc
+        // is moved into the ArcSwap) and store it on the tube for channel setup to use.
+        if let Some(video_output) = connection_arc.make_video_output() {
+            self.set_video_output(video_output).await;
+        }
 
         // Store connection atomically (lock-free, instant, can't deadlock)
         self.peer_connection.store(Arc::new(Some(connection_arc)));
@@ -1217,6 +1233,7 @@ impl Tube {
             python_handler_tx,
             self.handler_registry.clone(),
             Arc::clone(&self.spawned_task_completion_tx), // For handler task tracking
+            self.get_video_output().await,                // None unless GuacamoleWithVideo
         )
         .await;
 
@@ -2343,6 +2360,22 @@ impl Tube {
         );
 
         Ok(())
+    }
+
+    // =============================================================================
+    // VIDEO OUTPUT METHODS
+    // =============================================================================
+
+    /// Store the video output handle after create_peer_connection() returns the RTCRtpSender.
+    pub(crate) async fn set_video_output(&self, output: Arc<dyn VideoOutput>) {
+        let mut guard = self.video_output.write().await;
+        *guard = Some(output);
+        debug!("Video output set for tube {}", self.id);
+    }
+
+    /// Get a clone of the video output handle, if any.
+    pub(crate) async fn get_video_output(&self) -> Option<Arc<dyn VideoOutput>> {
+        self.video_output.read().await.clone()
     }
 
     // =============================================================================

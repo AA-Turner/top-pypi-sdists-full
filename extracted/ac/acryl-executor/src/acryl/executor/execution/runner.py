@@ -10,6 +10,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional, Union
@@ -19,6 +20,8 @@ import anyio
 import anyio.abc
 import anyio.streams.text
 import pydantic
+import urllib3
+import urllib3.exceptions
 from loguru import logger
 
 from acryl.executor.cloud_utils.env_utils import (
@@ -38,6 +41,97 @@ VENV_VERSION_NATIVE = "native"
 VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
 
 BUNDLED_VENV_PATH_ENV = "DATAHUB_BUNDLED_VENV_PATH"
+
+_CONSTRAINTS_CACHE_DIR = pathlib.Path("/tmp/datahub/ingest/constraints")
+_GITHUB_CONSTRAINTS_URL = "https://raw.githubusercontent.com/acryldata/datahub/v{version}/metadata-ingestion/constraints.txt"
+_PYPI_ACRYL_DATAHUB_VERSION_URL = "https://pypi.org/pypi/acryl-datahub/json"
+_FETCH_TIMEOUT_SECONDS = 10
+
+
+@functools.cache
+def _get_http() -> urllib3.PoolManager:
+    return urllib3.PoolManager(
+        retries=urllib3.Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        ),
+        timeout=urllib3.Timeout(total=_FETCH_TIMEOUT_SECONDS),
+    )
+
+
+def _resolve_latest_version() -> Optional[str]:
+    """Query PyPI for the latest acryl-datahub version."""
+    try:
+        resp = _get_http().request("GET", _PYPI_ACRYL_DATAHUB_VERSION_URL)
+        if resp.status != 200:
+            logger.warning(
+                f"PyPI returned {resp.status} for {_PYPI_ACRYL_DATAHUB_VERSION_URL}"
+            )
+            return None
+        data = json.loads(resp.data)
+        return data["info"]["version"]
+    except (urllib3.exceptions.HTTPError, json.JSONDecodeError, KeyError) as e:
+        logger.warning(
+            f"Failed to resolve latest version from PyPI: {type(e).__name__}: {e}"
+        )
+        return None
+    except Exception as e:
+        logger.warning(
+            f"Unexpected error resolving latest version: {type(e).__name__}: {e}"
+        )
+        return None
+
+
+def _fetch_constraints_for_version(version: str) -> Optional[pathlib.Path]:
+    """Fetch version-matched constraints.txt from GitHub, with local caching."""
+    if version.startswith(("http://", "https://")):
+        return None
+    version = version.removeprefix("v")
+    if not version:
+        return None
+
+    cache_dir = _CONSTRAINTS_CACHE_DIR / f"v{version}"
+    cached_file = cache_dir / "constraints.txt"
+    if cached_file.exists():
+        logger.info(f"Using cached constraints for v{version}: {cached_file}")
+        return cached_file
+
+    url = _GITHUB_CONSTRAINTS_URL.format(version=version)
+    try:
+        resp = _get_http().request("GET", url)
+        if resp.status != 200:
+            logger.warning(
+                f"No constraints found for v{version} (HTTP {resp.status}). "
+                "This is expected for versions released before constraints.txt was added."
+            )
+            return None
+        cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Atomic write: temp file + rename to avoid partial reads from concurrent processes.
+        fd, tmp = tempfile.mkstemp(dir=str(cache_dir))
+        try:
+            os.write(fd, resp.data)
+        finally:
+            os.close(fd)
+        try:
+            os.rename(tmp, str(cached_file))
+        except OSError:
+            pathlib.Path(tmp).unlink(missing_ok=True)
+            raise
+        logger.info(
+            f"Fetched constraints for v{version} from GitHub ({len(resp.data)} bytes)"
+        )
+        return cached_file
+    except (urllib3.exceptions.HTTPError, OSError) as e:
+        logger.warning(
+            f"Failed to fetch constraints for v{version}: {type(e).__name__}: {e}"
+        )
+        return None
+    except Exception as e:
+        logger.warning(
+            f"Unexpected error fetching constraints for v{version}: {type(e).__name__}: {e}"
+        )
+        return None
 
 
 # This code was copied from DataHub Cloud repository and is to supercede it: datahub-integrations-service/src/datahub_integrations/dispatch/runner.py
@@ -481,24 +575,32 @@ async def setup_venv(
     }
 
     install_cmd = [_find_uv(), "pip", "install", "-r", str(requirements_file)]
-    constraints_path_str = os.environ.get("UV_CONSTRAINT", "")
-    if constraints_path_str and pathlib.Path(constraints_path_str).exists():
-        install_cmd.extend(["--constraint", constraints_path_str])
+
+    version = venv_config.version
+    constraints_path: Optional[pathlib.Path] = None
+    if version == VENV_VERSION_LATEST:
+        resolved = _resolve_latest_version()
+        if resolved:
+            logger.info(f"Resolved 'latest' to v{resolved}")
+            constraints_path = _fetch_constraints_for_version(resolved)
+    else:
+        constraints_path = _fetch_constraints_for_version(version)
+
+    if constraints_path:
+        install_cmd.extend(["--constraint", str(constraints_path)])
 
     runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
     await runner.execute(install_cmd, env=venv_env)
 
     # Pass 2: Install extra_pip_requirements without constraints.
-    # Unset UV_CONSTRAINT so customer versions can override pinned deps.
     if venv_config.requirements_file is None and venv_config.extra_pip_requirements:
         extra_req_file = venv_loc / "extra-requirements.txt"
         extra_req_file.write_text("\n".join(venv_config.extra_pip_requirements))
         runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
         await runner.execute(["cat", str(extra_req_file)])
-        unconstrained_env = {k: v for k, v in venv_env.items() if k != "UV_CONSTRAINT"}
         await runner.execute(
             [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
-            env=unconstrained_env,
+            env=venv_env,
         )
 
     return venv_reference

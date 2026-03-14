@@ -160,7 +160,7 @@ class PKConsoleTools:
         communityInfo = "[📢] Join Community Discussions: https://github.com/pkjmesra/PKScreener/discussions"
         latestInfo = "[⏰] Download latest software from https://github.com/pkjmesra/PKScreener/releases/latest"
         freeInfo = "[💰] PKScreener had and still has been free for a long time"
-        if is_subscription_enabled:
+        if not is_subscription_enabled:
             donationInfo = ".Consider donating to help cover the basic server and maintenance costs"
             "\n[💸] Please donate whatever you can: PKScreener@APL using "
             "UPI(India) or https://github.com/sponsors/pkjmesra 🙏🏻"

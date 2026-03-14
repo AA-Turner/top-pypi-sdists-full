@@ -1,7 +1,7 @@
 // guacr-database: Database protocol handlers for MySQL, PostgreSQL, SQL Server, Oracle, MongoDB, Redis, Elasticsearch, and Cassandra
 //
 // Provides SQL/NoSQL terminal access via WebRTC for database administration.
-// All handlers use the shared DatabaseTerminal from guacr-terminal for consistent UI.
+// All handlers use the shared QueryExecutor with ratatui-based rendering.
 
 mod cassandra;
 mod csv_export;
@@ -16,10 +16,12 @@ mod odbc;
 mod oracle;
 mod postgresql;
 mod query_executor;
+mod ratatui_db_ui;
 mod recording;
 mod redis;
 mod security;
 mod sqlserver;
+mod threat;
 
 pub use cassandra::CassandraHandler;
 pub use csv_export::{generate_csv_filename, CsvExporter};
@@ -33,6 +35,7 @@ pub use odbc::OdbcHandler;
 pub use oracle::OracleHandler;
 pub use postgresql::PostgreSqlHandler;
 pub use query_executor::{QueryExecutor, QueryResultData};
+pub use ratatui_db_ui::DatabaseRatatuiApp;
 pub use redis::RedisHandler;
 pub use security::{
     check_csv_export_allowed, check_csv_import_allowed, check_query_allowed, classify_query,
@@ -41,7 +44,7 @@ pub use security::{
 pub use sqlserver::SqlServerHandler;
 
 // Re-export shared types from guacr-terminal
-pub use guacr_terminal::{DatabaseTerminal, QueryResult, SpreadsheetRenderer};
+pub use guacr_terminal::QueryResult;
 
 use thiserror::Error;
 

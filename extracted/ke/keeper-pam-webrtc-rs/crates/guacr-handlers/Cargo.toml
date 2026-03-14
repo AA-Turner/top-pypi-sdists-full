@@ -33,6 +33,9 @@ guacr-terminal = { path = "../guacr-terminal" }
 # Stream trait for resource browser watch API
 futures-core = "0.3"
 
+# Ratatui for ResourceBrowserGrid (replaces SpreadsheetRenderer)
+ratatui = { version = "0.29", default-features = false }
+
 # Additional dependencies
 parking_lot = "0.12"
 chrono = "0.4"

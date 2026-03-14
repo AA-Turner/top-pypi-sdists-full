@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervertaler
-Version: 1.9.352
+Version: 1.9.355
 Summary: Professional AI-enhanced translation workbench with multi-LLM support, glossary system, TM, spellcheck, voice commands, and PyQt6 interface. Batteries included (core).
 Home-page: https://supervertaler.com
 Author: Michael Beijer
@@ -8,10 +8,10 @@ Author-email: Michael Beijer <info@michaelbeijer.co.uk>
 Maintainer-email: Michael Beijer <info@michaelbeijer.co.uk>
 License-Expression: MIT
 Project-URL: Homepage, https://supervertaler.com
-Project-URL: Repository, https://github.com/michaelbeijer/Supervertaler.git
-Project-URL: Bug Tracker, https://github.com/michaelbeijer/Supervertaler/issues
-Project-URL: Changelog, https://github.com/michaelbeijer/Supervertaler/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://github.com/michaelbeijer/Supervertaler/blob/main/AGENTS.md
+Project-URL: Repository, https://github.com/Supervertaler/Supervertaler-Workbench.git
+Project-URL: Bug Tracker, https://github.com/Supervertaler/Supervertaler-Workbench/issues
+Project-URL: Changelog, https://github.com/Supervertaler/Supervertaler-Workbench/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://github.com/Supervertaler/Supervertaler-Workbench/blob/main/AGENTS.md
 Project-URL: Author Website, https://michaelbeijer.co.uk
 Keywords: translation,CAT,CAT-tool,AI,LLM,GPT,Claude,Gemini,Ollama,glossary,termbase,translation-memory,TM,PyQt6,localization,memoQ,Trados,SDLPPX,XLIFF,voice-commands,spellcheck
 Classifier: Development Status :: 4 - Beta
@@ -72,7 +72,7 @@ Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-python
 
-# Supervertaler
+# Supervertaler Workbench
 
 [![PyPI version](https://badge.fury.io/py/supervertaler.svg)](https://pypi.org/project/Supervertaler/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -80,7 +80,7 @@ Dynamic: requires-python
 
 **Professional AI-enhanced translation workbench** with multi-LLM support (GPT-4, Claude, Gemini, Ollama), translation memory, glossary management, and seamless CAT tool integration (memoQ, Trados, CafeTran, Phrase, Déjà Vu).
 
-**Latest release:** v1.9.348 - Fixed AI prompt generation failure (delimiter-based output) and chat line break rendering.
+**Latest release:** v1.9.354 - Auto-confirm 100% TM matches during batch pre-translation.
 
 ---
 
@@ -94,7 +94,7 @@ supervertaler
 Or run from source:
 
 ```bash
-git clone https://github.com/michaelbeijer/Supervertaler.git
+git clone https://github.com/Supervertaler/Supervertaler-Workbench.git
 cd Supervertaler
 pip install -r requirements.txt
 python Supervertaler.py
@@ -127,7 +127,7 @@ macOS will block the app on first launch because it is not signed with an Apple 
 
 | Resource | Description |
 |----------|-------------|
-| [Online Manual](https://supervertaler.gitbook.io/superdocs/) | Quick start, guides, and troubleshooting |
+| [Online Manual](https://supervertaler.gitbook.io/help/) | Quick start, guides, and troubleshooting |
 | [Changelog](CHANGELOG.md) | Complete version history |
 | [Keyboard Shortcuts](docs/guides/KEYBOARD_SHORTCUTS.md) | Shortcut reference |
 | [FAQ](FAQ.md) | Common questions |
@@ -146,8 +146,8 @@ macOS will block the app on first launch because it is not signed with an Apple 
 
 ## Contributing
 
-- [Report bugs](https://github.com/michaelbeijer/Supervertaler/issues)
-- [Request features](https://github.com/michaelbeijer/Supervertaler/discussions)
+- [Report bugs](https://github.com/Supervertaler/Supervertaler-Workbench/issues)
+- [Request features](https://github.com/Supervertaler/Supervertaler-Workbench/discussions)
 - [Contributing guide](CONTRIBUTING.md)
 
 ---
@@ -156,7 +156,7 @@ macOS will block the app on first launch because it is not signed with an Apple 
 
 **Supervertaler** is maintained by [Michael Beijer](https://michaelbeijer.co.uk), a professional translator with 30 years of experience in technical and patent translation.
 
-- [Stargazers](https://github.com/michaelbeijer/Supervertaler/stargazers) - See who's starred the project
+- [Stargazers](https://github.com/Supervertaler/Supervertaler-Workbench/stargazers) - See who's starred the project
 - [Gitstalk](https://gitstalk.netlify.app/michaelbeijer) - See what I'm up to on GitHub
 
 **License:** MIT - Free for personal and commercial use.

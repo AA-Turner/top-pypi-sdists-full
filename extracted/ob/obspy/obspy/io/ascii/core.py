@@ -37,8 +37,7 @@ import numpy as np
 
 from obspy import Stream, Trace, UTCDateTime
 from obspy.core import Stats
-from obspy.core.util import AttribDict
-
+from obspy.core.util import AttribDict, open_text_stream
 
 HEADER = ("TIMESERIES {network}_{station}_{location}_{channel}_{dataquality}, "
           "{npts:d} samples, {sampling_rate} sps, {starttime!s:.26s}, "
@@ -72,7 +71,7 @@ def _is_slist(filename):
     True
     """
     try:
-        with open(filename, 'rt') as f:
+        with open_text_stream(filename, encoding='ascii') as f:
             temp = f.readline()
     except Exception:
         return False
@@ -98,7 +97,7 @@ def _is_tspair(filename):
     True
     """
     try:
-        with open(filename, 'rt') as f:
+        with open_text_stream(filename, encoding='ascii') as f:
             temp = f.readline()
     except Exception:
         return False
@@ -130,7 +129,7 @@ def _read_slist(filename, headonly=False, **kwargs):  # @UnusedVariable
     >>> from obspy import read
     >>> st = read('/path/to/slist.ascii')
     """
-    with open(filename, 'rt') as fh:
+    with open_text_stream(filename, encoding='ascii') as fh:
         # read file and split text into channels
         buf = []
         key = False
@@ -198,11 +197,12 @@ def _read_tspair(filename, headonly=False, **kwargs):  # @UnusedVariable
     >>> from obspy import read
     >>> st = read('/path/to/tspair.ascii')
     """
-    with open(filename, 'rt') as fh:
+    with open_text_stream(filename, encoding='ascii') as fh:
         # read file and split text into channels
         buf = []
         key = False
         for line in fh:
+            line = line
             if line.isspace():
                 # blank line
                 continue
@@ -488,27 +488,47 @@ def _determine_dtype(custom_fmt):
 
 def _parse_data(data, data_type):
     """
-    Simple function to read data contained in a StringIO object to a NumPy
-    array.
+    Reads data from a StringIO object and parses it into a NumPy array with the
+    specified data type. Only pre-defined data types are allowed.
 
     :type data: io.StringIO
     :param data: The actual data.
     :type data_type: str
-    :param data_type: The data type of the expected data. Currently supported
-        are 'INTEGER' and 'FLOAT'.
+    :param data_type: The data type to parse. Allowed values:
+                      'INTEGER', 'INT8', 'INT16', 'INT32', 'INT64',
+                      'FLOAT', 'FLOAT16', 'FLOAT32', 'FLOAT64'.
+    :raises NotImplementedError: If the provided data_type is not valid.
     """
-    if data_type == "INTEGER":
-        dtype = np.int_
-    elif data_type == "FLOAT":
-        dtype = np.float64
-    else:
-        raise NotImplementedError
-    # Seek to the beginning of the StringIO.
+    # Define allowed data types and their corresponding NumPy dtypes
+    dtype_map = {
+        "INTEGER": int,
+        "INT8": np.int8,
+        "INT16": np.int16,
+        "INT32": np.int32,
+        "INT64": np.int64,
+        "FLOAT": float,
+        "FLOAT16": np.float16,
+        "FLOAT32": np.float32,
+        "FLOAT64": np.float64,
+    }
+
+    # Raise an error if the data_type is not valid
+    if data_type.upper() not in dtype_map:
+        allowed_types = ", ".join(f'"{key}"' for key in dtype_map)
+        raise NotImplementedError(f"Unsupported data_type: {data_type}. "
+                                  f"Allowed values are: {allowed_types}.")
+
+    # Get the matching NumPy dtype
+    dtype = dtype_map[data_type.upper()]
+
+    # Seek to the beginning of the StringIO object
     data.seek(0)
-    # Data will always be a StringIO. Avoid to send empty StringIOs to
-    # numpy.readtxt() which raises a warning.
+
+    # Handle empty data streams gracefully
     if len(data.read(1)) == 0:
         return np.array([], dtype=dtype)
+
+    # Reset to the start and load the data
     data.seek(0)
     return np.loadtxt(data, dtype=dtype, ndmin=1)
 

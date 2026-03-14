@@ -1,30 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: svix-ksuid
-Version: 0.6.2
-Summary:  A pure-Python KSUID implementation
-Home-page: https://github.com/svixhq/python-ksuid/
-Author: Svix
-Author-email: development@svix.com
-License: MIT
-Keywords: svix,ksuid
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Information Technology
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python
-Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development
-Classifier: Typing :: Typed
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Requires-Python: >=3.6
-Description-Content-Type: text/markdown
+Version: 0.7.0
+Summary: A pure-Python KSUID implementation
+Project-URL: Repository, https://github.com/svix/python-ksuid/
+Project-URL: Issues, https://github.com/svix/python-ksuid/issues
+Project-URL: Changelog, https://github.com/svix/python-ksuid/blob/main/ChangeLog.md
+Author-email: Svix <development@svix.com>
+License-Expression: MIT
 License-File: LICENSE
+Keywords: ksuid,svix
+Requires-Python: >=3.10
+Requires-Dist: python-baseconv
+Description-Content-Type: text/markdown
 
 <h1 align="center">
   <a href="https://www.svix.com">
@@ -42,14 +29,14 @@ License-File: LICENSE
 [![Join our slack](https://img.shields.io/badge/Slack-join%20the%20community-blue?logo=slack&style=social)](https://www.svix.com/slack/)
 
 This library is inspired by [Segment's KSUID](https://segment.com/blog/a-brief-history-of-the-uuid/) implementation:
-https://github.com/segmentio/ksuid
+<https://github.com/segmentio/ksuid>
 
-For the Rust version, please check out https://github.com/svix/rust-ksuid
+For the Rust version, please check out <https://github.com/svix/rust-ksuid>
 
 ## What is a ksuid?
 
-A ksuid is a K sorted UID. In other words, a KSUID also stores a date component, so that ksuids can be approximately 
-sorted based on the time they were created. 
+A ksuid is a K sorted UID. In other words, a KSUID also stores a date component, so that ksuids can be approximately
+sorted based on the time they were created.
 
 Read more [here](https://segment.com/blog/a-brief-history-of-the-uuid/).
 
@@ -208,3 +195,12 @@ Out[8]: False
 ### License
 
 ksuid source code is available under an MIT [License](./LICENSE).
+
+### Development
+
+This application uses [`uv`](https://docs.astral.sh/uv/) for virtualenv management by default.
+
+ - To lint, use `uv run scripts/lint.sh`
+ - To run tests, use `uv run pytest`
+
+This repository also has pre-commit hooks set up using [`prek`](https://prek.j178.dev/). They will be checked in CI, but if you'd like to run them locally you can use the `prek` tool.

@@ -38,6 +38,7 @@ _table.add_column(style="bold cyan", no_wrap=True)
 _table.add_column()
 _table.add_row("Usage", "from geocif import yield_outlook; yield_outlook.run(cfg)")
 _table.add_row("cfg", "\\[geobase.txt, countries.txt, crops.txt, geocif.txt]")
+_table.add_row("reuse_db", "yield_outlook.run(cfg, reuse_db='/path/to/outlook_MM_DD_YYYY.db')")
 _console.print(
     Panel(
         _table,
@@ -140,21 +141,44 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
         df = pd.DataFrame()
     finally:
         con.close()
+    if not df.empty:
+        if "Harvest Year" in df.columns:
+            df["Harvest Year"] = df["Harvest Year"].astype(int)
+        if "Predicted Yield (tn per ha)" in df.columns:
+            df["Predicted Yield (tn per ha)"] = pd.to_numeric(
+                df["Predicted Yield (tn per ha)"], errors="coerce"
+            )
     return df
 
 
-def _compute_outlook_index(df, current_year, n_years, aggregation, stage_name):
+def _compute_outlook_index(df, current_year, n_years, aggregation,
+                           use_latest_stage=True, stage_name=None):
     """Compute yield outlook index per region.
+
+    Args:
+        use_latest_stage: If True (default), use the latest stage per
+            (Country, Region, Harvest Year) so stage name mismatches
+            between current and historical years don't matter.
+            If False, filter by exact stage_name.
 
     outlook_index = (current_predicted / agg(historical_predicted)) * 100
 
     Returns DataFrame with columns: Country, Region, Country Region,
     current_predicted, hist_predicted, outlook_index.
     """
-    df_stage = df[df["Stage Name"] == stage_name].copy()
+    if use_latest_stage:
+        # For each region+year, keep only the latest (last) stage prediction
+        df_work = (
+            df.sort_values("Stage Name")
+            .groupby(["Country", "Region", "Harvest Year"])
+            .last()
+            .reset_index()
+        )
+    else:
+        df_work = df[df["Stage Name"] == stage_name].copy()
 
     # Current year predictions per region
-    df_current = df_stage[df_stage["Harvest Year"] == current_year]
+    df_current = df_work[df_work["Harvest Year"] == current_year]
     current_pred = (
         df_current.groupby(["Country", "Region"])["Predicted Yield (tn per ha)"]
         .mean()
@@ -163,9 +187,9 @@ def _compute_outlook_index(df, current_year, n_years, aggregation, stage_name):
 
     # Historical years per region
     min_year = current_year - n_years
-    df_hist = df_stage[
-        (df_stage["Harvest Year"] < current_year)
-        & (df_stage["Harvest Year"] >= min_year)
+    df_hist = df_work[
+        (df_work["Harvest Year"] < current_year)
+        & (df_work["Harvest Year"] >= min_year)
     ]
     agg_func = "median" if aggregation == "median" else "mean"
     hist_agg = (
@@ -178,7 +202,8 @@ def _compute_outlook_index(df, current_year, n_years, aggregation, stage_name):
     df_outlook = pd.concat([current_pred, hist_agg], axis=1).dropna()
     df_outlook["outlook_index"] = np.where(
         df_outlook["hist_predicted"] != 0,
-        df_outlook["current_predicted"] / df_outlook["hist_predicted"] * 100,
+        (df_outlook["current_predicted"] - df_outlook["hist_predicted"])
+        / df_outlook["hist_predicted"] * 100,
         np.nan,
     )
     df_outlook = df_outlook.reset_index()
@@ -209,9 +234,9 @@ def _generate_outlook_map(
     """Generate a diverging choropleth map of the yield outlook index."""
     col = "outlook_index"
 
-    # Fixed range: 60-140 (i.e. -40% to +40% departure)
-    vmin = 60
-    vmax = 140
+    # Fixed range: -40% to +40% departure (matching analysis.py anomaly maps)
+    vmin = -40
+    vmax = 40
 
     # Determine extend arrows based on actual data range
     data_min = df_outlook[col].min()
@@ -227,7 +252,10 @@ def _generate_outlook_map(
 
     countries_display = [c.title().replace("_", " ") for c in countries]
     stage_suffix = f"_{stage_name}" if stage_name else ""
-    fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}.png"
+    if len(countries) > 1:
+        fname = f"yield_outlook_{len(countries)}_countries_{crop}_{model}{stage_suffix}_{current_year}.png"
+    else:
+        fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}.png"
 
     stage_label = f", stage {stage_name}" if stage_name else ""
     plot.plot_map(
@@ -238,7 +266,7 @@ def _generate_outlook_map(
         name_col=col,
         dir_out=dir_out,
         fname=fname,
-        label=f"% of {n_years}-yr {aggregation}\npredicted yield ({crop.title()}, {current_year}{stage_label})",
+        label=f"% departure from {n_years}-yr {aggregation}\n{crop.title()}, {current_year}{stage_label}",
         vmin=vmin,
         vmax=vmax,
         cmap=pal.colorbrewer.diverging.BrBG_11,
@@ -249,7 +277,8 @@ def _generate_outlook_map(
     )
 
 
-def run(path_config_files=None, current_year=None, n_years=None, aggregation=None):
+def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
+        reuse_db=None, use_latest_stage=True):
     """Main entry point for yield outlook map generation.
 
     1. Override forecast_seasons to cover [current_year - n_years, ..., current_year]
@@ -263,6 +292,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         current_year: Forecast year (default: this year).
         n_years: Number of historical years for comparison (default: config or 10).
         aggregation: 'mean' or 'median' (default: config or 'mean').
+        reuse_db: Path to existing outlook DB to skip ML and regenerate maps only.
+        use_latest_stage: If True (default), use latest available stage per
+            region+year. Handles mismatched stage names across years/countries.
     """
     if path_config_files is None:
         path_config_files = [Path("../config/geocif.txt")]
@@ -280,44 +312,53 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
 
-    # ---- Step 1: Run ML pipeline for all needed years ----
-    outlook_seasons = list(range(current_year - n_years, current_year + 1))
-    originals = {}
-    for country in countries:
-        originals[country] = parser.get(country, "forecast_seasons")
-        parser.set(country, "forecast_seasons", str(outlook_seasons))
+    if reuse_db is not None:
+        # ---- Skip ML, reuse existing DB ----
+        reuse_path = Path(reuse_db)
+        if not reuse_path.exists():
+            logger.error("Reuse DB not found: %s", reuse_path)
+            return
+        outlook_db = reuse_path.name
+        logger.info("Reusing existing outlook DB: %s", reuse_path)
+    else:
+        # ---- Step 1: Run ML pipeline for all needed years ----
+        outlook_seasons = list(range(current_year - n_years, current_year + 1))
+        originals = {}
+        for country in countries:
+            originals[country] = parser.get(country, "forecast_seasons")
+            parser.set(country, "forecast_seasons", str(outlook_seasons))
 
-    parser.set("DEFAULT", "experiment_name", "outlook")
-    orig_db = parser.get("DEFAULT", "db")
-    outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
-    parser.set("DEFAULT", "db", outlook_db)
-    orig_parallel = parser.get("DEFAULT", "do_parallel_ml", fallback=None)
-    parser.set("DEFAULT", "do_parallel_ml", "False")
+        parser.set("DEFAULT", "experiment_name", "outlook")
+        orig_db = parser.get("DEFAULT", "db")
+        outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
+        parser.set("DEFAULT", "db", outlook_db)
+        orig_parallel = parser.get("DEFAULT", "do_parallel_ml", fallback=None)
+        parser.set("DEFAULT", "do_parallel_ml", "False")
 
-    inputs = gc.gather_inputs(parser)
+        inputs = gc.gather_inputs(parser)
 
-    params = [
-        ("Countries", countries),
-        ("Forecast year", str(current_year)),
-        ("Lookback years", str(n_years)),
-        ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
-        ("Aggregation", aggregation),
-        ("DB", parser.get("DEFAULT", "db")),
-        ("Total combinations", str(len(inputs))),
-    ]
-    ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)
+        params = [
+            ("Countries", countries),
+            ("Forecast year", str(current_year)),
+            ("Lookback years", str(n_years)),
+            ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
+            ("Aggregation", aggregation),
+            ("DB", parser.get("DEFAULT", "db")),
+            ("Total combinations", str(len(inputs))),
+        ]
+        ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)
 
-    gc.execute_models(inputs, logger_obj, parser)
+        gc.execute_models(inputs, logger_obj, parser)
 
-    # Restore original config values
-    for country, orig in originals.items():
-        parser.set(country, "forecast_seasons", orig)
-    parser.set("DEFAULT", "experiment_name", experiment_name)
-    parser.set("DEFAULT", "db", orig_db)
-    if orig_parallel is not None:
-        parser.set("DEFAULT", "do_parallel_ml", orig_parallel)
-    elif parser.has_option("DEFAULT", "do_parallel_ml"):
-        parser.remove_option("DEFAULT", "do_parallel_ml")
+        # Restore original config values
+        for country, orig in originals.items():
+            parser.set(country, "forecast_seasons", orig)
+        parser.set("DEFAULT", "experiment_name", experiment_name)
+        parser.set("DEFAULT", "db", orig_db)
+        if orig_parallel is not None:
+            parser.set("DEFAULT", "do_parallel_ml", orig_parallel)
+        elif parser.has_option("DEFAULT", "do_parallel_ml"):
+            parser.remove_option("DEFAULT", "do_parallel_ml")
 
     # ---- Step 2: Load shapefiles ----
     dg, dict_config = _load_shapefiles(parser)
@@ -325,7 +366,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # ---- Step 3: Query DB, compute outlook, generate maps ----
     project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
     dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
-    db_path = dir_output / "ml" / "db" / outlook_db
+    if reuse_db is not None:
+        db_path = Path(reuse_db)
+    else:
+        db_path = dir_output / "ml" / "db" / outlook_db
 
     today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
     dir_outlook = dir_output / "ml" / "analysis" / today / "outlook"
@@ -359,56 +403,81 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 country, "annotate_regions", fallback=False
             )
 
-            for stage_name in df_current["Stage Name"].unique():
-                # Compute outlook index
-                df_outlook = _compute_outlook_index(
-                    df, current_year, n_years, aggregation, stage_name
+            # Compute outlook index
+            df_outlook = _compute_outlook_index(
+                df, current_year, n_years, aggregation,
+                use_latest_stage=use_latest_stage,
+            )
+            if df_outlook.empty:
+                logger.warning(
+                    "Could not compute outlook for %s %s %s",
+                    country, crop, model,
                 )
-                if df_outlook.empty:
-                    logger.warning(
-                        "Could not compute outlook for %s %s %s stage %s",
-                        country, crop, model, stage_name,
-                    )
-                    continue
+                continue
 
-                n_hist = len(
-                    df[
-                        (df["Stage Name"] == stage_name)
-                        & (df["Harvest Year"] < current_year)
-                        & (df["Harvest Year"] >= current_year - n_years)
-                    ]["Harvest Year"].unique()
-                )
-                if n_hist < 3:
-                    logger.warning(
-                        "Only %d historical years for %s %s %s stage %s (requested %d)",
-                        n_hist, country, crop, model, stage_name, n_years,
-                    )
+            # Use current year's stage name for labeling
+            stage_name = df_current["Stage Name"].iloc[-1]
 
-                df_outlook["Crop"] = crop
-                df_outlook["Model"] = model
-                df_outlook["Stage Name"] = stage_name
-                df_outlook["Forecast Year"] = current_year
-                all_outlook_frames.append(df_outlook)
+            n_hist = len(
+                df[
+                    (df["Harvest Year"] < current_year)
+                    & (df["Harvest Year"] >= current_year - n_years)
+                ]["Harvest Year"].unique()
+            )
+            if n_hist < 3:
+                logger.warning(
+                    "Only %d historical years for %s %s %s (requested %d)",
+                    n_hist, country, crop, model, n_years,
+                )
 
-                # Generate map
-                _generate_outlook_map(
-                    dg,
-                    df_outlook,
-                    [country],
-                    crop,
-                    model,
-                    current_year,
-                    n_years,
-                    aggregation,
-                    dir_outlook,
-                    stage_name=stage_name,
-                    annotate_regions=annotate,
-                )
-                logger.info(
-                    "Map saved: %s",
-                    dir_outlook
-                    / f"yield_outlook_{country}_{crop}_{model}_{stage_name}_{current_year}.png",
-                )
+            df_outlook["Crop"] = crop
+            df_outlook["Model"] = model
+            df_outlook["Stage Name"] = stage_name
+            df_outlook["Forecast Year"] = current_year
+            all_outlook_frames.append(df_outlook)
+
+            # Generate map
+            _generate_outlook_map(
+                dg,
+                df_outlook,
+                [country],
+                crop,
+                model,
+                current_year,
+                n_years,
+                aggregation,
+                dir_outlook,
+                stage_name=stage_name,
+                annotate_regions=annotate,
+            )
+            logger.info(
+                "Map saved: %s",
+                dir_outlook
+                / f"yield_outlook_{country}_{crop}_{model}_{stage_name}_{current_year}.png",
+            )
+
+    # ---- Consolidated maps (all countries on one map) ----
+    if all_outlook_frames:
+        df_all = pd.concat(all_outlook_frames, ignore_index=True)
+        for (crop, model), df_group in df_all.groupby(
+            ["Crop", "Model"]
+        ):
+            countries_with_data = df_group["Country"].unique().tolist()
+            if len(countries_with_data) <= 1:
+                continue
+            _generate_outlook_map(
+                dg,
+                df_group,
+                countries_with_data,
+                crop,
+                model,
+                current_year,
+                n_years,
+                aggregation,
+                dir_outlook,
+                stage_name="combined",
+                annotate_regions=False,
+            )
 
     # Save combined CSV
     if all_outlook_frames:

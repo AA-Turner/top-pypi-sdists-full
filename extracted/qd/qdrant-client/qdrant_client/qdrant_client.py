@@ -76,6 +76,7 @@ class QdrantClient(QdrantFastembedMixin):
         local_inference_batch_size: inference batch size used by fastembed when using local inference with `models.Document` and other models.
         pool_size: connection pool size, Default: None. Default value for gRPC connection pool is 3, rest default is
             inherited from `httpx` (default: 100)
+        headers: Custom headers to send with every request.
         **kwargs: Additional arguments passed directly into REST client initialization
     """
 
@@ -99,6 +100,7 @@ class QdrantClient(QdrantFastembedMixin):
         local_inference_batch_size: int | None = None,
         check_compatibility: bool = True,
         pool_size: int | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ):
         # Saving the init options to facilitate building AsyncQdrantClient from QdrantClient and vice versa.
@@ -116,7 +118,6 @@ class QdrantClient(QdrantFastembedMixin):
             )
         self._client: QdrantBase
 
-        server_version = None
         if location == ":memory:":
             self._client = QdrantLocal(
                 location=location,
@@ -144,9 +145,9 @@ class QdrantClient(QdrantFastembedMixin):
                 auth_token_provider=auth_token_provider,
                 check_compatibility=check_compatibility,
                 pool_size=pool_size,
+                headers=headers,
                 **kwargs,
             )
-            server_version = self._client.server_version
 
         if isinstance(self._client, QdrantLocal) and cloud_inference:
             raise ValueError(
@@ -159,7 +160,6 @@ class QdrantClient(QdrantFastembedMixin):
         super().__init__(
             parser=self._inference_inspector.parser,
             is_local_mode=isinstance(self._client, QdrantLocal),
-            server_version=server_version,
         )  # If we'd like to pass any kwargs to the parent class or ignore unexpected kwargs,
         # we will need to pop them from **kwargs and call super().__init__ before creating QdrantRemote instance.
         # Otherwise, they might be passed to QdrantRemote as httpx kwargs.

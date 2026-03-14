@@ -33,6 +33,7 @@ from tests._compat import ValidationError
 
 from .conftest import py_test_mark_sync
 
+
 if not has_redisearch():
     pytestmark = pytest.mark.skip
 
@@ -364,9 +365,7 @@ def test_numeric_queries(members, m):
     actual = m.Member.find(~(m.Member.age == 100)).sort_by("age").all()
     assert actual == [member2, member1]
 
-    actual = (
-        m.Member.find(m.Member.age > 30, m.Member.age < 40).sort_by("age").all()
-    )
+    actual = m.Member.find(m.Member.age > 30, m.Member.age < 40).sort_by("age").all()
     assert actual == [member2, member1]
 
 
@@ -1013,7 +1012,6 @@ def test_child_class_expression_proxy_with_mixin():
 
 @py_test_mark_sync
 def test_model_validate_uses_default_values():
-
     class ChildCls:
         def __init__(self, first_name: str, other_name: str):
             self.first_name = first_name
@@ -1242,9 +1240,9 @@ def test_values_type_conversion(members, m):
     # Should be dictionary with proper types
     assert isinstance(result, dict)
     assert isinstance(result["first_name"], str)
-    assert isinstance(
-        result["age"], int
-    ), f"Expected int, got {type(result['age'])} with value {result['age']}"
+    assert isinstance(result["age"], int), (
+        f"Expected int, got {type(result['age'])} with value {result['age']}"
+    )
 
 
 @py_test_mark_sync
@@ -1261,9 +1259,9 @@ def test_only_type_conversion(members, m):
 
     assert isinstance(result, PartialModel)
     assert isinstance(result.first_name, str)
-    assert isinstance(
-        result.age, int
-    ), f"Expected int, got {type(result.age)} with value {result.age}"
+    assert isinstance(result.age, int), (
+        f"Expected int, got {type(result.age)} with value {result.age}"
+    )
 
 
 @py_test_mark_sync
@@ -1305,9 +1303,7 @@ def test_boolean_fields_work_with_hash_model(key_prefix, redis):
     assert non_admin_users[0].is_admin is False
 
     # Test .values() with boolean fields
-    values_result = (
-        BoolTestModel.find().values("name", "is_active", "is_admin").all()
-    )
+    values_result = BoolTestModel.find().values("name", "is_active", "is_admin").all()
     assert len(values_result) == 1
     result = values_result[0]
     assert result["name"] == "test_user"

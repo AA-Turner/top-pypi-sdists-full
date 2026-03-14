@@ -1,14 +1,15 @@
-// Database query executor with result rendering
+// Database query executor with ratatui-based result rendering
 // Unified executor for all database handlers
 
+use crate::ratatui_db_ui::DatabaseRatatuiApp;
 use crate::{DatabaseError, Result};
 use bytes::Bytes;
 use guacr_handlers::{send_name, send_ready, CursorManager, HandlerError, StandardCursor};
 use guacr_protocol::{format_chunked_blobs, GuacamoleParser, TextProtocolEncoder};
 use guacr_terminal::{
-    DatabaseTerminal, DirtyTracker, QueryResult, TerminalInputHandler, TerminalRenderer,
+    format_clear_selection_instructions, format_clipboard_instructions, parse_mouse_instruction,
+    QueryResult, RatatuiRenderer, SelectionResult, TerminalInputHandler, TerminalRenderer,
 };
-use std::collections::VecDeque;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
@@ -19,37 +20,23 @@ pub use guacr_terminal::QueryResult as QueryResultData;
 ///
 /// Handles keyboard input processing, query buffering, and result rendering.
 /// Used by all database handlers for consistent SQL CLI experience.
+///
+/// Rendering pipeline: ratatui TestBackend (layout engine) -> fontdue pixel renderer -> JPEG
 pub struct QueryExecutor {
-    pub terminal: DatabaseTerminal,
-    input_buffer: String,
+    pub ratatui: RatatuiRenderer,
+    pub app: DatabaseRatatuiApp,
     stream_id: u32,
     db_type: String,
 
-    // Command history
-    command_history: VecDeque<String>,
-    history_index: Option<usize>,
-    temp_buffer: String,
-    history_max_size: usize,
-
-    // Cursor position for line editing
-    cursor_position: usize,
-
     // Multi-line continuation
     in_continuation: bool,
-    continuation_prompt: String,
 
     // Current database context (for dynamic prompts)
     current_database: Option<String>,
     prompt_template: String,
 
-    // Unified input handler for clipboard, mouse, resize
+    // Clipboard parsing (mouse selection removed in this refactor)
     input_handler: TerminalInputHandler,
-
-    // Track if input line needs redrawing (for debounce optimization)
-    input_dirty: bool,
-
-    // Dirty region tracker for optimized rendering (only send changed portions)
-    dirty_tracker: DirtyTracker,
 
     // Zero-allocation protocol encoder (shared scratch buffer)
     protocol_encoder: TextProtocolEncoder,
@@ -71,23 +58,18 @@ impl QueryExecutor {
             _ => "    -> ".to_string(),
         };
 
+        const CHAR_WIDTH: u32 = 9;
+        const CHAR_HEIGHT: u32 = 18;
+
         Ok(Self {
-            terminal: DatabaseTerminal::new(rows, cols, prompt, db_type)?,
-            input_buffer: String::new(),
+            ratatui: RatatuiRenderer::new(cols, rows, CHAR_WIDTH, CHAR_HEIGHT)?,
+            app: DatabaseRatatuiApp::new(prompt, &continuation_prompt),
             stream_id: 1,
             db_type: db_type.to_string(),
-            command_history: VecDeque::new(),
-            history_index: None,
-            temp_buffer: String::new(),
-            history_max_size: 250,
-            cursor_position: 0,
             in_continuation: false,
-            continuation_prompt,
             current_database: None,
             prompt_template: prompt.to_string(),
             input_handler: TerminalInputHandler::new_with_scrollback(rows, cols, 1000),
-            input_dirty: false,
-            dirty_tracker: DirtyTracker::new(rows, cols),
             protocol_encoder: TextProtocolEncoder::new(),
         })
     }
@@ -129,53 +111,8 @@ impl QueryExecutor {
 
     /// Get terminal size (rows, cols)
     pub fn size(&self) -> (u16, u16) {
-        self.terminal.size()
-    }
-
-    /// Handle mouse input for selection
-    async fn handle_mouse_input(
-        &mut self,
-        instruction: &str,
-    ) -> Result<(bool, Vec<Bytes>, Option<String>)> {
-        use guacr_terminal::SelectionResult;
-
-        if let Some(mouse_event) = self.input_handler.parse_mouse_instruction(instruction) {
-            // Character dimensions for databases: 9x18 pixels
-            const CHAR_WIDTH: u32 = 9;
-            const CHAR_HEIGHT: u32 = 18;
-
-            let result = self.input_handler.handle_mouse_event(
-                mouse_event,
-                self.terminal.emulator(),
-                CHAR_WIDTH,
-                CHAR_HEIGHT,
-            );
-
-            match result {
-                SelectionResult::InProgress(overlay_instrs) => {
-                    // Send selection overlay
-                    let bytes_instrs = overlay_instrs.into_iter().map(Bytes::from).collect();
-                    Ok((true, bytes_instrs, None))
-                }
-                SelectionResult::Complete {
-                    text: _,
-                    clear_instructions,
-                } => {
-                    // Send clipboard data to client
-                    let mut clipboard_instrs = self
-                        .input_handler
-                        .get_clipboard_instructions(self.terminal.emulator(), self.stream_id);
-                    // Add clear instructions
-                    clipboard_instrs.extend(clear_instructions);
-
-                    let bytes_instrs = clipboard_instrs.into_iter().map(Bytes::from).collect();
-                    Ok((true, bytes_instrs, None))
-                }
-                SelectionResult::None => Ok((false, vec![], None)),
-            }
-        } else {
-            Ok((false, vec![], None))
-        }
+        let area = self.ratatui.terminal.backend().buffer().area;
+        (area.height, area.width)
     }
 
     /// Handle clipboard paste from client
@@ -184,25 +121,54 @@ impl QueryExecutor {
         instruction: &str,
     ) -> Result<(bool, Vec<Bytes>, Option<String>)> {
         if let Some(clipboard_text) = self.input_handler.parse_clipboard_instruction(instruction) {
-            // Insert clipboard text at cursor position
-            self.input_buffer
-                .insert_str(self.cursor_position, &clipboard_text);
-            self.cursor_position += clipboard_text.len();
-            self.redraw_input_line()?;
-
-            // CRITICAL: Force dirty tracker reset after large paste
-            // Large pastes can cause dirty region tracking to fail, resulting in
-            // partial screen rendering (black screen with only small region visible)
-            // Reset forces next render to be full screen
-            if clipboard_text.len() > 100 {
-                let (rows, cols) = self.terminal.size();
-                self.dirty_tracker = DirtyTracker::new(rows, cols);
-            }
-
+            self.app.insert_clipboard_text(&clipboard_text);
             let (_, instructions) = self.render_screen().await?;
             Ok((true, instructions, None))
         } else {
             Ok((false, vec![], None))
+        }
+    }
+
+    /// Handle mouse input for text selection
+    async fn handle_mouse_input(
+        &mut self,
+        instruction: &str,
+    ) -> Result<(bool, Vec<Bytes>, Option<String>)> {
+        let Some(mouse_event) = parse_mouse_instruction(instruction) else {
+            return Ok((false, vec![], None));
+        };
+
+        const CHAR_WIDTH: u32 = 9;
+        const CHAR_HEIGHT: u32 = 18;
+
+        // buffer borrows from self.ratatui; mouse_selection mutation is in self.input_handler —
+        // disjoint fields allow simultaneous borrows.
+        let buffer = self.ratatui.terminal.backend().buffer();
+        let result = self.input_handler.handle_mouse_event_ratatui(
+            mouse_event,
+            buffer,
+            CHAR_WIDTH,
+            CHAR_HEIGHT,
+        );
+
+        match result {
+            SelectionResult::InProgress(overlay_instrs) => {
+                let instructions = overlay_instrs.into_iter().map(Bytes::from).collect();
+                Ok((true, instructions, None))
+            }
+            SelectionResult::Complete {
+                text,
+                clear_instructions,
+            } => {
+                let clipboard_instrs = format_clipboard_instructions(&text, self.stream_id);
+                let instructions: Vec<Bytes> = clear_instructions
+                    .into_iter()
+                    .chain(clipboard_instrs)
+                    .map(Bytes::from)
+                    .collect();
+                Ok((true, instructions, None))
+            }
+            SelectionResult::None => Ok((false, vec![], None)),
         }
     }
 
@@ -215,19 +181,17 @@ impl QueryExecutor {
             let width: u32 = args[0].parse().unwrap_or(1024);
             let height: u32 = args[1].parse().unwrap_or(768);
 
-            // Calculate new terminal dimensions (9x18 pixels per character)
-            let cols = (width / 9).max(80) as u16;
-            let rows = (height / 18).max(24) as u16;
+            const CHAR_WIDTH: u32 = 9;
+            const CHAR_HEIGHT: u32 = 18;
+            let cols = (width / CHAR_WIDTH).max(80) as u16;
+            let rows = (height / CHAR_HEIGHT).max(24) as u16;
 
-            // Resize terminal via input handler
-            self.input_handler
-                .handle_resize(rows, cols, self.terminal.emulator_mut())
+            self.ratatui
+                .resize(cols, rows)
                 .map_err(|e| DatabaseError::QueryError(format!("Resize error: {}", e)))?;
 
-            // Recreate dirty tracker for new dimensions
-            self.dirty_tracker = DirtyTracker::new(rows, cols);
+            self.input_handler.clear_selection();
 
-            // Re-render at new size
             let (_, instructions) = self.render_screen().await?;
             Ok((true, instructions, None))
         } else {
@@ -245,12 +209,11 @@ impl QueryExecutor {
         let instr = GuacamoleParser::parse_instruction(instruction)
             .map_err(|e| DatabaseError::QueryError(format!("Parse error: {}", e)))?;
 
-        // Route to appropriate handler based on opcode
         match instr.opcode {
             "mouse" => {
                 return self
                     .handle_mouse_input(&String::from_utf8_lossy(instruction))
-                    .await
+                    .await;
             }
             "clipboard" => {
                 return self
@@ -258,9 +221,7 @@ impl QueryExecutor {
                     .await
             }
             "size" => return self.handle_resize_input(&instr.args).await,
-            "key" => {
-                // Continue with key handling below
-            }
+            "key" => {}
             _ => return Ok((false, vec![], None)),
         }
 
@@ -273,304 +234,120 @@ impl QueryExecutor {
             .map_err(|_| DatabaseError::QueryError("Invalid keysym".to_string()))?;
         let pressed = instr.args[1] == "1";
 
-        if !pressed {
-            return Ok((false, vec![], None));
+        // Clear any active selection overlay when a non-release key event arrives
+        let had_selection = pressed && self.input_handler.has_selection();
+        if had_selection {
+            self.input_handler.clear_selection();
         }
 
-        match keysym {
-            // Enter key
-            0xFF0D => {
-                let query = self.input_buffer.trim().to_string();
-                self.input_buffer.clear();
-                self.cursor_position = 0;
-                self.terminal.write_line("")?;
+        let pending_query = self.app.handle_key(keysym, pressed);
+        let (_, render_instructions) = self.render_screen().await?;
 
-                if !query.is_empty() {
-                    // Add to history
-                    self.add_to_history(&query);
+        let instructions = if had_selection {
+            // Prepend dispose(1) so the selection overlay disappears before the new frame
+            let mut all: Vec<Bytes> = format_clear_selection_instructions()
+                .into_iter()
+                .map(Bytes::from)
+                .collect();
+            all.extend(render_instructions);
+            all
+        } else {
+            render_instructions
+        };
 
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, Some(query)));
-                } else {
-                    if self.in_continuation {
-                        self.terminal.process(self.continuation_prompt.as_bytes())?;
-                    } else {
-                        self.terminal.write_prompt()?;
-                    }
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Backspace
-            0xFF08 => {
-                if self.delete_char_before_cursor().is_ok() {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Escape - clear input
-            0xFF1B => {
-                self.input_buffer.clear();
-                self.cursor_position = 0;
-                self.terminal.clear_input();
-                self.terminal.write_line("")?;
-                self.terminal.write_prompt()?;
-                let (_, instructions) = self.render_screen().await?;
-                return Ok((true, instructions, None));
-            }
-
-            // Up arrow - previous command in history
-            0xFF52 => {
-                if self.history_previous()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Down arrow - next command in history
-            0xFF54 => {
-                if self.history_next()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Left arrow - move cursor left
-            0xFF51 => {
-                if self.move_cursor_left()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Right arrow - move cursor right
-            0xFF53 => {
-                if self.move_cursor_right()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Home key - beginning of line
-            0xFF50 => {
-                if self.move_cursor_home()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // End key - end of line
-            0xFF57 => {
-                if self.move_cursor_end()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Delete key
-            0xFFFF => {
-                if self.delete_char_at_cursor().is_ok() {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+A - beginning of line
-            0x0001 => {
-                if self.move_cursor_home()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+E - end of line
-            0x0005 => {
-                if self.move_cursor_end()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+K - kill to end of line
-            0x000B => {
-                if self.kill_to_end()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+U - kill entire line
-            0x0015 => {
-                if self.kill_line()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+W - kill previous word
-            0x0017 => {
-                if self.kill_word()? {
-                    let (_, instructions) = self.render_screen().await?;
-                    return Ok((true, instructions, None));
-                }
-            }
-
-            // Ctrl+C - cancel current input (already handled by Escape above, but add for completeness)
-            0x0003 => {
-                self.input_buffer.clear();
-                self.cursor_position = 0;
-                self.terminal.write_line("^C")?;
-                self.terminal.write_prompt()?;
-                let (_, instructions) = self.render_screen().await?;
-                return Ok((true, instructions, None));
-            }
-
-            // Regular character
-            _ => {
-                if let Some(c) = char::from_u32(keysym) {
-                    if c.is_ascii() && !c.is_control() {
-                        // Insert character WITHOUT redrawing - just update buffer
-                        // The debounce timer will batch updates and render periodically
-                        self.input_buffer.insert(self.cursor_position, c);
-                        self.cursor_position += 1;
-                        self.input_dirty = true; // Mark input as needing redraw
-                                                 // Don't render - let debounce timer handle it
-                        return Ok((false, vec![], None));
-                    }
-                }
-            }
-        }
-
-        Ok((false, vec![], None))
+        Ok((true, instructions, pending_query))
     }
 
-    /// Write query result to terminal
+    /// Write query result to the results panel
     pub fn write_result(&mut self, result: &QueryResult) -> Result<()> {
-        self.terminal.write_result(result)?;
-        self.terminal.write_prompt()?;
+        self.app.set_results(result);
         Ok(())
     }
 
-    /// Write error message to terminal
+    /// Write error message to the results panel
     pub fn write_error(&mut self, error: &str) -> Result<()> {
-        self.terminal.write_error(error)?;
-        self.terminal.write_prompt()?;
+        self.app.set_error(error);
         Ok(())
     }
 
-    /// Check if terminal or input needs rendering
+    /// Write a status/info message to the results panel
+    ///
+    /// Used by handlers for connection messages, warnings, etc.
+    pub fn write_status(&mut self, msg: &str) {
+        self.app.set_status(msg.to_string(), None);
+    }
+
+    /// Append a line to the status message (for multi-line banners)
+    pub fn write_line(&mut self, line: &str) -> Result<()> {
+        if !line.is_empty() {
+            if self.app.status_msg.is_empty() {
+                self.app.status_msg = line.to_string();
+            } else {
+                self.app.status_msg.push('\n');
+                self.app.status_msg.push_str(line);
+            }
+        }
+        Ok(())
+    }
+
+    /// Write a success message (same as write_line in the ratatui path)
+    pub fn write_success(&mut self, msg: &str) -> Result<()> {
+        self.write_line(msg)
+    }
+
+    /// No-op: prompt is always visible in the ratatui input widget
+    pub fn write_prompt(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Always returns true — ratatui renders the full screen on every call
     pub fn is_dirty(&self) -> bool {
-        self.terminal.is_dirty() || self.input_dirty
+        true
     }
 
     /// Render terminal screen and return Guacamole instructions
     pub async fn render_screen(&mut self) -> Result<(bool, Vec<Bytes>)> {
-        // If input line changed, redraw it before rendering
-        if self.input_dirty {
-            self.redraw_input_line()?;
-            self.input_dirty = false;
-        }
+        // Sync continuation state to app before rendering
+        self.app.in_continuation = self.in_continuation;
 
-        // Use dirty region optimization (like SSH handler)
-        // Only render the changed portions of the screen
-        let dirty_opt = self.dirty_tracker.find_dirty_region(self.terminal.screen());
+        let app = &mut self.app;
+        self.ratatui
+            .terminal
+            .draw(|f| app.render(f))
+            .map_err(|e| DatabaseError::QueryError(format!("Render error: {}", e)))?;
 
-        let instructions: Vec<Bytes> = if let Some(dirty) = dirty_opt {
-            let (rows, cols) = self.terminal.size();
-            let total_cells = (rows as usize) * (cols as usize);
-            let dirty_cells = dirty.cell_count();
-            let dirty_pct = (dirty_cells * 100) / total_cells;
+        let jpeg = self
+            .ratatui
+            .render_to_jpeg(85)
+            .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
 
-            // For small changes (< 30%), render only the dirty region
-            // For large changes (>= 30%), render the full screen (more efficient)
-            if dirty_pct < 30 {
-                // Partial render - only changed region
-                // Expand by 1 cell in all directions to cover JPEG
-                // compression artifacts (DCT ringing at block boundaries)
-                let render_min_row = dirty.min_row.saturating_sub(1);
-                let render_max_row = (dirty.max_row + 1).min(rows - 1);
-                let render_min_col = dirty.min_col.saturating_sub(1);
-                let render_max_col = (dirty.max_col + 1).min(cols - 1);
+        let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
 
-                let (jpeg_data, x_px, y_px, _width_px, _height_px) = self
-                    .terminal
-                    .renderer()
-                    .render_region(
-                        self.terminal.screen(),
-                        render_min_row,
-                        render_max_row,
-                        render_min_col,
-                        render_max_col,
-                    )
-                    .map_err(|e| DatabaseError::QueryError(format!("Render error: {}", e)))?;
+        let img_instr =
+            self.protocol_encoder
+                .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+        let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
 
-                // Base64 encode and send via modern zero-allocation protocol
-                let base64_data =
-                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg_data);
+        let mut instructions = Vec::with_capacity(1 + blob_instructions.len() + 1);
+        instructions.push(img_instr.freeze());
+        instructions.extend(blob_instructions.into_iter().map(Bytes::from));
 
-                let img_instr = self.protocol_encoder.format_img_instruction(
-                    self.stream_id,
-                    0,
-                    x_px as i32,
-                    y_px as i32,
-                    "image/jpeg",
-                );
-                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let sync_instr = self
+            .ratatui
+            .font_renderer
+            .format_sync_instruction(timestamp_ms);
+        instructions.push(Bytes::from(sync_instr));
 
-                let mut instructions = Vec::with_capacity(1 + blob_instructions.len());
-                instructions.push(img_instr.freeze());
-                instructions.extend(blob_instructions.into_iter().map(Bytes::from));
-                instructions
-            } else {
-                // Full render - most of screen changed
-                let jpeg = self.terminal.render_jpeg()?;
-
-                // Base64 encode and send via modern zero-allocation protocol
-                let base64_data =
-                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
-
-                let img_instr = self.protocol_encoder.format_img_instruction(
-                    self.stream_id,
-                    0,
-                    0,
-                    0,
-                    "image/jpeg",
-                );
-                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
-
-                let mut instructions = Vec::with_capacity(1 + blob_instructions.len());
-                instructions.push(img_instr.freeze());
-                instructions.extend(blob_instructions.into_iter().map(Bytes::from));
-                instructions
-            }
-        } else {
-            // No changes detected
-            vec![]
-        };
-
-        // Add sync instruction if we sent any image data
-        let mut all_instructions = instructions;
-        if !all_instructions.is_empty() {
-            let timestamp_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
-            let sync_instr = self.terminal.format_sync_instruction(timestamp_ms);
-            all_instructions.push(Bytes::from(sync_instr));
-
-            // Clear dirty flag after successful render
-            // This prevents infinite debounce loop where we keep rendering the same content
-            self.terminal.clear_dirty();
-        }
-
-        Ok((true, all_instructions))
+        Ok((true, instructions))
     }
 
     /// Get current input buffer contents
     pub fn current_input(&self) -> &str {
-        &self.input_buffer
+        &self.app.input_buffer
     }
 
     /// Set the current database context (for dynamic prompts)
@@ -591,228 +368,12 @@ impl QueryExecutor {
             self.prompt_template.clone()
         };
 
-        self.terminal.set_prompt(&prompt);
+        self.app.set_prompt(&prompt);
     }
 
     /// Set continuation mode
     pub fn set_continuation(&mut self, in_continuation: bool) {
         self.in_continuation = in_continuation;
-    }
-
-    /// Navigate to previous command (Up arrow)
-    pub fn history_previous(&mut self) -> Result<bool> {
-        if self.command_history.is_empty() {
-            return Ok(false);
-        }
-
-        // Save current input if starting history navigation
-        if self.history_index.is_none() {
-            self.temp_buffer = self.input_buffer.clone();
-            self.history_index = Some(self.command_history.len() - 1);
-        } else if let Some(idx) = self.history_index {
-            if idx > 0 {
-                self.history_index = Some(idx - 1);
-            } else {
-                return Ok(false); // Already at oldest
-            }
-        }
-
-        // Load history entry into input buffer
-        if let Some(idx) = self.history_index {
-            self.input_buffer = self.command_history[idx].clone();
-            self.cursor_position = self.input_buffer.len();
-            self.redraw_input_line()?;
-        }
-
-        Ok(true)
-    }
-
-    /// Navigate to next command (Down arrow)
-    pub fn history_next(&mut self) -> Result<bool> {
-        if let Some(idx) = self.history_index {
-            if idx < self.command_history.len() - 1 {
-                self.history_index = Some(idx + 1);
-                self.input_buffer = self.command_history[idx + 1].clone();
-                self.cursor_position = self.input_buffer.len();
-            } else {
-                // Restore temp buffer (what user was typing)
-                self.history_index = None;
-                self.input_buffer = self.temp_buffer.clone();
-                self.cursor_position = self.input_buffer.len();
-                self.temp_buffer.clear();
-            }
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Add command to history
-    pub fn add_to_history(&mut self, command: &str) {
-        // Don't add empty or whitespace-only commands
-        if command.trim().is_empty() {
-            return;
-        }
-
-        // Don't add if same as last command
-        if let Some(last) = self.command_history.back() {
-            if last == command {
-                return;
-            }
-        }
-
-        self.command_history.push_back(command.to_string());
-
-        // Maintain max size
-        if self.command_history.len() > self.history_max_size {
-            self.command_history.pop_front();
-        }
-
-        // Reset history navigation
-        self.history_index = None;
-        self.temp_buffer.clear();
-    }
-
-    /// Redraw the current input line
-    fn redraw_input_line(&mut self) -> Result<()> {
-        // Move to beginning of line and clear (use \r without newline)
-        self.terminal.process(b"\r")?;
-        // Clear to end of line
-        self.terminal.process(b"\x1B[K")?;
-
-        // Write prompt
-        if self.in_continuation {
-            self.terminal.process(self.continuation_prompt.as_bytes())?;
-        } else {
-            self.terminal.write_prompt()?;
-        }
-
-        // Write input buffer
-        for ch in self.input_buffer.chars() {
-            self.terminal.add_char(ch)?;
-        }
-
-        // Move cursor to correct position if not at end
-        if self.cursor_position < self.input_buffer.len() {
-            let moves_back = self.input_buffer.len() - self.cursor_position;
-            for _ in 0..moves_back {
-                self.terminal.process(b"\x08")?; // Move cursor left
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Delete character before cursor (backspace)
-    fn delete_char_before_cursor(&mut self) -> Result<()> {
-        if self.cursor_position > 0 {
-            self.input_buffer.remove(self.cursor_position - 1);
-            self.cursor_position -= 1;
-            self.redraw_input_line()?;
-        }
-        Ok(())
-    }
-
-    /// Delete character at cursor (delete key)
-    fn delete_char_at_cursor(&mut self) -> Result<()> {
-        if self.cursor_position < self.input_buffer.len() {
-            self.input_buffer.remove(self.cursor_position);
-            self.redraw_input_line()?;
-        }
-        Ok(())
-    }
-
-    /// Move cursor left
-    fn move_cursor_left(&mut self) -> Result<bool> {
-        if self.cursor_position > 0 {
-            self.cursor_position -= 1;
-            self.terminal.process(b"\x08")?; // Move cursor left
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Move cursor right
-    fn move_cursor_right(&mut self) -> Result<bool> {
-        if self.cursor_position < self.input_buffer.len() {
-            self.cursor_position += 1;
-            self.terminal.process(b"\x1B[C")?; // Move cursor right (ANSI escape)
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Move cursor to beginning of line (Home / Ctrl+A)
-    fn move_cursor_home(&mut self) -> Result<bool> {
-        if self.cursor_position > 0 {
-            self.cursor_position = 0;
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Move cursor to end of line (End / Ctrl+E)
-    fn move_cursor_end(&mut self) -> Result<bool> {
-        if self.cursor_position < self.input_buffer.len() {
-            self.cursor_position = self.input_buffer.len();
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Kill to end of line (Ctrl+K)
-    fn kill_to_end(&mut self) -> Result<bool> {
-        if self.cursor_position < self.input_buffer.len() {
-            self.input_buffer.truncate(self.cursor_position);
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Kill entire line (Ctrl+U)
-    fn kill_line(&mut self) -> Result<bool> {
-        if !self.input_buffer.is_empty() {
-            self.input_buffer.clear();
-            self.cursor_position = 0;
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Kill previous word (Ctrl+W)
-    fn kill_word(&mut self) -> Result<bool> {
-        if self.cursor_position > 0 {
-            let chars: Vec<char> = self.input_buffer.chars().collect();
-            let mut pos = self.cursor_position - 1;
-
-            // Skip trailing whitespace
-            while pos > 0 && chars[pos].is_whitespace() {
-                pos -= 1;
-            }
-
-            // Find start of word
-            while pos > 0 && !chars[pos - 1].is_whitespace() {
-                pos -= 1;
-            }
-
-            self.input_buffer.drain(pos..self.cursor_position);
-            self.cursor_position = pos;
-            self.redraw_input_line()?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 }
 
@@ -885,149 +446,147 @@ mod tests {
     fn test_command_history() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        // Add commands to history
-        executor.add_to_history("SELECT 1");
-        executor.add_to_history("SELECT 2");
-        executor.add_to_history("SELECT 3");
+        executor.app.add_to_history("SELECT 1");
+        executor.app.add_to_history("SELECT 2");
+        executor.app.add_to_history("SELECT 3");
 
-        assert_eq!(executor.command_history.len(), 3);
+        assert_eq!(executor.app.history.len(), 3);
 
-        // Navigate up
-        assert!(executor.history_previous().unwrap());
-        assert_eq!(executor.current_input(), "SELECT 3");
+        // Navigate up (keysym 0xFF52 = Up arrow)
+        executor.app.handle_key(0xFF52, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 3");
 
-        assert!(executor.history_previous().unwrap());
-        assert_eq!(executor.current_input(), "SELECT 2");
+        executor.app.handle_key(0xFF52, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 2");
 
-        assert!(executor.history_previous().unwrap());
-        assert_eq!(executor.current_input(), "SELECT 1");
+        executor.app.handle_key(0xFF52, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 1");
 
         // Can't go further back
-        assert!(!executor.history_previous().unwrap());
+        executor.app.handle_key(0xFF52, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 1");
 
-        // Navigate down
-        assert!(executor.history_next().unwrap());
-        assert_eq!(executor.current_input(), "SELECT 2");
+        // Navigate down (keysym 0xFF54 = Down arrow)
+        executor.app.handle_key(0xFF54, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 2");
 
-        assert!(executor.history_next().unwrap());
-        assert_eq!(executor.current_input(), "SELECT 3");
+        executor.app.handle_key(0xFF54, true);
+        assert_eq!(executor.app.input_buffer, "SELECT 3");
     }
 
     #[test]
     fn test_history_deduplication() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        executor.add_to_history("SELECT 1");
-        executor.add_to_history("SELECT 1"); // Duplicate
-        executor.add_to_history("SELECT 2");
+        executor.app.add_to_history("SELECT 1");
+        executor.app.add_to_history("SELECT 1"); // Duplicate
+        executor.app.add_to_history("SELECT 2");
 
-        // Duplicate should not be added
-        assert_eq!(executor.command_history.len(), 2);
+        assert_eq!(executor.app.history.len(), 2);
     }
 
     #[test]
     fn test_history_max_size() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-        executor.history_max_size = 3;
+        executor.app.history_max_size = 3;
 
-        executor.add_to_history("SELECT 1");
-        executor.add_to_history("SELECT 2");
-        executor.add_to_history("SELECT 3");
-        executor.add_to_history("SELECT 4");
+        executor.app.add_to_history("SELECT 1");
+        executor.app.add_to_history("SELECT 2");
+        executor.app.add_to_history("SELECT 3");
+        executor.app.add_to_history("SELECT 4");
 
-        // Should only keep last 3
-        assert_eq!(executor.command_history.len(), 3);
-        assert_eq!(executor.command_history[0], "SELECT 2");
-        assert_eq!(executor.command_history[2], "SELECT 4");
+        assert_eq!(executor.app.history.len(), 3);
+        assert_eq!(executor.app.history[0], "SELECT 2");
+        assert_eq!(executor.app.history[2], "SELECT 4");
     }
 
     #[test]
     fn test_cursor_movement() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        executor.input_buffer = "SELECT * FROM users".to_string();
-        executor.cursor_position = 19;
+        executor.app.input_buffer = "SELECT * FROM users".to_string();
+        executor.app.cursor_pos = 19;
 
-        // Move left
-        assert!(executor.move_cursor_left().unwrap());
-        assert_eq!(executor.cursor_position, 18);
+        // Move left (0xFF51)
+        executor.app.handle_key(0xFF51, true);
+        assert_eq!(executor.app.cursor_pos, 18);
 
-        // Move right
-        assert!(executor.move_cursor_right().unwrap());
-        assert_eq!(executor.cursor_position, 19);
+        // Move right (0xFF53)
+        executor.app.handle_key(0xFF53, true);
+        assert_eq!(executor.app.cursor_pos, 19);
 
         // Can't move right past end
-        assert!(!executor.move_cursor_right().unwrap());
+        executor.app.handle_key(0xFF53, true);
+        assert_eq!(executor.app.cursor_pos, 19);
 
-        // Move to beginning
-        assert!(executor.move_cursor_home().unwrap());
-        assert_eq!(executor.cursor_position, 0);
+        // Home (0xFF50)
+        executor.app.handle_key(0xFF50, true);
+        assert_eq!(executor.app.cursor_pos, 0);
 
         // Can't move left past beginning
-        assert!(!executor.move_cursor_left().unwrap());
+        executor.app.handle_key(0xFF51, true);
+        assert_eq!(executor.app.cursor_pos, 0);
 
-        // Move to end
-        assert!(executor.move_cursor_end().unwrap());
-        assert_eq!(executor.cursor_position, 19);
+        // End (0xFF57)
+        executor.app.handle_key(0xFF57, true);
+        assert_eq!(executor.app.cursor_pos, 19);
     }
 
     #[test]
     fn test_insert_char() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        executor.input_buffer = "SELECT FROM users".to_string();
-        executor.cursor_position = 7; // After "SELECT "
+        executor.app.input_buffer = "SELECT FROM users".to_string();
+        executor.app.cursor_pos = 7;
 
-        // Manually insert characters (simulating what process_input does)
-        executor.input_buffer.insert(executor.cursor_position, '*');
-        executor.cursor_position += 1;
-        executor.input_buffer.insert(executor.cursor_position, ' ');
-        executor.cursor_position += 1;
+        // Insert '*' (keysym = 0x2A = 42)
+        executor.app.handle_key(0x2A, true);
+        executor.app.handle_key(0x20, true); // space
 
-        assert_eq!(executor.input_buffer, "SELECT * FROM users");
-        assert_eq!(executor.cursor_position, 9);
+        assert_eq!(executor.app.input_buffer, "SELECT * FROM users");
+        assert_eq!(executor.app.cursor_pos, 9);
     }
 
     #[test]
     fn test_delete_operations() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        executor.input_buffer = "SELECT * FROM users".to_string();
-        executor.cursor_position = 9; // After "SELECT * "
+        executor.app.input_buffer = "SELECT * FROM users".to_string();
+        executor.app.cursor_pos = 9;
 
-        // Backspace
-        executor.delete_char_before_cursor().unwrap();
-        assert_eq!(executor.input_buffer, "SELECT *FROM users");
-        assert_eq!(executor.cursor_position, 8);
+        // Backspace (0xFF08)
+        executor.app.handle_key(0xFF08, true);
+        assert_eq!(executor.app.input_buffer, "SELECT *FROM users");
+        assert_eq!(executor.app.cursor_pos, 8);
 
-        // Delete at cursor
-        executor.delete_char_at_cursor().unwrap();
-        assert_eq!(executor.input_buffer, "SELECT *ROM users");
-        assert_eq!(executor.cursor_position, 8);
+        // Delete at cursor (0xFFFF)
+        executor.app.handle_key(0xFFFF, true);
+        assert_eq!(executor.app.input_buffer, "SELECT *ROM users");
+        assert_eq!(executor.app.cursor_pos, 8);
     }
 
     #[test]
     fn test_kill_operations() {
         let mut executor = QueryExecutor::new("test> ", "test").unwrap();
 
-        // Kill to end
-        executor.input_buffer = "SELECT * FROM users".to_string();
-        executor.cursor_position = 9;
-        executor.kill_to_end().unwrap();
-        assert_eq!(executor.input_buffer, "SELECT * ");
+        // Kill to end (Ctrl+K = 0x000B)
+        executor.app.input_buffer = "SELECT * FROM users".to_string();
+        executor.app.cursor_pos = 9;
+        executor.app.handle_key(0x000B, true);
+        assert_eq!(executor.app.input_buffer, "SELECT * ");
 
-        // Kill entire line
-        executor.input_buffer = "SELECT * FROM users".to_string();
-        executor.cursor_position = 10;
-        executor.kill_line().unwrap();
-        assert_eq!(executor.input_buffer, "");
-        assert_eq!(executor.cursor_position, 0);
+        // Kill entire line (Ctrl+U = 0x0015)
+        executor.app.input_buffer = "SELECT * FROM users".to_string();
+        executor.app.cursor_pos = 10;
+        executor.app.handle_key(0x0015, true);
+        assert_eq!(executor.app.input_buffer, "");
+        assert_eq!(executor.app.cursor_pos, 0);
 
-        // Kill word
-        executor.input_buffer = "SELECT * FROM users".to_string();
-        executor.cursor_position = 13; // After "FROM"
-        executor.kill_word().unwrap();
-        assert_eq!(executor.input_buffer, "SELECT *  users");
+        // Kill word (Ctrl+W = 0x0017)
+        executor.app.input_buffer = "SELECT * FROM users".to_string();
+        executor.app.cursor_pos = 13;
+        executor.app.handle_key(0x0017, true);
+        assert_eq!(executor.app.input_buffer, "SELECT *  users");
     }
 
     #[test]
@@ -1038,7 +597,7 @@ mod tests {
         assert_eq!(executor.current_database, Some("testdb".to_string()));
 
         // Prompt should be updated
-        assert!(executor.terminal.get_prompt().contains("testdb"));
+        assert!(executor.app.prompt.contains("testdb"));
     }
 
     #[test]
@@ -1052,5 +611,97 @@ mod tests {
 
         executor.set_continuation(false);
         assert!(!executor.in_continuation);
+    }
+
+    /// Visual smoke test: renders a 150-row result set to JPEG and saves to /tmp.
+    ///
+    /// Run with: cargo test -p guacr-database test_render_smoke -- --nocapture
+    /// Then:     open /tmp/db_render_test.jpg
+    ///
+    /// Verify:
+    ///   - JPEG is not blank/black
+    ///   - Results panel shows table with 150 rows (no 100-row cap)
+    ///   - Title shows "Results - 150 row(s) (42ms)"
+    ///   - Column headers are rendered
+    ///   - Scrollbar is visible on the right
+    ///   - Input panel shows "mysql> _" at the bottom
+    #[tokio::test]
+    async fn test_render_smoke() {
+        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 40, 120).unwrap();
+
+        let mut result = QueryResult::new(vec![
+            "id".to_string(),
+            "name".to_string(),
+            "email".to_string(),
+            "status".to_string(),
+        ]);
+        for i in 0..150 {
+            result.add_row(vec![
+                i.to_string(),
+                format!("User {}", i),
+                format!("user{}@example.com", i),
+                if i % 3 == 0 { "active" } else { "inactive" }.to_string(),
+            ]);
+        }
+        result.execution_time_ms = Some(42);
+        executor.write_result(&result).unwrap();
+
+        let (_, instructions) = executor.render_screen().await.unwrap();
+        assert!(!instructions.is_empty(), "render produced no instructions");
+
+        let jpeg = executor.ratatui.render_to_jpeg(85).unwrap();
+        assert!(
+            jpeg.len() > 1000,
+            "JPEG suspiciously small ({} bytes)",
+            jpeg.len()
+        );
+
+        std::fs::write("/tmp/db_render_test.jpg", &jpeg).unwrap();
+        println!("Saved {} bytes to /tmp/db_render_test.jpg", jpeg.len());
+    }
+
+    /// Visual test: types text into the input line and renders to JPEG.
+    ///
+    /// Run with: cargo test -p guacr-database test_render_input_editing -- --nocapture
+    /// Then:     open /tmp/db_input_test.jpg
+    ///
+    /// Verify:
+    ///   - Query panel shows "mysql> SELECT * FROM users_"
+    ///   - Results panel shows "Connected to MySQL"
+    #[tokio::test]
+    async fn test_render_input_editing() {
+        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 40, 120).unwrap();
+        executor.write_status("Connected to MySQL");
+
+        for c in "SELECT * FROM users".chars() {
+            executor.app.handle_key(c as u32, true);
+        }
+
+        let (_, instructions) = executor.render_screen().await.unwrap();
+        assert!(!instructions.is_empty());
+
+        let jpeg = executor.ratatui.render_to_jpeg(85).unwrap();
+        std::fs::write("/tmp/db_input_test.jpg", &jpeg).unwrap();
+        println!("Saved {} bytes to /tmp/db_input_test.jpg", jpeg.len());
+    }
+
+    /// Tests that resize updates the ratatui terminal dimensions.
+    #[tokio::test]
+    async fn test_render_resize() {
+        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 24, 80).unwrap();
+
+        let (rows, cols) = executor.size();
+        assert_eq!(cols, 80);
+        assert_eq!(rows, 24);
+
+        let new_cols = (1920u32 / 9) as u16; // 213
+        let new_rows = (1080u32 / 18) as u16; // 60
+        executor.ratatui.resize(new_cols, new_rows).unwrap();
+        // ratatui applies the resize on the next draw
+        executor.render_screen().await.unwrap();
+
+        let (rows, cols) = executor.size();
+        assert_eq!(cols, 213);
+        assert_eq!(rows, 60);
     }
 }

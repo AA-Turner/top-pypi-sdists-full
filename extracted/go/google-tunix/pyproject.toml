@@ -1,6 +1,6 @@
 [project]
 name = "google-tunix"
-version = "0.1.5"
+version = "0.1.6"
 authors = [
   { name = "Tunix Developers", email = "tunix-dev@google.com" },
 ]
@@ -23,21 +23,24 @@ dependencies = [
   "fsspec",  # notebook dependency
   "google-metrax>=0.2.3",
   "grain",
+  "hf_transfer",  # Huggingface caching in CI
   "huggingface_hub",
   "jaxtyping",
   "jinja2",  # Huggingface chat template
   "kagglehub",
   "numba",
   "omegaconf", # CLI config
+  "pillow",  # Image processing
   "pylatexenc",  # Eval result parsing
   "python-dotenv",  # Huggingface API key
+  "perfetto",  # Perfetto trace writer for metrics export
   "qwix",
   "sentencepiece",
   "sympy",  # Eval result parsing
   "tensorflow_datasets",
   "tqdm",
-  "transformers",
-  "hf_transfer",  # Huggingface caching in CI
+  "transformers<=4.57.1", # Note: transformers==4.57.2 has a bug, see more information at https://github.com/google/tunix/issues/794
+  "tenacity",
 ]
 
 [project.optional-dependencies]
@@ -90,7 +93,6 @@ pyink-annotation-pragmas = [
   "@test",
 ]
 pyink-ipynb-indentation = 2
-pyink-ipynb-unicode-escape = true
 
 [tool.isort]
 profile = "google"       # or "black", etc.

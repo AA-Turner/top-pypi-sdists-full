@@ -49,6 +49,8 @@ from langgraph_api.validation import (
     RunBatchCreate,
     RunCreateStateful,
     RunCreateStateless,
+    RunCreateStreamingStateful,
+    RunCreateStreamingStateless,
     RunsCancel,
     ThreadCronCreate,
 )
@@ -287,7 +289,7 @@ async def stream_run(
 ):
     """Create a run."""
     thread_id = request.path_params["thread_id"]
-    payload = await request.json(RunCreateStateful)
+    payload = await request.json(RunCreateStreamingStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
 
@@ -333,7 +335,7 @@ async def stream_run_stateless(
     request: ApiRequest,
 ):
     """Create a stateless run."""
-    payload = await request.json(RunCreateStateless)
+    payload = await request.json(RunCreateStreamingStateless)
     payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
@@ -383,7 +385,7 @@ async def stream_run_stateless(
 async def wait_run(request: ApiRequest):
     """Create a run, wait for the output."""
     thread_id = request.path_params["thread_id"]
-    payload = await request.json(RunCreateStateful)
+    payload = await request.json(RunCreateStreamingStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()
     sub = await Runs.Stream.subscribe(run_id, thread_id)
@@ -423,7 +425,7 @@ async def wait_run(request: ApiRequest):
 @retry_db
 async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
-    payload = await request.json(RunCreateStateless)
+    payload = await request.json(RunCreateStreamingStateless)
     payload["if_not_exists"] = "create"
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid7()

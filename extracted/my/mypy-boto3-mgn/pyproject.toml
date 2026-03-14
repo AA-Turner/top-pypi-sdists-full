@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-mgn"
-version = "1.42.64"
+version = "1.42.68"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 Mgn 1.42.64 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 Mgn 1.42.68 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

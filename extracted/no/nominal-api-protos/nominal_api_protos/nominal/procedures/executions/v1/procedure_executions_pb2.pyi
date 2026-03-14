@@ -3,10 +3,10 @@ import datetime
 from buf.validate import validate_pb2 as _validate_pb2
 from google.api import annotations_pb2 as _annotations_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from nominal.gen.v1 import alias_pb2 as _alias_pb2
-from nominal.gen.v1 import error_pb2 as _error_pb2
-from nominal.procedures.v1 import procedures_pb2 as _procedures_pb2
-from nominal.types import types_pb2 as _types_pb2
+from nominal_api_protos.nominal.gen.v1 import alias_pb2 as _alias_pb2
+from nominal_api_protos.nominal.gen.v1 import error_pb2 as _error_pb2
+from nominal_api_protos.nominal.procedures.v1 import procedures_pb2 as _procedures_pb2
+from nominal_api_protos.nominal.types import types_pb2 as _types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -385,18 +385,20 @@ class SuccessConditionCanceled(_message.Message):
     def __init__(self, started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., canceled_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CompletionActionStatus(_message.Message):
-    __slots__ = ("state", "create_event", "create_run", "apply_workbook_templates", "apply_checklists")
+    __slots__ = ("state", "create_event", "create_run", "apply_workbook_templates", "apply_checklists", "update_run")
     STATE_FIELD_NUMBER: _ClassVar[int]
     CREATE_EVENT_FIELD_NUMBER: _ClassVar[int]
     CREATE_RUN_FIELD_NUMBER: _ClassVar[int]
     APPLY_WORKBOOK_TEMPLATES_FIELD_NUMBER: _ClassVar[int]
     APPLY_CHECKLISTS_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_RUN_FIELD_NUMBER: _ClassVar[int]
     state: CompletionActionState
     create_event: CreateEventResult
     create_run: CreateRunResult
     apply_workbook_templates: ApplyWorkbookTemplatesResult
     apply_checklists: ApplyChecklistsResult
-    def __init__(self, state: _Optional[_Union[CompletionActionState, _Mapping]] = ..., create_event: _Optional[_Union[CreateEventResult, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunResult, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesResult, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsResult, _Mapping]] = ...) -> None: ...
+    update_run: UpdateRunResult
+    def __init__(self, state: _Optional[_Union[CompletionActionState, _Mapping]] = ..., create_event: _Optional[_Union[CreateEventResult, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunResult, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesResult, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsResult, _Mapping]] = ..., update_run: _Optional[_Union[UpdateRunResult, _Mapping]] = ...) -> None: ...
 
 class CreateEventResult(_message.Message):
     __slots__ = ("event_rid",)
@@ -421,6 +423,12 @@ class ApplyChecklistsResult(_message.Message):
     DATA_REVIEW_RIDS_FIELD_NUMBER: _ClassVar[int]
     data_review_rids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, data_review_rids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateRunResult(_message.Message):
+    __slots__ = ("run_rids",)
+    RUN_RIDS_FIELD_NUMBER: _ClassVar[int]
+    run_rids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, run_rids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class CompletionActionState(_message.Message):
     __slots__ = ("not_run", "succeeded", "error")

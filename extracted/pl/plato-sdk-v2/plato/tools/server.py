@@ -38,14 +38,43 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+import json
 import logging
 from typing import Any
 
 from fastmcp import FastMCP
+from mcp.types import ImageContent, TextContent
 
 from plato.tools.definition import ToolDefinition
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_image_content(result: dict) -> list[TextContent | ImageContent]:
+    """Extract image data from a tool result dict and return MCP content blocks.
+
+    If the result contains ``screenshot_b64`` or ``image_b64``, the base64 data
+    is popped out and returned as an ``ImageContent`` block alongside the
+    remaining metadata as ``TextContent``. This keeps images as native content
+    blocks instead of bloating the text context window.
+    """
+    image_b64 = None
+    media_type = "image/jpeg"
+
+    if "screenshot_b64" in result:
+        image_b64 = result.pop("screenshot_b64")
+        media_type = result.pop("media_type", "image/jpeg")
+    elif "image_b64" in result:
+        image_b64 = result.pop("image_b64")
+        media_type = result.pop("media_type", "image/jpeg")
+
+    if image_b64 is None:
+        return []
+
+    return [
+        TextContent(type="text", text=json.dumps(result, default=str)),
+        ImageContent(type="image", data=image_b64, mimeType=media_type),
+    ]
 
 
 class ToolServer:
@@ -126,11 +155,16 @@ class ToolServer:
 
             # Generate a wrapper with the model as the type annotation so
             # FastMCP inspects the signature and builds the schema from it.
+            # If the result dict contains image data (screenshot_b64 / image_b64),
+            # extract it into a native ImageContent block to avoid bloating
+            # the text context window.
             src = """
 async def _wrapper(input: _Model) -> Any:
     result = _handler(input)
     if _isawaitable(result):
-        return await result
+        result = await result
+    if isinstance(result, dict) and ("screenshot_b64" in result or "image_b64" in result):
+        return _extract_image(result)
     return result
 """.lstrip()
 
@@ -139,6 +173,9 @@ async def _wrapper(input: _Model) -> Any:
                 "_Model": model_cls,
                 "_handler": handler,
                 "_isawaitable": inspect.isawaitable,
+                "_logger": logger,
+                "_tool_name": tool.name,
+                "_extract_image": _extract_image_content,
             }
             exec(src, ns, ns)
             self._mcp.tool(name=tool.name, description=tool.description)(ns["_wrapper"])

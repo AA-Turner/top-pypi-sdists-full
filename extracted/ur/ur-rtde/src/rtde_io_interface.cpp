@@ -72,6 +72,11 @@ void RTDEIOInterface::disconnect()
   }
 }
 
+bool RTDEIOInterface::isConnected()
+{
+  return rtde_->isConnected();
+}
+
 bool RTDEIOInterface::reconnect()
 {
   rtde_->connect();

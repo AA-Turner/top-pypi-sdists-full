@@ -221,7 +221,7 @@ def run_api_args(args):
 
     # Custom cookie browsers
     if args.cookie_browsers:
-        cookies.BROWSERS = [cookies[b] for b in args.cookie_browsers]
+        cookies.BROWSERS = [b for b in cookies.BROWSERS if b.__name__ in args.cookie_browsers]
 
     # Allow overriding the cookies directory from CLI
     if getattr(args, "cookies_dir", None):
@@ -301,7 +301,17 @@ def main():
     mode_parser = ArgumentParser(description="Select mode to run g4f in.", exit_on_error=False)
     mode_parser.add_argument("mode", nargs="?", choices=["api", "gui", "client", "mcp", "auth"], default="api", help="Mode to run g4f in (default: api).")
     
-    args, remaining = mode_parser.parse_known_args(remaining)
+    # Preserve original remaining so the API parser gets all args if mode
+    # detection fails (e.g. `python -m g4f --port 8080` without a mode prefix).
+    original_remaining = remaining
+    try:
+        args, remaining = mode_parser.parse_known_args(remaining)
+    except (argparse.ArgumentError, SystemExit):
+        # If mode parsing fails (e.g. a port number or unknown flag appears
+        # before the mode positional), fall back to API mode and restore the
+        # original argument list so the API parser can handle them.
+        args = argparse.Namespace(mode="api")
+        remaining = original_remaining
     try:
         if args.mode == "auth":
             parser = get_auth_parser()

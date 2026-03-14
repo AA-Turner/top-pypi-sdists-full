@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: CairoSVG
-Version: 2.8.2
+Version: 2.9.0
 Summary: A Simple SVG Converter based on Cairo
 Home-page: https://courtbouillon.org/cairosvg
 Author: Guillaume Ayoub
@@ -19,13 +19,13 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cairocffi
@@ -46,7 +46,7 @@ CairoSVG is an SVG converter based on Cairo. It can export SVG files to PDF,
 EPS, PS, and PNG files.
 
 * Free software: LGPL license
-* For Python 3.9+
+* For Python 3.10+
 * Documentation: https://cairosvg.org/documentation/
 * Changelog: https://github.com/Kozea/CairoSVG/releases
 * Code, issues, tests: https://github.com/Kozea/CairoSVG

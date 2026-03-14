@@ -252,6 +252,7 @@ async fn test_guacd_handshake_successful() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel");
@@ -475,6 +476,7 @@ async fn test_guacd_handshake_join_existing_connection_readonly() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for join test");
@@ -577,6 +579,7 @@ async fn test_guacd_handshake_join_existing_connection_not_readonly() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for join_not_readonly test");
@@ -675,6 +678,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_args() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for fail_args test");
@@ -765,6 +769,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_ready() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for fail_ready test");
@@ -956,6 +961,7 @@ async fn test_guacd_handshake_failure_timeout_waiting_for_args() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for timeout_args test");
@@ -1054,6 +1060,7 @@ async fn test_guacd_handshake_failure_timeout_waiting_for_ready() {
         python_handler_tx: None,
         handler_registry: None,
         spawned_task_completion_tx: Arc::new(tokio::sync::mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await
     .expect("Failed to create channel for timeout_ready test");

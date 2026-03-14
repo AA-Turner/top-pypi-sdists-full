@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from snowflake.snowpark_connect.config import global_config, str_to_bool
+from snowflake.snowpark_connect.date_time_format_mapping import (
+    convert_java_datetime_format_for_fileformat,
+)
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 
@@ -67,7 +70,9 @@ class ReaderWriterConfig:
             if key in self.supported_options:
                 snowpark_config[key] = value
             else:
-                logger.debug(f"unsupported reader option: {key}")
+                logger.warning(
+                    f"Reader option '{key}' is not supported and will be ignored. Results may differ from Spark."
+                )
 
         for key in snowpark_config.keys():
             snowpark_config[key] = self._get_config_setting(key)
@@ -91,15 +96,17 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
     {
         "schema",
         "sep",
+        "delimiter",  # Spark alias for sep
         "encoding",
+        "charset",  # Spark alias for encoding
         "quote",
         # escape has different semantics in snowpark, but should work for standard use-cases
         "escape",
         # "comment", # Comment is not supported
         "header",
         "inferSchema",
-        # "ignoreLeadingWhiteSpace",
-        # "ignoreTrailingWhiteSpace",
+        "ignoreLeadingWhiteSpace",
+        "ignoreTrailingWhiteSpace",
         "nullValue",
         # "nanValue",
         # "positiveInf",
@@ -148,7 +155,7 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
         # TODO: Snowpark does not support NaN value argument.
         # "nanValue": "NaN",
         "dateFormat": "yyyy-MM-dd",
-        "timestampFormat": "YYYY-MM-DD HH24:MI:SS.FF6",
+        "timestampFormat": "yyyy-MM-dd HH:mm:ss.SSSSSS",
         # TODO: Snowpark does not support maxColumns argument
         # "maxColumns": "20480",
         # TODO: Snowpark does not support maxCharsPerColumn argument
@@ -158,10 +165,8 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
         "charset": "UTF-8",
         # TODO: Snowpark does not support multiLine argument
         "multiLine": "false",
-        # TODO: Snowpark does not support ignoreLeadingWhiteSpace argument
-        # "ignoreLeadingWhiteSpace": "false",
-        # TODO: Snowpark does not support ignoreTrailingWhiteSpace argument
-        # "ignoreTrailingWhiteSpace": "false",
+        "ignoreLeadingWhiteSpace": "false",
+        "ignoreTrailingWhiteSpace": "false",
         # TODO: Snowpark does not support samplingRatio argument
         # "samplingRatio": "1.0",
         # TODO: Snowpark does not support emptyValue argument
@@ -177,6 +182,32 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
 )
 
 
+def apply_infer_schema_options(snowpark_config: dict[str, Any]) -> None:
+    """Pop rowsToInferSchema and relaxTypesToInferSchema from config.
+
+    If rowsToInferSchema is present and > 0, sets INFER_SCHEMA_OPTIONS
+    with MAX_RECORDS_PER_FILE and USE_RELAXED_TYPES.
+
+    Shared by CSV and JSON readers.
+    """
+    if "rowstoinferschema" not in snowpark_config:
+        return
+
+    rows_to_infer_schema = int(snowpark_config.pop("rowstoinferschema"))
+
+    relax_types_to_infer_schema = True
+    if "relaxtypestoinferschema" in snowpark_config:
+        relax_types_to_infer_schema = str_to_bool(
+            str(snowpark_config.pop("relaxtypestoinferschema"))
+        )
+
+    if rows_to_infer_schema > 0:
+        snowpark_config["INFER_SCHEMA_OPTIONS"] = {
+            "MAX_RECORDS_PER_FILE": rows_to_infer_schema,
+            "USE_RELAXED_TYPES": relax_types_to_infer_schema,
+        }
+
+
 def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, Any]:
     renamed_args = {
         "inferSchema": "INFER_SCHEMA",
@@ -190,8 +221,26 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
         "header": "PARSE_HEADER",
         "pathGlobFilter": "PATTERN",
         "multiLine": "MULTI_LINE",
+        "encoding": "ENCODING",
     }
     renamed_args = lowercase_dict_keys(renamed_args)
+
+    # Handle 'delimiter' as Spark alias for 'sep'.
+    # delimiter always overrides sep (including the default sep=",") because
+    # when a user explicitly passes delimiter, that is the value they want.
+    if "delimiter" in snowpark_config:
+        snowpark_config["sep"] = snowpark_config["delimiter"]
+        del snowpark_config["delimiter"]
+
+    # Handle 'charset' as Spark alias for 'encoding'
+    if "charset" in snowpark_config:
+        if "encoding" not in snowpark_config:
+            snowpark_config["encoding"] = snowpark_config["charset"]
+        del snowpark_config["charset"]
+
+    # Empty quote means no quoting — remove so Snowflake uses its default (NONE)
+    if "quote" in snowpark_config and snowpark_config["quote"] == "":
+        del snowpark_config["quote"]
 
     # spark does not escape unenclosed fields
     snowpark_config["ESCAPE_UNENCLOSED_FIELD"] = "NONE"
@@ -200,7 +249,7 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
 
     # Fix the escape character if it is provided.
     # TODO SNOW-2081726: This seems to be a Snowpark bug
-    if snowpark_config["escape"] and snowpark_config["escape"] == "\\":
+    if snowpark_config.get("escape") and snowpark_config["escape"] == "\\":
         snowpark_config["escape"] = "\\\\"
 
     # If quote and escape are the same character, drop the escape.
@@ -212,20 +261,27 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
     if quote_char and escape_char and quote_char == escape_char:
         del snowpark_config["escape"]
 
-    # Snowflake specific option, number of rows to infer schema for CSV files
-    if "rowstoinferschema" in snowpark_config:
-        rows_to_infer_schema = snowpark_config["rowstoinferschema"]
-        del snowpark_config["rowstoinferschema"]
-        relax_types_to_infer_schema = True
-        if "relaxtypestoinferschema" in snowpark_config:
-            relax_types_to_infer_schema = str_to_bool(
-                str(snowpark_config["relaxtypestoinferschema"])
-            )
-            del snowpark_config["relaxtypestoinferschema"]
-        snowpark_config["INFER_SCHEMA_OPTIONS"] = {
-            "MAX_RECORDS_PER_FILE": int(rows_to_infer_schema),
-            "USE_RELAXED_TYPES": relax_types_to_infer_schema,
-        }
+    # Map Spark's ignoreLeadingWhiteSpace / ignoreTrailingWhiteSpace to
+    # Snowflake's TRIM_SPACE. Snowflake cannot trim only one side, so either
+    # option being true enables TRIM_SPACE (D1 compatibility difference).
+    ignore_leading = snowpark_config.pop("ignoreleadingwhitespace", False)
+    ignore_trailing = snowpark_config.pop("ignoretrailingwhitespace", False)
+    if ignore_leading or ignore_trailing:
+        snowpark_config["TRIM_SPACE"] = True
+
+    apply_infer_schema_options(snowpark_config)
+
+    # Convert Java/Spark date and timestamp format strings to Snowflake equivalents.
+    # Spark uses Java SimpleDateFormat patterns (e.g. dd/MM/yyyy HH:mm) while
+    # Snowflake uses its own tokens (DD/MM/YYYY HH24:MI).
+    for fmt_key in ("dateformat", "timestampformat"):
+        if fmt_key in snowpark_config and snowpark_config[fmt_key]:
+            try:
+                snowpark_config[fmt_key] = convert_java_datetime_format_for_fileformat(
+                    snowpark_config[fmt_key]
+                )
+            except Exception:
+                pass
 
     # Rename the keys to match the Snowpark configuration.
     for spark_arg, snowpark_arg in renamed_args.items():
@@ -284,7 +340,13 @@ class CsvWriterConfig(ReaderWriterConfig):
                         key: value
                         for key, value in CSV_READ_DEFAULT_CONFIG.items()
                         # Quote is removed here because it behaves very differently in Snowpark compared to Spark.
-                        if key not in ["quote", "inferSchema", "compression"]
+                        if key
+                        not in [
+                            "quote",
+                            "inferSchema",
+                            "compression",
+                            "rowstoinferschema",
+                        ]
                     },
                     **(
                         {
@@ -343,10 +405,11 @@ class JsonReaderConfig(ReaderWriterConfig):
                     # TODO: modifiedBefore: Union[bool, str, None] = None,
                     # TODO: modifiedAfter: Union[bool, str, None] = None,
                     # TODO: allowNonNumericNumbers: Union[bool, str, None] = None,
-                    "rowsToInferSchema": 1000,
                     "batchSize": 1000,
                     "processInBulk": "False",
                     "jsonFileParallelLoading": "False",
+                    # this controls the number of rows to pull locally to infer nested schema. Once infer schema supports nested schema, this will be removed.
+                    "jsonLocalRowsToInferSchema": 1000,
                     "splitSizeMb": 2,
                 },
                 supported_options={
@@ -377,10 +440,12 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "compression",
                     # "ignoreNullFields",
                     "rowsToInferSchema",
+                    "relaxTypesToInferSchema",
                     # "inferTimestamp",
                     "batchSize",
                     "processInBulk",
                     "jsonFileParallelLoading",
+                    "jsonLocalRowsToInferSchema",
                     "splitSizeMb",
                 },
                 boolean_config_list=[
@@ -393,6 +458,7 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "rowsToInferSchema",
                     "batchSize",
                     "splitSizeMb",
+                    "jsonLocalRowsToInferSchema",
                 ],
                 float_config_list=["samplingRatio"],
             ),
@@ -404,17 +470,27 @@ class JsonReaderConfig(ReaderWriterConfig):
             "inferSchema": "INFER_SCHEMA",
             "dateFormat": "DATE_FORMAT",
             "timestampFormat": "TIMESTAMP_FORMAT",
-            "multiLine": "STRIP_OUTER_ARRAY",
             "pathGlobFilter": "PATTERN",
         }
         renamed_args = lowercase_dict_keys(renamed_args)
         snowpark_config = super().convert_to_snowpark_args()
+
+        apply_infer_schema_options(snowpark_config)
+
         # Rename the keys to match the Snowpark configuration.
         for spark_arg, snowpark_arg in renamed_args.items():
             if spark_arg not in snowpark_config:
                 continue
             snowpark_config[snowpark_arg] = snowpark_config[spark_arg]
             del snowpark_config[spark_arg]
+
+        # Spark's multiLine maps to both STRIP_OUTER_ARRAY and MULTI_LINE in Snowflake's JSON file format.
+        multiline_key = "multiline"
+        if multiline_key in snowpark_config:
+            multi_line_value = snowpark_config.pop(multiline_key)
+            snowpark_config["STRIP_OUTER_ARRAY"] = multi_line_value
+            snowpark_config["MULTI_LINE"] = multi_line_value
+
         return snowpark_config
 
 

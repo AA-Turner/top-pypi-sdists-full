@@ -2,9 +2,9 @@ import os
 import requests
 import json
 
-import six
 import slugify
 
+from ckanapi.common import REQUEST_TIMEOUT
 from ckanapi.cli.utils import pretty_json
 from ckanapi.errors import CKANAPIError, NotFound
 
@@ -25,7 +25,7 @@ def create_resource(resource, filename, datapackage_dir, stderr, apikey):
     headers['Authorization'] = apikey
 
     try:
-        r = requests.get(resource['url'], headers=headers, stream=True)
+        r = requests.get(resource['url'], headers=headers, stream=True, timeout=REQUEST_TIMEOUT)
         with open(os.path.join(datapackage_dir, path), 'wb') as f:
             for chunk in r.iter_content(chunk_size=DL_CHUNK_SIZE):
                 if chunk: # filter out keep-alive new chunks
@@ -170,7 +170,7 @@ def _convert_to_datapackage_resource(resource_dict):
         resource['name'] = resource_dict['id']
 
     schema = resource_dict.get('schema')
-    if isinstance(schema, six.string_types):
+    if isinstance(schema, str):
         try:
             resource['schema'] = json.loads(schema)
         except ValueError:

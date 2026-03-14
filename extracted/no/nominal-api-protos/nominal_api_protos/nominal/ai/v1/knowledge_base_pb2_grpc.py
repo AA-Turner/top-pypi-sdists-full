@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.ai.v1 import knowledge_base_pb2 as nominal_dot_ai_dot_v1_dot_knowledge__base__pb2
+from nominal_api_protos.nominal.ai.v1 import knowledge_base_pb2 as nominal_dot_ai_dot_v1_dot_knowledge__base__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -1,4 +1,4 @@
-use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
+use crate::rule::{FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::mkdocs_patterns::is_mkdocs_auto_reference;
 use crate::utils::range_utils::calculate_match_range;
 use crate::utils::regex_cache::SHORTCUT_REF_REGEX;
@@ -262,22 +262,16 @@ impl MD052ReferenceLinkImages {
         false
     }
 
-    /// Check if a byte position is inside any code span
+    /// Check if a byte position is inside any code span. O(log n) via binary search.
     fn is_in_code_span(byte_pos: usize, code_spans: &[crate::lint_context::CodeSpan]) -> bool {
-        code_spans
-            .iter()
-            .any(|span| byte_pos >= span.byte_offset && byte_pos < span.byte_end)
+        let idx = code_spans.partition_point(|span| span.byte_offset <= byte_pos);
+        idx > 0 && byte_pos < code_spans[idx - 1].byte_end
     }
 
-    /// Check if a byte position is within an HTML tag
-    fn is_in_html_tag(ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
-        // Check HTML tags
-        for html_tag in ctx.html_tags().iter() {
-            if html_tag.byte_offset <= byte_pos && byte_pos < html_tag.byte_end {
-                return true;
-            }
-        }
-        false
+    /// Check if a byte position is within an HTML tag. O(log n) via binary search.
+    fn is_in_html_tag(html_tags: &[crate::lint_context::HtmlTag], byte_pos: usize) -> bool {
+        let idx = html_tags.partition_point(|tag| tag.byte_offset <= byte_pos);
+        idx > 0 && byte_pos < html_tags[idx - 1].byte_end
     }
 
     fn extract_references(&self, ctx: &crate::lint_context::LintContext) -> HashSet<String> {
@@ -325,8 +319,9 @@ impl MD052ReferenceLinkImages {
         let mut reported_refs = HashMap::new();
         let mut in_example_section = false;
 
-        // Get code spans once for the entire function
+        // Get code spans and HTML tags once for the entire function
         let code_spans = ctx.code_spans();
+        let html_tags = ctx.html_tags();
 
         // Use cached data for reference links and images
         for link in &ctx.links {
@@ -350,7 +345,7 @@ impl MD052ReferenceLinkImages {
             }
 
             // Skip links inside HTML tags
-            if Self::is_in_html_tag(ctx, link.byte_offset) {
+            if Self::is_in_html_tag(&html_tags, link.byte_offset) {
                 continue;
             }
 
@@ -457,7 +452,7 @@ impl MD052ReferenceLinkImages {
             }
 
             // Skip images inside HTML tags
-            if Self::is_in_html_tag(ctx, image.byte_offset) {
+            if Self::is_in_html_tag(&html_tags, image.byte_offset) {
                 continue;
             }
 
@@ -737,7 +732,7 @@ impl MD052ReferenceLinkImages {
                             }
 
                             // Skip if inside HTML tag
-                            if Self::is_in_html_tag(ctx, byte_pos) {
+                            if Self::is_in_html_tag(&html_tags, byte_pos) {
                                 continue;
                             }
 
@@ -843,6 +838,14 @@ impl Rule for MD052ReferenceLinkImages {
 
     fn description(&self) -> &'static str {
         "Reference links and images should use a reference that exists"
+    }
+
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Link
+    }
+
+    fn fix_capability(&self) -> FixCapability {
+        FixCapability::Unfixable
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {

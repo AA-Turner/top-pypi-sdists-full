@@ -3,9 +3,9 @@
 import grpc
 import warnings
 
-from nominal.mesh.v1 import links_pb2 as nominal_dot_mesh_dot_v1_dot_links__pb2
-from nominal.mesh.v1 import mesh_pb2 as nominal_dot_mesh_dot_v1_dot_mesh__pb2
-from nominal.mesh.v1 import remote_connections_pb2 as nominal_dot_mesh_dot_v1_dot_remote__connections__pb2
+from nominal_api_protos.nominal.mesh.v1 import links_pb2 as nominal_dot_mesh_dot_v1_dot_links__pb2
+from nominal_api_protos.nominal.mesh.v1 import mesh_pb2 as nominal_dot_mesh_dot_v1_dot_mesh__pb2
+from nominal_api_protos.nominal.mesh.v1 import remote_connections_pb2 as nominal_dot_mesh_dot_v1_dot_remote__connections__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -174,6 +174,9 @@ from .states.ct.tax_rebate_2026 import (
 from .states.ct.hb5009 import (
     create_ct_hb5009_reform,
 )
+from .states.ct.hb5114 import (
+    create_ct_hb5114_reform,
+)
 from .congress.watca import (
     create_watca_reform,
 )
@@ -344,6 +347,7 @@ def create_structural_reforms_from_parameters(parameters, period):
     ct_sb100 = create_ct_sb100_reform(parameters, period)
     ct_tax_rebate_2026 = create_ct_tax_rebate_2026_reform(parameters, period)
     ct_hb5009 = create_ct_hb5009_reform(parameters, period)
+    ct_hb5114 = create_ct_hb5114_reform(parameters, period)
     ga_sb520 = create_ga_sb520_reform(parameters, period)
     watca = create_watca_reform(parameters, period)
 
@@ -424,6 +428,7 @@ def create_structural_reforms_from_parameters(parameters, period):
         pa_ctc_flat_amount,
         pa_ctc_match,
         ct_hb5009,
+        ct_hb5114,
         ct_sb100,
         ct_tax_rebate_2026,
         ga_sb520,

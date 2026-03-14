@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: crowdsourcehinter-xblock
-Version: 0.8
+Version: 1.0.0
 Summary: crowdsourcehinter XBlock
 Home-page: https://github.com/openedx/crowdsourcehinter
 Author: edX
@@ -10,7 +10,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Description-Content-Type: text/markdown
@@ -18,6 +17,15 @@ License-File: LICENSE
 Requires-Dist: XBlock
 Requires-Dist: six
 Requires-Dist: web-fragments
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 This is the repository for the Crowdsource Hinter XBlock. The Crowdsource Hinter serves to provide students with hints when they incorrectly answer a problem within a course. The hinter is compatible with numerical input and text input type problems.
 

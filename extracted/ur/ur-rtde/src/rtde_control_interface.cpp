@@ -416,14 +416,6 @@ bool RTDEControlInterface::reconnect()
   rtde_->negotiateProtocolVersion();
   versions_ = rtde_->getControllerVersion();
 
-  frequency_ = 125;
-  // If e-Series Robot set frequency to 500Hz
-  if (versions_.major > CB3_MAJOR_VERSION)
-    frequency_ = 500;
-
-  // Set delta time to be used by receiveCallback
-  delta_time_ = 1 / frequency_;
-
   // If user want to use upper range of RTDE registers, add the register offset in control script
   if (use_upper_range_registers_)
   {
@@ -600,8 +592,8 @@ bool RTDEControlInterface::setupRecipes(const double &frequency)
     {
       if (verbose_)
         std::cerr
-            << "Warning! in order to use the functions getMassMatrix(), getJacobian(), getJacobianTimeDerivative() and "
-               "getCoriolisAndCentrifugalTorques, both the upper and lower ranges of RTDE registers are necessary!"
+            << "Warning! in order to use the functions getMassMatrix(), getJacobian(), and getJacobianTimeDerivative(),"
+               " both the upper and lower ranges of RTDE registers are necessary!"
             << std::endl;
     }
     register_offset_ = 0;
@@ -1941,11 +1933,20 @@ std::vector<double> RTDEControlInterface::getForwardKinematics(const std::vector
     robot_cmd.type_ = RTDE::RobotCommand::Type::GET_FORWARD_KINEMATICS_DEFAULT;
     robot_cmd.recipe_id_ = RTDE::RobotCommand::Recipe::RECIPE_4;
   }
-  else if (tcp_offset.empty() && !q.empty())
+  else if (q.empty() && !tcp_offset.empty())
+  {
+    robot_cmd.type_ = RTDE::RobotCommand::Type::GET_FORWARD_KINEMATICS_ARGS;
+    robot_cmd.recipe_id_ = RTDE::RobotCommand::Recipe::RECIPE_6;
+    std::vector<double> actual_q = getActualJointPositionsHistory();
+    robot_cmd.val_ = actual_q;
+    robot_cmd.val_.insert(robot_cmd.val_.end(), tcp_offset.begin(), tcp_offset.end());
+  }
+  else if (!q.empty() && (tcp_offset.empty() || RTDEUtility::isAllZero(tcp_offset)))
   {
     robot_cmd.type_ = RTDE::RobotCommand::Type::GET_FORWARD_KINEMATICS_ARGS;
     robot_cmd.recipe_id_ = RTDE::RobotCommand::Recipe::RECIPE_6;
     robot_cmd.val_ = q;
+    robot_cmd.val_.insert(robot_cmd.val_.end(), tcp_offset.begin(), tcp_offset.end());
   }
   else
   {
@@ -2283,16 +2284,9 @@ std::vector<double> RTDEControlInterface::getCoriolisAndCentrifugalTorques(const
       // Wait for the next state to be received.
       waitForNextState();
       std::vector<double> coriolis_and_centrifugal_torques;
-      // override the register offset, since we need both upper and lower rtde register ranges.
-      int orig_register_offset_ = register_offset_;
-      register_offset_ = 0;
-      // get first 24 registers from lower range.
-      for (size_t i = 0; i < 24; i++)
+      // get first 6 registers from lower range.
+      for (size_t i = 0; i < 6; i++)
         coriolis_and_centrifugal_torques.push_back(getOutputDoubleReg(i));
-      // get the last 12 registers the upper range.
-      for (size_t i = 36; i < 48; i++)
-        coriolis_and_centrifugal_torques.push_back(getOutputDoubleReg(i));
-      register_offset_ = orig_register_offset_;
       return coriolis_and_centrifugal_torques;
     }
     else
@@ -2542,6 +2536,7 @@ bool RTDEControlInterface::sendCommand(const RTDE::RobotCommand &cmd)
           cmd.type_ == RTDE::RobotCommand::Type::SET_EXTERNAL_FORCE_TORQUE ||
           cmd.type_ == RTDE::RobotCommand::Type::DIRECT_TORQUE ||
           cmd.type_ == RTDE::RobotCommand::Type::GET_MASS_MATRIX ||
+          cmd.type_ == RTDE::RobotCommand::Type::GET_ACTUAL_TOOL_FLANGE_POSE ||
           cmd.type_ == RTDE::RobotCommand::Type::GET_CORIOLIS_AND_CENTRIFUGAL_TORQUES ||
           cmd.type_ == RTDE::RobotCommand::Type::GET_TARGET_JOINT_ACCELERATIONS ||
           cmd.type_ == RTDE::RobotCommand::Type::GET_JACOBIAN ||

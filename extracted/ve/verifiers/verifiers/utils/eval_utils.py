@@ -2,26 +2,25 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import itertools
 import logging
 import math
 import os
+import threading
 import time
 from collections import Counter, defaultdict
 from collections.abc import Mapping
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, cast
+from typing import Callable, cast
 
 import numpy as np
 from datasets import disable_progress_bar, enable_progress_bar
 from datasets.utils import logging as ds_logging
 
 import verifiers as vf
-from verifiers.utils.import_utils import load_toml
-
-if TYPE_CHECKING:
-    pass
 from verifiers.types import (
+    ClientType,
     Endpoint,
     Endpoints,
     EvalConfig,
@@ -35,7 +34,9 @@ from verifiers.types import (
     StartCallback,
 )
 from verifiers.utils.async_utils import EventLoopLagMonitor
+from verifiers.utils.import_utils import load_toml
 from verifiers.utils.logging_utils import print_prompt_completions_sample, print_time
+from verifiers.utils.metric_utils import compute_pass_at_k
 from verifiers.utils.path_utils import get_eval_results_path
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,41 @@ def _coerce_endpoint(raw_endpoint: object, source: str) -> Endpoint:
             f"Fields 'model', 'url', and 'key' must all be strings in {source}"
         )
 
-    return Endpoint(model=model, url=url, key=key)
+    endpoint = Endpoint(model=model, url=url, key=key)
+
+    if "client_type" in raw_endpoint_dict:
+        raise ValueError(
+            f"Field 'client_type' is no longer supported in {source}. "
+            "Use 'type' or 'api_client_type'."
+        )
+
+    short_client_type = raw_endpoint_dict.get("type")
+    long_client_type = raw_endpoint_dict.get("api_client_type")
+    if (
+        short_client_type is not None
+        and long_client_type is not None
+        and short_client_type != long_client_type
+    ):
+        raise ValueError(
+            f"Conflicting values for 'type' and 'api_client_type' in {source}"
+        )
+
+    client_type = (
+        short_client_type if short_client_type is not None else long_client_type
+    )
+    if client_type is not None:
+        if client_type not in (
+            "openai_completions",
+            "openai_chat_completions",
+            "openai_chat_completions_token",
+            "anthropic_messages",
+        ):
+            raise ValueError(
+                f"Field 'type'/'api_client_type' must be 'openai_completions' or 'openai_chat_completions' or 'openai_chat_completions_token' or 'anthropic_messages' in {source}"
+            )
+        endpoint["api_client_type"] = cast(ClientType, client_type)
+
+    return endpoint
 
 
 def _normalize_python_endpoints(raw_endpoints: object, source: Path) -> Endpoints:
@@ -223,10 +258,88 @@ def load_endpoints(endpoints_path: str):
     return endpoints
 
 
+def _expand_ablation(ablation: dict, global_defaults: dict) -> list[dict]:
+    """Expand an [[ablation]] block into eval configs via cartesian product.
+
+    Sweep keys are lists of values under [ablation.sweep]. Environment args
+    can be swept via [ablation.sweep.env_args]. All sweep dimensions are
+    crossed to produce one eval config per combination.
+
+    Example TOML:
+        [[ablation]]
+        env_id = "my-env"
+
+        [ablation.sweep]
+        temperature = [0.0, 0.5]
+
+        [ablation.sweep.env_args]
+        difficulty = ["easy", "hard"]
+
+    This produces 4 eval configs (2 temperatures × 2 difficulties).
+    """
+    ablation = dict(ablation)  # don't mutate caller's dict
+    sweep = ablation.pop("sweep", {})
+    sweep = dict(sweep)  # copy before mutating
+    env_args_sweep = sweep.pop("env_args", {})
+
+    # Collect all sweep dimensions: [(key, [values]), ...]
+    dimensions: list[tuple[str, list]] = []
+    for key, values in sweep.items():
+        if not isinstance(values, list):
+            raise ValueError(
+                f"Ablation sweep values must be lists, got {type(values).__name__} "
+                f"for '{key}'"
+            )
+        dimensions.append((key, values))
+    for key, values in env_args_sweep.items():
+        if not isinstance(values, list):
+            raise ValueError(
+                f"Ablation sweep.env_args values must be lists, got "
+                f"{type(values).__name__} for '{key}'"
+            )
+        dimensions.append((f"env_args.{key}", values))
+
+    if not dimensions:
+        raise ValueError(
+            "[[ablation]] block must have a non-empty [ablation.sweep] section"
+        )
+
+    # Guard against same key in both fixed env_args and sweep.env_args
+    fixed_env_args = ablation.get("env_args", {})
+    if fixed_env_args and env_args_sweep:
+        overlap = set(fixed_env_args.keys()) & set(env_args_sweep.keys())
+        if overlap:
+            raise ValueError(
+                f"env_args key(s) {overlap} appear in both fixed env_args and "
+                f"sweep.env_args — use one or the other"
+            )
+
+    # Fixed fields: global defaults overridden by ablation-level fields
+    fixed = {**global_defaults, **ablation}
+
+    # Expand cartesian product
+    keys = [k for k, _ in dimensions]
+    value_lists = [v for _, v in dimensions]
+
+    expanded = []
+    for combo in itertools.product(*value_lists):
+        config = {k: (dict(v) if isinstance(v, dict) else v) for k, v in fixed.items()}
+        for key, value in zip(keys, combo):
+            if key.startswith("env_args."):
+                env_key = key[len("env_args.") :]
+                config["env_args"] = {**config.get("env_args", {}), env_key: value}
+            else:
+                config[key] = value
+        expanded.append(config)
+
+    return expanded
+
+
 def load_toml_config(path: Path) -> list[dict]:
     """Loads and validates a TOML config file.
 
-    Config format supports global defaults at the top level, with per-eval overrides:
+    Config format supports global defaults at the top level, with per-eval overrides
+    and ablation sweeps:
 
         # Global defaults (optional)
         model = "openai/gpt-4.1-mini"
@@ -239,10 +352,16 @@ def load_toml_config(path: Path) -> list[dict]:
         env_id = "math-python"
         num_examples = 5  # overrides global default
 
-    Minimal config (just a single eval):
+        # Ablation: cartesian product of sweep values
+        [[ablation]]
+        env_id = "my-env"
 
-        [[eval]]
-        env_id = "gsm8k"
+        [ablation.sweep]
+        temperature = [0.0, 0.5, 1.0]
+
+        [ablation.sweep.env_args]
+        difficulty = ["easy", "hard"]
+        # → 6 eval configs
     """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -252,21 +371,30 @@ def load_toml_config(path: Path) -> list[dict]:
 
     # validate schema
     eval_list = raw_config.get("eval", [])
+    ablation_list = raw_config.get("ablation", [])
+
     if not isinstance(eval_list, list):
         raise ValueError(
             f"Config file uses [eval] but should use [[eval]] (double brackets) "
             f"for array of tables: {path}"
         )
-    if not eval_list:
+    if not isinstance(ablation_list, list):
         raise ValueError(
-            f"Config file must contain at least one [[eval]] section: {path}"
+            f"Config file uses [ablation] but should use [[ablation]] (double brackets) "
+            f"for array of tables: {path}"
+        )
+    if not eval_list and not ablation_list:
+        raise ValueError(
+            f"Config file must contain at least one [[eval]] or [[ablation]] section: {path}"
         )
 
     if not all("env_id" in e for e in eval_list):
         raise ValueError(f"All [[eval]] sections must contain an env_id field: {path}")
 
-    # extract global defaults (everything except 'eval' key)
-    global_defaults = {k: v for k, v in raw_config.items() if k != "eval"}
+    # extract global defaults (everything except 'eval' and 'ablation' keys)
+    global_defaults = {
+        k: v for k, v in raw_config.items() if k not in ("eval", "ablation")
+    }
 
     # valid fields mirror cli args, not evalconfig
     # TODO: properly tie EvalConfig to CLI
@@ -278,8 +406,10 @@ def load_toml_config(path: Path) -> list[dict]:
         "endpoints_path",
         "extra_env_kwargs",
         # model/client
+        "provider",
         "endpoint_id",
         "model",
+        "api_client_type",
         "api_key_var",
         "api_base_url",
         "header",
@@ -293,6 +423,7 @@ def load_toml_config(path: Path) -> list[dict]:
         "max_concurrent",
         "independent_scoring",
         "max_retries",
+        "disable_env_server",
         # logging
         "verbose",
         "debug",
@@ -325,7 +456,38 @@ def load_toml_config(path: Path) -> list[dict]:
             )
         # global defaults, then per-eval overrides
         merged = {**global_defaults, **eval_config}
-        # Resolve endpoints_path relative to the config file location.
+        merged_eval_list.append(merged)
+
+    # expand [[ablation]] blocks into eval configs
+    for ablation in ablation_list:
+        # Validate fixed fields (everything except 'sweep')
+        ablation_fixed_keys = set(ablation.keys()) - {"sweep"}
+        invalid_fields = ablation_fixed_keys - valid_fields
+        if invalid_fields:
+            raise ValueError(
+                f"Invalid field(s) {invalid_fields} in [[ablation]] block. "
+                f"Valid fields are: {sorted(valid_fields)}"
+            )
+        # Validate sweep keys (except env_args which has freeform sub-keys)
+        sweep = ablation.get("sweep", {})
+        invalid_sweep = set(sweep.keys()) - valid_fields - {"env_args"}
+        if invalid_sweep:
+            raise ValueError(
+                f"Invalid sweep field(s) {invalid_sweep} in [[ablation]] block. "
+                f"Valid fields are: {sorted(valid_fields)}"
+            )
+        expanded = _expand_ablation(ablation, global_defaults)
+        merged_eval_list.extend(expanded)
+
+    # Validate all expanded configs have env_id
+    for config in merged_eval_list:
+        if "env_id" not in config:
+            raise ValueError(
+                "All eval configs (including expanded ablations) must have an env_id"
+            )
+
+    # Resolve endpoints_path relative to the config file location
+    for merged in merged_eval_list:
         endpoints_path = merged.get("endpoints_path")
         if isinstance(endpoints_path, str):
             endpoints_path_obj = Path(endpoints_path)
@@ -333,7 +495,6 @@ def load_toml_config(path: Path) -> list[dict]:
                 merged["endpoints_path"] = str(
                     (path.parent / endpoints_path_obj).resolve()
                 )
-        merged_eval_list.append(merged)
 
     return merged_eval_list
 
@@ -388,6 +549,21 @@ def print_rewards(results: GenerateOutputs):
         trials = [round(rewards[i + (j * r)], 3) for j in range(n)]
         out = f"r{i + 1}: {trials}"
         print(out)
+
+    threshold = results["metadata"].get("pass_threshold", 0.5)
+    pass_at_k, pass_all_k = compute_pass_at_k(results["outputs"], r, threshold)
+    if pass_at_k:
+        parts = [
+            f"{k}={v:.3f}"
+            for k, v in sorted(pass_at_k.items(), key=lambda x: int(x[0]))
+        ]
+        print(f"pass@k: {', '.join(parts)}")
+    if pass_all_k:
+        parts = [
+            f"{k}={v:.3f}"
+            for k, v in sorted(pass_all_k.items(), key=lambda x: int(x[0]))
+        ]
+        print(f"pass^k: {', '.join(parts)}")
 
     metrics = [o["metrics"] for o in results["outputs"]]
     metrics_col = to_col_order(metrics)
@@ -537,7 +713,7 @@ async def run_evaluation(
     config: EvalConfig,
     on_start: StartCallback | None = None,
     on_log_file: Callable[[Path], None] | None = None,
-    on_progress: ProgressCallback | None = None,
+    on_progress: ProgressCallback | list[ProgressCallback] | None = None,
     on_log: LogCallback | None = None,
 ) -> GenerateOutputs:
     # load environment
@@ -551,22 +727,23 @@ async def run_evaluation(
     results_path = config.resume_path or get_eval_results_path(config)
 
     try:
-        if config.debug:
-            await vf_env.start_server(
-                extra_env_kwargs=config.extra_env_kwargs,
-                log_level=get_log_level(config.verbose),
-            )
-        else:
-            log_file = results_path / "eval.log"
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            await vf_env.start_server(
-                extra_env_kwargs=config.extra_env_kwargs,
-                log_level="CRITICAL",  # disable console logging
-                log_file=str(log_file),
-                log_file_level=get_log_level(config.verbose),
-            )
-            if on_log_file is not None:
-                on_log_file(log_file)
+        if not config.disable_env_server:
+            if config.debug:
+                await vf_env.start_server(
+                    extra_env_kwargs=config.extra_env_kwargs,
+                    log_level=get_log_level(config.verbose),
+                )
+            else:
+                log_file = results_path / "eval.log"
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+                await vf_env.start_server(
+                    extra_env_kwargs=config.extra_env_kwargs,
+                    log_level="CRITICAL",  # disable console logging
+                    log_file=str(log_file),
+                    log_file_level=get_log_level(config.verbose),
+                )
+                if on_log_file is not None:
+                    on_log_file(log_file)
 
         logger.debug(f"Starting evaluation with model: {config.model}")
         logger.debug(
@@ -608,7 +785,8 @@ async def run_evaluation(
             on_log=on_log,
         )
     finally:
-        await vf_env.stop_server()
+        if not config.disable_env_server:
+            await vf_env.stop_server()
 
     return outputs
 
@@ -618,12 +796,26 @@ async def run_evaluations(config: EvalRunConfig) -> None:
     event_loop_lag_monitor = EventLoopLagMonitor()
     event_loop_lag_monitor.run_in_background()
 
+    on_progress: list[ProgressCallback] | None = None
+    if config.heartbeat_url is not None:
+        from verifiers.utils.heartbeat import Heartbeat
+
+        heart = Heartbeat(config.heartbeat_url)
+        on_progress = [lambda *_a, **_kw: asyncio.create_task(heart.beat())]
+
     start_time = time.time()
     all_results = await asyncio.gather(
-        *[run_evaluation(eval_config) for eval_config in config.evals]
+        *[
+            run_evaluation(eval_config, on_progress=on_progress)
+            for eval_config in config.evals
+        ]
     )
     end_time = time.time()
-    event_loop_lags = event_loop_lag_monitor.get_lags()
+
+    if config.heartbeat_url is not None:
+        await heart.close()
+
+    event_loop_lags = event_loop_lag_monitor.lags
     logger.info(f"Evaluation completed in {end_time - start_time:.2f} seconds")
 
     for results in all_results:
@@ -642,12 +834,15 @@ async def run_evaluations(config: EvalRunConfig) -> None:
         )
 
 
-async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> None:
+async def run_evaluations_tui(
+    config: EvalRunConfig, tui_mode: bool = True, compact: bool = False
+) -> None:
     """Run multi-environment evaluation with a Rich display.
 
     Args:
         config: Evaluation run configuration.
         tui_mode: If True, use alternate screen (--tui flag). If False, refresh in-place.
+        compact: If True, show compact summary (settings + stats, skip example prompts).
     """
     from verifiers.utils.eval_display import EvalDisplay, is_tty
 
@@ -657,7 +852,13 @@ async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> N
         await run_evaluations(config)
         return
 
-    display = EvalDisplay(config.evals, screen=tui_mode)
+    heart = None
+    if config.heartbeat_url is not None:
+        from verifiers.utils.heartbeat import Heartbeat
+
+        heart = Heartbeat(config.heartbeat_url)
+
+    display = EvalDisplay(config.evals, screen=tui_mode, compact=compact)
 
     async def run_with_progress(
         env_config: EvalConfig, env_idx: int
@@ -680,19 +881,30 @@ async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> N
                 env_idx, total=total, num_examples=num_examples, progress=resumed
             )
 
-        def on_progress(
+        def on_display_progress(
             all_outputs: list[RolloutOutput],
             new_outputs: list[RolloutOutput],
             metadata: GenerateMetadata,
         ) -> None:
+            metrics = dict(metadata.get("avg_metrics") or {})
+            pass_at_k = metadata.get("pass_at_k") or {}
+            for k, v in pass_at_k.items():
+                metrics[f"pass@{k}"] = v
+            pass_all_k = metadata.get("pass_all_k") or {}
+            for k, v in pass_all_k.items():
+                metrics[f"pass^{k}"] = v
             display.update_env_state(
                 env_idx,
                 progress=len(all_outputs),
                 reward=metadata.get("avg_reward"),
-                metrics=metadata.get("avg_metrics"),
+                metrics=metrics,
                 error_rate=metadata.get("avg_error"),
                 usage=metadata.get("usage"),
             )
+
+        on_progress: list[ProgressCallback] = [on_display_progress]
+        if heart is not None:
+            on_progress.append(lambda *_a, **_kw: asyncio.create_task(heart.beat()))
 
         def on_log(message: str) -> None:
             display.update_env_state(env_idx, log_message=message)
@@ -727,14 +939,19 @@ async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> N
             display.update_env_state(env_idx, status="failed", error=str(e))
             raise
 
-    async def refresh_loop() -> None:
-        while not display.state.all_completed:
+    # Use a daemon thread for the refresh loop so it runs even when the
+    # event loop is blocked by synchronous work (e.g. env installation).
+    refresh_stop = threading.Event()
+
+    def refresh_loop() -> None:
+        while not refresh_stop.is_set() and not display.state.all_completed:
             display.refresh()
-            await asyncio.sleep(1)
+            refresh_stop.wait(1)
 
     try:
         async with display:
-            refresh_task = asyncio.create_task(refresh_loop())
+            refresh_thread = threading.Thread(target=refresh_loop, daemon=True)
+            refresh_thread.start()
             try:
                 await asyncio.gather(
                     *[
@@ -748,12 +965,14 @@ async def run_evaluations_tui(config: EvalRunConfig, tui_mode: bool = True) -> N
                 if tui_mode:
                     await display.wait_for_exit()
             finally:
-                refresh_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await refresh_task
+                refresh_stop.set()
+                refresh_thread.join(timeout=2)
 
     except KeyboardInterrupt:
         pass  # exit on interrupt
+    finally:
+        if heart is not None:
+            await heart.close()
 
     # print final summary after exit
     display.print_final_summary()

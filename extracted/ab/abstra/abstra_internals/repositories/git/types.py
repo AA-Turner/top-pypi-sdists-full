@@ -50,6 +50,20 @@ class LargeFileInfo:
 
 
 @dataclass
+class CleanupResult:
+    success: bool
+    directories_cleaned: int = 0
+    bytes_freed: int = 0
+
+
+@dataclass
+class MaintenanceResult:
+    success: bool
+    cleanup: Optional["CleanupResult"] = None
+    gc_ran: bool = False
+
+
+@dataclass
 class GitStatusResponse:
     available: bool
     git_installed: bool
@@ -306,4 +320,14 @@ class GitRepositoryInterface(ABC):
     @abstractmethod
     def add_to_gitignore(self, paths: List[str]) -> Tuple[bool, Optional[str]]:
         """Add paths to .gitignore file"""
+        pass
+
+    @abstractmethod
+    def cleanup_orphan_temp_objects(self) -> "CleanupResult":
+        """Clean up orphan temporary object directories from failed git operations."""
+        pass
+
+    @abstractmethod
+    def run_maintenance(self) -> "MaintenanceResult":
+        """Run git repository maintenance tasks."""
         pass

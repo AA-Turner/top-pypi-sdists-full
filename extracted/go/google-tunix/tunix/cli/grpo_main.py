@@ -13,14 +13,30 @@
 # limitations under the License.
 
 """Main entry point for GRPO training."""
+
+import dataclasses
 from absl import app
+from absl import flags
+from absl import logging
+from flax import nnx
+import jax
+import jax.numpy as jnp
 from tunix.cli import config
+from tunix.cli.utils import data as data_lib
 from tunix.cli.utils import model as model_lib
-from tunix.examples.data import math_dataset as data_lib
+from tunix.examples.data import math_dataset as example_data
+from tunix.perf import export as perf_export
+from tunix.perf import metrics as perf_metrics
+from tunix.perf.experimental import export as perf_export_v2
 from tunix.rl import rl_cluster as rl_cluster_lib
 from tunix.rl.grpo import grpo_learner
-from tunix.rl.grpo.grpo_learner import GrpoConfig
 from tunix.rl.rollout import base_rollout
+
+GrpoConfig = grpo_learner.GrpoConfig
+
+_PATHWAYS_BNS = flags.DEFINE_string(
+    "pathways_bns", None, "BNS address of the Pathways server."
+)
 
 
 class GrpoPipeline(config.HyperParameters):
@@ -28,16 +44,33 @@ class GrpoPipeline(config.HyperParameters):
 
   def create_rollout_config(self):
     rollout_config = self.config["rollout_config"]
-    return base_rollout.RolloutConfig(
-        max_tokens_to_generate=rollout_config["total_generation_steps"],
-        max_prompt_length=rollout_config["max_prompt_length"],
-        kv_cache_size=rollout_config["max_prompt_length"]
-        + rollout_config["total_generation_steps"]
-        + 256,
-        temperature=rollout_config["temperature"],
-        top_p=rollout_config["top_p"],
-        top_k=rollout_config["top_k"],
-    )
+
+    # Get all valid field names from RolloutConfig
+    valid_fields = {
+        f.name for f in dataclasses.fields(base_rollout.RolloutConfig)
+    }
+
+    # Filter rollout_config to only include valid keys
+    filtered_config = {
+        k: v for k, v in rollout_config.items() if k in valid_fields
+    }
+
+    # Apply explicit recomputed/renamed values
+    if "total_generation_steps" in rollout_config:
+      filtered_config["max_tokens_to_generate"] = rollout_config[
+          "total_generation_steps"
+      ]
+    if (
+        "max_prompt_length" in rollout_config
+        and "total_generation_steps" in rollout_config
+    ):
+      filtered_config["kv_cache_size"] = (
+          rollout_config["max_prompt_length"]
+          + rollout_config["total_generation_steps"]
+          + 256
+      )
+
+    return base_rollout.RolloutConfig(**filtered_config)
 
   def create_role_to_mesh(self):
     default_mesh = self.create_mesh("actor_model_config")
@@ -77,30 +110,85 @@ class GrpoPipeline(config.HyperParameters):
 
     return rl_cluster_lib.RLTrainingConfig(**constructed_rl_training_config)
 
+  def create_perf_config(self, cluster_config: rl_cluster_lib.ClusterConfig):
+    perf_metrics_options = cluster_config.training_config.perf_metrics_options
+    if not perf_metrics_options:
+      return None
+
+    perf_config = perf_metrics.PerfMetricsConfig()
+
+    if perf_metrics_options.enable_perf_v1:
+      custom_export_fn_path = perf_metrics_options.custom_export_fn_path
+      if custom_export_fn_path:
+        perf_config.custom_export_fn = self._get_function_from_path(
+            custom_export_fn_path
+        )
+        if perf_config.custom_export_fn is None:
+          raise ValueError(
+              "Could not load custom export function from"
+              f" {custom_export_fn_path}"
+          )
+      else:
+        perf_config.custom_export_fn = (
+            perf_export.PerfMetricsExport.from_cluster_config(cluster_config)
+        )
+
+    if perf_metrics_options.enable_perf_v2:
+      custom_export_fn_path_v2 = perf_metrics_options.custom_export_fn_path_v2
+      if custom_export_fn_path_v2:
+        perf_config.custom_export_fn_v2 = self._get_function_from_path(
+            custom_export_fn_path_v2
+        )
+        if perf_config.custom_export_fn_v2 is None:
+          raise ValueError(
+              "Could not load custom export function v2 from"
+              f" {custom_export_fn_path_v2}"
+          )
+      else:
+        perf_config.custom_export_fn_v2 = perf_export_v2.PerfMetricsExport(
+            enable_trace_writer=perf_metrics_options.enable_trace_writer,
+            trace_dir=perf_metrics_options.trace_dir,
+        ).export_metrics
+    return perf_config
+
   def create_rl_cluster(self):
+    # Should not use LoRA for reference model.
+    if self.config["reference_model_config"].get("lora_config"):
+      logging.warning(
+          "LoRA config is not supported for the reference model. Disabling"
+          " LoRA."
+      )
+      del self.config["reference_model_config"]["lora_config"]
     reference_model, tokenizer_path = model_lib.create_model(
         self.config["reference_model_config"],
         self.config["tokenizer_config"],
         self.create_mesh("reference_model_config"),
     )
-    if self.config["actor_model_config"]["lora_config"]:
+    if self.config["actor_model_config"].get("lora_config", None):
       actor_model = model_lib.apply_lora_to_model(
           reference_model,
           self.create_mesh("actor_model_config"),
           self.config["actor_model_config"]["lora_config"],
       )
     else:
-      actor_model = reference_model
+      graph_def, params = nnx.split(reference_model)
+      actor_model = nnx.merge(
+          graph_def,
+          jax.tree.map(jnp.copy, params),
+      )
 
     tokenizer = model_lib.create_tokenizer(
         self.config["tokenizer_config"], tokenizer_path
     )
 
+    cluster_config = self.create_cluster_config()
+    perf_config = self.create_perf_config(cluster_config)
     return rl_cluster_lib.RLCluster(
         actor=actor_model,
         reference=reference_model,
         tokenizer=tokenizer,
-        cluster_config=self.create_cluster_config(),
+        cluster_config=cluster_config,
+        perf_config=perf_config,
     )
 
   def run_grpo_trainer(self):
@@ -110,25 +198,52 @@ class GrpoPipeline(config.HyperParameters):
         algo_config=GrpoConfig(**self.config["grpo_config"]),
     )
 
-    if self.config["data_source"] == "local":
-      dataset = data_lib.get_dataset_from_parquet(
-          self.config["data_directory"],
-          grpo_trainer.rl_cluster.tokenizer.tokenizer,
-      ).batch(self.config["batch_size"])
-    else:
-      dataset = data_lib.create_dataset(
-          self.config["dataset_name"],
-          self.config["batch_size"],
-          self.config["num_batches"],
+    tokenizer = grpo_trainer.rl_cluster.tokenizer
+    if self.config.get("data_module", None):
+      dataset = data_lib.get_dataset_from_module(
+          self.config["data_module"],
+          tokenizer,
       )
+    elif self.config["data_source"] == "local":
+      dataset = example_data.create_dataset(
+          data_source=self.config["data_source"],
+          dataset=self.config["data_directory"],
+          tokenizer=tokenizer,
+      )
+    else:
+      dataset = example_data.create_dataset(
+          data_source="tfds",
+          dataset=self.config["dataset_name"],
+          tfds_download=self.config["tfds_download"],
+      )
+    dataset, _ = data_lib.post_init_dataset(
+        dataset,
+        tokenizer,
+        batch_size=self.config["batch_size"],
+        num_batches=self.config.get("num_batches", None),
+        max_prompt_length=self.config["rollout_config"].get(
+            "max_prompt_length", None
+        ),
+    )
+    grpo_trainer.train(dataset)
 
-    mesh = self.create_mesh("actor_model_config")
-    with mesh:
-      grpo_trainer.train(dataset)
+
+def _setup_jax_pathways(pathways_bns: str):
+  """Sets up Jax with Pathways."""
+  flags.FLAGS.pathways_ifrt = True
+  jax.config.update("jax_xla_backend", "pathways")
+  jax.config.update("jax_backend_target", pathways_bns)
 
 
 def main(argv, **kwargs):
+  if _PATHWAYS_BNS.value:
+    _setup_jax_pathways(_PATHWAYS_BNS.value)
   pipeline = GrpoPipeline(argv, **kwargs)
+  logging.info(
+      "--- Launching GRPO pipeline with following config ---\n"
+      "%r\n--------------------------",
+      pipeline.config,
+  )
   pipeline.run_grpo_trainer()
 
 

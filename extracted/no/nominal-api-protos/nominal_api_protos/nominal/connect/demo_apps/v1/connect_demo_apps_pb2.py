@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2
-from nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
+from nominal_api_protos.nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n4nominal/connect/demo_apps/v1/connect_demo_apps.proto\x12\x1cnominal.connect.demo_apps.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1anominal/gen/v1/error.proto\"N\n\x1cGetDemoAppDownloadUrlRequest\x12.\n\x0fsha256_checksum\x18\x01 \x01(\tB\x15\xbaH\x12r\x10\x32\x0e^[a-f0-9]{64}$\",\n\x1dGetDemoAppDownloadUrlResponse\x12\x0b\n\x03url\x18\x01 \x01(\t*\xc4\x02\n\x1b\x43onnectDemoAppsServiceError\x12/\n+CONNECT_DEMO_APPS_SERVICE_ERROR_UNSPECIFIED\x10\x00\x12\x84\x01\n;CONNECT_DEMO_APPS_SERVICE_ERROR_UNAVAILABLE_FOR_ENVIRONMENT\x10\x01\x1a\x43\xb2\xb2\x1a?\n\tNOT_FOUND\x12\x32\x44\x65mo apps not available for specified environment.\x12m\n0CONNECT_DEMO_APPS_SERVICE_ERROR_INVALID_CHECKSUM\x10\x02\x1a\x37\xb2\xb2\x1a\x33\n\x10INVALID_ARGUMENT\x12\x1fProvided checksum is not valid.2\xd6\x01\n\x16\x43onnectDemoAppsService\x12\xbb\x01\n\x15GetDemoAppDownloadUrl\x12:.nominal.connect.demo_apps.v1.GetDemoAppDownloadUrlRequest\x1a;.nominal.connect.demo_apps.v1.GetDemoAppDownloadUrlResponse\")\x82\xd3\xe4\x93\x02#\"\x1e/connect/v1/demo-apps/download:\x01*B#\n\x1fio.nominal.connect.demo_apps.v1P\x01\x62\x06proto3')

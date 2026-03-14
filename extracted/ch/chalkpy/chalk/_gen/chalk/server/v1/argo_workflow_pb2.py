@@ -15,10 +15,11 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.argo.v1 import workflow_pb2 as chalk_dot_argo_dot_v1_dot_workflow__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/server/v1/argo_workflow.proto\x12\x0f\x63halk.server.v1\x1a\x1c\x63halk/argo/v1/workflow.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\xd2\x01\n\x15ListArgoBuildsRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06offset\x18\x03 \x01(\x05H\x01R\x06offset\x88\x01\x01\x12;\n\x05phase\x18\x04 \x01(\x0e\x32 .chalk.argo.v1.ArgoWorkflowPhaseH\x02R\x05phase\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_offsetB\x08\n\x06_phase"n\n\x16ListArgoBuildsResponse\x12\x33\n\x06\x62uilds\x18\x01 \x03(\x0b\x32\x1b.chalk.argo.v1.ArgoWorkflowR\x06\x62uilds\x12\x1f\n\x0btotal_count\x18\x02 \x01(\x05R\ntotalCount2\x80\x01\n\x13\x41rgoWorkflowService\x12i\n\x0eListArgoBuilds\x12&.chalk.server.v1.ListArgoBuildsRequest\x1a\'.chalk.server.v1.ListArgoBuildsResponse"\x06\x90\x02\x01\x80}\x1e\x42\x9a\x01\n\x13\x63om.chalk.server.v1B\x11\x41rgoWorkflowProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n#chalk/server/v1/argo_workflow.proto\x12\x0f\x63halk.server.v1\x1a\x1c\x63halk/argo/v1/workflow.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"\x8d\x02\n\x15ListArgoBuildsRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06offset\x18\x03 \x01(\x05H\x01R\x06offset\x88\x01\x01\x12;\n\x05phase\x18\x04 \x01(\x0e\x32 .chalk.argo.v1.ArgoWorkflowPhaseH\x02R\x05phase\x88\x01\x01\x12\x39\n\nfield_mask\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\tfieldMaskB\x08\n\x06_limitB\t\n\x07_offsetB\x08\n\x06_phase"n\n\x16ListArgoBuildsResponse\x12\x33\n\x06\x62uilds\x18\x01 \x03(\x0b\x32\x1b.chalk.argo.v1.ArgoWorkflowR\x06\x62uilds\x12\x1f\n\x0btotal_count\x18\x02 \x01(\x05R\ntotalCount":\n\x13GetArgoBuildRequest\x12#\n\rworkflow_name\x18\x01 \x01(\tR\x0cworkflowName"I\n\x14GetArgoBuildResponse\x12\x31\n\x05\x62uild\x18\x01 \x01(\x0b\x32\x1b.chalk.argo.v1.ArgoWorkflowR\x05\x62uild2\xe5\x01\n\x13\x41rgoWorkflowService\x12i\n\x0eListArgoBuilds\x12&.chalk.server.v1.ListArgoBuildsRequest\x1a\'.chalk.server.v1.ListArgoBuildsResponse"\x06\x90\x02\x01\x80}\x1e\x12\x63\n\x0cGetArgoBuild\x12$.chalk.server.v1.GetArgoBuildRequest\x1a%.chalk.server.v1.GetArgoBuildResponse"\x06\x90\x02\x01\x80}\x1e\x42\x9a\x01\n\x13\x63om.chalk.server.v1B\x11\x41rgoWorkflowProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,10 +32,16 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\021ArgoWorkflowProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_ARGOWORKFLOWSERVICE"].methods_by_name["ListArgoBuilds"]._options = None
     _globals["_ARGOWORKFLOWSERVICE"].methods_by_name["ListArgoBuilds"]._serialized_options = b"\220\002\001\200}\036"
-    _globals["_LISTARGOBUILDSREQUEST"]._serialized_start = 120
-    _globals["_LISTARGOBUILDSREQUEST"]._serialized_end = 330
-    _globals["_LISTARGOBUILDSRESPONSE"]._serialized_start = 332
-    _globals["_LISTARGOBUILDSRESPONSE"]._serialized_end = 442
-    _globals["_ARGOWORKFLOWSERVICE"]._serialized_start = 445
-    _globals["_ARGOWORKFLOWSERVICE"]._serialized_end = 573
+    _globals["_ARGOWORKFLOWSERVICE"].methods_by_name["GetArgoBuild"]._options = None
+    _globals["_ARGOWORKFLOWSERVICE"].methods_by_name["GetArgoBuild"]._serialized_options = b"\220\002\001\200}\036"
+    _globals["_LISTARGOBUILDSREQUEST"]._serialized_start = 154
+    _globals["_LISTARGOBUILDSREQUEST"]._serialized_end = 423
+    _globals["_LISTARGOBUILDSRESPONSE"]._serialized_start = 425
+    _globals["_LISTARGOBUILDSRESPONSE"]._serialized_end = 535
+    _globals["_GETARGOBUILDREQUEST"]._serialized_start = 537
+    _globals["_GETARGOBUILDREQUEST"]._serialized_end = 595
+    _globals["_GETARGOBUILDRESPONSE"]._serialized_start = 597
+    _globals["_GETARGOBUILDRESPONSE"]._serialized_end = 670
+    _globals["_ARGOWORKFLOWSERVICE"]._serialized_start = 673
+    _globals["_ARGOWORKFLOWSERVICE"]._serialized_end = 902
 # @@protoc_insertion_point(module_scope)

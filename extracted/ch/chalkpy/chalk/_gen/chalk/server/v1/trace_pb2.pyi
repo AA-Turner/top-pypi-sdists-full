@@ -402,3 +402,42 @@ class ListSpanAggregatedResponse(_message.Message):
     def __init__(
         self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
     ) -> None: ...
+
+class SpanSourceAggregate(_message.Message):
+    __slots__ = ("service_name", "resource_group", "span_count", "error_count", "ok_count")
+    SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_COUNT_FIELD_NUMBER: _ClassVar[int]
+    OK_COUNT_FIELD_NUMBER: _ClassVar[int]
+    service_name: str
+    resource_group: str
+    span_count: int
+    error_count: int
+    ok_count: int
+    def __init__(
+        self,
+        service_name: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        span_count: _Optional[int] = ...,
+        error_count: _Optional[int] = ...,
+        ok_count: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetSpanSourceAggregatesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetSpanSourceAggregatesResponse(_message.Message):
+    __slots__ = ("aggregates",)
+    AGGREGATES_FIELD_NUMBER: _ClassVar[int]
+    aggregates: _containers.RepeatedCompositeFieldContainer[SpanSourceAggregate]
+    def __init__(self, aggregates: _Optional[_Iterable[_Union[SpanSourceAggregate, _Mapping]]] = ...) -> None: ...

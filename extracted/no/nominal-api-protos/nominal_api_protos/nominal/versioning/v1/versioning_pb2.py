@@ -23,7 +23,7 @@ _sym_db = _symbol_database.Default()
 
 
 from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
-from nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
+from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&nominal/versioning/v1/versioning.proto\x12\x15nominal.versioning.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\"\xb1\x01\n\x0e\x42ranchOrCommit\x12\x42\n\x06\x62ranch\x18\x01 \x01(\tB0\x9a\xb2\x1a,\n*io.nominal.scout.versioning.api.BranchNameH\x00\x12@\n\x06\x63ommit\x18\x02 \x01(\tB.\x9a\xb2\x1a*\n(io.nominal.scout.versioning.api.CommitIdH\x00\x42\x19\n\x10\x62ranch_or_commit\x12\x05\xbaH\x02\x08\x01\x62\x06proto3')

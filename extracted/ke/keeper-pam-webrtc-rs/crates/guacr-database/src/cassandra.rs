@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use scylla::frame::response::result::CqlValue;
@@ -10,6 +10,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::handler_helpers::{
@@ -79,6 +82,7 @@ impl ProtocolHandler for CassandraHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Cassandra handler starting");
 
@@ -131,6 +135,17 @@ impl ProtocolHandler for CassandraHandler {
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "Cassandra", cols, rows);
+
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
 
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
@@ -208,11 +223,9 @@ impl ProtocolHandler for CassandraHandler {
                 warn!("Cassandra: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -269,6 +282,15 @@ impl ProtocolHandler for CassandraHandler {
                         Ok((needs_render, instructions, pending_query)) => {
                     if let Some(command) = pending_query {
                         info!("Cassandra: Executing command: {}", command);
+
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &command,
+                            username.map(|s| s.as_str()).unwrap_or(""), hostname, "cassandra",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
 
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &command);
@@ -330,7 +352,7 @@ impl ProtocolHandler for CassandraHandler {
                                     Ok(_) => {
                                         current_keyspace = Some(ks_name.to_string());
                                         executor
-                                            .terminal
+
                                             .write_line(&format!(
                                                 "Now using keyspace '{}'",
                                                 ks_name
@@ -345,7 +367,7 @@ impl ProtocolHandler for CassandraHandler {
                                             &format!("{}", e),
                                         );
                                         executor
-                                            .terminal
+
                                             .write_error(&format!(
                                                 "Failed to use keyspace '{}': {}",
                                                 ks_name, e
@@ -356,7 +378,7 @@ impl ProtocolHandler for CassandraHandler {
                                     }
                                 }
                                 executor
-                                    .terminal
+
                                     .write_prompt()
                                     .map_err(|e| {
                                         HandlerError::ProtocolError(e.to_string())
@@ -369,7 +391,7 @@ impl ProtocolHandler for CassandraHandler {
                         // Check read-only mode for modifying commands
                         if security.base.read_only && is_cql_modifying_command(&command) {
                             executor
-                                .terminal
+
                                 .write_error(
                                     "Command blocked: read-only mode is enabled.",
                                 )
@@ -377,7 +399,7 @@ impl ProtocolHandler for CassandraHandler {
                                     HandlerError::ProtocolError(e.to_string())
                                 })?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| {
                                     HandlerError::ProtocolError(e.to_string())
@@ -400,7 +422,7 @@ impl ProtocolHandler for CassandraHandler {
                                 Ok(output) => {
                                     for line in output.lines() {
                                         executor
-                                            .terminal
+
                                             .write_line(line)
                                             .map_err(|e| {
                                                 HandlerError::ProtocolError(
@@ -412,7 +434,7 @@ impl ProtocolHandler for CassandraHandler {
                                 Err(e) => {
                                     record_error_output(&mut recorder, &e);
                                     executor
-                                        .terminal
+
                                         .write_error(&e)
                                         .map_err(|e| {
                                             HandlerError::ProtocolError(e.to_string())
@@ -420,7 +442,7 @@ impl ProtocolHandler for CassandraHandler {
                                 }
                             }
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| {
                                     HandlerError::ProtocolError(e.to_string())
@@ -435,7 +457,7 @@ impl ProtocolHandler for CassandraHandler {
                                 // Write result line by line
                                 for line in result.lines() {
                                     executor
-                                        .terminal
+
                                         .write_line(line)
                                         .map_err(|e| {
                                             HandlerError::ProtocolError(e.to_string())
@@ -447,7 +469,7 @@ impl ProtocolHandler for CassandraHandler {
                                 record_error_output(&mut recorder, &e);
 
                                 executor
-                                    .terminal
+
                                     .write_error(&e)
                                     .map_err(|e| {
                                         HandlerError::ProtocolError(e.to_string())
@@ -456,7 +478,7 @@ impl ProtocolHandler for CassandraHandler {
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1033,11 +1055,9 @@ async fn handle_csv_export(
     // Check if export is allowed
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1046,11 +1066,9 @@ async fn handle_csv_export(
 
     if query.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\e <CQL query>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1058,7 +1076,6 @@ async fn handle_csv_export(
     }
 
     executor
-        .terminal
         .write_line(&format!("Executing query for export: {}...", query))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1068,11 +1085,9 @@ async fn handle_csv_export(
         Ok(r) => r,
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Query failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -1091,11 +1106,9 @@ async fn handle_csv_export(
 
     if result.columns.is_empty() {
         executor
-            .terminal
             .write_error("Query returned no columns. Only SELECT queries can be exported.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1108,7 +1121,6 @@ async fn handle_csv_export(
     let mut exporter = CsvExporter::new(stream_idx);
 
     executor
-        .terminal
         .write_line(&format!(
             "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
             result.rows.len()
@@ -1126,20 +1138,17 @@ async fn handle_csv_export(
     match exporter.export_query_result(&result, to_client).await {
         Ok(()) => {
             executor
-                .terminal
                 .write_line("Download complete.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Export failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1160,11 +1169,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1174,11 +1181,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1188,11 +1193,9 @@ async fn handle_csv_import(
     // Require explicit table name
     if table_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <table_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1203,11 +1206,9 @@ async fn handle_csv_import(
         Some(ks) => ks.clone(),
         None => {
             executor
-                .terminal
                 .write_error("No keyspace selected. Use: USE <keyspace> first.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -1236,14 +1237,12 @@ async fn handle_csv_import(
 
     if !table_exists {
         executor
-            .terminal
             .write_error(&format!(
                 "Table '{}' not found in keyspace '{}'. Use DESCRIBE TABLES to list available tables.",
                 table_name, ks
             ))
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1251,11 +1250,9 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line(&format!("Cassandra CSV Import into {}.{}", ks, table_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1273,7 +1270,6 @@ async fn handle_csv_import(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} rows with columns: {}",
             csv_data.row_count(),
@@ -1322,7 +1318,6 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} rows inserted, {} errors",
             success_count, error_count
@@ -1330,7 +1325,6 @@ async fn handle_csv_import(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1350,12 +1344,16 @@ impl EventBasedHandler for CassandraHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

@@ -618,6 +618,36 @@ impl RegistryActor {
 
         let is_server_mode = initial_offer_sdp_decoded.is_none();
 
+        // Enable video when all three conditions hold:
+        //   is_guacr:      guacr owns the full stack (not a guacd proxy session)
+        //   is_graphical:  protocol produces screen output (rdp/vnc/rbi — never terminal)
+        //   offer_has_video: vault explicitly included m=video in its offer
+        //
+        // Python never passes connection_mode, so the old GuacamoleWithVideo check was never
+        // true. These three conditions are fully derivable from data Rust already has.
+        // Old vault clients that never send m=video fall back to the JPEG path automatically.
+        let is_guacr = req
+            .settings
+            .get("guacd_params")
+            .and_then(|p| p.get("use_guacr"))
+            .and_then(|v| v.as_str())
+            .map(|s| s == "true")
+            .unwrap_or(false);
+
+        let is_graphical = matches!(
+            req.settings
+                .get("conversationType")
+                .and_then(|v| v.as_str()),
+            Some("rdp") | Some("vnc") | Some("rbi")
+        );
+
+        let offer_has_video = initial_offer_sdp_decoded
+            .as_deref()
+            .map(|sdp| sdp.contains("m=video"))
+            .unwrap_or(false);
+
+        let enable_video = !is_server_mode && is_guacr && is_graphical && offer_has_video;
+
         // Create tube with signal sender (RAII - tube owns it!)
         let tube_arc = Tube::new(
             is_server_mode,
@@ -683,6 +713,7 @@ impl RegistryActor {
                 &req.client_version,
                 req.settings.clone(),
                 signal_sender_for_webrtc,
+                enable_video,
             )
             .await
             .map_err(|e| anyhow!("Failed to create peer connection: {}", e))?;
@@ -766,10 +797,23 @@ impl RegistryActor {
                 .set_remote_description(offer_sdp, false)
                 .await
                 .map_err(|e| anyhow!("Failed to set remote description: {}", e))?;
-            let answer = tube_arc
+            let mut answer = tube_arc
                 .create_answer()
                 .await
                 .map_err(|e| anyhow!("Failed to create answer: {}", e))?;
+
+            // RFC 8843 requires a=mid: in every m= section of the answer, including rejected
+            // (port=0) sections. webrtc-rs omits a=mid: when it rejects a section, which
+            // causes Chrome's ICE negotiation to fail for the remaining sections.
+            answer = inject_mid_for_rejected_sections(&answer);
+
+            // For video sessions: inject b=TIAS into the answer to enforce a hard server-side
+            // bitrate ceiling regardless of REMB signals from the browser.
+            // 8 Mbps ceiling — well above the 4 Mbps target; prevents runaway quality spikes.
+            if enable_video {
+                answer = inject_tias_ceiling(&answer, 8_000_000);
+            }
+
             // Encode to base64 for Python/Rust boundary
             let answer_base64 = BASE64_STANDARD.encode(&answer);
             result_map.insert("answer".to_string(), answer_base64);
@@ -1280,3 +1324,213 @@ pub(crate) static REGISTRY: Lazy<RegistryHandle> = Lazy::new(|| {
 
     RegistryHandle::new(command_tx, tubes, conversations, handler_registry)
 });
+
+/// Inject `a=mid:N` into rejected (port=0) m= sections that are missing it.
+///
+/// RFC 8843 requires `a=mid:` in every m= section of an answer, including those
+/// rejected with port=0. webrtc-rs omits it for rejected sections. Without it,
+/// Chrome cannot match the rejected section to the offer section and fails ICE
+/// for the remaining (non-rejected) sections too.
+///
+/// The mid value is derived from the section's 0-based index, which matches the
+/// offer's section order. Always called on all answers so the fix is transparent
+/// to the rest of the call site.
+fn inject_mid_for_rejected_sections(sdp: &str) -> String {
+    let lines: Vec<&str> = sdp.split_inclusive("\r\n").collect();
+
+    // Find where each m= section starts and its 0-based section index.
+    let mut section_starts: Vec<(usize, usize)> = Vec::new();
+    let mut section_idx: usize = 0;
+    for (i, line) in lines.iter().enumerate() {
+        if line.starts_with("m=") {
+            section_starts.push((i, section_idx));
+            section_idx += 1;
+        }
+    }
+
+    if section_starts.is_empty() {
+        return sdp.to_string();
+    }
+
+    // For each section, determine if a=mid: needs to be injected.
+    // Map: line index → string to insert after that line.
+    let mut inject_after: std::collections::HashMap<usize, String> = Default::default();
+
+    for (sec_pos, &(start_line, sec_idx)) in section_starts.iter().enumerate() {
+        let end_line = section_starts
+            .get(sec_pos + 1)
+            .map(|&(i, _)| i)
+            .unwrap_or(lines.len());
+
+        let section_lines = &lines[start_line..end_line];
+
+        // Rejected section: second whitespace token of the m= line is "0".
+        let is_rejected = section_lines
+            .first()
+            .and_then(|l| l.split_whitespace().nth(1))
+            .map(|port| port == "0")
+            .unwrap_or(false);
+
+        if !is_rejected {
+            continue;
+        }
+
+        // Already has a=mid: — nothing to do.
+        if section_lines.iter().any(|l| l.starts_with("a=mid:")) {
+            continue;
+        }
+
+        // Inject after the c= line if present, otherwise after the m= line.
+        let inject_line = section_lines
+            .iter()
+            .enumerate()
+            .find(|(_, l)| l.starts_with("c="))
+            .map(|(i, _)| start_line + i)
+            .unwrap_or(start_line);
+
+        inject_after.insert(inject_line, format!("a=mid:{}\r\n", sec_idx));
+    }
+
+    if inject_after.is_empty() {
+        return sdp.to_string();
+    }
+
+    let mut result = String::with_capacity(sdp.len() + inject_after.len() * 12);
+    for (i, line) in lines.iter().enumerate() {
+        result.push_str(line);
+        if let Some(injection) = inject_after.get(&i) {
+            result.push_str(injection);
+        }
+    }
+    result
+}
+
+/// Inject `b=TIAS` (bits/sec) after the `m=video` line of an SDP string.
+///
+/// This is the most reliable way to enforce a server-side bitrate ceiling —
+/// the browser honours it even when `RTCRtpSender.setParameters()` is unreliable.
+/// Only called on answers for `GuacamoleWithVideo` sessions.
+fn inject_tias_ceiling(sdp: &str, max_bps: u32) -> String {
+    let insertion = format!("b=TIAS:{}\r\n", max_bps);
+    let mut result = String::with_capacity(sdp.len() + insertion.len());
+    for line in sdp.split_inclusive("\r\n") {
+        result.push_str(line);
+        if line.starts_with("m=video") {
+            result.push_str(&insertion);
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mid_injected_for_rejected_video_section() {
+        let sdp = concat!(
+            "a=group:BUNDLE 1\r\n",
+            "m=video 0 UDP/TLS/RTP/SAVPF 0\r\n",
+            "c=IN IP4 0.0.0.0\r\n",
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n",
+            "c=IN IP4 0.0.0.0\r\n",
+            "a=mid:1\r\n",
+        );
+        let result = inject_mid_for_rejected_sections(sdp);
+        assert!(
+            result.contains("m=video 0 UDP/TLS/RTP/SAVPF 0\r\nc=IN IP4 0.0.0.0\r\na=mid:0\r\n"),
+            "a=mid:0 must be injected after c= in rejected video section"
+        );
+        // Application section must be unchanged
+        assert!(result.contains("a=mid:1\r\n"));
+    }
+
+    #[test]
+    fn test_mid_not_injected_when_already_present() {
+        let sdp = concat!(
+            "m=video 0 UDP/TLS/RTP/SAVPF 0\r\n",
+            "c=IN IP4 0.0.0.0\r\n",
+            "a=mid:0\r\n",
+        );
+        let result = inject_mid_for_rejected_sections(sdp);
+        assert_eq!(result, sdp, "SDP with existing a=mid: must be unchanged");
+    }
+
+    #[test]
+    fn test_mid_not_injected_for_non_rejected_section() {
+        let sdp = concat!("m=video 9 UDP/TLS/RTP/SAVPF 96\r\n", "c=IN IP4 0.0.0.0\r\n",);
+        let result = inject_mid_for_rejected_sections(sdp);
+        assert_eq!(result, sdp, "Non-rejected section must be unchanged");
+    }
+
+    #[test]
+    fn test_mid_injected_preserves_rest_of_sdp() {
+        // Mirrors the exact answer format webrtc-rs produces for GuacamoleOnly sessions
+        let sdp = concat!(
+            "a=group:BUNDLE 1\r\n",
+            "a=extmap-allow-mixed\r\n",
+            "m=video 0 UDP/TLS/RTP/SAVPF 0\r\n",
+            "c=IN IP4 0.0.0.0\r\n",
+            "m=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n",
+            "c=IN IP4 0.0.0.0\r\n",
+            "a=setup:active\r\n",
+            "a=mid:1\r\n",
+            "a=sctp-port:5000\r\n",
+        );
+        let result = inject_mid_for_rejected_sections(sdp);
+        assert!(result.contains("a=group:BUNDLE 1\r\n"));
+        assert!(result.contains("a=extmap-allow-mixed\r\n"));
+        assert!(result.contains("a=mid:0\r\n"));
+        assert!(result.contains("a=mid:1\r\n"));
+        assert!(result.contains("a=sctp-port:5000\r\n"));
+        // a=mid:0 appears before m=application
+        let mid0_pos = result.find("a=mid:0\r\n").unwrap();
+        let app_pos = result.find("m=application").unwrap();
+        assert!(
+            mid0_pos < app_pos,
+            "a=mid:0 must appear before m=application"
+        );
+    }
+
+    #[test]
+    fn test_tias_inserted_after_m_video() {
+        let sdp = "m=video 9 UDP/TLS/RTP/SAVPF 96\r\na=sendonly\r\n";
+        let result = inject_tias_ceiling(sdp, 8_000_000);
+        assert_eq!(
+            result,
+            "m=video 9 UDP/TLS/RTP/SAVPF 96\r\nb=TIAS:8000000\r\na=sendonly\r\n"
+        );
+    }
+
+    #[test]
+    fn test_tias_not_inserted_without_m_video() {
+        let sdp = "m=application 9 DTLS/SCTP 5000\r\na=sctpmap:5000 webrtc-datachannel 1024\r\n";
+        let result = inject_tias_ceiling(sdp, 8_000_000);
+        assert_eq!(result, sdp, "SDP without m=video must be unchanged");
+    }
+
+    #[test]
+    fn test_tias_uses_correct_value() {
+        let sdp = "m=video 9 UDP/TLS/RTP/SAVPF 96\r\n";
+        let result = inject_tias_ceiling(sdp, 5_000_000);
+        assert!(result.contains("b=TIAS:5000000\r\n"));
+    }
+
+    #[test]
+    fn test_tias_preserves_rest_of_sdp() {
+        let sdp = concat!(
+            "m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n",
+            "a=rtpmap:111 opus/48000/2\r\n",
+            "m=video 9 UDP/TLS/RTP/SAVPF 96\r\n",
+            "a=rtpmap:96 H264/90000\r\n",
+            "m=application 9 DTLS/SCTP 5000\r\n",
+        );
+        let result = inject_tias_ceiling(sdp, 8_000_000);
+        assert!(result.contains("m=audio 9 UDP/TLS/RTP/SAVPF 111\r\n"));
+        assert!(result.contains("a=rtpmap:111 opus/48000/2\r\n"));
+        assert!(result.contains("m=video 9 UDP/TLS/RTP/SAVPF 96\r\nb=TIAS:8000000\r\n"));
+        assert!(result.contains("a=rtpmap:96 H264/90000\r\n"));
+        assert!(result.contains("m=application 9 DTLS/SCTP 5000\r\n"));
+        assert_eq!(result.matches("b=TIAS:").count(), 1);
+    }
+}

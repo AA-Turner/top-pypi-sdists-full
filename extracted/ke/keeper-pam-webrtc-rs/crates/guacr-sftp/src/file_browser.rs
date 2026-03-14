@@ -1,7 +1,34 @@
 // File browser UI renderer for SFTP
+//
+// Uses ratatui TestBackend as a layout engine and fontdue (via RatatuiRenderer)
+// to produce a JPEG with real text — the same pipeline as the database handler.
 
-use image::{Rgba, RgbaImage};
-use std::io::Cursor;
+use guacr_terminal::{RatatuiRenderer, TerminalError};
+use ratatui::{
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    widgets::{
+        Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Table, TableState,
+    },
+};
+
+const CHAR_WIDTH: u32 = 9;
+const CHAR_HEIGHT: u32 = 18;
+
+// Ratatui layout (rows from top):
+//   0-2  : path bar block (Constraint::Length(3))
+//   3    : top border of file list block
+//   4    : header row
+//   5+   : data rows (one per file entry)
+//   last : bottom border of file list block
+//
+// In pixels (CHAR_HEIGHT = 18):
+//   0-53   : path bar
+//   54-71  : top border of file list
+//   72-89  : header row
+//   90+    : data rows; data_row_n starts at pixel 90 + n*18
+const DATA_ROW_PIXEL_START: u32 = 90; // first data row starts at this pixel Y
 
 pub struct FileEntry {
     pub name: String,
@@ -11,9 +38,7 @@ pub struct FileEntry {
     pub modified: String,
 }
 
-/// File browser view (spreadsheet-like for files)
 pub struct FileBrowser {
-    #[allow(dead_code)]
     current_path: String,
     entries: Vec<FileEntry>,
     selected_index: Option<usize>,
@@ -30,77 +55,154 @@ impl FileBrowser {
         }
     }
 
-    pub fn render_to_png(&self, width: u32, height: u32) -> Result<Vec<u8>, image::ImageError> {
-        let mut img = RgbaImage::new(width, height);
+    /// Render the file browser to a JPEG using ratatui + fontdue.
+    ///
+    /// Width and height are in pixels. Character cell size is fixed at 9x18.
+    pub fn render_to_jpeg(&self, width: u32, height: u32) -> Result<Vec<u8>, TerminalError> {
+        let cols = (width / CHAR_WIDTH).max(80) as u16;
+        let rows = (height / CHAR_HEIGHT).max(24) as u16;
 
-        // Background - white
-        for pixel in img.pixels_mut() {
-            *pixel = Rgba([255, 255, 255, 255]);
-        }
+        let mut renderer = RatatuiRenderer::new(cols, rows, CHAR_WIDTH, CHAR_HEIGHT)?;
 
-        // Draw path bar
-        self.draw_path_bar(&mut img)?;
-
-        // Draw file list (like spreadsheet)
-        self.draw_file_list(&mut img)?;
-
-        // Encode to PNG
-        let mut png_data = Vec::new();
-        img.write_to(&mut Cursor::new(&mut png_data), image::ImageFormat::Png)?;
-
-        Ok(png_data)
-    }
-
-    fn draw_path_bar(&self, img: &mut RgbaImage) -> Result<(), image::ImageError> {
-        let bg = Rgba([240, 240, 240, 255]);
-
-        // Draw path bar background
-        for y in 0..30 {
-            for x in 0..img.width() {
-                img.put_pixel(x, y, bg);
+        // Build TableState for selection highlight (relative to scroll window)
+        let mut table_state = TableState::default();
+        if let Some(idx) = self.selected_index {
+            if idx >= self.scroll_offset {
+                table_state.select(Some(idx - self.scroll_offset));
             }
         }
 
-        // TODO: Draw path text
-        Ok(())
+        let current_path = &self.current_path;
+        let entries = &self.entries;
+        let scroll_offset = self.scroll_offset;
+
+        renderer
+            .terminal
+            .draw(|f| {
+                let area = f.area();
+
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Length(3), Constraint::Min(1)])
+                    .split(area);
+
+                // Path bar
+                let path_para = Paragraph::new(current_path.as_str())
+                    .block(Block::default().borders(Borders::ALL).title("Path"))
+                    .style(Style::default().fg(Color::LightCyan));
+                f.render_widget(path_para, chunks[0]);
+
+                // Header row
+                let header = Row::new(vec![
+                    Cell::from("Type").style(
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Cell::from("Name").style(
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Cell::from("Size").style(
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Cell::from("Permissions").style(
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Cell::from("Modified").style(
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ])
+                .height(1);
+
+                let rows: Vec<Row> = entries
+                    .iter()
+                    .skip(scroll_offset)
+                    .map(|entry| {
+                        let type_str = if entry.is_directory { "DIR" } else { "   " };
+                        let size_str = if entry.is_directory {
+                            "-".to_string()
+                        } else {
+                            format_size(entry.size)
+                        };
+                        let style = if entry.is_directory {
+                            Style::default().fg(Color::LightBlue)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
+                        Row::new(vec![
+                            Cell::from(type_str),
+                            Cell::from(entry.name.clone()),
+                            Cell::from(size_str),
+                            Cell::from(entry.permissions.clone()),
+                            Cell::from(entry.modified.clone()),
+                        ])
+                        .style(style)
+                        .height(1)
+                    })
+                    .collect();
+
+                let constraints = [
+                    Constraint::Length(4),  // Type
+                    Constraint::Min(20),    // Name
+                    Constraint::Length(10), // Size
+                    Constraint::Length(12), // Permissions
+                    Constraint::Length(20), // Modified
+                ];
+
+                let table = Table::new(rows, constraints)
+                    .header(header)
+                    .block(Block::default().borders(Borders::ALL).title("Files"))
+                    .row_highlight_style(
+                        Style::default()
+                            .bg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD),
+                    );
+
+                // Leave one column for scrollbar
+                let table_area = ratatui::layout::Rect {
+                    width: chunks[1].width.saturating_sub(1),
+                    ..chunks[1]
+                };
+                let scroll_area = ratatui::layout::Rect {
+                    x: chunks[1].x + chunks[1].width.saturating_sub(1),
+                    width: 1,
+                    ..chunks[1]
+                };
+
+                f.render_stateful_widget(table, table_area, &mut table_state);
+
+                let row_count = entries.len().saturating_sub(scroll_offset);
+                let scroll_pos = self
+                    .selected_index
+                    .and_then(|i| i.checked_sub(scroll_offset))
+                    .unwrap_or(0);
+                let mut scroll_state = ScrollbarState::new(row_count).position(scroll_pos);
+                f.render_stateful_widget(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight),
+                    scroll_area,
+                    &mut scroll_state,
+                );
+            })
+            .map_err(|e| TerminalError::RenderError(e.to_string()))?;
+
+        renderer.render_to_jpeg(85)
     }
 
-    fn draw_file_list(&self, img: &mut RgbaImage) -> Result<(), image::ImageError> {
-        let row_height = 24u32;
-        let visible_entries = self.entries.iter().skip(self.scroll_offset).take(20);
-
-        for (idx, _entry) in visible_entries.enumerate() {
-            let y = 30 + (idx as u32 * row_height);
-            let bg = if Some(idx + self.scroll_offset) == self.selected_index {
-                Rgba([200, 220, 255, 255]) // Selected - blue
-            } else if idx % 2 == 0 {
-                Rgba([255, 255, 255, 255]) // White
-            } else {
-                Rgba([248, 248, 248, 255]) // Light gray
-            };
-
-            // Draw row background
-            for py in 0..row_height {
-                for x in 0..img.width() {
-                    img.put_pixel(x, y + py, bg);
-                }
-            }
-
-            // TODO: Draw file icon, name, size, date
-        }
-
-        Ok(())
-    }
-
+    /// Map a mouse click at pixel Y to a file entry and update selection.
     pub fn handle_click(&mut self, y: u32) {
-        if y < 30 {
-            // Click in path bar
+        if y < DATA_ROW_PIXEL_START {
             return;
         }
-
-        let row = ((y - 30) / 24) as usize;
-        let index = row + self.scroll_offset;
-
+        let data_row = ((y - DATA_ROW_PIXEL_START) / CHAR_HEIGHT) as usize;
+        let index = data_row + self.scroll_offset;
         if index < self.entries.len() {
             self.selected_index = Some(index);
         }
@@ -111,20 +213,35 @@ impl FileBrowser {
     }
 }
 
+fn format_size(bytes: u64) -> String {
+    if bytes < 1024 {
+        format!("{} B", bytes)
+    } else if bytes < 1024 * 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else if bytes < 1024 * 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else {
+        format!("{:.1} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn make_entry(name: &str, size: u64, is_dir: bool) -> FileEntry {
+        FileEntry {
+            name: name.to_string(),
+            size,
+            is_directory: is_dir,
+            permissions: if is_dir { "drwxr-xr-x" } else { "rw-r--r--" }.to_string(),
+            modified: "2024-01-01".to_string(),
+        }
+    }
+
     #[test]
     fn test_file_browser_new() {
-        let entries = vec![FileEntry {
-            name: "file1.txt".to_string(),
-            size: 1024,
-            is_directory: false,
-            permissions: "rw-r--r--".to_string(),
-            modified: "2024-01-01".to_string(),
-        }];
-
+        let entries = vec![make_entry("file1.txt", 1024, false)];
         let browser = FileBrowser::new("/home/user".to_string(), entries);
         assert_eq!(browser.current_path, "/home/user");
         assert_eq!(browser.entries.len(), 1);
@@ -133,26 +250,17 @@ mod tests {
     #[test]
     fn test_file_browser_render() {
         let browser = FileBrowser::new("/".to_string(), vec![]);
-        let png = browser.render_to_png(800, 600);
-
-        assert!(png.is_ok());
-        let png_data = png.unwrap();
-        assert!(!png_data.is_empty());
+        let jpeg = browser.render_to_jpeg(800, 600);
+        assert!(jpeg.is_ok());
+        assert!(!jpeg.unwrap().is_empty());
     }
 
     #[test]
     fn test_file_browser_selection() {
-        let entries = vec![FileEntry {
-            name: "file1.txt".to_string(),
-            size: 1024,
-            is_directory: false,
-            permissions: "rw-r--r--".to_string(),
-            modified: "2024-01-01".to_string(),
-        }];
-
+        let entries = vec![make_entry("file1.txt", 1024, false)];
         let mut browser = FileBrowser::new("/".to_string(), entries);
-        browser.handle_click(50); // Click first file
-
+        // First data row starts at DATA_ROW_PIXEL_START (90px)
+        browser.handle_click(DATA_ROW_PIXEL_START);
         assert_eq!(browser.selected_index, Some(0));
         assert!(browser.get_selected().is_some());
     }
@@ -160,76 +268,40 @@ mod tests {
     #[test]
     fn test_file_browser_multiple_entries() {
         let entries = vec![
-            FileEntry {
-                name: "file1.txt".to_string(),
-                size: 1024,
-                is_directory: false,
-                permissions: "rw-r--r--".to_string(),
-                modified: "2024-01-01".to_string(),
-            },
-            FileEntry {
-                name: "dir1".to_string(),
-                size: 0,
-                is_directory: true,
-                permissions: "drwxr-xr-x".to_string(),
-                modified: "2024-01-02".to_string(),
-            },
-            FileEntry {
-                name: "file2.txt".to_string(),
-                size: 2048,
-                is_directory: false,
-                permissions: "rw-r--r--".to_string(),
-                modified: "2024-01-03".to_string(),
-            },
+            make_entry("file1.txt", 1024, false),
+            make_entry("dir1", 0, true),
+            make_entry("file2.txt", 2048, false),
         ];
-
         let mut browser = FileBrowser::new("/".to_string(), entries);
 
-        // Click second entry (directory)
-        browser.handle_click(54); // y = 30 + 24 = 54 (second row)
+        // Second data row: DATA_ROW_PIXEL_START + CHAR_HEIGHT
+        browser.handle_click(DATA_ROW_PIXEL_START + CHAR_HEIGHT);
         assert_eq!(browser.selected_index, Some(1));
         assert_eq!(browser.get_selected().unwrap().name, "dir1");
         assert!(browser.get_selected().unwrap().is_directory);
 
-        // Click third entry
-        browser.handle_click(78); // y = 30 + 48 = 78 (third row)
+        // Third data row: DATA_ROW_PIXEL_START + 2 * CHAR_HEIGHT
+        browser.handle_click(DATA_ROW_PIXEL_START + 2 * CHAR_HEIGHT);
         assert_eq!(browser.selected_index, Some(2));
         assert_eq!(browser.get_selected().unwrap().name, "file2.txt");
     }
 
     #[test]
     fn test_file_browser_click_path_bar() {
-        let entries = vec![FileEntry {
-            name: "file1.txt".to_string(),
-            size: 1024,
-            is_directory: false,
-            permissions: "rw-r--r--".to_string(),
-            modified: "2024-01-01".to_string(),
-        }];
-
+        let entries = vec![make_entry("file1.txt", 1024, false)];
         let mut browser = FileBrowser::new("/".to_string(), entries);
-        browser.handle_click(50); // Select first file
+        browser.handle_click(DATA_ROW_PIXEL_START); // Select first file
         assert_eq!(browser.selected_index, Some(0));
-
-        // Click in path bar (y < 30) should not change selection
+        // Click anywhere above DATA_ROW_PIXEL_START should not change selection
         browser.handle_click(20);
         assert_eq!(browser.selected_index, Some(0)); // Unchanged
     }
 
     #[test]
     fn test_file_browser_click_out_of_bounds() {
-        let entries = vec![FileEntry {
-            name: "file1.txt".to_string(),
-            size: 1024,
-            is_directory: false,
-            permissions: "rw-r--r--".to_string(),
-            modified: "2024-01-01".to_string(),
-        }];
-
+        let entries = vec![make_entry("file1.txt", 1024, false)];
         let mut browser = FileBrowser::new("/".to_string(), entries);
-
-        // Click beyond available entries
-        browser.handle_click(1000); // Way beyond
+        browser.handle_click(10000); // Way beyond any entries
         assert_eq!(browser.selected_index, None);
     }
 
@@ -242,7 +314,6 @@ mod tests {
             permissions: "rw-r--r--".to_string(),
             modified: "2024-01-01 12:00".to_string(),
         };
-
         assert_eq!(entry.name, "test.txt");
         assert_eq!(entry.size, 12345);
         assert!(!entry.is_directory);
@@ -258,9 +329,31 @@ mod tests {
             permissions: "drwxr-xr-x".to_string(),
             modified: "2024-01-01".to_string(),
         };
-
         assert!(entry.is_directory);
         assert_eq!(entry.size, 0);
         assert!(entry.permissions.starts_with('d'));
+    }
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(512), "512 B");
+        assert_eq!(format_size(1024), "1.0 KB");
+        assert_eq!(format_size(1536), "1.5 KB");
+        assert_eq!(format_size(1024 * 1024), "1.0 MB");
+        assert_eq!(format_size(1024 * 1024 * 1024), "1.0 GB");
+    }
+
+    #[test]
+    fn test_render_with_entries() {
+        let entries = vec![
+            make_entry("Documents", 0, true),
+            make_entry("notes.txt", 1234, false),
+            make_entry("photo.jpg", 2_500_000, false),
+        ];
+        let browser = FileBrowser::new("/home/user".to_string(), entries);
+        let jpeg = browser.render_to_jpeg(1024, 768);
+        assert!(jpeg.is_ok());
+        assert!(jpeg.unwrap().len() > 1000);
     }
 }

@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.connections.v1 import external_api_connections_pb2 as nominal_dot_connections_dot_v1_dot_external__api__connections__pb2
+from nominal_api_protos.nominal.connections.v1 import external_api_connections_pb2 as nominal_dot_connections_dot_v1_dot_external__api__connections__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

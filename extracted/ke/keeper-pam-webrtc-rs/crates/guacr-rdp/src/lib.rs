@@ -19,6 +19,7 @@
 
 // Supporting modules (kept minimal - infrastructure only)
 mod channel_handler;
+mod egfx_handler;
 
 // Main handler (all logic in one file - SSH pattern)
 mod handler;

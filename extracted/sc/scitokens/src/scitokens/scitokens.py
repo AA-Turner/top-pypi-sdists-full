@@ -10,6 +10,7 @@ import time
 
 import os
 import jwt
+import re
 from . import urltools
 import logging
 
@@ -28,14 +29,13 @@ class SciToken(object):
     An object representing the contents of a SciToken.
     """
 
-    def __init__(self, key=None, algorithm=None, key_id=None, parent=None, claims=None):
+    def __init__(self, key=None, algorithm=None, key_id=None, claims=None):
         """
         Construct a SciToken object.
 
         :param key: Private key to sign the SciToken with.  It should be the PEM contents.
         :param algorithm: Private key algorithm to sign the SciToken with. Default: RS256
         :param str key_id: A string representing the Key ID that is used at the issuer
-        :param parent: Parent SciToken that will be chained
         """
 
         if claims is not None:
@@ -67,7 +67,6 @@ class SciToken(object):
         if self._key_alg not in ["RS256", "ES256"]:
             raise UnsupportedKeyException()
         self._key_id = key_id
-        self._parent = parent
         self._claims = {}
         self._verified_claims = {}
         self.insecure = False
@@ -93,12 +92,8 @@ class SciToken(object):
 
     def claims(self):
         """
-        Return an iterator of (key, value) pairs of claims, starting
-        with the claims from the first token in the chain.
+        Return an iterator of (key, value) pairs of claims.
         """
-        if self._parent:
-            for claim, value in self._parent.claims():
-                yield claim, value
         for claim, value in self._verified_claims.items():
             yield claim, value
         for claim, value in self._claims.items():
@@ -171,8 +166,7 @@ class SciToken(object):
         self._verified_claims.update(self._claims)
         self._claims = {}
         
-        global LOGGER
-        LOGGER.info("Signed Token: {0}".format(str(payload)))
+        LOGGER.debug("Signed Token: %s", str(payload))
 
         # Encode the returned string for backwards compatibility.
         # Previous versions of PyJWT returned bytes
@@ -241,12 +235,6 @@ class SciToken(object):
         if verified_only:
             return self._verified_claims.get(claim, default)
         return self._claims.get(claim, self._verified_claims.get(claim, default))
-
-    def clone_chain(self):
-        """
-        Return a new, empty SciToken
-        """
-        raise NotImplementedError()
 
     def _deserialize_key(self, key_serialized, unverified_headers):
         """
@@ -462,7 +450,7 @@ class InvalidPathError(EnforcementError):
     Test paths must be absolute paths (start with '/')
     """
 
-class InvalidAuthorizationResource(EnforcementError):
+class InvalidAuthorizationResource(ValidationFailure, EnforcementError):
     """
     A scope was encountered with an invalid authorization.
 
@@ -588,7 +576,10 @@ class Enforcer(object):
         return nbf < self._now
 
     def _validate_iss(self, value):
-        return self._issuer == value
+        if isinstance(self._issuer, str):
+            return value == self._issuer
+        # match a sequence
+        return value in self._issuer
 
     def _validate_iat(self, value):
         return float(value) < self._now
@@ -598,9 +589,7 @@ class Enforcer(object):
             return False
         elif self._audience == "ANY":
             return False
-        elif value == "ANY":
-            return True
-        
+
         # Convert the value and self._audience both to sets
         # Then perform set intersection
         values = []
@@ -609,6 +598,11 @@ class Enforcer(object):
         else:
             values = value
         set_value = set(values)
+
+        # Check if "ANY" is in the set_value, and always accept if that is true
+        if "ANY" in set_value:
+            return True
+
         audiences = []
         if not isinstance(self._audience, list):
             audiences = [self._audience]
@@ -652,8 +646,7 @@ class Enforcer(object):
         JTI, or json token id, should always pass.  It's mostly used for logging
         and auditing.
         """
-        global LOGGER
-        LOGGER.info("Validating SciToken with jti: {0}".format(value))
+        LOGGER.debug("Validating SciToken with jti: %s", value)
         return True
 
     def _check_scope(self, scope):
@@ -674,10 +667,44 @@ class Enforcer(object):
             path = info[1]
             if not path.startswith("/"):
                 raise InvalidAuthorizationResource("Token contains a relative path in scope")
-            norm_path = urltools.normalize_path(path)
+            norm_path = self._normalize_scope_path(path)
         else:
             norm_path = '/'
         return (authz, norm_path)
+
+    @staticmethod
+    def _decode_scope_path_segment(segment):
+        normalized_segment = re.sub(
+            r"%([0-9A-Fa-f]{2})",
+            lambda match: "%" + match.group(1).lower(),
+            segment,
+        )
+        return urltools.unquote(normalized_segment, exceptions='/?+#')
+
+    @classmethod
+    def _normalize_scope_path(cls, path):
+        for segment in path.split("/"):
+            if cls._decode_scope_path_segment(segment) == "..":
+                raise InvalidAuthorizationResource("Token contains path traversal in scope")
+        normalized = urltools.normalize_path(path)
+        # Defense-in-depth: verify the normalized path hasn't escaped root
+        # via double-encoding or other tricks that bypass the segment check.
+        if not normalized.startswith("/"):
+            raise InvalidAuthorizationResource("Token contains path traversal in scope")
+        for segment in normalized.split("/"):
+            if segment == "..":
+                raise InvalidAuthorizationResource("Token contains path traversal in scope")
+        return normalized
+
+    @staticmethod
+    def _scope_path_matches(requested_path, allowed_path):
+        if allowed_path == '/':
+            return True
+        if requested_path == allowed_path:
+            return True
+        if allowed_path.endswith('/'):
+            return requested_path.startswith(allowed_path)
+        return requested_path.startswith(allowed_path + '/')
 
     def _validate_scp(self, value):
         if not isinstance(value, list):
@@ -689,7 +716,7 @@ class Enforcer(object):
                 norm_requested_path = urltools.normalize_path(self._test_path)
             for scope in value:
                 authz, norm_path = self._check_scope(scope)
-                if (self._test_authz == authz) and norm_requested_path.startswith(norm_path):
+                if (self._test_authz == authz) and self._scope_path_matches(norm_requested_path, norm_path):
                     return True
             return False
         else:
@@ -709,7 +736,7 @@ class Enforcer(object):
             # Split on spaces
             for scope in value.split(" "):
                 authz, norm_path = self._check_scope(scope)
-                if (self._test_authz == authz) and norm_requested_path.startswith(norm_path):
+                if (self._test_authz == authz) and self._scope_path_matches(norm_requested_path, norm_path):
                     return True
             return False
         else:
@@ -718,4 +745,3 @@ class Enforcer(object):
                 authz, norm_path = self._check_scope(scope)
                 self._token_scopes.add((authz, norm_path))
             return True
-

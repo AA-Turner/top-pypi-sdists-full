@@ -105,7 +105,14 @@ def clean_params(params):
         del params["format_type_options"]["INFER_SCHEMA"]
 
 
-def get_param_from_options(params, options, source):
+def get_param_from_options(
+    params,
+    options,
+    source,
+    *,
+    should_write_to_single_file: bool = False,
+    has_partitioning_columns: bool = False,
+):
     match source:
         case "csv":
             config = CsvWriterConfig(options)
@@ -129,6 +136,11 @@ def get_param_from_options(params, options, source):
                 params["format_type_options"]["RECORD_DELIMITER"] = config.get(
                     "linesep"
                 )
+
+    # Respect single-file intent across all supported file formats.
+    # For CSV we default to single=False above, then override here when needed.
+    if should_write_to_single_file and not has_partitioning_columns:
+        params["single"] = True
 
     if (
         source in ("csv", "parquet", "json") and "nullValue" in options
@@ -294,15 +306,33 @@ def map_write(request: proto_base.ExecutePlanRequest):
     ):
         write_op.source = ""
 
-    should_write_to_single_file = str_to_bool(write_op.options.get("single", "false"))
+    normalized_write_options = {k.lower(): v for k, v in write_op.options.items()}
+    user_set_single_option = "single" in normalized_write_options
+    should_write_to_single_file = str_to_bool(
+        normalized_write_options.get("single", "false")
+    )
+    user_set_max_file_size_option = (
+        "snowflake_max_file_size" in normalized_write_options
+    )
+    force_single_for_coalesce_one = (
+        partition_hint == 1
+        and not write_op.partitioning_columns
+        and not user_set_single_option
+        and not user_set_max_file_size_option
+    )
+    if force_single_for_coalesce_one:
+        # Spark users commonly expect coalesce(1).write(...) to produce one file.
+        # Apply this only for non-partitioned writes, and only when users did not
+        # explicitly provide single/max-file-size options.
+        should_write_to_single_file = True
 
     # Support Snowflake-specific snowflake_max_file_size option. This is NOT a spark option.
     max_file_size = None
     if (
-        "snowflake_max_file_size" in write_op.options
-        and int(write_op.options["snowflake_max_file_size"]) > 0
+        "snowflake_max_file_size" in normalized_write_options
+        and int(normalized_write_options["snowflake_max_file_size"]) > 0
     ):
-        max_file_size = int(write_op.options["snowflake_max_file_size"])
+        max_file_size = int(normalized_write_options["snowflake_max_file_size"])
     elif should_write_to_single_file:
         # providing default size as 1GB for single file write
         max_file_size = 1073741824
@@ -439,7 +469,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     session.sql(remove_command).collect()
                     logger.info(f"Successfully cleared directory: {write_path}")
 
-            if should_write_to_single_file and partition_hint is None:
+            if should_write_to_single_file and not write_op.partitioning_columns:
                 # Single file: generate complete filename with extension
                 spark_filename = generate_spark_compatible_filename(
                     task_id=0,
@@ -448,6 +478,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     format_ext=extension,
                 )
                 temp_file_prefix_on_stage = f"{write_path}/{spark_filename}"
+            elif write_op.partitioning_columns:
+                # When PARTITION BY is used, Snowflake treats the location as a base
+                # directory and creates col=value/ subdirs under it. Appending a
+                # filename prefix would create a spurious intermediate folder.
+                temp_file_prefix_on_stage = write_path
             else:
                 # Multiple files: generate prefix without extension (Snowflake will add extensions)
                 spark_filename_prefix = generate_spark_compatible_filename(
@@ -475,11 +510,14 @@ def map_write(request: proto_base.ExecutePlanRequest):
             # This helps control when Snowflake splits files into multiple parts
             if max_file_size:
                 parameters["max_file_size"] = max_file_size
-            # Only apply single option if no partition hint is present (partition hint takes precedence)
-            if should_write_to_single_file and partition_hint is None:
-                parameters["single"] = True
             rewritten_df: snowpark.DataFrame = rewrite_df(input_df, write_op.source)
-            get_param_from_options(parameters, write_op.options, write_op.source)
+            get_param_from_options(
+                parameters,
+                write_op.options,
+                write_op.source,
+                should_write_to_single_file=should_write_to_single_file,
+                has_partitioning_columns=bool(write_op.partitioning_columns),
+            )
             if write_op.partitioning_columns:
                 # Build Spark-style directory structure: col1=value1/col2=value2/...
                 # Example produced expression (Snowflake SQL):
@@ -512,14 +550,21 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 # Download from the base write path to preserve partition directories locally.
                 download_stage_path = write_path
 
-            # If a partition hint is present (from DataFrame.repartition(n)), optionally split the
-            # write into n COPY INTO calls by assigning a synthetic partition id. Controlled by config.
-            # Note: This affects only the number of output files, not computation semantics.
-            # Partition hints take precedence over single option (matches Spark behavior) when enabled.
+            # When repartition(n) is used WITHOUT partitionBy, split into n COPY INTO calls
+            # so we produce n output files with Spark-compatible names.
+            # When partitionBy IS active, skip this: Snowflake's PARTITION BY controls
+            # the directory layout, and appending per-part prefixes to the location would
+            # create spurious intermediate folders. Snowflake already produces ~1 file per
+            # partition directory, matching the common repartition(1)+partitionBy idiom.
             repartition_for_writes_enabled = (
                 global_config.snowflake_repartition_for_writes
             )
-            if repartition_for_writes_enabled and partition_hint and partition_hint > 0:
+            if (
+                repartition_for_writes_enabled
+                and partition_hint
+                and partition_hint > 0
+                and not write_op.partitioning_columns
+            ):
                 # Create a stable synthetic file number per row using ROW_NUMBER() over a
                 # randomized order, then modulo partition_hint. We rely on sql_expr to avoid
                 # adding new helpers.

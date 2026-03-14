@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import cast
 from urllib.parse import quote
 
 import httpx
@@ -682,6 +683,11 @@ class SandboxClient:
 
         # Build environment config using Env factory
         env_config: EnvFromSimulator | EnvFromArtifact | EnvFromResource
+        config_cpus: int | None = None
+        config_memory: int | None = None
+        config_disk: int | None = None
+        config_app_port: int | None = None
+        config_messaging_port: int | None = None
 
         if mode == "artifact" and artifact_id:
             self.console.print(f"[cyan]Mode:[/cyan] artifact ({artifact_id})")
@@ -923,6 +929,11 @@ class SandboxClient:
             sandbox_state.app_port = app_port
             sandbox_state.messaging_port = messaging_port
         elif mode == "config":
+            assert config_cpus is not None
+            assert config_memory is not None
+            assert config_disk is not None
+            assert config_app_port is not None
+            assert config_messaging_port is not None
             sandbox_state.cpus = config_cpus
             sandbox_state.memory = config_memory
             sandbox_state.disk = config_disk
@@ -1059,6 +1070,56 @@ class SandboxClient:
         wait_timeout: int = 300,  # 5 minutes
         use_api: bool = False,
     ) -> None:
+        dataset_config = self._load_start_worker_dataset_config(
+            simulator=simulator,
+            dataset=dataset,
+            use_api=use_api,
+        )
+
+        _ = start_worker.sync(
+            client=self._http,
+            public_id=job_id,
+            body=VMManagementRequest(
+                service=simulator,
+                dataset=dataset,
+                plato_dataset_config=dataset_config,
+            ),
+            x_api_key=self.api_key,
+        )
+
+        if wait_timeout > 0:
+            # Wait before first state poll to allow worker to initialize
+            time.sleep(15)
+            start_time = time.time()
+            poll_interval = 10
+
+            while time.time() - start_time < wait_timeout:
+                try:
+                    state_response = jobs_state.sync(
+                        client=self._http,
+                        job_id=job_id,
+                        x_api_key=self.api_key,
+                    )
+                    if state_response:
+                        state_dict = (
+                            state_response.model_dump() if hasattr(state_response, "model_dump") else state_response
+                        )
+                        if isinstance(state_dict, dict) and "error" not in state_dict.get("state", {}):
+                            return
+                except Exception:
+                    pass
+
+                time.sleep(poll_interval)
+
+    def _load_start_worker_dataset_config(
+        self,
+        simulator: str,
+        dataset: str,
+        use_api: bool,
+    ) -> AppSchemasBuildModelsSimConfigDataset:
+        raw_plato_config: object
+        config_source: str
+
         if use_api:
             self.console.print("[cyan]Config source: API[/cyan]")
             # Use v1 simulator artifact APIs to resolve the correct simulator artifact,
@@ -1096,51 +1157,36 @@ class SandboxClient:
             if not plato_config_resp.plato_config:
                 raise ValueError(f"No plato_config returned for artifact_id='{selected.artifact_id}'")
 
-            plato_config_model = PlatoConfig.model_validate(yaml.safe_load(plato_config_resp.plato_config))
+            config_source = f"artifact '{selected.artifact_id}'"
+            raw_plato_config = yaml.safe_load(plato_config_resp.plato_config) or {}
         else:
-            with open(self.working_dir / "plato-config.yml", "rb") as f:
-                plato_config = yaml.safe_load(f)
-            plato_config_model = PlatoConfig.model_validate(plato_config)
+            config_path = self.working_dir / "plato-config.yml"
+            if not config_path.exists():
+                config_path = self.working_dir / "plato-config.yaml"
+            if not config_path.exists():
+                raise ValueError("plato-config.yml / plato-config.yaml not found in working directory")
 
-        dataset_config = plato_config_model.datasets[dataset]
-        # Convert AppApiV2SchemasArtifactSimConfigDataset to AppSchemasBuildModelsSimConfigDataset
-        # They have compatible fields but different nested types
-        dataset_config_dict = dataset_config.model_dump(exclude_none=True, mode="json")
+            config_source = str(config_path)
+            with open(config_path, "rb") as f:
+                raw_plato_config = yaml.safe_load(f) or {}
 
-        _ = start_worker.sync(
-            client=self._http,
-            public_id=job_id,
-            body=VMManagementRequest(
-                service=simulator,
-                dataset=dataset,
-                plato_dataset_config=AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config_dict),
-            ),
-            x_api_key=self.api_key,
-        )
+        if not isinstance(raw_plato_config, dict):
+            raise ValueError(f"Invalid plato config in {config_source}: expected a top-level mapping")
 
-        if wait_timeout > 0:
-            # Wait before first state poll to allow worker to initialize
-            time.sleep(15)
-            start_time = time.time()
-            poll_interval = 10
+        plato_config = cast(dict[str, object], raw_plato_config)
+        datasets = plato_config.get("datasets")
+        if not isinstance(datasets, dict):
+            raise ValueError(f"Invalid plato config in {config_source}: missing 'datasets' mapping")
 
-            while time.time() - start_time < wait_timeout:
-                try:
-                    state_response = jobs_state.sync(
-                        client=self._http,
-                        job_id=job_id,
-                        x_api_key=self.api_key,
-                    )
-                    if state_response:
-                        state_dict = (
-                            state_response.model_dump() if hasattr(state_response, "model_dump") else state_response
-                        )
-                        if isinstance(state_dict, dict) and "error" not in state_dict.get("state", {}):
-                            return
-                except Exception:
-                    pass
+        datasets = cast(dict[str, object], datasets)
+        dataset_config = datasets.get(dataset)
+        if dataset_config is None:
+            available_datasets = sorted(str(name) for name in datasets.keys())
+            raise ValueError(
+                f"Dataset '{dataset}' not found in {config_source}. Available datasets: {available_datasets}"
+            )
 
-                time.sleep(poll_interval)
+        return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
 
     # CHECKED
     def sync(
@@ -1383,7 +1429,7 @@ class SandboxClient:
             env["PLATO_DB_PORT"] = str(db_listener.db_port)
             env["PLATO_DB_USER"] = db_listener.db_user or ""
             env["PLATO_DB_PASSWORD"] = db_listener.db_password or ""
-            env["PLATO_DB_NAME"] = db_listener.db_database
+            env["PLATO_DB_NAME"] = db_listener.db_database or ""
             env["PLATO_DB_TYPE"] = str(db_listener.db_type)
             self.console.print(
                 f"[dim]DB config: {db_listener.db_user}@127.0.0.1:{db_listener.db_port}/{db_listener.db_database}[/dim]"

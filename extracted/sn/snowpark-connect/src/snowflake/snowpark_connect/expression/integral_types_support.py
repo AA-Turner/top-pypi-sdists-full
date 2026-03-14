@@ -31,8 +31,10 @@ def get_integral_type_bounds(typ: DataType) -> tuple[int, int]:
         raise ValueError(f"Unsupported integral type: {typ}")
 
 
-def apply_integral_overflow(col: Column, to_type: DataType) -> Column:
-    if not global_config.snowpark_connect_handleIntegralOverflow:
+def apply_integral_overflow(
+    col: Column, to_type: DataType, force: bool = False
+) -> Column:
+    if not force and not global_config.snowpark_connect_handleIntegralOverflow:
         return col.cast(to_type)
 
     min_val, max_val = get_integral_type_bounds(to_type)

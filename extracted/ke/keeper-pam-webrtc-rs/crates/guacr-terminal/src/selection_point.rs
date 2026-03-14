@@ -91,6 +91,51 @@ impl SelectionPoint {
         }
     }
 
+    /// Create a selection point from pixel coordinates using a ratatui buffer
+    pub fn from_pixel_coords_ratatui(
+        x_px: u32,
+        y_px: u32,
+        char_width: u32,
+        char_height: u32,
+        cols: u16,
+        rows: u16,
+        buffer: &ratatui::buffer::Buffer,
+    ) -> Self {
+        let col = (x_px / char_width).min(cols as u32 - 1) as u16;
+        let row = (y_px / char_height).min(rows as u32 - 1) as u16;
+        let side = if (x_px % char_width) < (char_width / 2) {
+            ColumnSide::Left
+        } else {
+            ColumnSide::Right
+        };
+        let (char_starting_column, char_width_cells) =
+            find_char_at_position_ratatui(buffer, row, col);
+        SelectionPoint {
+            row,
+            column: col,
+            side,
+            char_starting_column,
+            char_width: char_width_cells,
+        }
+    }
+
+    /// Create a selection point directly from row/column/side using a ratatui buffer
+    pub fn new_ratatui(
+        row: u16,
+        column: u16,
+        side: ColumnSide,
+        buffer: &ratatui::buffer::Buffer,
+    ) -> Self {
+        let (char_starting_column, char_width) = find_char_at_position_ratatui(buffer, row, column);
+        SelectionPoint {
+            row,
+            column,
+            side,
+            char_starting_column,
+            char_width,
+        }
+    }
+
     /// Determine if this point comes after another point
     ///
     /// Uses left-to-right, top-to-bottom ordering. A point is "after"
@@ -248,6 +293,38 @@ fn find_char_at_position(terminal: &TerminalEmulator, row: u16, column: u16) -> 
 
     // Default: single-width character
     (column, 1)
+}
+
+/// Find the character at a given position in a ratatui buffer and return its starting column and width
+fn find_char_at_position_ratatui(
+    buffer: &ratatui::buffer::Buffer,
+    row: u16,
+    col: u16,
+) -> (u16, u16) {
+    let buf_width = buffer.area.width as usize;
+    let idx = row as usize * buf_width + col as usize;
+    if idx >= buffer.content.len() {
+        return (col, 1);
+    }
+    let symbol = buffer.content[idx].symbol();
+    if let Some(first_char) = symbol.chars().next() {
+        let char_w = unicode_width::UnicodeWidthChar::width(first_char).unwrap_or(1) as u16;
+        if char_w > 1 {
+            // Find the starting column for this wide character
+            let mut start_col = col;
+            while start_col > 0 {
+                let prev_idx = row as usize * buf_width + (start_col - 1) as usize;
+                if prev_idx < buffer.content.len() && buffer.content[prev_idx].symbol() == symbol {
+                    start_col -= 1;
+                } else {
+                    break;
+                }
+            }
+            return (start_col, char_w);
+        }
+        return (col, char_w.max(1));
+    }
+    (col, 1)
 }
 
 #[cfg(test)]

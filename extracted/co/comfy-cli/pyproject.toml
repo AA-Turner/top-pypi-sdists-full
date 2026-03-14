@@ -5,7 +5,7 @@ requires = [ "setuptools>=61" ]
 
 [project]
 name = "comfy-cli"
-version = "v1.5.4"                                            # Will be filled in by the CI/CD pipeline. Check publish_package.py.
+version = "v1.6.0"                                            # Will be filled in by the CI/CD pipeline. Check publish_package.py.
 description = "A CLI tool for installing and using ComfyUI."
 readme = "README.md"
 keywords = [ "comfyui", "stable diffusion" ]
@@ -32,7 +32,6 @@ classifiers = [
 
 dependencies = [
   "charset-normalizer>=3",
-  "click<=8.1.8",
   "cookiecutter",
   "gitpython",
   "httpx",
@@ -47,9 +46,9 @@ dependencies = [
   "ruff",
   "semver~=3.0.2",
   "tomlkit",
-  "typer>=0.9",
+  "typer>=0.12.5",
   "typing-extensions>=4.7",
-  "uv",
+  "uv>=0.6.9",
   "websocket-client",
 ]
 

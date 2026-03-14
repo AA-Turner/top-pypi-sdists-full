@@ -248,7 +248,8 @@ class DataFrameContainer:
         return ColumnNameMap([], [])
 
     def _apply_cached_schema_getter(
-        self, schema_getter: Callable[[], StructType]
+        self,
+        schema_getter: Callable[[], StructType],
     ) -> None:
         """Apply a cached schema getter to the dataframe."""
         from snowflake.snowpark_connect.column_name_handler import set_schema_getter

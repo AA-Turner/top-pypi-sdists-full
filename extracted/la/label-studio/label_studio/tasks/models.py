@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 
 import ujson as json
 from core.bulk_update_utils import bulk_update
-from core.current_request import get_current_request
+from core.current_request import CurrentContext, get_current_request
 from core.feature_flags import flag_set
 from core.label_config import SINGLE_VALUED_TAGS
 from core.redis import start_job_async_or_sync
@@ -289,10 +289,8 @@ class Task(TaskMixin, FsmHistoryStateModel):
         """
         from projects.functions.next_task import get_next_task_logging_level
 
-        if self.project.show_ground_truth_first:
-            # in show_ground_truth_first mode(onboarding)
-            # we ignore overlap setting for ground_truth tasks
-            # https://humansignal.atlassian.net/browse/LEAP-1963
+        if self.project.annotator_evaluation_enabled:
+            # In annotator evaluation mode, ignore overlap setting for ground truth tasks
             if self.annotations.filter(ground_truth=True).exists():
                 return False
 
@@ -966,14 +964,29 @@ class AnnotationDraft(FsmHistoryStateModel):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
-            super().save(*args, **kwargs)
             project = self.task.project
+            # Lock projectsummary first to avoid deadlocks with annotation-reviews
+            # which accesses projectsummary before annotationdraft
+            if hasattr(project, 'summary'):
+                from projects.models import ProjectSummary
+
+                ProjectSummary.objects.select_for_update().filter(pk=project.summary.pk).first()
+            super().save(*args, **kwargs)
             if hasattr(project, 'summary'):
                 project.summary.update_created_labels_drafts([self])
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():
             project = self.task.project
+            # Lock projectsummary first to match save() and annotation-reviews lock ordering.
+            # This prevents deadlocks with concurrent operations that access
+            # projectsummary before annotationdraft.
+            if hasattr(project, 'summary'):
+                from projects.models import ProjectSummary
+
+                ProjectSummary.objects.select_for_update().filter(pk=project.summary.pk).first()
+            # Then lock annotationdraft row
+            AnnotationDraft.objects.select_for_update().filter(pk=self.pk).first()
             if hasattr(project, 'summary'):
                 project.summary.remove_created_drafts_and_labels([self])
             super().delete(*args, **kwargs)
@@ -1537,6 +1550,9 @@ def bulk_update_stats_project_tasks(tasks, project=None):
             first_task = Task.objects.get(id=task_ids[0])
             project = first_task.project
 
+        # Set user context so FSM checks work when this runs in an async worker
+        if project.created_by_id:
+            CurrentContext.set_user(project.created_by)
         bulk_update_is_labeled(task_ids, project)
     else:
         return deprecated_bulk_update_stats_project_tasks(tasks, project)

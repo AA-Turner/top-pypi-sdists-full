@@ -9,6 +9,7 @@ description = "SSH protocol handler for guacr"
 # Local dependencies
 guacr-handlers = { path = "../guacr-handlers" }
 guacr-protocol = { path = "../guacr-protocol" }
+guacr-recorder = { path = "../guacr-recorder" }
 guacr-terminal = { path = "../guacr-terminal" }
 
 # Workspace dependencies
@@ -28,7 +29,8 @@ base64.workspace = true
 
 # Threat detection (optional)
 guacr-threat-detection = { path = "../guacr-threat-detection", optional = true }
+uuid = { workspace = true, optional = true }
 
 [features]
 default = []
-threat-detection = ["guacr-threat-detection"]
+threat-detection = ["guacr-threat-detection", "uuid"]

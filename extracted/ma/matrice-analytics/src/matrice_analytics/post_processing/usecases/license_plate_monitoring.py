@@ -43,6 +43,16 @@ import base64
 from matrice_common.stream.matrice_stream import MatriceStream, StreamType
 from  matrice_common.session import Session
 
+# Pre-import AdvancedTracker to avoid per-frame import overhead
+try:
+    from ..advanced_tracker import AdvancedTracker as _AdvancedTracker
+    from ..advanced_tracker.config import TrackerConfig as _TrackerConfig
+    _HAS_ADVANCED_TRACKER = True
+except ImportError:
+    _AdvancedTracker = None
+    _TrackerConfig = None
+    _HAS_ADVANCED_TRACKER = False
+
 
 # Lazy import mechanism for LicensePlateRecognizer
 _OCR_IMPORT_SOURCE = None
@@ -142,7 +152,23 @@ except ImportError:
 
 @dataclass
 class LicensePlateMonitorConfig(BaseConfig):
-    """Configuration for License plate detection use case in License plate monitoring."""
+    """Configuration for License plate detection use case in License plate monitoring.
+
+    Available OCR models (``ocr_model_name``):
+
+    +-----------------------------------------+--------------+---------------------+-----------------------------------+
+    | Model                                   | Architecture | Training Data       | Best For                          |
+    +-----------------------------------------+--------------+---------------------+-----------------------------------+
+    | cct-s-v1-global-model          (default)| CCT (S)      | Global plates       | General use                       |
+    | cct-xs-v1-global-model                  | CCT (XS)     | Global plates       | Faster / smaller                  |
+    | cct-s-relu-v1-global-model              | CCT-ReLU (S) | Global plates       | Same as S but with ReLU           |
+    | cct-xs-relu-v1-global-model             | CCT-ReLU(XS) | Global plates       | Fastest CCT variant               |
+    | european-plates-mobile-vit-v2-model     | MobileViT-v2 | European plates     | European plates specifically      |
+    | global-plates-mobile-vit-v2-model       | MobileViT-v2 | Global (65+ countries)| Most comprehensive coverage      |
+    | argentinian-plates-cnn-model            | CNN          | Argentinian plates  | Argentina only                    |
+    | argentinian-plates-cnn-synth-model      | CNN          | Argentinian (synth) | Argentina only                    |
+    +-----------------------------------------+--------------+---------------------+-----------------------------------+
+    """
     enable_smoothing: bool = False
     smoothing_algorithm: str = "observability"  # "window" or "observability"
     smoothing_window_size: int = 20
@@ -159,6 +185,8 @@ class LicensePlateMonitorConfig(BaseConfig):
     language: List[str] = field(default_factory=lambda: ['en'])
     country: str = field(default_factory=lambda: 'us')
     ocr_mode:str = field(default_factory=lambda: "alphanumeric") # "alphanumeric" or "numeric" or "alphabetic"
+    ocr_model_name: str = "cct-s-v1-global-model"  # See table above for available models
+    ocr_device: str = "auto"  # "auto", "cuda", or "cpu"
     session: Optional[Session] = None
     lpr_server_id: Optional[str] = None  # Optional LPR server ID for remote logging
     redis_server_id: Optional[str] = None  # Optional Redis server ID for instant alerts
@@ -689,7 +717,7 @@ class LicensePlateMonitorLogger:
                 'rtpNumber': rtp_number,
                 'location': location,
                 'camera': camera_name,
-                'camera_id': camera_id,
+                'CameraID': camera_id,
                 'captureTimestamp': rfc3339_timestamp,
                 'projectId': project_id,
                 'imageData': image_data if image_data else ""
@@ -720,9 +748,132 @@ class LicensePlateMonitorLogger:
             self.logger.info(f"[LP_LOGGING] ===== PLATE LOG REQUEST END (FAILED) =====")
             return False
         
+class _DetectionSmoother:
+    """Temporal smoothing: carry forward tracked detections for a few frames to reduce flickering.
+
+    When the model intermittently drops a detection for 1-2 frames, the overlay
+    blinks on the frontend.  This buffer carries the last-known position forward
+    with decaying confidence until the model picks it up again (or the hold
+    window expires).
+    """
+
+    def __init__(self, hold_frames: int = 3, iou_threshold: float = 0.3):
+        self._buffers: Dict[str, Dict] = {}   # camera_id -> {track_key: {det, last_seen, miss_count}}
+        self._hold_frames = hold_frames
+        self._iou_threshold = iou_threshold
+
+    @staticmethod
+    def _iou(a: dict, b: dict) -> float:
+        x1 = max(a["xmin"], b["xmin"])
+        y1 = max(a["ymin"], b["ymin"])
+        x2 = min(a["xmax"], b["xmax"])
+        y2 = min(a["ymax"], b["ymax"])
+        inter = max(0, x2 - x1) * max(0, y2 - y1)
+        if inter == 0:
+            return 0.0
+        a1 = (a["xmax"] - a["xmin"]) * (a["ymax"] - a["ymin"])
+        a2 = (b["xmax"] - b["xmin"]) * (b["ymax"] - b["ymin"])
+        return inter / (a1 + a2 - inter) if (a1 + a2 - inter) > 0 else 0.0
+
+    def smooth(self, camera_id: str, detections: list, frame_idx: int) -> list:
+        """Merge current detections with buffered ones.  Returns smoothed list."""
+        buf = self._buffers.setdefault(camera_id, {})
+
+        matched_keys: set = set()
+        for det in detections:
+            bb = det.get("bounding_box", {})
+            if not bb or "xmin" not in bb:
+                continue
+            tid = det.get("track_id", "")
+            # Exact track_id match (persistent IDs only)
+            if tid and not str(tid).startswith("simple_") and tid in buf:
+                buf[tid] = {"det": dict(det), "last_seen": frame_idx, "miss_count": 0}
+                matched_keys.add(tid)
+                continue
+            # IoU fallback
+            best_key, best_iou = None, 0.0
+            for key, entry in buf.items():
+                if key in matched_keys:
+                    continue
+                ebb = entry["det"].get("bounding_box", {})
+                if ebb and "xmin" in ebb:
+                    iou = self._iou(bb, ebb)
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_key = key
+            if best_key and best_iou > self._iou_threshold:
+                buf[best_key]["det"] = dict(det)
+                buf[best_key]["det"]["track_id"] = best_key
+                buf[best_key]["last_seen"] = frame_idx
+                buf[best_key]["miss_count"] = 0
+                matched_keys.add(best_key)
+            else:
+                key = tid if tid and not str(tid).startswith("simple_") else f"s_{frame_idx}_{id(det)}"
+                buf[key] = {"det": dict(det), "last_seen": frame_idx, "miss_count": 0}
+                matched_keys.add(key)
+
+        # Carry forward missing detections
+        carried: list = []
+        expired: list = []
+        for key, entry in buf.items():
+            if key in matched_keys:
+                continue
+            entry["miss_count"] += 1
+            if entry["miss_count"] <= self._hold_frames:
+                carry_det = dict(entry["det"])
+                orig_conf = carry_det.get("confidence", 0.5)
+                carry_det["confidence"] = round(max(0.1, orig_conf - 0.05 * entry["miss_count"]), 2)
+                carried.append(carry_det)
+            else:
+                expired.append(key)
+        for key in expired:
+            del buf[key]
+
+        return detections + carried
+
+
+def _map_tracker_ids_to_source(source_data: list, tracked_data: list) -> None:
+    """Write persistent track IDs from *tracked_data* back into the original *source_data* dicts (in-place).
+
+    After ``tracker.update()`` returns **new** detection dicts with ``track_id``
+    assigned, the original model-output dicts (``source_data``) still lack IDs.
+    This function matches each source detection to its tracked counterpart via
+    bounding-box IoU and copies the ``track_id`` over so that callers who hold a
+    reference to the original list (e.g. workers.py → ``format_output_rtp``)
+    automatically see the correct IDs.
+    """
+    if not tracked_data:
+        return
+    for src in source_data:
+        sbb = src.get("bounding_box", src.get("bbox", {}))
+        if not sbb or "xmin" not in sbb:
+            continue
+        best_iou, best_tid = 0.0, None
+        for trk in tracked_data:
+            tid = trk.get("track_id")
+            tbb = trk.get("bounding_box", trk.get("bbox", {}))
+            if tid is None or not tbb or "xmin" not in tbb:
+                continue
+            x1 = max(float(sbb["xmin"]), float(tbb["xmin"]))
+            y1 = max(float(sbb["ymin"]), float(tbb["ymin"]))
+            x2 = min(float(sbb["xmax"]), float(tbb["xmax"]))
+            y2 = min(float(sbb["ymax"]), float(tbb["ymax"]))
+            inter = max(0, x2 - x1) * max(0, y2 - y1)
+            if inter == 0:
+                continue
+            a1 = (float(sbb["xmax"]) - float(sbb["xmin"])) * (float(sbb["ymax"]) - float(sbb["ymin"]))
+            a2 = (float(tbb["xmax"]) - float(tbb["xmin"])) * (float(tbb["ymax"]) - float(tbb["ymin"]))
+            iou = inter / (a1 + a2 - inter) if (a1 + a2 - inter) > 0 else 0
+            if iou > best_iou:
+                best_iou = iou
+                best_tid = tid
+        if best_tid is not None and best_iou > 0.3:
+            src["track_id"] = best_tid
+
+
 class LicensePlateMonitorUseCase(BaseProcessor):
     CATEGORY_DISPLAY = {"license_plate": "license_plate"}
-    
+
     def __init__(self):
         super().__init__("license_plate_monitor")
         self.category = "license_plate_monitor"
@@ -754,7 +905,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self.image_preprocessor = ImagePreprocessor()
         # OCR model will be lazily initialized when first used
         self.ocr_model = None
-        self._ocr_initialization_attempted = False
+        self._ocr_model_name = "cct-s-v1-global-model"
+        self._ocr_device = "auto"
+        self._ocr_initialization_attempts = 0
+        self._ocr_max_init_attempts = 3
         # OCR text history for stability checks (text  consecutive frame count)
         self._text_history: Dict[str, int] = {}
 
@@ -764,9 +918,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         # Minimum length for a valid plate (after cleaning)
         self._min_plate_len = 3
         # number of consecutive frames a plate must appear to be considered "stable"
-        self._stable_frames_required = 2
+        self._stable_frames_required = 1
         self._non_alnum_regex = re.compile(r"[^A-Za-z0-9]+")
-        self._ocr_mode = None
+        self._ocr_mode = "alphanumeric"
+        self._ocr_confidence_threshold = 0.75
+        self._bgr_frame = None
+        self._detection_smoother = _DetectionSmoother(hold_frames=3, iou_threshold=0.3)
         #self.jpeg = TurboJPEG()
         
         # Initialize plate logger (optional, only used if lpr_server_id is provided)
@@ -1647,35 +1804,38 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             # OCR model will be lazily initialized when _run_ocr is first called
             # No need to initialize here
             
+            _t = time.monotonic
+            _t0 = _t()
+
             input_format = match_results_structure(data)
             context.input_format = input_format
             config.confidence_threshold = 0.37
             context.confidence_threshold = config.confidence_threshold
             self._ocr_mode = config.ocr_mode
+            if hasattr(config, 'ocr_model_name') and config.ocr_model_name:
+                self._ocr_model_name = config.ocr_model_name
+            if hasattr(config, 'ocr_device') and config.ocr_device:
+                self._ocr_device = config.ocr_device
             self.logger.info(f"Processing license plate monitoring with format: {input_format.value} and CONFIDENCE THRESHOLD: {config.confidence_threshold}")
-            
+
             # Step 1: Apply confidence filtering 1
-            # print("---------CONFIDENCE FILTERING",config.confidence_threshold)
-            # print("---------DATA1--------------",data)
             processed_data = filter_by_confidence(data, config.confidence_threshold)
             self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
-            
+
             # Step 2: Apply category mapping if provided
             if config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
-                #self.logger.debug("Applied category mapping")
-            print("---------DATA2-STREAM--------------",stream_info)
             # Step 3: Filter to target categories (handle dict or list)
             if isinstance(processed_data, dict):
                 processed_data = processed_data.get("detections", [])
-            # Accept case-insensitive category values and allow overriding via config
             effective_targets = getattr(config, 'target_categories', self.target_categories) or self.target_categories
             targets_lower = {str(cat).lower() for cat in effective_targets}
             processed_data = [d for d in processed_data if str(d.get('category', '')).lower() in targets_lower]
-            #self.logger.debug("Applied category filtering")
-            
+
             raw_processed_data = [copy.deepcopy(det) for det in processed_data]
-            #print("---------DATA2--------------",processed_data)
+
+            _t1 = _t()  # after filtering
+
             # Step 4: Apply bounding box smoothing if enabled
             if config.enable_smoothing:
                 if self.smoothing_tracker is None:
@@ -1689,54 +1849,74 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     )
                     self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
                 processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            
+
+            _t2 = _t()  # after smoothing
+
             # Step 5: Apply advanced tracking
-            try:
-                from ..advanced_tracker import AdvancedTracker
-                from ..advanced_tracker.config import TrackerConfig
-                if self.tracker is None:
-                    tracker_config = TrackerConfig(
-                        track_high_thresh=float(config.confidence_threshold),
-                        track_low_thresh=max(0.05, float(config.confidence_threshold) / 2),
-                        new_track_thresh=float(config.confidence_threshold)
-                    )
-                    self.tracker = AdvancedTracker(tracker_config)
-                    self.logger.info(f"Initialized AdvancedTracker with thresholds: high={tracker_config.track_high_thresh}, "
-                                     f"low={tracker_config.track_low_thresh}, new={tracker_config.new_track_thresh}")
-                processed_data = self.tracker.update(processed_data)
-            except Exception as e:
-                self.logger.warning(f"AdvancedTracker failed: {e}")
-            #print("---------DATA3--------------",processed_data)
+            if _HAS_ADVANCED_TRACKER:
+                try:
+                    if self.tracker is None:
+                        tracker_config = _TrackerConfig(
+                            track_high_thresh=float(config.confidence_threshold),
+                            track_low_thresh=max(0.05, float(config.confidence_threshold) / 2),
+                            new_track_thresh=float(config.confidence_threshold)
+                        )
+                        self.tracker = _AdvancedTracker(tracker_config)
+                        self.logger.info(f"Initialized AdvancedTracker with thresholds: high={tracker_config.track_high_thresh}, "
+                                         f"low={tracker_config.track_low_thresh}, new={tracker_config.new_track_thresh}")
+                    processed_data = self.tracker.update(processed_data)
+                except Exception as e:
+                    self.logger.warning(f"AdvancedTracker failed: {e}")
+
+            # Map persistent track IDs back to original data dicts (in-place) so that
+            # callers holding a reference (e.g. workers.py → format_output_rtp) see them.
+            _map_tracker_ids_to_source(data if isinstance(data, list) else data.get("detections", []), processed_data)
+
+            # Temporal smoothing — carry forward tracked detections that the model
+            # intermittently drops, reducing bbox flickering on the frontend.
+            _camera_id = (stream_info or {}).get("camera_id", "")
+            processed_data = self._detection_smoother.smooth(
+                _camera_id, processed_data, self._total_frame_counter
+            )
+
+            _t3 = _t()  # after tracker + smoothing
+
             # Step 6: Update tracking state
             self._update_tracking_state(processed_data)
-            #print("---------DATA4--------------",processed_data)
-            # Step 7: Attach masks to detections
-            processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
-            #print("---------DATA5--------------",processed_data)
+            # Step 7: Attach masks to detections (skip if no masks — O(n²) IOU matching)
+            if raw_processed_data and any(d.get("mask") or d.get("segmentation") for d in raw_processed_data[:5]):
+                processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
+
+            _t4 = _t()  # after tracking state + masks
+
             # Step 8: Perform OCR on media
+            _ib_type = type(input_bytes).__name__
+            _ib_info = f"{_ib_type}"
+            if isinstance(input_bytes, np.ndarray):
+                _ib_info = f"ndarray{input_bytes.shape}"
+            elif isinstance(input_bytes, (bytes, bytearray)):
+                _ib_info = f"bytes({len(input_bytes)})"
             ocr_analysis = self._analyze_ocr_in_media(processed_data, input_bytes, config)
-            #self.logger.info(f"[LP_LOGGING] OCR analysis completed, found {len(ocr_analysis)} results")
-            ocr_plates_found = [r.get('plate_text') for r in ocr_analysis if r.get('plate_text')]
-            # if ocr_plates_found:
-            #     self.logger.info(f"[LP_LOGGING] OCR detected plates: {ocr_plates_found}")
-            # else:
-            #     self.logger.warning(f"[LP_LOGGING] OCR did not detect any valid plate texts")
-            
+            _n_ocr_ok = sum(1 for r in ocr_analysis if r.get("plate_text"))
+            _n_rejected = sum(1 for r in ocr_analysis if r.get("reject_reason"))
+            _per_det_ocr = " ".join(f"{r.get('ocr_ms',0):.0f}" for r in ocr_analysis)
+
+            _t5 = _t()  # after OCR
+
             # Step 9: Update plate texts
             processed_data = self._update_detections_with_ocr(processed_data, ocr_analysis)
             self._update_plate_texts(processed_data)
-            print("[LP_LOGGING]DEBUG -1")
 
-            # Log final detection state before sending
-            final_plates = [d.get('plate_text') for d in processed_data if d.get('plate_text')]
-            self.logger.info(f"[LP_LOGGING] After OCR update, {len(final_plates)} detections have plate_text: {final_plates}")
+            _t6 = _t()  # after plate text update
 
             # Step 9.6: Send detections to instant alert system (if configured)
             self._send_instant_alerts(processed_data, stream_info, config)
-            print("[LP_LOGGING]DEBUG -3")
+
+            _t7 = _t()  # after alerts
+
             # Step 10: Update frame counter
             self._total_frame_counter += 1
-            
+
             # Step 11: Extract frame information
             frame_number = None
             if stream_info:
@@ -1745,27 +1925,28 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 end_frame = input_settings.get("end_frame")
                 if start_frame is not None and end_frame is not None and start_frame == end_frame:
                     frame_number = start_frame
-            
+
             # Step 12: Calculate summaries (computes dominant plates from history)
             counting_summary = self._count_categories(processed_data, config)
             counting_summary['total_counts'] = self.get_total_counts()
-            print("[LP_LOGGING]DEBUG -4")
-            
+
+            _t8 = _t()  # after counting
+
             # Step 12.5: Log CONFIRMED/DOMINANT plates to RPC server
-            # IMPORTANT: This must be AFTER _count_categories() because counting_summary["detections"]
-            # contains the correct dominant plate_text (computed from last 50% of history),
-            # NOT the raw OCR output. This ensures we only log validated/confirmed plates.
             confirmed_detections = counting_summary.get("detections", [])
-            await self._log_detected_plates(confirmed_detections, config, stream_info, input_bytes)
-            print("[LP_LOGGING]DEBUG -2")
-            
+            # Fire-and-forget: don't block frame on HTTP POST to plate logger
+            if confirmed_detections:
+                asyncio.ensure_future(self._log_detected_plates(confirmed_detections, config, stream_info, input_bytes))
+
             # Step 13: Generate alerts and summaries
             alerts = self._check_alerts(counting_summary, frame_number, config)
             incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
             tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number, stream_info)
             business_analytics_list = []
             summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
-            
+
+            _t9 = _t()  # after summaries
+
             # Step 14: Build result
             incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
@@ -1781,8 +1962,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 # dominant from last 50%
                 half = max(1, len(history) // 2)
                 window = history[-half:]
-                from collections import Counter as _Ctr
-                dom, cnt = _Ctr(window).most_common(1)[0]
+                dom, cnt = Counter(window).most_common(1)[0]
                 counter[str(tid)] = {"plate": dom, "count": cnt}
 
             agg_summary = {str(frame_number): {
@@ -1800,12 +1980,40 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
+            _t10 = _t()  # after result build
             proc_time = time.time() - processing_start
             processing_latency_ms = proc_time * 1000.0
-            processing_fps = (1.0 / proc_time) if proc_time > 0 else None
-            # Log the performance metrics using the module-level logger
-            print("latency in ms:",processing_latency_ms,"| Throughput fps:",processing_fps,"| Frame_Number:",self._total_frame_counter)
-            print("[LP_LOGGING]DEBUG -5")
+            processing_fps = (1.0 / proc_time) if proc_time > 0 else 0.0
+            ocr_time_ms = sum(r.get("ocr_ms", 0) for r in ocr_analysis)
+            self.logger.info(
+                f"[LPR_FRAME] F{frame_number} | {len(processed_data)} dets | "
+                f"{_n_ocr_ok} OCR ok | {_n_rejected} rejected | "
+                f"latency={processing_latency_ms:.1f}ms fps={processing_fps:.1f} | "
+                f"ocr_time={ocr_time_ms:.1f}ms"
+            )
+            # Per-step timing breakdown (ms)
+            self.logger.info(
+                f"[LPR_TIMING] F{frame_number} | "
+                f"filter={(_t1-_t0)*1e3:.1f} smooth={(_t2-_t1)*1e3:.1f} "
+                f"track={(_t3-_t2)*1e3:.1f} state={(_t4-_t3)*1e3:.1f} "
+                f"ocr={(_t5-_t4)*1e3:.1f}(model_sum={ocr_time_ms:.1f} per=[{_per_det_ocr}]) "
+                f"plates={(_t6-_t5)*1e3:.1f} "
+                f"alerts={(_t7-_t6)*1e3:.1f} count={(_t8-_t7)*1e3:.1f} "
+                f"summary={(_t9-_t8)*1e3:.1f} build={(_t10-_t9)*1e3:.1f} "
+                f"input={_ib_info} ocr_model={self.ocr_model is not None}"
+            )
+            plates_str = " ".join(
+                f"{r['plate_text']}({r.get('ocr_confidence', 0):.2f})"
+                for r in ocr_analysis if r.get("plate_text")
+            )
+            if plates_str:
+                self.logger.info(f"[LPR_PLATES] F{frame_number} | {plates_str}")
+            rejected_str = " ".join(
+                f"{r.get('raw_text', '')}({r.get('ocr_confidence', 0):.2f},{r.get('reject_reason', '')})"
+                for r in ocr_analysis if r.get("reject_reason")
+            )
+            if rejected_str:
+                self.logger.debug(f"[LPR_REJECTED] F{frame_number} | {rejected_str}")
             return result
             
         except Exception as e:
@@ -1830,18 +2038,35 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _analyze_ocr_in_media(self, data: Any, media_bytes: bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
         """Analyze OCR of license plates in video frames or images."""
-        return self._analyze_ocr_in_image(data, media_bytes, config)
+        result = self._analyze_ocr_in_image(data, media_bytes, config)
+        # Store timing metadata for process() to log
+        self._last_img_src = getattr(self, '_last_img_src', 'unknown')
+        self._last_decode_ms = getattr(self, '_last_decode_ms', 0.0)
+        self._last_cvt_ms = getattr(self, '_last_cvt_ms', 0.0)
+        return result
 
 
-    def _analyze_ocr_in_image(self, data: Any, image_bytes: bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
-        """Analyze OCR in a single image."""
-        image_array = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    def _analyze_ocr_in_image(self, data: Any, image_bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
+        """Analyze OCR in a single image. Accepts JPEG bytes, raw BGR numpy, or __RAW_BGR__ sentinel."""
+        _mt = time.monotonic
+        _img_t0 = _mt()
+        if isinstance(image_bytes, np.ndarray):
+            image = image_bytes
+            _img_src = "numpy"
+        elif image_bytes == b"__RAW_BGR__" and self._bgr_frame is not None:
+            image = self._bgr_frame
+            _img_src = "bgr_holder"
+        else:
+            image_array = np.frombuffer(image_bytes, np.uint8)
+            image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+            _img_src = f"jpeg({len(image_bytes)}B)"
+        _img_t1 = _mt()
 
         if image is None:
             raise RuntimeError("Failed to decode image from bytes")
 
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        _img_t2 = _mt()
         ocr_analysis = []
         detections = self._get_frame_detections(data, "0")
 
@@ -1858,8 +2083,33 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if crop.size == 0:
                 continue
 
-            plate_text_raw = self._run_ocr(crop)
-            plate_text = plate_text_raw if plate_text_raw else None
+            track_id = detection.get("track_id")
+            # Skip OCR if track already has stable plate text (saves ~80-180ms per detection)
+            _ocr_skipped = False
+            if track_id is not None and hasattr(self, 'helper') and track_id in self.helper:
+                hist = self.helper[track_id]
+                if len(hist) >= 3:
+                    half = max(1, len(hist) // 2)
+                    dom, cnt = Counter(hist[-half:]).most_common(1)[0]
+                    if dom and cnt >= 2:
+                        # Stable text exists — reuse it, skip expensive OCR
+                        ocr_result = {"text": dom, "avg_conf": 0.95, "raw_text": dom,
+                                      "char_confs": [], "rejected": False, "reject_reason": None}
+                        ocr_ms = 0.0
+                        _ocr_skipped = True
+            if not _ocr_skipped:
+                t0 = _mt()
+                ocr_result = self._run_ocr(crop)
+                ocr_ms = (_mt() - t0) * 1000.0
+
+            plate_text = ocr_result["text"] or None
+            crop_h, crop_w = crop.shape[:2]
+            self.logger.info(
+                f"[LPR_OCR] track={track_id} crop={crop_w}x{crop_h} "
+                f"text={ocr_result['text']!r} conf={ocr_result['avg_conf']:.2f} "
+                f"reason={ocr_result.get('reject_reason')} ocr_ms={ocr_ms:.1f}"
+                f"{' CACHED' if _ocr_skipped else ''}"
+            )
 
             ocr_record = {
                 "frame_id": "0",
@@ -1869,10 +2119,23 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 "plate_text": plate_text,
                 "bbox": bbox,
                 "detection_id": detection.get("id", f"det_{len(ocr_analysis)}"),
-                "track_id": detection.get("track_id")
+                "track_id": track_id,
+                "ocr_confidence": round(ocr_result["avg_conf"], 3),
+                "reject_reason": ocr_result["reject_reason"],
+                "raw_text": ocr_result["raw_text"],
+                "ocr_ms": round(ocr_ms, 1),
             }
             ocr_analysis.append(ocr_record)
 
+        # Store timing on self so process() can log it (in case logger doesn't work here)
+        self._last_img_src = _img_src
+        self._last_decode_ms = (_img_t1 - _img_t0) * 1e3
+        self._last_cvt_ms = (_img_t2 - _img_t1) * 1e3
+        self.logger.info(
+            f"[LPR_IMG] src={_img_src} shape={image.shape} "
+            f"decode={self._last_decode_ms:.1f}ms cvt={self._last_cvt_ms:.1f}ms "
+            f"n_dets={len(detections)} total_ocr_ms={sum(r.get('ocr_ms',0) for r in ocr_analysis):.1f}"
+        )
         return ocr_analysis
 
     def _crop_bbox(self, image: np.ndarray, bbox: Dict[str, Any], bbox_format: str) -> np.ndarray:
@@ -1905,46 +2168,60 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     # ------------------------------------------------------------------
     # Fast OCR helpers
     # ------------------------------------------------------------------
+    def set_bgr_frame(self, bgr_frame):
+        """Set raw BGR frame for OCR analysis (avoids JPEG encode/decode loss)."""
+        self._bgr_frame = bgr_frame
+
     def _ensure_ocr_model_loaded(self) -> bool:
-        """Lazy initialization of OCR model. Returns True if model is available."""
+        """Lazy initialization of OCR model with retry. Returns True if model is available."""
         if self.ocr_model is not None:
             return True
 
-        if self._ocr_initialization_attempted:
+        if self._ocr_initialization_attempts >= self._ocr_max_init_attempts:
             return False
 
-        self._ocr_initialization_attempted = True
+        self._ocr_initialization_attempts += 1
+        attempt = self._ocr_initialization_attempts
+
+        # Ensure onnxruntime-gpu is installed for CUDA acceleration (one-time check)
+        try:
+            from matrice_common.utils import dependencies_check
+            dependencies_check('onnxruntime-gpu')
+        except Exception as _dep_err:
+            self.logger.warning(f"onnxruntime-gpu dependency check failed: {_dep_err}")
 
         # Try to get the LicensePlateRecognizer class via the module-level helper
         LicensePlateRecognizerClass = _get_license_plate_recognizer_class()
 
         # Direct import fallback if the helper returns None
         if LicensePlateRecognizerClass is None:
-            self.logger.warning("Module-level OCR import returned None, trying direct import...")
+            self.logger.warning(f"OCR init attempt {attempt}/{self._ocr_max_init_attempts}: "
+                               "module-level import returned None, trying direct import...")
             try:
                 from fast_plate_ocr import LicensePlateRecognizer as _DirectLPR
                 LicensePlateRecognizerClass = _DirectLPR
                 self.logger.info("Direct import of LicensePlateRecognizer succeeded")
-            except ImportError:
-                pass
+            except ImportError as e:
+                self.logger.error(f"Direct import also failed: {e}")
 
         if LicensePlateRecognizerClass is None:
-            self.logger.error("OCR module not available. LicensePlateRecognizer will not function.")
+            self.logger.error(f"OCR init attempt {attempt}/{self._ocr_max_init_attempts}: "
+                             "LicensePlateRecognizer class unavailable")
             return False
 
-        # Try to initialize the OCR model
+        # Try to initialize the OCR model with configurable model name and device
+        model_name = getattr(self, '_ocr_model_name', 'cct-s-v1-global-model')
+        device = getattr(self, '_ocr_device', 'auto')
         try:
-            self.ocr_model = LicensePlateRecognizerClass('cct-s-v1-global-model')
-            source_msg = {
-                "local_repo": "from local repo",
-                "installed_package": "from installed package",
-                "installed_package_gpu": "from installed package (GPU)",
-                "installed_package_cpu": "from installed package (CPU)"
-            }.get(_OCR_IMPORT_SOURCE, "from unknown source")
-            self.logger.info(f"LicensePlateRecognizer loaded successfully {source_msg}")
+            self.ocr_model = LicensePlateRecognizerClass(model_name, device=device)
+            self.logger.info(
+                f"LicensePlateRecognizer loaded successfully on attempt {attempt} "
+                f"(model={model_name}, device={device})"
+            )
             return True
         except Exception as e:
-            self.logger.error(f"Failed to initialize LicensePlateRecognizer: {e}", exc_info=True)
+            self.logger.error(f"OCR init attempt {attempt}/{self._ocr_max_init_attempts} failed: {e}",
+                             exc_info=True)
             self.ocr_model = None
             return False
     
@@ -1954,45 +2231,62 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             return ""
         return self._non_alnum_regex.sub('', text).upper()
 
-    def _run_ocr(self, crop: np.ndarray) -> str:
-        """Run OCR on a cropped plate image and return cleaned text or empty string."""
+    def _run_ocr(self, crop: np.ndarray) -> dict:
+        """Run OCR on a cropped plate image. Returns dict with text, confidence, and diagnostics."""
+        def _empty(reason):
+            return {"text": "", "avg_conf": 0.0, "raw_text": "", "char_confs": [], "rejected": True, "reject_reason": reason}
+
         if crop is None or crop.size == 0:
-            return ""
+            return _empty("empty_crop")
 
-        # Lazy load OCR model on first use
-        if not self._ensure_ocr_model_loaded():
-            return ""
-
-        # Double-check model is available
-        if self.ocr_model is None:
-            return ""
-
-        # Check if we have a valid OCR model with run method
-        if not hasattr(self.ocr_model, 'run'):
-            return ""
+        if not self._ensure_ocr_model_loaded() or self.ocr_model is None or not hasattr(self.ocr_model, 'run'):
+            return _empty("ocr_model_unavailable")
 
         try:
-            res = self.ocr_model.run(crop)
+            result = self.ocr_model.run(crop, return_confidence=True)
 
-            if isinstance(res, list):
-                res = res[0] if res else ""
-            cleaned_text = self._clean_text(str(res))
-            if cleaned_text and len(cleaned_text) >= self._min_plate_len:
-                if self._ocr_mode == "numeric":
-                    response = all(ch.isdigit() for ch in cleaned_text)
-                elif self._ocr_mode == "alphabetic":
-                    response = all(ch.isalpha() for ch in cleaned_text)
-                elif self._ocr_mode == "alphanumeric":
-                    response = True
-                else:
-                    response = False
+            if isinstance(result, tuple) and len(result) == 2:
+                texts, confs = result
+                raw_text = texts[0] if texts else ""
+                char_confs_raw = confs[0] if len(confs) > 0 else []
+                valid_confs = [
+                    float(c) for j, c in enumerate(char_confs_raw)
+                    if j < len(raw_text) and raw_text[j] != '_'
+                ]
+                avg_conf = sum(valid_confs) / len(valid_confs) if valid_confs else 0.0
+                char_confs_list = [round(float(c), 3) for c in char_confs_raw]
 
-                if response:
-                    return cleaned_text
-            return ""
+                if avg_conf < self._ocr_confidence_threshold:
+                    return {"text": "", "avg_conf": avg_conf, "raw_text": raw_text,
+                            "char_confs": char_confs_list, "rejected": True, "reject_reason": "low_confidence"}
+
+                display_text = raw_text.replace("_", "")
+                cleaned_text = self._clean_text(display_text)
+            else:
+                res = result
+                if isinstance(res, list):
+                    res = res[0] if res else ""
+                cleaned_text = self._clean_text(str(res))
+                raw_text = str(res)
+                avg_conf = 0.0
+                char_confs_list = []
+
+            if not cleaned_text or len(cleaned_text) < self._min_plate_len:
+                return {"text": "", "avg_conf": avg_conf, "raw_text": raw_text,
+                        "char_confs": char_confs_list, "rejected": True, "reject_reason": "too_short"}
+
+            if self._ocr_mode == "numeric" and not all(ch.isdigit() for ch in cleaned_text):
+                return {"text": "", "avg_conf": avg_conf, "raw_text": raw_text,
+                        "char_confs": char_confs_list, "rejected": True, "reject_reason": "mode_mismatch"}
+            elif self._ocr_mode == "alphabetic" and not all(ch.isalpha() for ch in cleaned_text):
+                return {"text": "", "avg_conf": avg_conf, "raw_text": raw_text,
+                        "char_confs": char_confs_list, "rejected": True, "reject_reason": "mode_mismatch"}
+
+            return {"text": cleaned_text, "avg_conf": avg_conf, "raw_text": raw_text,
+                    "char_confs": char_confs_list, "rejected": False, "reject_reason": None}
         except Exception as exc:
-            self.logger.warning(f"OCR failed: {exc}")
-            return ""
+            self.logger.warning(f"OCR exception: {exc}")
+            return _empty("ocr_exception")
 
     def _get_frame_detections(self, data: Any, frame_key: str) -> List[Dict[str, Any]]:
         """Extract detections for a specific frame from data."""
@@ -2063,8 +2357,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if history:
                 half = max(1, len(history) // 2)
                 window = history[-half:]
-                from collections import Counter as _Ctr
-                dominant_text, _ = _Ctr(window).most_common(1)[0]
+                dominant_text, _ = Counter(window).most_common(1)[0]
             elif rep.get('plate_text'):
                 candidate = self._clean_text(rep.get('plate_text', ''))
                 if self._min_plate_len <= len(candidate) <= 10:
@@ -2164,7 +2457,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "")
             #egmentation = detection.get("masks", detection.get("segmentation", detection.get("mask", [])))
-            detection_obj = self.create_detection_object(category, bbox, segmentation=None, plate_text=dom)
+            detection_obj = self.create_detection_object(category, bbox, segmentation=None, plate_text=dom, track_id=detection.get("track_id"))
             detections.append(detection_obj)
         
         alert_settings = []
@@ -2436,8 +2729,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if self._text_history[cleaned] >= self._stable_frames_required:
                 half = max(1, len(history) // 2)
                 window = history[-half:]
-                from collections import Counter as _Ctr
-                dominant, _ = _Ctr(window).most_common(1)[0]
+                dominant, _ = Counter(window).most_common(1)[0]
 
                 # Update per-track mapping to dominant
                 self._tracked_plate_texts[track_id] = dominant
@@ -2447,11 +2739,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 if dominant not in self._unique_plate_texts:
                     self._unique_plate_texts[dominant] = dominant
 
-        # Reset counters for texts NOT seen in this frame (to preserve stability requirement)
-        current_frame_texts = {self._clean_text(det.get('plate_text', '')) for det in detections if det.get('plate_text')}
-        for t in list(self._text_history.keys()):
-            if t not in current_frame_texts:
-                self._text_history[t] = 0
+        # Let text_history counts accumulate so dominant text can emerge
+        # even with inconsistent per-frame OCR. The majority voting in
+        # _count_categories (last 50% of history) already provides robustness.
 
     def get_total_counts(self):
         """Return total unique license plate texts encountered so far."""

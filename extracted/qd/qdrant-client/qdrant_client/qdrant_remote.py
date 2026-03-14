@@ -3,6 +3,8 @@ import logging
 import math
 import platform
 from multiprocessing import get_all_start_methods
+from threading import Thread
+
 from typing import (
     Any,
     Awaitable,
@@ -59,6 +61,7 @@ class QdrantRemote(QdrantBase):
         auth_token_provider: Callable[[], str] | Callable[[], Awaitable[str]] | None = None,
         check_compatibility: bool = True,
         pool_size: int | None = None,
+        headers: dict[str, str] | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -142,6 +145,12 @@ class QdrantRemote(QdrantBase):
         http2 = kwargs.pop("http2", False)
         self._grpc_headers = []
         self._rest_headers = {k: v for k, v in kwargs.pop("metadata", {}).items()}
+
+        if headers:
+            for key, value in headers.items():
+                self._rest_headers[key] = value
+                self._grpc_headers.append((key, value))
+
         if api_key is not None:
             if self._scheme == "http":
                 show_warning(
@@ -151,13 +160,34 @@ class QdrantRemote(QdrantBase):
                 )
 
             # http2 = True
-
+            if (
+                any([header_name == "api-key" for header_name, _ in self._grpc_headers])
+                or "api-key" in self._rest_headers
+            ):
+                show_warning_once(
+                    message="`api-key` has been passed in `headers`, but it will be overridden with `api_key` "
+                    "parameter value",
+                    category=UserWarning,
+                    stacklevel=4,
+                )
             self._rest_headers["api-key"] = api_key
             self._grpc_headers.append(("api-key", api_key))
 
         client_version = importlib.metadata.version("qdrant-client")
         python_version = platform.python_version()
         user_agent = f"python-client/{client_version} python/{python_version}"
+        if "User-Agent" in self._rest_headers:
+            show_warning_once(
+                "`User-Agent` has been passed in `headers`, but "
+                f"it will be overridden with the builtin value: `{user_agent}`."
+            )
+
+        if grpc_options is not None and "grpc.primary_user_agent" in grpc_options:
+            show_warning_once(
+                message=f"`grpc.primary_user_agent will be overridden with the builtin value: {user_agent}`.",
+                category=UserWarning,
+                stacklevel=4,
+            )
         self._rest_headers["User-Agent"] = user_agent
         self._grpc_options["grpc.primary_user_agent"] = user_agent
 
@@ -219,33 +249,48 @@ class QdrantRemote(QdrantBase):
 
         self._closed: bool = False
 
-        self.server_version = None
         if check_compatibility:
-            try:
-                client_version = importlib.metadata.version("qdrant-client")
-                self.server_version = get_server_version(
-                    self.rest_uri, self._rest_headers, self._rest_args.get("auth")
-                )
+            Thread(
+                target=self._check_compatibility,
+                args=(
+                    self.rest_uri,
+                    self._rest_headers,
+                    self._rest_args.get("auth"),
+                    self._timeout,
+                ),
+                daemon=True,
+            ).start()
 
-                if not self.server_version:
-                    show_warning(
-                        message="Failed to obtain server version. Unable to check client-server compatibility."
-                        " Set check_compatibility=False to skip version check.",
-                        category=UserWarning,
-                        stacklevel=4,
-                    )
-                elif not is_compatible(client_version, self.server_version):
-                    show_warning(
-                        message=f"Qdrant client version {client_version} is incompatible with server "
-                        f"version {self.server_version}. Major versions should match and minor version difference "
-                        "must not exceed 1. Set check_compatibility=False to skip version check.",
-                        category=UserWarning,
-                        stacklevel=4,
-                    )
-            except Exception as er:
-                logging.debug(
-                    f"Unable to get server version: {er}, server version defaults to None"
+    @staticmethod
+    def _check_compatibility(
+        rest_uri: str, rest_headers: dict[str, Any], auth: Any, timeout: int
+    ) -> None:
+        try:
+            client_version = importlib.metadata.version("qdrant-client")
+            server_version = get_server_version(rest_uri, rest_headers, auth, timeout)
+
+            if not server_version:
+                show_warning(
+                    message="Failed to obtain server version. Unable to check client-server compatibility."
+                    " Set check_compatibility=False to skip version check.",
+                    category=UserWarning,
+                    stacklevel=2,
                 )
+            elif not is_compatible(client_version, server_version):
+                show_warning(
+                    message=f"Qdrant client version {client_version} is incompatible with server "
+                    f"version {server_version}. Major versions should match and minor version difference "
+                    "must not exceed 1. Set check_compatibility=False to skip version check.",
+                    category=UserWarning,
+                    stacklevel=2,
+                )
+        except Exception:
+            show_warning(
+                message="Failed to obtain server version. Unable to check client-server compatibility."
+                " Set check_compatibility=False to skip version check.",
+                category=UserWarning,
+                stacklevel=2,
+            )
 
     @property
     def closed(self) -> bool:

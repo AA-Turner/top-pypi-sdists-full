@@ -1,15 +1,21 @@
 import math
 import secrets
+import struct
 import typing as t
 from datetime import datetime, timezone
 from functools import total_ordering
 
 from baseconv import base62
 
+now = datetime.now
+
+
 # KSUID's epoch starts more recently so that the 32-bit number space gives a
 # significantly higher useful lifetime of around 136 years from March 2017.
 # This number (14e8) was picked to be easy to remember.
 EPOCH_STAMP = 1400000000
+
+_EPOCH_STAMP_MS = EPOCH_STAMP * 1000
 
 
 class ByteArrayLengthException(Exception):
@@ -17,6 +23,8 @@ class ByteArrayLengthException(Exception):
 
 
 SelfT = t.TypeVar("SelfT", bound="Ksuid")
+
+_INIT = object()
 
 
 @total_ordering
@@ -38,36 +46,32 @@ class Ksuid:
     _uid: bytes
 
     @classmethod
-    def from_base62(cls: t.Type[SelfT], data: str) -> SelfT:
+    def from_base62(cls: type[SelfT], data: str) -> SelfT:
         """initializes Ksuid from base62 encoding"""
-
         return cls.from_bytes(int.to_bytes(int(base62.decode(data)), cls.BYTES_LENGTH, "big"))
 
     @classmethod
-    def from_bytes(cls: t.Type[SelfT], value: bytes) -> SelfT:
+    def from_bytes(cls: type[SelfT], value: bytes) -> SelfT:
         """initializes Ksuid from bytes"""
 
         if len(value) != cls.TIMESTAMP_LENGTH_IN_BYTES + cls.PAYLOAD_LENGTH_IN_BYTES:
-            raise ByteArrayLengthException()
+            raise ByteArrayLengthException(f"Incorrect value length {len(value)}")
 
-        res = cls()
-        res._uid = value
+        return cls(_raw=value)
 
-        return res
-
-    def __init__(self, datetime: t.Optional[datetime] = None, payload: t.Optional[bytes] = None):
-        from datetime import datetime as datetime_lib
-
+    def __init__(self, datetime: datetime | None = None, payload: bytes | None = None, _raw: bytes | None = None):
+        if _raw is not None:
+            self._uid = _raw
+            return
         if payload is not None and len(payload) != self.PAYLOAD_LENGTH_IN_BYTES:
-            raise ByteArrayLengthException()
+            raise ByteArrayLengthException(f"Incorrect payload length {len(payload)}")
 
         _payload = secrets.token_bytes(self.PAYLOAD_LENGTH_IN_BYTES) if payload is None else payload
-        datetime = datetime.astimezone(timezone.utc) if datetime is not None else datetime_lib.now(tz=timezone.utc)
+        datetime = datetime.astimezone(timezone.utc) if datetime is not None else now(tz=timezone.utc)
         self._uid = self._inner_init(datetime, _payload)
 
     def __str__(self) -> str:
         """Creates a base62 string representation"""
-
         return base62.encode(int.from_bytes(bytes(self), "big")).zfill(self.BASE62_LENGTH)
 
     def __repr__(self) -> str:
@@ -88,8 +92,7 @@ class Ksuid:
 
     def _inner_init(self, dt: datetime, payload: bytes) -> bytes:
         timestamp = int(dt.timestamp() - EPOCH_STAMP)
-
-        return int.to_bytes(timestamp, self.TIMESTAMP_LENGTH_IN_BYTES, "big") + payload
+        return struct.pack(">L", timestamp) + payload
 
     @property
     def datetime(self) -> datetime:
@@ -99,7 +102,7 @@ class Ksuid:
 
     @property
     def timestamp(self) -> float:
-        return float(int.from_bytes(self._uid[: self.TIMESTAMP_LENGTH_IN_BYTES], "big") + EPOCH_STAMP)
+        return struct.unpack(">L", self._uid[: self.TIMESTAMP_LENGTH_IN_BYTES])[0] + EPOCH_STAMP
 
     @property
     def payload(self) -> bytes:
@@ -116,19 +119,18 @@ class KsuidMs(Ksuid):
     # Timestamp is a uint32
     TIMESTAMP_LENGTH_IN_BYTES = 5
 
-    # Payload is 16-bytes
+    # Payload is 15-bytes
     PAYLOAD_LENGTH_IN_BYTES = 15
 
-    TIMESTAMP_MULTIPLIER = 256
-
     def _inner_init(self, dt: datetime, payload: bytes) -> bytes:
-        timestamp = round((dt.timestamp() - EPOCH_STAMP) * self.TIMESTAMP_MULTIPLIER)
-
-        return int.to_bytes(timestamp, self.TIMESTAMP_LENGTH_IN_BYTES, "big") + payload
+        timestamp_as_ms = int(dt.timestamp() * 1000 - _EPOCH_STAMP_MS)
+        timestamp_millis = timestamp_as_ms % 1000
+        timestamp_seconds = int((timestamp_as_ms - timestamp_millis) / 1000)
+        timestamp_milli_frac = int(timestamp_millis / 4)
+        return struct.pack(">LB", timestamp_seconds, timestamp_milli_frac) + payload
 
     @property
     def timestamp(self) -> float:
-        return (
-            float(int.from_bytes(self._uid[: self.TIMESTAMP_LENGTH_IN_BYTES], "big")) / self.TIMESTAMP_MULTIPLIER
-            + EPOCH_STAMP
-        )
+        seconds, millis = struct.unpack(">LB", self._uid[: self.TIMESTAMP_LENGTH_IN_BYTES])
+        millis = (millis * 4) % 1000
+        return float((EPOCH_STAMP + seconds) * 1000 + millis) / 1000.0

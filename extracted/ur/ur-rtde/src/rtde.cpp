@@ -568,7 +568,8 @@ boost::system::error_code RTDE::receiveData(std::shared_ptr<RobotState> &robot_s
 
       if (buffer_.size() >= HEADER_SIZE && packet_header.msg_cmd == RTDE_DATA_PACKAGE)
       {
-        RTDEControlHeader next_packet_header = RTDEUtility::readRTDEHeader(buffer_, message_offset);
+        uint32_t next_message_offset = 0;
+        RTDEControlHeader next_packet_header = RTDEUtility::readRTDEHeader(buffer_, next_message_offset);
         if (next_packet_header.msg_cmd == RTDE_DATA_PACKAGE)
         {
           if (verbose_)

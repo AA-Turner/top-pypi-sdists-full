@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xss-utils
-Version: 0.8.0
+Version: 1.0.0
 Summary: Utility functions to prevent possible XSS attack on django/mako templates
 Home-page: https://github.com/openedx/xss-utils
 Author: edX
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 License-File: AUTHORS

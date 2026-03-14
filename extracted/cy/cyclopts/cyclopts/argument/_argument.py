@@ -188,7 +188,7 @@ class Argument:
 
         if self.parameter.requires_equals and self.parameter.consume_multiple:
             raise ValueError(
-                "Parameter(requires_equals=True) and Parameter(consume_multiple=True) cannot be used together. "
+                "Parameter(requires_equals=True) and Parameter(consume_multiple=...) cannot be used together. "
                 "requires_equals enforces '--option=value' syntax, which is incompatible with "
                 "consume_multiple's space-separated value consumption."
             )
@@ -534,8 +534,14 @@ class Argument:
             raise ValueError
 
         if any(x.address == token.address for x in self.tokens):
+            if self.parameter.allow_repeating is False:
+                raise RepeatArgumentError(token=token)
             _, consume_all = self.token_count(token.keys)
-            if not consume_all and not self.parameter.count:
+            if self.parameter.allow_repeating is True:
+                if not consume_all:
+                    # "last wins" for scalar types — remove old tokens with same address
+                    self.tokens = [x for x in self.tokens if x.address != token.address]
+            elif not consume_all and not self.parameter.count:
                 raise RepeatArgumentError(token=token)
 
         if self.tokens:

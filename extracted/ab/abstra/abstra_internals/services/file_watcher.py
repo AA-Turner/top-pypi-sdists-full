@@ -4,6 +4,9 @@ from pathlib import Path, PurePath
 from typing import Callable, List, Literal, Optional, Union
 
 from watchdog.events import (
+    DirCreatedEvent,
+    DirDeletedEvent,
+    DirMovedEvent,
     FileCreatedEvent,
     FileDeletedEvent,
     FileModifiedEvent,
@@ -56,11 +59,11 @@ class FileWatcher(FileSystemEventHandler):
             return
 
         content = None
-        if isinstance(event, FileCreatedEvent):
+        if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
             event_type = "created"
-        elif isinstance(event, FileDeletedEvent):
+        elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
             event_type = "deleted"
-        elif isinstance(event, FileMovedEvent):
+        elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
             event_type = "moved"
         elif isinstance(event, FileModifiedEvent):
             event_type = "changed"

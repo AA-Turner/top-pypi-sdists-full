@@ -14,7 +14,7 @@ Usage:
           [[-c CONFIG] [-u USER] | -r SITE_URL [-a APIKEY] [--insecure]]
   ckanapi dump (datasets | groups | organizations | users | related)
           (ID_OR_NAME ... | --all) ([-O JSONL_OUTPUT] | [-D DIRECTORY])
-          [-p PROCESSES] [-dqwzRU]
+          [-p PROCESSES] [-dqwzRU --include-private --include-drafts --include-deleted]
           [[-c CONFIG] [-u USER] | -r SITE_URL [-a APIKEY] [-g] [--insecure]]
   ckanapi load datasets
           [--upload-resources] [-I JSONL_INPUT] [-s START] [-m MAX]
@@ -44,6 +44,9 @@ Options:
                             defaults to $CKAN_INI or development.ini
   -d --datastore-fields     export datastore field information along with
                             resource metadata as datastore_fields lists
+  --include-private         include private datasets in the dump
+  --include-drafts          include draft datasets in the dump
+  --include-deleted         include deleted datasets in the dump
   -D --datapackages=DIR     download resources and output as datapackages
                             in DIR instead of metadata-only json lines
   -g --get-request          use GET instead of POST for API calls
@@ -87,7 +90,6 @@ Options:
 import sys
 import os
 from docopt import docopt
-from pkg_resources import load_entry_point
 import subprocess
 
 from ckanapi.version import __version__
@@ -105,25 +107,19 @@ from logging import getLogger
 
 # explicit logger namespace for easy logging handlers
 log = getLogger('ckan.ckanapi')
-PYTHON2 = str is bytes
 
 def parse_arguments():
     # docopt is awesome
     return docopt(__doc__, version=__version__)
 
 
-def main(running_with_paster=False):
+def main(running_with_ckan_command=False):
     """
     ckanapi command line entry point
     """
     arguments = parse_arguments()
 
-    if not running_with_paster and not arguments['--remote']:
-        if PYTHON2:
-            ckan_ini = os.environ.get('CKAN_INI')
-            if ckan_ini and not arguments['--config']:
-                sys.argv[1:1] = ['--config', ckan_ini]
-            return _switch_to_paster(arguments)
+    if not running_with_ckan_command and not arguments['--remote']:
         return _switch_to_ckan_click(arguments)
 
     if arguments['--remote']:
@@ -194,15 +190,6 @@ def main(running_with_paster=False):
         return batch_actions(ckan, arguments)
 
     assert 0, arguments # we shouldn't be here
-
-
-def _switch_to_paster(arguments):
-    """
-    ** legacy python2-only **
-    With --config we switch to the paster command version of the cli
-    """
-    sys.argv[1:1] = ["--plugin=ckanapi", "ckanapi"]
-    sys.exit(load_entry_point('PasteScript', 'console_scripts', 'paster')())
 
 
 def _switch_to_ckan_click(arguments):

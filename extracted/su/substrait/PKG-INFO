@@ -1,19 +1,21 @@
 Metadata-Version: 2.4
 Name: substrait
-Version: 0.27.0
+Version: 0.28.0
 Summary: A python package for Substrait.
 Author-email: Substrait contributors <substrait@googlegroups.com>
 License: Apache-2.0
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: protobuf<7,>=5
 Requires-Dist: substrait-protobuf==0.79.0
+Requires-Dist: substrait-extensions==0.79.0
 Provides-Extra: extensions
 Requires-Dist: antlr4-python3-runtime; extra == "extensions"
+Requires-Dist: substrait-antlr==0.79.0; extra == "extensions"
 Requires-Dist: pyyaml; extra == "extensions"
 Provides-Extra: sql
-Requires-Dist: sqloxide; extra == "sql"
+Requires-Dist: sqloxide; python_version < "3.14" and extra == "sql"
 Requires-Dist: deepdiff; extra == "sql"
 Dynamic: license-file
 

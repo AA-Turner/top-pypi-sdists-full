@@ -3,6 +3,7 @@
 # @Author: Jialiang Shi
 import logging
 import requests
+from gerrit import GerritClient
 from gerrit.utils.gerritbase import GerritBase
 from gerrit.projects.commit import GerritProjectCommit
 from gerrit.projects.branches import GerritProjectBranches
@@ -16,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 class GerritProject(GerritBase):
-    def __init__(self, project_id: str, gerrit):
+    def __init__(self, project_id: str, gerrit: GerritClient):
         self.id = project_id
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.id}"
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return self.id

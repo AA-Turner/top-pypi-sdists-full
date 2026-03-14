@@ -181,6 +181,7 @@ class GlobalConfig:
         # Test-only configuration: Force UDFs/UDTFs to be created in stored procedures
         # regardless of Python version compatibility. This helps test SPROC code paths in local CI.
         "snowpark.connect.test.force_create_sproc": "false",
+        "snowpark.connect.use_udf_for_unbase64": "false",
     }
 
     boolean_config_list = [
@@ -201,6 +202,7 @@ class GlobalConfig:
         "snowpark.connect.handleIntegralOverflow",
         "snowpark.connect.test.force_create_sproc",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
+        "snowpark.connect.use_udf_for_unbase64",
     ]
 
     int_config_list = [

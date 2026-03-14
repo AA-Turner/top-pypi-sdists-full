@@ -199,6 +199,97 @@ def test_compile_handlers_generates_get_and_list_function_types_from_edl():
     assert result.custom_json_list_response is False
 
 
+def test_compile_model_marks_pk_as_resume_when_main_properties_is_empty():
+    edl_json = {
+        "edl_version": "1.0",
+        "escopo": "test",
+        "description": "Entidade sem main_properties explicitas.",
+        "id": "FooResumePk",
+        "version": "1.0",
+        "properties": {
+            "id": {"type": "uuid", "pk": True},
+            "codigo": {"type": "string"},
+        },
+        "repository": {
+            "map": "test.foo_resume_pk",
+            "shared_table": False,
+            "properties": {
+                "id": {"column": "id"},
+                "codigo": {"column": "codigo"},
+            },
+            "indexes": [],
+        },
+        "api": {
+            "resource": "foo-resume-pk",
+            "expose": True,
+            "verbs": ["GET"],
+        },
+    }
+
+    compiler = EDLCompiler()
+    escopo = EscopoDTO(codigo="test", service_account=None)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
+
+    assert result is not None
+    dto_code = result.source_dto
+    id_field = dto_code.split("id: uuid.UUID = DTOField(", 1)[1].split(")", 1)[0]
+
+    assert "pk=True" in id_field
+    assert "resume=True" in id_field
+
+
+def test_compile_model_keeps_main_properties_and_also_marks_pk_as_resume():
+    edl_json = {
+        "edl_version": "1.0",
+        "escopo": "test",
+        "description": "Entidade com main_properties explicitas.",
+        "id": "FooResumePkWithMain",
+        "version": "1.0",
+        "main_properties": ["nome"],
+        "properties": {
+            "id": {"type": "uuid", "pk": True},
+            "nome": {"type": "string"},
+            "codigo": {"type": "string"},
+        },
+        "repository": {
+            "map": "test.foo_resume_pk_with_main",
+            "shared_table": False,
+            "properties": {
+                "id": {"column": "id"},
+                "nome": {"column": "nome"},
+                "codigo": {"column": "codigo"},
+            },
+            "indexes": [],
+        },
+        "api": {
+            "resource": "foo-resume-pk-with-main",
+            "expose": True,
+            "verbs": ["GET"],
+        },
+    }
+
+    compiler = EDLCompiler()
+    escopo = EscopoDTO(codigo="test", service_account=None)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
+
+    assert result is not None
+    dto_code = result.source_dto
+    id_field = dto_code.split("id: uuid.UUID = DTOField(", 1)[1].split(")", 1)[0]
+    nome_field = dto_code.split("nome: str = DTOField(", 1)[1].split(")", 1)[0]
+
+    assert "pk=True" in id_field
+    assert "resume=True" in id_field
+    assert "resume=True" in nome_field
+
+
 def test_compile_handlers_generates_partial_row_response_dto():
     edl_json = {
         "edl_version": "1.0",
@@ -526,3 +617,49 @@ def test_compile_handlers_partial_row_requires_properties():
             [],
             escopo=escopo,
         )
+
+
+def test_compile_composed_properties_with_hierarchical_scope_generates_valid_class_names():
+    edl_json = {
+        "edl_version": "1.0",
+        "escopo": "DP.LEG.CON",
+        "description": "Entidade com composed_properties em escopo hierarquico.",
+        "id": "sindicato",
+        "version": "1.0",
+        "properties": {
+            "id": {"type": "uuid", "pk": True},
+            "contato_nome": {"type": "string"},
+            "contato_email": {"type": "email"},
+        },
+        "repository": {
+            "map": "persona.sindicatos",
+            "shared_table": True,
+            "properties": {
+                "id": {"column": "sindicato"},
+                "contato_nome": {"column": "contato"},
+                "contato_email": {"column": "email"},
+            },
+            "indexes": [],
+        },
+        "composed_properties": {
+            "contato": ["contato_nome", "contato_email"],
+        },
+        "main_properties": ["id", "contato_nome"],
+        "api": {
+            "resource": "sindicatos",
+            "expose": True,
+            "verbs": ["GET"],
+        },
+    }
+
+    compiler = EDLCompiler()
+    escopo = EscopoDTO(codigo="DP.LEG.CON", service_account=None)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
+
+    assert result is not None
+    assert "class DpLegConSindicatoContatoAggregatorDTO" in result.dto_code
+    assert "class Dp.Leg.ConSindicatoContatoAggregatorDTO" not in result.dto_code

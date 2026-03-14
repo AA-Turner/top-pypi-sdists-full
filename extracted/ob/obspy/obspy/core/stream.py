@@ -28,6 +28,7 @@ from obspy.core.util.base import (ENTRY_POINTS, _get_function_from_entry_point,
                                   _read_from_plugin, _generic_reader)
 from obspy.core.util.decorator import (map_example_filename,
                                        raise_if_masked, uncompress_file)
+from obspy.core.util.deprecation_helpers import ObsPyDeprecationWarning
 from obspy.core.util.misc import (
     get_window_times, buffered_load_entry_point, ptp)
 from obspy.core.util.obspy_types import ObsPyException
@@ -212,10 +213,12 @@ def read(pathname_or_url=None, format=None, headonly=False, starttime=None,
         if isinstance(pathname_or_url, Path):
             pathname_or_url = str(pathname_or_url)
         # try to give more specific information why the stream is empty
-        if has_magic(pathname_or_url) and not glob(pathname_or_url):
+        if isinstance(pathname_or_url, str) and \
+                has_magic(pathname_or_url) and not glob(pathname_or_url):
             raise Exception("No file matching file pattern: %s" %
                             pathname_or_url)
-        elif not has_magic(pathname_or_url) and \
+        elif isinstance(pathname_or_url, str) and \
+                not has_magic(pathname_or_url) and \
                 not Path(pathname_or_url).is_file():
             raise IOError(2, "No such file or directory", pathname_or_url)
         # Only raise error if no start/end time has been set. This
@@ -296,7 +299,14 @@ def _create_example_stream(headonly=False):
             st.append(Trace(header=header))
     from obspy import read_inventory
     inv = read_inventory(data_dir / "BW_RJOB.xml")
-    st.attach_response(inv)
+    for tr in st:
+        try:
+            tr.stats.response = tr._get_response(inv)
+        except Exception as e:
+            if str(e) == "No matching response information found.":
+                warnings.warn(str(e))
+            else:
+                raise
     return st
 
 
@@ -1450,7 +1460,7 @@ class Stream(object):
             format_ep = ENTRY_POINTS['waveform_write'][format]
             # search writeFormat method for given entry point
             write_format = buffered_load_entry_point(
-                format_ep.dist.key,
+                format_ep.dist.name,
                 'obspy.plugin.waveform.%s' % (format_ep.name), 'writeFormat')
         except (IndexError, ImportError, KeyError):
             msg = "Writing format \"%s\" is not supported. Supported types: %s"
@@ -1973,20 +1983,23 @@ class Stream(object):
             # Check sampling rate.
             sr.setdefault(trace.id, trace.stats.sampling_rate)
             if trace.stats.sampling_rate != sr[trace.id]:
-                msg = "Can't merge traces with same ids but differing " + \
-                      "sampling rates!"
+                msg = (f"Can not merge traces with same ids ({trace.id}) but "
+                       f"differing sampling rates ({sr[trace.id]}, "
+                       f"{trace.stats.sampling_rate})!")
                 raise Exception(msg)
             # Check dtype.
             dtype.setdefault(trace.id, trace.data.dtype)
             if trace.data.dtype != dtype[trace.id]:
-                msg = "Can't merge traces with same ids but differing " + \
-                      "data types!"
+                msg = (f"Can not merge traces with same ids ({trace.id}) but "
+                       f"differing data types ({dtype[trace.id]}, "
+                       f"{trace.data.dtype})!")
                 raise Exception(msg)
             # Check calibration factor.
             calib.setdefault(trace.id, trace.stats.calib)
             if trace.stats.calib != calib[trace.id]:
-                msg = "Can't merge traces with same ids but differing " + \
-                      "calibration factors.!"
+                msg = (f"Can not merge traces with same ids ({trace.id}) but "
+                       f"differing calibration factors ({calib[trace.id]}, "
+                       f"{trace.stats.calib})!")
                 raise Exception(msg)
 
     def merge(self, method=0, fill_value=None, interpolation_samples=0,
@@ -2182,7 +2195,7 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
         return self
 
     @raise_if_masked
-    def filter(self, type, **options):
+    def filter(self, type, *args, **options):
         """
         Filter the data of all traces in the Stream.
 
@@ -2190,7 +2203,10 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
         :param type: String that specifies which filter is applied (e.g.
             ``"bandpass"``). See the `Supported Filter`_ section below for
             further details.
-        :param options: Necessary keyword arguments for the respective filter
+        :param args: Only filter frequency/frequencies can be specified
+            as argument(s). Alternatively filter frequencies can be specified
+            as keyword arguments.
+        :param options: Keyword arguments for the respective filter
             that will be passed on. (e.g. ``freqmin=1.0``, ``freqmax=20.0`` for
             ``"bandpass"``)
 
@@ -2243,7 +2259,7 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
             st.plot()
         """
         for tr in self:
-            tr.filter(type, **options)
+            tr.filter(type, *args, **options)
         return self
 
     def trigger(self, type, **options):
@@ -2290,6 +2306,14 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
         ``'carlstatrig'``
             Computes the carl_sta_trig characteristic function (uses
             :func:`obspy.signal.trigger.carl_sta_trig`).
+
+        ``'energyratio'``
+            Computes the energy ratio characteristic function (uses
+            :func:`obspy.signal.trigger.energy_ratio`).
+
+        ``'modifiedenergyratio'``
+            Computes the modified energy ratio characteristic function (uses
+            :func:`obspy.signal.trigger.modified_energy_ratio`).
 
         ``'zdetect'``
             Z-detector (uses :func:`obspy.signal.trigger.z_detect`).
@@ -3161,6 +3185,10 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
     @map_example_filename("inventories")
     def attach_response(self, inventories):
         """
+        This method is deprecated and will be removed in a future release.
+        Pass metadata via the ``inventory`` argument of
+        :meth:`obspy.core.stream.Stream.remove_response` instead.
+
         Search for and attach channel response to each trace as
         trace.stats.response. Does not raise an exception but shows a warning
         if response information can not be found for all traces. Returns a
@@ -3168,22 +3196,12 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
         To subsequently deconvolve the instrument response use
         :meth:`Stream.remove_response`.
 
-        >>> from obspy import read, read_inventory
-        >>> st = read()
-        >>> inv = read_inventory()
-        >>> st.attach_response(inv)
-        []
-        >>> tr = st[0]
-        >>> print(tr.stats.response)  \
-                # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
-        Channel Response
-           From M/S (Velocity in Meters per Second) to COUNTS (Digital Counts)
-           Overall Sensitivity: 2.5168e+09 defined at 0.020 Hz
-           4 stages:
-              Stage 1: PolesZerosResponseStage from M/S to V, gain: 1500
-              Stage 2: CoefficientsTypeResponseStage from V to COUNTS, ...
-              Stage 3: FIRResponseStage from COUNTS to COUNTS, gain: 1
-              Stage 4: FIRResponseStage from COUNTS to COUNTS, gain: 1
+        .. note::
+
+            It is recommended to rather just provide the metadata information
+            directly whenever needed so that the lookup of appropriate response
+            is done right at the time when it is used, e.g.
+            ``stream.remove_response(inventory=inv, ...)``
 
         :type inventories: :class:`~obspy.core.inventory.inventory.Inventory`
             or :class:`~obspy.core.inventory.network.Network` or a list
@@ -3194,10 +3212,15 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
         :returns: list of traces for which no response information could be
             found.
         """
+        msg = ("Stream.attach_response() is deprecated and will be removed in "
+               "a future release. Pass metadata via the `inventory` argument "
+               "of remove_response() instead.")
+        warnings.warn(msg, ObsPyDeprecationWarning, stacklevel=2)
         skipped_traces = []
         for tr in self.traces:
             try:
-                tr.attach_response(inventories)
+                # Call _get_response to avoid double deprecation warning.
+                tr.stats.response = tr._get_response(inventories)
             except Exception as e:
                 if str(e) == "No matching response information found.":
                     warnings.warn(str(e))
@@ -3620,6 +3643,17 @@ seismometer_correction_simulation.html#using-a-resp-file>`_.
                 tr.data = new_data
                 tr.stats.channel = tr.stats.channel[:-1] + component
             self.traces += traces
+        return self
+
+    def newbyteorder(self, byteorder='native'):
+        """
+        Change byteorder of the data
+
+        For details see
+        :meth:`Trace.newbyteorder <obspy.core.trace.Trace.newbyteorder>`.
+        """
+        for tr in self:
+            tr.newbyteorder(byteorder)
         return self
 
 

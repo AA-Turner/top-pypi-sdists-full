@@ -8,20 +8,13 @@ import json
 import requests
 from datetime import datetime
 import re
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from urllib.parse import urlparse
 
+from ckanapi.common import REQUEST_TIMEOUT
 from ckanapi.errors import (NotFound, NotAuthorized, ValidationError,
     SearchIndexError)
 from ckanapi.cli import workers
 from ckanapi.cli.utils import completion_stats, compact_json, quiet_int_pipe
-
-try:
-    unicode
-except NameError:
-    unicode = str
 
 
 def load_things(ckan, thing, arguments,
@@ -48,7 +41,7 @@ def load_things(ckan, thing, arguments,
 
     log = None
     if arguments['--log']:
-        log = open(arguments['--log'], 'a')
+        log = open(arguments['--log'], 'ab')
 
     jsonl_input = stdin
     if arguments['--input']:
@@ -167,7 +160,7 @@ def load_things_worker(ckan, thing, arguments,
             obj = json.loads(line.decode('utf-8'))
         except UnicodeDecodeError as e:
             obj = None
-            reply('read', 'UnicodeDecodeError', unicode(e))
+            reply('read', 'UnicodeDecodeError', str(e))
             continue
 
         requests_kwargs = None
@@ -191,7 +184,7 @@ def load_things_worker(ckan, thing, arguments,
                     except NotFound:
                         pass
                     except NotAuthorized as e:
-                        reply('show', 'NotAuthorized', unicode(e))
+                        reply('show', 'NotAuthorized', str(e))
                         continue
                 name = obj.get('name')
                 if not existing and name:
@@ -201,7 +194,7 @@ def load_things_worker(ckan, thing, arguments,
                     except NotFound:
                         pass
                     except NotAuthorized as e:
-                        reply('show', 'NotAuthorized', unicode(e))
+                        reply('show', 'NotAuthorized', str(e))
                         continue
 
                 if existing:
@@ -233,9 +226,9 @@ def load_things_worker(ckan, thing, arguments,
             except ValidationError as e:
                 reply(act, 'ValidationError', e.error_dict)
             except SearchIndexError as e:
-                reply(act, 'SearchIndexError', unicode(e))
+                reply(act, 'SearchIndexError', str(e))
             except NotAuthorized as e:
-                reply(act, 'NotAuthorized', unicode(e))
+                reply(act, 'NotAuthorized', str(e))
             except NotFound:
                 reply(act, 'NotFound', obj)
             else:
@@ -292,7 +285,7 @@ def _upload_resources(ckan,obj,arguments):
         if resource.get('url_type') != 'upload':
             continue
 
-        f = requests.get(resource['url'],stream=True)
+        f = requests.get(resource['url'], stream=True, timeout=REQUEST_TIMEOUT)
         name = resource['url'].rsplit('/',1)[-1]
         ckan.call_action('resource_patch',
             {'id':resource['id']},
@@ -309,9 +302,9 @@ def _upload_logo(ckan,obj_orig):
         obj['clear_upload'] = True
         obj['image_upload'] = obj['image_url']
     else:
-        f = requests.get(obj['image_display_url'],stream=True)
+        f = requests.get(obj['image_display_url'], stream=True, timeout=REQUEST_TIMEOUT)
         name,ext = obj['image_url'].rsplit('.',1)  #reformulate image_url for new site
-        new_name = re.sub('[0-9\.-]','',name)
+        new_name = re.sub('[0-9.-]','',name)
         new_url = new_name+'.'+ext
         obj['image_upload'] = (new_url, f.raw)
     ckan.action.group_update(**obj)

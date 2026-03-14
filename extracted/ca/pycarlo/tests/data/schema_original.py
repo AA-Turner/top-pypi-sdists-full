@@ -1276,14 +1276,20 @@ class ConnectionSubtypeEnum(sgqlc.types.Enum):
 
     * `AZURE_DEDICATED_SQL_POOL`None
     * `AZURE_SQL_DATABASE`None
+    * `CLICKHOUSE`None
     * `DB2`None
+    * `DREMIO`None
     * `MARIADB`None
     * `MOTHERDUCK`None
     * `MYSQL`None
     * `ORACLE`None
     * `POSTGRES`None
+    * `SALESFORCE_CRM`None
+    * `SALESFORCE_DATA_CLOUD`None
     * `SAP_HANA`None
     * `SQL_SERVER`None
+    * `STARBURST_ENTERPRISE`None
+    * `STARBURST_GALAXY`None
     * `TERADATA`None
     """
 
@@ -1291,14 +1297,20 @@ class ConnectionSubtypeEnum(sgqlc.types.Enum):
     __choices__ = (
         "AZURE_DEDICATED_SQL_POOL",
         "AZURE_SQL_DATABASE",
+        "CLICKHOUSE",
         "DB2",
+        "DREMIO",
         "MARIADB",
         "MOTHERDUCK",
         "MYSQL",
         "ORACLE",
         "POSTGRES",
+        "SALESFORCE_CRM",
+        "SALESFORCE_DATA_CLOUD",
         "SAP_HANA",
         "SQL_SERVER",
+        "STARBURST_ENTERPRISE",
+        "STARBURST_GALAXY",
         "TERADATA",
     )
 
@@ -1831,6 +1843,7 @@ class DataExportNames(sgqlc.types.Enum):
       data
     * `ALL_MONITORS`: DEPRECATED
     * `ASSETS`: Export containing all assets data
+    * `CONSUMPTION`: Export containing monitor consumption data
     * `EVENTS`: Export containing all events data in the past 90 days
     * `LINEAGE_EDGES`: Export containing lineage edges data. (This
       report is not generally available.)
@@ -1845,6 +1858,7 @@ class DataExportNames(sgqlc.types.Enum):
         "ALERTS_AND_EVENTS",
         "ALL_MONITORS",
         "ASSETS",
+        "CONSUMPTION",
         "EVENTS",
         "LINEAGE_EDGES",
         "MONITORS",
@@ -6546,8 +6560,9 @@ class AgentFilterInput(sgqlc.types.Input):
     """Name of the agent to filter alerts for."""
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
-    """MCON of the agent's trace table. Returns alerts associated with
-    monitors covering this table.
+    """MCON identifying the agent's data source. Accepts either a table
+    MCON or a platform agent MCON (aiagent object type). Returns
+    alerts associated with monitors covering this data source.
     """
 
 
@@ -8573,10 +8588,10 @@ class FilterValueUnionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
         "literal",
-        "sql",
         "field",
         "table",
         "mcon",
+        "sql",
         "map_column",
         "key",
         "type",
@@ -8584,13 +8599,13 @@ class FilterValueUnionInput(sgqlc.types.Input):
     )
     literal = sgqlc.types.Field(String, graphql_name="literal")
 
-    sql = sgqlc.types.Field(String, graphql_name="sql")
-
     field = sgqlc.types.Field(String, graphql_name="field")
 
     table = sgqlc.types.Field(String, graphql_name="table")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
 
     map_column = sgqlc.types.Field(String, graphql_name="mapColumn")
 
@@ -8669,7 +8684,7 @@ class GetConversationThreadInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table"""
+    """MCON of the trace table or platform agent (aiagent object type)"""
 
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation ID to fetch the thread for"""
@@ -8704,7 +8719,9 @@ class GetConversationsFiltersDataInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table to query"""
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
     """Start of time range (inclusive)"""
@@ -8736,7 +8753,9 @@ class GetConversationsInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table to query"""
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
     """Start of time range (inclusive)"""
@@ -8811,7 +8830,9 @@ class GetTraceOverviewInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table to query"""
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
     """Start of time range (inclusive)"""
@@ -8856,7 +8877,9 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table to query"""
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
     """Start of time range (inclusive)"""
@@ -8912,8 +8935,8 @@ class GetTracesInput(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """MCON of the trace table to query. Filters traces to only those
-    from this table.
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query. Filters traces to only those from this data source.
     """
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
@@ -11570,7 +11593,7 @@ class TraceFilterDataSearchCriteria(sgqlc.types.Input):
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
-    """Trace table MCON"""
+    """MCON of the trace table or platform agent (aiagent object type)"""
 
     start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
     """Start time for traces"""
@@ -12657,6 +12680,7 @@ class IMonitor(sgqlc.types.Interface):
         "is_agent_trace_aggregation",
         "dashboards",
         "is_hidden_for_asset",
+        "agent_mcon",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -12887,6 +12911,11 @@ class IMonitor(sgqlc.types.Interface):
     """(experimental) Whether this monitor is hidden when viewing it in
     the context of a specific asset. Only meaningful when monitors are
     queried with a single mcon filter. Defaults to False.
+    """
+
+    agent_mcon = sgqlc.types.Field(String, graphql_name="agentMcon")
+    """MCON identifying the platform agent, if this is a platform agent
+    monitor.
     """
 
 
@@ -17149,12 +17178,15 @@ class BillingContractInvoice(sgqlc.types.Type):
 
 class BillingContractInvoiceItem(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("credits", "rate")
+    __field_names__ = ("credits", "rate", "add_on")
     credits = sgqlc.types.Field(Int, graphql_name="credits")
     """The number of credits used."""
 
     rate = sgqlc.types.Field(Float, graphql_name="rate")
     """The rate at which credits were used."""
+
+    add_on = sgqlc.types.Field(String, graphql_name="addOn")
+    """Label for an add-on product; empty string if not an add-on."""
 
 
 class BillingContractInvoiceResults(sgqlc.types.Type):
@@ -51547,6 +51579,7 @@ class Query(sgqlc.types.Type):
         "get_agent_trace_tables",
         "get_platform_agents",
         "get_available_platform_agents",
+        "evaluate_platform_agent_data_source",
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
@@ -52349,6 +52382,41 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): Warehouse UUID to filter agents by
     """
 
+    evaluate_platform_agent_data_source = sgqlc.types.Field(
+        DataSourceEvaluationResult,
+        graphql_name="evaluatePlatformAgentDataSource",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentMcon", default=None
+                    ),
+                ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "transforms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
+                        graphql_name="transforms",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Evaluate a platform agent as a SQL data source for
+    agent monitors
+
+    Arguments:
+
+    * `agent_mcon` (`String!`): MCON of the platform agent to evaluate
+    * `connection_id` (`UUID`): Connection UUID (optional, defaults to
+      the agent's schedule connection)
+    * `transforms` (`[TransformInput!]`): Transforms to apply to the
+      data source schema
+    """
+
     get_traces_filters = sgqlc.types.Field(
         sgqlc.types.list_of("TraceFilter"), graphql_name="getTracesFilters"
     )
@@ -52556,7 +52624,8 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `agent_name` (`String!`): Agent name to filter by
-    * `trace_table_mcon` (`String!`): MCON of the trace table to query
+    * `trace_table_mcon` (`String!`): MCON of the trace table or
+      platform agent (aiagent object type) to query
     * `segment_field` (`TraceSegmentField!`): Field to get distinct
       segment values for (WORKFLOW, TASK, MODEL)
     """
@@ -83244,6 +83313,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "data_quality_dimension",
         "domain_uuids",
         "is_agent_trace_aggregation",
+        "agent_mcon",
         "notify_rule_run_failure",
         "variables",
         "variable_definitions",
@@ -83573,6 +83643,11 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
     """If True, aggregate spans by trace_id for agent monitors."""
+
+    agent_mcon = sgqlc.types.Field(String, graphql_name="agentMcon")
+    """MCON identifying the platform agent, if this is a platform agent
+    monitor.
+    """
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
     """DEPRECATED: Replaced by failure audiences"""
@@ -89687,7 +89762,9 @@ class User(sgqlc.types.Type, Node):
 
 class UserBasicInfo(sgqlc.types.Type, Node):
     __schema__ = schema
-    __field_names__ = ("email", "first_name", "last_name")
+    __field_names__ = ("cognito_user_id", "email", "first_name", "last_name")
+    cognito_user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cognitoUserId")
+
     email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")

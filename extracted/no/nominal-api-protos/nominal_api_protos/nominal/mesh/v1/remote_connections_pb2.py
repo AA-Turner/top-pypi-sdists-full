@@ -23,10 +23,11 @@ _sym_db = _symbol_database.Default()
 
 
 from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
-from nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(nominal/mesh/v1/remote_connections.proto\x12\x0fnominal.mesh.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\"\xb6\x01\n\x10RemoteConnection\x12@\n\x03rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x62\x61se_url\x18\x03 \x01(\t\x12@\n\nsecret_rid\x18\x04 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRid\"\xc6\x01\n\x1d\x43reateRemoteConnectionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61se_url\x18\x02 \x01(\t\x12@\n\nsecret_rid\x18\x03 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRid\x12\x43\n\rworkspace_rid\x18\x04 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\"^\n\x1e\x43reateRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"p\n\x1aGetRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\"[\n\x1bGetRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"\x83\x02\n\x1dUpdateRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x11\n\x04name\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x15\n\x08\x62\x61se_url\x18\x03 \x01(\tH\x01\x88\x01\x01\x12?\n\nsecret_rid\x18\x04 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRidH\x02\x88\x01\x01\x42\x07\n\x05_nameB\x0b\n\t_base_urlB\r\n\x0b_secret_rid\"^\n\x1eUpdateRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"s\n\x1d\x44\x65leteRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\" \n\x1e\x44\x65leteRemoteConnectionResponse\"\xa9\x01\n\x1cListRemoteConnectionsRequest\x12\x43\n\rworkspace_rid\x18\x01 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x1c\n\tpage_size\x18\x02 \x01(\x05\x42\t\xbaH\x06\x1a\x04\x18\x64(\x01\x12\x17\n\npage_token\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\r\n\x0b_page_token\"\x90\x01\n\x1dListRemoteConnectionsResponse\x12=\n\x12remote_connections\x18\x01 \x03(\x0b\x32!.nominal.mesh.v1.RemoteConnection\x12\x1c\n\x0fnext_page_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_next_page_tokenB\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(nominal/mesh/v1/remote_connections.proto\x12\x0fnominal.mesh.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anominal/gen/v1/alias.proto\"\xa6\x02\n\x10RemoteConnection\x12@\n\x03rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x62\x61se_url\x18\x03 \x01(\t\x12@\n\nsecret_rid\x18\x04 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRid\x12\x37\n\x06status\x18\x05 \x01(\x0e\x32\'.nominal.mesh.v1.RemoteConnectionStatus\x12\x35\n\x11status_updated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xc6\x01\n\x1d\x43reateRemoteConnectionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x62\x61se_url\x18\x02 \x01(\t\x12@\n\nsecret_rid\x18\x03 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRid\x12\x43\n\rworkspace_rid\x18\x04 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\"^\n\x1e\x43reateRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"p\n\x1aGetRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\"[\n\x1bGetRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"\x83\x02\n\x1dUpdateRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x11\n\x04name\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x15\n\x08\x62\x61se_url\x18\x03 \x01(\tH\x01\x88\x01\x01\x12?\n\nsecret_rid\x18\x04 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.secrets.api.SecretRidH\x02\x88\x01\x01\x42\x07\n\x05_nameB\x0b\n\t_base_urlB\r\n\x0b_secret_rid\"^\n\x1eUpdateRemoteConnectionResponse\x12<\n\x11remote_connection\x18\x01 \x01(\x0b\x32!.nominal.mesh.v1.RemoteConnection\"s\n\x1d\x44\x65leteRemoteConnectionRequest\x12R\n\x15remote_connection_rid\x18\x01 \x01(\tB3\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\" \n\x1e\x44\x65leteRemoteConnectionResponse\"\xa9\x01\n\x1cListRemoteConnectionsRequest\x12\x43\n\rworkspace_rid\x18\x01 \x01(\tB,\xbaH\x03\xc8\x01\x01\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x1c\n\tpage_size\x18\x02 \x01(\x05\x42\t\xbaH\x06\x1a\x04\x18\x64(\x01\x12\x17\n\npage_token\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\r\n\x0b_page_token\"\x90\x01\n\x1dListRemoteConnectionsResponse\x12=\n\x12remote_connections\x18\x01 \x03(\x0b\x32!.nominal.mesh.v1.RemoteConnection\x12\x1c\n\x0fnext_page_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_next_page_token*\x8d\x01\n\x16RemoteConnectionStatus\x12(\n$REMOTE_CONNECTION_STATUS_UNSPECIFIED\x10\x00\x12#\n\x1fREMOTE_CONNECTION_STATUS_ONLINE\x10\x01\x12$\n REMOTE_CONNECTION_STATUS_OFFLINE\x10\x02\x42\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -54,26 +55,28 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_LISTREMOTECONNECTIONSREQUEST'].fields_by_name['workspace_rid']._serialized_options = b'\272H\003\310\001\001\232\262\032\"\n io.nominal.api.rids.WorkspaceRid'
   _globals['_LISTREMOTECONNECTIONSREQUEST'].fields_by_name['page_size']._loaded_options = None
   _globals['_LISTREMOTECONNECTIONSREQUEST'].fields_by_name['page_size']._serialized_options = b'\272H\006\032\004\030d(\001'
-  _globals['_REMOTECONNECTION']._serialized_start=119
-  _globals['_REMOTECONNECTION']._serialized_end=301
-  _globals['_CREATEREMOTECONNECTIONREQUEST']._serialized_start=304
-  _globals['_CREATEREMOTECONNECTIONREQUEST']._serialized_end=502
-  _globals['_CREATEREMOTECONNECTIONRESPONSE']._serialized_start=504
-  _globals['_CREATEREMOTECONNECTIONRESPONSE']._serialized_end=598
-  _globals['_GETREMOTECONNECTIONREQUEST']._serialized_start=600
-  _globals['_GETREMOTECONNECTIONREQUEST']._serialized_end=712
-  _globals['_GETREMOTECONNECTIONRESPONSE']._serialized_start=714
-  _globals['_GETREMOTECONNECTIONRESPONSE']._serialized_end=805
-  _globals['_UPDATEREMOTECONNECTIONREQUEST']._serialized_start=808
-  _globals['_UPDATEREMOTECONNECTIONREQUEST']._serialized_end=1067
-  _globals['_UPDATEREMOTECONNECTIONRESPONSE']._serialized_start=1069
-  _globals['_UPDATEREMOTECONNECTIONRESPONSE']._serialized_end=1163
-  _globals['_DELETEREMOTECONNECTIONREQUEST']._serialized_start=1165
-  _globals['_DELETEREMOTECONNECTIONREQUEST']._serialized_end=1280
-  _globals['_DELETEREMOTECONNECTIONRESPONSE']._serialized_start=1282
-  _globals['_DELETEREMOTECONNECTIONRESPONSE']._serialized_end=1314
-  _globals['_LISTREMOTECONNECTIONSREQUEST']._serialized_start=1317
-  _globals['_LISTREMOTECONNECTIONSREQUEST']._serialized_end=1486
-  _globals['_LISTREMOTECONNECTIONSRESPONSE']._serialized_start=1489
-  _globals['_LISTREMOTECONNECTIONSRESPONSE']._serialized_end=1633
+  _globals['_REMOTECONNECTIONSTATUS']._serialized_start=1781
+  _globals['_REMOTECONNECTIONSTATUS']._serialized_end=1922
+  _globals['_REMOTECONNECTION']._serialized_start=152
+  _globals['_REMOTECONNECTION']._serialized_end=446
+  _globals['_CREATEREMOTECONNECTIONREQUEST']._serialized_start=449
+  _globals['_CREATEREMOTECONNECTIONREQUEST']._serialized_end=647
+  _globals['_CREATEREMOTECONNECTIONRESPONSE']._serialized_start=649
+  _globals['_CREATEREMOTECONNECTIONRESPONSE']._serialized_end=743
+  _globals['_GETREMOTECONNECTIONREQUEST']._serialized_start=745
+  _globals['_GETREMOTECONNECTIONREQUEST']._serialized_end=857
+  _globals['_GETREMOTECONNECTIONRESPONSE']._serialized_start=859
+  _globals['_GETREMOTECONNECTIONRESPONSE']._serialized_end=950
+  _globals['_UPDATEREMOTECONNECTIONREQUEST']._serialized_start=953
+  _globals['_UPDATEREMOTECONNECTIONREQUEST']._serialized_end=1212
+  _globals['_UPDATEREMOTECONNECTIONRESPONSE']._serialized_start=1214
+  _globals['_UPDATEREMOTECONNECTIONRESPONSE']._serialized_end=1308
+  _globals['_DELETEREMOTECONNECTIONREQUEST']._serialized_start=1310
+  _globals['_DELETEREMOTECONNECTIONREQUEST']._serialized_end=1425
+  _globals['_DELETEREMOTECONNECTIONRESPONSE']._serialized_start=1427
+  _globals['_DELETEREMOTECONNECTIONRESPONSE']._serialized_end=1459
+  _globals['_LISTREMOTECONNECTIONSREQUEST']._serialized_start=1462
+  _globals['_LISTREMOTECONNECTIONSREQUEST']._serialized_end=1631
+  _globals['_LISTREMOTECONNECTIONSRESPONSE']._serialized_start=1634
+  _globals['_LISTREMOTECONNECTIONSRESPONSE']._serialized_end=1778
 # @@protoc_insertion_point(module_scope)

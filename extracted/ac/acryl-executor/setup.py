@@ -47,6 +47,7 @@ base_requirements = {
     "acryl-datahub[datahub-rest]>=1.3.1.2",
     "loguru>=0.5.0",
     "anyio>=3.0.0",
+    "urllib3>=1.26.0,<3",
     *aws_common,
 }
 

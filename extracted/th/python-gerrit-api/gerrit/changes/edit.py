@@ -2,16 +2,17 @@
 # -*- coding:utf-8 -*-
 # @Author: Jialiang Shi
 from urllib.parse import quote_plus
+from gerrit import GerritClient
 from gerrit.utils.gerritbase import GerritBase
 
 
 class GerritChangeEdit(GerritBase):
-    def __init__(self, change: str, gerrit):
+    def __init__(self, change: str, gerrit: GerritClient):
         self.change = change
         self.gerrit = gerrit
         self.endpoint = f"/changes/{self.change}/edit"
 
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return f"change {self.change} edit"
@@ -46,7 +47,7 @@ class GerritChangeEdit(GerritBase):
         self.gerrit.put(
             self.endpoint + f"/{quote_plus(file)}",
             data=file_content,
-            headers={"Content-Type": "plain/text"},
+            headers={"Content-Type": "text/plain"},
         )
 
     def restore_file_content(self, file):

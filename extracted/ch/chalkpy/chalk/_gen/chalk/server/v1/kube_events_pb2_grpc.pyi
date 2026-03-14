@@ -8,6 +8,10 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.kube_events_pb2 import (
+    GetKubeEventFacetValuesRequest,
+    GetKubeEventFacetValuesResponse,
+    GetKubeEventFacetsRequest,
+    GetKubeEventFacetsResponse,
     ListKubeEventsRequest,
     ListKubeEventsResponse,
 )
@@ -24,6 +28,14 @@ class KubeEventsServiceStub:
         ListKubeEventsRequest,
         ListKubeEventsResponse,
     ]
+    GetKubeEventFacets: UnaryUnaryMultiCallable[
+        GetKubeEventFacetsRequest,
+        GetKubeEventFacetsResponse,
+    ]
+    GetKubeEventFacetValues: UnaryUnaryMultiCallable[
+        GetKubeEventFacetValuesRequest,
+        GetKubeEventFacetValuesResponse,
+    ]
 
 class KubeEventsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -32,5 +44,17 @@ class KubeEventsServiceServicer(metaclass=ABCMeta):
         request: ListKubeEventsRequest,
         context: ServicerContext,
     ) -> ListKubeEventsResponse: ...
+    @abstractmethod
+    def GetKubeEventFacets(
+        self,
+        request: GetKubeEventFacetsRequest,
+        context: ServicerContext,
+    ) -> GetKubeEventFacetsResponse: ...
+    @abstractmethod
+    def GetKubeEventFacetValues(
+        self,
+        request: GetKubeEventFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetKubeEventFacetValuesResponse: ...
 
 def add_KubeEventsServiceServicer_to_server(servicer: KubeEventsServiceServicer, server: Server) -> None: ...

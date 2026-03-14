@@ -2,13 +2,16 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use guacr_terminal::QueryResult;
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::csv_import::CsvImporter;
@@ -76,6 +79,7 @@ impl ProtocolHandler for MySqlHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("MySQL handler starting");
 
@@ -145,6 +149,17 @@ impl ProtocolHandler for MySqlHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "MySQL", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("MySQL: Sent display init instructions");
@@ -187,11 +202,9 @@ impl ProtocolHandler for MySqlHandler {
 
                 // Show connection success
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line(&format!(
                         "Connected to MySQL server at {}:{}",
                         hostname, port
@@ -199,7 +212,6 @@ impl ProtocolHandler for MySqlHandler {
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 if !database.is_empty() {
                     executor
-                        .terminal
                         .write_line(&format!("Database: {}", database))
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
@@ -207,27 +219,22 @@ impl ProtocolHandler for MySqlHandler {
                 // Show security status
                 if security.base.read_only {
                     executor
-                        .terminal
                         .write_line("Mode: READ-ONLY (modifications disabled)")
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
                 if security.disable_csv_export {
                     executor
-                        .terminal
                         .write_line("CSV Export: DISABLED")
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
 
                 executor
-                    .terminal
                     .write_line("Type 'help' for available commands.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -254,39 +261,30 @@ impl ProtocolHandler for MySqlHandler {
                 warn!("MySQL: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("Troubleshooting:")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  1. Check hostname is resolvable")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  2. Verify MySQL server is running")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  3. Check credentials are correct")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  4. Verify network connectivity")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -352,6 +350,15 @@ impl ProtocolHandler for MySqlHandler {
                 Ok((needs_render, instructions, pending_query)) => {
                     if let Some(query) = pending_query {
                         info!("MySQL: Executing query: {}", query);
+
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &query,
+                            username, hostname, "mysql",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
 
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &query);
@@ -600,87 +607,69 @@ async fn handle_builtin_command(
     match query_lower.as_str() {
         "help" | "\\h" | "\\?" => {
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Available commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  help, \\h     Show this help")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  quit, \\q     Disconnect")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  clear, \\c    Clear screen")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
             // Show export/import commands if not disabled
             if !security.disable_csv_export {
                 executor
-                    .terminal
                     .write_line("  \\e <query>   Export query results as CSV")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             if !security.disable_csv_import && !security.base.read_only {
                 executor
-                    .terminal
                     .write_line("  \\i <table>   Import CSV data into table")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
 
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Common SQL commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SHOW DATABASES;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SHOW TABLES;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  DESCRIBE table_name;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT * FROM table_name LIMIT 10;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
             // Show security status in help
             if security.base.read_only {
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("Note: READ-ONLY mode is enabled.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("      INSERT/UPDATE/DELETE/DROP are disabled.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
 
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -698,7 +687,6 @@ async fn handle_builtin_command(
         }
         "quit" | "exit" | "\\q" => {
             executor
-                .terminal
                 .write_line("Bye")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -720,12 +708,10 @@ async fn handle_builtin_command(
             // Clear screen by writing many newlines
             for _ in 0..24 {
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -748,11 +734,9 @@ async fn handle_builtin_command(
         // Check if export is allowed
         if security.disable_csv_export {
             executor
-                .terminal
                 .write_error("CSV export is disabled by your administrator.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -772,11 +756,9 @@ async fn handle_builtin_command(
         let export_query = query[3..].trim();
         if export_query.is_empty() {
             executor
-                .terminal
                 .write_error("Usage: \\e <SELECT query>")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -809,7 +791,6 @@ async fn handle_csv_export(
     use std::sync::atomic::Ordering;
 
     executor
-        .terminal
         .write_line("Executing query for export...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -828,7 +809,6 @@ async fn handle_csv_export(
         Ok(result) => {
             if result.rows.is_empty() {
                 executor
-                    .terminal
                     .write_line("Query returned no results to export.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             } else {
@@ -839,7 +819,6 @@ async fn handle_csv_export(
 
                 // Start the download
                 executor
-                    .terminal
                     .write_line(&format!(
                         "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
                         result.rows.len()
@@ -857,13 +836,11 @@ async fn handle_csv_export(
                 match exporter.export_query_result(&result, to_client).await {
                     Ok(()) => {
                         executor
-                            .terminal
                             .write_line("Download complete.")
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
                     Err(e) => {
                         executor
-                            .terminal
                             .write_error(&format!("Export failed: {}", e))
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
@@ -872,14 +849,12 @@ async fn handle_csv_export(
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Query failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -913,11 +888,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -936,11 +909,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -958,11 +929,9 @@ async fn handle_csv_import(
 
     if table_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <table_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -979,15 +948,12 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line(&format!("Import into table: {}", table_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Paste CSV data and press Enter twice to import, or Ctrl+C to cancel:")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1004,45 +970,36 @@ async fn handle_csv_import(
 
     // For now, provide sample usage since full Guacamole file upload requires more infrastructure
     executor
-        .terminal
         .write_line("Note: File upload via drag-and-drop requires WebRTC file channel support.")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Alternative: Use LOAD DATA INFILE directly:")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line(&format!(
             "  LOAD DATA INFILE '/path/to/file.csv' INTO TABLE `{}`",
             table_name
         ))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("  FIELDS TERMINATED BY ',' ENCLOSED BY '\"'")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("  LINES TERMINATED BY '\\n'")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("  IGNORE 1 LINES;")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     // Example with sample data for demonstration
     let sample_csv = "id,name,value\n1,Test,100\n2,Demo,200";
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1058,7 +1015,6 @@ async fn handle_csv_import(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} columns, {} rows",
             csv_data.headers.len(),
@@ -1090,7 +1046,6 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} rows inserted, {} errors",
             success_count, error_count
@@ -1098,7 +1053,6 @@ async fn handle_csv_import(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1127,12 +1081,16 @@ impl EventBasedHandler for MySqlHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

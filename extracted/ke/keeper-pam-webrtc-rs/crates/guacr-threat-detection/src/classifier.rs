@@ -98,7 +98,7 @@ impl ActionEffectClassifier {
                         return None;
                     }
                 };
-                let builder = match builder.with_intra_threads(1) {
+                let mut builder = match builder.with_intra_threads(1) {
                     Ok(b) => b,
                     Err(e) => {
                         warn!(

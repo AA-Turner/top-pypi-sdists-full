@@ -1,27 +1,29 @@
 Metadata-Version: 2.4
 Name: ckanapi
-Version: 4.9
+Version: 4.10
 Summary: A command line interface and Python module for accessing the CKAN Action API
-Home-page: https://github.com/ckan/ckanapi
-Author: Ian Ward
-Author-email: ian@excess.org
+Author-email: Ian Ward <ian@excess.org>
 License: MIT
+Project-URL: Homepage, https://github.com/ckan/ckanapi
+Keywords: ckan,ckanext,API
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 License-File: COPYING
 License-File: COPYING.fr
 Requires-Dist: setuptools
 Requires-Dist: docopt
 Requires-Dist: requests
-Requires-Dist: python-slugify<5.0,>=1.0; python_version < "3.0"
-Requires-Dist: python-slugify>=1.0; python_version >= "3.0"
-Requires-Dist: six<2.0,>=1.9
+Requires-Dist: python-slugify>=1.0
 Requires-Dist: simplejson
 Provides-Extra: testing
-Requires-Dist: pyfakefs==5.3.5; extra == "testing"
-Dynamic: author
-Dynamic: author-email
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: pyfakefs==5.10.2; extra == "testing"
+Requires-Dist: werkzeug; extra == "testing"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary

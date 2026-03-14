@@ -28,6 +28,7 @@ class VolumeArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Volume resource.
+
         :param pulumi.Input['VolumeClusterArgs'] cluster: Cluster-specific options for volume creation. Only works if the Docker daemon is running in swarm mode and is the swarm manager.
         :param pulumi.Input[_builtins.str] driver: Driver type for the volume. Defaults to `local`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] driver_opts: Options specific to the driver.
@@ -117,6 +118,7 @@ class _VolumeState:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Volume resources.
+
         :param pulumi.Input['VolumeClusterArgs'] cluster: Cluster-specific options for volume creation. Only works if the Docker daemon is running in swarm mode and is the swarm manager.
         :param pulumi.Input[_builtins.str] driver: Driver type for the volume. Defaults to `local`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] driver_opts: Options specific to the driver.
@@ -237,35 +239,40 @@ class Volume(pulumi.CustomResource):
 
         ## Import
 
+        !/bin/bash
+
+        ```sh
+        $ pulumi import docker:index/volume:Volume foo id
+        ```
+
         ### Example
 
         Assuming you created a `volume` as follows
 
+        ```sh
         #!/bin/bash
-
         docker volume create
-
-        prints the long ID
-
+        # prints the long ID
         524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d
+        ```
 
         you provide the definition for the resource as follows
 
-        terraform
+        ```python
+        import pulumi
+        import pulumi_docker as docker
 
-        resource "docker_volume" "foo" {
-
-          name = "524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d"
-
-        }
+        foo = docker.Volume("foo", name="524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d")
+        ```
 
         then the import command is as follows
 
-        #!/bin/bash
+        !/bin/bash
 
         ```sh
         $ pulumi import docker:index/volume:Volume foo 524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -296,35 +303,40 @@ class Volume(pulumi.CustomResource):
 
         ## Import
 
+        !/bin/bash
+
+        ```sh
+        $ pulumi import docker:index/volume:Volume foo id
+        ```
+
         ### Example
 
         Assuming you created a `volume` as follows
 
+        ```sh
         #!/bin/bash
-
         docker volume create
-
-        prints the long ID
-
+        # prints the long ID
         524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d
+        ```
 
         you provide the definition for the resource as follows
 
-        terraform
+        ```python
+        import pulumi
+        import pulumi_docker as docker
 
-        resource "docker_volume" "foo" {
-
-          name = "524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d"
-
-        }
+        foo = docker.Volume("foo", name="524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d")
+        ```
 
         then the import command is as follows
 
-        #!/bin/bash
+        !/bin/bash
 
         ```sh
         $ pulumi import docker:index/volume:Volume foo 524b0457aa2a87dd2b75c74c3e4e53f406974249e63ab3ed9bf21e5644f9dc7d
         ```
+
 
         :param str resource_name: The name of the resource.
         :param VolumeArgs args: The arguments to use to populate this resource's properties.

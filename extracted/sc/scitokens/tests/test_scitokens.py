@@ -142,6 +142,14 @@ class TestEnforcer(unittest.TestCase):
         self._token2["aud"] = "ANY"
         self.assertTrue(enf.test(self._token2, "read", "/foo/bar"), msg=enf.last_failure)
 
+        # Now set the audience to ANY
+        self._token2["aud"] = ["ANY"]
+        self.assertTrue(enf.test(self._token2, "read", "/foo/bar"), msg=enf.last_failure)
+
+        # Now set the audience to ANY
+        self._token2["aud"] = ["notathing.com", "ANY"]
+        self.assertTrue(enf.test(self._token2, "read", "/foo/bar"), msg=enf.last_failure)
+
         # Now to the correct audience
         self._token2["aud"] = "https://example.unl.edu"
         self.assertTrue(enf.test(self._token2, "read", "/foo/bar"), msg=enf.last_failure)
@@ -193,6 +201,78 @@ class TestEnforcer(unittest.TestCase):
         with self.assertRaises(scitokens.scitokens.InvalidPathError):
             print(enf.test(self._token, "write", "~/foo"))
 
+    def test_enforce_scp_path_boundaries(self):
+        enf = scitokens.Enforcer(self._test_issuer)
+        enf.add_validator("foo", self.always_accept)
+
+        self._token["scp"] = ["read:/john"]
+        self.assertTrue(enf.test(self._token, "read", "/john"), msg=enf.last_failure)
+        self.assertTrue(enf.test(self._token, "read", "/john/file"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "/johnathan"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "/johnny"), msg=enf.last_failure)
+
+        self._token["scp"] = ["read:/john/file"]
+        self.assertFalse(enf.test(self._token, "read", "/john"), msg=enf.last_failure)
+
+        self._token["scp"] = ["read:/"]
+        self.assertTrue(enf.test(self._token, "read", "/arbitrary/path"), msg=enf.last_failure)
+
+        self._token["scp"] = ["read://john"]
+        self.assertTrue(enf.test(self._token, "read", "//john//file"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "//johnathan"), msg=enf.last_failure)
+
+    def test_enforce_scp_path_traversal(self):
+        enf = scitokens.Enforcer(self._test_issuer)
+        enf.add_validator("foo", self.always_accept)
+
+        bad_scopes = [
+            ("read:/home/user1/..", "/home/user2"),
+            ("read:/anything/..", "/etc/passwd"),
+            ("read:/foo/%2e%2e/bar", "/bar"),
+            ("read:/foo/.%2e/bar", "/bar"),
+            ("read:/foo/%2e./bar", "/bar"),
+            ("read:/foo/%2E%2E/bar", "/bar"),
+        ]
+
+        for scope, requested_path in bad_scopes:
+            self._token["scp"] = scope
+            self.assertFalse(enf.test(self._token, "read", requested_path), msg=enf.last_failure)
+            self.assertIn("path traversal", enf.last_failure)
+
+        self._token["scp"] = "read:/foo/%2e%2e/bar"
+        with self.assertRaises(scitokens.scitokens.InvalidAuthorizationResource):
+            enf.generate_acls(self._token)
+
+    def test_issuer(self):
+        """
+        Test the issuer claim, with support for multiple valid issuers.
+        """
+        # issuer argument is required
+        with self.assertRaises(scitokens.scitokens.EnforcementError):
+            print(scitokens.Enforcer(None))
+
+        self._token["scope"] = "read:/"
+
+        # single issuer match
+        enf = scitokens.Enforcer(self._test_issuer, audience="anything")
+        enf.add_validator("foo", self.always_accept)
+        self.assertEqual(enf._issuer, self._test_issuer)
+        self.assertTrue(enf.test(self._token, "read", "/"), msg=enf.last_failure)
+
+        # multiple issuer match
+        issuers = ["issuer1", self._test_issuer]
+        enf = scitokens.Enforcer(issuers)
+        enf.add_validator("foo", self.always_accept)
+        self.assertListEqual(enf._issuer, issuers)
+        self.assertTrue(enf.test(self._token, "read", "/"), msg=enf.last_failure)
+
+        # multiple issuer no match
+        issuers = ["issuer1", "issuer2"]
+        enf = scitokens.Enforcer(issuers)
+        self.assertListEqual(enf._issuer, issuers)
+        self.assertFalse(enf.test(self._token2, "read", "/"), msg=enf.last_failure)
+        self.assertIn("for claim 'iss'", enf.last_failure)
+
     def test_enforce_scope(self):
         """
         Test the Enforcer object.
@@ -224,6 +304,94 @@ class TestEnforcer(unittest.TestCase):
 
         with self.assertRaises(scitokens.scitokens.InvalidPathError):
             print(enf.test(self._token, "write", "~/foo"))
+
+    def test_enforce_scope_path_boundaries(self):
+        enf = scitokens.Enforcer(self._test_issuer)
+        enf.add_validator("foo", self.always_accept)
+
+        self._token["scope"] = "read:/john"
+        self.assertTrue(enf.test(self._token, "read", "/john"), msg=enf.last_failure)
+        self.assertTrue(enf.test(self._token, "read", "/john/file"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "/johnathan"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "/johnny"), msg=enf.last_failure)
+
+        self._token["scope"] = "read:/john/file"
+        self.assertFalse(enf.test(self._token, "read", "/john"), msg=enf.last_failure)
+
+        self._token["scope"] = "read:/"
+        self.assertTrue(enf.test(self._token, "read", "/arbitrary/path"), msg=enf.last_failure)
+
+        self._token["scope"] = "read://john"
+        self.assertTrue(enf.test(self._token, "read", "//john//file"), msg=enf.last_failure)
+        self.assertFalse(enf.test(self._token, "read", "//johnathan"), msg=enf.last_failure)
+
+    def test_enforce_scope_path_traversal(self):
+        enf = scitokens.Enforcer(self._test_issuer)
+        enf.add_validator("foo", self.always_accept)
+
+        bad_scopes = [
+            ("read:/home/user1/..", "/home/user2"),
+            ("read:/anything/..", "/etc/passwd"),
+            ("read:/foo/%2e%2e/bar", "/bar"),
+            ("read:/foo/.%2e/bar", "/bar"),
+            ("read:/foo/%2e./bar", "/bar"),
+            ("read:/foo/%2E%2E/bar", "/bar"),
+        ]
+
+        for scope, requested_path in bad_scopes:
+            self._token["scope"] = scope
+            self.assertFalse(enf.test(self._token, "read", requested_path), msg=enf.last_failure)
+            self.assertIn("path traversal", enf.last_failure)
+
+        self._token["scope"] = "read:/foo/%2e%2e/bar"
+        with self.assertRaises(scitokens.scitokens.InvalidAuthorizationResource):
+            enf.generate_acls(self._token)
+
+    def test_enforce_scope_path_traversal_double_encoded(self):
+        """
+        Defense-in-depth: double-encoded and other encoding variations must
+        not allow path traversal even if the pre-normalization segment check
+        doesn't catch them.
+        """
+        enf = scitokens.Enforcer(self._test_issuer)
+        enf.add_validator("foo", self.always_accept)
+
+        # Double-encoded '..' (%252e%252e decodes once to %2e%2e)
+        # These should either be caught or treated as opaque literal segments
+        # — never resolved to actual '..' traversal.
+        double_encoded_scopes = [
+            "read:/foo/%252e%252e/bar",
+            "read:/foo/%252E%252E/bar",
+            "read:/foo/%252e./bar",
+            "read:/foo/.%252e/bar",
+        ]
+        for scope in double_encoded_scopes:
+            self._token["scope"] = scope
+            # Must not grant access to /bar (the traversed path)
+            self.assertFalse(
+                enf.test(self._token, "read", "/bar"),
+                msg="Scope {!r} should not grant access to /bar".format(scope),
+            )
+
+    def test_normalize_scope_path_rejects_traversal(self):
+        """
+        Test that _normalize_scope_path rejects traversal and encoded
+        traversal paths, and still accepts benign normalized paths.
+        """
+        enforcer_cls = scitokens.scitokens.Enforcer
+
+        # These should all be rejected
+        for bad_path in ["/a/../b", "/a/%2e%2e/b", "/a/.%2e/b", "/a/%2e./b"]:
+            with self.assertRaises(
+                scitokens.scitokens.InvalidAuthorizationResource,
+                msg="Path {!r} should be rejected".format(bad_path),
+            ):
+                enforcer_cls._normalize_scope_path(bad_path)
+
+        # Valid paths must still work
+        for good_path in ["/a/b/c", "/a/b/../c".replace("..", "safe"), "/", "/a/"]:
+            result = enforcer_cls._normalize_scope_path(good_path)
+            self.assertTrue(result.startswith("/"))
 
 
     def test_aud(self):
@@ -332,6 +500,10 @@ class TestEnforcer(unittest.TestCase):
         self._token['scope'] = 'read'
         with self.assertRaises(scitokens.scitokens.InvalidAuthorizationResource):
             print(enf.generate_acls(self._token))
+
+        self._token['scope'] = 'read:/foo/%2e%2e/bar'
+        with self.assertRaises(scitokens.scitokens.InvalidAuthorizationResource):
+            enf.generate_acls(self._token)
 
     def test_sub(self):
         """

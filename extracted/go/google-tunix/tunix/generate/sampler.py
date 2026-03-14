@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 import dataclasses
 from typing import Any, Optional
 import warnings
@@ -30,10 +30,12 @@ from flax.nnx import statelib
 import jax
 import jax.numpy as jnp
 import jaxtyping
+import numpy as np
 from tunix.generate import base_sampler
 from tunix.generate import utils
 import tunix.generate.beam_search as beam_search_lib
 import tunix.generate.tokenizer_adapter as tok_adapter
+from tunix.processors import image_processor as image_processor_lib
 
 LayerCache = dict[str, jaxtyping.Array]
 Cache = dict[str, LayerCache]
@@ -65,7 +67,7 @@ class _SamplingState:
   logits_buffer: jnp.ndarray | None  # [B, L, V]
 
   # List of tokens that are forbidden to be generated.
-  forbidden_token_ids: Sequence[int] | None
+  forbidden_token_ids: tuple[int, ...] | None
 
   # Random seed for sampling.
   seed: jax.Array
@@ -102,29 +104,33 @@ class CacheConfig:
   head_dim: int
 
 
-def _sample_top_p(
-    probs: jnp.ndarray, p: float, key: jax.Array, k: Optional[int] = None
+def sample_top_p(
+    logits: jnp.ndarray,
+    key: jax.Array,
+    temperature: float,
+    top_p: float,
+    top_k: int | None,
 ) -> jnp.ndarray:
   """Sample a token using top-p sampling."""
-  k = probs.shape[-1] if k is None else k
+  # Upcast to float32 for numerical stability of softmax and subsequent cumsum.
+  next_token_logits = logits[:, -1].astype(jnp.float32) / temperature
+
+  # Skip softmax and sorting if top_p is 1.0 and top_k is full vocab.
+  if top_p >= 1.0 and top_k is None:
+    return jax.random.categorical(key, logits=next_token_logits)
+
+  probs = jax.nn.softmax(next_token_logits, axis=-1)
+  k = probs.shape[-1] if top_k is None else top_k
+
   probs_sorted, indices = jax.lax.top_k(probs, k=k)
   cumsum_probs = jnp.cumsum(probs_sorted, axis=-1)
-  mask = cumsum_probs - probs_sorted > p
+  mask = cumsum_probs - probs_sorted > top_p
   probs_sorted = jnp.where(mask, 0.0, probs_sorted)
   probs_sorted /= jnp.sum(probs_sorted, axis=-1, keepdims=True)
 
   next_token = jax.random.categorical(key, logits=jnp.log(probs_sorted))
-
   next_token = jnp.take_along_axis(indices, next_token[..., None], axis=-1)
   next_token = jnp.squeeze(next_token, axis=-1)
-  return next_token
-
-
-def sample_top_p(
-    logits, key, temperature: float, top_p: float, top_k: Optional[int]
-):
-  probs = jax.nn.softmax(logits[:, -1] / temperature, axis=-1)
-  next_token = _sample_top_p(probs, top_p, key, top_k)
   return next_token
 
 
@@ -175,6 +181,7 @@ class Sampler(base_sampler.BaseSampler):
       transformer: nnx.Module,
       tokenizer: Any,
       cache_config: CacheConfig,
+      image_processor: image_processor_lib.ImageProcessor | None = None,
   ):
     """Initializes the sampler.
 
@@ -182,9 +189,11 @@ class Sampler(base_sampler.BaseSampler):
       transformer: an instance of the transformer.
       tokenizer: a tokenizer for the given model.
       cache_config: configuration for the KV cache.
+      image_processor: The image processor.
     """
     self.tokenizer = tok_adapter.TokenizerAdapter(tokenizer)
     self.cache_config = cache_config
+    self.image_processor = image_processor
     self._transformer_graphdef: graph.NodeDef = nnx.graphdef(transformer)
     self._transformer_state: list[statelib.State] = nnx.variables(transformer)
     self._flattened_transformer_state: list[statelib.State] = jax.tree.leaves(
@@ -196,6 +205,10 @@ class Sampler(base_sampler.BaseSampler):
     # arg. This greatly reduces the size of the HLO and reduces compile time
     self._compiled_decode_fn = jax.jit(self._decode_fn)
     self._compiled_prefill_fn = jax.jit(self._prefill_fn)
+
+  def model_def_and_state(self) -> tuple[graph.NodeDef, statelib.State]:
+    """Returns the transformer graphdef and state."""
+    return self._transformer_graphdef, self._flattened_transformer_state
 
   @property
   def transformer(self) -> nnx.Module:
@@ -306,7 +319,7 @@ class Sampler(base_sampler.BaseSampler):
       all_input_ids: jax.Array,
       total_sampling_steps: int,
       include_logits: bool,
-      forbidden_token_ids: Sequence[int] | None,
+      forbidden_token_ids: tuple[int, ...] | None,
       temperature: float,
       top_p: Optional[float],
       top_k: Optional[int],
@@ -394,11 +407,13 @@ class Sampler(base_sampler.BaseSampler):
         beam_search_sampling_state=None,
     )
 
-  def tokenize(self, input_string: str) -> jax.Array | list[int]:
+  def tokenize(self, input_string: str) -> np.ndarray | list[int]:
     """Tokenizes the input string."""
     input_ids = self.tokenizer.encode(input_string)
     bos_tok = [self.tokenizer.bos_id()] if self.tokenizer.bos_id() else []
-    input_ids = jnp.array(bos_tok + input_ids, dtype=jnp.int32)
+    input_ids = np.array(
+        self.tokenizer.dedup_bos_ids(bos_tok + input_ids), dtype=np.int32
+    )
     return input_ids
 
   def _sample(
@@ -473,7 +488,10 @@ class Sampler(base_sampler.BaseSampler):
     )
 
   def _prefill_fn(
-      self, params: statelib.State, sampler_state: _SamplingState
+      self,
+      params: statelib.State,
+      sampler_state: _SamplingState,
+      images: jnp.ndarray | None = None,
   ) -> _SamplingState:
     """Performs prefill."""
     batch_size = sampler_state.token_buffer.shape[0]
@@ -494,16 +512,30 @@ class Sampler(base_sampler.BaseSampler):
     )
 
     input_mask = tokens != self.tokenizer.pad_id()
-    attention_mask = utils.make_causal_attn_mask(
-        input_mask, self.cache_config.cache_size
-    )
+
+    if hasattr(self.transformer, 'get_attention_mask'):
+      attention_mask = self.transformer.get_attention_mask(
+          tokens, inputs_mask=input_mask
+      )
+      seq_len = attention_mask.shape[-1]
+      padding = self.cache_config.cache_size - seq_len
+      attention_mask = jnp.pad(
+          attention_mask,
+          (*((0, 0) for _ in range(attention_mask.ndim - 1)), (0, padding)),
+      )
+    else:
+      attention_mask = utils.make_causal_attn_mask(
+          input_mask, self.cache_config.cache_size
+      )
 
     transformer = nnx.merge(self._transformer_graphdef, params)
+    kwargs = {} if images is None else {'images': images}
     logits, cache = transformer(
         tokens,
         step_positions,
         sampler_state.cache,
         attention_mask,
+        **kwargs,
     )
     token_buffer = sampler_state.token_buffer
     done = sampler_state.done
@@ -601,9 +633,9 @@ class Sampler(base_sampler.BaseSampler):
     transformer = nnx.merge(self._transformer_graphdef, params)
     logits, cache = transformer(
         last_token,
-        step_positions,
-        sampler_state.cache,
-        attention_mask,
+        positions=step_positions,
+        cache=sampler_state.cache,
+        attention_mask=attention_mask,
     )
     updated_sampler_state = self._sample(
         logits=logits,
@@ -634,13 +666,20 @@ class Sampler(base_sampler.BaseSampler):
       echo: bool = False,
       return_logits: bool = False,
       eos_tokens: Sequence[int] | None = None,
-      forbidden_tokens: Sequence[str] | None = None,
+      forbidden_tokens: Iterable[int] | None = None,
       temperature: float = 0.0,
       top_p: Optional[float] = None,
       top_k: Optional[int] = None,
       beam_size: Optional[int] = None,
       seed: int | None = None,
       pad_output: bool = False,
+      images: (
+          str
+          | np.ndarray
+          | list[str | np.ndarray | list[str | np.ndarray] | None]
+          | jnp.ndarray
+          | None
+      ) = None,
   ) -> base_sampler.SamplerOutput:
     """Samples a completion of the input string.
 
@@ -658,8 +697,7 @@ class Sampler(base_sampler.BaseSampler):
       return_logits: whether to return per-step logits used during generation.
       eos_tokens: end of sequence tokens to stop generation. If None, the
         tokenizer's eos_id will be used.
-      forbidden_tokens: list of tokens that are forbidden to be generated. Each
-        token must map to a single token id in the vocab.
+      forbidden_tokens: Optional Iterable of token IDs that are disallowed.
       temperature: temperature for sampling.
       top_p: top-p sampling threshold.
       top_k: top-k sampling threshold.
@@ -670,6 +708,9 @@ class Sampler(base_sampler.BaseSampler):
         otherwise it will be max_generation_steps + max_prompt_length. The
         padding now only supports right padding. Can modify to support left
         padding if needed.
+      images: input images to process. Can be a string/array, list of
+        strings/arrays, or list of list of strings/arrays depending on whether
+        there is one, multiple, or varying number of images per batch.
 
     Returns:
       sampler_output: A SamplerOutput object containing the generated samples.
@@ -679,24 +720,20 @@ class Sampler(base_sampler.BaseSampler):
         [input_strings] if isinstance(input_strings, str) else input_strings
     )
 
-    forbidden_token_ids = None
-    if forbidden_tokens is not None:
-      forbidden_token_ids = []
-      for token in forbidden_tokens:
-        token_id = self.tokenizer.encode(token)
-        if len(token_id) != 1:
-          raise ValueError(
-              'Forbidden tokens must map to single token ids in the vocab.'
-          )
-        forbidden_token_ids.extend(token_id)
-      forbidden_token_ids = tuple(forbidden_token_ids)
+    forbidden_token_ids = tuple(forbidden_tokens) if forbidden_tokens else None
 
     tokens = [self.tokenize(x) for x in input_strings]
+
+    processed_images = images
+    if images is not None and self.image_processor is not None:
+      processed_images = self.image_processor(images)
+      processed_images = jnp.array(processed_images)
+
     max_tokens_length = max(len(x) for x in tokens)
     if max_prompt_length is None or max_prompt_length < max_tokens_length:
       max_prompt_length = utils.next_power_of_2(max_tokens_length)
 
-    all_input_ids = jnp.array([
+    all_input_ids = np.array([
         utils.pad_to_length(
             x,
             target_length=max_prompt_length,
@@ -718,7 +755,7 @@ class Sampler(base_sampler.BaseSampler):
     elif isinstance(seed, int):
       seed = jax.random.PRNGKey(seed)
     sampling_state = self.init_sample_state(
-        all_input_ids,
+        jnp.array(all_input_ids),
         include_logits=return_logits,
         total_sampling_steps=total_sampling_steps,
         forbidden_token_ids=forbidden_token_ids,
@@ -729,7 +766,9 @@ class Sampler(base_sampler.BaseSampler):
         beam_size=beam_size,
     )
     sampling_state = self._compiled_prefill_fn(
-        self._flattened_transformer_state, sampling_state
+        self._flattened_transformer_state,
+        sampling_state,
+        processed_images,
     )
 
     sampling_state = self._compiled_decode_fn(
@@ -762,6 +801,7 @@ class Sampler(base_sampler.BaseSampler):
           max_prompt_length,
           max_len,
       )
+      out_tokens, lengths = jax.device_get(out_tokens), jax.device_get(lengths)
       decoded_outputs = [
           self.tokenizer.decode(tokens[:length].tolist())
           for tokens, length in zip(out_tokens, lengths)
@@ -769,7 +809,6 @@ class Sampler(base_sampler.BaseSampler):
     else:
       out_tokens = []
       out_logits = []
-      lengths = []
       for i, token_buffer in enumerate(token_buffers):
         start_idx = (
             utils.find_first_non_pad_idx(token_buffer, self.tokenizer.pad_id())
@@ -782,10 +821,9 @@ class Sampler(base_sampler.BaseSampler):
             )
             + max_prompt_length
         )
-        out_tokens.append(token_buffer[start_idx:end_idx])
+        out_tokens.append(jax.device_get(token_buffer[start_idx:end_idx]))
         if return_logits:
           out_logits.append(logits_buffers[i][start_idx:end_idx])
-        lengths.append(end_idx - start_idx)
 
       decoded_outputs = [
           self.tokenizer.decode(tokens.tolist()) for tokens in out_tokens

@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.internal.servicemetadata.v1 import servicemetadata_pb2 as nominal_dot_internal_dot_servicemetadata_dot_v1_dot_servicemetadata__pb2
+from nominal_api_protos.nominal.internal.servicemetadata.v1 import servicemetadata_pb2 as nominal_dot_internal_dot_servicemetadata_dot_v1_dot_servicemetadata__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

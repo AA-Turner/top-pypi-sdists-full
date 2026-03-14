@@ -14,10 +14,28 @@
 
 """Utility functions for agentic models."""
 
+import asyncio
+import threading
 from typing import Any, Optional
 
 import numpy as np
 from tunix.rl.agentic.parser.chat_template_parser import parser as chat_template_parser
+
+
+def left_pad(x, length, pad):
+  x = np.asarray(x, dtype=np.int32)
+  if x.size >= length:
+    return x[-length:]
+  pad_part = np.full(length - x.size, pad, np.int32)
+  return np.concatenate([pad_part, x], axis=0)
+
+
+def right_pad(x, length, pad):
+  x = np.asarray(x, dtype=np.int32)
+  if x.size >= length:
+    return x[:length]
+  pad_part = np.full(length - x.size, pad, np.int32)
+  return np.concatenate([x, pad_part], axis=0)
 
 
 def pad_prompt_and_completion(
@@ -28,21 +46,6 @@ def pad_prompt_and_completion(
     pad_id: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
   """Pads prompt tokens to the left and completion tokens to the right."""
-
-  def left_pad(x, length, pad):
-    x = np.asarray(x, dtype=np.int32)
-    if x.size >= length:
-      return x[-length:]
-    pad_part = np.full(length - x.size, pad, np.int32)
-    return np.concatenate([pad_part, x], axis=0)
-
-  def right_pad(x, length, pad):
-    x = np.asarray(x, dtype=np.int32)
-    if x.size >= length:
-      return x[:length]
-    pad_part = np.full(length - x.size, pad, np.int32)
-    return np.concatenate([x, pad_part], axis=0)
-
   left_padded_prompt_tokens = left_pad(prompt_tokens, max_prompt_length, pad_id)
   right_padded_completion_tokens = right_pad(
       completion_tokens, max_generation_steps, pad_id
@@ -55,7 +58,7 @@ def pad_prompt_and_completion(
 
 
 def get_recent_assistant_user_messages(
-    chat_completions_messages: list[dict[str, Any]]
+    chat_completions_messages: list[dict[str, Any]],
 ) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
   """Extracts the most recent assistant message and environment messages (user/tool) from a chat completions list.
 
@@ -85,6 +88,39 @@ def get_recent_assistant_user_messages(
   return assistant_message, env_messages
 
 
+def convert_messages_to_string(
+    message: dict[str, Any],
+) -> dict[str, str]:
+  """Converts non-string message values to strings.
+
+  Specifically, numpy array values are converted to their item representation.
+  Raises an error if, after processing, any value is not a string.
+
+  Args:
+    message: A dictionary representing a message.
+
+  Returns:
+    A new dictionary with all values ensured to be strings.
+
+  Raises:
+    ValueError: If any message field is not a string after preprocessing.
+  """
+  # Parse message to text
+  processed_messages = {}
+  for k, v in message.items():
+    if isinstance(v, np.ndarray):
+      processed_messages[k] = v.item()
+    else:
+      processed_messages[k] = v
+
+    if not isinstance(processed_messages[k], str):
+      raise ValueError(
+          f"Message field {k} must be a string after preprocessing, got"
+          f" {type(processed_messages[k])}."
+      )
+  return processed_messages
+
+
 def convert_single_message(
     msg: dict[str, str],
     tokenizer: Any,
@@ -104,9 +140,9 @@ def convert_single_message(
   Returns:
     A tuple containing (tokens, mask).
   """
-  # Parse message to text
+  processed_messages = convert_messages_to_string(msg)
   msg_text = parser.parse(
-      messages=[msg],
+      messages=[processed_messages],
       add_generation_prompt=is_generation,
       is_first_msg=is_first,
   )
@@ -174,3 +210,61 @@ def tokenize_and_generate_masks(
     all_masks.extend(masks)
 
   return all_tokens, all_masks
+
+
+class RolloutSyncLock:
+  """A lock object that allows many simultaneous rollouts or one exclusive weight sync.
+
+  Sync preference: Once a weight sync requests the lock, new rollouts will be
+  blocked until the sync has acquired and released the lock.
+  """
+
+  def __init__(self):
+    self._mutex = threading.Lock()
+    self._can_rollout = threading.Condition(self._mutex)
+    self._can_weight_sync = threading.Condition(self._mutex)
+    self._rollouts = 0
+    # Number of active weight syncs. This should only be 0 or 1.
+    self._weight_syncs = 0
+    self._weight_syncs_waiting = 0
+
+  def acquire_rollout(self):
+    """Acquire a rollout lock."""
+    with self._mutex:
+      while self._weight_syncs > 0 or self._weight_syncs_waiting > 0:
+        self._can_rollout.wait()
+      self._rollouts += 1
+
+  def release_rollout(self):
+    """Release a rollout lock."""
+    with self._mutex:
+      self._rollouts -= 1
+      if self._rollouts == 0 and self._weight_syncs_waiting > 0:
+        self._can_weight_sync.notify()
+
+  def acquire_weight_sync(self):
+    """Acquire a weight sync lock."""
+    with self._mutex:
+      while self._rollouts > 0 or self._weight_syncs > 0:
+        self._weight_syncs_waiting += 1
+        self._can_weight_sync.wait()
+        self._weight_syncs_waiting -= 1
+      self._weight_syncs += 1
+
+  def release_weight_sync(self):
+    """Release a weight sync lock."""
+    with self._mutex:
+      self._weight_syncs -= 1
+      # Notify waiting sync first, then all rollouts
+      self._can_weight_sync.notify()
+      self._can_rollout.notify_all()
+
+
+def get_or_create_loop():
+  """Returns the current event loop or creates a new one if needed."""
+  try:
+    loop = asyncio.get_event_loop()
+  except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+  return loop

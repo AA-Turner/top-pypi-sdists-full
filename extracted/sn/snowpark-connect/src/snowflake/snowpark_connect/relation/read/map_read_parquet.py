@@ -505,35 +505,10 @@ def discover_variant_schema(
         return None
 
 
-def _check_map_has_null_values(
-    session: Session,
-    temp_view_name: str,
-    column_name: str,
-) -> bool:
-    """Check if a VARIANT map column contains null values using the vectorized scanner.
-
-    The NVS scanner omits null values from FLATTEN output, so this function
-    runs a FLATTEN query on a small vectorized-scanner sampled view to detect
-    whether any map entry has a null value (TYPEOF = 'NULL_VALUE').
-    """
-    try:
-        query = (
-            f"SELECT COUNT(*) AS null_count "
-            f"FROM {temp_view_name}, "
-            f"LATERAL FLATTEN(input => {column_name}) f "
-            f"WHERE TYPEOF(f.value) = 'NULL_VALUE'"
-        )
-        result = session.sql(query).collect()
-        return result[0]["NULL_COUNT"] > 0
-    except Exception:
-        return False
-
-
 def _merge_variant_schemas(
     df: DataFrame,
     session: Session,
     sampled_df: DataFrame,
-    vs_sampled_df: DataFrame | None = None,
 ) -> list[DataType]:
     """
     For each VARIANT or JSON-string column in the DataFrame, attempt to discover
@@ -549,9 +524,6 @@ def _merge_variant_schemas(
         df: The original DataFrame (used to get schema info)
         session: Snowpark session
         sampled_df: Pre-sampled DataFrame to use for schema discovery
-        vs_sampled_df: Optional vectorized-scanner sample for null-value
-            detection in maps.  When NVS is used for discovery, its FLATTEN
-            output omits null values; the vectorized scanner preserves them.
     """
     import os
     import uuid
@@ -614,31 +586,6 @@ def _merge_variant_schemas(
                 )
         finally:
             session.sql(f"DROP VIEW IF EXISTS {temp_view_name_full}").collect()
-
-    # Two-pass null check: for map columns with non-string value types,
-    # query the vectorized scanner data to check if null values exist.
-    # NVS omits nulls from FLATTEN output, so we need the VS data for this.
-    if vs_sampled_df is not None:
-        map_columns_to_check = [
-            (idx, name)
-            for idx, name, _ in discovery_columns
-            if isinstance(discovered_schemas.get(idx), MapType)
-            and not isinstance(discovered_schemas[idx].value_type, StringType)
-        ]
-        if map_columns_to_check:
-            import uuid as _uuid
-
-            vs_view = f"_VS_NULL_CHECK_{_uuid.uuid4().hex}"
-            vs_sampled_df.create_or_replace_temp_view(vs_view)
-            try:
-                for idx, col_name in map_columns_to_check:
-                    has_nulls = _check_map_has_null_values(session, vs_view, col_name)
-                    if has_nulls:
-                        discovered_schemas[idx] = MapType(
-                            discovered_schemas[idx].key_type, VariantType()
-                        )
-            finally:
-                session.sql(f"DROP VIEW IF EXISTS {vs_view}").collect()
 
     # Build result types, replacing VARIANT/STRING with discovered schemas
     result_types = []
@@ -804,19 +751,10 @@ def map_read_parquet(
         else None
     )
 
-    # Create a dedicated vectorized scanner sample for null-value detection.
-    # The NVS omits null values; the VS preserves them.
-    vs_sampled_df = (
-        _create_vs_sample(session, paths[0], file_format_options, rows_to_infer)
-        if nvs_sampled_df is not None
-        else None
-    )
-
     discovered_types = _merge_variant_schemas(
         df,
         session,
         nvs_sampled_df if nvs_sampled_df is not None else sampled_df,
-        vs_sampled_df=vs_sampled_df,
     )
 
     from snowflake.snowpark.functions import builtin
@@ -843,12 +781,14 @@ def map_read_parquet(
                 cast_columns.append(cast_base_df[col_name])
                 continue
             cast_columns.append(
-                cast_base_df[col_name].cast(discovered_type).alias(col_name)
+                cast_base_df[col_name].try_cast(discovered_type).alias(col_name)
             )
             has_casts = True
         elif is_complex_discovered and is_string:
             cast_columns.append(
-                parse_json(cast_base_df[col_name]).cast(discovered_type).alias(col_name)
+                parse_json(cast_base_df[col_name])
+                .try_cast(discovered_type)
+                .alias(col_name)
             )
             has_casts = True
         else:

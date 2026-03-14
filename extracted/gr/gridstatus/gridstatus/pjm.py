@@ -1,5 +1,8 @@
+import io
 import math
 import os
+import random
+import time
 import warnings
 from typing import BinaryIO
 
@@ -21,6 +24,7 @@ from gridstatus.pjm_constants import (
     HUB_NODE_IDS,
     LOCATION_TYPES,
     PRICE_NODE_IDS,
+    REQUEST_TIMEOUT,
     ZONE_NODE_IDS,
 )
 
@@ -131,19 +135,17 @@ class PJM(ISOBase):
         end: str | pd.Timestamp | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        """Returns load at a previous date at 5 minute intervals
+        """Returns load at a previous date at 5 minute intervals.
 
-        Arguments:
-            date (datetime.date, str): date to get load for. must be in last 30 days
+        Args:
+            date: Date to get load for. Must be in last 30 days.
 
         Returns:
-            pd.DataFrame: Load data time series. Columns: Time, Load, and all areas
-
-            * Load columns represent PJM-wide load
-            * Returns data for the following areas: AE, AEP, APS, ATSI,
-            BC, COMED, DAYTON, DEOK, DOM, DPL, DUQ, EKPC, JC,
-            ME, PE, PEP, PJM MID ATLANTIC REGION, PJM RTO,
-            PJM SOUTHERN REGION, PJM WESTERN REGION, PL, PN, PS, RECO
+            Load data time series. Columns include Time, Load, and all areas.
+            Load columns represent PJM-wide load. Returns data for the following
+            areas: AE, AEP, APS, ATSI, BC, COMED, DAYTON, DEOK, DOM, DPL, DUQ,
+            EKPC, JC, ME, PE, PEP, PJM MID ATLANTIC REGION, PJM RTO,
+            PJM SOUTHERN REGION, PJM WESTERN REGION, PL, PN, PS, RECO.
         """
 
         if date == "latest":
@@ -430,43 +432,36 @@ class PJM(ISOBase):
         location_type: str | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        """Returns LMP at a previous date
+        """Returns LMP at a previous date.
 
-        Notes:
-            * If start date is prior to the PJM archive date, all data
-            must be downloaded before location filtering can be performed
-            due to limitations of PJM API. The archive date is
-            186 days (~6 months) before today for the 5 minute real time
-            market and 731 days (~2 years) before today for the Hourly
-            Real Time and Day Ahead Hourly markets. Node type filter can be
-            performed for Real Time Hourly and Day Ahead Hourly markets.
+        Note:
+            If start date is prior to the PJM archive date, all data must be
+            downloaded before location filtering can be performed due to
+            limitations of PJM API. The archive date is 186 days (~6 months)
+            before today for the 5 minute real time market and 731 days
+            (~2 years) before today for the Hourly Real Time and Day Ahead
+            Hourly markets. Node type filter can be performed for Real Time
+            Hourly and Day Ahead Hourly markets.
 
-            * If location_type is provided, it is filtered after data
-            is retrieved for Real Time 5 Minute market regardless of the
-            date. This is due to PJM api limitations
+            If location_type is provided, it is filtered after data is
+            retrieved for Real Time 5 Minute market regardless of the date.
+            This is due to PJM api limitations.
 
-            *  Return `Location Id`, `Location Name`, `Location Short Name`.
+            Returns ``Location Id``, ``Location Name``, ``Location Short Name``.
 
-        Arguments:
-            date (datetime.date, str): date to get LMPs for
-
-            end (datetime.date, str): end date to get LMPs for
-
-            market (str):  Supported Markets:
-                REAL_TIME_5_MIN, REAL_TIME_HOURLY, DAY_AHEAD_HOURLY
-
-            locations (list, optional):  list of pnodeid to get LMPs for.
-                Defaults to "hubs". Use get_pnode_ids() to get
-                a list of possible pnode ids. If "all", will
-                return data from all p nodes (warning there are
-                over 10,000 unique pnodes, so expect millions or billions of rows!)
-
-            location_type (str, optional):  If specified,
-                will only return data for nodes of this type.
-                Defaults to None. Possible location types are: 'ZONE',
-                'LOAD', 'GEN', 'AGGREGATE', 'INTERFACE', 'EXT',
+        Args:
+            date: Date to get LMPs for.
+            end: End date to get LMPs for.
+            market: Supported Markets: REAL_TIME_5_MIN, REAL_TIME_HOURLY,
+                DAY_AHEAD_HOURLY.
+            locations: List of pnodeid to get LMPs for. Defaults to "hubs".
+                Use get_pnode_ids() to get a list of possible pnode ids.
+                If "all", will return data from all p nodes (warning: there
+                are over 10,000 unique pnodes, so expect millions of rows!).
+            location_type: If specified, will only return data for nodes of
+                this type. Defaults to None. Possible location types are:
+                'ZONE', 'LOAD', 'GEN', 'AGGREGATE', 'INTERFACE', 'EXT',
                 'HUB', 'EHV', 'TIE', 'RESIDUAL_METERED_EDC'.
-
         """
         if date == "latest":
             return self._latest_lmp_from_today(
@@ -883,6 +878,51 @@ class PJM(ISOBase):
 
         return data.sort_values(["Interval Start", "Location Name"])
 
+    def _make_api_call(
+        self,
+        url: str,
+        method: str = "GET",
+        **kwargs,
+    ):
+        """Make an API call with timeout, exponential backoff, and retry logic.
+
+        Retries on read timeouts and rate limiting (HTTP 429).
+        Connect timeouts raise immediately since the server is likely unreachable.
+        """
+        retries = 0
+        delay = 1
+        reason = ""
+        while retries <= self.retries:
+            try:
+                logger.info(f"Requesting {url} with {kwargs}")
+                if method == "POST":
+                    response = requests.post(url, timeout=REQUEST_TIMEOUT, **kwargs)
+                else:
+                    response = requests.get(url, timeout=REQUEST_TIMEOUT, **kwargs)
+
+                if response.status_code == 429:
+                    reason = "Rate-limited"
+                else:
+                    response.raise_for_status()
+                    return response.json()
+
+            except requests.exceptions.ReadTimeout:
+                reason = "Read timeout"
+
+            retries += 1
+            if retries > self.retries:
+                raise RuntimeError(
+                    f"Error: Failed after {self.retries} retries for {url}",
+                )
+
+            logger.warning(
+                f"Warn: {reason}: waiting {delay} seconds before retry"
+                f" {retries}/{self.retries}"
+                f" requesting url: {url}",
+            )
+            time.sleep(delay + random.uniform(0, delay * 0.1))
+            delay *= 2
+
     def _get_pjm_json(
         self,
         endpoint: str,
@@ -926,10 +966,8 @@ class PJM(ISOBase):
             params_to_log["Ocp-Apim-Subscription-Key"] = "API_KEY_HIDDEN"
 
         logger.info(f"Retrieving data from {endpoint} with params {params_to_log}")
-        r = self._get_json(
+        r = self._make_api_call(
             "https://api.pjm.com/api/v1/" + endpoint,
-            verbose=verbose,
-            retries=self.retries,
             params=final_params,
             headers={"Ocp-Apim-Subscription-Key": self.api_key},
         )
@@ -948,10 +986,8 @@ class PJM(ISOBase):
             to_add = [df]
             for page in tqdm.tqdm(range(1, num_pages), initial=1, total=num_pages):
                 next_url = [x for x in r["links"] if x["rel"] == "next"][0]["href"]
-                r = self._get_json(
+                r = self._make_api_call(
                     next_url,
-                    verbose=verbose,
-                    retries=self.retries,
                     headers={
                         "Ocp-Apim-Subscription-Key": self.api_key,
                     },
@@ -1015,6 +1051,7 @@ class PJM(ISOBase):
                 "Origin": "https://www.pjm.com",
                 "Referer": "https://www.pjm.com/",
             },
+            timeout=REQUEST_TIMEOUT,
         )
         return utils.get_response_blob(response)
 
@@ -1034,7 +1071,7 @@ class PJM(ISOBase):
             "Withdrawal Date": "Withdrawn Date",
             "Withdrawn Remarks": "Withdrawal Comment",
             "Status": "Status",
-            "Revised In Service Date": "Proposed Completion Date",
+            "Projected In Service Date": "Proposed Completion Date",
             "Actual In Service Date": "Actual Completion Date",
             "Fuel": "Generation Type",
             "MW Capacity": "Summer Capacity (MW)",
@@ -3739,8 +3776,430 @@ class PJM(ISOBase):
             .reset_index(drop=True)
         )
 
+    @support_date_range(frequency=None)
+    def get_pai_intervals_5_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Retrieves the 5-minute Performance Assessment Intervals (PAI) data from PJM.
 
-if __name__ == "__main__":
-    iso = PJM()
-    df = iso.get_generation_capacity_daily("latest")
-    print(df)
+        This dataset contains information on the status of Performance Assessment Intervals
+        (PAIs) across PJM and subzones, updated every 5 minutes. Performance during these
+        PAIs is used by PJM to determine potential penalties, or compensation, for capacity
+        obligations. This dataset has 3 potential responses in the Performance Assessment
+        Interval column: "No PAI", "PAI in Active Subzone", and "PAI in RTO and Active Subzone".
+
+        Source: https://dataminer2.pjm.com/feed/fivemin_pai_interval/definition
+
+        Arguments:
+            date (str or pandas.Timestamp): Start datetime for data
+            end: (str or pandas.Timestamp, optional): End datetime for data.
+                Defaults to one day past `date` if not specified.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with 5-minute PAI intervals data.
+        """
+        if date == "latest":
+            date = "today"
+
+        df = self._get_pjm_json(
+            "fivemin_pai_interval",
+            start=date,
+            params={
+                "fields": "datetime_beginning_utc,datetime_beginning_ept,pai_description",
+            },
+            end=end,
+            filter_timestamp_name="datetime_beginning",
+            interval_duration_min=5,
+            verbose=verbose,
+        )
+
+        df = df.rename(
+            columns={
+                "pai_description": "Performance Assessment Interval",
+            },
+        )
+
+        df = df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Performance Assessment Interval",
+            ]
+        ]
+
+        return df.sort_values("Interval Start").reset_index(drop=True)
+
+    @support_date_range(frequency=None)
+    def get_marginal_emission_rates_5_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Retrieves the 5-minute marginal emission rates data from PJM.
+
+        PJM estimates marginal emissions every five minutes for load zones across the grid.
+        These estimates include CO₂, SO₂, and NOₓ, expressed in lbs/MWh. The calculation
+        reflects the physical costs of power flows, capturing the impact of congestion on
+        nodal emissions. When imports are marginal at a node, PJM assigns them zero emissions
+        because the fuel source is unknown.
+
+        Source: https://dataminer2.pjm.com/feed/fivemin_marginal_emissions/definition
+
+        Arguments:
+            date (str or pandas.Timestamp): Start datetime for data
+            end: (str or pandas.Timestamp, optional): End datetime for data.
+                Defaults to one day past `date` if not specified.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with 5-minute marginal emission rates data.
+        """
+        if date == "latest":
+            date = pd.Timestamp.now().replace(minute=0, second=0, microsecond=0)
+
+        date_ts = utils._handle_date(date)
+        archive_date = _get_pjm_archive_date(Markets.REAL_TIME_5_MIN)
+        is_archived = date_ts < archive_date
+
+        params: dict[str, str] = {}
+        if not is_archived:
+            params["fields"] = (
+                "datetime_beginning_utc,datetime_beginning_ept,pnode_name,pnode_id,marginal_co2_rate,marginal_so2_rate,marginal_nox_rate"
+            )
+
+        df = self._get_pjm_json(
+            "fivemin_marginal_emissions",
+            start=date,
+            params=params,
+            end=end,
+            filter_timestamp_name="datetime_beginning",
+            interval_duration_min=5,
+            verbose=verbose,
+        )
+
+        df = df.rename(
+            columns={
+                "pnode_name": "Pnode Name",
+                "pnode_id": "Pnode ID",
+                "marginal_co2_rate": "Marginal CO2 Rate",
+                "marginal_so2_rate": "Marginal SO2 Rate",
+                "marginal_nox_rate": "Marginal NOx Rate",
+            },
+        )
+
+        df = df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Pnode Name",
+                "Pnode ID",
+                "Marginal CO2 Rate",
+                "Marginal SO2 Rate",
+                "Marginal NOx Rate",
+            ]
+        ]
+
+        return df.sort_values(["Interval Start", "Pnode Name"]).reset_index(drop=True)
+
+    # NOTE: This file can only be accessed once per 30 minutes from the same IP address.
+    # Otherwise the CSV will return a rate limit message inside the file.
+    def get_voltage_limits(
+        self,
+        verbose: bool = False,
+    ) -> str:
+        """
+        Downloads the raw voltage limits CSV file from EDART.
+
+        The URL returns a ZIP file containing the CSV. This method extracts and returns
+        the CSV content as a string.
+
+        Source: https://edart.pjm.com/reports/voltagelimits.csv
+
+        Arguments:
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            str: The CSV content as a string.
+
+        Raises:
+            NoDataFoundException: If the server returns a rate limit message.
+        """
+        url = "https://edart.pjm.com/reports/voltagelimits.csv"
+        logger.info(f"Requesting {url}...")
+
+        z = utils.get_zip_folder(url, verbose=verbose)
+
+        csv_filename = "voltagelimits.csv"
+        if csv_filename not in z.namelist():
+            raise RuntimeError(
+                f"Expected {csv_filename} in ZIP archive, found: {z.namelist()}",
+            )
+
+        csv_content = z.read(csv_filename).decode("utf-8")
+
+        if "throttle" in csv_content.lower():
+            rate_limit_message = csv_content.strip()
+            raise NoDataFoundException(rate_limit_message)
+
+        return self._parse_voltage_limits(csv_content)
+
+    def _parse_voltage_limits(
+        self,
+        csv_content: str,
+    ) -> pd.DataFrame:
+        lines = csv_content.split("\n")
+
+        timestamp_str = lines[0].strip().replace("TIMESTAMP:", "").strip()
+        publish_time = pd.to_datetime(timestamp_str).tz_localize(self.default_timezone)
+
+        header_row_idx = None
+        for i, line in enumerate(lines):
+            if line.strip().startswith("Company") and "Voltage" in line:
+                header_row_idx = i
+                break
+
+        if header_row_idx is None:
+            raise ValueError("Could not find header row starting with 'Company'")
+
+        csv_clean = "\n".join(lines[header_row_idx:])
+        df = pd.read_csv(io.StringIO(csv_clean))
+
+        df.columns = df.columns.str.strip()
+
+        df = df.rename(
+            columns={
+                "Emergency Low(KV)": "Emergency Low",
+                "Normal Low(KV)": "Normal Low",
+                "Normal High(KV)": "Normal High",
+                "Emergency High(KV)": "Emergency High",
+                "Voltage Drop Warning(%)": "Voltage Drop Warning Percent",
+                "Voltage Drop Limit(%)": "Voltage Drop Limit Percent",
+            },
+        )
+
+        df["Publish Time"] = publish_time
+
+        df = df[
+            [
+                "Publish Time",
+                "Company",
+                "Voltage",
+                "Follow PJM",
+                "Station",
+                "Load Dump",
+                "Emergency Low",
+                "Normal Low",
+                "Normal High",
+                "Emergency High",
+                "Voltage Drop Warning Percent",
+                "Voltage Drop Limit Percent",
+            ]
+        ]
+
+        return df
+
+    FTR_OPTION_PATHS_MONTHLY_URL = (
+        "https://www.pjm.com/pjmfiles/pub/"
+        "account/auction-user-info/downloads/option-paths.csv"
+    )
+
+    def get_ftr_option_paths_monthly(
+        self,
+        date: str | pd.Timestamp = "latest",
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Gets the monthly FTR option paths data from PJM.
+
+        Contains valid source-sink pairs for FTR options in PJM monthly
+        auctions. Only ``date="latest"`` is supported.
+
+        Source:
+        https://www.pjm.com/pjmfiles/pub/account/auction-user-info/downloads/option-paths.csv
+
+        Arguments:
+            date (str): Only "latest" is supported. Defaults to "latest".
+            end: Not supported. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pd.DataFrame: DataFrame with columns: Publish Date, Source Node,
+                Source PNODE ID, Sink Node, Sink PNODE ID
+        """
+        if date != "latest":
+            raise NotSupported(
+                f"{self.name} only supports date='latest' for"
+                " get_ftr_option_paths_monthly",
+            )
+
+        url = self.FTR_OPTION_PATHS_MONTHLY_URL
+        logger.info(f"Requesting {url}...")
+
+        response = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        response.raise_for_status()
+
+        return self._parse_ftr_option_paths_monthly(response.text)
+
+    def _parse_ftr_option_paths_monthly(
+        self,
+        csv_content: str,
+    ) -> pd.DataFrame:
+        lines = csv_content.split("\n")
+
+        # First line: "Date Posted - YYYYMMDD,,,"
+        first_line = lines[0].strip()
+        date_str = first_line.split(" - ")[1].split(",")[0]
+        publish_date = pd.Timestamp(date_str).date().isoformat()
+
+        # Read CSV starting from row 2 (header row)
+        csv_data = "\n".join(lines[1:])
+        df = pd.read_csv(io.StringIO(csv_data))
+
+        df.columns = df.columns.str.strip()
+
+        df = df.rename(
+            columns={
+                "Source PnodeID  (Information purposes only)": "Source PNODE ID",
+                "Sink PnodeID  (Information purposes only)": "Sink PNODE ID",
+            },
+        )
+
+        df["Publish Date"] = publish_date
+
+        df = df[
+            [
+                "Publish Date",
+                "Source Node",
+                "Source PNODE ID",
+                "Sink Node",
+                "Sink PNODE ID",
+            ]
+        ]
+
+        return df
+
+    FTR_SOURCE_SINK_MONTHLY_PROMPT_URL = (
+        "https://www.pjm.com/pjmfiles/pub/"
+        "account/auction-user-info/downloads/ftr-source-sink-prompt.csv"
+    )
+
+    FTR_SOURCE_SINK_MONTHLY_NON_PROMPT_URL = (
+        "https://www.pjm.com/pjmfiles/pub/"
+        "account/auction-user-info/downloads/ftr-source-sink-nonprompt.csv"
+    )
+
+    def get_ftr_source_sink_monthly_prompt(
+        self,
+        date: str | pd.Timestamp = "latest",
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Gets the monthly FTR source/sink data for the prompt month from PJM.
+
+        Contains valid source/sinks for obligations in the prompt month
+        FTR auction. Only ``date="latest"`` is supported.
+
+        Source:
+        https://www.pjm.com/pjmfiles/pub/account/auction-user-info/downloads/ftr-source-sink-prompt.csv
+
+        Arguments:
+            date (str): Only "latest" is supported. Defaults to "latest".
+            end: Not supported. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pd.DataFrame: DataFrame with columns: Publish Date, Obligation Name,
+                PNODE ID
+        """
+        if date != "latest":
+            raise NotSupported(
+                f"{self.name} only supports date='latest' for"
+                " get_ftr_source_sink_monthly_prompt",
+            )
+
+        url = self.FTR_SOURCE_SINK_MONTHLY_PROMPT_URL
+        logger.info(f"Requesting {url}...")
+
+        response = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        response.raise_for_status()
+
+        return self._parse_ftr_source_sink(response.text)
+
+    def get_ftr_source_sink_monthly_non_prompt(
+        self,
+        date: str | pd.Timestamp = "latest",
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Gets the monthly FTR source/sink data for non-prompt months from PJM.
+
+        Contains valid source/sinks for obligations in the non-prompt month
+        FTR auction. Only ``date="latest"`` is supported.
+
+        Source:
+        https://www.pjm.com/pjmfiles/pub/account/auction-user-info/downloads/ftr-source-sink-nonprompt.csv
+
+        Arguments:
+            date (str): Only "latest" is supported. Defaults to "latest".
+            end: Not supported. Defaults to None.
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pd.DataFrame: DataFrame with columns: Publish Date, Obligation Name,
+                PNODE ID
+        """
+        if date != "latest":
+            raise NotSupported(
+                f"{self.name} only supports date='latest' for"
+                " get_ftr_source_sink_monthly_non_prompt",
+            )
+
+        url = self.FTR_SOURCE_SINK_MONTHLY_NON_PROMPT_URL
+        logger.info(f"Requesting {url}...")
+
+        response = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        response.raise_for_status()
+
+        return self._parse_ftr_source_sink(response.text)
+
+    def _parse_ftr_source_sink(
+        self,
+        csv_content: str,
+    ) -> pd.DataFrame:
+        lines = csv_content.split("\n")
+
+        # First line: "Date Posted - YYYYMMDD,"
+        first_line = lines[0].strip()
+        date_str = first_line.split(" - ")[1].split(",")[0]
+        publish_date = pd.Timestamp(date_str).date().isoformat()
+
+        # Read CSV starting from row 2 (header row)
+        csv_data = "\n".join(lines[1:])
+        df = pd.read_csv(io.StringIO(csv_data))
+
+        df.columns = df.columns.str.strip()
+
+        df = df.rename(
+            columns={
+                "PnodeID  (Information purposes only)": "PNODE ID",
+            },
+        )
+
+        df["Publish Date"] = publish_date
+
+        df = df[
+            [
+                "Publish Date",
+                "Obligation Name",
+                "PNODE ID",
+            ]
+        ]
+
+        return df

@@ -1662,6 +1662,7 @@ def map_sql_to_pandas_df(
                 key = kv_result_tuple._1()
                 val = kv_result_tuple._2().get()
                 set_config_param(get_spark_session_id(), key, val, session)
+                rows = [snowpark.Row(key=key, value=val)]
             case "SetNamespaceCommand":
                 name = _spark_to_snowflake(logical_plan.namespace())
                 session.sql(f"USE SCHEMA {name}").collect()
@@ -2544,9 +2545,8 @@ def map_logical_plan_relation(
         case "SubqueryAlias":
             alias = str(rel.alias())
             # If the child is an UnresolvedRelation, we want to preserve the original plan id and save only aliased one
-            process_aliased_relation = (
-                str(rel.child().getClass().getSimpleName()) == "UnresolvedRelation"
-            )
+            child_class = str(rel.child().getClass().getSimpleName())
+            process_aliased_relation = child_class == "UnresolvedRelation"
             with push_processing_aliased_relation_scope(process_aliased_relation):
                 proto = relation_proto.Relation(
                     subquery_alias=relation_proto.SubqueryAlias(
@@ -2554,7 +2554,10 @@ def map_logical_plan_relation(
                         alias=alias,
                     )
                 )
-            set_sql_plan_name(alias, plan_id)
+
+            # UDTFs do not work when processed with plan id, use alias (see SNOW-3163639)
+            if child_class != "UnresolvedTableValuedFunction":
+                set_sql_plan_name(alias, plan_id)
         case "Union":
             children = as_java_list(rel.children())
             assert len(children) == 2, len(children)

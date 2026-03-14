@@ -34,16 +34,14 @@ class InstanceId:
 
     @overload
     @classmethod
-    def load_if(cls, data: None) -> None: ...
+    def _load_if(cls, data: None) -> None: ...
 
     @overload
     @classmethod
-    def load_if(cls, data: dict[str, str] | tuple[str, str] | Self) -> Self: ...
+    def _load_if(cls, data: dict[str, str] | tuple[str, str] | Self) -> Self: ...
 
     @classmethod
-    def load_if(cls, data: dict[str, str] | tuple[str, str] | Self | None) -> Self | None:
-        # Note: For experimentation - I'd like to add this as a universal method to all classes to avoid
-        # the endless spam of 'MyClass.load(foo["bar"]) if "bar" in foo else None' in the codebase!
+    def _load_if(cls, data: dict[str, str] | tuple[str, str] | Self | None) -> Self | None:
         if data is None:
             return None
         return cls.load(data)
@@ -52,8 +50,13 @@ class InstanceId:
     def load(cls, data: dict[str, str] | tuple[str, str] | Self) -> Self:
         if isinstance(data, cls):
             return data
-        elif isinstance(data, tuple) and len(data) == 2:
-            return cls(*data)
+        elif isinstance(data, tuple):
+            if len(data) == 2:
+                return cls(*data)
+            raise ValueError(
+                f"Cannot load {data} into {cls}, expected exactly two elements in the tuple, got {len(data)}"
+            )
+
         elif isinstance(data, dict):
             if "externalId" in data:
                 return cls(space=data["space"], external_id=data["externalId"])
@@ -172,7 +175,7 @@ class Identifier(Generic[T_ID]):
 
 class UserIdentifier:
     def __init__(self, value: str) -> None:
-        self.__value: str = value
+        self.__value = value
 
     def name(self, camel_case: bool = False) -> str:
         return "userIdentifier" if camel_case else "user_identifier"
@@ -186,7 +189,7 @@ class UserIdentifier:
 
 class Username:
     def __init__(self, value: str) -> None:
-        self.__value: str = value
+        self.__value = value
 
     def name(self, camel_case: bool = False) -> str:
         return "username"
@@ -200,7 +203,7 @@ class Username:
 
 class Tablename:
     def __init__(self, value: str) -> None:
-        self.__value: str = value
+        self.__value = value
 
     def name(self, camel_case: bool = False) -> str:
         return "tablename"
@@ -212,10 +215,26 @@ class Tablename:
         return self.__value
 
 
+class LimitId:
+    def __init__(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError(f"Expected limitId to be of type str, got {value} of type {type(value)}")
+        self.__value = value
+
+    def name(self, camel_case: bool = False) -> str:
+        return "limitId" if camel_case else "limit_id"
+
+    def as_dict(self, camel_case: bool = True) -> dict[str, str]:
+        return {self.name(camel_case): self.__value}
+
+    def as_primitive(self) -> str:
+        return self.__value
+
+
 class WorkflowVersionIdentifier:
     def __init__(self, version: str, workflow_external_id: str) -> None:
-        self.__version: str = version
-        self.__workflow_external_id: str = workflow_external_id
+        self.__version = version
+        self.__workflow_external_id = workflow_external_id
 
     def as_dict(self, camel_case: bool = True) -> dict[str, str]:
         return {
@@ -542,8 +561,8 @@ class PrincipalIdentifierSequence(IdentifierSequenceCore[PrincipalIdentifier]):
     @classmethod
     def load(
         cls,
-        ids: str | Sequence[str] | SequenceNotStr[str] | None = None,
-        external_ids: str | Sequence[str] | SequenceNotStr[str] | None = None,
+        ids: str | SequenceNotStr[str] | None = None,
+        external_ids: str | SequenceNotStr[str] | None = None,
     ) -> PrincipalIdentifierSequence:
         return cls(
             identifiers=PrincipalIdentifierSequence._load_identifiers(ids, external_ids),
@@ -553,8 +572,8 @@ class PrincipalIdentifierSequence(IdentifierSequenceCore[PrincipalIdentifier]):
 
     @staticmethod
     def _load_identifiers(
-        ids: str | Sequence[str] | SequenceNotStr[str] | None,
-        external_ids: str | Sequence[str] | SequenceNotStr[str] | None,
+        ids: str | SequenceNotStr[str] | None,
+        external_ids: str | SequenceNotStr[str] | None,
     ) -> list[PrincipalIdentifier]:
         identifiers: list[PrincipalIdentifier] = []
         if ids is not None:
@@ -571,5 +590,5 @@ class PrincipalIdentifierSequence(IdentifierSequenceCore[PrincipalIdentifier]):
             elif isinstance(external_ids, Sequence):
                 identifiers.extend([PrincipalIdentifier(external_id=extid) for extid in external_ids])
             else:
-                raise TypeError(f"external_ids must be of type str or SequenceNotStr[str]. Found {type(external_ids)}")
+                raise TypeError(f"external_ids must be of type str or Sequence[str]. Found {type(external_ids)}")
         return identifiers

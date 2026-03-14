@@ -616,8 +616,8 @@ def get_geometry(stream, coordsys='lonlat', return_center=False,
     :return: Returns the geometry of the stations as 2d :class:`numpy.ndarray`
             The first dimension are the station indexes with the same order
             as the traces in the stream object. The second index are the
-            values of [lat, lon, elev] in km
-            last index contains center [lat, lon, elev] in degrees and km if
+            values of [lon, lat, elev] in km
+            last index contains center [lon, lat, elev] in degrees and km if
             return_center is true
     """
     nstat = len(stream)
@@ -784,9 +784,13 @@ def array_transff_freqslowness(coords, slim, sstep, fmin, fmax, fstep,
     Returns array transfer function as a function of slowness difference and
     frequency.
 
-    :type coords: numpy.ndarray
+    :type coords: numpy.ndarray or Stream
     :param coords: coordinates of stations in longitude and latitude in degrees
-        elevation in km, or x, y, z in km
+        elevation in km, or x, y, z in km. If coords is a Stream object,
+        the trace.stats dict like class must contain an
+        :class:`~obspy.core.util.attribdict.AttribDict`
+        with 'latitude', 'longitude' (in degrees) and 'elevation' (in km), or
+        'x', 'y', 'elevation' (in km) items/attributes. See param ``coordsys``.
     :type coordsys: str
     :param coordsys: valid values: 'lonlat' and 'xy', choose which coordinates
         to use

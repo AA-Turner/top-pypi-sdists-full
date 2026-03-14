@@ -68,11 +68,14 @@ pub(crate) mod zenoh {
         qos::{CongestionControl, Priority, Reliability},
         query::{
             ConsolidationMode, Parameters, Querier, Query, QueryConsolidation, QueryTarget,
-            Queryable, Reply, ReplyError, Selector,
+            Queryable, Reply, ReplyError, ReplyKeyExpr, Selector,
         },
         sample::{Locality, Sample, SampleKind, SourceInfo},
         scouting::{scout, Hello, Scout},
-        session::{open, EntityGlobalId, Session, SessionInfo},
+        session::{
+            open, EntityGlobalId, Link, LinkEvent, LinkEventsListener, Session, SessionInfo,
+            Transport, TransportEvent, TransportEventsListener,
+        },
         time::{Timestamp, TimestampId, NTP64},
         ZError,
     };

@@ -96,9 +96,19 @@ ISONE_RESERVE_ZONE_COLUMN_MAP = {
     "Total30MinRequirement": "Total 30 Min Requirement",
 }
 
+ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS = [
+    "Interval Start",
+    "Interval End",
+    "Load Zone ID",
+    "Load Zone Name",
+    "Estimated Load",
+    "Estimated BTM Solar",
+]
+
 ISONE_FCM_RECONFIGURATION_COLUMNS = [
     "Interval Start",
     "Interval End",
+    "ARA",
     "Location Type",
     "Location ID",
     "Location Name",

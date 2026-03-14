@@ -45,6 +45,7 @@ __all__ = (
     "DescribeConfigRulesPaginatorName",
     "DescribeConfigurationAggregatorSourcesStatusPaginatorName",
     "DescribeConfigurationAggregatorsPaginatorName",
+    "DescribeConformancePackCompliancePaginatorName",
     "DescribeConformancePackStatusPaginatorName",
     "DescribeConformancePacksPaginatorName",
     "DescribeOrganizationConfigRuleStatusesPaginatorName",
@@ -135,6 +136,7 @@ DescribeConfigurationAggregatorSourcesStatusPaginatorName = Literal[
     "describe_configuration_aggregator_sources_status"
 ]
 DescribeConfigurationAggregatorsPaginatorName = Literal["describe_configuration_aggregators"]
+DescribeConformancePackCompliancePaginatorName = Literal["describe_conformance_pack_compliance"]
 DescribeConformancePackStatusPaginatorName = Literal["describe_conformance_pack_status"]
 DescribeConformancePacksPaginatorName = Literal["describe_conformance_packs"]
 DescribeOrganizationConfigRuleStatusesPaginatorName = Literal[
@@ -891,6 +893,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -932,13 +935,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -978,7 +981,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -1153,7 +1155,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -1218,6 +1222,7 @@ PaginatorName = Literal[
     "describe_config_rules",
     "describe_configuration_aggregator_sources_status",
     "describe_configuration_aggregators",
+    "describe_conformance_pack_compliance",
     "describe_conformance_pack_status",
     "describe_conformance_packs",
     "describe_organization_config_rule_statuses",

@@ -6,7 +6,7 @@ use guacr_handlers::{
     record_client_input, send_and_record, send_bell, send_disconnect, send_error_best_effort,
     send_name, send_ready, CursorManager, EventBasedHandler, EventCallback, HandlerError,
     HandlerSecuritySettings, HandlerStats, HealthStatus, KeepAliveManager, MultiFormatRecorder,
-    PipeStreamManager, ProtocolHandler, RecordingConfig, StandardCursor,
+    PipeStreamManager, ProtocolHandler, RecordingConfig, StandardCursor, VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS, PIPE_NAME_STDIN, PIPE_STREAM_STDOUT,
 };
 use guacr_protocol::{format_chunked_blobs, TextProtocolEncoder};
@@ -359,6 +359,7 @@ impl ProtocolHandler for SerialConsoleHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Serial console handler starting connection");
 
@@ -557,7 +558,7 @@ impl ProtocolHandler for SerialConsoleHandler {
                 _ = keepalive_interval.tick() => {
                     if let Some(sync_instr) = keepalive.check() {
                         trace!("Serial: Sending keep-alive sync");
-                        if to_client.send(sync_instr).await.is_err() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
                             info!("Serial: Client channel closed, ending session");
                             break;
                         }
@@ -1029,12 +1030,16 @@ impl EventBasedHandler for SerialConsoleHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096, // channel capacity
         )
         .await

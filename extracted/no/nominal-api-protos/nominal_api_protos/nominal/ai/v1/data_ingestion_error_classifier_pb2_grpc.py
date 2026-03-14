@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.ai.v1 import data_ingestion_error_classifier_pb2 as nominal_dot_ai_dot_v1_dot_data__ingestion__error__classifier__pb2
+from nominal_api_protos.nominal.ai.v1 import data_ingestion_error_classifier_pb2 as nominal_dot_ai_dot_v1_dot_data__ingestion__error__classifier__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

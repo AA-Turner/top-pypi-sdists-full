@@ -549,3 +549,15 @@ class GetQueryMetricsResponse(_message.Message):
     METRICS_FIELD_NUMBER: _ClassVar[int]
     metrics: _containers.RepeatedCompositeFieldContainer[EntityMetrics]
     def __init__(self, metrics: _Optional[_Iterable[_Union[EntityMetrics, _Mapping]]] = ...) -> None: ...
+
+class GetMetricOptionsRequest(_message.Message):
+    __slots__ = ("metric_kind",)
+    METRIC_KIND_FIELD_NUMBER: _ClassVar[int]
+    metric_kind: _chart_pb2.MetricKind
+    def __init__(self, metric_kind: _Optional[_Union[_chart_pb2.MetricKind, str]] = ...) -> None: ...
+
+class GetMetricOptionsResponse(_message.Message):
+    __slots__ = ("metric_options",)
+    METRIC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    metric_options: MetricOptions
+    def __init__(self, metric_options: _Optional[_Union[MetricOptions, _Mapping]] = ...) -> None: ...

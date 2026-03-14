@@ -1,6 +1,6 @@
 [package]
 name = "uv-preview"
-version = "0.0.29"
+version = "0.0.30"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -9,6 +9,9 @@ repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 readme = "README.md"
+
+[package.metadata.cargo-shear]
+ignored = ["uv-preview"]
 
 [lib]
 doctest = false
@@ -24,6 +27,8 @@ itertools = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+uv-preview = { path = ".", features = ["testing"] }
 
 [features]
 default = []
+testing = []

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-azure-openai
-Version: 0.5.0
+Version: 0.5.1
 Summary: llama-index llms azure openai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
@@ -9,7 +9,7 @@ Requires-Python: <4.0,>=3.10
 Requires-Dist: azure-identity<2,>=1.15.0
 Requires-Dist: httpx
 Requires-Dist: llama-index-core<0.15,>=0.14.3
-Requires-Dist: llama-index-llms-openai<0.7,>=0.6.0
+Requires-Dist: llama-index-llms-openai<0.8,>=0.7.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex Llms Integration: Azure Openai

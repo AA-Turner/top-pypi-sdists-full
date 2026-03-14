@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.connect.download.v1 import connect_download_pb2 as nominal_dot_connect_dot_download_dot_v1_dot_connect__download__pb2
+from nominal_api_protos.nominal.connect.download.v1 import connect_download_pb2 as nominal_dot_connect_dot_download_dot_v1_dot_connect__download__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

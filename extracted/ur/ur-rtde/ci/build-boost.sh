@@ -7,4 +7,3 @@ cd boost_1_68_0
 ./b2 -j${NCORES} cxxflags="-fPIC" runtime-link=static variant=release link=static install
 cd ..
 rm -rf download.bz2 boost_1_68_0
-

@@ -23,8 +23,21 @@ Usage::
         ListExportErrorsPaginator,
         ListExportsPaginator,
         ListImportErrorsPaginator,
+        ListImportFileEnrichmentsPaginator,
         ListImportsPaginator,
         ListManagedAccountsPaginator,
+        ListNetworkMigrationAnalysesPaginator,
+        ListNetworkMigrationAnalysisResultsPaginator,
+        ListNetworkMigrationCodeGenerationSegmentsPaginator,
+        ListNetworkMigrationCodeGenerationsPaginator,
+        ListNetworkMigrationDefinitionsPaginator,
+        ListNetworkMigrationDeployedStacksPaginator,
+        ListNetworkMigrationDeploymentsPaginator,
+        ListNetworkMigrationExecutionsPaginator,
+        ListNetworkMigrationMapperSegmentConstructsPaginator,
+        ListNetworkMigrationMapperSegmentsPaginator,
+        ListNetworkMigrationMappingUpdatesPaginator,
+        ListNetworkMigrationMappingsPaginator,
         ListSourceServerActionsPaginator,
         ListTemplateActionsPaginator,
         ListWavesPaginator,
@@ -44,8 +57,21 @@ Usage::
     list_export_errors_paginator: ListExportErrorsPaginator = client.get_paginator("list_export_errors")
     list_exports_paginator: ListExportsPaginator = client.get_paginator("list_exports")
     list_import_errors_paginator: ListImportErrorsPaginator = client.get_paginator("list_import_errors")
+    list_import_file_enrichments_paginator: ListImportFileEnrichmentsPaginator = client.get_paginator("list_import_file_enrichments")
     list_imports_paginator: ListImportsPaginator = client.get_paginator("list_imports")
     list_managed_accounts_paginator: ListManagedAccountsPaginator = client.get_paginator("list_managed_accounts")
+    list_network_migration_analyses_paginator: ListNetworkMigrationAnalysesPaginator = client.get_paginator("list_network_migration_analyses")
+    list_network_migration_analysis_results_paginator: ListNetworkMigrationAnalysisResultsPaginator = client.get_paginator("list_network_migration_analysis_results")
+    list_network_migration_code_generation_segments_paginator: ListNetworkMigrationCodeGenerationSegmentsPaginator = client.get_paginator("list_network_migration_code_generation_segments")
+    list_network_migration_code_generations_paginator: ListNetworkMigrationCodeGenerationsPaginator = client.get_paginator("list_network_migration_code_generations")
+    list_network_migration_definitions_paginator: ListNetworkMigrationDefinitionsPaginator = client.get_paginator("list_network_migration_definitions")
+    list_network_migration_deployed_stacks_paginator: ListNetworkMigrationDeployedStacksPaginator = client.get_paginator("list_network_migration_deployed_stacks")
+    list_network_migration_deployments_paginator: ListNetworkMigrationDeploymentsPaginator = client.get_paginator("list_network_migration_deployments")
+    list_network_migration_executions_paginator: ListNetworkMigrationExecutionsPaginator = client.get_paginator("list_network_migration_executions")
+    list_network_migration_mapper_segment_constructs_paginator: ListNetworkMigrationMapperSegmentConstructsPaginator = client.get_paginator("list_network_migration_mapper_segment_constructs")
+    list_network_migration_mapper_segments_paginator: ListNetworkMigrationMapperSegmentsPaginator = client.get_paginator("list_network_migration_mapper_segments")
+    list_network_migration_mapping_updates_paginator: ListNetworkMigrationMappingUpdatesPaginator = client.get_paginator("list_network_migration_mapping_updates")
+    list_network_migration_mappings_paginator: ListNetworkMigrationMappingsPaginator = client.get_paginator("list_network_migration_mappings")
     list_source_server_actions_paginator: ListSourceServerActionsPaginator = client.get_paginator("list_source_server_actions")
     list_template_actions_paginator: ListTemplateActionsPaginator = client.get_paginator("list_template_actions")
     list_waves_paginator: ListWavesPaginator = client.get_paginator("list_waves")
@@ -82,10 +108,36 @@ from .type_defs import (
     ListExportsResponseTypeDef,
     ListImportErrorsRequestPaginateTypeDef,
     ListImportErrorsResponseTypeDef,
+    ListImportFileEnrichmentsRequestPaginateTypeDef,
+    ListImportFileEnrichmentsResponseTypeDef,
     ListImportsRequestPaginateTypeDef,
     ListImportsResponseTypeDef,
     ListManagedAccountsRequestPaginateTypeDef,
     ListManagedAccountsResponseTypeDef,
+    ListNetworkMigrationAnalysesRequestPaginateTypeDef,
+    ListNetworkMigrationAnalysesResponseTypeDef,
+    ListNetworkMigrationAnalysisResultsRequestPaginateTypeDef,
+    ListNetworkMigrationAnalysisResultsResponseTypeDef,
+    ListNetworkMigrationCodeGenerationSegmentsRequestPaginateTypeDef,
+    ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef,
+    ListNetworkMigrationCodeGenerationsRequestPaginateTypeDef,
+    ListNetworkMigrationCodeGenerationsResponseTypeDef,
+    ListNetworkMigrationDefinitionsRequestPaginateTypeDef,
+    ListNetworkMigrationDefinitionsResponseTypeDef,
+    ListNetworkMigrationDeployedStacksRequestPaginateTypeDef,
+    ListNetworkMigrationDeployedStacksResponseTypeDef,
+    ListNetworkMigrationDeployerJobResponseTypeDef,
+    ListNetworkMigrationDeploymentsRequestPaginateTypeDef,
+    ListNetworkMigrationExecutionsRequestPaginateTypeDef,
+    ListNetworkMigrationExecutionsResponseTypeDef,
+    ListNetworkMigrationMapperSegmentConstructsRequestPaginateTypeDef,
+    ListNetworkMigrationMapperSegmentConstructsResponseTypeDef,
+    ListNetworkMigrationMapperSegmentsRequestPaginateTypeDef,
+    ListNetworkMigrationMapperSegmentsResponseTypeDef,
+    ListNetworkMigrationMappingsRequestPaginateTypeDef,
+    ListNetworkMigrationMappingsResponseTypeDef,
+    ListNetworkMigrationMappingUpdatesRequestPaginateTypeDef,
+    ListNetworkMigrationMappingUpdatesResponseTypeDef,
     ListSourceServerActionsRequestPaginateTypeDef,
     ListSourceServerActionsResponseTypeDef,
     ListTemplateActionsRequestPaginateTypeDef,
@@ -112,8 +164,21 @@ __all__ = (
     "ListExportErrorsPaginator",
     "ListExportsPaginator",
     "ListImportErrorsPaginator",
+    "ListImportFileEnrichmentsPaginator",
     "ListImportsPaginator",
     "ListManagedAccountsPaginator",
+    "ListNetworkMigrationAnalysesPaginator",
+    "ListNetworkMigrationAnalysisResultsPaginator",
+    "ListNetworkMigrationCodeGenerationSegmentsPaginator",
+    "ListNetworkMigrationCodeGenerationsPaginator",
+    "ListNetworkMigrationDefinitionsPaginator",
+    "ListNetworkMigrationDeployedStacksPaginator",
+    "ListNetworkMigrationDeploymentsPaginator",
+    "ListNetworkMigrationExecutionsPaginator",
+    "ListNetworkMigrationMapperSegmentConstructsPaginator",
+    "ListNetworkMigrationMapperSegmentsPaginator",
+    "ListNetworkMigrationMappingUpdatesPaginator",
+    "ListNetworkMigrationMappingsPaginator",
     "ListSourceServerActionsPaginator",
     "ListTemplateActionsPaginator",
     "ListWavesPaginator",
@@ -360,6 +425,27 @@ class ListImportErrorsPaginator(_ListImportErrorsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListImportFileEnrichmentsPaginatorBase = Paginator[ListImportFileEnrichmentsResponseTypeDef]
+else:
+    _ListImportFileEnrichmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListImportFileEnrichmentsPaginator(_ListImportFileEnrichmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListImportFileEnrichments.html#Mgn.Paginator.ListImportFileEnrichments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listimportfileenrichmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListImportFileEnrichmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListImportFileEnrichmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListImportFileEnrichments.html#Mgn.Paginator.ListImportFileEnrichments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listimportfileenrichmentspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListImportsPaginatorBase = Paginator[ListImportsResponseTypeDef]
 else:
     _ListImportsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -398,6 +484,290 @@ class ListManagedAccountsPaginator(_ListManagedAccountsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListManagedAccounts.html#Mgn.Paginator.ListManagedAccounts.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listmanagedaccountspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationAnalysesPaginatorBase = Paginator[
+        ListNetworkMigrationAnalysesResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationAnalysesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationAnalysesPaginator(_ListNetworkMigrationAnalysesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationAnalyses.html#Mgn.Paginator.ListNetworkMigrationAnalyses)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationanalysespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationAnalysesRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationAnalysesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationAnalyses.html#Mgn.Paginator.ListNetworkMigrationAnalyses.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationanalysespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationAnalysisResultsPaginatorBase = Paginator[
+        ListNetworkMigrationAnalysisResultsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationAnalysisResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationAnalysisResultsPaginator(
+    _ListNetworkMigrationAnalysisResultsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationAnalysisResults.html#Mgn.Paginator.ListNetworkMigrationAnalysisResults)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationanalysisresultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationAnalysisResultsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationAnalysisResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationAnalysisResults.html#Mgn.Paginator.ListNetworkMigrationAnalysisResults.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationanalysisresultspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationCodeGenerationSegmentsPaginatorBase = Paginator[
+        ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationCodeGenerationSegmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationCodeGenerationSegmentsPaginator(
+    _ListNetworkMigrationCodeGenerationSegmentsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationCodeGenerationSegments.html#Mgn.Paginator.ListNetworkMigrationCodeGenerationSegments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationcodegenerationsegmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationCodeGenerationSegmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationCodeGenerationSegments.html#Mgn.Paginator.ListNetworkMigrationCodeGenerationSegments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationcodegenerationsegmentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationCodeGenerationsPaginatorBase = Paginator[
+        ListNetworkMigrationCodeGenerationsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationCodeGenerationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationCodeGenerationsPaginator(
+    _ListNetworkMigrationCodeGenerationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationCodeGenerations.html#Mgn.Paginator.ListNetworkMigrationCodeGenerations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationcodegenerationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationCodeGenerationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationCodeGenerationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationCodeGenerations.html#Mgn.Paginator.ListNetworkMigrationCodeGenerations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationcodegenerationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationDefinitionsPaginatorBase = Paginator[
+        ListNetworkMigrationDefinitionsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationDefinitionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationDefinitionsPaginator(_ListNetworkMigrationDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDefinitions.html#Mgn.Paginator.ListNetworkMigrationDefinitions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdefinitionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationDefinitionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationDefinitionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDefinitions.html#Mgn.Paginator.ListNetworkMigrationDefinitions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdefinitionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationDeployedStacksPaginatorBase = Paginator[
+        ListNetworkMigrationDeployedStacksResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationDeployedStacksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationDeployedStacksPaginator(_ListNetworkMigrationDeployedStacksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDeployedStacks.html#Mgn.Paginator.ListNetworkMigrationDeployedStacks)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdeployedstackspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationDeployedStacksRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationDeployedStacksResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDeployedStacks.html#Mgn.Paginator.ListNetworkMigrationDeployedStacks.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdeployedstackspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationDeploymentsPaginatorBase = Paginator[
+        ListNetworkMigrationDeployerJobResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationDeploymentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationDeploymentsPaginator(_ListNetworkMigrationDeploymentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDeployments.html#Mgn.Paginator.ListNetworkMigrationDeployments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdeploymentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationDeploymentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationDeployerJobResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationDeployments.html#Mgn.Paginator.ListNetworkMigrationDeployments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationdeploymentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationExecutionsPaginatorBase = Paginator[
+        ListNetworkMigrationExecutionsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationExecutionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationExecutionsPaginator(_ListNetworkMigrationExecutionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationExecutions.html#Mgn.Paginator.ListNetworkMigrationExecutions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationexecutionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationExecutionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationExecutionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationExecutions.html#Mgn.Paginator.ListNetworkMigrationExecutions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationexecutionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationMapperSegmentConstructsPaginatorBase = Paginator[
+        ListNetworkMigrationMapperSegmentConstructsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationMapperSegmentConstructsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationMapperSegmentConstructsPaginator(
+    _ListNetworkMigrationMapperSegmentConstructsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMapperSegmentConstructs.html#Mgn.Paginator.ListNetworkMigrationMapperSegmentConstructs)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappersegmentconstructspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationMapperSegmentConstructsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationMapperSegmentConstructsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMapperSegmentConstructs.html#Mgn.Paginator.ListNetworkMigrationMapperSegmentConstructs.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappersegmentconstructspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationMapperSegmentsPaginatorBase = Paginator[
+        ListNetworkMigrationMapperSegmentsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationMapperSegmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationMapperSegmentsPaginator(_ListNetworkMigrationMapperSegmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMapperSegments.html#Mgn.Paginator.ListNetworkMigrationMapperSegments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappersegmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationMapperSegmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationMapperSegmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMapperSegments.html#Mgn.Paginator.ListNetworkMigrationMapperSegments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappersegmentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationMappingUpdatesPaginatorBase = Paginator[
+        ListNetworkMigrationMappingUpdatesResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationMappingUpdatesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationMappingUpdatesPaginator(_ListNetworkMigrationMappingUpdatesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMappingUpdates.html#Mgn.Paginator.ListNetworkMigrationMappingUpdates)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappingupdatespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationMappingUpdatesRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationMappingUpdatesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMappingUpdates.html#Mgn.Paginator.ListNetworkMigrationMappingUpdates.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappingupdatespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListNetworkMigrationMappingsPaginatorBase = Paginator[
+        ListNetworkMigrationMappingsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationMappingsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListNetworkMigrationMappingsPaginator(_ListNetworkMigrationMappingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMappings.html#Mgn.Paginator.ListNetworkMigrationMappings)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappingspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationMappingsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationMappingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMappings.html#Mgn.Paginator.ListNetworkMigrationMappings.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgn/paginators/#listnetworkmigrationmappingspaginator)
         """
 
 

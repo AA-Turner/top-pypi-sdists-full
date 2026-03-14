@@ -5,6 +5,8 @@ import logging
 from typing import Any, Mapping, Optional
 
 from annoying.fields import AutoOneToOneField
+from core.current_request import CurrentContext
+from core.feature_flags import flag_set
 from core.label_config import (
     check_control_in_config_by_regex,
     check_toname_in_config_by_regex,
@@ -35,6 +37,7 @@ from django.db.models.expressions import RawSQL
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from fsm.models import FsmHistoryStateModel
+from fsm.project_transitions import update_project_state_after_task_change
 from fsm.queryset_mixins import FSMStateQuerySetMixin
 from label_studio_sdk._extensions.label_studio_tools.core.label_config import parse_config
 from labels_manager.models import Label
@@ -313,11 +316,21 @@ class Project(ProjectMixin, FsmHistoryStateModel):
     skip_queue = models.CharField(
         max_length=100, choices=SkipQueue.choices, null=True, default=SkipQueue.REQUEUE_FOR_OTHERS
     )
+
+    # Deprecated in favor of annotator_evaluation_enabled
     show_ground_truth_first = models.BooleanField(
         _('show ground truth first'),
         default=False,
         help_text='Onboarding mode (true): show ground truth tasks first in the labeling stream',
     )
+
+    annotator_evaluation_enabled = models.BooleanField(
+        _('annotator evaluation enabled'),
+        default=False,
+        db_default=False,
+        help_text='Enable annotator evaluation for the project',
+    )
+
     show_overlap_first = models.BooleanField(_('show overlap first'), default=False)
     overlap_cohort_percentage = models.IntegerField(_('overlap_cohort_percentage'), default=100)
 
@@ -529,6 +542,15 @@ class Project(ProjectMixin, FsmHistoryStateModel):
         elif tasks_number_changed and self.overlap_cohort_percentage < 100 and self.maximum_annotations > 1:
             self._rearrange_overlap_cohort()
 
+        if tasks_number_changed:
+            # FSM: Recalculate project state after task deletion or import
+            # Set user from project when missing (e.g. when called from async worker)
+            if CurrentContext.get_user() is None and self.created_by_id:
+                CurrentContext.set_user(self.created_by)
+            if CurrentContext.is_fsm_enabled():
+                user = CurrentContext.get_user()
+                update_project_state_after_task_change(self, user=user)
+
     def _batch_update_with_retry(self, queryset, batch_size=500, max_retries=3, **update_fields):
         batch_update_with_retry(queryset, batch_size, max_retries, **update_fields)
 
@@ -558,17 +580,24 @@ class Project(ProjectMixin, FsmHistoryStateModel):
                 all_project_tasks.filter(id__in=ids), overlap=max_annotations, is_labeled=True
             )
             # order other tasks by count(annotations)
-            tasks_with_min_annotations = (
-                tasks_with_min_annotations.annotate(anno=Count('annotations')).order_by('-anno').distinct()
-            )
+            tasks_with_min_annotations = tasks_with_min_annotations.annotate(annotation_count=Count('annotations'))
+            if flag_set('fflag_feat_utc_563_randomize_overlap_cohort', user='auto'):
+                # Randomize within tie groups so cohort selection isn't deterministic.
+                # If there are many tasks with the same annotation count, their order is random.
+                tasks_with_min_annotations = tasks_with_min_annotations.order_by('-annotation_count', '?')
+            else:
+                tasks_with_min_annotations = tasks_with_min_annotations.order_by('-annotation_count').distinct()
+
+            # Materialize the full ID list once to ensure consistent ordering across slices, instead of slicing twice with random ordering.
+            all_min_ids = list(tasks_with_min_annotations.values_list('id', flat=True))
+            cohort_ids = all_min_ids[:left_must_tasks]
+            remaining_ids = all_min_ids[left_must_tasks:]
+
             # assign overlap depending on annotation count
             # assign max_annotations and update is_labeled
-            ids = list(tasks_with_min_annotations[:left_must_tasks].values_list('id', flat=True))
-            self._batch_update_with_retry(all_project_tasks.filter(id__in=ids), overlap=max_annotations)
+            self._batch_update_with_retry(all_project_tasks.filter(id__in=cohort_ids), overlap=max_annotations)
             # assign 1 to left
-            ids = list(tasks_with_min_annotations[left_must_tasks:].values_list('id', flat=True))
-            min_tasks_to_update = all_project_tasks.filter(id__in=ids)
-            self._batch_update_with_retry(min_tasks_to_update, overlap=1)
+            self._batch_update_with_retry(all_project_tasks.filter(id__in=remaining_ids), overlap=1)
         else:
             ids = list(tasks_with_max_annotations.values_list('id', flat=True))
             self._batch_update_with_retry(all_project_tasks.filter(id__in=ids), overlap=max_annotations)

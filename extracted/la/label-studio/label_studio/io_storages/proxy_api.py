@@ -1,10 +1,11 @@
 import base64
 import logging
+import mimetypes
 import time
 from typing import Union
 from urllib.parse import unquote
 
-from core.feature_flags import flag_set
+from core.utils.exceptions import extract_message
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, StreamingHttpResponse
 from drf_spectacular.utils import extend_schema
@@ -39,21 +40,17 @@ class ResolveStorageUriAPIMixin:
             fileuri = unquote(fileuri)
 
         # Try to find storage by URL
-        project = None
-        if flag_set('fflag_optic_all_optic_1938_storage_proxy', user='auto'):
-            project = instance if isinstance(instance, Project) else instance.project
-            storage_objects = project.get_all_import_storage_objects
-            storage = get_storage_by_url(fileuri, storage_objects)
-            if not storage:
-                logger.error(f'Could not find storage for URI {fileuri}')
-                return Response(status=status.HTTP_404_NOT_FOUND)
-            # Not all storages support presigned URLs
-            if not hasattr(storage, 'presign'):
-                logger.error(f'Storage {storage} does not support presign URLs')
-                return Response(status=status.HTTP_404_NOT_FOUND)
-            presign = storage.presign
-        else:
-            presign = True
+        project = instance if isinstance(instance, Project) else instance.project
+        storage_objects = project.get_all_import_storage_objects
+        storage = get_storage_by_url(fileuri, storage_objects)
+        if not storage:
+            logger.error(f'Could not find storage for URI {fileuri}')
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        # Not all storages support presigned URLs
+        if not hasattr(storage, 'presign'):
+            logger.error(f'Storage {storage} does not support presign URLs')
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        presign = storage.presign
 
         # Check if storage should use presigned URLs;
         # It's important to have this check here, because it increases security:
@@ -250,6 +247,13 @@ class ResolveStorageUriAPIMixin:
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
+            # Detect content type from URI file extension as a safety net for all storage types
+            # when the storage returns a generic type like binary/octet-stream or application/octet-stream
+            if not content_type or 'octet-stream' in content_type:
+                guessed_type, _ = mimetypes.guess_type(uri)
+                if guessed_type:
+                    content_type = guessed_type
+
             # Create time-limited stream
             time_limited_stream = self.time_limited_chunker(stream)
 
@@ -272,7 +276,7 @@ class ResolveStorageUriAPIMixin:
         except Exception as e:
             logger.error(f'Error in direct proxy from storage: {e}', exc_info=True)
             return Response(
-                {'error': 'Storage stream failed while proxying data', 'detail': str(e)},
+                {'error': 'Storage stream failed while proxying data', 'detail': extract_message(e)},
                 status=status.HTTP_424_FAILED_DEPENDENCY,
             )
 

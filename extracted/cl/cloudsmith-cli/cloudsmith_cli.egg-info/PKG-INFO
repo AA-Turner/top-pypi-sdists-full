@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.13.0
+Version: 1.14.0
 Summary: Cloudsmith Command-Line Interface (CLI)
 Home-page: https://github.com/cloudsmith-io/cloudsmith-cli
 Author: Cloudsmith Ltd
@@ -37,6 +37,7 @@ Requires-Dist: mcp==1.9.1
 Requires-Dist: python-toon==0.1.2
 Requires-Dist: requests>=2.18.4
 Requires-Dist: requests_toolbelt>=1.0.0
+Requires-Dist: rich>=13.0.0
 Requires-Dist: semver>=2.7.9
 Requires-Dist: urllib3>=2.5
 Dynamic: author
@@ -87,6 +88,7 @@ The CLI currently supports the following commands (and sub-commands):
 - `delete`|`rm`:          Delete a package from a repository.
 - `dependencies`|`deps`:  List direct (non-transitive) dependencies for a package.
 - `docs`:                 Launch the help website in your browser.
+- `download`:  Download a package from a repository.
 - `entitlements`|`ents`:  Manage the entitlements for a repository.
   - `create`|`new`:         Create a new entitlement in a repository.
   - `delete`|`rm`:          Delete an entitlement from a repository.
@@ -168,6 +170,7 @@ The CLI currently supports the following commands (and sub-commands):
   - `rpm`:                  Manage rpm upstreams for a repository.
   - `ruby`:                 Manage ruby upstreams for a repository.
   - `swift`:                Manage swift upstreams for a repository.
+- `vulnerabilities`:      Retrieve vulnerability results for a package.
 - `whoami`:               Retrieve your current authentication status.
 
 ## Installation
@@ -302,6 +305,45 @@ Want to know how to do it with another packaging format? Easy, just ask for help
 
 ```
 cloudsmith push rpm --help
+```
+
+
+## Downloading Packages
+
+You can download packages from repositories using the `cloudsmith download` command. The CLI supports various filtering options to help you find and download the exact package you need.
+
+For example, to download a specific package:
+
+```
+cloudsmith download your-account/your-repo package-name
+```
+
+You can filter by various attributes like version, format, architecture, operating system, and tags:
+
+```
+# Download a specific version
+cloudsmith download your-account/your-repo package-name --version 1.2.3
+
+# Filter by format and architecture
+cloudsmith download your-account/your-repo package-name --format deb --arch amd64
+
+# Filter by package tag (e.g., latest, stable, beta)
+cloudsmith download your-account/your-repo package-name --tag latest
+
+# Combine tag with metadata filters
+cloudsmith download your-account/your-repo package-name --tag stable --format deb --arch arm64
+
+# Download all associated files (POM, sources, javadoc, etc.)
+cloudsmith download your-account/your-repo package-name --all-files
+
+# Preview what would be downloaded without actually downloading
+cloudsmith download your-account/your-repo package-name --dry-run
+```
+
+For more advanced usage and all available options:
+
+```
+cloudsmith download --help
 ```
 
 

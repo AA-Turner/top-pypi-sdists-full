@@ -12,6 +12,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 default_tool_files = {
     "special_tools": os.path.join(current_dir, "data", "special_tools.json"),
+    "tooluniverse_page": os.path.join(
+        current_dir, "data", "tooluniverse_page_tools.json"
+    ),
     "tool_finder": os.path.join(current_dir, "data", "finder_tools.json"),
     # 'tool_finder_llm': os.path.join(current_dir, 'data', 'tool_finder_llm_config.json'),
     "opentarget": os.path.join(current_dir, "data", "opentarget_tools.json"),

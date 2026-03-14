@@ -5,7 +5,9 @@
 // compatibility if handlers don't support EventBasedHandler trait yet.
 
 use async_trait::async_trait;
-use guacr_handlers::{EventCallback, HandlerError, HandlerEvent, ProtocolHandlerRegistry};
+use guacr_handlers::{
+    EventCallback, HandlerError, HandlerEvent, ProtocolHandlerRegistry, VideoOutput,
+};
 
 use crate::channel::core::Channel;
 use crate::models::ConversationType;
@@ -393,6 +395,8 @@ pub async fn invoke_builtin_handler(
         let handler_senders = channel.handler_senders.clone();
         let conn_closed_tx_clone = channel.conn_closed_tx.clone();
         let channel_id_clone = channel.channel_id.clone();
+        // Clone video_output before the spawn — channel is a borrow, can't cross spawn boundary
+        let video_tx_for_handler: Option<Arc<dyn VideoOutput>> = channel.video_output.clone();
         let handler_handle = tokio::spawn(async move {
             debug!(
                 "Event-based handler task started for protocol: {}",
@@ -402,7 +406,7 @@ pub async fn invoke_builtin_handler(
             // Get event handler inside the task (where handler_arc lives)
             if let Some(event_handler) = handler_arc.as_event_based() {
                 match event_handler
-                    .connect_with_events(params, callback, from_client_rx)
+                    .connect_with_events(params, callback, from_client_rx, video_tx_for_handler)
                     .await
                 {
                     Ok(()) => {
@@ -467,6 +471,8 @@ pub async fn invoke_builtin_handler(
 
     let protocol_for_handler = protocol_name.clone();
     let protocol_for_outbound = protocol_name.clone();
+    // Clone before spawn — channel is a borrow, can't cross spawn boundary
+    let video_tx_for_handler: Option<Arc<dyn VideoOutput>> = channel.video_output.clone();
 
     // Spawn protocol handler task
     let handler_task = tokio::spawn(async move {
@@ -476,7 +482,12 @@ pub async fn invoke_builtin_handler(
         );
 
         match handler
-            .connect(params, handler_to_webrtc, handler_from_webrtc)
+            .connect(
+                params,
+                handler_to_webrtc,
+                handler_from_webrtc,
+                video_tx_for_handler,
+            )
             .await
         {
             Ok(()) => {

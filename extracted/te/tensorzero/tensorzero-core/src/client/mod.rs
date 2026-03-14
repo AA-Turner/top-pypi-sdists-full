@@ -351,10 +351,6 @@ pub enum TensorZeroError {
         source: TensorZeroInternalError,
     },
     RequestTimeout,
-    Git {
-        #[source]
-        source: git2::Error,
-    },
 }
 
 impl Display for TensorZeroError {
@@ -373,7 +369,6 @@ impl Display for TensorZeroError {
             }
             TensorZeroError::Other { source } => write!(f, "{source}"),
             TensorZeroError::RequestTimeout => write!(f, "HTTP Error: request timed out"),
-            TensorZeroError::Git { source } => write!(f, "Failed to get git info: {source}"),
         }
     }
 }
@@ -589,7 +584,7 @@ impl ClientBuilder {
                         })?
                 };
                 let clickhouse_connection_info =
-                    setup_clickhouse(&unwritten_config, clickhouse_url.clone(), true)
+                    setup_clickhouse(&unwritten_config, clickhouse_url.clone())
                         .await
                         .map_err(|e| {
                             ClientBuilderError::Clickhouse(TensorZeroError::Other {
@@ -773,7 +768,7 @@ impl ClientBuilder {
         })?;
 
         // Setup ClickHouse with runtime URL
-        let clickhouse_connection_info = setup_clickhouse(&unwritten_config, clickhouse_url, true)
+        let clickhouse_connection_info = setup_clickhouse(&unwritten_config, clickhouse_url)
             .await
             .map_err(|e| {
                 ClientBuilderError::Clickhouse(TensorZeroError::Other { source: e.into() })
@@ -1300,7 +1295,7 @@ mod tests {
     async fn test_gateway_fails_to_start_with_observability_and_missing_clickhouse_url() {
         // This config file requires ClickHouse (backend = "clickhouse"), so it should fail if no ClickHouse URL is provided
         let err = ClientBuilder::new(ClientBuilderMode::EmbeddedGateway {
-            config_file: Some(PathBuf::from("../clients/rust/tests/test_config.toml")),
+            config_file: Some(PathBuf::from("../tensorzero-client/tests/test_config.toml")),
             clickhouse_url: None,
             postgres_config: None,
             valkey_url: None,
@@ -1325,7 +1320,7 @@ mod tests {
         // the gateway should fail to start without a Postgres connection.
         let err = ClientBuilder::new(ClientBuilderMode::EmbeddedGateway {
             config_file: Some(PathBuf::from(
-                "../clients/rust/tests/test_config_postgres.toml",
+                "../tensorzero-client/tests/test_config_postgres.toml",
             )),
             clickhouse_url: None,
             postgres_config: None,
@@ -1350,7 +1345,7 @@ mod tests {
         // the gateway should start even without ClickHouse.
         ClientBuilder::new(ClientBuilderMode::EmbeddedGateway {
             config_file: Some(PathBuf::from(
-                "../clients/rust/tests/test_config_postgres.toml",
+                "../tensorzero-client/tests/test_config_postgres.toml",
             )),
             clickhouse_url: None,
             postgres_config: Some(PostgresConfig::ExistingConnectionInfo(
@@ -1517,12 +1512,13 @@ mod tests {
         .build()
         .await
         .expect("Failed to build client");
+
+        // This setup has no Clickhouse or Postgres, and observability is not explicitly enabled.
+        // We should be able to start up, but log warnings.
         assert!(!logs_contain(
             "Missing environment variable TENSORZERO_CLICKHOUSE_URL"
         ));
-        assert!(logs_contain(
-            "`gateway.observability.enabled` is not explicitly specified in config and `clickhouse_url` was not provided."
-        ));
+        assert!(logs_contain("Disabling observability:"));
     }
 
     #[tokio::test]
@@ -1546,9 +1542,10 @@ mod tests {
         assert!(logs_contain(
             "No config file provided, so only default functions will be available. Set `config_file` to specify your `tensorzero.toml`"
         ));
-        assert!(logs_contain(
-            "`gateway.observability.enabled` is not explicitly specified in config and `clickhouse_url` was not provided."
-        ));
+
+        // This setup has no Clickhouse or Postgres, and observability is not explicitly enabled.
+        // We should be able to start up, but log warnings.
+        assert!(logs_contain("Disabling observability:"));
     }
 
     #[tokio::test]

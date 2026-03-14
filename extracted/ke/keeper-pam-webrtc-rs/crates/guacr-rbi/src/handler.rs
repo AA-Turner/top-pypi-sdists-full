@@ -13,6 +13,7 @@ use guacr_handlers::{
     RbiSecuritySettings,
     // Recording
     RecordingConfig,
+    VideoOutput,
 };
 use guacr_protocol::STATUS_RESOURCE_CONFLICT;
 use log::info;
@@ -267,6 +268,7 @@ impl ProtocolHandler for RbiHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("RBI handler starting");
 
@@ -454,6 +456,7 @@ impl ProtocolHandler for RbiHandler {
                 self.config.clone(),
                 &recording_config,
                 &params,
+                video_tx,
             );
 
             // Connect and handle session
@@ -502,12 +505,16 @@ impl EventBasedHandler for RbiHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, video_tx| {
+                self.connect(params, to_client, from_client, video_tx)
+            },
             params,
             callback,
             from_client,
+            video_tx,
             4096, // channel capacity
         )
         .await

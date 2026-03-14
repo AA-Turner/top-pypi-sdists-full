@@ -13,6 +13,7 @@
 # limitations under the License.
 """Common RL helper classes and functions."""
 
+from functools import partial  # pylint: disable=g-importing-member
 from typing import Any, Iterable
 
 import flax
@@ -20,6 +21,7 @@ from flax import nnx
 import jax
 from jax import numpy as jnp
 import jax.tree_util as jtu
+import numpy as np
 from tunix.sft import utils
 
 make_causal_attn_mask = utils.make_causal_attn_mask
@@ -126,6 +128,10 @@ def compute_kl_divergence(
   Returns:
     KL divergence.
   """
+  per_token_logps = per_token_logps.astype(jnp.float32)
+  if ref_per_token_logps is not None:
+    ref_per_token_logps = ref_per_token_logps.astype(jnp.float32)
+
   if method == "kl":
     return per_token_logps - ref_per_token_logps
   elif method == "mse_kl":
@@ -156,7 +162,7 @@ def selective_log_softmax(logits: jax.Array, input_ids: jax.Array) -> jax.Array:
 
 
 # TODO(tsbao): remove this once old callsite is cleaned up.
-@nnx.jit(static_argnames=("logits_to_keep"))
+@nnx.jit(static_argnames=("logits_to_keep",))
 def get_per_token_logps(
     model: nnx.Module,
     input_tokens: jax.Array,
@@ -176,7 +182,7 @@ def get_per_token_logps(
 
 # TODO(abheesht): This is computed 4 times - twice in `compute_per_token_logps`
 # and twice in `compute_score`. We can factor this out and compute it just once.
-@nnx.jit(static_argnames=("pad_id", "eos_id"))
+@partial(jax.jit, static_argnames=("pad_id", "eos_id"))
 def process_ids(
     prompt_tokens: jax.Array,
     completion_tokens: jax.Array,
@@ -201,9 +207,13 @@ def process_ids(
   return prompt_completion_ids, positions, attn_mask
 
 
-@nnx.jit(static_argnames=("pad_id", "eos_id", "stop_gradient", "return_logits"))
+@partial(
+    jax.jit,
+    static_argnames=("pad_id", "eos_id", "stop_gradient", "return_logits"),
+)
 def compute_per_token_logps(
-    model: nnx.Module,
+    graphdef,
+    state,
     prompt_tokens: jax.Array,
     completion_tokens: jax.Array,
     pad_id: int,
@@ -213,6 +223,7 @@ def compute_per_token_logps(
     return_logits: bool = False,
 ) -> jax.Array | tuple[jax.Array, jax.Array]:
   """Computes the per-token log probabilities."""
+  model = nnx.merge(graphdef, state)
   input_tokens, positions, attn_mask = process_ids(
       prompt_tokens, completion_tokens, pad_id, eos_id, completion_mask
   )
@@ -266,13 +277,36 @@ def compute_score(
   return per_token_scores
 
 
+def np_make_completion_mask(
+    completion_ids: np.ndarray, eos_tok: int = 0
+) -> np.ndarray:
+  """Numpy version of make_completion_mask which executes on CPU.
+
+  Args:
+    completion_ids: Completion ids with shape [B, T].
+    eos_tok: EOS token id.
+
+  Returns:
+    Completion mask.
+  """
+  is_eos = completion_ids == eos_tok
+  seq_len = is_eos.shape[1]
+
+  first_eos_idx = np.argmax(is_eos, axis=1)
+  any_eos = np.any(is_eos, axis=1)
+  eos_idx = np.where(any_eos, first_eos_idx, seq_len)
+  sequence_indices = np.arange(seq_len)
+
+  return (sequence_indices < eos_idx[:, None] + 1).astype(np.int32)
+
+
 def make_completion_mask(
     completion_ids: jax.Array, eos_tok: int = 0
 ) -> jax.Array:
   """Create completion mask based on the EOS token.
 
   Args:
-    completion_ids: Completion ids.
+    completion_ids: Completion ids with shape [B, T].
     eos_tok: EOS token id.
 
   Returns:
@@ -288,9 +322,7 @@ def make_completion_mask(
   sequence_indices = jnp.broadcast_to(
       sequence_indices, (is_eos.shape[0], is_eos.shape[1])
   )
-  completion_mask = (sequence_indices <= eos_idx[:, None]).astype(jnp.int32)
-
-  return completion_mask
+  return (sequence_indices <= eos_idx[:, None]).astype(jnp.int32)
 
 
 def pad_to_length(
@@ -345,8 +377,11 @@ def aggregate_loss(
       Aggregated loss.
   """
 
+  per_token_loss = per_token_loss.astype(jnp.float32)
+
   if loss_agg_mode == "token-mean":
-    # sum all the token loss, and average by total number of completion token in the batch
+    # sum all the token loss, and average by total number of completion tokens
+    # in the batch
     loss = (per_token_loss * completion_mask).sum() / (
         jnp.clip(completion_mask.sum(), min=1)
     )
@@ -356,14 +391,18 @@ def aggregate_loss(
         seq_mask, min=1
     )
     loss = seq_loss.mean()  # sequence_mean
-  elif loss_agg_mode == "sequence-mean-token-sum-norm":
-    # Get custom normalization factor from kwargs, default to batch size
-    norm = kwargs.get("norm", float(per_token_loss.shape[0]))
+  elif loss_agg_mode == "sequence-mean-token-scale":
+    # Look up custom normalization factor, default to max response length.
+    norm = _check_get_norm(kwargs, per_token_loss.shape[-1])
 
-    if not isinstance(norm, (int, float)) or norm <= 0:
-      raise ValueError(
-          f"Invalid 'norm' value: {norm}. Must be a positive number."
-      )
+    # Scale by maximum response length instead of actual response length.
+    seq_loss = (per_token_loss * completion_mask).sum(axis=-1) / jnp.clip(
+        norm, min=1e-6
+    )
+    loss = seq_loss.mean()
+  elif loss_agg_mode == "sequence-mean-token-sum-norm":
+    # Get custom normalization factor from kwargs, default to batch size.
+    norm = _check_get_norm(kwargs, per_token_loss.shape[0])
 
     # Sum the per-sequence sums and normalize
     # TODO(sizhi): Experiment with loss in precision if loss is fp16.
@@ -371,6 +410,28 @@ def aggregate_loss(
   else:
     raise ValueError(
         f"Unsupported loss aggregation mode: {loss_agg_mode}. Supported modes:"
-        " 'token-mean', 'sequence-mean-token-mean'."
+        " 'token-mean', 'sequence-mean-token-mean',"
+        " 'sequence-mean-token-scale', 'sequence-mean-token-sum-norm'."
     )
   return loss
+
+
+def _check_get_norm(arguments: dict[str, Any], default: float | int) -> float:
+  """Get custom normalization factor from kwargs with a default value.
+
+  Args:
+      arguments: The arguments dictionary.
+      default: The default value to use if no 'norm' key is found.
+
+  Returns:
+      The normalization factor.
+
+  Raises:
+      ValueError: If the 'norm' key is present but has an invalid value or type.
+  """
+  norm = arguments.get("norm", float(default))
+  if not isinstance(norm, (int, float)) or norm <= 0:
+    raise ValueError(
+        f"Invalid 'norm' value: {norm}. Must be a positive number."
+    )
+  return norm

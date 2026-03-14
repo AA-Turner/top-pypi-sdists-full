@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus
-Version: 2.6.9
+Version: 2.6.10
 Summary: Python Sdk for Milvus
 Author-email: PyMilvus Team <pymilvus@zilliz.com>
 Project-URL: repository, https://github.com/milvus-io/pymilvus
@@ -24,6 +24,7 @@ Requires-Dist: python-dotenv<2.0.0,>=1.0.1
 Requires-Dist: pandas>=1.2.4
 Requires-Dist: numpy<1.25.0; python_version <= "3.8"
 Requires-Dist: cachetools>=5.0.0
+Requires-Dist: requests>=2.20.0
 Provides-Extra: bulk-writer
 Requires-Dist: requests; extra == "bulk-writer"
 Requires-Dist: minio>=7.0.0; extra == "bulk-writer"

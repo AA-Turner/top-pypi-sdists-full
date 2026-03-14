@@ -39,6 +39,7 @@ use guacr_handlers::{
     // Recording
     RecordingConfig,
     StandardCursor,
+    VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
     PIPE_NAME_STDIN,
     PIPE_STREAM_STDOUT,
@@ -47,6 +48,7 @@ use guacr_protocol::{
     format_chunked_blobs, TextProtocolEncoder, STATUS_CLIENT_UNAUTHORIZED, STATUS_UPSTREAM_ERROR,
     STATUS_UPSTREAM_TIMEOUT,
 };
+use guacr_recorder::build_terminal_sink;
 use guacr_terminal::{
     extract_selection_text, format_clear_selection_instructions, format_clipboard_instructions,
     format_selection_overlay_instructions, handle_mouse_selection, parse_clipboard_blob,
@@ -54,6 +56,8 @@ use guacr_terminal::{
     x11_keysym_to_kitty_sequence, DirtyTracker, ModifierState, MouseSelection, SelectionResult,
     TerminalConfig, TerminalEmulator, TerminalRenderer,
 };
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{ThreatDetector, ThreatDetectorConfig};
 use log::{debug, error, info, trace, warn};
 use russh::client;
 use russh_keys::key;
@@ -228,6 +232,7 @@ impl ProtocolHandler for SshHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("SSH handler starting connection");
 
@@ -248,6 +253,24 @@ impl ProtocolHandler for SshHandler {
                 recording_config.is_typescript_enabled()
             );
         }
+
+        // Initialize encrypted typescript upload sink (router-side recording).
+        // Returns None when recording_router_base_url or resource_key_bytes are absent.
+        let mut ts_sink = match build_terminal_sink(&params).await {
+            Ok(sink) => {
+                if sink.is_some() {
+                    info!("SSH: Encrypted typescript upload enabled");
+                }
+                sink
+            }
+            Err(e) => {
+                warn!(
+                    "SSH: Failed to connect typescript upload sink: {} — continuing without upload",
+                    e
+                );
+                None
+            }
+        };
 
         // Parse terminal configuration (font, color-scheme, terminal-type, scrollback, backspace)
         let terminal_config = TerminalConfig::from_params(&params);
@@ -704,6 +727,94 @@ impl ProtocolHandler for SshHandler {
         // Use fixed stream ID for main display (reusing stream replaces content, not stacking)
         let stream_id: u32 = 1;
 
+        // Initialize threat detection if the feature is enabled and baml endpoint is configured
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = {
+            if let Some(baml_endpoint) = params.get("threat_detection_baml_endpoint") {
+                let config = ThreatDetectorConfig {
+                    baml_endpoint: baml_endpoint.clone(),
+                    baml_api_key: params.get("threat_detection_baml_api_key").cloned(),
+                    enabled: true,
+                    auto_terminate: params
+                        .get("threat_detection_auto_terminate")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    min_log_level: params
+                        .get("threat_detection_min_log_level")
+                        .and_then(|s| match s.as_str() {
+                            "critical" => Some(guacr_threat_detection::ThreatLevel::Critical),
+                            "high" => Some(guacr_threat_detection::ThreatLevel::High),
+                            "medium" => Some(guacr_threat_detection::ThreatLevel::Medium),
+                            "low" => Some(guacr_threat_detection::ThreatLevel::Low),
+                            _ => None,
+                        })
+                        .unwrap_or(guacr_threat_detection::ThreatLevel::Low),
+                    command_history_size: params
+                        .get("threat_detection_command_history_size")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(10),
+                    timeout_seconds: params
+                        .get("threat_detection_timeout_seconds")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(5),
+                    deny_tags: HashMap::new(),
+                    allow_tags: HashMap::new(),
+                    enable_tag_checking: true,
+                    proactive_mode: params
+                        .get("threat_detection_proactive_mode")
+                        .map(|s| s == "true")
+                        .unwrap_or(false),
+                    approval_timeout_ms: params
+                        .get("threat_detection_approval_timeout_ms")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(2000),
+                    fail_closed_on_error: params
+                        .get("threat_detection_fail_closed_on_error")
+                        .map(|s| s == "true")
+                        .unwrap_or(false),
+                    show_approval_status: params
+                        .get("threat_detection_show_approval_status")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    auto_approve_safe_commands: params
+                        .get("threat_detection_auto_approve_safe_commands")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    config_allow_ai_session_terminate: params
+                        .get("threat_detection_config_allow_ai_session_terminate")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    resource_ai_session_terminate_enabled: params
+                        .get("threat_detection_resource_ai_session_terminate_enabled")
+                        .map(|s| s == "true")
+                        .unwrap_or(true),
+                    level_terminate_flags: HashMap::new(),
+                };
+
+                match ThreatDetector::new(config) {
+                    Ok(detector) => {
+                        info!(
+                            "SSH: Threat detection enabled with BAML endpoint: {}",
+                            baml_endpoint
+                        );
+                        Some(Arc::new(detector))
+                    }
+                    Err(e) => {
+                        warn!("SSH: Failed to initialize threat detection: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        };
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = uuid::Uuid::new_v4().to_string();
+        #[cfg(feature = "threat-detection")]
+        let hostname_for_threat = hostname.clone();
+        #[cfg(feature = "threat-detection")]
+        let username_for_threat = username.clone();
+
         // Initialize pipe stream manager for native terminal display support
         // This enables CLI clients to receive raw terminal output (with ANSI codes)
         // instead of rendered images, allowing display in native terminal apps
@@ -851,7 +962,7 @@ impl ProtocolHandler for SshHandler {
                 _ = keepalive_interval.tick() => {
                     if let Some(sync_instr) = keepalive.check() {
                         trace!("SSH: Sending keep-alive sync");
-                        if to_client.send(sync_instr).await.is_err() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
                             info!("SSH: Client channel closed, ending session");
                             break;
                         }
@@ -1126,6 +1237,52 @@ impl ProtocolHandler for SshHandler {
                                 let _ = rec.record_output(data);
                             }
 
+                            // Threat detection: analyze live terminal output from server
+                            #[cfg(feature = "threat-detection")]
+                            if let Some(ref detector) = threat_detector {
+                                match detector.analyze_terminal_output(
+                                    &threat_session_id,
+                                    data,
+                                    &username_for_threat,
+                                    &hostname_for_threat,
+                                    "ssh",
+                                ).await {
+                                    Ok(threat) => {
+                                        if threat.should_terminate() {
+                                            error!(
+                                                "SSH: TERMINATING SESSION due to threat in terminal output: {}",
+                                                threat.description
+                                            );
+                                            let msg = format!("Session terminated: {}", threat.description);
+                                            send_error_best_effort(&to_client, &msg, 517).await;
+                                            // Finalize typescript recording before exit (flushes buffer + appends GCM tag)
+                                            if let Some(sink) = ts_sink.take() {
+                                                let _ = sink.finalize().await;
+                                            }
+                                            detector.cleanup_session(&threat_session_id);
+                                            return Ok(());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        debug!("SSH: Threat detection error (non-fatal): {}", e);
+                                    }
+                                }
+                            }
+
+                            // Encrypted typescript upload (router-side recording)
+                            let ts_upload_failed = if let Some(ref mut sink) = ts_sink {
+                                sink.write_pty_output(data).await
+                                    .map_err(|e| {
+                                        warn!("SSH: Typescript upload error: {} — disabling upload", e);
+                                    })
+                                    .is_err()
+                            } else {
+                                false
+                            };
+                            if ts_upload_failed {
+                                ts_sink = None;
+                            }
+
                             // Process terminal output (for image rendering)
                             // When pipe is enabled with INTERPRET_OUTPUT, we still render
                             terminal.process(data)
@@ -1322,6 +1479,16 @@ impl ProtocolHandler for SshHandler {
                             debug!("SSH: Modifier key updated - ctrl={}, shift={}, alt={}",
                                 modifier_state.control, modifier_state.shift, modifier_state.alt);
                             continue;
+                        }
+
+                        // Clear any active selection overlay on key press (not release)
+                        if key_event.pressed && mouse_selection.start.is_some() {
+                            mouse_selection.reset();
+                            let clear = format_clear_selection_instructions();
+                            for instr in clear {
+                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
+                                    .map_err(HandlerError::ChannelError)?;
+                            }
                         }
 
                         // Security: Check read-only mode
@@ -1787,6 +1954,21 @@ impl ProtocolHandler for SshHandler {
             }
         }
 
+        // Finalize encrypted typescript upload
+        if let Some(sink) = ts_sink {
+            if let Err(e) = sink.finalize().await {
+                warn!("SSH: Failed to finalize typescript upload: {}", e);
+            } else {
+                info!("SSH: Typescript upload finalized");
+            }
+        }
+
+        // Clean up threat detection session state to prevent memory leak
+        #[cfg(feature = "threat-detection")]
+        if let Some(ref detector) = threat_detector {
+            detector.cleanup_session(&threat_session_id);
+        }
+
         send_disconnect(&to_client).await;
         info!("SSH handler connection ended");
         Ok(())
@@ -1951,14 +2133,18 @@ impl EventBasedHandler for SshHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         // Standard channel capacity prevents blocking during burst rendering
         // 4096 capacity = ~300 full renders worth of instructions
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096, // channel capacity
         )
         .await

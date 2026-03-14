@@ -88,6 +88,10 @@ use crate::unlikely;
 use log::{debug, error, info, warn};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
+use webrtc::api::interceptor_registry::{
+    configure_nack, configure_rtcp_reports, configure_twcc_sender_only,
+};
+use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_H264};
 use webrtc::api::setting_engine::SettingEngine;
 use webrtc::api::APIBuilder;
 use webrtc::data_channel::data_channel_init::RTCDataChannelInit;
@@ -95,9 +99,17 @@ use webrtc::data_channel::RTCDataChannel;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidate;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::ice_transport::ice_gatherer_state::RTCIceGathererState;
+use webrtc::interceptor::registry::Registry;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::peer_connection::RTCPeerConnection;
+use webrtc::rtp_transceiver::rtp_codec::{
+    RTCRtpCodecCapability, RTCRtpCodecParameters, RTPCodecType,
+};
+use webrtc::rtp_transceiver::rtp_sender::RTCRtpSender;
+use webrtc::rtp_transceiver::RTCPFeedback;
+use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
+use webrtc::track::track_local::TrackLocal;
 
 // Constants for SCTP max message size negotiation
 const DEFAULT_MAX_MESSAGE_SIZE: u32 = 262144; // 256KB - Common default for WebRTC
@@ -126,6 +138,8 @@ pub struct IsolatedWebRTCAPI {
     error_count: AtomicUsize,
     turn_failure_count: AtomicUsize,
     is_healthy: AtomicBool,
+    /// Set only for GuacamoleWithVideo sessions.
+    video_track: Option<Arc<TrackLocalStaticSample>>,
 }
 
 impl IsolatedWebRTCAPI {
@@ -168,7 +182,96 @@ impl IsolatedWebRTCAPI {
             error_count: AtomicUsize::new(0),
             turn_failure_count: AtomicUsize::new(0),
             is_healthy: AtomicBool::new(true),
+            video_track: None,
         }
+    }
+
+    /// Like `new()` but also creates an H.264 video track and registers it with the
+    /// MediaEngine + interceptor registry.  Used for GuacamoleWithVideo sessions.
+    /// Returns `Err` if codec registration or interceptor setup fails.
+    pub fn new_with_video(tube_id: String) -> Result<Self, String> {
+        let mut setting_engine = SettingEngine::default();
+        setting_engine.set_ice_timeouts(
+            Some(Duration::from_secs(
+                crate::config::ICE_DISCONNECTED_TIMEOUT_SECS,
+            )),
+            Some(Duration::from_secs(crate::config::ICE_FAILED_TIMEOUT_SECS)),
+            Some(Duration::from_millis(
+                crate::config::ICE_KEEPALIVE_INTERVAL_MS,
+            )),
+        );
+
+        let h264_codec = RTCRtpCodecParameters {
+            capability: RTCRtpCodecCapability {
+                mime_type: MIME_TYPE_H264.to_string(),
+                clock_rate: 90000,
+                channels: 0,
+                // Constrained Baseline profile, level 3.1 — broadest browser support
+                sdp_fmtp_line:
+                    "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"
+                        .to_string(),
+                rtcp_feedback: vec![
+                    RTCPFeedback {
+                        typ: "nack".into(),
+                        parameter: "".into(),
+                    },
+                    RTCPFeedback {
+                        typ: "nack".into(),
+                        parameter: "pli".into(),
+                    },
+                    RTCPFeedback {
+                        typ: "goog-remb".into(),
+                        parameter: "".into(),
+                    },
+                    RTCPFeedback {
+                        typ: "transport-cc".into(),
+                        parameter: "".into(),
+                    },
+                ],
+            },
+            payload_type: 96,
+            ..Default::default()
+        };
+
+        let mut media_engine = MediaEngine::default();
+        media_engine
+            .register_codec(h264_codec.clone(), RTPCodecType::Video)
+            .map_err(|e| format!("H.264 codec registration failed for tube {tube_id}: {e}"))?;
+
+        let mut registry = Registry::new();
+        registry = configure_nack(registry, &mut media_engine);
+        registry = configure_rtcp_reports(registry);
+        registry = configure_twcc_sender_only(registry, &mut media_engine)
+            .map_err(|e| format!("TWCC sender setup failed for tube {tube_id}: {e}"))?;
+
+        let api = APIBuilder::new()
+            .with_setting_engine(setting_engine)
+            .with_media_engine(media_engine)
+            .with_interceptor_registry(registry)
+            .build();
+
+        // id = track id (per-track unique), stream_id = media stream grouping
+        let video_track = Arc::new(TrackLocalStaticSample::new(
+            h264_codec.capability,
+            format!("video-{}", tube_id),
+            "guacr-stream".to_string(),
+        ));
+
+        debug!("Created video track for tube {}", tube_id);
+
+        Ok(Self {
+            api,
+            tube_id,
+            created_at: Instant::now(),
+            error_count: AtomicUsize::new(0),
+            turn_failure_count: AtomicUsize::new(0),
+            is_healthy: AtomicBool::new(true),
+            video_track: Some(video_track),
+        })
+    }
+
+    pub fn video_track(&self) -> Option<&Arc<TrackLocalStaticSample>> {
+        self.video_track.as_ref()
     }
 
     /// Create peer connection with isolated TURN/STUN state
@@ -430,6 +533,10 @@ pub struct WebRTCPeerConnection {
     // Consolidated state to prevent deadlocks
     activity_state: Arc<Mutex<ActivityState>>,
     ice_restart_state: Arc<Mutex<IceRestartState>>,
+
+    // Video track + RTP sender for GuacamoleWithVideo sessions.
+    // None for GuacamoleOnly sessions.
+    video_rtp_info: Option<(Arc<TrackLocalStaticSample>, Arc<RTCRtpSender>)>,
 }
 
 impl WebRTCPeerConnection {
@@ -505,12 +612,18 @@ impl WebRTCPeerConnection {
         conversation_id: Option<String>,
         ksm_config: Option<String>, // For TURN credential refresh
         client_version: String,     // For API calls
+        enable_video: bool,         // true for GuacamoleWithVideo sessions
     ) -> Result<Self, String> {
         debug!("Creating isolated WebRTC connection for tube {}", tube_id);
 
-        // ISOLATION: Create dedicated WebRTC API instance for this tube
-        // This prevents TURN client corruption from affecting other tubes
-        let isolated_api = Arc::new(IsolatedWebRTCAPI::new(tube_id.clone()));
+        // ISOLATION: Create dedicated WebRTC API instance for this tube.
+        // For GuacamoleWithVideo sessions use new_with_video() which sets up the
+        // MediaEngine and InterceptorRegistry needed for H.264 + TWCC.
+        let isolated_api = Arc::new(if enable_video {
+            IsolatedWebRTCAPI::new_with_video(tube_id.clone())?
+        } else {
+            IsolatedWebRTCAPI::new(tube_id.clone())
+        });
 
         // ISOLATION: Create circuit breaker for comprehensive failure protection
         let circuit_breaker = TubeCircuitBreaker::new(tube_id.clone());
@@ -597,6 +710,23 @@ impl WebRTCPeerConnection {
         // No longer setting up ICE candidate handler here - this will be done in setup_ice_candidate_handler
         // to avoid duplicate handlers
 
+        // For GuacamoleWithVideo sessions: register the video track with the peer connection.
+        // add_track() must be called before creating the SDP offer/answer so that m=video
+        // appears in the negotiation. Returns the RTCRtpSender needed by VideoSender.
+        let video_rtp_info = if let Some(track) = isolated_api.video_track() {
+            let sender = pc_arc
+                .add_track(Arc::clone(track) as Arc<dyn TrackLocal + Send + Sync>)
+                .await
+                .map_err(|e| format!("add_track failed for tube {tube_id}: {e}"))?;
+            debug!(
+                "Video track registered with peer connection (tube_id: {})",
+                tube_id
+            );
+            Some((Arc::clone(track), sender))
+        } else {
+            None
+        };
+
         debug!(
             "Successfully created WebRTC peer connection with resource management (tube_id: {})",
             tube_id
@@ -655,6 +785,20 @@ impl WebRTCPeerConnection {
             // Consolidated state to prevent deadlocks
             activity_state: Arc::new(Mutex::new(ActivityState::new(now))),
             ice_restart_state: Arc::new(Mutex::new(IceRestartState::new())),
+
+            // Video track + RTP sender; None for GuacamoleOnly sessions
+            video_rtp_info,
+        })
+    }
+
+    /// Construct a VideoSender from this connection's video track and RTP sender.
+    /// Returns `None` for GuacamoleOnly connections.
+    pub(crate) fn make_video_output(&self) -> Option<Arc<dyn guacr_handlers::video::VideoOutput>> {
+        self.video_rtp_info.as_ref().map(|(track, sender)| {
+            Arc::new(crate::video_sender::VideoSender::new(
+                Arc::clone(track),
+                Arc::clone(sender),
+            )) as Arc<dyn guacr_handlers::video::VideoOutput>
         })
     }
 
@@ -1612,6 +1756,23 @@ impl WebRTCPeerConnection {
                     "Received remote ICE candidate #{} (tube_id: {})",
                     remote_count, self.tube_id
                 );
+
+                {
+                    let parts: Vec<&str> = candidate_str.split_whitespace().collect();
+                    let typ = parts
+                        .windows(2)
+                        .find(|w| w[0] == "typ")
+                        .map(|w| w[1])
+                        .unwrap_or("unknown");
+                    let addr_family = parts
+                        .get(4)
+                        .map(|a| if a.contains(':') { "ipv6" } else { "ipv4" })
+                        .unwrap_or("unknown");
+                    info!(
+                        "Remote ICE candidate #{}: typ={} family={} (tube_id: {})",
+                        remote_count, typ, addr_family, self.tube_id
+                    );
+                }
 
                 let candidate_init = RTCIceCandidateInit {
                     candidate: candidate_str.clone(),

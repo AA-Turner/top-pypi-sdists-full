@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guacr", "crates/guacr-handlers", "crates/guacr-protocol", "crates/guacr-terminal", "crates/guacr-ssh", "crates/guacr-telnet", "crates/guacr-rdp", "crates/guacr-vnc", "crates/guacr-database", "crates/guacr-sftp", "crates/guacr-rbi", "crates/guacr-threat-detection", "crates/guacr-recording", "crates/guacr-guacd", "crates/pam-socks5"]
+members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guacr", "crates/guacr-handlers", "crates/guacr-protocol", "crates/guacr-terminal", "crates/guacr-ssh", "crates/guacr-telnet", "crates/guacr-rdp", "crates/guacr-vnc", "crates/guacr-database", "crates/guacr-sftp", "crates/guacr-rbi", "crates/guacr-threat-detection", "crates/guacr-tn3270", "crates/guacr-tn5250", "crates/guacr-recording", "crates/guacr-recorder", "crates/guacr-guacd", "crates/pam-socks5"]
 resolver = "2"
 
 [workspace.package]
-version = "2.1.4"
+version = "2.1.5"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <engineering@keeper.io>"]
@@ -13,6 +13,7 @@ authors = ["Keeper Security Engineering <engineering@keeper.io>"]
 # Core async
 tokio = { version = "1.49.0", features = ["full", "rt-multi-thread"] }
 tokio-util = "0.7.18"
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 async-trait = "0.1.89"
 
 # Data structures
@@ -84,7 +85,6 @@ rustls-pemfile = "2"
 webpki-roots = "1.0"
 pyo3-log = "0.13.3"
 
-# Workspace-level patches for IronRDP
 [patch.crates-io]
 ironrdp = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-async = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
@@ -100,6 +100,7 @@ ironrdp-cliprdr = { git = "https://github.com/miroberts/IronRDP.git", branch = "
 ironrdp-svc = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-displaycontrol = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-dvc = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
+ironrdp-egfx = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-rdpdr = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-rdpdr-native = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 

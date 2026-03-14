@@ -3,8 +3,10 @@ import enum
 from typing import Annotated, List, Union
 from pydantic import StringConstraints
 
-REGEX_EXTERNAL_REF = r"^(\w+)\/(\w+)$"
-REGEX_EXTERNAL_COMPONENT_REF = r"^(\w+)\/(\w+)\/([\w\/#]+)$"
+# Escopo externo pode ser informado tanto como identificador simples
+# (`folha`) quanto no formato hierarquico `AAA.BBB.CCC`.
+REGEX_EXTERNAL_REF = r"^([\w\.]+)\/(\w+)$"
+REGEX_EXTERNAL_COMPONENT_REF = r"^([\w\.]+)\/(\w+)\/([\w\/#]+)$"
 REGEX_INTERNAL_REF = r"^#\/components\/([\w\/#]+)$"
 
 ExternalRefType = Annotated[str, StringConstraints(pattern=REGEX_EXTERNAL_REF)]

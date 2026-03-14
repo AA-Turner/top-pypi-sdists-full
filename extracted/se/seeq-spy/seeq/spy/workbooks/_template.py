@@ -513,8 +513,10 @@ class AnalysisWorksheetTemplate(WorksheetTemplate, AnalysisWorksheet):
 
     def _branch_current_workstep(self):
         current_workstep_template = self.current_workstep()
+        branched_workstep = AnalysisWorkstep(worksheet=None,
+                                             definition={'Data': copy.deepcopy(current_workstep_template.data)})
         new_workstep = AnalysisWorkstepTemplate(
-            _common.new_placeholder_guid(), self, current_workstep_template.template, package=self.package)
+            _common.new_placeholder_guid(), self, branched_workstep, package=self.package)
 
         self.worksteps[new_workstep['ID']] = new_workstep
         self.definition['Current Workstep ID'] = new_workstep['ID']

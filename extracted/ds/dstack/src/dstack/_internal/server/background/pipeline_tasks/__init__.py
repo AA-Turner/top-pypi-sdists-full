@@ -2,7 +2,13 @@ import asyncio
 
 from dstack._internal.server.background.pipeline_tasks.base import Pipeline
 from dstack._internal.server.background.pipeline_tasks.compute_groups import ComputeGroupPipeline
+from dstack._internal.server.background.pipeline_tasks.fleets import FleetPipeline
 from dstack._internal.server.background.pipeline_tasks.gateways import GatewayPipeline
+from dstack._internal.server.background.pipeline_tasks.instances import InstancePipeline
+from dstack._internal.server.background.pipeline_tasks.jobs_running import JobRunningPipeline
+from dstack._internal.server.background.pipeline_tasks.jobs_terminating import (
+    JobTerminatingPipeline,
+)
 from dstack._internal.server.background.pipeline_tasks.placement_groups import (
     PlacementGroupPipeline,
 )
@@ -16,7 +22,11 @@ class PipelineManager:
     def __init__(self) -> None:
         self._pipelines: list[Pipeline] = [
             ComputeGroupPipeline(),
+            FleetPipeline(),
             GatewayPipeline(),
+            JobRunningPipeline(),
+            JobTerminatingPipeline(),
+            InstancePipeline(),
             PlacementGroupPipeline(),
             VolumePipeline(),
         ]

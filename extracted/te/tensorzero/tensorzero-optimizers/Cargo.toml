@@ -16,12 +16,14 @@ ts-bindings = ["dep:ts-rs", "tensorzero-core/ts-bindings"]
 [dependencies]
 tensorzero-core = { path = "../tensorzero-core" }
 evaluations = { path = "../evaluations" }
+durable-tools-spawn = { path = "../durable-tools-spawn" }
+schemars = { workspace = true }
 
 # Core async and serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true }
-tensorzero-derive = { path = "../internal/tensorzero-derive" }
+tensorzero-derive = { path = "../tensorzero-derive" }
 tokio = { workspace = true }
 tokio-util = "0.7.12"
 
@@ -55,7 +57,7 @@ ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 tensorzero-core = { path = "../tensorzero-core", features = ["e2e_tests"] }
-tensorzero = { path = "../clients/rust", features = ["e2e_tests"] }
+tensorzero = { path = "../tensorzero-client", features = ["e2e_tests"] }
 evaluations = { path = "../evaluations" }
 minijinja = { workspace = true }
 paste = "1.0.15"

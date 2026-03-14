@@ -27,6 +27,7 @@ import jax.sharding as shd
 import jaxtyping
 from tunix.generate.mappings import BackendMappingMixin
 from tunix.utils import compat
+from tunix.utils import env_utils
 
 K_MASK = -2.3819763e38
 
@@ -34,8 +35,7 @@ LayerCache = dict[str, jaxtyping.Array]
 Cache = dict[str, LayerCache]
 
 
-if hasattr(flax.config, 'flax_always_shard_variable'):
-  flax.config.update('flax_always_shard_variable', False)
+env_utils.setup_sharding_environment()
 
 
 class RematConfig(enum.Enum):
@@ -49,8 +49,8 @@ class ShardingConfig:
 
   emb_vd: Tuple[str | None, ...]
   emb_dv: Tuple[str | None, ...]
-  q_weight_ndh: Tuple[str | None, ...]
-  kv_weight_ndh: Tuple[str | None, ...]
+  q_weight_dnh: Tuple[str | None, ...]
+  kv_weight_dnh: Tuple[str | None, ...]
   o_weight_nhd: Tuple[str | None, ...]
   ffw_weight_df: Tuple[str | None, ...]
   ffw_weight_fd: Tuple[str | None, ...]
@@ -66,8 +66,8 @@ class ShardingConfig:
     return ShardingConfig(
         emb_vd=('tp', fsdp),
         emb_dv=(fsdp, 'tp'),
-        q_weight_ndh=('tp', fsdp, None),
-        kv_weight_ndh=('tp', fsdp, None),
+        q_weight_dnh=(fsdp, 'tp', None),
+        kv_weight_dnh=(fsdp, 'tp', None),
         o_weight_nhd=('tp', None, fsdp),
         ffw_weight_df=(fsdp, 'tp'),
         ffw_weight_fd=('tp', fsdp),
@@ -96,7 +96,7 @@ class ModelConfig:
   remat_config: RematConfig = RematConfig.NONE
 
   @classmethod
-  def llama3_2_1b(cls):
+  def llama3p2_1b(cls):
     return cls(
         num_layers=16,
         vocab_size=128256,
@@ -110,9 +110,13 @@ class ModelConfig:
         weight_tying=True,
     )
 
+  @classmethod
+  def llama3p2_1b_instruct(cls):
+    return cls.llama3p2_1b()
+
   # Llama3.2 3B
   @classmethod
-  def llama3_2_3b(cls):
+  def llama3p2_3b(cls):
     return cls(
         num_layers=28,  # ← from num_hidden_layers
         vocab_size=128256,  # ← from vocab_size
@@ -127,7 +131,11 @@ class ModelConfig:
     )
 
   @classmethod
-  def llama3_1_8b(cls):
+  def llama3p2_3b_instruct(cls):
+    return cls.llama3p2_3b()
+
+  @classmethod
+  def llama3p1_8b(cls):
     return cls(
         num_layers=32,
         vocab_size=128256,
@@ -156,7 +164,11 @@ class ModelConfig:
     )
 
   @classmethod
-  def llama3_405b(cls):
+  def llama3p1_70b(cls):
+    return cls.llama3_70b()
+
+  @classmethod
+  def llama3p1_405b(cls):
     return cls(
         num_layers=126,
         vocab_size=128256,
@@ -295,19 +307,19 @@ class Attention(nnx.Module):
         einsum_str='BTD,DNH->BTNH',
         shape=(config.embed_dim, config.num_heads, config.head_dim),
         rngs=rngs,
-        sharding=self.shd_config.q_weight_ndh,
+        sharding=self.shd_config.q_weight_dnh,
     )
     self.k_proj = Einsum(
         einsum_str='BSD,DKH->BSKH',
         shape=(config.embed_dim, config.num_kv_heads, config.head_dim),
         rngs=rngs,
-        sharding=self.shd_config.kv_weight_ndh,
+        sharding=self.shd_config.kv_weight_dnh,
     )
     self.v_proj = Einsum(
         einsum_str='BSD,DKH->BSKH',
         shape=(config.embed_dim, config.num_kv_heads, config.head_dim),
         rngs=rngs,
-        sharding=self.shd_config.kv_weight_ndh,
+        sharding=self.shd_config.kv_weight_dnh,
     )
     self.o_proj = Einsum(
         einsum_str='BTNH,NHD->BTD',
@@ -431,6 +443,7 @@ class MLP(nnx.Module):
       *,
       rngs: nnx.Rngs,
   ):
+    self.config = config
     self.shd_config = config.shd_config
     kernel_init_fn = nnx.initializers.zeros_init()
     self.gate_proj = nnx.Linear(
@@ -461,12 +474,21 @@ class MLP(nnx.Module):
         ),
     )
 
-  @jax.named_scope('feed_forward')
-  def __call__(self, x: jaxtyping.ArrayLike) -> jaxtyping.Array:
+  def block(
+      self,
+      x: jaxtyping.Array,
+  ) -> jaxtyping.Array:
     activations = nnx.silu(self.gate_proj(x)) * self.up_proj(x)
     activations = shard(activations, self.shd_config.act_btf)
     outputs = self.down_proj(activations)
     return outputs
+
+  @jax.named_scope('feed_forward')
+  def __call__(self, x: jaxtyping.ArrayLike) -> jaxtyping.Array:
+    if self.config.remat_config == RematConfig.BLOCK:
+      return nnx.remat(self.block.__func__)(self, x)
+    else:
+      return self.block(x)
 
 
 class DecoderLayer(nnx.Module):
@@ -522,6 +544,8 @@ class DecoderLayer(nnx.Module):
 
 class Llama3(BackendMappingMixin, nnx.Module, pytree=False):
   """Llama3 model."""
+
+  BACKEND_PACKAGE_PATH = __name__
 
   def __init__(
       self,

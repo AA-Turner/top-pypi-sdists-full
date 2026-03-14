@@ -32,6 +32,14 @@ from .seti import (
     SetiResourceWithStreamingResponse,
     AsyncSetiResourceWithStreamingResponse,
 )
+from .x402 import (
+    X402Resource,
+    AsyncX402Resource,
+    X402ResourceWithRawResponse,
+    AsyncX402ResourceWithRawResponse,
+    X402ResourceWithStreamingResponse,
+    AsyncX402ResourceWithStreamingResponse,
+)
 from .calls import (
     CallsResource,
     AsyncCallsResource,
@@ -472,6 +480,12 @@ from .porting_orders import (
     AsyncPortingOrdersResourceWithRawResponse,
     PortingOrdersResourceWithStreamingResponse,
     AsyncPortingOrdersResourceWithStreamingResponse,
+)
+from .speech_to_text import (
+    SpeechToTextResource,
+    AsyncSpeechToTextResource,
+    SpeechToTextResourceWithRawResponse,
+    AsyncSpeechToTextResourceWithRawResponse,
 )
 from .text_to_speech import (
     TextToSpeechResource,
@@ -2008,6 +2022,10 @@ __all__ = [
     "AsyncTexmlApplicationsResourceWithRawResponse",
     "TexmlApplicationsResourceWithStreamingResponse",
     "AsyncTexmlApplicationsResourceWithStreamingResponse",
+    "SpeechToTextResource",
+    "AsyncSpeechToTextResource",
+    "SpeechToTextResourceWithRawResponse",
+    "AsyncSpeechToTextResourceWithRawResponse",
     "TextToSpeechResource",
     "AsyncTextToSpeechResource",
     "TextToSpeechResourceWithRawResponse",
@@ -2176,4 +2194,10 @@ __all__ = [
     "AsyncVoiceDesignsResourceWithRawResponse",
     "VoiceDesignsResourceWithStreamingResponse",
     "AsyncVoiceDesignsResourceWithStreamingResponse",
+    "X402Resource",
+    "AsyncX402Resource",
+    "X402ResourceWithRawResponse",
+    "AsyncX402ResourceWithRawResponse",
+    "X402ResourceWithStreamingResponse",
+    "AsyncX402ResourceWithStreamingResponse",
 ]

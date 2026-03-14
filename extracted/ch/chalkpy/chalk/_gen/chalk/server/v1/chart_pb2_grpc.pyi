@@ -20,6 +20,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetChartSnapshotResponse,
     GetFeatureMetricsRequest,
     GetFeatureMetricsResponse,
+    GetMetricOptionsRequest,
+    GetMetricOptionsResponse,
     GetQueryMetricsRequest,
     GetQueryMetricsResponse,
     GetResolverMetricsRequest,
@@ -77,6 +79,10 @@ class ChartsServiceStub:
     GetQueryMetrics: UnaryUnaryMultiCallable[
         GetQueryMetricsRequest,
         GetQueryMetricsResponse,
+    ]
+    GetMetricOptions: UnaryUnaryMultiCallable[
+        GetMetricOptionsRequest,
+        GetMetricOptionsResponse,
     ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
@@ -140,5 +146,11 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetQueryMetricsRequest,
         context: ServicerContext,
     ) -> GetQueryMetricsResponse: ...
+    @abstractmethod
+    def GetMetricOptions(
+        self,
+        request: GetMetricOptionsRequest,
+        context: ServicerContext,
+    ) -> GetMetricOptionsResponse: ...
 
 def add_ChartsServiceServicer_to_server(servicer: ChartsServiceServicer, server: Server) -> None: ...

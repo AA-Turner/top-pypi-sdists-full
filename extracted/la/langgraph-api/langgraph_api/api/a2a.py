@@ -124,10 +124,13 @@ def _normalize_input_role(role: str) -> str:
 def _downgrade_response(data: Any) -> Any:
     """Recursively convert v1.0 roles/states to v0.x format in a response.
 
-    Also unwraps the v1.0 ``{"result": {"task": {...}}}`` wrapping to
-    the v0.x ``{"result": {id, contextId, ...}}`` shape expected by
-    ``a2a-sdk`` <=0.3.x.
+    Strips ``kind`` fields added in v1.0 (``"task"``, ``"message"``,
+    ``"text"``, ``"data"``) that the v0.x ``a2a-sdk`` <=0.3.x does not
+    expect.  Event-level ``kind`` values (``"status-update"``,
+    ``"artifact-update"``) are preserved as they were present in v0.x.
     """
+    _STRIP_KINDS = frozenset({"task", "message", "text", "data"})
+
     if isinstance(data, dict):
         out: dict[str, Any] = {}
         for k, v in data.items():
@@ -135,6 +138,9 @@ def _downgrade_response(data: Any) -> Any:
                 out[k] = _ROLE_V1_TO_LEGACY.get(v, v)
             elif k == "state" and isinstance(v, str):
                 out[k] = _STATE_V1_TO_LEGACY.get(v, v)
+            elif k == "kind" and isinstance(v, str) and v in _STRIP_KINDS:
+                # Drop v1.0-only kind discriminators for legacy clients
+                continue
             elif k == "result" and isinstance(v, dict) and list(v.keys()) == ["task"]:
                 # Unwrap v1.0 {"result": {"task": {…}}} → {"result": {…}}
                 out[k] = _downgrade_response(v["task"])
@@ -536,6 +542,7 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     """
     interrupt_parts = [
         {
+            "kind": "data",
             "data": {
                 "id": interrupt_obj.get("id"),
                 "value": interrupt_obj.get("value"),
@@ -588,27 +595,34 @@ def _lc_stream_items_to_a2a_message(
         content = it.get("content")
         if isinstance(content, str) and content:
             text_parts.append(_sse_safe_text(content))
+        elif isinstance(content, list):
+            # Handle Anthropic-style content blocks: [{"type": "text", "text": "..."}]
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text = block.get("text", "")
+                    if text:
+                        text_parts.append(_sse_safe_text(text))
+                elif isinstance(block, str) and block:
+                    text_parts.append(_sse_safe_text(block))
 
-        # Preserve a couple of useful fields if present
-        # Keep this small to avoid bloating the message payload
-        rm = it.get("response_metadata")
-        if isinstance(rm, dict) and rm:
-            extra_data.setdefault("response_metadata", rm)
+        # Only preserve tool_calls as structured data — response_metadata is
+        # internal LangChain metadata that should not leak to A2A clients.
         tc = it.get("tool_calls")
         if isinstance(tc, list) and tc:
             extra_data.setdefault("tool_calls", tc)
 
     parts: list[dict[str, Any]] = []
     if text_parts:
-        parts.append({"text": "".join(text_parts)})
+        parts.append({"kind": "text", "text": "".join(text_parts)})
     if extra_data:
-        parts.append({"data": extra_data})
+        parts.append({"kind": "data", "data": extra_data})
 
     # Ensure we always produce a minimally valid A2A Message
     if not parts:
-        parts = [{"text": ""}]
+        parts = [{"kind": "text", "text": ""}]
 
     return {
+        "kind": "message",
         "role": role,
         "parts": parts,
         "messageId": str(uuid.uuid4()),
@@ -622,7 +636,7 @@ def _lc_items_to_status_update_event(
     *,
     task_id: str,
     context_id: str,
-    state: str = "working",
+    state: str = "TASK_STATE_WORKING",
 ) -> dict[str, Any]:
     """Build a TaskStatusUpdateEvent embedding a converted A2A Message.
 
@@ -802,8 +816,9 @@ def _convert_messages_to_a2a_format(
             )
 
             a2a_message = {
+                "kind": "message",
                 "role": a2a_role,
-                "parts": [{"text": str(content)}],
+                "parts": [{"kind": "text", "text": str(content)}],
                 "messageId": id,
                 "taskId": task_id,
                 "contextId": context_id,
@@ -836,7 +851,8 @@ async def _create_task_response(
     messages = result.get("messages", []) or []
     thread_history = _convert_messages_to_a2a_format(messages, task_id, context_id)
 
-    base_task = {
+    base_task: dict[str, Any] = {
+        "kind": "task",
         "id": task_id,
         "contextId": context_id,
         "history": thread_history,
@@ -846,9 +862,11 @@ async def _create_task_response(
         base_task["status"] = {
             "state": "TASK_STATE_FAILED",
             "message": {
+                "kind": "message",
                 "role": "ROLE_AGENT",
                 "parts": [
                     {
+                        "kind": "text",
                         "text": f"Error executing assistant: {result['__error__']['error']}",
                     }
                 ],
@@ -872,6 +890,7 @@ async def _create_task_response(
                 "description": f"Response from assistant {assistant_id}",
                 "parts": [
                     {
+                        "kind": "text",
                         "text": _extract_a2a_response(result),
                     }
                 ],
@@ -1510,7 +1529,8 @@ async def handle_tasks_get(
             thread_history = []
 
         # Build the A2A Task response
-        task_response = {
+        task_response: dict[str, Any] = {
+            "kind": "task",
             "id": task_id,
             "contextId": context_id,
             "history": thread_history,
@@ -1522,15 +1542,19 @@ async def handle_tasks_get(
         # Add result message if completed
         if a2a_state == "TASK_STATE_COMPLETED":
             task_response["status"]["message"] = {
+                "kind": "message",
                 "role": "ROLE_AGENT",
-                "parts": [{"text": "Task completed successfully"}],
+                "parts": [{"kind": "text", "text": "Task completed successfully"}],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
         elif a2a_state == "TASK_STATE_FAILED":
             task_response["status"]["message"] = {
+                "kind": "message",
                 "role": "ROLE_AGENT",
-                "parts": [{"text": f"Task failed with status: {lg_status}"}],
+                "parts": [
+                    {"kind": "text", "text": f"Task failed with status: {lg_status}"}
+                ],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
@@ -1628,14 +1652,17 @@ async def handle_tasks_cancel(
     # The spec expects idempotent behavior - tasks/cancel always returns canceled state
     if lg_status not in ("pending", "running"):
         task_response = {
+            "kind": "task",
             "id": task_id_raw,
             "contextId": context_id,
             "status": {
                 "state": "TASK_STATE_CANCELED",
                 "message": {
+                    "kind": "message",
                     "role": "ROLE_AGENT",
                     "parts": [
                         {
+                            "kind": "text",
                             "text": f"Task cancel acknowledged (was: {lg_status})",
                         }
                     ],
@@ -1666,13 +1693,15 @@ async def handle_tasks_cancel(
 
     # Return the canceled task
     task_response = {
+        "kind": "task",
         "id": task_id_raw,
         "contextId": context_id,
         "status": {
             "state": "TASK_STATE_CANCELED",
             "message": {
+                "kind": "message",
                 "role": "ROLE_AGENT",
-                "parts": [{"text": "Task was canceled"}],
+                "parts": [{"kind": "text", "text": "Task was canceled"}],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id_raw,
             },
@@ -1845,6 +1874,7 @@ async def handle_list_tasks(
                         pass
 
                 task: dict[str, Any] = {
+                    "kind": "task",
                     "id": task_id,
                     "contextId": tid,
                     "status": {
@@ -2309,10 +2339,12 @@ async def handle_message_stream(
             task_id = existing_task_id or _make_task_id(context_id, run_id)
             # Emit initial Task object to establish task context
             initial_task = {
+                "kind": "task",
                 "id": task_id,
                 "contextId": context_id,
                 "history": [
                     {
+                        "kind": "message",
                         **message,
                         "taskId": task_id,
                         "contextId": context_id,
@@ -2341,8 +2373,9 @@ async def handle_message_stream(
                                 try:
                                     final_text = _extract_a2a_response(result)
                                     final_message = {
+                                        "kind": "message",
                                         "role": "ROLE_AGENT",
-                                        "parts": [{"text": final_text}],
+                                        "parts": [{"kind": "text", "text": final_text}],
                                         "messageId": str(uuid.uuid4()),
                                         "taskId": task_id,
                                         "contextId": context_id,
@@ -2354,8 +2387,9 @@ async def handle_message_stream(
                                     )
                             if final_message is None:
                                 final_message = {
+                                    "kind": "message",
                                     "role": "ROLE_AGENT",
-                                    "parts": [{"text": str(result)}],
+                                    "parts": [{"kind": "text", "text": str(result)}],
                                     "messageId": str(uuid.uuid4()),
                                     "taskId": task_id,
                                     "contextId": context_id,
@@ -2432,10 +2466,22 @@ async def handle_message_stream(
                                 context_id=context_id,
                                 state="TASK_STATE_WORKING",
                             )
-                            yield (
-                                b"message",
-                                {"jsonrpc": "2.0", "id": rpc_id, "result": update},
+                            # Skip emitting events with no meaningful content
+                            # (e.g. Anthropic metadata-only chunks).
+                            msg = update.get("status", {}).get("message", {})
+                            parts = msg.get("parts", [])
+                            has_content = any(
+                                (p.get("text") or p.get("data")) for p in parts
                             )
+                            if has_content:
+                                yield (
+                                    b"message",
+                                    {
+                                        "jsonrpc": "2.0",
+                                        "id": rpc_id,
+                                        "result": update,
+                                    },
+                                )
                     else:
                         await logger.awarning(
                             "Ignoring unknown event type: " + chunk.event
@@ -2456,8 +2502,9 @@ async def handle_message_stream(
                 )
                 await logger.aerror("Failed to process message stream", err=err)
                 final_message = {
+                    "kind": "message",
                     "role": "ROLE_AGENT",
-                    "parts": [{"text": str(msg or "")}],
+                    "parts": [{"kind": "text", "text": str(msg or "")}],
                     "messageId": str(uuid.uuid4()),
                     "taskId": task_id,
                     "contextId": context_id,

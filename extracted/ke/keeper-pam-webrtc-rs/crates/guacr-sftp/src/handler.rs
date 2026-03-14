@@ -14,6 +14,7 @@ use guacr_handlers::{
     ProtocolHandler,
     // Security
     SftpSecuritySettings,
+    VideoOutput,
 };
 use guacr_protocol::{format_chunked_blobs, TextProtocolEncoder};
 use log::{debug, error, info, warn};
@@ -116,6 +117,7 @@ impl ProtocolHandler for SftpHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("SFTP handler starting");
 
@@ -378,14 +380,14 @@ impl ProtocolHandler for SftpHandler {
         let mut protocol_encoder = TextProtocolEncoder::new();
         let mut stream_id = 1u32;
         let browser_image = file_browser
-            .render_to_png(1920, 1080)
+            .render_to_jpeg(1920, 1080)
             .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
 
         // Base64 encode and send via modern zero-allocation protocol
         let base64_data =
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &browser_image);
 
-        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/png");
+        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
         to_client
             .send(img_instr.freeze())
             .await
@@ -497,7 +499,7 @@ impl ProtocolHandler for SftpHandler {
 
                                                         // Re-render browser
                                                         let browser_image = file_browser
-                                                            .render_to_png(1920, 1080)
+                                                            .render_to_jpeg(1920, 1080)
                                                             .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
 
                                                         // Base64 encode and send via modern zero-allocation protocol
@@ -506,7 +508,7 @@ impl ProtocolHandler for SftpHandler {
                                                             &browser_image,
                                                         );
 
-                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/png");
+                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
                                                         to_client
                                                             .send(img_instr.freeze())
                                                             .await
@@ -663,7 +665,7 @@ impl ProtocolHandler for SftpHandler {
 
                                                         // Re-render browser
                                                         let browser_image = file_browser
-                                                            .render_to_png(1920, 1080)
+                                                            .render_to_jpeg(1920, 1080)
                                                             .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
 
                                                         // Base64 encode and send via modern zero-allocation protocol
@@ -672,7 +674,7 @@ impl ProtocolHandler for SftpHandler {
                                                             &browser_image,
                                                         );
 
-                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/png");
+                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
                                                         to_client
                                                             .send(img_instr.freeze())
                                                             .await
@@ -813,12 +815,16 @@ impl EventBasedHandler for SftpHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096, // channel capacity
         )
         .await

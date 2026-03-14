@@ -2,13 +2,16 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use guacr_terminal::QueryResult;
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::csv_import::CsvImporter;
@@ -508,6 +511,7 @@ impl ProtocolHandler for OdbcHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("ODBC handler starting");
 
@@ -556,6 +560,17 @@ impl ProtocolHandler for OdbcHandler {
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "ODBC", cols, rows);
+
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
 
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
@@ -683,6 +698,17 @@ impl ProtocolHandler for OdbcHandler {
                         Ok((needs_render, instructions, pending_query)) => {
                     if let Some(query) = pending_query {
                         info!("ODBC: Executing query: {}", query);
+
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &query,
+                            params.get("username").map(|s| s.as_str()).unwrap_or(""),
+                            params.get("hostname").map(|s| s.as_str()).unwrap_or(""),
+                            "mysql",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
 
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &query);
@@ -946,11 +972,9 @@ async fn handle_builtin_command(
 
         if table_name.is_empty() {
             executor
-                .terminal
                 .write_error("Usage: \\columns <table_name>")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         } else {
@@ -959,11 +983,9 @@ async fn handle_builtin_command(
                 Ok(result) => {
                     if result.rows.is_empty() {
                         executor
-                            .terminal
                             .write_line(&format!("No columns found for table '{}'.", table_name))
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                         executor
-                            .terminal
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     } else {
@@ -1001,11 +1023,9 @@ async fn handle_csv_export(
     // Check if export is allowed
     if let Err(msg) = check_csv_export_allowed(security) {
         executor
-            .terminal
             .write_error(&msg)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1013,7 +1033,6 @@ async fn handle_csv_export(
     }
 
     executor
-        .terminal
         .write_line("Executing query for export...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1025,7 +1044,6 @@ async fn handle_csv_export(
         Ok(result) => {
             if result.rows.is_empty() {
                 executor
-                    .terminal
                     .write_line("Query returned no results to export.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             } else {
@@ -1035,7 +1053,6 @@ async fn handle_csv_export(
                 let mut exporter = CsvExporter::new(stream_idx);
 
                 executor
-                    .terminal
                     .write_line(&format!(
                         "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
                         result.rows.len()
@@ -1053,13 +1070,11 @@ async fn handle_csv_export(
                 match exporter.export_query_result(&result, to_client).await {
                     Ok(()) => {
                         executor
-                            .terminal
                             .write_line("Download complete.")
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
                     Err(e) => {
                         executor
-                            .terminal
                             .write_error(&format!("Export failed: {}", e))
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
@@ -1068,14 +1083,12 @@ async fn handle_csv_export(
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Query failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1095,11 +1108,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if let Err(msg) = check_csv_import_allowed(security) {
         executor
-            .terminal
             .write_error(&msg)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1109,11 +1120,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1122,11 +1131,9 @@ async fn handle_csv_import(
 
     if table_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <table_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -1134,11 +1141,9 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line(&format!("Import into table: {}", table_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1155,7 +1160,6 @@ async fn handle_csv_import(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} columns, {} rows",
             csv_data.headers.len(),
@@ -1186,7 +1190,6 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} rows inserted, {} errors",
             success_count, error_count
@@ -1194,7 +1197,6 @@ async fn handle_csv_import(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -1214,12 +1216,16 @@ impl EventBasedHandler for OdbcHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

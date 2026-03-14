@@ -1,13 +1,16 @@
 import functools
 import os
 import pprint
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, ParamSpec, TypeVar, cast
 
 import pandas as pd
 import tqdm
 
 from gridstatus import utils
 from gridstatus.base import Markets
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 def _get_args_dict(
@@ -57,26 +60,23 @@ class support_date_range:
     the results.
 
     Args:
-        frequency: Maximum frequency for splitting date ranges. Common values:
-            - "DAY_START": Split by day
-            - "HOUR_START": Split by hour
-            - "5_MIN": Split by 5 minute intervals
-            - "MONTH_START": Split by month
-            - "YEAR_START": Split by year
-            - None: No splitting, pass date range as-is
-        update_dates: Optional callback to customize date range splitting logic
-        return_raw: If True, return list of results instead of concatenating
+        frequency: Maximum frequency for splitting date ranges. Common values are
+            "DAY_START" (split by day), "HOUR_START" (split by hour),
+            "5_MIN" (split by 5 minute intervals), "MONTH_START" (split by month),
+            "YEAR_START" (split by year), or None (no splitting, pass date range as-is).
+        update_dates: Optional callback to customize date range splitting logic.
+        return_raw: If True, return list of results instead of concatenating.
 
-    Decorator-specific kwargs (can be passed to decorated functions):
-        error (str): Error handling mode. Default: "ignore"
-            - "ignore": Print errors and continue with next date range
-            - "raise": Raise errors immediately
-        save_to (str): Directory path to save results as CSV files.
-            Creates directory if needed. Files are named:
-            {ClassName}_{method_name}_{start_date}_{end_date}.csv
-        start: Alternative parameter name for 'date' (automatically converted)
+    The decorated functions also accept these keyword arguments:
 
-    Example:
+        - **error** (str): Error handling mode. Default is "ignore" which prints
+          errors and continues. Use "raise" to raise errors immediately.
+        - **save_to** (str): Directory path to save results as CSV files.
+          Creates directory if needed.
+        - **start**: Alternative parameter name for 'date' (automatically converted).
+
+    Example::
+
         @support_date_range(frequency="DAY_START")
         def get_data(self, date, end=None, verbose=False):
             # Function is called once per day in the range
@@ -85,6 +85,7 @@ class support_date_range:
         # Usage:
         df = iso.get_data(date="2024-01-01", end="2024-01-10", error="raise")
         # Calls get_data for each day and concatenates results
+
     """
 
     def __init__(
@@ -103,10 +104,13 @@ class support_date_range:
         self.update_dates = update_dates
         self.return_raw = return_raw
 
-    def __call__(self, f: Callable[..., Any]) -> Callable[..., Any]:
+    def __call__(self, f: Callable[P, T]) -> Callable[P, T]:
+        # Use a loosely-typed reference for internal dynamic argument manipulation
+        inner_f: Callable[..., Any] = f
+
         @functools.wraps(f)
         def wrapped_f(*args: Any, **kwargs: Any) -> Any:
-            args_dict = _get_args_dict(f, args, kwargs)
+            args_dict = _get_args_dict(inner_f, args, kwargs)
 
             # delete end if None to avoid attribute error
             if "end" in args_dict and not args_dict["end"]:
@@ -147,7 +151,7 @@ class support_date_range:
                 del args_dict["start"]
 
             if args_dict["date"] == "latest":
-                return f(*args, **kwargs)
+                return inner_f(*args, **kwargs)
 
             default_timezone = args_dict["self"].default_timezone
 
@@ -166,7 +170,7 @@ class support_date_range:
 
             # no date range handling required
             if "end" not in args_dict:
-                df = f(**args_dict)
+                df = inner_f(**args_dict)
                 _handle_save_to(df, save_to, args_dict, f)
                 return df
 
@@ -268,7 +272,7 @@ class support_date_range:
                         args_dict["end"] = end_date
 
                     try:
-                        df = f(**args_dict)
+                        df = inner_f(**args_dict)
                     except Exception as e:
                         if error == "raise":
                             raise e
@@ -315,7 +319,7 @@ class support_date_range:
 
             return df
 
-        return wrapped_f
+        return cast(Callable[P, T], wrapped_f)
 
 
 def _handle_save_to(

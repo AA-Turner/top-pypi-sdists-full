@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Generic
 
 from jsonschema import Draft7Validator, SchemaError
+from typing_extensions import assert_never
 
 from mistral_common.exceptions import (
     InvalidAssistantMessageException,
@@ -14,14 +15,17 @@ from mistral_common.exceptions import (
     InvalidToolMessageException,
     InvalidToolSchemaException,
 )
+from mistral_common.protocol.instruct.chunk import AudioChunk, AudioURLChunk
 from mistral_common.protocol.instruct.messages import (
     UATS,
     AssistantMessage,
     AssistantMessageType,
     FinetuningAssistantMessage,
     Roles,
+    SystemMessage,
     SystemMessageType,
     ToolMessageType,
+    UserMessage,
     UserMessageType,
 )
 from mistral_common.protocol.instruct.request import ChatCompletionRequest
@@ -118,6 +122,8 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
 
         # Validate the tools
         self._validate_tools(request.tools or [])
+
+        self._validate_model_settings(request)
 
         return request
 
@@ -337,6 +343,10 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
             else:
                 raise InvalidRequestException(f"Unsupported message type {type(message)}")
 
+    def _validate_model_settings(self, request: ChatCompletionRequest) -> None:
+        if (reasoning_effort := request.reasoning_effort) is not None:
+            raise InvalidRequestException(f"{reasoning_effort=} is not supported for this model")
+
 
 class MistralRequestValidatorV3(MistralRequestValidator):
     r"""Validator for v3 Mistral requests.
@@ -402,14 +412,52 @@ class MistralRequestValidatorV5(MistralRequestValidatorV3):
 
     This validator allows for both tool calls and content in the assistant message.
 
+    Note:
+        For requests containing audio, this validator ensures that no system prompt is present.
+
     Examples:
         >>> validator = MistralRequestValidatorV5()
     """
 
     _allow_tool_call_and_content: bool = True
 
+    def _validate_system_prompt_and_audio(self, messages: list[UATS]) -> None:
+        r"""Validates that system prompts and audio chunks are not used together in v5."""
+
+        def _is_system(message: UATS) -> bool:
+            return isinstance(message, SystemMessage)
+
+        def _has_audio(message: UATS) -> bool:
+            return (
+                isinstance(message, UserMessage)
+                and isinstance(message.content, list)
+                and any(isinstance(chunk, (AudioChunk, AudioURLChunk)) for chunk in message.content)
+            )
+
+        has_sp = any(_is_system(message=message) for message in messages)
+        has_sp_and_audio = has_sp and any(_has_audio(message=message) for message in messages)
+
+        if has_sp_and_audio:
+            sp_indexes = [i for i, message in enumerate(messages) if _is_system(message=message)]
+            audio_indexes = [i for i, message in enumerate(messages) if _has_audio(message=message)]
+            raise ValueError(
+                f"Found system messages at indexes {sp_indexes} and audio chunks in messages at indexes {audio_indexes}"
+                ". This is not allowed prior to the tokenizer version 13."
+            )
+
+    def _validate_message_list_structure(self, messages: list[UATS], continue_final_message: bool) -> None:
+        super()._validate_message_list_structure(messages=messages, continue_final_message=continue_final_message)
+        self._validate_system_prompt_and_audio(messages)
+
 
 class MistralRequestValidatorV13(MistralRequestValidatorV5):
+    r"""Validator for v13 Mistral requests.
+
+    This validator extends v5 functionality by:
+    - Adding stricter tool call ID validation: they should be distinct and called.
+    - Allowing system prompts with audio chunks
+    """
+
     def _validate_tool_calls_followed_by_tool_messages(self, messages: list[UATS]) -> None:
         """
         Checks:
@@ -457,18 +505,30 @@ class MistralRequestValidatorV13(MistralRequestValidatorV5):
         elif len(expected_tool_ids) < len(observed_tool_ids) and self._mode == ValidationMode.finetuning:
             raise InvalidMessageStructureException("More tool responses than tool calls")
 
+    def _validate_system_prompt_and_audio(self, messages: list[UATS]) -> None:
+        r"""Allows system prompts and audio chunks to coexist in v13."""
+        return
+
+
+class MistralRequestValidatorV15(MistralRequestValidatorV13):
+    def _validate_model_settings(self, request: ChatCompletionRequest) -> None:
+        pass
+
 
 def get_validator(version: TokenizerVersion, mode: ValidationMode) -> MistralRequestValidator:
     validator: MistralRequestValidator
-    if version <= TokenizerVersion.v2:
-        validator = MistralRequestValidator(mode=mode)
-    elif version <= TokenizerVersion.v3:
-        validator = MistralRequestValidatorV3(mode=mode)
-    elif version <= TokenizerVersion.v7:
-        validator = MistralRequestValidatorV5(mode=mode)
-    elif version <= TokenizerVersion.v13:
-        validator = MistralRequestValidatorV13(mode=mode)
-    else:
-        raise ValueError(f"Unsupported tokenizer version: {version}")
+    match version:
+        case TokenizerVersion.v1 | TokenizerVersion.v2:
+            validator = MistralRequestValidator(mode=mode)
+        case TokenizerVersion.v3:
+            validator = MistralRequestValidatorV3(mode=mode)
+        case TokenizerVersion.v7:
+            validator = MistralRequestValidatorV5(mode=mode)
+        case TokenizerVersion.v11 | TokenizerVersion.v13:
+            validator = MistralRequestValidatorV13(mode=mode)
+        case TokenizerVersion.v15:
+            validator = MistralRequestValidatorV15(mode=mode)
+        case _:
+            assert_never(f"Unsupported tokenizer version: {version}")
 
     return validator

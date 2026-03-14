@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.20
+Version: 2.7.20.1
 Summary: Process mining for Python
 Home-page: https://processintelligence.solutions/
 Author: Process Intelligence Solutions (PIS)
@@ -21,7 +21,7 @@ Requires-Dist: pytz
 Requires-Dist: tqdm
 Requires-Dist: wheel
 Requires-Dist: setuptools
-Requires-Dist: cvxopt; python_version < "3.14"
+Requires-Dist: cvxopt; python_version < "3.15"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

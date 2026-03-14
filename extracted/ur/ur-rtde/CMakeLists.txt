@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if (POLICY CMP0074)
 	cmake_policy(SET CMP0074 NEW)
@@ -56,11 +56,11 @@ if(${CODE})
 
 endif()
 
-project(ur_rtde VERSION 1.6.2 LANGUAGES ${PROJECT_LANGUAGES})
+project(ur_rtde VERSION 1.6.3 LANGUAGES ${PROJECT_LANGUAGES})
 set(PROJECT_VERSION_SUFFIX "") # alpha/beta/rc, e.g. "-rc0"
 set(PROJECT_VERSION "${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX}")
 set(PROJECT_AUTHOR "Anders Prier Lindvig")
-set(PROJECT_COPYRIGHT "2025")
+set(PROJECT_COPYRIGHT "2026")
 set(PROJECT_MAIL "anpl@mmmi.sdu.dk")
 
 if(${CODE})
@@ -96,7 +96,7 @@ if(${CODE})
 			FetchContent_Declare(
 					pybind11-src
 					GIT_REPOSITORY https://github.com/pybind/pybind11.git
-					GIT_TAG        v2.10.1
+					GIT_TAG        v2.13.6
 			)
 			if(${CMAKE_VERSION} VERSION_LESS 3.14)
 				macro(FetchContent_MakeAvailable NAME)

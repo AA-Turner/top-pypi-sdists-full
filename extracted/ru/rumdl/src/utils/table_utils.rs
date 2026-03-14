@@ -253,13 +253,16 @@ impl TableUtils {
             // Skip lines in code blocks, code spans, or HTML comments
             let line_start = line_positions[i];
             let in_code =
-                crate::utils::code_block_utils::CodeBlockUtils::is_in_code_block_or_span(code_blocks, line_start)
-                    || code_spans
-                        .iter()
-                        .any(|span| line_start >= span.byte_offset && line_start < span.byte_end);
-            let in_html_comment = html_comment_ranges
-                .iter()
-                .any(|range| line_start >= range.start && line_start < range.end);
+                crate::utils::code_block_utils::CodeBlockUtils::is_in_code_block_or_span(code_blocks, line_start) || {
+                    // Binary search on sorted code spans
+                    let idx = code_spans.partition_point(|span| span.byte_offset <= line_start);
+                    idx > 0 && line_start < code_spans[idx - 1].byte_end
+                };
+            let in_html_comment = {
+                // Binary search on sorted HTML comment ranges
+                let idx = html_comment_ranges.partition_point(|range| range.start <= line_start);
+                idx > 0 && line_start < html_comment_ranges[idx - 1].end
+            };
 
             if in_code || in_html_comment {
                 i += 1;
@@ -1646,5 +1649,26 @@ But no delimiter row
 
         // Pipe inside code span should not count
         assert!(!TableUtils::has_unescaped_pipe_outside_inline_code(r"`foo | bar`"));
+    }
+
+    #[test]
+    fn test_table_after_code_span_detected() {
+        use crate::config::MarkdownFlavor;
+
+        let content = "`code`\n\n| A | B |\n|---|---|\n| 1 | 2 |\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(!ctx.table_blocks.is_empty(), "Table after code span should be detected");
+    }
+
+    #[test]
+    fn test_table_inside_html_comment_not_detected() {
+        use crate::config::MarkdownFlavor;
+
+        let content = "<!--\n| A | B |\n|---|---|\n| 1 | 2 |\n-->\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(
+            ctx.table_blocks.is_empty(),
+            "Table inside HTML comment should not be detected"
+        );
     }
 }

@@ -34,6 +34,7 @@ use super::assembler::{has_fragment_header, FragmentBuffer, FragmentHeader, FRAG
 use super::frame_handling::handle_incoming_frame;
 use crate::tube_protocol::Capabilities;
 use crate::tube_protocol::CloseConnectionReason as TubeCloseReason;
+use guacr_handlers::video::VideoOutput;
 use guacr_protocol::{GuacdInstruction, GuacdParser};
 /// Message types sent from Channel to Python handler
 #[derive(Debug, Clone)]
@@ -212,6 +213,10 @@ pub struct Channel {
     // Task completion tracking (passed from Tube for handler task monitoring)
     // Handler tasks signal completion via this channel to ensure proper cleanup
     pub(crate) spawned_task_completion_tx: Arc<tokio::sync::mpsc::UnboundedSender<()>>,
+
+    /// H.264 video output handle for graphical protocols (RDP, VNC, RBI).
+    /// `None` for terminal protocols, guacd sessions, old vault clients, and encoder failures.
+    pub(crate) video_output: Option<Arc<dyn VideoOutput>>,
 }
 
 // NOTE: Channel is intentionally NOT Clone because it contains a single-consumer receiver
@@ -240,6 +245,8 @@ pub struct ChannelParams {
     pub handler_registry: Option<Arc<guacr_handlers::ProtocolHandlerRegistry>>,
     /// Task completion tracking from Tube (for handler task monitoring)
     pub spawned_task_completion_tx: Arc<tokio::sync::mpsc::UnboundedSender<()>>,
+    /// H.264 video output for graphical sessions. `None` for GuacamoleOnly sessions.
+    pub video_output: Option<Arc<dyn VideoOutput>>,
 }
 
 impl Channel {
@@ -260,6 +267,7 @@ impl Channel {
             python_handler_tx,
             handler_registry,
             spawned_task_completion_tx,
+            video_output,
         } = params;
         debug!("Channel::new called (channel_id: {})", channel_id);
         if unlikely!(crate::logger::is_verbose_logging()) {
@@ -799,6 +807,7 @@ impl Channel {
             pending_fragments: DashMap::new(),
             python_handler_tx,
             spawned_task_completion_tx,
+            video_output,
         };
 
         debug!(

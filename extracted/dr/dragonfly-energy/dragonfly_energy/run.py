@@ -79,33 +79,9 @@ def base_honeybee_osw(
         with open(base_osw, 'r') as base_file:
             osw_dict = json.load(base_file)
 
-    # add a simulation parameter step if it is specified
-    if sim_par_json is not None:
-        sim_par_dict = {
-            'arguments': {
-                'simulation_parameter_json': sim_par_json
-            },
-            'measure_dir_name': 'from_honeybee_simulation_parameter'
-        }
-        osw_dict['steps'].insert(0, sim_par_dict)
-
-    # add the model json serialization into the steps
-    model_measure_dict = {
-        'arguments': {
-            'model_json': 'model_json_to_be_mapped.json'
-        },
-        'measure_dir_name': 'from_honeybee_model'
-    }
-    osw_dict['steps'].insert(0, model_measure_dict)
-
     # assign the measure_paths to the osw_dict
     if 'measure_paths' not in osw_dict:
         osw_dict['measure_paths'] = []
-    # add honeybee-openstudio measure
-    gem_dir = os.path.join(
-        project_directory, '.bundle', 'install', 'ruby', '3.2.0', 'gems')
-    m_dir = os.path.join(gem_dir, 'honeybee-openstudio-2.38.23', 'lib', 'measures')
-    osw_dict['measure_paths'].append(m_dir)
 
     # add the emissions reporting if a year has been selected
     if emissions_year is not None and epw_file is not None:
@@ -282,9 +258,9 @@ def base_honeybee_osw(
 def prepare_urbanopt_folder(feature_geojson, cpu_count=None, verbose=False):
     """Prepare a directory with a feature geoJSON for URBANopt simulation.
 
-    This includes copying the Gemfile to the folder and generating the runner.conf
+    This includes copying the Gemfile to the folder and generating a runner.conf
     to specify the number of CPUs to be used in the simulation. Lastly, the
-    the scenario .csv file will be generated from the feature_geojson.
+    the scenario .csv file is generated from the feature_geojson.
 
     Args:
         feature_geojson: An URBANopt feature geoJSON to be prepared for URBANopt
@@ -332,6 +308,9 @@ def prepare_urbanopt_folder(feature_geojson, cpu_count=None, verbose=False):
 def run_urbanopt(feature_geojson, scenario_csv, cpu_count=None):
     """Run a feature and scenario file through URBANopt on any operating system.
 
+    This includes translating all HBJSON files of individual buildings to OSM
+    files so that they can be specified as seed models for the URBANopt OSWs.
+
     Args:
         feature_geojson: The full path to a .geojson file containing the
             footprints of buildings to be simulated.
@@ -361,7 +340,52 @@ def run_urbanopt(feature_geojson, scenario_csv, cpu_count=None):
         -   err -- Array of paths to .err files containing all errors and warnings
             from the simulation.
     """
-    folders.check_urbanopt_version()
+    # translate any HBJSON files to OSM
+    directory = _check_urbanopt_file(feature_geojson, scenario_csv)
+    hb_json_dir = os.path.join(directory, 'hb_json')
+    if os.path.isdir(hb_json_dir):  # there are HBJSON files to translate to OSM
+        # prepare all of the arguments of the command
+        osm_dir = os.path.join(directory, 'osm')
+        cmds = [
+            hb_folders.python_exe_path, '-m', 'dragonfly_energy', 'translate',
+            'hb-models-to-osm', hb_json_dir,
+            '--output-folder', osm_dir
+        ]
+        # assign the simulation parameters if they exist
+        sim_par_json = os.path.join(directory, 'simulation_parameter.json')
+        if os.path.isfile(sim_par_json):
+            cmds.append('--sim-par-json')
+            cmds.append(sim_par_json)
+        # get the EPW file from the feature GeoJSON
+        workflow_osw = os.path.join(directory, 'mappers', 'honeybee_workflow.osw')
+        if os.path.isfile(workflow_osw):
+            with open(workflow_osw, 'r') as fp:
+                osw_dict = json.load(fp)
+            if 'weather_file' in osw_dict:
+                cmds.append('--epw-file')
+                cmds.append(str(osw_dict['weather_file']))
+        # get the CPU count from the runner.conf
+        runner_conf = os.path.join(directory, 'runner.conf')
+        if os.path.isfile(runner_conf):
+            with open(runner_conf, 'r') as fp:
+                runner_dict = json.load(fp)
+            if 'num_parallel' in runner_dict:
+                cmds.append('--cpu-count')
+                cmds.append(str(runner_dict['num_parallel']))
+        # Execute the dragonfly-energy CLI to obtain the OSMs
+        custom_env = os.environ.copy()
+        custom_env['PYTHONHOME'] = ''
+        process = subprocess.Popen(cmds, stderr=subprocess.PIPE, env=custom_env)
+        stdout, stderr = process.communicate()
+        returncode = process.wait()
+        if returncode != 0:
+            print(stderr)
+            raise Exception('Failed to translate HBJSONs to OSMs.')
+
+    # ensure that the URBANopt environment paths are set up correctly
+    folders.retrieve_urbanopt_env_path()
+    if not folders.urbanopt_env_path:
+        folders.generate_urbanopt_env_path()
     # run the simulation
     if os.name == 'nt':  # we are on Windows
         directory, stderr = \

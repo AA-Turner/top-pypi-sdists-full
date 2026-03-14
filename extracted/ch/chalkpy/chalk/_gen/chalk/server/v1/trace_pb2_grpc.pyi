@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     GetSpanFacetsResponse,
     GetSpanRequest,
     GetSpanResponse,
+    GetSpanSourceAggregatesRequest,
+    GetSpanSourceAggregatesResponse,
     GetTraceRequest,
     GetTraceResponse,
     ListSpanAggregatedRequest,
@@ -69,6 +71,11 @@ class TraceServiceStub:
         ListSpanAggregatedResponse,
     ]
     """ListSpanAggregated returns aggregated span counts bucketed by time and status"""
+    GetSpanSourceAggregates: UnaryUnaryMultiCallable[
+        GetSpanSourceAggregatesRequest,
+        GetSpanSourceAggregatesResponse,
+    ]
+    """GetSpanSourceAggregates returns span counts aggregated by (service, resource_group)"""
 
 class TraceServiceServicer(metaclass=ABCMeta):
     """TraceService provides methods for retrieving trace data"""
@@ -122,5 +129,12 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListSpanAggregatedResponse:
         """ListSpanAggregated returns aggregated span counts bucketed by time and status"""
+    @abstractmethod
+    def GetSpanSourceAggregates(
+        self,
+        request: GetSpanSourceAggregatesRequest,
+        context: ServicerContext,
+    ) -> GetSpanSourceAggregatesResponse:
+        """GetSpanSourceAggregates returns span counts aggregated by (service, resource_group)"""
 
 def add_TraceServiceServicer_to_server(servicer: TraceServiceServicer, server: Server) -> None: ...

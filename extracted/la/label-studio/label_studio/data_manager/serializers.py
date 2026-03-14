@@ -1,5 +1,5 @@
-"""This file and its contents are licensed under the Apache License 2.0. Please see the included NOTICE for copyright information and LICENSE for a copy of the license.
-"""
+"""This file and its contents are licensed under the Apache License 2.0. Please see the included NOTICE for copyright information and LICENSE for a copy of the license."""
+
 import os
 
 import ujson as json
@@ -16,6 +16,7 @@ from tasks.models import Task
 from tasks.serializers import (
     AnnotationDraftSerializer,
     AnnotationSerializer,
+    AnnotationStubSerializer,
     PredictionSerializer,
     TaskSerializer,
 )
@@ -117,7 +118,7 @@ class FilterGroupSerializer(serializers.ModelSerializer):
             # Add child filter if exists (only one level of nesting)
             child_filters = filter_obj.children.all()
             if child_filters:
-                child = child_filters[0]   # Only support one child
+                child = child_filters[0]  # Only support one child
                 child_item = {
                     'filter': child.column,
                     'operator': child.operator,
@@ -228,7 +229,6 @@ class ViewSerializer(serializers.ModelSerializer):
         """
 
         def _create_recursive(data, parent=None, index=None):
-
             # Extract nested children early (if any) and remove them from payload
             child_filter = data.pop('child_filter', None)
 
@@ -440,7 +440,7 @@ class DataManagerTaskSerializer(TaskSerializer):
     """Data Manager Task Serializer with FSM state support."""
 
     predictions = PredictionsDMFieldSerializer(required=False, read_only=True)
-    annotations = AnnotationsDMFieldSerializer(required=False, many=True, default=[], read_only=True)
+    annotations = serializers.SerializerMethodField(required=False, read_only=True)
     drafts = AnnotationDraftDMFieldSerializer(required=False, read_only=True)
     annotators = AnnotatorsDMFieldSerializer(required=False, read_only=True)
 
@@ -466,7 +466,7 @@ class DataManagerTaskSerializer(TaskSerializer):
     class Meta:
         model = Task
         ref_name = 'data_manager_task_serializer'
-        exclude = ('precomputed_agreement',)
+        exclude = ('precomputed_agreement', 'allow_skip')
         expandable_fields = {'annotations': (AnnotationSerializer, {'many': True})}
 
     def to_representation(self, obj):
@@ -483,10 +483,6 @@ class DataManagerTaskSerializer(TaskSerializer):
             and flag_set('fflag_feat_fit_710_fsm_state_fields', user=user)
         ):
             ret.pop('state', None)
-        # Ensure allow_skip is always present in the response, even if None
-        # This is important for frontend logic that checks allow_skip !== false
-        if 'allow_skip' not in ret:
-            ret['allow_skip'] = obj.allow_skip
         return ret
 
     def _pretty_results(self, task, field, unique=False):
@@ -519,6 +515,35 @@ class DataManagerTaskSerializer(TaskSerializer):
 
     def get_predictions(self, task):
         return PredictionSerializer(task.predictions, many=True, default=[], read_only=True).data
+
+    def get_annotations(self, task):
+        """Return annotations for the task.
+
+        If annotations_stub=True is in context (via feature flag
+        fflag_fix_all_fit_720_lazy_load_annotations), returns lightweight
+        annotation stubs without result data for improved performance.
+        """
+        if not self.context.get('annotations'):
+            return []
+
+        annotations = task.annotations.all()
+
+        # Use stub serializer if requested (feature flag checked at API level)
+        if self.context.get('annotations_stub'):
+            return AnnotationStubSerializer(
+                annotations,
+                many=True,
+                read_only=True,
+                context=self.context,
+                expand=['completed_by'],
+            ).data
+
+        return AnnotationsDMFieldSerializer(
+            annotations,
+            many=True,
+            read_only=True,
+            context=self.context,
+        ).data
 
     @staticmethod
     def get_file_upload(task):

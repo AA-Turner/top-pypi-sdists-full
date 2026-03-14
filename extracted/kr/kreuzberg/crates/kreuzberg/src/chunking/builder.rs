@@ -87,6 +87,7 @@ where
                 total_chunks,
                 first_page,
                 last_page,
+                heading_context: None,
             },
         });
     }

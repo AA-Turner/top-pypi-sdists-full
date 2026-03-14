@@ -7,6 +7,7 @@ from gridstatus.isone_api.isone_api import ISONEAPI, ZONE_LOCATIONID_MAP
 from gridstatus.isone_api.isone_api_constants import (
     ISONE_CAPACITY_FORECAST_7_DAY_COLUMNS,
     ISONE_FCM_RECONFIGURATION_COLUMNS,
+    ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS,
     ISONE_RESERVE_ZONE_ALL_COLUMNS,
 )
 from gridstatus.tests.base_test_iso import TestHelperMixin
@@ -590,6 +591,50 @@ class TestISONEAPI(TestHelperMixin):
 
             assert df["Interval Start"].min() == start
             assert df["Interval End"].max() == end
+
+    """get_zonal_load_estimated_5_min"""
+
+    def _check_zonal_load_estimated_5_min(self, df: pd.DataFrame) -> None:
+        assert list(df.columns) == ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS
+        assert df["Load Zone ID"].dtype in [np.int64, np.float64]
+        assert df["Estimated Load"].dtype in [np.int64, np.float64]
+        assert df["Estimated BTM Solar"].dtype in [np.int64, np.float64]
+        assert (
+            (df["Interval End"] - df["Interval Start"]) == pd.Timedelta(minutes=5)
+        ).all()
+
+    def test_get_zonal_load_estimated_5_min_latest(self):
+        with api_vcr.use_cassette(
+            "test_get_zonal_load_estimated_5_min_latest.yaml",
+        ):
+            result = self.iso.get_zonal_load_estimated_5_min(date="latest")
+
+        self._check_zonal_load_estimated_5_min(result)
+
+    @pytest.mark.parametrize(
+        "date,end",
+        [
+            ("2025-11-01", "2025-11-03"),
+            ("2025-03-08", "2025-03-10"),
+        ],
+    )
+    def test_get_zonal_load_estimated_5_min_date_range(
+        self,
+        date: str,
+        end: str,
+    ):
+        cassette_name = f"test_get_zonal_load_estimated_5_min_{date}_{end}.yaml"
+        with api_vcr.use_cassette(cassette_name):
+            result = self.iso.get_zonal_load_estimated_5_min(date=date, end=end)
+
+        self._check_zonal_load_estimated_5_min(result)
+
+        assert result["Interval Start"].min() == pd.Timestamp(date).tz_localize(
+            self.iso.default_timezone,
+        )
+        assert result["Interval Start"].max() == pd.Timestamp(end).tz_localize(
+            self.iso.default_timezone,
+        ) - pd.Timedelta(minutes=5)
 
     def test_get_lmp_real_time_hourly_prelim_latest(self):
         with api_vcr.use_cassette("test_get_lmp_real_time_hourly_prelim_latest.yaml"):
@@ -1420,6 +1465,7 @@ class TestISONEAPI(TestHelperMixin):
         assert isinstance(df, pd.DataFrame)
         assert len(df) > 0
         assert list(df.columns) == ISONE_FCM_RECONFIGURATION_COLUMNS
+        assert "ARA" in df.columns
         assert df["Location Type"].isin(["Capacity Zone", "External Interface"]).all()
         assert df["Location ID"].dtype in [np.int64, np.float64]
         assert df["Location Name"].dtype == "object"
@@ -1464,6 +1510,7 @@ class TestISONEAPI(TestHelperMixin):
             result = self.iso.get_fcm_reconfiguration_annual(date="latest")
 
             self._check_fcm_reconfiguration(result)
+            assert result["ARA"].isin(["1", "2", "3"]).all()
 
     @pytest.mark.parametrize(
         "date",
@@ -1480,6 +1527,9 @@ class TestISONEAPI(TestHelperMixin):
             )
 
             self._check_fcm_reconfiguration(result)
+            assert result["ARA"].isin(["1", "2", "3"]).all()
+            unique_ara_values = result["ARA"].unique()
+            assert len(unique_ara_values) >= 1
             cp_start_year = date.year if date.month >= 6 else date.year - 1
             expected_cp_start = pd.Timestamp(
                 year=cp_start_year,

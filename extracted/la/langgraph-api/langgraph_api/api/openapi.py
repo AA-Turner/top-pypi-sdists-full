@@ -86,6 +86,8 @@ def get_openapi_spec() -> bytes:
             "ThreadCronCreate",
             "RunCreateStateful",
             "RunCreateStateless",
+            "RunCreateStreamingStateful",
+            "RunCreateStreamingStateless",
         ]
         for schema_name in webhook_schemas:
             if schema_name in openapi["components"]["schemas"]:

@@ -20,12 +20,23 @@ class ArgoWorkflowServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsResponse.FromString,
         )
+        self.GetArgoBuild = channel.unary_unary(
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuild",
+            request_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.FromString,
+        )
 
 
 class ArgoWorkflowServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ListArgoBuilds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetArgoBuild(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -38,6 +49,11 @@ def add_ArgoWorkflowServiceServicer_to_server(servicer, server):
             servicer.ListArgoBuilds,
             request_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsResponse.SerializeToString,
+        ),
+        "GetArgoBuild": grpc.unary_unary_rpc_method_handler(
+            servicer.GetArgoBuild,
+            request_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ArgoWorkflowService", rpc_method_handlers)
@@ -67,6 +83,35 @@ class ArgoWorkflowService(object):
             "/chalk.server.v1.ArgoWorkflowService/ListArgoBuilds",
             chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_argo__workflow__pb2.ListArgoBuildsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetArgoBuild(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuild",
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.FromString,
             options,
             channel_credentials,
             insecure,

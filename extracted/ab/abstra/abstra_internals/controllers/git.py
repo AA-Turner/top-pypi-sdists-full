@@ -7,6 +7,7 @@ from abstra_internals.cloud_api import get_api_key_info
 from abstra_internals.credentials import get_credentials, resolve_headers
 from abstra_internals.environment import CLOUD_API_CLI_URL, REMOTE_GIT_URL, REMOTE_NAME
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
+from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.git import (
     AheadBehindInfo,
     GitCommit,
@@ -37,6 +38,18 @@ class GitController:
         self.git_repository = create_git_repository(Settings.root_path)
         self.email_provider = email_provider
         self.git_email = email_provider.get_email()
+
+        # Run git maintenance tasks (cleanup temp objects, gc if needed)
+        self._run_maintenance()
+
+    def _run_maintenance(self) -> None:
+        """Run git maintenance tasks and log results."""
+        result = self.git_repository.run_maintenance()
+        if result.success and result.cleanup and result.cleanup.directories_cleaned > 0:
+            mb_freed = result.cleanup.bytes_freed / (1024 * 1024)
+            AbstraLogger.info(
+                f"[Git] Maintenance: cleaned {result.cleanup.directories_cleaned} temp directories, freed {mb_freed:.1f} MB"
+            )
 
     def _ensure_authentication(self) -> bool:
         try:

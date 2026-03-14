@@ -18,11 +18,14 @@ thiserror.workspace = true
 log.workspace = true
 
 # RDP client - using ironrdp (pure Rust) - GitHub fork with Update PDU support
-ironrdp = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu", features = ["connector", "session", "graphics", "input", "cliprdr"] }
+ironrdp = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu", features = ["connector", "session", "graphics", "input", "cliprdr", "dvc"] }
 ironrdp-async = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-tokio = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-pdu = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
 ironrdp-displaycontrol = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
+ironrdp-egfx = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
+ironrdp-dvc = { git = "https://github.com/miroberts/IronRDP.git", branch = "feature/handle-update-pdu" }
+crossbeam-queue.workspace = true
 tokio-rustls = "0.26"
 rustls = { version = "0.23", features = ["ring"] }
 x509-cert = "0.2"
@@ -38,6 +41,9 @@ base64.workspace = true
 guacr-terminal = { path = "../guacr-terminal" }
 guacr-protocol = { path = "../guacr-protocol" }
 
+# Video session recording: fMP4 + AES-256-GCM + WebSocket upload
+guacr-recorder = { path = "../guacr-recorder" }
+
 # Hardware encoding support comes from guacr-terminal (shared across protocols)
 # SFTP integration support
 guacr-sftp = { path = "../guacr-sftp", optional = true }
@@ -45,6 +51,7 @@ russh = { version = "0.46", optional = true }
 russh-sftp = { version = "2.1", optional = true }
 russh-keys = { version = "0.46", optional = true }
 guacr-threat-detection = { path = "../guacr-threat-detection", optional = true }
+uuid = { workspace = true, optional = true }
 
 # Drive redirection via IronRDP RDPDR
 ironrdp-rdpdr = { version = "0.5", optional = true }
@@ -54,13 +61,6 @@ ironrdp-core = { version = "0.1", optional = true }
 
 [features]
 default = []
-# Hardware encoding features temporarily disabled
-# nvenc = ["guacr-terminal/nvenc"]
-# quicksync = ["guacr-terminal/quicksync"]
-# videotoolbox = ["guacr-terminal/videotoolbox"]
-# vaapi = ["guacr-terminal/vaapi"]
-# SFTP integration feature
 sftp = ["guacr-sftp", "russh", "russh-sftp", "russh-keys"]
-threat-detection = ["guacr-threat-detection"]
-# RDP drive redirection (RDPDR) via IronRDP
+threat-detection = ["guacr-threat-detection", "uuid"]
 drive = ["ironrdp-rdpdr", "ironrdp-rdpdr-native", "ironrdp-svc", "ironrdp-core"]

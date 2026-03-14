@@ -542,7 +542,10 @@ def create_java_udtf(
 
     mode_label = "map_partitions" if batch_mode else "flatmap"
     sql = udtf.to_create_function_sql()
-    logger.info(f"Creating Java UDTF for {mode_label}: {sql}")
+    logger.info(
+        f"Creating Java UDAF {mode_label}: {udtf_name}({','.join([str(param) for param in sql_input_params])})"
+    )
+    logger.debug(f"Java UDAF with body {mode_label}: {sql}")
     session.sql(sql).collect()
 
     return udtf_name
@@ -715,7 +718,8 @@ def create_java_udtf_for_scala_group_map_handling(
     )
 
     sql = udtf.to_create_function_sql()
-    logger.info(f"Creating Java UDTF for group_map: {sql}")
+    logger.info(f"Creating Java UDTF group_map: {udtf_name}")
+    logger.debug(f"Java UDTF with body group_map: {sql}")
     session.sql(sql).collect()
 
     return udtf_name
@@ -898,7 +902,8 @@ def create_java_udtf_for_scala_co_group_map_handling(
     )
 
     sql = udtf.to_create_function_sql()
-    logger.info(f"Creating Java UDTF for co_group_map: {sql}")
+    logger.info(f"Creating Java UDTF co_group_map: {udtf_name}")
+    logger.debug(f"Java UDTF with body co_group_map: {sql}")
     session.sql(sql).collect()
 
     return udtf_name

@@ -197,6 +197,84 @@ def _has_stdin_data() -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Stdin JSON template expansion
+# ---------------------------------------------------------------------------
+# Hooks (e.g. Claude Code) pipe JSON on stdin.  Instead of requiring jq,
+# keep can expand ${.field} and ${.field:N} (truncate to N chars) directly.
+
+_STDIN_JSON_SENTINEL = object()
+_stdin_json_cache: Any = _STDIN_JSON_SENTINEL
+
+_TEMPLATE_RE = re.compile(r'\$\{\.([A-Za-z_][A-Za-z0-9_]*)(?::(\d+))?\}')
+
+
+def _read_stdin_json() -> dict:
+    """Read and cache JSON object from stdin.  Returns {} on failure."""
+    global _stdin_json_cache
+    if _stdin_json_cache is not _STDIN_JSON_SENTINEL:
+        return _stdin_json_cache  # type: ignore[return-value]
+    _stdin_json_cache = {}
+    if _has_stdin_data():
+        try:
+            raw = sys.stdin.read()
+            obj = json.loads(raw)
+            if isinstance(obj, dict):
+                _stdin_json_cache = obj
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+    return _stdin_json_cache
+
+
+def _has_templates(s: str | None) -> bool:
+    return s is not None and '${.' in s
+
+
+def _expand_template(s: str, data: dict) -> str:
+    """Expand ${.field} and ${.field:N} in *s* from *data*."""
+    def _replace(m: re.Match) -> str:
+        key, limit = m.group(1), m.group(2)
+        val = data.get(key)
+        if val is None:
+            return ''
+        result = str(val)
+        if limit:
+            result = result[:int(limit)]
+        return result
+    return _TEMPLATE_RE.sub(_replace, s)
+
+
+def _expand_stdin_templates(
+    *strings: str | None,
+) -> tuple[str | None, ...]:
+    """Expand ${.field} templates in one or more strings from stdin JSON.
+
+    Only reads stdin when at least one string contains a template.
+    Returns the strings unchanged when no templates are present.
+    """
+    if not any(_has_templates(s) for s in strings):
+        return strings
+    data = _read_stdin_json()
+    return tuple(
+        _expand_template(s, data) if _has_templates(s) else s
+        for s in strings
+    )
+
+
+def _expand_stdin_tag_list(
+    tags: list[str] | None,
+    data: dict | None = None,
+) -> list[str] | None:
+    """Expand templates in a tag list.  Returns None if input is None."""
+    if not tags:
+        return tags
+    if not any(_has_templates(t) for t in tags):
+        return tags
+    if data is None:
+        data = _read_stdin_json()
+    return [_expand_template(t, data) if _has_templates(t) else t for t in tags]
+
+
 def _parse_json_arg(source: str) -> dict:
     """Parse JSON from inline string, @file, or stdin (-)."""
     if source == "-":
@@ -1254,6 +1332,28 @@ def _get_keeper(store: Optional[Path]) -> Keeper:
         # Ensure close() runs before interpreter shutdown to release model locks
         atexit.register(kp.close)
 
+        # After first-time setup: populate store with system docs immediately
+        # so prompts, tags, state docs, etc. are available right away.
+        if wizard_config and kp._needs_sysdoc_migration:
+            is_tty = sys.stderr.isatty()
+            try:
+                def _setup_progress(current, total, label):
+                    if is_tty:
+                        _progress_bar(current, total, label, err=True)
+                result = kp._migrate_system_documents(progress=_setup_progress)
+                kp._needs_sysdoc_migration = False
+                n_loaded = result.get("created", 0) + result.get("migrated", 0)
+                if is_tty:
+                    # Replace progress bar with final summary on same line
+                    cols = shutil.get_terminal_size((80, 24)).columns
+                    msg = f"  Loaded {n_loaded} system docs." if n_loaded else ""
+                    sys.stderr.write("\r" + msg.ljust(cols - 1) + "\n")
+                    sys.stderr.flush()
+                elif n_loaded:
+                    typer.echo(f"  Loaded {n_loaded} system docs.", err=True)
+            except Exception as e:
+                logger.warning("System doc setup deferred: %s", e)
+
         # Check for remote config in TOML (loaded during Keeper init)
         if kp.config and kp.config.remote:
             from .remote import RemoteKeeper
@@ -1722,12 +1822,6 @@ def _put_store(
             typer.echo("Error: --summary cannot be used with stdin input (original content would be lost)", err=True)
             typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
             raise typer.Exit(1)
-        max_len = kp.config.max_inline_length
-        is_system_doc = id and id.startswith(".")
-        if not is_system_doc and len(content) > max_len:
-            typer.echo(f"Error: stdin content too long to store inline ({len(content)} chars, max {max_len})", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
-            raise typer.Exit(1)
         # Use content-addressed ID for stdin text (enables versioning)
         doc_id = id or _text_content_id(content)
         return kp.put(content, id=doc_id, tags=parsed_tags or None, force=force)
@@ -1807,12 +1901,6 @@ def _put_store(
         if summary is not None:
             typer.echo("Error: --summary cannot be used with inline text (original content would be lost)", err=True)
             typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
-            raise typer.Exit(1)
-        max_len = kp.config.max_inline_length
-        is_system_doc = id and id.startswith(".")
-        if not is_system_doc and len(source) > max_len:
-            typer.echo(f"Error: inline text too long to store ({len(source)} chars, max {max_len})", err=True)
-            typer.echo("Hint: write to a file first, then: keep put file:///path/to/file", err=True)
             raise typer.Exit(1)
         # Use content-addressed ID for text (enables versioning)
         doc_id = id or _text_content_id(source)
@@ -2006,6 +2094,12 @@ def now(
         keep now --history               # List all versions
     """
     from .api import NOWDOC_ID
+
+    # Expand ${.field} templates from stdin JSON (hooks support)
+    has_tpl = _has_templates(content) or (tags and any(_has_templates(t) for t in tags))
+    if has_tpl:
+        (content,) = _expand_stdin_templates(content)
+        tags = _expand_stdin_tag_list(tags)
 
     kp = _get_keeper(store)
     doc_id = f"now:{scope}" if scope else NOWDOC_ID
@@ -2246,6 +2340,9 @@ def prompt(
         keep prompt reflect --since P7D           # Recent context only
         keep prompt reflect --tag project=myapp   # Scoped to project
     """
+    # Expand ${.field} templates from stdin JSON (hooks support)
+    tag = _expand_stdin_tag_list(tag)
+
     kp = _get_keeper(store)
 
     if list_prompts or not name:
@@ -2337,6 +2434,10 @@ def move(
     With --only, just the current version is moved.
     With --from, extract from a specific item instead of now.
     """
+    # Expand ${.field} templates from stdin JSON (hooks support)
+    (name,) = _expand_stdin_templates(name)
+    tags = _expand_stdin_tag_list(tags)
+
     if not tags and not only:
         typer.echo(
             "Error: use -t to filter by tags, or --only to move just the current version",
@@ -2743,12 +2844,15 @@ def del_cmd(
                 had_errors = True
                 continue
             # Delete a specific archived version (offset or oldest-ordinal selector)
+            # Fetch the version before deleting so we can show what was removed
+            version_item = kp.get_version(actual_id, version_offset)
             deleted = kp.delete_version(actual_id, version_offset)
             if not deleted:
                 typer.echo(f"Version not found: {one_id}", err=True)
                 had_errors = True
-            else:
-                typer.echo(f"Deleted {one_id}")
+            elif version_item:
+                from .types import ItemContext
+                typer.echo(render_context(ItemContext(item=version_item), as_json=_get_json_output()))
         else:
             # Original behavior: revert current (or delete if no history)
             item = kp.get(actual_id)
@@ -2757,17 +2861,17 @@ def del_cmd(
                 had_errors = True
                 continue
 
+            # Show the deleted version (fetched above before deletion)
+            ctx = kp.get_context(
+                actual_id, include_meta=False, include_parts=False,
+                include_similar=False,
+            )
             restored = kp.revert(actual_id)
 
-            if restored is None:
-                # Fully deleted
-                typer.echo(_format_summary_line(item))
-            else:
-                # Reverted — show the restored version with similar items
-                ctx = kp.get_context(
-                    restored.id, include_meta=False, include_parts=False,
-                )
+            if ctx:
                 typer.echo(render_context(ctx, as_json=_get_json_output()))
+            else:
+                typer.echo(_format_summary_line(item))
 
     if had_errors:
         raise typer.Exit(1)
@@ -2909,7 +3013,7 @@ def _get_config_value(cfg, store_path: Path, path: str):
         return str(Path(str(importlib.resources.files("keep"))) / "data" / "openclaw-plugin")
     if path == "mcpb":
         from .mcpb import generate_mcpb
-        out = generate_mcpb()
+        out = generate_mcpb(store_path=store_path)
         if platform.system() == "Darwin":
             subprocess.Popen(["open", str(out)])
         elif platform.system() == "Windows":

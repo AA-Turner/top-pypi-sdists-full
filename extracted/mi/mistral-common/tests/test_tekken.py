@@ -87,7 +87,12 @@ def get_special_tokens(
     ]
 
     if add_audio:
-        special_tokens += [SpecialTokenInfo(rank=34, token_str=SpecialTokens.transcribe, is_control=True)]
+        assert not add_think, f"Audio and think tokens are mutually exclusive, got {add_audio} and {add_think}"
+        special_tokens += [
+            SpecialTokenInfo(rank=34, token_str=SpecialTokens.transcribe, is_control=True),
+            SpecialTokenInfo(rank=35, token_str=SpecialTokens.text_to_audio, is_control=True),
+            SpecialTokenInfo(rank=36, token_str=SpecialTokens.audio_to_text, is_control=True),
+        ]
 
     if tokenizer_version < TokenizerVersion.v13:
         return special_tokens
@@ -99,6 +104,17 @@ def get_special_tokens(
         special_tokens += [
             SpecialTokenInfo(rank=35, token_str="[THINK]", is_control=True),
             SpecialTokenInfo(rank=36, token_str="[/THINK]", is_control=True),
+        ]
+
+    if tokenizer_version >= TokenizerVersion.v15:
+        # fill until rank 37
+        special_tokens += [
+            SpecialTokenInfo(rank=i, token_str=f"<SPCECIAL_{i}>", is_control=True)
+            for i in range(len(special_tokens), 37)
+        ]
+        special_tokens += [
+            SpecialTokenInfo(rank=37, token_str=SpecialTokens.begin_model_settings, is_control=True),
+            SpecialTokenInfo(rank=38, token_str=SpecialTokens.end_model_settings, is_control=True),
         ]
 
     return special_tokens

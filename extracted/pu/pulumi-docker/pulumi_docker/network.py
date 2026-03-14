@@ -35,6 +35,7 @@ class NetworkArgs:
                  options: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Network resource.
+
         :param pulumi.Input[_builtins.bool] attachable: Enable manual container attachment to the network.
         :param pulumi.Input[_builtins.bool] check_duplicate: Requests daemon to check for networks with same name.
         :param pulumi.Input[_builtins.str] driver: The driver of the Docker network. Possible values are `bridge`, `host`, `overlay`, `macvlan`. See [network docs](https://docs.docker.com/network/#network-drivers) for more details.
@@ -240,6 +241,7 @@ class _NetworkState:
                  scope: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Network resources.
+
         :param pulumi.Input[_builtins.bool] attachable: Enable manual container attachment to the network.
         :param pulumi.Input[_builtins.bool] check_duplicate: Requests daemon to check for networks with same name.
         :param pulumi.Input[_builtins.str] driver: The driver of the Docker network. Possible values are `bridge`, `host`, `overlay`, `macvlan`. See [network docs](https://docs.docker.com/network/#network-drivers) for more details.
@@ -476,35 +478,40 @@ class Network(pulumi.CustomResource):
 
         ## Import
 
+        !/bin/bash
+
+        ```sh
+        $ pulumi import docker:index/network:Network foo id
+        ```
+
         ### Example
 
         Assuming you created a `network` as follows
 
+        ```sh
         #!/bin/bash
-
         docker network create foo
-
-        prints the long ID
-
+        # prints the long ID
         87b57a9b91ecab2db2a6dbf38df74c67d7c7108cbe479d6576574ec2cd8c2d73
+        ```
 
         you provide the definition for the resource as follows
 
-        terraform
+        ```python
+        import pulumi
+        import pulumi_docker as docker
 
-        resource "docker_network" "foo" {
-
-          name = "foo"
-
-        }
+        foo = docker.Network("foo", name="foo")
+        ```
 
         then the import command is as follows
 
-        #!/bin/bash
+        !/bin/bash
 
         ```sh
         $ pulumi import docker:index/network:Network foo 87b57a9b91ecab2db2a6dbf38df74c67d7c7108cbe479d6576574ec2cd8c2d73
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -542,35 +549,40 @@ class Network(pulumi.CustomResource):
 
         ## Import
 
+        !/bin/bash
+
+        ```sh
+        $ pulumi import docker:index/network:Network foo id
+        ```
+
         ### Example
 
         Assuming you created a `network` as follows
 
+        ```sh
         #!/bin/bash
-
         docker network create foo
-
-        prints the long ID
-
+        # prints the long ID
         87b57a9b91ecab2db2a6dbf38df74c67d7c7108cbe479d6576574ec2cd8c2d73
+        ```
 
         you provide the definition for the resource as follows
 
-        terraform
+        ```python
+        import pulumi
+        import pulumi_docker as docker
 
-        resource "docker_network" "foo" {
-
-          name = "foo"
-
-        }
+        foo = docker.Network("foo", name="foo")
+        ```
 
         then the import command is as follows
 
-        #!/bin/bash
+        !/bin/bash
 
         ```sh
         $ pulumi import docker:index/network:Network foo 87b57a9b91ecab2db2a6dbf38df74c67d7c7108cbe479d6576574ec2cd8c2d73
         ```
+
 
         :param str resource_name: The name of the resource.
         :param NetworkArgs args: The arguments to use to populate this resource's properties.

@@ -7,6 +7,9 @@ use std::num::NonZeroU16;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "stubs")]
+use pyo3_stub_gen::derive::gen_stub_pyclass_enum;
+
 use qcs_api_client_common::configuration::LoadError;
 use quil_rs::quil::ToQuilError;
 
@@ -380,7 +383,7 @@ impl Executable<'_, '_> {
                 self.shots,
                 self.get_readouts()
                     .iter()
-                    .map(|address| (address.to_string(), AddressRequest::IncludeAll))
+                    .map(|address| (address.to_string(), AddressRequest::IncludeAll()))
                     .collect(),
                 &self.params,
                 client,
@@ -470,7 +473,8 @@ impl<'execution> Executable<'_, 'execution> {
     /// 2. `translation_options`: An optional [`TranslationOptions`] that is used to configure how
     ///    the program in translated.
     /// 3. `execution_options`: The [`ExecutionOptions`] to use. If the connection strategy used
-    ///    is [`crate::qpu::api::ConnectionStrategy::EndpointId`] then direct access to that endpoint
+    ///    is [`crate::qpu::api::ConnectionStrategy::EndpointId`] or
+    ///    [`crate::qpu::api::ConnectionStrategy::EndpointAddress`] then direct access to that endpoint
     ///    overrides the `quantum_processor_id` parameter.
     ///
     /// # Warning
@@ -528,7 +532,8 @@ impl<'execution> Executable<'_, 'execution> {
     /// 2. `translation_options`: An optional [`TranslationOptions`] that is used to configure how
     ///    the program in translated.
     /// 3. `execution_options`: The [`ExecutionOptions`] to use. If the connection strategy used
-    ///    is [`crate::qpu::api::ConnectionStrategy::EndpointId`] then direct access to that endpoint
+    ///    is [`crate::qpu::api::ConnectionStrategy::EndpointId`] or
+    ///    [`crate::qpu::api::ConnectionStrategy::EndpointAddress`] then direct access to that endpoint
     ///    overrides the `quantum_processor_id` parameter.
     ///
     /// # Errors
@@ -678,6 +683,11 @@ pub enum Error {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "stubs", gen_stub_pyclass_enum)]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "qcs_sdk", rename_all = "SCREAMING_SNAKE_CASE", eq)
+)]
 /// The external services that this SDK may connect to. Used to differentiate between networking
 /// issues in [`Error::Connection`].
 pub enum Service {

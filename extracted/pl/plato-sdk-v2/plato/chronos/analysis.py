@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from plato.chronos.api.otel import (
     get_session_traces_api_otel_sessions__session_id__traces_get as get_traces_api,
 )
-from plato.chronos.models import OTelSpan, OTelTraceResponse
+from plato.chronos.models import OTelSpanSchema as OTelSpan
+from plato.chronos.models import OTelTraceResponse
 
 # ---------------------------------------------------------------------------
 # Span tree

@@ -1,0 +1,75 @@
+"""Update Setting"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+
+from plato.chronos.errors import raise_for_status
+from plato.chronos.models import SettingResponse, UpdateSettingRequest
+
+
+def _build_request_args(
+    key: str,
+    body: UpdateSettingRequest,
+    x_settings_passphrase: str | None = None,
+    x_api_key: str | None = None,
+) -> dict[str, Any]:
+    """Build request arguments."""
+    url = f"/api/settings/{key}"
+
+    headers: dict[str, str] = {}
+    if x_settings_passphrase is not None:
+        headers["x-settings-passphrase"] = x_settings_passphrase
+    if x_api_key is not None:
+        headers["X-API-Key"] = x_api_key
+
+    return {
+        "method": "PUT",
+        "url": url,
+        "json": body.model_dump(mode="json", exclude_none=True),
+        "headers": headers,
+    }
+
+
+def sync(
+    client: httpx.Client,
+    key: str,
+    body: UpdateSettingRequest,
+    x_settings_passphrase: str | None = None,
+    x_api_key: str | None = None,
+) -> SettingResponse:
+    """Update Setting"""
+
+    request_args = _build_request_args(
+        key=key,
+        body=body,
+        x_settings_passphrase=x_settings_passphrase,
+        x_api_key=x_api_key,
+    )
+
+    response = client.request(**request_args)
+    raise_for_status(response)
+    return SettingResponse.model_validate(response.json())
+
+
+async def asyncio(
+    client: httpx.AsyncClient,
+    key: str,
+    body: UpdateSettingRequest,
+    x_settings_passphrase: str | None = None,
+    x_api_key: str | None = None,
+) -> SettingResponse:
+    """Update Setting"""
+
+    request_args = _build_request_args(
+        key=key,
+        body=body,
+        x_settings_passphrase=x_settings_passphrase,
+        x_api_key=x_api_key,
+    )
+
+    response = await client.request(**request_args)
+    raise_for_status(response)
+    return SettingResponse.model_validate(response.json())

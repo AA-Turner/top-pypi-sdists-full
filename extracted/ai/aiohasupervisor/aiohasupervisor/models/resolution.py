@@ -21,7 +21,7 @@ class SuggestionType(StrEnum):
     CLEAR_FULL_BACKUP = "clear_full_backup"
     CREATE_FULL_BACKUP = "create_full_backup"
     DISABLE_BOOT = "disable_boot"
-    EXECUTE_INTEGRITY = "execute_integrity"
+    ENABLE_NTP = "enable_ntp"
     EXECUTE_REBOOT = "execute_reboot"
     EXECUTE_REBUILD = "execute_rebuild"
     EXECUTE_RELOAD = "execute_reload"
@@ -49,6 +49,7 @@ class IssueType(StrEnum):
     CORRUPT_REPOSITORY = "corrupt_repository"
     CORRUPT_FILESYSTEM = "corrupt_filesystem"
     DEPRECATED_ADDON = "deprecated_addon"
+    DEPRECATED_ARCH_ADDON = "deprecated_arch_addon"
     DETACHED_ADDON_MISSING = "detached_addon_missing"
     DETACHED_ADDON_REMOVED = "detached_addon_removed"
     DEVICE_ACCESS_MISSING = "device_access_missing"
@@ -66,10 +67,10 @@ class IssueType(StrEnum):
     MOUNT_FAILED = "mount_failed"
     MULTIPLE_DATA_DISKS = "multiple_data_disks"
     NO_CURRENT_BACKUP = "no_current_backup"
+    NTP_SYNC_FAILED = "ntp_sync_failed"
     PWNED = "pwned"
     REBOOT_REQUIRED = "reboot_required"
     SECURITY = "security"
-    TRUST = "trust"
     UPDATE_FAILED = "update_failed"
     UPDATE_ROLLBACK = "update_rollback"
 
@@ -86,7 +87,6 @@ class UnsupportedReason(StrEnum):
     APPARMOR = "apparmor"
     CGROUP_VERSION = "cgroup_version"
     CONNECTIVITY_CHECK = "connectivity_check"
-    CONTENT_TRUST = "content_trust"
     DBUS = "dbus"
     DNS_SERVER = "dns_server"
     DOCKER_CONFIGURATION = "docker_configuration"
@@ -101,7 +101,6 @@ class UnsupportedReason(StrEnum):
     PRIVILEGED = "privileged"
     RESTART_POLICY = "restart_policy"
     SOFTWARE = "software"
-    SOURCE_MODS = "source_mods"
     SUPERVISOR_VERSION = "supervisor_version"
     SYSTEMD = "systemd"
     SYSTEMD_JOURNAL = "systemd_journal"
@@ -151,8 +150,8 @@ class CheckType(StrEnum):
 
     ADDON_PWNED = "addon_pwned"
     BACKUPS = "backups"
-    CORE_SECURITY = "core_security"
     DEPRECATED_ADDON = "deprecated_addon"
+    DEPRECATED_ARCH_ADDON = "deprecated_arch_addon"
     DETACHED_ADDON_MISSING = "detached_addon_missing"
     DETACHED_ADDON_REMOVED = "detached_addon_removed"
     DISABLED_DATA_DISK = "disabled_data_disk"
@@ -162,7 +161,6 @@ class CheckType(StrEnum):
     FREE_SPACE = "free_space"
     MULTIPLE_DATA_DISKS = "multiple_data_disks"
     NETWORK_INTERFACE_IPV4 = "network_interface_ipv4"
-    SUPERVISOR_TRUST = "supervisor_trust"
 
 
 # --- OBJECTS ----

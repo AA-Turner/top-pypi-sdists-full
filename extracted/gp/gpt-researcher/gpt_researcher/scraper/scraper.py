@@ -36,13 +36,9 @@ class Scraper:
         """
         Initialize the Scraper class.
         Args:
-            urls: List of URLs to scrape (duplicates will be removed)
+            urls:
         """
-        # Optimization: Remove duplicate URLs to avoid redundant scraping
-        unique_urls = list(dict.fromkeys(urls))  # Preserves order while removing duplicates
-        duplicates_removed = len(urls) - len(unique_urls)
-
-        self.urls = unique_urls
+        self.urls = urls
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
         self.scraper = scraper
@@ -52,13 +48,6 @@ class Scraper:
             self._check_pkg(self.scraper)
         self.logger = logging.getLogger(__name__)
         self.worker_pool = worker_pool
-
-        # Log deduplication results if duplicates were found
-        if duplicates_removed > 0:
-            self.logger.info(
-                f"Removed {duplicates_removed} duplicate URL(s). "
-                f"Scraping {len(unique_urls)} unique URLs instead of {len(urls)}."
-            )
 
     async def run(self):
         """

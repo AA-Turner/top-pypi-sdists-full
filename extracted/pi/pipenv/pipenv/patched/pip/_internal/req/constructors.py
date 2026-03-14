@@ -128,9 +128,16 @@ def _parse_pip_syntax_editable(editable_req: str) -> tuple[str | None, str, set[
     for version_control in vcs:
         if url.lower().startswith(f"{version_control}:"):
             url = f"{version_control}+{url}"
+            url_no_extras = f"{version_control}+{url_no_extras}"
             break
 
-    return Link(url).egg_fragment, url, set()
+    if extras:
+        return (
+            Link(url_no_extras).egg_fragment,
+            url_no_extras,
+            get_requirement("placeholder" + extras.lower()).extras,
+        )
+    return Link(url_no_extras).egg_fragment, url_no_extras, set()
 
 
 def parse_editable(editable_req: str) -> tuple[str | None, str, set[str]]:
@@ -258,8 +265,10 @@ def install_req_from_editable(
     permit_editable_wheels: bool = False,
     config_settings: dict[str, str | list[str]] | None = None,
 ) -> InstallRequirement:
-    parts = parse_req_from_editable(editable_req)
+    if constraint:
+        raise InstallationError("Editable requirements are not allowed as constraints")
 
+    parts = parse_req_from_editable(editable_req)
     return InstallRequirement(
         parts.requirement,
         comes_from=comes_from,

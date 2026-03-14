@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Literal, Optional, Union
 
 import gpuhunt
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, exists, false, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, load_only
 
@@ -42,7 +42,9 @@ from dstack._internal.core.models.volumes import Volume
 from dstack._internal.core.services.profiles import get_termination
 from dstack._internal.server import settings as server_settings
 from dstack._internal.server.models import (
+    ExportedFleetModel,
     FleetModel,
+    ImportModel,
     InstanceHealthCheckModel,
     InstanceModel,
     ProjectModel,
@@ -88,6 +90,8 @@ def switch_instance_status(
         instance_model=instance_model,
         old_status=old_status,
         new_status=new_status,
+        termination_reason=instance_model.termination_reason,
+        termination_reason_message=instance_model.termination_reason_message,
         actor=actor,
     )
 
@@ -97,20 +101,26 @@ def emit_instance_status_change_event(
     instance_model: InstanceModel,
     old_status: InstanceStatus,
     new_status: InstanceStatus,
+    termination_reason: Optional[InstanceTerminationReason],
+    termination_reason_message: Optional[str],
     actor: events.AnyActor = events.SystemActor(),
 ) -> None:
     if old_status == new_status:
         return
     msg = get_instance_status_change_message(
-        instance_model=instance_model,
         old_status=old_status,
         new_status=new_status,
+        termination_reason=termination_reason,
+        termination_reason_message=termination_reason_message,
     )
     events.emit(session, msg, actor=actor, targets=[events.Target.from_model(instance_model)])
 
 
 def get_instance_status_change_message(
-    instance_model: InstanceModel, old_status: InstanceStatus, new_status: InstanceStatus
+    old_status: InstanceStatus,
+    new_status: InstanceStatus,
+    termination_reason: Optional[InstanceTerminationReason],
+    termination_reason_message: Optional[str],
 ) -> str:
     msg = f"Instance status changed {old_status.upper()} -> {new_status.upper()}"
     if (
@@ -118,20 +128,20 @@ def get_instance_status_change_message(
         or new_status == InstanceStatus.TERMINATED
         and old_status != InstanceStatus.TERMINATING
     ):
-        if instance_model.termination_reason is None:
+        if termination_reason is None:
             raise ValueError(
                 f"termination_reason must be set when switching to {new_status.upper()} status"
             )
         if (
-            instance_model.termination_reason == InstanceTerminationReason.ERROR
-            and not instance_model.termination_reason_message
+            termination_reason == InstanceTerminationReason.ERROR
+            and not termination_reason_message
         ):
             raise ValueError(
                 "termination_reason_message must be set when termination_reason is ERROR"
             )
-        msg += f". Termination reason: {instance_model.termination_reason.upper()}"
-        if instance_model.termination_reason_message:
-            msg += f" ({instance_model.termination_reason_message})"
+        msg += f". Termination reason: {termination_reason.upper()}"
+        if termination_reason_message:
+            msg += f" ({termination_reason_message})"
     return msg
 
 
@@ -516,13 +526,23 @@ async def list_projects_instance_models(
     projects: List[ProjectModel],
     fleet_ids: Optional[Iterable[uuid.UUID]],
     only_active: bool,
+    include_imported: bool,
     prev_created_at: Optional[datetime],
     prev_id: Optional[uuid.UUID],
     limit: int,
     ascending: bool,
 ) -> List[InstanceModel]:
+    project_ids = [p.id for p in projects]
+    is_instance_imported_subquery = exists().where(
+        ImportModel.project_id.in_(project_ids),
+        ImportModel.export_id == ExportedFleetModel.export_id,
+        ExportedFleetModel.fleet_id == InstanceModel.fleet_id,
+    )
     filters: List = [
-        InstanceModel.project_id.in_(p.id for p in projects),
+        or_(
+            InstanceModel.project_id.in_(project_ids),
+            is_instance_imported_subquery if include_imported else false(),
+        )
     ]
     if fleet_ids is not None:
         filters.append(InstanceModel.fleet_id.in_(fleet_ids))
@@ -569,7 +589,10 @@ async def list_projects_instance_models(
         .where(*filters)
         .order_by(*order_by)
         .limit(limit)
-        .options(joinedload(InstanceModel.fleet))
+        .options(
+            joinedload(InstanceModel.fleet),
+            joinedload(InstanceModel.project).load_only(ProjectModel.name),
+        )
     )
     instance_models = list(res.unique().scalars().all())
     return instance_models
@@ -581,6 +604,7 @@ async def list_user_instances(
     project_names: Optional[Container[str]],
     fleet_ids: Optional[Iterable[uuid.UUID]],
     only_active: bool,
+    include_imported: bool,
     prev_created_at: Optional[datetime],
     prev_id: Optional[uuid.UUID],
     limit: int,
@@ -600,6 +624,7 @@ async def list_user_instances(
         projects=projects,
         fleet_ids=fleet_ids,
         only_active=only_active,
+        include_imported=include_imported,
         prev_created_at=prev_created_at,
         prev_id=prev_id,
         limit=limit,
@@ -634,11 +659,13 @@ def create_instance_model(
     reservation: Optional[str],
     blocks: Union[Literal["auto"], int],
     tags: Optional[Dict[str, str]],
+    instance_id: Optional[uuid.UUID] = None,
 ) -> InstanceModel:
     termination_policy, termination_idle_time = get_termination(
         profile, DEFAULT_FLEET_TERMINATION_IDLE_TIME
     )
-    instance_id = uuid.uuid4()
+    if instance_id is None:
+        instance_id = uuid.uuid4()
     project_ssh_key = SSHKey(
         public=project.ssh_public_key.strip(),
         private=project.ssh_private_key.strip(),
@@ -652,12 +679,14 @@ def create_instance_model(
         reservation=reservation,
         tags=tags,
     )
+    now = common_utils.get_current_datetime()
     instance = InstanceModel(
         id=instance_id,
         name=instance_name,
         instance_num=instance_num,
         project=project,
-        created_at=common_utils.get_current_datetime(),
+        created_at=now,
+        last_processed_at=now,
         status=InstanceStatus.PENDING,
         unreachable=False,
         profile=profile.json(),

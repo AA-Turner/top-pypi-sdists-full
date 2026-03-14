@@ -618,6 +618,12 @@ class Threads(Authenticated):
 
         deleted_id = UUID(response.value)
 
+        # The Go layer deletes its own checkpoint tables, but custom
+        # checkpointers store data elsewhere (e.g. Redis). Clean that up too.
+        if USE_CUSTOM_CHECKPOINTER:
+            checkpointer = await api_checkpointer.get_checkpointer()
+            await checkpointer.adelete_thread(str(deleted_id))
+
         async def generate_result():
             yield deleted_id
 
@@ -669,24 +675,54 @@ class Threads(Authenticated):
             await asyncio.gather(*[validate_thread_access(tid) for tid in str_ids])
 
         if strategy == "delete":
-            strategy_proto = checkpointer_pb2.PruneRequest.PruneStrategy.DELETE_ALL
-        else:
-            strategy_proto = checkpointer_pb2.PruneRequest.PruneStrategy.KEEP_LATEST
-        stub = client.checkpointer
+            # threads.Delete() handles Go-side checkpoint cleanup, but custom
+            # checkpointers store data elsewhere. Clean that up too.
+            checkpointer = (
+                await api_checkpointer.get_checkpointer()
+                if USE_CUSTOM_CHECKPOINTER
+                else None
+            )
 
-        processed = 0
-        for i in range(0, len(str_ids), batch_size):
-            batch = str_ids[i : i + batch_size]
-            try:
-                request = checkpointer_pb2.PruneRequest(
-                    thread_ids=batch,
-                    strategy=strategy_proto,
-                )
-                await stub.Prune(request)
-                processed += len(batch)
-            except Exception:
-                await logger.aexception("Failed to prune thread. Skipping batch.")
-                pass
+            async def _delete_thread(tid: str) -> bool:
+                try:
+                    await client.threads.Delete(
+                        pb.DeleteThreadRequest(
+                            thread_id=pb.UUID(value=_normalize_uuid(tid)),
+                            filters=auth_filters,
+                        )
+                    )
+                except Exception:
+                    await logger.aexception("Failed to delete thread.", thread_id=tid)
+                    return False
+                if checkpointer is not None:
+                    try:
+                        await checkpointer.adelete_thread(tid)
+                    except Exception:
+                        await logger.awarning(
+                            "Failed to clean up custom checkpointer data for deleted thread.",
+                            thread_id=tid,
+                        )
+                return True
+
+            processed = 0
+            for i in range(0, len(str_ids), batch_size):
+                batch = str_ids[i : i + batch_size]
+                results = await asyncio.gather(*[_delete_thread(tid) for tid in batch])
+                processed += sum(results)
+        else:
+            stub = client.checkpointer
+            processed = 0
+            for i in range(0, len(str_ids), batch_size):
+                batch = str_ids[i : i + batch_size]
+                try:
+                    request = checkpointer_pb2.PruneRequest(
+                        thread_ids=batch,
+                        strategy=checkpointer_pb2.PruneRequest.PruneStrategy.KEEP_LATEST,
+                    )
+                    await stub.Prune(request)
+                    processed += len(batch)
+                except Exception:
+                    await logger.aexception("Failed to prune thread. Skipping batch.")
 
         return processed
 

@@ -32,6 +32,7 @@ use guacr_handlers::{
     StandardCursor,
     // Sync flow control (prevents overwhelming slow clients, shared with RDP)
     SyncFlowControl,
+    VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use guacr_protocol::{BinaryEncoder, GuacamoleParser};
@@ -122,6 +123,7 @@ impl ProtocolHandler for VncHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("VNC handler starting connection");
 
@@ -143,6 +145,7 @@ impl ProtocolHandler for VncHandler {
             settings.frame_rate,
             to_client,
             &params,
+            video_tx,
         );
 
         // Connect and run session
@@ -185,13 +188,17 @@ impl EventBasedHandler for VncHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         // Use common event adapter helper (eliminates boilerplate)
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, video_tx| {
+                self.connect(params, to_client, from_client, video_tx)
+            },
             params,
             callback,
             from_client,
+            video_tx,
             4096, // channel capacity
         )
         .await
@@ -483,6 +490,7 @@ impl VncClient {
         frame_rate: u32,
         to_client: mpsc::Sender<Bytes>,
         params: &HashMap<String, String>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Self {
         // Initialize recording if enabled
         let recorder = if recording_config.is_enabled() {
@@ -779,7 +787,7 @@ impl VncClient {
                 _ = keepalive_interval.tick() => {
                     if let Some(sync_instr) = keepalive.check() {
                         trace!("VNC: Sending keep-alive sync");
-                        if self.to_client.send(sync_instr).await.is_err() {
+                        if shared_send_and_record(&self.to_client, &mut self.recorder, sync_instr).await.is_err() {
                             info!("VNC: Client channel closed, ending session");
                             break;
                         }

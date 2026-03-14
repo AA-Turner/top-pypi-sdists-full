@@ -6,6 +6,7 @@ import pytest
 
 from redis_om import get_redis_connection
 
+
 TEST_PREFIX = "redis-om:testing"
 
 

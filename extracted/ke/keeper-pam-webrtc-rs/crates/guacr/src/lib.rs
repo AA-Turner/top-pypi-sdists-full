@@ -73,6 +73,12 @@ pub use guacr_database as database;
 #[cfg(feature = "rbi")]
 pub use guacr_rbi as rbi;
 
+#[cfg(feature = "tn3270")]
+pub use guacr_tn3270 as tn3270;
+
+#[cfg(feature = "tn5250")]
+pub use guacr_tn5250 as tn5250;
+
 use std::sync::Arc;
 
 /// Create a protocol handler registry with all available built-in handlers registered.
@@ -107,6 +113,12 @@ pub fn create_default_registry() -> Arc<ProtocolHandlerRegistry> {
 
     #[cfg(feature = "rbi")]
     registry.register(rbi::RbiHandler::with_defaults());
+
+    #[cfg(feature = "tn3270")]
+    registry.register(tn3270::Tn3270Handler::new());
+
+    #[cfg(feature = "tn5250")]
+    registry.register(tn5250::Tn5250Handler::new());
 
     registry
 }

@@ -156,9 +156,11 @@ def start_job_async_or_sync(job, *args, in_seconds=0, **kwargs):
     :param job: Job function
     :param args: Function arguments
     :param in_seconds: Job will be delayed for in_seconds
+    :param retry: RQ Retry object or int (max retries). Only used in async mode.
     :param kwargs: Function keywords arguments
     :return: Job or function result
     """
+    from rq import Retry
 
     redis = redis_connected() and kwargs.get('redis', True)
     queue_name = kwargs.get('queue_name', 'default')
@@ -173,16 +175,24 @@ def start_job_async_or_sync(job, *args, in_seconds=0, **kwargs):
         job_timeout = kwargs['job_timeout']
         del kwargs['job_timeout']
 
+    retry = None
+    if 'retry' in kwargs:
+        retry = kwargs['retry']
+        del kwargs['retry']
+        if isinstance(retry, int):
+            retry = Retry(max=retry)
+
+    on_failure = kwargs.pop('on_failure', None)
+
     if redis:
         # Async execution with Redis - wrap job for context management
         try:
             context_data = _capture_context()
 
-            if context_data:
-                meta = kwargs.get('meta', {})
-                # Store context data in job meta for worker access
-                meta.update(context_data)
-                kwargs['meta'] = meta
+            meta = kwargs.get('meta', {})
+            # Store context data in job meta for worker access
+            meta.update(context_data)
+            kwargs['meta'] = meta
         except Exception:
             logger.info(f'Failed to capture context for job {job.__name__} on queue {queue_name}')
 
@@ -202,11 +212,11 @@ def start_job_async_or_sync(job, *args, in_seconds=0, **kwargs):
             **kwargs,
             job_timeout=job_timeout,
             failure_ttl=settings.RQ_FAILED_JOB_TTL,
+            retry=retry,
+            on_failure=on_failure,
         )
         return job
     else:
-        on_failure = kwargs.pop('on_failure', None)
-
         try:
             result = job(*args, **kwargs)
             return result

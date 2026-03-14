@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -208,6 +209,7 @@ async def list_project_volume_models(
         select(VolumeModel)
         .where(*filters)
         .options(joinedload(VolumeModel.user))
+        .options(joinedload(VolumeModel.project))
         .options(
             joinedload(VolumeModel.attachments)
             .joinedload(VolumeAttachmentModel.instance)
@@ -244,6 +246,7 @@ async def get_project_volume_model_by_name(
         select(VolumeModel)
         .where(*filters)
         .options(joinedload(VolumeModel.user))
+        .options(joinedload(VolumeModel.project))
         .options(
             joinedload(VolumeModel.attachments)
             .joinedload(VolumeAttachmentModel.instance)
@@ -353,24 +356,29 @@ async def _delete_volumes_pipeline(
     await session.commit()
     logger.info("Deleting volumes: %s", [v.name for v in volume_models])
     async with get_locker(get_db().dialect_name).lock_ctx(VolumeModel.__tablename__, volumes_ids):
-        # Refetch after lock
-        res = await session.execute(
-            select(VolumeModel)
-            .where(
-                VolumeModel.project_id == project.id,
-                VolumeModel.id.in_(volumes_ids),
-                VolumeModel.deleted == False,
-                VolumeModel.lock_expires_at.is_(None),
+        # Retry locking volumes to increase lock acquisition chances.
+        # This hack is needed until requests are queued.
+        volume_models = []
+        for i in range(10):
+            res = await session.execute(
+                select(VolumeModel)
+                .where(
+                    VolumeModel.project_id == project.id,
+                    VolumeModel.id.in_(volumes_ids),
+                    VolumeModel.deleted == False,
+                    VolumeModel.lock_expires_at.is_(None),
+                )
+                .options(selectinload(VolumeModel.attachments))
+                .order_by(VolumeModel.id)  # take locks in order
+                .with_for_update(key_share=True, of=VolumeModel)
+                .execution_options(populate_existing=True)
             )
-            .options(selectinload(VolumeModel.attachments))
-            .execution_options(populate_existing=True)
-            .order_by(VolumeModel.id)  # take locks in order
-            .with_for_update(key_share=True, of=VolumeModel)
-        )
-        volume_models = res.scalars().unique().all()
+            volume_models = res.scalars().unique().all()
+            if len(volume_models) == len(volumes_ids):
+                break
+            await asyncio.sleep(0.5)
         if len(volume_models) != len(volumes_ids):
-            # TODO: Make the delete endpoint fully async so we don't need to lock and error:
-            # put the request in queue and process in the background.
+            # TODO: Make the endpoint fully async so we don't need to lock and error.
             raise ServerClientError(
                 "Failed to delete volumes: volumes are being processed currently. Try again later."
             )

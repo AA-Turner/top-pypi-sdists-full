@@ -28,7 +28,7 @@ Example:
 
 from typing import Any, Dict, List, Optional, Type, Union
 
-from redisvl.index import SearchIndex, SearchIndex
+from redisvl.index import SearchIndex
 from redisvl.schema import IndexSchema
 
 from .model.model import (

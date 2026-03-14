@@ -78,10 +78,11 @@ mod chrome_integration_tests {
         params.insert("width".to_string(), "1024".to_string());
         params.insert("height".to_string(), "768".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Give Chrome time to launch
         // Chrome can take several seconds to start on first launch
@@ -124,10 +125,11 @@ mod chrome_integration_tests {
         params.insert("width".to_string(), "800".to_string());
         params.insert("height".to_string(), "600".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for ready
         for _ in 0..10 {
@@ -163,10 +165,11 @@ mod chrome_integration_tests {
         let mut params = HashMap::new();
         params.insert("url".to_string(), "https://example.com".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Give Chrome time to launch
         tokio::time::sleep(Duration::from_secs(3)).await;

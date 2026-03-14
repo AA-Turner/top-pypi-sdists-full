@@ -3,7 +3,7 @@
 // Provides a shared dual-mode handler framework used by Kubernetes, Docker,
 // and vSphere handlers. The two modes are:
 //
-//   1. **List mode** - Renders a resource list using SpreadsheetRenderer
+//   1. **List mode** - Renders a resource list using ResourceBrowserGrid
 //      (interactive grid with row selection, keyboard/mouse navigation, and
 //      configurable per-row actions).
 //
@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_protocol::{format_chunked_blobs, format_end, format_img, format_instruction};
 use guacr_terminal::{
-    Action, ColumnDef, GridEvent, SpreadsheetRenderer, TerminalEmulator, TerminalRenderer,
+    Action, ColumnDef, GridEvent, GridMode, RatatuiRenderer, TerminalEmulator, TerminalRenderer,
 };
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ const JPEG_QUALITY: u8 = 85;
 const DEFAULT_WIDTH: u32 = 1024;
 const DEFAULT_HEIGHT: u32 = 768;
 
-// -- Character cell size (matches SpreadsheetRenderer and TerminalRenderer) --
+// -- Character cell size (matches ResourceBrowserGrid and TerminalRenderer) --
 const CHAR_WIDTH: u32 = 9;
 const CHAR_HEIGHT: u32 = 18;
 
@@ -133,12 +133,332 @@ pub trait ResourceBrowser: Send + Sync {
 /// UI mode state machine for the resource browser.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BrowserMode {
-    /// List view showing resources in SpreadsheetRenderer.
+    /// List view showing resources in ResourceBrowserGrid.
     List,
 
     /// Terminal mode (shell exec, logs, console).
     /// Stores which action/row initiated this mode for display purposes.
     Terminal { action_id: String, row_index: usize },
+}
+
+// -- ResourceBrowserGrid: ratatui-based replacement for ResourceBrowserGrid --
+
+struct ResourceBrowserGrid {
+    renderer: RatatuiRenderer,
+    columns: Vec<ColumnDef>,
+    rows: Vec<Vec<String>>,
+    actions: Vec<Action>,
+    table_state: ratatui::widgets::TableState,
+    focused_action: usize,
+    mode: GridMode,
+    dirty: bool,
+}
+
+impl ResourceBrowserGrid {
+    fn new(pixel_width: u32, pixel_height: u32) -> Self {
+        let cols = (pixel_width / CHAR_WIDTH).max(80) as u16;
+        let rows = (pixel_height / CHAR_HEIGHT).max(24) as u16;
+        Self {
+            renderer: RatatuiRenderer::new(cols, rows, CHAR_WIDTH, CHAR_HEIGHT)
+                .expect("embedded fonts must load"),
+            columns: Vec::new(),
+            rows: Vec::new(),
+            actions: Vec::new(),
+            table_state: ratatui::widgets::TableState::default(),
+            focused_action: 0,
+            mode: GridMode::Browse,
+            dirty: true,
+        }
+    }
+
+    fn set_data(&mut self, columns: Vec<ColumnDef>, rows: Vec<Vec<String>>) {
+        self.columns = columns;
+        self.rows = rows;
+        self.table_state = ratatui::widgets::TableState::default();
+        self.dirty = true;
+    }
+
+    fn update_rows(&mut self, rows: Vec<Vec<String>>) {
+        self.rows = rows;
+        self.dirty = true;
+    }
+
+    fn set_actions(&mut self, actions: Vec<Action>) {
+        self.actions = actions;
+        self.focused_action = 0;
+        self.dirty = true;
+    }
+
+    fn selected_row(&self) -> Option<usize> {
+        self.table_state.selected()
+    }
+
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    fn clear_dirty(&mut self) {
+        self.dirty = false;
+    }
+
+    fn resize(&mut self, pixel_width: u32, pixel_height: u32) {
+        let cols = (pixel_width / CHAR_WIDTH).max(80) as u16;
+        let rows = (pixel_height / CHAR_HEIGHT).max(24) as u16;
+        let _ = self.renderer.resize(cols, rows);
+        self.dirty = true;
+    }
+
+    fn handle_key(&mut self, keysym: u32, pressed: bool) -> GridEvent {
+        if !pressed {
+            return GridEvent::None;
+        }
+
+        // Shortcut key: check if any action has a matching shortcut
+        if let Some(c) = char::from_u32(keysym) {
+            let c_lower = c.to_lowercase().next().unwrap_or(c);
+            for action in &self.actions {
+                if action.shortcut.map(|s| s == c_lower) == Some(true) {
+                    if let Some(row) = self.table_state.selected() {
+                        let action_id = action.id.clone();
+                        self.mode = GridMode::Browse;
+                        return GridEvent::ActionTriggered { row, action_id };
+                    }
+                }
+            }
+        }
+
+        match self.mode {
+            GridMode::Browse => match keysym {
+                0xFF52 => {
+                    self.move_selection(-1);
+                    GridEvent::Redraw
+                }
+                0xFF54 => {
+                    self.move_selection(1);
+                    GridEvent::Redraw
+                }
+                0xFF55 => {
+                    self.move_selection(-10);
+                    GridEvent::Redraw
+                }
+                0xFF56 => {
+                    self.move_selection(10);
+                    GridEvent::Redraw
+                }
+                0xFF50 => {
+                    self.select_first();
+                    GridEvent::Redraw
+                }
+                0xFF57 => {
+                    self.select_last();
+                    GridEvent::Redraw
+                }
+                0xFF09 if !self.actions.is_empty() => {
+                    self.mode = GridMode::ActionBar;
+                    self.focused_action = 0;
+                    GridEvent::Redraw
+                }
+                0xFF0D if !self.actions.is_empty() => {
+                    // Enter with actions available: open action bar
+                    self.mode = GridMode::ActionBar;
+                    self.focused_action = 0;
+                    GridEvent::Redraw
+                }
+                _ => GridEvent::None,
+            },
+            GridMode::ActionBar => match keysym {
+                0xFF1B => {
+                    self.mode = GridMode::Browse;
+                    GridEvent::Redraw
+                }
+                0xFF09 => {
+                    self.focused_action = (self.focused_action + 1) % self.actions.len().max(1);
+                    GridEvent::Redraw
+                }
+                0xFF0D => {
+                    if let (Some(row), Some(action)) = (
+                        self.table_state.selected(),
+                        self.actions.get(self.focused_action),
+                    ) {
+                        let action_id = action.id.clone();
+                        self.mode = GridMode::Browse;
+                        GridEvent::ActionTriggered { row, action_id }
+                    } else {
+                        GridEvent::None
+                    }
+                }
+                _ => GridEvent::None,
+            },
+        }
+    }
+
+    fn handle_mouse(&mut self, _x: u32, y: u32, button_mask: u32) -> GridEvent {
+        let left_click = (button_mask & 1) != 0;
+        if !left_click {
+            return GridEvent::None;
+        }
+
+        // Table header: row 0 = top border, row 1 = header.
+        // Data rows start at ratatui row 2 → pixel 2 * CHAR_HEIGHT.
+        let header_px = 2 * CHAR_HEIGHT;
+        if y < header_px {
+            return GridEvent::None;
+        }
+
+        let data_row = ((y - header_px) / CHAR_HEIGHT) as usize;
+        let abs_row = data_row + self.table_state.offset();
+        if abs_row < self.rows.len() {
+            self.table_state.select(Some(abs_row));
+            self.dirty = true;
+            return GridEvent::CellSelected {
+                row: abs_row,
+                col: 0,
+                value: String::new(),
+            };
+        }
+        GridEvent::None
+    }
+
+    fn render_jpeg(&mut self, quality: u8) -> Result<Vec<u8>, guacr_terminal::TerminalError> {
+        use ratatui::{
+            layout::{Constraint, Direction, Layout},
+            style::{Color, Modifier, Style},
+            text::{Line, Span},
+            widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+        };
+
+        let columns = &self.columns;
+        let rows = &self.rows;
+        let actions = &self.actions;
+        let mode = self.mode;
+        let focused_action = self.focused_action;
+        let mut table_state = self.table_state.clone();
+
+        self.renderer
+            .terminal
+            .draw(|f| {
+                let area = f.area();
+
+                let (table_area, action_area) = if actions.is_empty() {
+                    (area, None)
+                } else {
+                    let chunks = Layout::default()
+                        .direction(Direction::Vertical)
+                        .constraints([Constraint::Min(3), Constraint::Length(3)])
+                        .split(area);
+                    (chunks[0], Some(chunks[1]))
+                };
+
+                // Build header row
+                let header = Row::new(
+                    columns
+                        .iter()
+                        .map(|c| {
+                            Cell::from(c.name.clone()).style(
+                                Style::default()
+                                    .fg(Color::LightCyan)
+                                    .add_modifier(Modifier::BOLD),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+                .height(1);
+
+                // Build data rows
+                let data_rows: Vec<Row> = rows
+                    .iter()
+                    .map(|row| {
+                        Row::new(
+                            row.iter()
+                                .map(|v| Cell::from(v.clone()))
+                                .collect::<Vec<_>>(),
+                        )
+                        .height(1)
+                    })
+                    .collect();
+
+                // Column constraints: explicit width if provided, else equal share
+                let col_count = columns.len().max(1) as u32;
+                let col_constraints: Vec<Constraint> = columns
+                    .iter()
+                    .map(|c| {
+                        if c.width_chars > 0 {
+                            Constraint::Length(c.width_chars as u16)
+                        } else {
+                            Constraint::Ratio(1, col_count)
+                        }
+                    })
+                    .collect();
+
+                let table = Table::new(data_rows, col_constraints)
+                    .header(header)
+                    .block(Block::default().borders(Borders::ALL).title("Resources"))
+                    .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+
+                f.render_stateful_widget(table, table_area, &mut table_state);
+
+                // Action bar
+                if let Some(action_area) = action_area {
+                    let spans: Vec<Span> = actions
+                        .iter()
+                        .enumerate()
+                        .map(|(i, a)| {
+                            let label = if let Some(sc) = a.shortcut {
+                                format!(" [{}]{} ", sc.to_uppercase().next().unwrap_or(sc), a.label)
+                            } else {
+                                format!(" {} ", a.label)
+                            };
+                            let style = if mode == GridMode::ActionBar && i == focused_action {
+                                Style::default().add_modifier(Modifier::REVERSED)
+                            } else {
+                                Style::default().fg(Color::Yellow)
+                            };
+                            Span::styled(label, style)
+                        })
+                        .collect();
+
+                    let para = Paragraph::new(Line::from(spans))
+                        .block(Block::default().borders(Borders::ALL).title("Actions"));
+                    f.render_widget(para, action_area);
+                }
+            })
+            .map_err(|e| guacr_terminal::TerminalError::RenderError(e.to_string()))?;
+
+        self.table_state = table_state;
+        self.renderer.render_to_jpeg(quality)
+    }
+
+    fn move_selection(&mut self, delta: i32) {
+        if self.rows.is_empty() {
+            return;
+        }
+        let next = if let Some(current) = self.table_state.selected() {
+            (current as i32 + delta).clamp(0, self.rows.len() as i32 - 1) as usize
+        } else {
+            // Nothing selected: Down → first row, Up → last row
+            if delta > 0 {
+                0
+            } else {
+                self.rows.len() - 1
+            }
+        };
+        self.table_state.select(Some(next));
+        self.dirty = true;
+    }
+
+    fn select_first(&mut self) {
+        if !self.rows.is_empty() {
+            self.table_state.select(Some(0));
+            self.dirty = true;
+        }
+    }
+
+    fn select_last(&mut self) {
+        if !self.rows.is_empty() {
+            self.table_state.select(Some(self.rows.len() - 1));
+            self.dirty = true;
+        }
+    }
 }
 
 /// Shared handler loop for infrastructure management UIs.
@@ -214,8 +534,8 @@ impl<B: ResourceBrowser> ResourceBrowserHandler<B> {
         send_ready(&to_client, &connection_id).await?;
         send_name(&to_client, self.browser.name()).await?;
 
-        // Initialize SpreadsheetRenderer
-        let mut grid = SpreadsheetRenderer::new(self.pixel_width, self.pixel_height);
+        // Initialize ResourceBrowserGrid
+        let mut grid = ResourceBrowserGrid::new(self.pixel_width, self.pixel_height);
         let columns = self.browser.columns();
 
         // Fetch initial resource list
@@ -363,7 +683,7 @@ impl<B: ResourceBrowser> ResourceBrowserHandler<B> {
     }
 
     /// Handle a Guacamole instruction in list mode, returning the grid event.
-    fn handle_list_input(&mut self, msg_str: &str, grid: &mut SpreadsheetRenderer) -> GridEvent {
+    fn handle_list_input(&mut self, msg_str: &str, grid: &mut ResourceBrowserGrid) -> GridEvent {
         // Handle key instruction
         if msg_str.contains(".key,") {
             if let Some(key) = parse_key_event(msg_str) {
@@ -521,7 +841,7 @@ impl<B: ResourceBrowser> ResourceBrowserHandler<B> {
     }
 
     /// Refresh the resource list and update the grid.
-    async fn refresh_list(&mut self, grid: &mut SpreadsheetRenderer) -> Result<(), HandlerError> {
+    async fn refresh_list(&mut self, grid: &mut ResourceBrowserGrid) -> Result<(), HandlerError> {
         match self.browser.list_resources().await {
             Ok(rows) => {
                 self.cached_rows = rows.clone();
@@ -548,7 +868,7 @@ impl<B: ResourceBrowser> ResourceBrowserHandler<B> {
     }
 
     /// Apply a streaming ResourceUpdate to the grid.
-    fn apply_update(&mut self, grid: &mut SpreadsheetRenderer, update: ResourceUpdate) {
+    fn apply_update(&mut self, grid: &mut ResourceBrowserGrid, update: ResourceUpdate) {
         match update {
             ResourceUpdate::FullUpdate(rows) => {
                 self.cached_rows = rows.clone();
@@ -622,14 +942,14 @@ impl<B: ResourceBrowser> ResourceBrowserHandler<B> {
         }))
     }
 
-    /// Render the SpreadsheetRenderer grid and send as a Guacamole image frame.
+    /// Render the ResourceBrowserGrid grid and send as a Guacamole image frame.
     ///
-    /// Takes `&mut SpreadsheetRenderer` (not `&`) so the future remains Send.
-    /// SpreadsheetRenderer internally uses RefCell for its glyph cache, which
-    /// makes &SpreadsheetRenderer !Send. Using &mut avoids this issue.
+    /// Takes `&mut ResourceBrowserGrid` (not `&`) so the future remains Send.
+    /// ResourceBrowserGrid internally uses RefCell for its glyph cache, which
+    /// makes &ResourceBrowserGrid !Send. Using &mut avoids this issue.
     async fn render_grid(
         &mut self,
-        grid: &mut SpreadsheetRenderer,
+        grid: &mut ResourceBrowserGrid,
         to_client: &mpsc::Sender<Bytes>,
     ) -> Result<(), HandlerError> {
         let jpeg_data = grid
@@ -1031,7 +1351,7 @@ mod tests {
     fn test_apply_full_update() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         grid.set_data(
             columns,
@@ -1053,17 +1373,17 @@ mod tests {
         ];
         handler.apply_update(&mut grid, ResourceUpdate::FullUpdate(new_rows.clone()));
 
-        assert_eq!(grid.row_count(), 2);
+        assert_eq!(grid.rows.len(), 2);
         assert_eq!(handler.cached_rows, new_rows);
-        assert_eq!(grid.get_cell_value(0, 0), Some("new-1".to_string()));
-        assert_eq!(grid.get_cell_value(1, 1), Some("Pending".to_string()));
+        assert_eq!(grid.rows[0][0], "new-1");
+        assert_eq!(grid.rows[1][1], "Pending");
     }
 
     #[test]
     fn test_apply_row_updated() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         let initial_rows = vec![
             vec!["pod-a".to_string(), "Running".to_string(), "1d".to_string()],
@@ -1081,15 +1401,15 @@ mod tests {
             },
         );
 
-        assert_eq!(grid.row_count(), 2);
-        assert_eq!(grid.get_cell_value(1, 1), Some("Running".to_string()));
+        assert_eq!(grid.rows.len(), 2);
+        assert_eq!(grid.rows[1][1], "Running");
     }
 
     #[test]
     fn test_apply_row_added() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         let initial_rows = vec![vec![
             "pod-a".to_string(),
@@ -1106,15 +1426,15 @@ mod tests {
         ];
         handler.apply_update(&mut grid, ResourceUpdate::RowAdded(new_row));
 
-        assert_eq!(grid.row_count(), 2);
-        assert_eq!(grid.get_cell_value(1, 0), Some("pod-c".to_string()));
+        assert_eq!(grid.rows.len(), 2);
+        assert_eq!(grid.rows[1][0], "pod-c");
     }
 
     #[test]
     fn test_apply_row_removed() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         let initial_rows = vec![
             vec!["pod-a".to_string(), "Running".to_string(), "1d".to_string()],
@@ -1126,16 +1446,16 @@ mod tests {
 
         handler.apply_update(&mut grid, ResourceUpdate::RowRemoved(1));
 
-        assert_eq!(grid.row_count(), 2);
-        assert_eq!(grid.get_cell_value(0, 0), Some("pod-a".to_string()));
-        assert_eq!(grid.get_cell_value(1, 0), Some("pod-c".to_string()));
+        assert_eq!(grid.rows.len(), 2);
+        assert_eq!(grid.rows[0][0], "pod-a");
+        assert_eq!(grid.rows[1][0], "pod-c");
     }
 
     #[test]
     fn test_apply_row_removed_out_of_bounds() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         let initial_rows = vec![vec![
             "pod-a".to_string(),
@@ -1147,14 +1467,14 @@ mod tests {
 
         // Should not panic on out-of-bounds
         handler.apply_update(&mut grid, ResourceUpdate::RowRemoved(99));
-        assert_eq!(grid.row_count(), 1);
+        assert_eq!(grid.rows.len(), 1);
     }
 
     #[test]
     fn test_apply_row_updated_out_of_bounds() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         let columns = handler.browser.columns();
         let initial_rows = vec![vec![
             "pod-a".to_string(),
@@ -1172,8 +1492,8 @@ mod tests {
                 row: vec!["nope".to_string()],
             },
         );
-        assert_eq!(grid.row_count(), 1);
-        assert_eq!(grid.get_cell_value(0, 0), Some("pod-a".to_string()));
+        assert_eq!(grid.rows.len(), 1);
+        assert_eq!(grid.rows[0][0], "pod-a");
     }
 
     // -- Handler construction tests --
@@ -1197,7 +1517,7 @@ mod tests {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
         let columns = handler.browser.columns();
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         grid.set_data(
             columns,
             vec![
@@ -1217,7 +1537,7 @@ mod tests {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
         let columns = handler.browser.columns();
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         grid.set_data(
             columns,
             vec![
@@ -1240,7 +1560,7 @@ mod tests {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
         let columns = handler.browser.columns();
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
         grid.set_data(columns, vec![]);
 
         let event = handler.handle_list_input("4.size,4.1920,4.1080;", &mut grid);
@@ -1253,7 +1573,7 @@ mod tests {
     fn test_handle_list_input_unrecognized() {
         let browser = MockBrowser::new();
         let mut handler = ResourceBrowserHandler::new(browser);
-        let mut grid = SpreadsheetRenderer::new(1024, 768);
+        let mut grid = ResourceBrowserGrid::new(1024, 768);
 
         let event = handler.handle_list_input("unknown instruction", &mut grid);
         assert_eq!(event, GridEvent::None);

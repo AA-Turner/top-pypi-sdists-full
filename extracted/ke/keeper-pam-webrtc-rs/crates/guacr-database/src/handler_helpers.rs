@@ -13,6 +13,11 @@ use guacr_handlers::{HandlerError, MultiFormatRecorder};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::ThreatDetector;
+#[cfg(feature = "threat-detection")]
+use std::sync::Arc;
+
 use crate::query_executor::QueryExecutor;
 use crate::recording::send_and_record;
 
@@ -58,31 +63,12 @@ pub async fn render_connection_error(
     tips: &[&str],
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> Result<(), HandlerError> {
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_error(error_msg)
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_line("Troubleshooting:")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    let mut msg = format!("ERROR: {}\n\nTroubleshooting:", error_msg);
     for (i, tip) in tips.iter().enumerate() {
-        executor
-            .terminal
-            .write_line(&format!("  {}. {}", i + 1, tip))
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        msg.push_str(&format!("\n  {}. {}", i + 1, tip));
     }
     executor
-        .terminal
-        .write_prompt()
+        .write_error(&msg)
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     send_render(executor, to_client, recorder).await?;
@@ -104,23 +90,9 @@ pub async fn render_connection_success(
     info_lines: &[&str],
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> Result<(), HandlerError> {
+    let msg = info_lines.join("\n");
     executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    for line in info_lines {
-        executor
-            .terminal
-            .write_line(line)
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    }
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_prompt()
+        .write_line(&msg)
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     send_render(executor, to_client, recorder).await?;
@@ -146,47 +118,17 @@ pub async fn render_help(
     sections: &[HelpSection],
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> Result<(), HandlerError> {
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_line(&format!("{} - Available commands:", handler_name))
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
+    let mut help = format!("{} - Available commands:\n", handler_name);
     for section in sections {
-        executor
-            .terminal
-            .write_line(&format!("{}:", section.title))
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        help.push_str(&format!("\n{}:\n", section.title));
         for (cmd, desc) in &section.commands {
-            executor
-                .terminal
-                .write_line(&format!("  {:<20} {}", cmd, desc))
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+            help.push_str(&format!("  {:<20} {}\n", cmd, desc));
         }
-        executor
-            .terminal
-            .write_line("")
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     }
+    help.push_str("\nType 'quit' to disconnect");
 
     executor
-        .terminal
-        .write_line("Type 'quit' to disconnect")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_line("")
-        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-    executor
-        .terminal
-        .write_prompt()
+        .write_line(&help)
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     send_render(executor, to_client, recorder).await?;
@@ -203,7 +145,7 @@ pub async fn handle_quit(
     to_client: &mpsc::Sender<Bytes>,
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> HandlerError {
-    let _ = executor.terminal.write_line("Bye");
+    executor.write_status("Bye");
     if let Ok((_, instructions)) = executor.render_screen().await {
         for instr in instructions {
             let _ = send_and_record(to_client, recorder, instr).await;
@@ -238,6 +180,56 @@ pub async fn send_render(
         send_and_record(to_client, recorder, instr)
             .await
             .map_err(HandlerError::ChannelError)?;
+    }
+    Ok(())
+}
+
+/// Check a query/command for threats before executing it.
+///
+/// If the detector decides the session should terminate, writes an error message
+/// to the executor, sends a final render, and returns `Err(Disconnected)`.
+/// Returns `Ok(())` if the query is safe (or if threat-detection is not compiled in).
+///
+/// This eliminates the identical 30-line threat check block that would otherwise
+/// appear in each of the 10+ database handlers.
+#[cfg(feature = "threat-detection")]
+#[allow(clippy::too_many_arguments)]
+pub async fn maybe_terminate_on_threat(
+    threat_detector: &Arc<ThreatDetector>,
+    session_id: &str,
+    query: &str,
+    username: &str,
+    hostname: &str,
+    db_type: &str,
+    executor: &mut QueryExecutor,
+    to_client: &mpsc::Sender<Bytes>,
+    recorder: &mut Option<MultiFormatRecorder>,
+) -> Result<(), HandlerError> {
+    if let Some(threat) = crate::threat::analyze_query(
+        threat_detector,
+        session_id,
+        query,
+        username,
+        hostname,
+        db_type,
+    )
+    .await
+    {
+        if threat.should_terminate_session {
+            let _ = executor.write_error(&format!(
+                "Session terminated by security policy: {}",
+                threat.description
+            ));
+            if let Ok((_, instrs)) = executor.render_screen().await {
+                for instr in instrs {
+                    let _ = send_and_record(to_client, recorder, instr).await;
+                }
+            }
+            return Err(HandlerError::Disconnected(format!(
+                "Threat detected: {}",
+                threat.description
+            )));
+        }
     }
     Ok(())
 }

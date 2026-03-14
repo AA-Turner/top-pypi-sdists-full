@@ -40,7 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Spawn handler
     let handler_task = tokio::spawn(async move {
-        if let Err(e) = handler.connect(params, to_client_tx, from_client_rx).await {
+        if let Err(e) = handler
+            .connect(params, to_client_tx, from_client_rx, None)
+            .await
+        {
             eprintln!("Handler error: {}", e);
         }
     });

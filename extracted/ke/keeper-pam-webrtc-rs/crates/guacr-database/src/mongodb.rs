@@ -2,12 +2,15 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::query_executor::QueryExecutor;
@@ -70,6 +73,7 @@ impl ProtocolHandler for MongoDbHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("MongoDB handler starting");
 
@@ -146,6 +150,17 @@ impl ProtocolHandler for MongoDbHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "MongoDB", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("MongoDB: Sent display init instructions");
@@ -196,11 +211,9 @@ impl ProtocolHandler for MongoDbHandler {
                 warn!("MongoDB: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -227,11 +240,9 @@ impl ProtocolHandler for MongoDbHandler {
                 warn!("MongoDB: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -258,27 +269,21 @@ impl ProtocolHandler for MongoDbHandler {
                 info!("MongoDB: Connected successfully");
 
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line(&format!("Connected to MongoDB at {}:{}", hostname, port))
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line(&format!("Database: {}", database))
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("Type 'help' for available commands.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -305,39 +310,30 @@ impl ProtocolHandler for MongoDbHandler {
                 warn!("MongoDB: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("Troubleshooting:")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  1. Check hostname and port")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  2. Verify MongoDB server is running")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  3. Check credentials and authSource")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  4. Verify network connectivity")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -403,6 +399,15 @@ impl ProtocolHandler for MongoDbHandler {
                     if let Some(command) = pending_query {
                         info!("MongoDB: Executing command: {}", command);
 
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &command,
+                            username, hostname, "mongodb",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
+
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &command);
 
@@ -454,11 +459,11 @@ impl ProtocolHandler for MongoDbHandler {
                         // Check read-only mode for modifying commands
                         if security.base.read_only && is_mongodb_modifying_command(&command) {
                             executor
-                                .terminal
+
                                 .write_error("Command blocked: read-only mode is enabled.")
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             let (_, result_instructions) = executor
@@ -479,7 +484,7 @@ impl ProtocolHandler for MongoDbHandler {
                             Ok(result) => {
                                 for line in result.lines() {
                                     executor
-                                        .terminal
+
                                         .write_line(line)
                                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                                 }
@@ -489,14 +494,14 @@ impl ProtocolHandler for MongoDbHandler {
                                 record_error_output(&mut recorder, &e);
 
                                 executor
-                                    .terminal
+
                                     .write_error(&e)
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -703,11 +708,9 @@ async fn handle_builtin_command(
     if parts.len() >= 2 && parts[0].to_lowercase() == "use" {
         let new_db = parts[1].to_string();
         executor
-            .terminal
             .write_line(&format!("switched to db {}", new_db))
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -727,79 +730,61 @@ async fn handle_builtin_command(
     match command_lower.as_str() {
         "help" => {
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("MongoDB Shell - Available commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Database commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  show dbs             List databases")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  use <database>       Switch database")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  db                   Show current database")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  show collections     List collections")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  stats                Database statistics")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             if !security.disable_csv_export {
                 executor
-                    .terminal
                     .write_line("  \\e <collection>      Export collection as CSV")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             if !security.disable_csv_import && !security.base.read_only {
                 executor
-                    .terminal
                     .write_line("  \\i <collection>      Import CSV into collection")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("You can also run raw MongoDB commands as JSON:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  {\"find\": \"collection\", \"limit\": 10}")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Type 'quit' to disconnect")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -817,7 +802,6 @@ async fn handle_builtin_command(
         }
         "quit" | "exit" => {
             executor
-                .terminal
                 .write_line("bye")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -855,11 +839,9 @@ async fn handle_csv_export(
     // Check if export is allowed
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -877,11 +859,9 @@ async fn handle_csv_export(
 
     if collection_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\e <collection_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -898,7 +878,6 @@ async fn handle_csv_export(
     }
 
     executor
-        .terminal
         .write_line(&format!("Exporting collection '{}'...", collection_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -942,11 +921,9 @@ async fn handle_csv_export(
 
     if documents.is_empty() {
         executor
-            .terminal
             .write_line("Collection is empty or not found.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -993,7 +970,6 @@ async fn handle_csv_export(
     let mut exporter = CsvExporter::new(stream_idx);
 
     executor
-        .terminal
         .write_line(&format!(
             "Beginning CSV download ({} documents). Press Ctrl+C to cancel.",
             result.rows.len()
@@ -1011,20 +987,17 @@ async fn handle_csv_export(
     match exporter.export_query_result(&result, to_client).await {
         Ok(()) => {
             executor
-                .terminal
                 .write_line("Download complete.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Export failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1055,11 +1028,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1078,11 +1049,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1100,11 +1069,9 @@ async fn handle_csv_import(
 
     if collection_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <collection_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1121,11 +1088,9 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line(&format!("Import into collection: {}", collection_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1142,7 +1107,6 @@ async fn handle_csv_import(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} columns, {} rows",
             csv_data.headers.len(),
@@ -1176,7 +1140,6 @@ async fn handle_csv_import(
     match collection.insert_many(documents.clone()).await {
         Ok(result) => {
             executor
-                .terminal
                 .write_success(&format!(
                     "Import complete: {} documents inserted",
                     result.inserted_ids.len()
@@ -1185,14 +1148,12 @@ async fn handle_csv_import(
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Import failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1221,12 +1182,16 @@ impl EventBasedHandler for MongoDbHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

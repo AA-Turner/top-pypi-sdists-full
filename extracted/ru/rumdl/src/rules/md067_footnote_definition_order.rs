@@ -22,8 +22,10 @@
 //! [^1]: Referenced second
 //! ```
 
-use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
-use crate::rules::md066_footnote_validation::{FOOTNOTE_DEF_PATTERN, FOOTNOTE_REF_PATTERN, strip_blockquote_prefix};
+use crate::rule::{FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::rules::md066_footnote_validation::{
+    FOOTNOTE_DEF_PATTERN, FOOTNOTE_REF_PATTERN, footnote_def_position, strip_blockquote_prefix,
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
@@ -44,6 +46,18 @@ impl Rule for MD067FootnoteDefinitionOrder {
         "Footnote definitions should appear in order of first reference"
     }
 
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Other
+    }
+
+    fn fix_capability(&self) -> FixCapability {
+        FixCapability::Unfixable
+    }
+
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        ctx.content.is_empty() || !ctx.content.contains("[^")
+    }
+
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
 
@@ -53,9 +67,6 @@ impl Rule for MD067FootnoteDefinitionOrder {
 
         // Track definition positions
         let mut definition_order: Vec<(String, usize, usize)> = Vec::new(); // (id, line, byte_offset)
-
-        // Get code spans to avoid false positives
-        let code_spans = ctx.code_spans();
 
         // First pass: collect references in order of first occurrence
         for line_info in &ctx.lines {
@@ -70,17 +81,25 @@ impl Rule for MD067FootnoteDefinitionOrder {
 
             let line = line_info.content(ctx.content);
 
-            for caps in FOOTNOTE_REF_PATTERN.captures_iter(line).flatten() {
+            for caps in FOOTNOTE_REF_PATTERN.captures_iter(line) {
                 if let Some(id_match) = caps.get(1) {
+                    // Skip if this is a footnote definition (at line start with 0-3 spaces indent)
+                    // Also handle blockquote prefixes (e.g., "> [^id]:")
+                    let full_match = caps.get(0).unwrap();
+                    if line.as_bytes().get(full_match.end()) == Some(&b':') {
+                        let before_match = &line[..full_match.start()];
+                        if before_match.chars().all(|c| c == ' ' || c == '>') {
+                            continue;
+                        }
+                    }
+
                     let id = id_match.as_str().to_lowercase();
 
                     // Check if this match is inside a code span
-                    let match_start = caps.get(0).unwrap().start();
+                    let match_start = full_match.start();
                     let byte_offset = line_info.byte_offset + match_start;
 
-                    let in_code_span = code_spans
-                        .iter()
-                        .any(|span| byte_offset >= span.byte_offset && byte_offset < span.byte_end);
+                    let in_code_span = ctx.is_in_code_span_byte(byte_offset);
 
                     if !in_code_span && !seen_refs.contains_key(&id) {
                         seen_refs.insert(id.clone(), reference_order.len());
@@ -123,12 +142,17 @@ impl Rule for MD067FootnoteDefinitionOrder {
                     // Find what was expected
                     if expected_idx < reference_order.len() {
                         let expected_id = &reference_order[expected_idx];
+                        let (col, end_col) = ctx
+                            .lines
+                            .get(*def_line - 1)
+                            .map(|li| footnote_def_position(li.content(ctx.content)))
+                            .unwrap_or((1, 1));
                         warnings.push(LintWarning {
                             rule_name: Some(self.name().to_string()),
                             line: *def_line,
-                            column: 1,
+                            column: col,
                             end_line: *def_line,
-                            end_column: 1,
+                            end_column: end_col,
                             message: format!(
                                 "Footnote definition '[^{def_id}]' is out of order; expected '[^{expected_id}]' next (based on reference order)"
                             ),
@@ -291,5 +315,49 @@ mod tests {
 "#;
         let warnings = check(content);
         assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_midline_footnote_ref_with_colon_counted_for_ordering() {
+        // Mid-line [^a]: should count as a reference for ordering purposes
+        let content = "# Test\n\nSecond ref [^b] here.\n\nFirst ref [^a]: and text.\n\n[^a]: First definition.\n[^b]: Second definition.\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let rule = MD067FootnoteDefinitionOrder;
+        let result = rule.check(&ctx).unwrap();
+        // Reference order is [^b] then [^a], but definitions are [^a] then [^b]
+        assert!(!result.is_empty(), "Should detect ordering mismatch: {result:?}");
+    }
+
+    #[test]
+    fn test_linestart_footnote_def_not_counted_as_reference_for_ordering() {
+        // [^a]: at line start is a definition, not a reference
+        let content = "# Test\n\n[^a] first ref.\n[^b] second ref.\n\n[^a]: First.\n[^b]: Second.\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let rule = MD067FootnoteDefinitionOrder;
+        let result = rule.check(&ctx).unwrap();
+        assert!(result.is_empty(), "Correct order should pass: {result:?}");
+    }
+
+    // ==================== Warning position tests ====================
+
+    #[test]
+    fn test_out_of_order_column_position() {
+        let content = "Text with [^1] and [^2].\n\n[^2]: Second definition\n[^1]: First definition\n";
+        let warnings = check(content);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].line, 3);
+        assert_eq!(warnings[0].column, 1, "Definition at start of line");
+        // "[^2]:" is 5 chars
+        assert_eq!(warnings[0].end_column, 6);
+    }
+
+    #[test]
+    fn test_out_of_order_blockquote_column_position() {
+        let content = "Text with [^1] and [^2].\n\n> [^2]: Second in blockquote\n> [^1]: First in blockquote\n";
+        let warnings = check(content);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].line, 3);
+        // After "> " prefix (2 chars), definition starts at column 3
+        assert_eq!(warnings[0].column, 3, "Should point past blockquote prefix");
     }
 }

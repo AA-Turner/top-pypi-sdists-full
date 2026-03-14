@@ -17,7 +17,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ImproperlyConfigured
 
-from label_studio.core.utils.params import get_bool_env, get_env_list
+from label_studio.core.utils.params import get_bool_env, get_env, get_env_list, has_env
 
 formatter = 'standard'
 JSON_LOG = get_bool_env('JSON_LOG', False)
@@ -85,7 +85,6 @@ logging.getLogger('faker').setLevel(logging.WARNING)
 logging.getLogger('faker.providers').setLevel(logging.WARNING)
 
 from label_studio.core.utils.io import get_data_dir
-from label_studio.core.utils.params import get_bool_env, get_env
 
 logger = logging.getLogger(__name__)
 SILENCED_SYSTEM_CHECKS = []
@@ -608,8 +607,8 @@ CLOUD_FILE_STORAGE_ENABLED = False
 
 if (
     VERSION_EDITION == 'Community'
-    and 'LOCAL_FILES_DOCUMENT_ROOT' not in os.environ
-    and 'LOCAL_FILES_SERVING_ENABLED' not in os.environ
+    and not has_env('LOCAL_FILES_DOCUMENT_ROOT')
+    and not has_env('LOCAL_FILES_SERVING_ENABLED')
 ):
     from label_studio.io_storages.localfiles.functions import autodetect_local_files_root
 
@@ -920,8 +919,8 @@ IMPORT_STORAGE_SERIALIZER_VALIDATE = None
 
 # User activity Redis caching settings
 USER_ACTIVITY_REDIS_KEY_PREFIX = get_env('USER_ACTIVITY_REDIS_KEY_PREFIX', 'user_activity')
-USER_ACTIVITY_BATCH_SIZE = int(get_env('USER_ACTIVITY_BATCH_SIZE', '100'))
-USER_ACTIVITY_SYNC_THRESHOLD = int(get_env('USER_ACTIVITY_SYNC_THRESHOLD', '500'))
+USER_ACTIVITY_BATCH_SIZE = int(get_env('USER_ACTIVITY_BATCH_SIZE', 200))
+USER_ACTIVITY_SYNC_THRESHOLD = int(get_env('USER_ACTIVITY_SYNC_THRESHOLD', 1000))
 USER_ACTIVITY_REDIS_TTL = int(get_env('USER_ACTIVITY_REDIS_TTL', '86400'))  # 24 hours
 
 # QuerySet iterator settings
@@ -933,6 +932,9 @@ DM_MAX_USERS_TO_DISPLAY = int(get_env('DM_MAX_USERS_TO_DISPLAY', 10))
 
 # Base FSM (Finite State Machine) Configuration for Label Studio
 FSM_CACHE_TTL = 300  # Cache TTL in seconds (5 minutes)
+FSM_SYNC_PROJECT_STATE = 'fsm.project_transitions.sync_project_state'
+FSM_INFERENCE_FUNCTION = 'fsm.state_inference._get_or_infer_state'
+FSM_INITIALIZATION_TRANSITION_NAME = 'fsm.utils._get_initialization_transition_name'
 
 # Used for async migrations. In LSE this is set to a real queue name, including here so we
 # can use settings.SERVICE_QUEUE_NAME in async migrations in LSO

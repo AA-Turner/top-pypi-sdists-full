@@ -36,6 +36,7 @@ from PKDevTools.classes import Archiver
 from PKDevTools.classes.log import default_logger
 from pkscreener.classes import Utility, ConsoleUtility
 from pkscreener.classes.MenuOptions import menus
+from PKDevTools.classes.Environment import PKEnvironment
 
 class ValidationResult(Enum):
     Success = 0
@@ -110,7 +111,9 @@ class PKUserRegistration(SingletonMixin, metaclass=SingletonType):
         if trialCount >= 1:
             return PKUserRegistration.presentTrialOptions()
 
-        OutputControls().printOutput(f"[+] {colorText.GREEN}PKScreener will always remain free and open source!{colorText.END}\n[+] {colorText.FAIL}PKScreener does offer certain premium/paid features!{colorText.END}\n[+] {colorText.GREEN}Please use {colorText.END}{colorText.WARN}@nse_pkscreener_bot{colorText.END}{colorText.GREEN} in telegram app on \n    your mobile phone to request your {colorText.END}{colorText.WARN}userID{colorText.END}{colorText.GREEN} and {colorText.END}{colorText.WARN}OTP{colorText.END}{colorText.GREEN} to login:\n{colorText.END}")
+        is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+        premiumHelpText = f"\n[+] {colorText.FAIL}PKScreener does offer certain premium/paid features!{colorText.END}" if is_subscription_enabled else ""
+        OutputControls().printOutput(f"[+] {colorText.GREEN}PKScreener will always remain free and open source!{colorText.END}{premiumHelpText}\n[+] {colorText.GREEN}Please use {colorText.END}{colorText.WARN}@nse_pkscreener_bot{colorText.END}{colorText.GREEN} in telegram app on \n    your mobile phone to request your {colorText.END}{colorText.WARN}userID{colorText.END}{colorText.GREEN} and {colorText.END}{colorText.WARN}OTP{colorText.END}{colorText.GREEN} to login:\n{colorText.END}")
         username = None
         if configManager.userID is not None and len(configManager.userID) >= 1:
             username = OutputControls().takeUserInput(f"[+] Your UserID from telegram: (Default: {colorText.GREEN}{configManager.userID}{colorText.END}): ") or configManager.userID

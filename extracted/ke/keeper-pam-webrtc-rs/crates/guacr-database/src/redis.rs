@@ -2,12 +2,15 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::handler_helpers::{
@@ -76,6 +79,7 @@ impl ProtocolHandler for RedisHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Redis handler starting");
 
@@ -131,6 +135,17 @@ impl ProtocolHandler for RedisHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "Redis", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("Redis: Sent display init instructions");
@@ -177,11 +192,9 @@ impl ProtocolHandler for RedisHandler {
                 warn!("Redis: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -274,6 +287,15 @@ impl ProtocolHandler for RedisHandler {
                     if let Some(command) = pending_query {
                         info!("Redis: Executing command: {}", command);
 
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &command,
+                            "", hostname, "redis",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
+
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &command);
 
@@ -312,11 +334,11 @@ impl ProtocolHandler for RedisHandler {
                         // Check read-only mode for modifying commands
                         if security.base.read_only && is_redis_modifying_command(&command) {
                             executor
-                                .terminal
+
                                 .write_error("Command blocked: read-only mode is enabled.")
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             send_render(&mut executor, &to_client, &mut recorder).await?;
@@ -329,7 +351,7 @@ impl ProtocolHandler for RedisHandler {
                                 // Write result line by line
                                 for line in result.lines() {
                                     executor
-                                        .terminal
+
                                         .write_line(line)
                                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                                 }
@@ -339,14 +361,14 @@ impl ProtocolHandler for RedisHandler {
                                 record_error_output(&mut recorder, &e);
 
                                 executor
-                                    .terminal
+
                                     .write_error(&e)
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -634,11 +656,9 @@ async fn handle_csv_export(
     // Check if export is allowed
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -648,7 +668,6 @@ async fn handle_csv_export(
     let scan_pattern = if pattern.is_empty() { "*" } else { pattern };
 
     executor
-        .terminal
         .write_line(&format!("Scanning keys matching '{}'...", scan_pattern))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -661,11 +680,9 @@ async fn handle_csv_export(
 
     if keys.is_empty() {
         executor
-            .terminal
             .write_line("No keys found matching pattern.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -704,7 +721,6 @@ async fn handle_csv_export(
     let mut exporter = CsvExporter::new(stream_idx);
 
     executor
-        .terminal
         .write_line(&format!(
             "Beginning CSV download ({} keys). Press Ctrl+C to cancel.",
             result.rows.len()
@@ -722,20 +738,17 @@ async fn handle_csv_export(
     match exporter.export_query_result(&result, to_client).await {
         Ok(()) => {
             executor
-                .terminal
                 .write_line("Download complete.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Export failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -756,11 +769,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -770,11 +781,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -782,11 +791,9 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line("Redis CSV Import")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample key-value data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -814,11 +821,9 @@ async fn handle_csv_import(
 
     if key_idx.is_none() || value_idx.is_none() {
         executor
-            .terminal
             .write_error("CSV must have 'key' and 'value' columns")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         send_render(executor, to_client, recorder).await?;
@@ -829,7 +834,6 @@ async fn handle_csv_import(
     let value_idx = value_idx.unwrap();
 
     executor
-        .terminal
         .write_line(&format!("Parsed {} key-value pairs", csv_data.row_count()))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -850,7 +854,6 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} keys set, {} errors",
             success_count, error_count
@@ -858,7 +861,6 @@ async fn handle_csv_import(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     send_render(executor, to_client, recorder).await?;
@@ -878,12 +880,16 @@ impl EventBasedHandler for RedisHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

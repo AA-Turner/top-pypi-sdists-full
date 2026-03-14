@@ -39,11 +39,11 @@ from plato.chronos.models import (
     LaunchJobRequest,
     LaunchJobResponse,
     LogsDownloadResponse,
-    OTelSpan,
     OTelTraceResponse,
     SessionEnvsResponse,
     SessionListResponse,
     SessionLogsResponse,
+    SessionNotesPayloadInput,
     SessionResponse,
     SessionStatusResponse,
     SessionTrajectory,
@@ -51,6 +51,9 @@ from plato.chronos.models import (
     UpdateNotesRequest,
     WorldConfig,
     WorldRuntimeConfig,
+)
+from plato.chronos.models import (
+    OTelSpanSchema as OTelSpan,
 )
 
 logger = logging.getLogger(__name__)
@@ -280,7 +283,11 @@ class Chronos(_ChronosBase):
         body = CompleteSessionRequest(status="cancelled", error_message="User cancelled")
         return complete_session.sync(self._client, public_id=session_id, body=body)
 
-    def update_notes(self, session_id: str, notes: dict[str, Any] | None) -> SessionResponse:
+    def update_notes(
+        self,
+        session_id: str,
+        notes: SessionNotesPayloadInput | None,
+    ) -> SessionResponse:
         """Update the structured notes JSON on a session."""
         return update_session_notes.sync(
             self._client,
@@ -573,7 +580,11 @@ class AsyncChronos(_ChronosBase):
         body = CompleteSessionRequest(status="cancelled", error_message="User cancelled")
         return await complete_session.asyncio(self._client, public_id=session_id, body=body)
 
-    async def update_notes(self, session_id: str, notes: dict[str, Any] | None) -> SessionResponse:
+    async def update_notes(
+        self,
+        session_id: str,
+        notes: SessionNotesPayloadInput | None,
+    ) -> SessionResponse:
         """Update the structured notes JSON on a session."""
         return await update_session_notes.asyncio(
             self._client,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-annotations
-Version: 2.3.2
+Version: 3.0.0
 Summary: Extensible tools for parsing annotations in codebases
 Home-page: https://github.com/openedx/code-annotations
 Author: edX
@@ -16,17 +16,16 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 Requires-Dist: click
-Requires-Dist: python-slugify
-Requires-Dist: Jinja2
 Requires-Dist: pyyaml
+Requires-Dist: Jinja2
 Requires-Dist: stevedore
+Requires-Dist: python-slugify
 Provides-Extra: django
 Requires-Dist: Django>=4.2; extra == "django"
 Dynamic: author

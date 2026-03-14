@@ -39,6 +39,11 @@ class RTDEIOInterface
     */
   RTDE_EXPORT bool reconnect();
 
+    /**
+   * @returns Connection status for RTDE, useful for checking for lost connection.
+   */
+  RTDE_EXPORT bool isConnected();
+
   /**
     * @brief Set standard digital output signal level
     * @param output_id The number (id) of the output, integer: [0:7]

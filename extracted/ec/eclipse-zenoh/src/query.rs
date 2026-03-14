@@ -24,7 +24,7 @@ use crate::{
     cancellation::CancellationToken,
     handlers::{into_handler, HandlerImpl},
     key_expr::KeyExpr,
-    macros::{build, downcast_or_new, enum_mapper, option_wrapper, wrapper},
+    macros::{build, downcast_or_new, enum_mapper, import, option_wrapper, wrapper},
     matching::{MatchingListener, MatchingStatus},
     qos::{CongestionControl, Priority},
     sample::SourceInfo,
@@ -43,6 +43,17 @@ enum_mapper!(zenoh::query::QueryTarget: u8 {
 impl QueryTarget {
     #[classattr]
     const DEFAULT: Self = Self::BestMatching;
+}
+
+enum_mapper!(zenoh::query::ReplyKeyExpr: u8 {
+    Any,
+    MatchingQuery,
+});
+
+#[pymethods]
+impl ReplyKeyExpr {
+    #[classattr]
+    const DEFAULT: Self = Self::MatchingQuery;
 }
 
 enum_mapper!(zenoh::query::ConsolidationMode: u8 {
@@ -130,6 +141,10 @@ impl Query {
         Ok(self.get_ref()?.attachment().cloned().map_into())
     }
 
+    fn accepts_replies(&self) -> PyResult<ReplyKeyExpr> {
+        Ok(self.get_ref()?.accepts_replies().into())
+    }
+
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (key_expr, payload, *, encoding = None, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None))]
     fn reply(
@@ -144,11 +159,21 @@ impl Query {
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
         timestamp: Option<Timestamp>,
     ) -> PyResult<()> {
+        if congestion_control.is_some() {
+            import!(py, warnings.warn).call1((
+                "congestion_control in Query.reply is deprecated, it will be ignored",
+                py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            ))?;
+        }
+        if priority.is_some() {
+            import!(py, warnings.warn).call1((
+                "priority in Query.reply is deprecated, it will be ignored",
+                py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            ))?;
+        }
         let build = build!(
             self.get_ref()?.reply(key_expr, payload),
             encoding,
-            congestion_control,
-            priority,
             express,
             attachment,
             timestamp,
@@ -179,10 +204,20 @@ impl Query {
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
         timestamp: Option<Timestamp>,
     ) -> PyResult<()> {
+        if congestion_control.is_some() {
+            import!(py, warnings.warn).call1((
+                "congestion_control in Query.reply_del is deprecated, it will be ignored",
+                py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            ))?;
+        }
+        if priority.is_some() {
+            import!(py, warnings.warn).call1((
+                "priority in Query.reply_del is deprecated, it will be ignored",
+                py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+            ))?;
+        }
         let build = build!(
             self.get_ref()?.reply_del(key_expr),
-            congestion_control,
-            priority,
             express,
             attachment,
             timestamp,
@@ -360,6 +395,11 @@ impl Querier {
     #[getter]
     fn key_expr(&self) -> PyResult<KeyExpr> {
         Ok(self.get_ref()?.key_expr().clone().into())
+    }
+
+    #[getter]
+    fn accept_replies(&self) -> PyResult<ReplyKeyExpr> {
+        Ok(self.get_ref()?.accept_replies().into())
     }
 
     #[getter]

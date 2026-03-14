@@ -413,6 +413,7 @@ async fn test_turn_only_mode() {
         Some("test_conversation_id".to_string()),
         None,                           // ksm_config (no credential refresh in tests)
         "test-client-v1.0".to_string(), // client_version
+        false,                          // enable_video
     )
     .await
     .unwrap();
@@ -440,6 +441,7 @@ async fn test_turn_only_mode() {
         Some("test_conversation_id_regular".to_string()),
         None,                           // ksm_config (no credential refresh in tests)
         "test-client-v1.0".to_string(), // client_version
+        false,                          // enable_video
     )
     .await
     .unwrap();

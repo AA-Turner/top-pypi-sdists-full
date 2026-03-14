@@ -44,6 +44,8 @@ WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (
     "CronPatch",
     "RunCreateStateful",
     "RunCreateStateless",
+    "RunCreateStreamingStateful",
+    "RunCreateStreamingStateless",
     "ThreadCronCreate",
 )
 WRITE_SCHEMAS_WITH_METADATA = (
@@ -54,6 +56,8 @@ WRITE_SCHEMAS_WITH_METADATA = (
     "RunBatchCreate",
     "RunCreateStateful",
     "RunCreateStateless",
+    "RunCreateStreamingStateful",
+    "RunCreateStreamingStateless",
     "ThreadCreate",
     "ThreadCronCreate",
     "ThreadPatch",
@@ -311,6 +315,37 @@ RunCreateStateful = jsonschema_rs.validator_for(
         **_validation_openapi["components"]["schemas"]["RunCreateStateful"],
         "components": {
             "schemas": {
+                "CheckpointConfig": _validation_openapi["components"]["schemas"][
+                    "CheckpointConfig"
+                ],
+                "Command": _validation_openapi["components"]["schemas"]["Command"],
+                "Send": _validation_openapi["components"]["schemas"]["Send"],
+            }
+        },
+    }
+)
+RunCreateStreamingStateless = jsonschema_rs.validator_for(
+    {
+        **_validation_openapi["components"]["schemas"]["RunCreateStreamingStateless"],
+        "components": {
+            "schemas": {
+                "RunCreateStateless": _validation_openapi["components"]["schemas"][
+                    "RunCreateStateless"
+                ],
+                "Command": _validation_openapi["components"]["schemas"]["Command"],
+                "Send": _validation_openapi["components"]["schemas"]["Send"],
+            }
+        },
+    }
+)
+RunCreateStreamingStateful = jsonschema_rs.validator_for(
+    {
+        **_validation_openapi["components"]["schemas"]["RunCreateStreamingStateful"],
+        "components": {
+            "schemas": {
+                "RunCreateStateful": _validation_openapi["components"]["schemas"][
+                    "RunCreateStateful"
+                ],
                 "CheckpointConfig": _validation_openapi["components"]["schemas"][
                     "CheckpointConfig"
                 ],

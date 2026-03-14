@@ -198,6 +198,8 @@ class EditorOutput:
             text: The narrative text
             agent_name: Optional agent name for multi-agent prefix
         """
+        if not text or not text.strip():
+            return
         self._add_block(BlockType.NARRATIVE, text)
         prefix = self._get_prefix(agent_name)
         if self._use_rich:
@@ -483,6 +485,10 @@ def enable_editor_output(
     ):
         if not _editor_output_enabled or _editor_output is None:
             return
+        # Skip if llm_content already displayed this exact text as narrative
+        if response and hasattr(_editor_output, '_last_narrative_text') and _editor_output._last_narrative_text == response.strip():
+            _editor_output._last_narrative_text = None  # Reset for next turn
+            return
         if response:
             _editor_output.output(response, agent_name)
 
@@ -503,10 +509,18 @@ def enable_editor_output(
         phase = "Thinking" if count == 1 else "Responding"
         _editor_output.llm_indicator(phase)
 
+    def on_llm_content(content: str = None, agent_name: str = None, **kwargs):
+        if not _editor_output_enabled or _editor_output is None:
+            return
+        if content and content.strip():
+            _editor_output._last_narrative_text = content.strip()
+            _editor_output.narrative(content.strip(), agent_name=agent_name)
+
     register_display_callback('tool_call', on_tool_call)
     register_display_callback('interaction', on_interaction)
     register_display_callback('error', on_error)
     register_display_callback('llm_start', on_llm_start)
+    register_display_callback('llm_content', on_llm_content)
 
     return _editor_output
 

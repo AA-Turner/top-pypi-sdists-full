@@ -65,7 +65,9 @@ from xrspatial.multispectral import sipi  # noqa
 from xrspatial.pathfinding import a_star_search  # noqa
 from xrspatial.pathfinding import multi_stop_search  # noqa
 from xrspatial.perlin import perlin  # noqa
+from xrspatial.preview import preview  # noqa
 from xrspatial.proximity import allocation  # noqa
+from xrspatial.rasterize import rasterize  # noqa
 from xrspatial.proximity import direction  # noqa
 from xrspatial.proximity import euclidean_distance  # noqa
 from xrspatial.proximity import great_circle_distance  # noqa
@@ -74,7 +76,11 @@ from xrspatial.proximity import proximity  # noqa
 from xrspatial.sink import sink  # noqa
 from xrspatial.snap_pour_point import snap_pour_point  # noqa
 from xrspatial.stream_link import stream_link  # noqa
+from xrspatial.stream_link_dinf import stream_link_dinf  # noqa
+from xrspatial.stream_link_mfd import stream_link_mfd  # noqa
 from xrspatial.stream_order import stream_order  # noqa
+from xrspatial.stream_order_dinf import stream_order_dinf  # noqa
+from xrspatial.stream_order_mfd import stream_order_mfd  # noqa
 from xrspatial.sky_view_factor import sky_view_factor  # noqa
 from xrspatial.slope import slope  # noqa
 from xrspatial.surface_distance import surface_allocation  # noqa

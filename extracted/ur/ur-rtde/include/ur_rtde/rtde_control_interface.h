@@ -869,14 +869,17 @@ class RTDEControlInterface
    * is provided the current joint angles of the robot arm will be used. If no
    * tcp is provided the currently active tcp of the controller will be used.
    *
-   * NOTICE! If you specify the tcp_offset you must also specify the q.
+   * NOTICE! If you only specify the tcp_offset, and leave the q empty the 
+   * current joint positions will be used. On the other hand if you specify
+   * the q but not the tcp_offset an offset of zeroes will be assumed see the
+   * default value.
    *
    * @param q joint position vector (Optional)
    * @param tcp_offset tcp offset pose (Optional)
    * @returns the forward kinematic transformation as a pose
    */
   RTDE_EXPORT std::vector<double> getForwardKinematics(const std::vector<double> &q = {},
-                                                       const std::vector<double> &tcp_offset = {});
+                                                       const std::vector<double> &tcp_offset = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
 
   /**
    * @brief Checks if robot is fully at rest.

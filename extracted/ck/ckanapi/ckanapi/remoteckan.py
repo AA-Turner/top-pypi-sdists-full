@@ -1,13 +1,9 @@
-try:
-    from urllib2 import Request, urlopen, HTTPError
-    from urlparse import urlparse
-except ImportError:
-    from urllib.request import Request, urlopen, HTTPError
-    from urllib.parse import urlparse
+from urllib.request import Request, urlopen, HTTPError
+from urllib.parse import urlparse
 
 from ckanapi.errors import CKANAPIError
 from ckanapi.common import (ActionShortcut, prepare_action,
-    reverse_apicontroller_action)
+    reverse_apicontroller_action, REQUEST_TIMEOUT)
 from ckanapi.version import __version__
 import os
 
@@ -88,6 +84,7 @@ class RemoteCKAN(object):
         headers['User-Agent'] = self.user_agent
         url = self.address.rstrip('/') + '/' + url
         requests_kwargs = requests_kwargs or {}
+        requests_kwargs.setdefault("timeout", REQUEST_TIMEOUT)
         if not self.session:
             self.session = requests.Session()
         if self.get_only:

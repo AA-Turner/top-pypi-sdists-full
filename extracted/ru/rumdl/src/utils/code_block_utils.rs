@@ -8,10 +8,55 @@
 //! - Mixed fence types (tilde fence contains backticks as content)
 //! - Indented code blocks with proper list context handling
 
-use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
 /// Type alias for code block and span ranges: (code_blocks, code_spans)
 pub type CodeRanges = (Vec<(usize, usize)>, Vec<(usize, usize)>);
+
+/// Detailed information about a code block captured during parsing
+#[derive(Debug, Clone)]
+pub struct CodeBlockDetail {
+    /// Byte offset where this code block starts
+    pub start: usize,
+    /// Byte offset where this code block ends
+    pub end: usize,
+    /// Whether this is a fenced code block (true) or indented (false)
+    pub is_fenced: bool,
+    /// The info string from fenced blocks (e.g., "rust" from ```rust), empty for indented
+    pub info_string: String,
+}
+
+/// A strong emphasis span captured during parsing
+#[derive(Debug, Clone)]
+pub struct StrongSpanDetail {
+    /// Byte offset where the strong span starts (including **)
+    pub start: usize,
+    /// Byte offset where the strong span ends (including **)
+    pub end: usize,
+    /// Whether this uses asterisk (**) or underscore (__) markers
+    pub is_asterisk: bool,
+}
+
+/// Ordered list membership: maps line number (1-indexed) to list ID
+pub type LineToListMap = std::collections::HashMap<usize, usize>;
+/// Ordered list start values: maps list ID to the start value
+pub type ListStartValues = std::collections::HashMap<usize, u64>;
+
+/// Result of the central pulldown-cmark parse, capturing all data needed by individual rules
+pub struct ParseResult {
+    /// Code block byte ranges (start, end)
+    pub code_blocks: Vec<(usize, usize)>,
+    /// Inline code span byte ranges (start, end)
+    pub code_spans: Vec<(usize, usize)>,
+    /// Detailed code block info (fenced vs indented, info string)
+    pub code_block_details: Vec<CodeBlockDetail>,
+    /// Strong emphasis span details
+    pub strong_spans: Vec<StrongSpanDetail>,
+    /// Ordered list membership: maps line number (1-indexed) to list ID
+    pub line_to_list: LineToListMap,
+    /// Ordered list start values: maps list ID to start value
+    pub list_start_values: ListStartValues,
+}
 
 /// Classification of code blocks relative to list contexts
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,15 +83,30 @@ impl CodeBlockUtils {
     ///
     /// Returns a sorted vector of (start, end) byte offset tuples.
     pub fn detect_code_blocks(content: &str) -> Vec<(usize, usize)> {
-        let (blocks, _) = Self::detect_code_blocks_and_spans(content);
-        blocks
+        Self::detect_code_blocks_and_spans(content).code_blocks
     }
 
-    /// Returns code block ranges and inline code span ranges in a single pulldown-cmark pass.
-    pub fn detect_code_blocks_and_spans(content: &str) -> CodeRanges {
+    /// Returns code block ranges, inline code span ranges, and detailed code block info
+    /// in a single pulldown-cmark pass.
+    pub fn detect_code_blocks_and_spans(content: &str) -> ParseResult {
         let mut blocks = Vec::new();
         let mut spans = Vec::new();
-        let mut code_block_start: Option<usize> = None;
+        let mut details = Vec::new();
+        let mut strong_spans = Vec::new();
+        let mut code_block_start: Option<(usize, bool, String)> = None;
+
+        // List membership tracking for ordered lists
+        let mut line_to_list = LineToListMap::new();
+        let mut list_start_values = ListStartValues::new();
+        let mut list_stack: Vec<(usize, bool, u64)> = Vec::new(); // (list_id, is_ordered, start_value)
+        let mut next_list_id: usize = 0;
+
+        // Pre-compute line start offsets for byte-to-line conversion
+        let line_starts: Vec<usize> = std::iter::once(0)
+            .chain(content.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+
+        let byte_to_line = |byte_offset: usize| -> usize { line_starts.partition_point(|&start| start <= byte_offset) };
 
         // Use pulldown-cmark with all extensions for maximum compatibility
         let options = Options::all();
@@ -54,14 +114,52 @@ impl CodeBlockUtils {
 
         for (event, range) in parser {
             match event {
-                Event::Start(Tag::CodeBlock(_)) => {
-                    // Record start position of code block
-                    code_block_start = Some(range.start);
+                Event::Start(Tag::CodeBlock(kind)) => {
+                    let (is_fenced, info_string) = match &kind {
+                        CodeBlockKind::Fenced(info) => (true, info.to_string()),
+                        CodeBlockKind::Indented => (false, String::new()),
+                    };
+                    code_block_start = Some((range.start, is_fenced, info_string));
                 }
                 Event::End(TagEnd::CodeBlock) => {
-                    // Complete the code block range
-                    if let Some(start) = code_block_start.take() {
+                    if let Some((start, is_fenced, info_string)) = code_block_start.take() {
                         blocks.push((start, range.end));
+                        details.push(CodeBlockDetail {
+                            start,
+                            end: range.end,
+                            is_fenced,
+                            info_string,
+                        });
+                    }
+                }
+                Event::Start(Tag::Strong) => {
+                    if range.start + 2 <= content.len() {
+                        let is_asterisk = &content[range.start..range.start + 2] == "**";
+                        strong_spans.push(StrongSpanDetail {
+                            start: range.start,
+                            end: range.end,
+                            is_asterisk,
+                        });
+                    }
+                }
+                Event::Start(Tag::List(start_num)) => {
+                    let is_ordered = start_num.is_some();
+                    let start_value = start_num.unwrap_or(1);
+                    list_stack.push((next_list_id, is_ordered, start_value));
+                    if is_ordered {
+                        list_start_values.insert(next_list_id, start_value);
+                    }
+                    next_list_id += 1;
+                }
+                Event::End(TagEnd::List(_)) => {
+                    list_stack.pop();
+                }
+                Event::Start(Tag::Item) => {
+                    if let Some(&(list_id, is_ordered, _)) = list_stack.last()
+                        && is_ordered
+                    {
+                        let line_num = byte_to_line(range.start);
+                        line_to_list.insert(line_num, list_id);
                     }
                 }
                 Event::Code(_) => {
@@ -73,13 +171,29 @@ impl CodeBlockUtils {
 
         // Handle edge case: unclosed code block at end of content
         // pulldown-cmark should handle this, but be defensive
-        if let Some(start) = code_block_start {
+        if let Some((start, is_fenced, info_string)) = code_block_start {
             blocks.push((start, content.len()));
+            details.push(CodeBlockDetail {
+                start,
+                end: content.len(),
+                is_fenced,
+                info_string,
+            });
         }
 
         // Sort by start position (should already be sorted, but ensure consistency)
         blocks.sort_by_key(|&(start, _)| start);
-        (blocks, spans)
+        spans.sort_by_key(|&(start, _)| start);
+        details.sort_by_key(|d| d.start);
+        strong_spans.sort_by_key(|s| s.start);
+        ParseResult {
+            code_blocks: blocks,
+            code_spans: spans,
+            code_block_details: details,
+            strong_spans,
+            line_to_list,
+            list_start_values,
+        }
     }
 
     /// Check if a position is within a code block (for compatibility)

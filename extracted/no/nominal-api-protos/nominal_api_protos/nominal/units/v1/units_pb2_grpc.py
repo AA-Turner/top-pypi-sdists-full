@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.units.v1 import units_pb2 as nominal_dot_units_dot_v1_dot_units__pb2
+from nominal_api_protos.nominal.units.v1 import units_pb2 as nominal_dot_units_dot_v1_dot_units__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+from os.path import splitext
 from urllib.parse import urlparse
 
 from pyspark.errors.exceptions.base import AnalysisException
@@ -18,6 +19,7 @@ CLOUD_PREFIX_TO_CLOUD = {
 
 SUPPORTED_COMPRESSION_PER_FORMAT = {
     "csv": {
+        "AUTO",
         "GZIP",
         "BZ2",
         "BROTLI",
@@ -28,6 +30,7 @@ SUPPORTED_COMPRESSION_PER_FORMAT = {
         "UNCOMPRESSED",
     },
     "json": {
+        "AUTO",
         "GZIP",
         "BZ2",
         "BROTLI",
@@ -37,7 +40,7 @@ SUPPORTED_COMPRESSION_PER_FORMAT = {
         "NONE",
         "UNCOMPRESSED",
     },
-    "parquet": {"LZO", "SNAPPY", "NONE", "UNCOMPRESSED"},
+    "parquet": {"AUTO", "LZO", "SNAPPY", "NONE", "UNCOMPRESSED"},
     "text": {"NONE", "UNCOMPRESSED"},
 }
 
@@ -50,6 +53,57 @@ def is_supported_compression(format: str, compression: str | None) -> bool:
     if compression is None:
         return True
     return compression in supported_compressions_for_format(format)
+
+
+FILE_EXTENSION_TO_COMPRESSION = {
+    ".gz": "GZIP",
+    ".bz2": "BZ2",
+    ".deflate": "DEFLATE",
+    ".snappy": "SNAPPY",
+    ".lz4": "LZ4",
+}
+
+
+def _get_last_extension(file_path: str) -> str:
+    """Extract the last file extension from a path, handling stage paths and URLs."""
+    cleaned = file_path.strip("'\"")
+    _, ext = splitext(cleaned)
+    return ext.lower()
+
+
+def infer_compression_from_file_extension(
+    file_paths: list[str], read_format: str
+) -> str:
+    """Infer compression from file extensions for CSV/JSON reads.
+
+    Returns the compression type if all files share the same one, "AUTO"
+    for mixed/unrecognized extensions, or raises if unsupported.
+    """
+    match read_format:
+        case "json" | "csv":
+            if not file_paths:
+                return "AUTO"
+            inferred: set[str] = set()
+            for path in file_paths:
+                ext = _get_last_extension(path)
+                compression = FILE_EXTENSION_TO_COMPRESSION.get(ext, "NONE")
+                if not is_supported_compression(read_format, compression):
+                    supported = supported_compressions_for_format(read_format)
+                    exception = AnalysisException(
+                        f"Compression {compression} is not supported for {read_format} format. "
+                        f"Supported compressions: {sorted(supported)}"
+                    )
+                    attach_custom_error_code(
+                        exception, ErrorCodes.UNSUPPORTED_OPERATION
+                    )
+                    raise exception
+                inferred.add(compression)
+            if len(inferred) == 1:
+                result = next(iter(inferred))
+                return result if result != "NONE" else "AUTO"
+            return "AUTO"
+        case _:
+            return "AUTO"
 
 
 def get_compression_for_source_and_options(

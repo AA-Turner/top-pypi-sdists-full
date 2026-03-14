@@ -1,6 +1,6 @@
-from nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as _direct_nominal_channel_writer_pb2
-from nominal.mesh.v1 import links_pb2 as _links_pb2
-from nominal.mesh.v1 import remote_connections_pb2 as _remote_connections_pb2
+from nominal_api_protos.nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as _direct_nominal_channel_writer_pb2
+from nominal_api_protos.nominal.mesh.v1 import links_pb2 as _links_pb2
+from nominal_api_protos.nominal.mesh.v1 import remote_connections_pb2 as _remote_connections_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

@@ -22,6 +22,7 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.relation.io_utils import (
     convert_file_prefix_path,
     get_compression_for_source_and_options,
+    infer_compression_from_file_extension,
     is_cloud_path,
 )
 from snowflake.snowpark_connect.relation.neo4j_utils import (
@@ -300,6 +301,80 @@ def _quote_stage_path(stage_path: str) -> str:
     return stage_path
 
 
+def _resolve_read_compression(
+    stage_paths: list[str],
+    clean_source_paths: list[str],
+    read_format: str,
+    options: dict,
+    session: snowpark.Session,
+) -> None:
+    """Resolve the compression option for reads.
+
+    If the user explicitly set a compression option, use it. Otherwise, infer
+    from file extensions. For types Snowflake's AUTO can detect (GZIP, BZ2),
+    we skip the override to avoid interfering with format-specific readers.
+    """
+    user_compression = get_compression_for_source_and_options(
+        read_format, options, from_read=True
+    )
+    if user_compression is not None:
+        options["compression"] = user_compression
+        return
+
+    compression = infer_compression_from_file_extension(stage_paths, read_format)
+
+    # For directory paths (no file extension), scan actual filenames to infer
+    # compression. Skip this for specific file paths — Snowflake's LIST treats
+    # paths as prefixes, so listing "file.jsonl" would also match
+    # "file.jsonl.gz", "file.jsonl.bz2", etc.
+    if compression == "AUTO" and _paths_are_directories(clean_source_paths):
+        source_files = _list_local_files(clean_source_paths)
+        if not source_files:
+            source_files = _list_stage_files(stage_paths, session)
+        if source_files:
+            compression = infer_compression_from_file_extension(
+                source_files, read_format
+            )
+
+    if compression not in ("AUTO", "GZIP", "BZ2"):
+        options["compression"] = compression
+
+
+def _paths_are_directories(source_paths: list[str]) -> bool:
+    """Check if source paths look like directories (no file extension)."""
+    from os.path import splitext
+
+    for path in source_paths:
+        _, ext = splitext(path.rstrip("/"))
+        if ext:
+            return False
+    return True
+
+
+def _list_local_files(source_paths: list[str]) -> list[str]:
+    """List filenames from local directories in source_paths."""
+    files: list[str] = []
+    for src in source_paths:
+        if os.path.isdir(src):
+            files.extend(os.listdir(src))
+    return files
+
+
+def _list_stage_files(stage_paths: list[str], session: snowpark.Session) -> list[str]:
+    """List filenames on a Snowflake stage via LIST command."""
+    files: list[str] = []
+    for path in stage_paths:
+        cleaned = path.strip("'\"").replace("'", "\\'")
+        try:
+            for row in session.sql(f"LIST '{cleaned}'").collect():
+                name = row[0]
+                if not name.endswith("_SUCCESS"):
+                    files.append(name)
+        except Exception as e:
+            logger.warning(f"Failed to list stage files at '{cleaned}': {e}")
+    return files
+
+
 def _read_file(
     clean_source_paths: list[str],
     options: dict,
@@ -316,11 +391,9 @@ def _read_file(
     paths = [_quote_stage_path(path) for path in paths]
 
     if read_format in ("csv", "text", "json", "parquet"):
-        compression = get_compression_for_source_and_options(
-            read_format, options, from_read=True
+        _resolve_read_compression(
+            paths, clean_source_paths, read_format, options, session
         )
-        if compression is not None:
-            options["compression"] = compression
 
     match read_format:
         case "csv":

@@ -2,12 +2,15 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::handler_helpers::{
     handle_quit, parse_display_size, render_connection_error, render_connection_success,
@@ -757,6 +760,7 @@ impl ProtocolHandler for ElasticsearchHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Elasticsearch handler starting");
 
@@ -814,6 +818,17 @@ impl ProtocolHandler for ElasticsearchHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "Elasticsearch", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("Elasticsearch: Sent display init instructions");
@@ -832,11 +847,9 @@ impl ProtocolHandler for ElasticsearchHandler {
                 warn!("Elasticsearch: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -948,6 +961,15 @@ impl ProtocolHandler for ElasticsearchHandler {
                     if let Some(command) = pending_query {
                         info!("Elasticsearch: Executing command: {}", command);
 
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &command,
+                            username.unwrap_or(""), hostname, "elasticsearch",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
+
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &command);
 
@@ -957,7 +979,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                         match input_type {
                             InputType::Empty => {
                                 executor
-                                    .terminal
+
                                     .write_prompt()
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
@@ -995,7 +1017,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                         result.execution_time_ms =
                                             Some(start.elapsed().as_millis() as u64);
                                         executor
-                                            .terminal
+
                                             .write_result(&result)
                                             .map_err(|e| {
                                                 HandlerError::ProtocolError(e.to_string())
@@ -1004,7 +1026,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                     Err(e) => {
                                         record_error_output(&mut recorder, &e);
                                         executor
-                                            .terminal
+
                                             .write_error(&e)
                                             .map_err(|e| {
                                                 HandlerError::ProtocolError(e.to_string())
@@ -1020,7 +1042,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                         result.execution_time_ms =
                                             Some(start.elapsed().as_millis() as u64);
                                         executor
-                                            .terminal
+
                                             .write_result(&result)
                                             .map_err(|e| {
                                                 HandlerError::ProtocolError(e.to_string())
@@ -1029,7 +1051,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                     Err(e) => {
                                         record_error_output(&mut recorder, &e);
                                         executor
-                                            .terminal
+
                                             .write_error(&e)
                                             .map_err(|e| {
                                                 HandlerError::ProtocolError(e.to_string())
@@ -1047,7 +1069,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                     ))
                                 {
                                     executor
-                                        .terminal
+
                                         .write_error(
                                             "Operation blocked: read-only mode is enabled.",
                                         )
@@ -1066,7 +1088,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                                 format_rest_response(&response_text);
                                             for line in formatted.lines() {
                                                 executor
-                                                    .terminal
+
                                                     .write_line(line)
                                                     .map_err(|e| {
                                                         HandlerError::ProtocolError(
@@ -1075,7 +1097,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                                     })?;
                                             }
                                             executor
-                                                .terminal
+
                                                 .write_line(&format!(
                                                     "({} ms)",
                                                     elapsed.as_millis()
@@ -1089,7 +1111,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                                         Err(e) => {
                                             record_error_output(&mut recorder, &e);
                                             executor
-                                                .terminal
+
                                                 .write_error(&e)
                                                 .map_err(|e| {
                                                     HandlerError::ProtocolError(
@@ -1103,7 +1125,7 @@ impl ProtocolHandler for ElasticsearchHandler {
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1241,21 +1263,18 @@ async fn handle_shortcut_command(
         Ok(mut query_result) => {
             query_result.execution_time_ms = Some(start.elapsed().as_millis() as u64);
             executor
-                .terminal
                 .write_result(&query_result)
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             record_error_output(recorder, &e);
             executor
-                .terminal
                 .write_error(&e)
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1276,12 +1295,16 @@ impl EventBasedHandler for ElasticsearchHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

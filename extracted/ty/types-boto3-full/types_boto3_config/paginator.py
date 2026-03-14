@@ -21,6 +21,7 @@ Usage::
         DescribeConfigRulesPaginator,
         DescribeConfigurationAggregatorSourcesStatusPaginator,
         DescribeConfigurationAggregatorsPaginator,
+        DescribeConformancePackCompliancePaginator,
         DescribeConformancePackStatusPaginator,
         DescribeConformancePacksPaginator,
         DescribeOrganizationConfigRuleStatusesPaginator,
@@ -58,6 +59,7 @@ Usage::
     describe_config_rules_paginator: DescribeConfigRulesPaginator = client.get_paginator("describe_config_rules")
     describe_configuration_aggregator_sources_status_paginator: DescribeConfigurationAggregatorSourcesStatusPaginator = client.get_paginator("describe_configuration_aggregator_sources_status")
     describe_configuration_aggregators_paginator: DescribeConfigurationAggregatorsPaginator = client.get_paginator("describe_configuration_aggregators")
+    describe_conformance_pack_compliance_paginator: DescribeConformancePackCompliancePaginator = client.get_paginator("describe_conformance_pack_compliance")
     describe_conformance_pack_status_paginator: DescribeConformancePackStatusPaginator = client.get_paginator("describe_conformance_pack_status")
     describe_conformance_packs_paginator: DescribeConformancePacksPaginator = client.get_paginator("describe_conformance_packs")
     describe_organization_config_rule_statuses_paginator: DescribeOrganizationConfigRuleStatusesPaginator = client.get_paginator("describe_organization_config_rule_statuses")
@@ -110,6 +112,8 @@ from .type_defs import (
     DescribeConfigurationAggregatorSourcesStatusResponseTypeDef,
     DescribeConfigurationAggregatorsRequestPaginateTypeDef,
     DescribeConfigurationAggregatorsResponseTypeDef,
+    DescribeConformancePackComplianceRequestPaginateTypeDef,
+    DescribeConformancePackComplianceResponseTypeDef,
     DescribeConformancePacksRequestPaginateTypeDef,
     DescribeConformancePacksResponseTypeDef,
     DescribeConformancePackStatusRequestPaginateTypeDef,
@@ -174,6 +178,7 @@ __all__ = (
     "DescribeConfigRulesPaginator",
     "DescribeConfigurationAggregatorSourcesStatusPaginator",
     "DescribeConfigurationAggregatorsPaginator",
+    "DescribeConformancePackCompliancePaginator",
     "DescribeConformancePackStatusPaginator",
     "DescribeConformancePacksPaginator",
     "DescribeOrganizationConfigRuleStatusesPaginator",
@@ -408,6 +413,29 @@ class DescribeConfigurationAggregatorsPaginator(_DescribeConfigurationAggregator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/DescribeConfigurationAggregators.html#ConfigService.Paginator.DescribeConfigurationAggregators.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#describeconfigurationaggregatorspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeConformancePackCompliancePaginatorBase = Paginator[
+        DescribeConformancePackComplianceResponseTypeDef
+    ]
+else:
+    _DescribeConformancePackCompliancePaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeConformancePackCompliancePaginator(_DescribeConformancePackCompliancePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/DescribeConformancePackCompliance.html#ConfigService.Paginator.DescribeConformancePackCompliance)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#describeconformancepackcompliancepaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeConformancePackComplianceRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeConformancePackComplianceResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/DescribeConformancePackCompliance.html#ConfigService.Paginator.DescribeConformancePackCompliance.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#describeconformancepackcompliancepaginator)
         """
 
 

@@ -3,7 +3,7 @@
 #
 
 import copy
-from typing import Any
+from typing import Any, NamedTuple
 
 import cloudpickle as pkl
 import pyspark.sql.connect.proto.expressions_pb2 as expression_proto
@@ -177,13 +177,28 @@ def map_extension(
             raise exception
 
 
-def get_udtf_project(relation: relation_proto.Relation) -> bool:
+class UDTFAliasedProjection(NamedTuple):
+    relation: relation_proto.Relation
+    alias: str | None
+
+
+def get_udtf_project(
+    relation: relation_proto.Relation,
+) -> tuple[
+    tuple[snowpark.udtf.UserDefinedTableFunction, list], UDTFAliasedProjection
+] | None:
     """
     Extract UDTF information from a relation if it's a project containing a UDTF call.
 
     Returns:
         tuple[udtf_obj, udtf_spark_output_names] if UDTF found, None otherwise
     """
+    aliased_projection: UDTFAliasedProjection | None = None
+    if relation.WhichOneof("rel_type") == "subquery_alias":
+        alias = relation.subquery_alias.alias
+        relation = relation.subquery_alias.input
+        aliased_projection = UDTFAliasedProjection(relation=relation, alias=alias)
+
     if relation.WhichOneof("rel_type") == "project":
         expressions = relation.project.expressions
         if (
@@ -194,7 +209,7 @@ def get_udtf_project(relation: relation_proto.Relation) -> bool:
             func = expressions[0].unresolved_function
             udtf_name_lower = func.function_name.lower()
             if udtf_name_lower in session._udtfs:
-                return session._udtfs[udtf_name_lower]
+                return (session._udtfs[udtf_name_lower]), aliased_projection
 
     return None
 
@@ -308,16 +323,21 @@ def handle_udtf_with_table_arguments(
 def handle_lateral_join_with_udtf(
     left_result: DataFrameContainer,
     udtf_relation: relation_proto.Relation,
-    udtf_info: tuple[snowpark.udtf.UserDefinedTableFunction, list],
+    udtf_info: tuple[
+        tuple[snowpark.udtf.UserDefinedTableFunction, list],
+        UDTFAliasedProjection,
+    ],
 ) -> DataFrameContainer:
     """
     Handle lateral join with UDTF on the right side using join_table_function.
     """
     session = snowpark.Session.get_active_session()
 
+    (_udtf_obj, udtf_spark_output_names), aliased_projection = udtf_info
+    udtf_relation = aliased_projection.relation if aliased_projection else udtf_relation
+
     project = udtf_relation.project
     udtf_func = project.expressions[0].unresolved_function
-    _udtf_obj, udtf_spark_output_names = udtf_info
 
     typer = ExpressionTyper.dummy_typer(session)
     left_column_map = left_result.column_map
@@ -330,13 +350,21 @@ def handle_lateral_join_with_udtf(
     udtf_args_variant = [snowpark_fn.to_variant(arg) for arg in udtf_args]
     result_df = left_df.join_table_function(table_func(*udtf_args_variant))
 
+    right_qualifiers = (
+        [
+            {ColumnQualifier((aliased_projection.alias,))}
+            for _ in udtf_spark_output_names
+        ]
+        if aliased_projection
+        else [set() for _ in udtf_spark_output_names]
+    )
+
     return DataFrameContainer.create_with_column_mapping(
         dataframe=result_df,
         spark_column_names=left_result.column_map.get_spark_columns()
         + udtf_spark_output_names,
         snowpark_column_names=result_df.columns,
-        column_qualifiers=left_result.column_map.get_qualifiers()
-        + [set() for _ in udtf_spark_output_names],
+        column_qualifiers=left_result.column_map.get_qualifiers() + right_qualifiers,
         equivalent_snowpark_names=left_result.column_map.get_equivalent_snowpark_names()
         + [set() for _ in udtf_spark_output_names],
     )
@@ -545,11 +573,15 @@ def map_aggregate(
             spark_col_names = []
             final_pivot_names = []
             grouping_columns_qualifiers = []
+            grouping_column_types: list[snowpark_types.DataType] = []
+            pivot_agg_column_types: list[snowpark_types.DataType] = []
             aggregations_pivot = []
 
             pivot_col_names: set[str] = {col.get_name() for col in pivot_columns}
 
             agg_columns = get_all_dependent_column_names(aggregations)
+
+            raw_grouping_types = {tc.col.get_name(): tc.typ for _, tc in raw_groupings}
 
             if groupings:
                 for col in groupings:
@@ -564,7 +596,12 @@ def map_aggregate(
                     )
                     grouping_columns_qualifiers.append(qualifiers)
                     spark_col_names.append(spark_col_name)
+                    grouping_column_types.append(raw_grouping_types[snowpark_name])
             else:
+                # Build a map from input schema for inferred groupings
+                input_schema_types = {
+                    f.name: f.datatype for f in input_df.schema.fields
+                }
                 for col in input_container.column_map.columns:
                     if (
                         col.snowpark_name not in pivot_col_names
@@ -573,6 +610,9 @@ def map_aggregate(
                         groupings.append(snowpark_fn.col(col.snowpark_name))
                         grouping_columns_qualifiers.append(col.qualifiers)
                         spark_col_names.append(col.spark_name)
+                        grouping_column_types.append(
+                            input_schema_types[col.snowpark_name]
+                        )
 
             for pivot_value_idx, pivot_value_group in enumerate(pivot_values):
                 pivot_values_spark_names = []
@@ -637,17 +677,16 @@ def map_aggregate(
                     aggregations_pivot.append(curr_expression)
                     spark_col_names.append(spark_col_name)
                     final_pivot_names.append(snowpark_col_name)
+                    pivot_agg_column_types.append(raw_aggregations[agg_idx][1].typ)
 
             result_df = input_df.group_by(*groupings).agg(*aggregations_pivot)
 
             return DataFrameContainer.create_with_column_mapping(
                 dataframe=result_df,
                 spark_column_names=spark_col_names,
-                snowpark_column_names=result_df.columns,
-                snowpark_column_types=[
-                    result_df.schema.fields[idx].datatype
-                    for idx, _ in enumerate(result_df.columns)
-                ],
+                snowpark_column_names=[col.get_name() for col in groupings]
+                + final_pivot_names,
+                snowpark_column_types=grouping_column_types + pivot_agg_column_types,
                 column_qualifiers=grouping_columns_qualifiers
                 + [set() for _ in final_pivot_names],
                 parent_column_name_map=input_container.column_map,

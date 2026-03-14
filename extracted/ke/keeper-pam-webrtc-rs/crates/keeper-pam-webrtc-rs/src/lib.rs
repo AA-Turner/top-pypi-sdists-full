@@ -22,6 +22,7 @@ mod tube;
 mod tube_and_channel_helpers;
 mod tube_protocol;
 mod tube_registry;
+pub mod video_sender;
 mod webrtc_circuit_breaker;
 mod webrtc_data_channel;
 mod webrtc_errors;
@@ -29,6 +30,7 @@ mod webrtc_network_monitor;
 mod webrtc_quality_manager;
 
 pub use tube::*;
+pub use video_sender::VideoSender;
 pub use webrtc_core::*;
 pub use webrtc_errors::*;
 pub use webrtc_network_monitor::{ConnectionMigrator, NetworkMonitor};

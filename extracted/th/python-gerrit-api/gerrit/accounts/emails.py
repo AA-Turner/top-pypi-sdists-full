@@ -3,6 +3,7 @@
 # @Author: Jialiang Shi
 import logging
 import requests
+from gerrit import GerritClient
 from gerrit.utils.gerritbase import GerritBase
 from gerrit.utils.exceptions import (
     AccountEmailNotFoundError,
@@ -15,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class GerritAccountEmail(GerritBase):
-    def __init__(self, email, account, gerrit):
+    def __init__(self, email, account, gerrit: GerritClient):
         self.email = email
         self.account = account
         self.gerrit = gerrit
         self.endpoint = f"/accounts/{self.account}/emails/{self.email}"
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return self.email
@@ -43,7 +44,7 @@ class GerritAccountEmail(GerritBase):
 
 
 class GerritAccountEmails:
-    def __init__(self, account, gerrit):
+    def __init__(self, account, gerrit: GerritClient):
         self.account = account
         self.gerrit = gerrit
         self.endpoint = f"/accounts/{self.account}/emails"

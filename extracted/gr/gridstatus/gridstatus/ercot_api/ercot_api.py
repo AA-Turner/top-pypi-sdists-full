@@ -7,7 +7,6 @@ from enum import StrEnum
 from typing import Dict
 from zipfile import ZipFile
 
-import numpy as np
 import pandas as pd
 import pytz
 import requests
@@ -21,8 +20,10 @@ from gridstatus.ercot import (
     ELECTRICAL_BUS_LOCATION_TYPE,
     Ercot,
 )
+from gridstatus.ercot_60d_utils import CurveOutputFormat
 from gridstatus.ercot_api.api_parser import _timestamp_parser, parse_all_endpoints
 from gridstatus.ercot_constants import (
+    LOAD_FORECAST_BY_MODEL_COLUMNS,
     SOLAR_ACTUAL_AND_FORECAST_BY_GEOGRAPHICAL_REGION_COLUMNS,
     SOLAR_ACTUAL_AND_FORECAST_COLUMNS,
     WIND_ACTUAL_AND_FORECAST_BY_GEOGRAPHICAL_REGION_COLUMNS,
@@ -44,6 +45,11 @@ class APITypeEnum(StrEnum):
 
 # How long a token lasts for before needing to be refreshed
 TOKEN_EXPIRATION_SECONDS = 3600
+
+# Timeout for API requests in seconds (connect, read)
+CONNECT_TIMEOUT_SECONDS = 10
+READ_TIMEOUT_SECONDS = 15
+REQUEST_TIMEOUT = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
 
 # Number of historical links to fetch at once. The max is 1_000
 DEFAULT_HISTORICAL_SIZE = 1_000
@@ -118,6 +124,10 @@ HOURLY_SOLAR_POWER_PRODUCTION_ENDPOINT = "/np4-737-cd/spp_hrly_avrg_actl_fcast"
 HOURLY_SOLAR_POWER_PRODUCTION_BY_GEOGRAPHICAL_REGION_ENDPOINT = (
     "/np4-745-cd/spp_hrly_actual_fcast_geo"
 )
+
+# Seven-Day Load Forecast by Model and Weather Zone
+# https://data.ercot.com/data-product-archive/NP3-565-CD
+LOAD_FORECAST_BY_MODEL_ENDPOINT = "/np3-565-cd/lf_by_model_weather_zone"
 
 
 # Settlement Point Price for each Settlement Point, produced from SCED LMPs every 15 minutes. # noqa
@@ -248,7 +258,11 @@ class ErcotAPI:
             "client_id": self.client_id,
         }
 
-        response = requests.post(self.token_url, data=payload)
+        response = requests.post(
+            self.token_url,
+            data=payload,
+            timeout=REQUEST_TIMEOUT,
+        )
         response_data = response.json()
 
         if "id_token" in response_data:
@@ -288,53 +302,55 @@ class ErcotAPI:
         )
 
         # make request with exponential backoff retry strategy
+        # Retries on rate limiting (HTTP 429) and read timeouts.
+        # Connect timeouts raise immediately.
         retries = 0
         delay = self.initial_delay
+        reason = ""
         while retries <= self.max_retries:
-            if method == "POST":
-                response = requests.post(
-                    url,
-                    headers=self.headers(api=api),
-                    json=api_params,
-                )
-            else:
-                response = requests.get(
-                    url,
-                    headers=self.headers(api=api),
-                    params=api_params,
-                )
-
-            retries += 1
-            if response.status_code == status_codes.codes.OK:
-                break
-            elif (
-                response.status_code == status_codes.codes.TOO_MANY_REQUESTS
-                and retries <= self.max_retries
-            ):
-                logger.warning(
-                    f"Warn: Rate-limited: waiting {delay} seconds before retry {retries}/{self.max_retries} "  # noqa
-                    f"requesting url: {url} with params: {api_params}",
-                )
-                time.sleep(delay + random.uniform(0, delay * 0.1))
-                delay *= 2
-            else:
-                if retries > self.max_retries:
-                    error_message = (
-                        f"Error: Rate-limited still after {self.max_retries} retries. "
-                        f"Failed to get data from {url} with params: {api_params}"
+            try:
+                if method == "POST":
+                    response = requests.post(
+                        url,
+                        headers=self.headers(api=api),
+                        json=api_params,
+                        timeout=REQUEST_TIMEOUT,
                     )
                 else:
-                    error_message = (
-                        f"Error: Failed to get data from {url} with params:"
-                        f" {api_params}"
+                    response = requests.get(
+                        url,
+                        headers=self.headers(api=api),
+                        params=api_params,
+                        timeout=REQUEST_TIMEOUT,
                     )
-                logger.error(error_message)
-                response.raise_for_status()
 
-        if parse_json:
-            return response.json()
-        else:
-            return response.content
+                if response.status_code == status_codes.codes.OK:
+                    if parse_json:
+                        return response.json()
+                    else:
+                        return response.content
+                elif response.status_code == status_codes.codes.TOO_MANY_REQUESTS:
+                    reason = "Rate-limited"
+                else:
+                    response.raise_for_status()
+
+            except requests.exceptions.ReadTimeout:
+                reason = "Read timeout"
+
+            retries += 1
+            if retries > self.max_retries:
+                raise RuntimeError(
+                    f"Error: Failed after {self.max_retries} retries for"
+                    f" {url} with params {api_params}",
+                )
+
+            logger.warning(
+                f"Warn: {reason}: waiting {delay} seconds before retry"
+                f" {retries}/{self.max_retries}"
+                f" requesting url: {url} with params: {api_params}",
+            )
+            time.sleep(delay + random.uniform(0, delay * 0.1))
+            delay *= 2
 
     def get_public_reports(self):
         # General information about the public reports
@@ -615,6 +631,65 @@ class ErcotAPI:
 
         return data[columns]
 
+    @support_date_range(frequency=None)
+    def get_load_forecast_by_model(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get Seven-Day Load Forecast by Model and Weather Zone.
+
+        Forecasted hourly demand by Model and Weather Zone as reported by ERCOT.
+        Released every hour for the current day and the next 7.
+
+        Arguments:
+            date: the date to fetch reports for.
+            end: the end date to fetch reports for. Defaults to None.
+            verbose: print verbose output. Defaults to False.
+
+        Returns:
+            A DataFrame with load forecast by model data
+
+        Source:
+            https://www.ercot.com/mp/data-products/data-product-details?id=NP3-565-CD
+        """
+        end = self._handle_end_date(date, end, days_to_add_if_no_end=1)
+
+        data = self.get_historical_data(
+            endpoint=LOAD_FORECAST_BY_MODEL_ENDPOINT,
+            start_date=date,
+            end_date=end,
+            verbose=verbose,
+            add_post_datetime=True,
+        )
+
+        data = Ercot().parse_doc(data, verbose=verbose)
+
+        try:
+            publish_time = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+            )
+        # The DSTFlag only applies to the Interval Start so we have to assume one way or the other in this situation.
+        except pytz.exceptions.AmbiguousTimeError:
+            publish_time = pd.to_datetime(data["postDatetime"]).dt.tz_localize(
+                self.default_timezone,
+                ambiguous=True,
+            )
+
+        data["Publish Time"] = publish_time
+        data = Ercot()._handle_load_forecast_by_model(data)
+
+        return (
+            utils.move_cols_to_front(
+                data,
+                ["Interval Start", "Interval End", "Publish Time", "Model"],
+            )
+            .drop(columns=["Time", "postDatetime"], errors="ignore")
+            .sort_values(["Interval Start", "Publish Time", "Model"])
+            .reset_index(drop=True)
+        )[LOAD_FORECAST_BY_MODEL_COLUMNS]
+
     def get_as_prices(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
@@ -716,15 +791,8 @@ class ErcotAPI:
         data: pd.DataFrame,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        data = self.ercot.parse_doc(data, verbose=verbose).rename(
-            columns={"AncillaryType": "AS Type"},
-        )
-
-        return (
-            data[["Interval Start", "Interval End", "AS Type", "MCPC"]]
-            .sort_values(["Interval Start", "AS Type"])
-            .reset_index(drop=True)
-        )
+        data = self.ercot.parse_doc(data, verbose=verbose)
+        return self.ercot._handle_mcpc_dam_df(data)
 
     @support_date_range(frequency=None)
     def get_as_reports(self, date, end=None, verbose=False):
@@ -1132,40 +1200,18 @@ class ErcotAPI:
 
         return self.parse_dam_doc(data)
 
-    def parse_dam_doc(self, data):
-        data = (
-            self.ercot.parse_doc(
-                data.rename(
-                    columns=dict(
-                        deliveryDate="DeliveryDate",
-                        hourEnding="HourEnding",
-                        busName="BusName",
-                    ),
+    def parse_dam_doc(self, data: pd.DataFrame) -> pd.DataFrame:
+        data = self.ercot.parse_doc(
+            data.rename(
+                columns=dict(
+                    deliveryDate="DeliveryDate",
+                    hourEnding="HourEnding",
+                    busName="BusName",
                 ),
-            )
-            .rename(columns={"BusName": "Location"})
-            .drop(columns=["Time"])
-            .sort_values(["Interval Start"])
-            .reset_index(drop=True)
-            .assign(
-                Market=Markets.DAY_AHEAD_HOURLY.name,
-                **{"Location Type": ELECTRICAL_BUS_LOCATION_TYPE},
-            )
+            ),
         )
 
-        data = utils.move_cols_to_front(
-            data,
-            [
-                "Interval Start",
-                "Interval End",
-                "Market",
-                "Location",
-                "Location Type",
-                "LMP",
-            ],
-        )
-
-        return data
+        return self.ercot._handle_lmp_by_bus_dam_df(data)
 
     @support_date_range(frequency=None)
     def get_shadow_prices_dam(self, date, end=None, verbose=False):
@@ -1216,28 +1262,7 @@ class ErcotAPI:
 
     def _handle_shadow_prices_dam(self, data, verbose=False):
         data = self.ercot.parse_doc(data, verbose=verbose)
-        data = data.rename(columns=self._shadow_prices_column_name_mapper())
-        data = self._construct_limiting_facility_column(data)
-        # Fill all empty strings in the dataframe with NaN
-        data = data.replace("", pd.NA)
-
-        data = utils.move_cols_to_front(
-            data,
-            [
-                "Interval Start",
-                "Interval End",
-                "Constraint ID",
-                "Constraint Name",
-                "Contingency Name",
-                "Limiting Facility",
-            ],
-        )
-
-        data = data.drop(columns=["Delivery Time", "Time"])
-
-        return data.sort_values(["Interval Start", "Constraint ID"]).reset_index(
-            drop=True,
-        )
+        return self.ercot._handle_shadow_prices_dam_df(data)
 
     @support_date_range(frequency=None)
     def get_shadow_prices_sced(self, date, end=None, verbose=False):
@@ -1281,10 +1306,16 @@ class ErcotAPI:
 
         return self._handle_shadow_prices_sced(data, verbose=verbose)
 
-    def _handle_shadow_prices_sced(self, data, verbose=False):
+    def _handle_shadow_prices_sced(
+        self,
+        data: pd.DataFrame,
+        verbose=False,
+    ) -> pd.DataFrame:
         data = self.ercot._handle_sced_timestamp(data, verbose=verbose)
-        data = data.rename(columns=self._shadow_prices_column_name_mapper())
-        data = self._construct_limiting_facility_column(data)
+        data = data.rename(
+            columns=self.ercot._shadow_prices_column_name_mapper(),
+        )
+        data = self.ercot._construct_limiting_facility_column(data)
         # Fill all empty strings in the dataframe with NaN
         data = data.replace("", pd.NA)
 
@@ -1304,42 +1335,6 @@ class ErcotAPI:
         return data.sort_values(["SCED Timestamp", "Constraint ID"]).reset_index(
             drop=True,
         )
-
-    def _construct_limiting_facility_column(self, data):
-        data["Limiting Facility"] = np.where(
-            data["Contingency Name"] != "BASE CASE",
-            data["From Station"].astype(str)
-            + "_"
-            + data["From Station kV"].astype(str)
-            + "_"
-            + data["To Station"].astype(str)
-            + "_"
-            + data["To Station kV"].astype(str),
-            pd.NA,
-        )
-
-        return data
-
-    def _shadow_prices_column_name_mapper(self):
-        return {
-            "CCTStatus": "CCT Status",
-            "ConstraintId": "Constraint ID",  # API is inconsistent with capitalization
-            "ConstraintID": "Constraint ID",
-            "ConstraintLimit": "Constraint Limit",
-            "ConstraintName": "Constraint Name",
-            "ConstraintValue": "Constraint Value",
-            "ContingencyName": "Contingency Name",
-            "DeliveryTime": "Delivery Time",
-            "FromStation": "From Station",
-            "FromStationkV": "From Station kV",
-            "MaxShadowPrice": "Max Shadow Price",
-            "ShadowPrice": "Shadow Price",
-            "SystemLambda": "System Lambda",
-            "ToStation": "To Station",
-            "ToStationkV": "To Station kV",
-            "ViolatedMW": "Violated MW",
-            "ViolationAmount": "Violation Amount",
-        }
 
     @support_date_range(frequency=None)
     def get_spp_real_time_15_min(self, date, end=None, verbose=False):
@@ -1424,6 +1419,7 @@ class ErcotAPI:
         date: str | pd.Timestamp,
         end: str | pd.Timestamp = None,
         verbose: bool = False,
+        output_format: CurveOutputFormat | str = CurveOutputFormat.LIST,
     ) -> Dict[str, pd.DataFrame]:
         """
         Get the 60-day DAM disclosure reports from ERCOT.
@@ -1434,6 +1430,9 @@ class ErcotAPI:
                 Defaults to date + 1 day
             verbose (bool, optional): Whether to print progress messages. Defaults to
                 False
+            output_format: CurveOutputFormat.LIST (default) returns Python
+                list-of-lists per curve cell. CurveOutputFormat.PG_ARRAY_AS_STRING returns
+                PG array strings, using ~3x less peak memory.
 
         Returns:
             dict: Dictionary containing dataframes as values and keys:
@@ -1449,6 +1448,8 @@ class ErcotAPI:
                 - "dam_energy_bids"
                 - "dam_ptp_obligation_option"
                 - "dam_ptp_obligation_option_awards"
+                - "dam_esr" (when available, starting 2025-12-06)
+                - "dam_esr_as_offers" (when available, starting 2025-12-06)
 
         NOTE: because data is delayed by 60 days, requesting data in the past 60 days
         will return no data.
@@ -1482,6 +1483,7 @@ class ErcotAPI:
                 z=zip_file,
                 process=True,
                 verbose=verbose,
+                output_format=output_format,
             )
             df_list.append(processed_files)
 
@@ -1495,6 +1497,7 @@ class ErcotAPI:
         end: str | pd.Timestamp = None,
         verbose: bool = False,
         process: bool = True,
+        output_format: CurveOutputFormat | str = CurveOutputFormat.LIST,
     ) -> Dict[str, pd.DataFrame]:
         """
         Get the 60-day SCED disclosure reports from ERCOT.
@@ -1505,12 +1508,16 @@ class ErcotAPI:
                 Defaults to date + 1 day
             verbose (bool, optional): Whether to print progress messages. Defaults to
                 False
+            output_format: CurveOutputFormat.LIST (default) returns Python
+                list-of-lists per curve cell. CurveOutputFormat.PG_ARRAY_AS_STRING returns
+                PG array strings, using ~3x less peak memory.
 
         Returns:
             dict: Dictionary containing dataframes as values and keys:
                 - "sced_gen_resource"
                 - "sced_load_resource"
                 - "sced_smne"
+                - "sced_esr" (when available)
 
         NOTE: because data is delayed by 60 days, requesting data in the past 60 days
         will return no data.
@@ -1544,6 +1551,7 @@ class ErcotAPI:
                 z=zip_file,
                 process=process,
                 verbose=verbose,
+                output_format=output_format,
             )
             df_list.append(processed_files)
 
@@ -1650,7 +1658,7 @@ class ErcotAPI:
         bulk_download: bool = True,
         include_source_filename: bool = False,
         api: APITypeEnum = APITypeEnum.PUBLIC_API,
-    ) -> pd.DataFrame:
+    ) -> pd.DataFrame | bytes:
         """Retrieves historical data from the given emil_id from start to end date.
         The historical data endpoint only allows filtering by the postDatetimeTo and
         postDatetimeFrom parameters. The retrieval process has two steps:
@@ -1680,7 +1688,8 @@ class ErcotAPI:
                 False.
 
         Returns:
-            [pandas.DataFrame]: a dataframe of historical data
+            [pandas.DataFrame]: a dataframe of historical data when read_as_csv is
+                True. Otherwise, returns the bytes.
         """
         emil_id = endpoint.split("/")[1]
         logger.debug(
@@ -1715,7 +1724,8 @@ class ErcotAPI:
             files = self._individually_download_documents(links=links, verbose=verbose)
 
         if not read_as_csv:
-            return files
+            # Only return the bytes (not the filenames)
+            return [f[0] for f in files]
 
         dfs = []
         for file_data, posted_datetime, link in zip(files, posted_datetimes, links):

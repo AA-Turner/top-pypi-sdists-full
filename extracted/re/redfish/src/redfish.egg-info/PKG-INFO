@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redfish
-Version: 3.3.4
+Version: 3.3.5
 Summary: Redfish Python Library
 Home-page: https://github.com/DMTF/python-redfish-library
 Author: DMTF, https://www.dmtf.org/standards/feedback
@@ -13,7 +13,7 @@ Classifier: Topic :: Communications
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 License-File: AUTHORS.md
-Requires-Dist: jsonpath_rw
+Requires-Dist: jsonpath_ng
 Requires-Dist: jsonpointer
 Requires-Dist: requests
 Requires-Dist: requests_toolbelt
@@ -51,7 +51,7 @@ Description
 
 As of version 3.0.0, Python2 is no longer supported.  If Python2 is required, ``redfish<3.0.0`` can be specified in a requirements file.
 
-REST (Representational State Transfer) is a web based software architectural style consisting of a set of constraints that focuses on a system's resources.  The Redfish library performs GET, POST, PUT, PATCH and DELETE HTTP operations on resources within a Redfish service.  Go to the `wiki <../../wiki>`_ for more details.
+REST (Representational State Transfer) is a web based software architectural style consisting of a set of constraints that focuses on a system's resources.  The Redfish library performs GET, POST, PUT, PATCH and DELETE HTTP operations on resources within a Redfish service.  Go to the `wiki <https://github.com/DMTF/python-redfish-library/wiki>`_ for more details.
 
 Installing
 ----------
@@ -80,7 +80,7 @@ Required external packages:
 
     jsonpatch<=1.24 ; python_version == '3.4'
     jsonpatch ; python_version >= '3.5'
-    jsonpath_rw
+    jsonpath_ng
     jsonpointer
     requests
     requests-toolbelt

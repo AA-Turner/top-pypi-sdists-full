@@ -4,15 +4,42 @@ import itertools
 import re
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, TypeVar
+from typing import Any, Final, Iterable, List, Optional, TypeVar, Union
 from urllib.parse import urlparse
+from uuid import UUID
 
 from typing_extensions import ParamSpec
 
 from dstack._internal.core.models.common import Duration
+
+
+class Unset:
+    pass
+
+
+UNSET: Final = Unset()
+"""
+Use `UNSET` as kwargs default value to distinguish between
+specified and non-specified `Optional` values.
+"""
+
+
+@dataclass
+class EntityName:
+    name: str
+
+
+@dataclass
+class EntityID:
+    id: UUID
+
+
+EntityNameOrID = Union[EntityName, EntityID]
+
 
 P = ParamSpec("P")
 R = TypeVar("R")

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "benchling-sdk"
-version = "1.24.0"   # NOTE: This version number is ignored and does not correspond to releases (see README)
+version = "1.24.1"   # NOTE: This version number is ignored and does not correspond to releases (see README)
 description = "SDK for interacting with the Benchling Platform."
 authors = ["Benchling Support <support@benchling.com>"]
 packages = [{include = "benchling_sdk"}]
@@ -26,7 +26,7 @@ attrs = ">=20.1.0"
 python-dateutil = "^2.8.0"
 PyYAML = "^6.0"
 jwcrypto = "^1.5.1"
-benchling-api-client = "2.0.421"
+benchling-api-client = "2.0.425"
 # Minimum version due to vulnerability in 2022.9.24
 certifi = ">=2022.12.7"
 # Cryptography extras - see ExtrasPackage.CRYPTOGRAPHY

@@ -805,6 +805,445 @@ pub fn format_clipboard_instructions(clipboard_text: &str, stream_id: u32) -> Ve
     guacr_protocol::format_clipboard_text(stream_id, clipboard_text)
 }
 
+/// Update selection boundaries without requiring a terminal reference
+///
+/// Same logic as `update_selection_boundaries`; used by the ratatui selection path
+/// where no vt100 terminal is present.
+fn update_boundaries(selection: &mut MouseSelection) {
+    if let (Some(start), Some(end)) = (&selection.start, &selection.end) {
+        let (start, end) = if start.is_after(end) {
+            (end, start)
+        } else {
+            (start, end)
+        };
+
+        if points_enclose_text(start, end) {
+            let new_start_column = start.round_up();
+            let new_end_column = end.round_down();
+
+            selection.selection_start_row = Some(start.row);
+            selection.selection_start_column = Some(new_start_column);
+            selection.selection_end_row = Some(end.row);
+            selection.selection_end_column = Some(new_end_column);
+        } else {
+            selection.selection_start_row = None;
+            selection.selection_start_column = None;
+            selection.selection_end_row = None;
+            selection.selection_end_column = None;
+        }
+    }
+}
+
+/// Find word boundaries at a given position in a ratatui buffer
+fn find_word_boundaries_ratatui(
+    buffer: &ratatui::buffer::Buffer,
+    row: u16,
+    col: u16,
+) -> (u16, u16) {
+    let buf_width = buffer.area.width as usize;
+    let cols = buffer.area.width;
+
+    let is_word_char = |c: char| c.is_alphanumeric() || c == '_' || c == '-' || c == '.';
+
+    let idx = row as usize * buf_width + col as usize;
+    if idx >= buffer.content.len() {
+        return (col, col);
+    }
+
+    let clicked_symbol = buffer.content[idx].symbol().to_owned();
+    if clicked_symbol.is_empty() {
+        return (col, col);
+    }
+
+    let clicked_char = match clicked_symbol.chars().next() {
+        Some(c) => c,
+        None => return (col, col),
+    };
+
+    if !is_word_char(clicked_char) {
+        return (col, col);
+    }
+
+    let mut word_start = col;
+    while word_start > 0 {
+        let prev_idx = row as usize * buf_width + (word_start - 1) as usize;
+        if prev_idx < buffer.content.len() {
+            let sym = buffer.content[prev_idx].symbol();
+            if !sym.is_empty() {
+                if let Some(c) = sym.chars().next() {
+                    if is_word_char(c) {
+                        word_start -= 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    let mut word_end = col;
+    while word_end < cols - 1 {
+        let next_idx = row as usize * buf_width + (word_end + 1) as usize;
+        if next_idx < buffer.content.len() {
+            let sym = buffer.content[next_idx].symbol();
+            if !sym.is_empty() {
+                if let Some(c) = sym.chars().next() {
+                    if is_word_char(c) {
+                        word_end += 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    (word_start, word_end)
+}
+
+/// Handle shift+click to extend existing selection (ratatui path)
+fn handle_shift_click_extend_ratatui(
+    selection: &mut MouseSelection,
+    point: SelectionPoint,
+    char_width: u32,
+    char_height: u32,
+    cols: u16,
+    rows: u16,
+) -> SelectionResult {
+    if let Some(start) = &selection.start {
+        if point.is_after(start) {
+            selection.end = Some(point);
+        } else {
+            selection.end = selection.start.clone();
+            selection.start = Some(point);
+        }
+
+        update_boundaries(selection);
+
+        if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+            selection.selection_start_row,
+            selection.selection_start_column,
+            selection.selection_end_row,
+            selection.selection_end_column,
+        ) {
+            let overlay_instructions = format_selection_overlay_instructions(
+                (start_row, start_col),
+                (end_row, end_col),
+                char_width,
+                char_height,
+                cols,
+                rows,
+            );
+            selection.last_rendered = Some(((start_row, start_col), (end_row, end_col)));
+            SelectionResult::InProgress(overlay_instructions)
+        } else {
+            SelectionResult::None
+        }
+    } else {
+        selection.start = Some(point.clone());
+        selection.end = Some(point);
+        update_boundaries(selection);
+        SelectionResult::None
+    }
+}
+
+/// Handle double-click word selection (ratatui path)
+fn handle_double_click_word_selection_ratatui(
+    selection: &mut MouseSelection,
+    point: SelectionPoint,
+    buffer: &ratatui::buffer::Buffer,
+    char_width: u32,
+    char_height: u32,
+    cols: u16,
+    rows: u16,
+) -> SelectionResult {
+    let (word_start, word_end) = find_word_boundaries_ratatui(buffer, point.row, point.column);
+
+    let start_point = SelectionPoint::new_ratatui(point.row, word_start, ColumnSide::Left, buffer);
+    let end_point = SelectionPoint::new_ratatui(point.row, word_end, ColumnSide::Right, buffer);
+
+    selection.start = Some(start_point);
+    selection.end = Some(end_point);
+
+    update_boundaries(selection);
+
+    if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+        selection.selection_start_row,
+        selection.selection_start_column,
+        selection.selection_end_row,
+        selection.selection_end_column,
+    ) {
+        let overlay_instructions = format_selection_overlay_instructions(
+            (start_row, start_col),
+            (end_row, end_col),
+            char_width,
+            char_height,
+            cols,
+            rows,
+        );
+        selection.last_rendered = Some(((start_row, start_col), (end_row, end_col)));
+        SelectionResult::InProgress(overlay_instructions)
+    } else {
+        SelectionResult::None
+    }
+}
+
+/// Handle triple-click line selection (ratatui path)
+fn handle_triple_click_line_selection_ratatui(
+    selection: &mut MouseSelection,
+    point: SelectionPoint,
+    buffer: &ratatui::buffer::Buffer,
+    char_width: u32,
+    char_height: u32,
+    cols: u16,
+    rows: u16,
+) -> SelectionResult {
+    let start_point = SelectionPoint::new_ratatui(point.row, 0, ColumnSide::Left, buffer);
+    let end_point = SelectionPoint::new_ratatui(point.row, cols - 1, ColumnSide::Right, buffer);
+
+    selection.start = Some(start_point);
+    selection.end = Some(end_point);
+
+    update_boundaries(selection);
+
+    if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+        selection.selection_start_row,
+        selection.selection_start_column,
+        selection.selection_end_row,
+        selection.selection_end_column,
+    ) {
+        let overlay_instructions = format_selection_overlay_instructions(
+            (start_row, start_col),
+            (end_row, end_col),
+            char_width,
+            char_height,
+            cols,
+            rows,
+        );
+        selection.last_rendered = Some(((start_row, start_col), (end_row, end_col)));
+        SelectionResult::InProgress(overlay_instructions)
+    } else {
+        SelectionResult::None
+    }
+}
+
+/// Extract selected text from a ratatui buffer
+///
+/// Same algorithm as `extract_selection_text` but reads from a ratatui `Buffer`
+/// instead of a vt100 terminal screen.
+pub fn extract_selection_text_ratatui(
+    buffer: &ratatui::buffer::Buffer,
+    start: (u16, u16),
+    end: (u16, u16),
+    cols: u16,
+) -> String {
+    let buf_width = buffer.area.width as usize;
+    let (start_row, start_col) = start;
+    let (end_row, end_col) = end;
+
+    let (start_row, start_col, end_row, end_col) =
+        if start_row > end_row || (start_row == end_row && start_col > end_col) {
+            (end_row, end_col, start_row, start_col)
+        } else {
+            (start_row, start_col, end_row, end_col)
+        };
+
+    let mut text = String::new();
+
+    if start_row == end_row {
+        for col in start_col..=end_col {
+            let idx = start_row as usize * buf_width + col as usize;
+            if idx < buffer.content.len() {
+                text.push_str(buffer.content[idx].symbol());
+            }
+        }
+    } else {
+        let mut line = String::new();
+        for col in start_col..cols {
+            let idx = start_row as usize * buf_width + col as usize;
+            if idx < buffer.content.len() {
+                line.push_str(buffer.content[idx].symbol());
+            }
+        }
+        text.push_str(line.trim_end());
+        text.push('\n');
+
+        for row in (start_row + 1)..end_row {
+            let mut line = String::new();
+            for col in 0..cols {
+                let idx = row as usize * buf_width + col as usize;
+                if idx < buffer.content.len() {
+                    line.push_str(buffer.content[idx].symbol());
+                }
+            }
+            text.push_str(line.trim_end());
+            text.push('\n');
+        }
+
+        for col in 0..=end_col {
+            let idx = end_row as usize * buf_width + col as usize;
+            if idx < buffer.content.len() {
+                text.push_str(buffer.content[idx].symbol());
+            }
+        }
+    }
+
+    text
+}
+
+/// Handle mouse event for text selection using a ratatui buffer
+///
+/// Parallel to `handle_mouse_selection` but reads character data from a ratatui
+/// `Buffer` instead of a vt100 terminal screen.
+#[allow(clippy::too_many_arguments)]
+pub fn handle_mouse_selection_ratatui(
+    event: MouseEvent,
+    selection: &mut MouseSelection,
+    buffer: &ratatui::buffer::Buffer,
+    char_width: u32,
+    char_height: u32,
+    cols: u16,
+    rows: u16,
+    shift_pressed: bool,
+) -> SelectionResult {
+    let point = SelectionPoint::from_pixel_coords_ratatui(
+        event.x_px,
+        event.y_px,
+        char_width,
+        char_height,
+        cols,
+        rows,
+        buffer,
+    );
+
+    let left_button = (event.button_mask & 1) != 0;
+
+    if left_button && !selection.mouse_down {
+        selection.mouse_down = true;
+
+        if shift_pressed && selection.start.is_some() {
+            return handle_shift_click_extend_ratatui(
+                selection,
+                point,
+                char_width,
+                char_height,
+                cols,
+                rows,
+            );
+        }
+
+        let click_count = selection.register_click();
+
+        match click_count {
+            1 => {
+                selection.start = Some(point.clone());
+                selection.end = Some(point.clone());
+
+                update_boundaries(selection);
+
+                if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+                    selection.selection_start_row,
+                    selection.selection_start_column,
+                    selection.selection_end_row,
+                    selection.selection_end_column,
+                ) {
+                    let overlay_instructions = format_selection_overlay_instructions(
+                        (start_row, start_col),
+                        (end_row, end_col),
+                        char_width,
+                        char_height,
+                        cols,
+                        rows,
+                    );
+                    selection.last_rendered = Some(((start_row, start_col), (end_row, end_col)));
+                    SelectionResult::InProgress(overlay_instructions)
+                } else {
+                    SelectionResult::None
+                }
+            }
+            2 => handle_double_click_word_selection_ratatui(
+                selection,
+                point,
+                buffer,
+                char_width,
+                char_height,
+                cols,
+                rows,
+            ),
+            _ => handle_triple_click_line_selection_ratatui(
+                selection,
+                point,
+                buffer,
+                char_width,
+                char_height,
+                cols,
+                rows,
+            ),
+        }
+    } else if left_button && selection.mouse_down {
+        selection.end = Some(point);
+
+        update_boundaries(selection);
+
+        if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+            selection.selection_start_row,
+            selection.selection_start_column,
+            selection.selection_end_row,
+            selection.selection_end_column,
+        ) {
+            let current_selection = ((start_row, start_col), (end_row, end_col));
+            if selection.last_rendered != Some(current_selection) {
+                let overlay_instructions = format_selection_overlay_instructions(
+                    (start_row, start_col),
+                    (end_row, end_col),
+                    char_width,
+                    char_height,
+                    cols,
+                    rows,
+                );
+                selection.last_rendered = Some(current_selection);
+                SelectionResult::InProgress(overlay_instructions)
+            } else {
+                SelectionResult::None
+            }
+        } else {
+            SelectionResult::None
+        }
+    } else if !left_button && selection.mouse_down {
+        selection.mouse_down = false;
+
+        let result = if let (Some(start_row), Some(start_col), Some(end_row), Some(end_col)) = (
+            selection.selection_start_row,
+            selection.selection_start_column,
+            selection.selection_end_row,
+            selection.selection_end_column,
+        ) {
+            let text = extract_selection_text_ratatui(
+                buffer,
+                (start_row, start_col),
+                (end_row, end_col),
+                cols,
+            );
+            if text.is_empty() {
+                SelectionResult::None
+            } else {
+                let clear_instructions = format_clear_selection_instructions();
+                SelectionResult::Complete {
+                    text,
+                    clear_instructions,
+                }
+            }
+        } else {
+            SelectionResult::None
+        };
+
+        selection.reset();
+        result
+    } else {
+        SelectionResult::None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -846,5 +1285,81 @@ mod tests {
         // Empty clipboard should return None
         let result = parse_clipboard_blob("4.blob,1.0,0.;");
         assert!(result.is_none());
+    }
+
+    // == extract_selection_text_ratatui tests ================================
+
+    fn make_buffer_with_text(
+        cols: u16,
+        rows: u16,
+        row: u16,
+        text: &str,
+    ) -> ratatui::buffer::Buffer {
+        let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, cols, rows));
+        for (i, ch) in text.chars().enumerate() {
+            let idx = row as usize * cols as usize + i;
+            if idx < buf.content.len() {
+                let mut ch_buf = [0u8; 4];
+                buf.content[idx].set_symbol(ch.encode_utf8(&mut ch_buf));
+            }
+        }
+        buf
+    }
+
+    #[test]
+    fn test_extract_single_line() {
+        let buf = make_buffer_with_text(80, 24, 0, "Hello");
+        let text = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
+        assert_eq!(text, "Hello");
+    }
+
+    #[test]
+    fn test_extract_single_line_partial() {
+        let buf = make_buffer_with_text(80, 24, 0, "Hello World");
+        // Select only "Hello"
+        let text = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
+        assert_eq!(text, "Hello");
+    }
+
+    #[test]
+    fn test_extract_normalises_reversed_coords() {
+        // Passing end before start should produce the same result as the correct order.
+        let buf = make_buffer_with_text(80, 24, 0, "Hello");
+        let forward = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
+        let reversed = extract_selection_text_ratatui(&buf, (0, 4), (0, 0), 80);
+        assert_eq!(forward, reversed);
+    }
+
+    #[test]
+    fn test_extract_multiline_trims_trailing_whitespace() {
+        // Row 0: "AB    " (with trailing spaces), Row 1: "CD"
+        let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 10, 5));
+        buf.content[0].set_symbol("A");
+        buf.content[1].set_symbol("B");
+        // cols 2..9 are spaces (default)
+        buf.content[10].set_symbol("C");
+        buf.content[11].set_symbol("D");
+
+        // Select from row 0 col 0 to row 1 col 1
+        let text = extract_selection_text_ratatui(&buf, (0, 0), (1, 1), 10);
+        // First line trailing spaces should be trimmed, then newline, then "CD"
+        assert_eq!(text, "AB\nCD");
+    }
+
+    #[test]
+    fn test_extract_empty_selection_within_row() {
+        let buf = make_buffer_with_text(80, 24, 0, "Hello");
+        // start == end: single character
+        let text = extract_selection_text_ratatui(&buf, (0, 2), (0, 2), 80);
+        assert_eq!(text, "l");
+    }
+
+    #[test]
+    fn test_extract_out_of_bounds_is_safe() {
+        let buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 10, 5));
+        // Row/col beyond buffer — should not panic, returns empty or spaces
+        let text = extract_selection_text_ratatui(&buf, (4, 0), (4, 9), 10);
+        // All spaces trimmed gives empty (for multirow it would trim, single row doesn't trim)
+        assert_eq!(text.trim(), "");
     }
 }

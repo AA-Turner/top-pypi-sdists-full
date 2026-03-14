@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-yt-dlp"
-version = "2026.3.3.20260304"
+version = "2026.3.13.20260314"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for yt-dlp"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) package. It can be used by type checkers
 to check code that uses `yt-dlp`. This version of
 `types-yt-dlp` aims to provide accurate annotations for
-`yt-dlp==2026.3.3`.
+`yt-dlp==2026.3.13`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`7c9d622f5b714ec92c4280f6292f278a88b60985`](https://github.com/python/typeshed/commit/7c9d622f5b714ec92c4280f6292f278a88b60985).
+[`6b222ca89d993429f63639589de43a4c34fca293`](https://github.com/python/typeshed/commit/6b222ca89d993429f63639589de43a4c34fca293).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -48,3 +48,6 @@ dependencies = ['websockets']
 [tool.setuptools]
 packages = ['yt_dlp-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'yt_dlp-stubs' = ['YoutubeDL.pyi', '__init__.pyi', 'aes.pyi', 'cache.pyi', 'compat/__init__.pyi', 'compat/compat_utils.pyi', 'compat/imghdr.pyi', 'cookies.pyi', 'downloader/__init__.pyi', 'downloader/bunnycdn.pyi', 'downloader/common.pyi', 'downloader/dash.pyi', 'downloader/external.pyi', 'downloader/f4m.pyi', 'downloader/fc2.pyi', 'downloader/fragment.pyi', 'downloader/hls.pyi', 'downloader/http.pyi', 'downloader/ism.pyi', 'downloader/mhtml.pyi', 'downloader/niconico.pyi', 'downloader/rtmp.pyi', 'downloader/rtsp.pyi', 'downloader/soop.pyi', 'downloader/websocket.pyi', 'downloader/youtube_live_chat.pyi', 'extractor/__init__.pyi', 'extractor/common.pyi', 'extractor/commonmistakes.pyi', 'extractor/commonprotocols.pyi', 'globals.pyi', 'jsinterp.pyi', 'minicurses.pyi', 'networking/__init__.pyi', 'networking/_helper.pyi', 'networking/common.pyi', 'networking/exceptions.pyi', 'networking/impersonate.pyi', 'networking/websocket.pyi', 'options.pyi', 'plugins.pyi', 'postprocessor/__init__.pyi', 'postprocessor/common.pyi', 'socks.pyi', 'update.pyi', 'utils/__init__.pyi', 'utils/_deprecated.pyi', 'utils/_jsruntime.pyi', 'utils/_legacy.pyi', 'utils/_utils.pyi', 'utils/jslib/__init__.pyi', 'utils/jslib/devalue.pyi', 'utils/networking.pyi', 'utils/progress.pyi', 'utils/traversal.pyi', 'version.pyi', 'webvtt.pyi', 'METADATA.toml', 'py.typed']

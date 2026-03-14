@@ -1,9 +1,9 @@
 [workspace]
-members = ["tensorzero-core", "googletest-matchers", "clients/rust", "clients/python", "evaluations", "tensorzero-optimizers", "internal/tensorzero-derive", "internal/tensorzero-auth", "internal/tensorzero-unsafe-helpers", "internal/minijinja-utils", "internal/autopilot-client", "internal/durable-tools-spawn", "internal/durable-tools", "internal/tensorzero-types", "internal/tensorzero-types-providers", "internal/reqwest-sse-stream", "internal/tensorzero-config-paths", "internal/tensorzero-ts-types"]
+members = ["autopilot-client", "durable-tools", "durable-tools-spawn", "evaluations", "googletest-matchers", "minijinja-utils", "reqwest-sse-stream", "tensorzero-auth", "tensorzero-client", "tensorzero-config-paths", "tensorzero-core", "tensorzero-derive", "tensorzero-optimizers", "tensorzero-python", "tensorzero-ts-types", "tensorzero-types", "tensorzero-types-providers", "tensorzero-unsafe-helpers"]
 resolver = "2"
 
 [workspace.package]
-version = "2026.3.1"
+version = "2026.3.2"
 rust-version = "1.93.0"
 license = "Apache-2.0"
 edition = "2024"
@@ -38,7 +38,7 @@ futures = "0.3.32"
 thiserror = "2.0.18"
 lazy_static = { version = "1.5.0" }
 sse-stream = "0.2.1"
-reqwest-sse-stream = { path = "internal/reqwest-sse-stream" }
+reqwest-sse-stream = { path = "reqwest-sse-stream" }
 minijinja = { version = "2.16.0", features = [
     "loader",
     "debug",
@@ -63,7 +63,6 @@ ts-rs = { version = "12.0.1", features = [
 ] }
 pin-project = "1.1.11"
 chrono = { version = "0.4.43", features = ["serde"] }
-git2 = { version = "0.20.4", default-features = false }
 tracing-opentelemetry-instrumentation-sdk = { version = "0.32.3", features = [
     "tracing_level_info",
 ] }
@@ -89,9 +88,9 @@ schemars = "1.1.0"
 serde_arrow = { version = "0.14", features = ["arrow-58"] }
 blake3 = "1.8.3"
 moka = { version = "0.12.14", features = ["sync"] }
-durable = { git = "https://github.com/tensorzero/durable", rev = "43d73ea835f1e528462105250ce01822af09d7fc" }
-durable-tools-spawn = { path = "internal/durable-tools-spawn" }
-tensorzero = { path = "clients/rust" }
+durable = { git = "https://github.com/tensorzero/durable", rev = "2d69424943b1db91b055154062143457c91e8ee7" }
+durable-tools-spawn = { path = "durable-tools-spawn" }
+tensorzero = { path = "tensorzero-client" }
 tensorzero-core = { path = "tensorzero-core" }
 regex = "1.12.2"
 redis = { version = "1.0.4", features = [
@@ -108,6 +107,7 @@ rust_decimal = { version = "1.37", features = ["serde-float", "serde-with-float"
 walkdir = "2.5.0"
 tempfile = "3.26.0"
 toml_edit = "0.25"
+googletest = "0.14.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

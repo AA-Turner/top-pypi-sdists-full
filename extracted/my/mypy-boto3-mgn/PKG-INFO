@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-mgn
-Version: 1.42.64
-Summary: Type annotations for boto3 Mgn 1.42.64 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.68
+Summary: Type annotations for boto3 Mgn 1.42.68 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Mgn 1.42.64](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Mgn 1.42.68](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.64' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.68' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Mgn` service.
 4. Use provided commands to install generated packages.
@@ -348,8 +348,21 @@ from mypy_boto3_mgn.paginator import (
     ListExportErrorsPaginator,
     ListExportsPaginator,
     ListImportErrorsPaginator,
+    ListImportFileEnrichmentsPaginator,
     ListImportsPaginator,
     ListManagedAccountsPaginator,
+    ListNetworkMigrationAnalysesPaginator,
+    ListNetworkMigrationAnalysisResultsPaginator,
+    ListNetworkMigrationCodeGenerationSegmentsPaginator,
+    ListNetworkMigrationCodeGenerationsPaginator,
+    ListNetworkMigrationDefinitionsPaginator,
+    ListNetworkMigrationDeployedStacksPaginator,
+    ListNetworkMigrationDeploymentsPaginator,
+    ListNetworkMigrationExecutionsPaginator,
+    ListNetworkMigrationMapperSegmentConstructsPaginator,
+    ListNetworkMigrationMapperSegmentsPaginator,
+    ListNetworkMigrationMappingUpdatesPaginator,
+    ListNetworkMigrationMappingsPaginator,
     ListSourceServerActionsPaginator,
     ListTemplateActionsPaginator,
     ListWavesPaginator,
@@ -380,9 +393,48 @@ list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_
 list_export_errors_paginator: ListExportErrorsPaginator = client.get_paginator("list_export_errors")
 list_exports_paginator: ListExportsPaginator = client.get_paginator("list_exports")
 list_import_errors_paginator: ListImportErrorsPaginator = client.get_paginator("list_import_errors")
+list_import_file_enrichments_paginator: ListImportFileEnrichmentsPaginator = client.get_paginator(
+    "list_import_file_enrichments"
+)
 list_imports_paginator: ListImportsPaginator = client.get_paginator("list_imports")
 list_managed_accounts_paginator: ListManagedAccountsPaginator = client.get_paginator(
     "list_managed_accounts"
+)
+list_network_migration_analyses_paginator: ListNetworkMigrationAnalysesPaginator = (
+    client.get_paginator("list_network_migration_analyses")
+)
+list_network_migration_analysis_results_paginator: ListNetworkMigrationAnalysisResultsPaginator = (
+    client.get_paginator("list_network_migration_analysis_results")
+)
+list_network_migration_code_generation_segments_paginator: ListNetworkMigrationCodeGenerationSegmentsPaginator = client.get_paginator(
+    "list_network_migration_code_generation_segments"
+)
+list_network_migration_code_generations_paginator: ListNetworkMigrationCodeGenerationsPaginator = (
+    client.get_paginator("list_network_migration_code_generations")
+)
+list_network_migration_definitions_paginator: ListNetworkMigrationDefinitionsPaginator = (
+    client.get_paginator("list_network_migration_definitions")
+)
+list_network_migration_deployed_stacks_paginator: ListNetworkMigrationDeployedStacksPaginator = (
+    client.get_paginator("list_network_migration_deployed_stacks")
+)
+list_network_migration_deployments_paginator: ListNetworkMigrationDeploymentsPaginator = (
+    client.get_paginator("list_network_migration_deployments")
+)
+list_network_migration_executions_paginator: ListNetworkMigrationExecutionsPaginator = (
+    client.get_paginator("list_network_migration_executions")
+)
+list_network_migration_mapper_segment_constructs_paginator: ListNetworkMigrationMapperSegmentConstructsPaginator = client.get_paginator(
+    "list_network_migration_mapper_segment_constructs"
+)
+list_network_migration_mapper_segments_paginator: ListNetworkMigrationMapperSegmentsPaginator = (
+    client.get_paginator("list_network_migration_mapper_segments")
+)
+list_network_migration_mapping_updates_paginator: ListNetworkMigrationMappingUpdatesPaginator = (
+    client.get_paginator("list_network_migration_mapping_updates")
+)
+list_network_migration_mappings_paginator: ListNetworkMigrationMappingsPaginator = (
+    client.get_paginator("list_network_migration_mappings")
 )
 list_source_server_actions_paginator: ListSourceServerActionsPaginator = client.get_paginator(
     "list_source_server_actions"

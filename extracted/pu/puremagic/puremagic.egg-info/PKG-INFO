@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: puremagic
-Version: 2.0.2
+Version: 2.1.0
 Summary: Pure python implementation of magic file detection
 Author-email: Chris Griffith <chris@cdgriffith.com>
 License-Expression: MIT

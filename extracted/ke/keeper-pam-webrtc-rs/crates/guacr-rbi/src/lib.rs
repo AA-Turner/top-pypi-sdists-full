@@ -596,7 +596,7 @@ mod tests {
         let config = RbiConfig::default();
         let recording_config = guacr_handlers::RecordingConfig::default();
         let params = std::collections::HashMap::new();
-        let client = BrowserClient::new(1920, 1080, config, &recording_config, &params);
+        let client = BrowserClient::new(1920, 1080, config, &recording_config, &params, None);
         // Just verify it can be created without panic
         drop(client);
     }
@@ -717,10 +717,11 @@ mod chrome_tests {
         let mut params = HashMap::new();
         params.insert("url".to_string(), "https://example.com".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Phase 1: Wait for handshake
         let mut got_ready = false;
@@ -837,10 +838,11 @@ mod chrome_tests {
         let mut params = HashMap::new();
         params.insert("url".to_string(), "https://example.com".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for ready
         let msg = timeout(CONNECT_TIMEOUT, to_client_rx.recv())

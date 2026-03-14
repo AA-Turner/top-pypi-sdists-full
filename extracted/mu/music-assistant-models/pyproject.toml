@@ -16,15 +16,15 @@ dependencies = [
 description = "Music Assistant Base Models"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "1.1.106"
+version = "1.1.107"
 
 [project.license]
 text = "Apache-2.0"
 
 [project.optional-dependencies]
 test = [
-    "codespell==2.4.1",
-    "isort==8.0.0",
+    "codespell==2.4.2",
+    "isort==8.0.1",
     "mypy==1.19.1",
     "pre-commit==4.5.1",
     "pre-commit-hooks==6.0.0",

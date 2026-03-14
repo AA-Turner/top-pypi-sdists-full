@@ -631,7 +631,13 @@ class SnowparkToArrowMapper:
 
             case snowpark.types.TimestampType:
                 unit = _get_normalized_unit(pa_type)
-                tz = pa_type.tz if hasattr(pa_type, "tz") else None
+                is_ntz = snowpark_type_arg.tz == snowpark.types.TimestampTimeZone.NTZ
+                if is_ntz:
+                    tz = None
+                elif hasattr(pa_type, "tz") and pa_type.tz:
+                    tz = pa_type.tz
+                else:
+                    tz = "UTC"
                 return pa.timestamp(unit, tz=tz)
 
             case snowpark.types.VariantType:

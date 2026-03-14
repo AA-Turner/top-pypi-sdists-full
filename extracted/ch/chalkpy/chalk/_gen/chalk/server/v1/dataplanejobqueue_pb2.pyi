@@ -285,6 +285,7 @@ class JobQueueOperationSummary(_message.Message):
         "attempters",
         "workflow_execution_id",
         "unsatisfied_dependency_operation_ids",
+        "num_workers",
     )
     class IndexedRowSummariesEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -303,6 +304,7 @@ class JobQueueOperationSummary(_message.Message):
     ATTEMPTERS_FIELD_NUMBER: _ClassVar[int]
     WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
     UNSATISFIED_DEPENDENCY_OPERATION_IDS_FIELD_NUMBER: _ClassVar[int]
+    NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     indexed_row_summaries: _containers.MessageMap[int, JobQueueRowSummary]
     resource_group_name: str
     mainline_deployment_id: str
@@ -310,6 +312,7 @@ class JobQueueOperationSummary(_message.Message):
     attempters: _containers.RepeatedScalarFieldContainer[str]
     workflow_execution_id: str
     unsatisfied_dependency_operation_ids: _containers.RepeatedScalarFieldContainer[str]
+    num_workers: int
     def __init__(
         self,
         indexed_row_summaries: _Optional[_Mapping[int, JobQueueRowSummary]] = ...,
@@ -319,6 +322,7 @@ class JobQueueOperationSummary(_message.Message):
         attempters: _Optional[_Iterable[str]] = ...,
         workflow_execution_id: _Optional[str] = ...,
         unsatisfied_dependency_operation_ids: _Optional[_Iterable[str]] = ...,
+        num_workers: _Optional[int] = ...,
     ) -> None: ...
 
 class GetJobQueueOperationSummaryRequest(_message.Message):

@@ -1,6 +1,7 @@
 """API endpoints."""
 
 from . import (
+    clear_agent_notes,
     close_session,
     complete_session,
     create_session,
@@ -25,6 +26,7 @@ from . import (
     put_session_state,
     update_session_notes,
     update_session_span_note,
+    update_session_status,
     update_session_tags,
 )
 
@@ -35,8 +37,10 @@ __all__ = [
     "list_session_creators",
     "get_session",
     "get_session_status",
+    "update_session_status",
     "update_session_tags",
     "update_session_notes",
+    "clear_agent_notes",
     "update_session_span_note",
     "complete_session",
     "get_session_logs",

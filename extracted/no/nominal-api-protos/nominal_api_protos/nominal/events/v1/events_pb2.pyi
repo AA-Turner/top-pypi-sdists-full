@@ -1,6 +1,6 @@
-from nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as _direct_nominal_channel_writer_pb2
-from nominal.gen.v1 import alias_pb2 as _alias_pb2
-from nominal.types.time import time_pb2 as _time_pb2
+from nominal_api_protos.nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as _direct_nominal_channel_writer_pb2
+from nominal_api_protos.nominal.gen.v1 import alias_pb2 as _alias_pb2
+from nominal_api_protos.nominal.types.time import time_pb2 as _time_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

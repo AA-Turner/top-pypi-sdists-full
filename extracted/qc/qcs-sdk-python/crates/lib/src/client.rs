@@ -19,6 +19,7 @@ use qcs_api_client_grpc::{
     },
 };
 use qcs_api_client_openapi::apis::configuration::Configuration as OpenApiConfiguration;
+use tokio_util::sync::CancellationToken;
 #[cfg(not(any(feature = "grpc-web", feature = "tracing")))]
 use tonic::transport::Channel;
 use tonic::Status;
@@ -26,6 +27,9 @@ use tonic::Status;
 pub use qcs_api_client_common::configuration::LoadError;
 pub use qcs_api_client_grpc::tonic::Error as GrpcError;
 pub use qcs_api_client_openapi::apis::Error as OpenApiError;
+
+#[cfg(feature = "stubs")]
+use pyo3_stub_gen::derive::gen_stub_pyclass;
 
 /// The maximum size of a gRPC request to the translation service, in bytes.
 const MAX_TRANSLATION_OUTBOUND_REQUEST_SIZE: usize = 50 * 1024 * 1024;
@@ -61,6 +65,11 @@ pub(crate) static DEFAULT_HTTP_API_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A client providing helper functionality for accessing QCS APIs
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "stubs", gen_stub_pyclass)]
+#[cfg_attr(
+    feature = "python",
+    pyo3::pyclass(module = "qcs_sdk.client", name = "QCSClient", eq)
+)]
 pub struct Qcs {
     config: ClientConfiguration,
 }
@@ -96,6 +105,27 @@ impl Qcs {
         ClientConfiguration::load_profile(profile).map(Self::with_config)
     }
 
+    /// Create a [`Qcs`] and initialized with the given optional `profile`.
+    /// If credentials are not found or stale, a PKCE login redirect flow
+    /// will be initialized. Note that this opens up a TCP port on your
+    /// system to accept a browser HTTP redirect, so you should not use
+    /// this in environments where that is not possible, such as hosted
+    /// JupyterLab sessions.
+    ///
+    /// # Errors
+    ///
+    /// A [`LoadError`] will be returned if QCS credentials are
+    /// not correctly configured or the given profile is not defined
+    /// or the PKCE login flow failed.
+    pub async fn with_login(
+        cancel_token: CancellationToken,
+        profile: Option<String>,
+    ) -> Result<Qcs, LoadError> {
+        ClientConfiguration::load_with_login(cancel_token, profile)
+            .await
+            .map(Self::with_config)
+    }
+
     /// Return a reference to the underlying [`ClientConfiguration`] with all settings parsed and resolved from configuration sources.
     #[must_use]
     pub fn get_config(&self) -> &ClientConfiguration {
@@ -106,12 +136,14 @@ impl Qcs {
         OpenApiConfiguration::with_qcs_config(self.get_config().clone())
     }
 
+    #[expect(clippy::result_large_err)]
     pub(crate) fn get_translation_client(
         &self,
     ) -> Result<TranslationClient<GrpcConnection>, GrpcError<TokenError>> {
         self.get_translation_client_with_endpoint(self.get_config().grpc_api_url())
     }
 
+    #[expect(clippy::result_large_err)]
     pub(crate) fn get_translation_client_with_endpoint(
         &self,
         translation_grpc_endpoint: &str,

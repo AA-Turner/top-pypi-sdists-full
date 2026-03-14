@@ -34,19 +34,21 @@ from snowflake.snowpark.types import (
     StructField,
     StructType,
     TimestampType,
+    VariantType,
     _FractionalType,
     _IntegralType,
 )
-from snowflake.snowpark_connect.config import str_to_bool
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import JsonReaderConfig
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+    _discover_partition_columns,
     _read_file_with_partitions,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
+    populate_metadata,
 )
 from snowflake.snowpark_connect.relation.read.utils import (
     _load_file_with_copy_into,
@@ -68,7 +70,11 @@ from snowflake.snowpark_connect.type_support import (
     _integral_types_conversion_enabled,
     emulate_integral_types,
 )
-from snowflake.snowpark_connect.utils.bz2_file_loader import LINE_CONTENT, load_bz2_file
+from snowflake.snowpark_connect.utils.bz2_file_loader import (
+    LINE_CONTENT,
+    VALUE_COLUMN,
+    load_bz2_file,
+)
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -98,6 +104,7 @@ _json_file_format_allowed_options = {
     "TIMESTAMP_FORMAT",
     "FILE_EXTENSION",
     "STRIP_OUTER_ARRAY",
+    "MULTI_LINE",
     "ENCODING",
     "NULL_IF",
 }
@@ -127,7 +134,7 @@ def _parse_json_snowpark_options(
 def _infer_json_schema_from_rows(
     df: snowpark.DataFrame,
     initial_schema: StructType,
-    rows_to_infer_schema: int,
+    json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
 ) -> StructType:
     """
@@ -138,7 +145,9 @@ def _infer_json_schema_from_rows(
     string_nodes_finalized = set[str]()
 
     schema_inference_df = (
-        df if rows_to_infer_schema == -1 else df.limit(rows_to_infer_schema)
+        df
+        if json_local_rows_to_infer_schema == -1
+        else df.limit(json_local_rows_to_infer_schema)
     )
     for row in schema_inference_df.to_local_iterator():
         inferred_schema = merge_row_schema(
@@ -148,6 +157,13 @@ def _infer_json_schema_from_rows(
             string_nodes_finalized,
             drop_field_if_all_null,
         )
+
+    # Any VariantType fields still remaining had null values in every sampled
+    # row, so no concrete type could be determined.  Fall back to StringType
+    # (matches PySpark behavior for permanently-null columns).
+    for sf in inferred_schema.fields:
+        if isinstance(sf.datatype, VariantType):
+            sf.datatype = StringType()
 
     if drop_field_if_all_null:
         inferred_schema.fields = [
@@ -159,14 +175,32 @@ def _infer_json_schema_from_rows(
     return inferred_schema
 
 
+def _convert_struct_type_to_variant(schema: StructType) -> StructType:
+    """Replace nested complex types (StructType, ArrayType, MapType) with VariantType.
+
+    COPY INTO requires exact struct field matching across all rows, but JSON data
+    often has varying keys in nested objects (e.g., different vulnerability IDs per row).
+    Loading nested fields as Variant avoids schema mismatch errors while still
+    preserving the data for downstream typed construction.
+    """
+    simplified_fields = []
+    for f in schema.fields:
+        if isinstance(f.datatype, (StructType, ArrayType, MapType)):
+            simplified_fields.append(StructField(f.name, VariantType(), f.nullable))
+        else:
+            simplified_fields.append(f)
+    return StructType(simplified_fields)
+
+
 def _get_schema_for_copy_into_json(
     session: snowpark.Session,
     schema: StructType | None,
     first_path: str,
     snowpark_options: dict,
     raw_options: dict,
-    rows_to_infer_schema: int,
+    json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
+    fix_relaxed_types: bool = False,
 ) -> StructType:
     """
     Get schema for COPY INTO operation by reading the first file.
@@ -181,7 +215,7 @@ def _get_schema_for_copy_into_json(
         first_path: The first file path to read.
         snowpark_options: Snowpark options for reading.
         raw_options: Raw options from the read request.
-        rows_to_infer_schema: Number of rows to use for schema inference.
+        json_local_rows_to_infer_schema: Number of rows to use for schema inference.
         drop_field_if_all_null: Whether to drop fields that are all null.
 
     Returns:
@@ -197,10 +231,20 @@ def _get_schema_for_copy_into_json(
     )
     df = reader.json(first_path)
 
+    # Workaround for SNOW-3198432: USE_RELAXED_TYPES updates the schema but
+    # not the underlying SQL query.  Re-read with the widened schema so rows
+    # beyond the sampled range don't overflow narrow inferred types.
+    if fix_relaxed_types:
+        from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+            _fix_relaxed_schema,
+        )
+
+        df = _fix_relaxed_schema(df, reader, first_path)
+
     inferred_schema = _infer_json_schema_from_rows(
         df=df,
         initial_schema=df.schema,
-        rows_to_infer_schema=rows_to_infer_schema,
+        json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
         drop_field_if_all_null=drop_field_if_all_null,
     )
 
@@ -236,7 +280,9 @@ def map_read_json(
         raw_options = rel.read.data_source.options
         snowpark_options["infer_schema"] = True
 
-        rows_to_infer_schema = snowpark_options.pop("rowstoinferschema", 1000)
+        json_local_rows_to_infer_schema = snowpark_options.pop(
+            "jsonlocalrowstoinferschema", 1000
+        )
         drop_field_if_all_null = snowpark_options.pop("dropfieldifallnull", False)
         use_bulk = snowpark_options.pop("processinbulk", False)
         batch_size = snowpark_options.pop("batchsize", 1000)
@@ -244,8 +290,13 @@ def map_read_json(
         compression = snowpark_options.get("compression", "auto")
         split_size_mb = snowpark_options.pop("splitsizemb", 2)
         mode = snowpark_options.pop("mode", "PERMISSIVE")
-
         apply_metadata_exclusion_pattern(snowpark_options)
+        infer_schema_opts = snowpark_options.get("INFER_SCHEMA_OPTIONS", {})
+        fix_relaxed_types = (
+            "MAX_RECORDS_PER_FILE" in infer_schema_opts
+            and infer_schema_opts.get("USE_RELAXED_TYPES", False)
+            and not parallel_load_json_file
+        )
 
         if len(paths) <= 0:
             exception = ValueError(f"No paths provided to read JSON files: {paths}")
@@ -259,17 +310,15 @@ def map_read_json(
                 paths,
                 split_size_mb,
                 schema,
-                rows_to_infer_schema,
+                json_local_rows_to_infer_schema,
                 drop_field_if_all_null,
                 mode,
                 compression not in ("none", "NONE"),
             )
         else:
             # Determine if COPY INTO will be used (to set can_be_cached flag)
-            # COPY INTO is used when: multiple paths AND no metadata requested
-            if len(paths) > 1 and not str_to_bool(
-                raw_options.get("snowpark.populateFileMetadata", "false")
-            ):
+            # COPY INTO is used when: no metadata requested and no partitions
+            if len(paths) > 1 and not populate_metadata(raw_options):
                 result_can_be_cached = False
 
             df = read_normal_json_files(
@@ -277,11 +326,12 @@ def map_read_json(
                 paths,
                 snowpark_options,
                 raw_options,
-                rows_to_infer_schema,
+                json_local_rows_to_infer_schema,
                 drop_field_if_all_null,
                 use_bulk,
                 batch_size,
                 schema,
+                fix_relaxed_types,
             )
 
         spark_column_names = get_spark_column_names_from_snowpark_columns(df.columns)
@@ -305,7 +355,7 @@ def read_single_bz2_file(
     paths: list[str],
     split_size_mb: int,
     schema: StructType | None,
-    rows_to_infer_schema: int,
+    json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
     mode: str,
     compressed: bool,
@@ -340,7 +390,7 @@ def read_single_bz2_file(
         schema = _infer_json_schema_from_rows(
             df=df,
             initial_schema=schema,
-            rows_to_infer_schema=rows_to_infer_schema,
+            json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
             drop_field_if_all_null=drop_field_if_all_null,
         )
 
@@ -364,11 +414,12 @@ def read_normal_json_files(
     paths: list[str],
     snowpark_options: dict,
     raw_options: dict,
-    rows_to_infer_schema: int,
+    json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
     use_bulk: bool,
     batch_size: int,
     schema: StructType | None,
+    fix_relaxed_types: bool,
 ) -> snowpark.DataFrame:
     # Read the normal JSON files, support metadata population
 
@@ -378,9 +429,19 @@ def read_normal_json_files(
 
     file_format_options = _parse_json_snowpark_options(snowpark_options)
 
-    # Check if we should use COPY INTO optimization or UNION ALL approach
-    if str_to_bool(raw_options.get("snowpark.populateFileMetadata", "false")):
-        # TODO: SNOW-3002469 copy into approach does not support metadata columns today, so we fallback to the UNION ALL approach.
+    # Probe for Hive-style partition directories (lightweight LS on first path).
+    # This determines whether we need per-file reads (union_all) or can use bulk COPY INTO.
+    # Use populate_metadata() which checks both the reader option and the
+    # SNOWPARK_POPULATE_FILE_METADATA_DEFAULT env var, matching what
+    # add_filename_metadata_to_reader() uses to decide whether the reader
+    # gets .with_metadata().
+    needs_metadata = populate_metadata(raw_options)
+    partition_columns, _ = _discover_partition_columns(session, paths[0], "json")
+
+    if needs_metadata or partition_columns:
+        # Union-all approach: required for METADATA$FILENAME and Hive partition columns,
+        # since COPY INTO exposes neither.
+        # TODO: SNOW-3002469 copy into approach does not support metadata columns today.
         df, _ = _read_file_with_partitions(
             session=session,
             reader=reader,
@@ -389,74 +450,66 @@ def read_normal_json_files(
             schema=schema,
             snowpark_options=snowpark_options,
             raw_options=raw_options,
+            fix_relaxed_types=fix_relaxed_types,
         )
-        if len(paths) > 1:
-            for p in paths[1:]:
-                partition_df, _ = _read_file_with_partitions(
-                    session=session,
-                    reader=reader,
-                    file_format="json",
-                    path=p,
-                    schema=schema,
-                    snowpark_options=snowpark_options,
-                    raw_options=raw_options,
-                )
-                df = df.union_all(partition_df)
-    else:
-        # Use copy into approach for parallel loading.
-        if len(paths) == 1:
-            df, _ = _read_file_with_partitions(
+        for p in paths[1:]:
+            partition_df, _ = _read_file_with_partitions(
                 session=session,
                 reader=reader,
                 file_format="json",
-                path=paths[0],
+                path=p,
                 schema=schema,
                 snowpark_options=snowpark_options,
                 raw_options=raw_options,
+                fix_relaxed_types=fix_relaxed_types,
             )
-        elif len(paths) > 1:
-            # Note: this assumes that all paths are exact filenames, not directories. It will fail early if any path is a directory.
-            logger.debug(
-                f"Using COPY INTO FILES optimization for {len(paths)} JSON files."
+            df = df.union_all(partition_df)
+    else:
+        # COPY INTO: bulk loading for 1 or N files when no metadata/partitions needed.
+        logger.debug(f"Using COPY INTO optimization for {len(paths)} JSON file(s).")
+        temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
+        df = session.table(temp_table_name)
+        stage_file_groups = generate_stage_path_groups(paths)
+        for stage_name, stage_files in stage_file_groups:
+            copy_into_schema = _get_schema_for_copy_into_json(
+                session=session,
+                schema=schema,
+                first_path=stage_files[0],
+                snowpark_options=snowpark_options,
+                raw_options=raw_options,
+                json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
+                drop_field_if_all_null=drop_field_if_all_null,
+                fix_relaxed_types=fix_relaxed_types,
             )
-            # Generate a temporary table name
-            temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
-            df = session.table(temp_table_name)
-            stage_file_groups = generate_stage_path_groups(paths)
-            for stage_name, stage_files in stage_file_groups:
-                # Get schema from the first file
-                copy_into_schema = _get_schema_for_copy_into_json(
-                    session=session,
-                    schema=schema,
-                    first_path=stage_files[0],
-                    snowpark_options=snowpark_options,
-                    raw_options=raw_options,
-                    rows_to_infer_schema=rows_to_infer_schema,
-                    drop_field_if_all_null=drop_field_if_all_null,
-                )
-                if len(stage_files) == 1:
-                    stage_file_paths = []
-                    copy_from_stage = stage_files[0]
-                else:
-                    stage_file_paths = stage_files
-                    copy_from_stage = stage_name
-                _load_file_with_copy_into(
-                    reader=reader,
-                    session=session,
-                    target=temp_table_name,
-                    stage_file_paths=stage_file_paths,
-                    stage=copy_from_stage,
-                    schema=copy_into_schema,
-                    file_format_options=file_format_options,
-                    file_format="json",
-                )
+            if len(stage_files) == 1:
+                stage_file_paths = []
+                copy_from_stage = stage_files[0]
+            else:
+                stage_file_paths = stage_files
+                copy_from_stage = stage_name
+            # Use a simplified schema for COPY INTO loading: nested complex types
+            # (StructType, ArrayType, MapType) become VariantType to avoid schema
+            # mismatch errors when different rows have different nested field sets.
+            loading_schema = _convert_struct_type_to_variant(copy_into_schema)
+            _load_file_with_copy_into(
+                reader=reader,
+                session=session,
+                target=temp_table_name,
+                stage_file_paths=stage_file_paths,
+                stage=copy_from_stage,
+                schema=loading_schema,
+                file_format_options=file_format_options,
+                file_format="json",
+            )
+            # Schema inference will run downstream via _infer_json_schema_from_rows
+            # when schema is None (no user-provided schema).
 
     # Original schema inference and processing path (for single file or with metadata)
     if schema is None:
         schema = _infer_json_schema_from_rows(
             df=df,
             initial_schema=df.schema,
-            rows_to_infer_schema=rows_to_infer_schema,
+            json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
             drop_field_if_all_null=drop_field_if_all_null,
         )
 
@@ -498,6 +551,7 @@ def should_drop_field(field: StructField) -> bool:
 #   1. Drops StructField([])
 #   2. Drops ArrayType(StructType([]))
 #   3. ArrayType() -> ArrayType(StringType())
+#   4. NullType -> StringType (Snowflake cannot represent NullType in typed tables)
 def validate_and_update_schema(schema: StructType | None) -> (StructType | None, bool):
     if not isinstance(schema, StructType):
         return schema, False
@@ -507,7 +561,11 @@ def validate_and_update_schema(schema: StructType | None) -> (StructType | None,
         if should_drop_field(sf):
             fields_changed = True
             continue
-        if isinstance(sf.datatype, StructType):
+        if isinstance(sf.datatype, NullType):
+            sf = StructField(sf.name, StringType(), sf.nullable)
+            fields_changed = True
+            new_fields.append(sf)
+        elif isinstance(sf.datatype, StructType):
             # If the schema is a struct, validate the child schema
             if len(sf.datatype.fields) == 0:
                 # No fields in the struct, drop the field
@@ -747,6 +805,55 @@ def merge_row_schema(
                     string_nodes_finalized.add(col_name)
                 columns_with_valid_contents.add(col_name)
 
+        elif isinstance(sf.datatype, VariantType):
+            # VariantType columns (from COPY INTO with simplified schema) hold raw
+            # JSON strings that can be objects, arrays, or primitives.  Determine
+            # the actual type from the data so subsequent rows use the proper branch.
+            next_level_content = row[col_name]
+            if next_level_content is not None:
+                with suppress(json.JSONDecodeError):
+                    next_level_content = json.loads(next_level_content)
+                # Snowflake Variant columns represent JSON null as the string
+                # 'null', which json.loads parses to Python None.  Treat this
+                # the same as a true null: skip the row and keep VariantType
+                # so a later row with real data can determine the correct type.
+                if next_level_content is None:
+                    pass
+                elif isinstance(next_level_content, dict):
+                    trace = _append_node_in_trace_stack(col_name, col_name)
+                    sf.datatype = merge_json_schema(
+                        next_level_content,
+                        None,
+                        trace,
+                        string_nodes_finalized,
+                        drop_field_if_all_null,
+                    )
+                    columns_with_valid_contents.add(col_name)
+                elif isinstance(next_level_content, list):
+                    trace = _append_node_in_trace_stack(col_name, "array")
+                    inner_schema = None
+                    for v in next_level_content:
+                        if v is not None:
+                            columns_with_valid_contents.add(col_name)
+                        inner_schema = merge_json_schema(
+                            v,
+                            inner_schema,
+                            trace,
+                            string_nodes_finalized,
+                            drop_field_if_all_null,
+                        )
+                        if isinstance(inner_schema, StringType):
+                            string_nodes_finalized.add(trace)
+                            break
+                    sf.datatype = ArrayType(
+                        inner_schema if inner_schema else StringType()
+                    )
+                    columns_with_valid_contents.add(col_name)
+                else:
+                    sf.datatype = StringType()
+                    string_nodes_finalized.add(col_name)
+                    columns_with_valid_contents.add(col_name)
+
         elif isinstance(sf.datatype, ArrayType):
             content = row[col_name]
             if content is not None:
@@ -809,6 +916,13 @@ def insert_data_chunk(
     )
 
 
+def _is_empty_struct(schema: StructType) -> bool:
+    """This schema is essentially matching everything under the root and treating it as a single VARIANT column"""
+    return isinstance(schema, StructType) and (
+        schema.fields is None or len(schema.fields) == 0
+    )
+
+
 def construct_dataframe_by_schema_bulk(
     schema: StructType,
     df_source: snowpark.DataFrame,
@@ -818,6 +932,13 @@ def construct_dataframe_by_schema_bulk(
     """
     Bulk process JSON data.
     """
+    if _is_empty_struct(schema):
+        # We are gathering the whole row in a single, all encompassing column,
+        root_column_name = None
+        # of type Variant with no schema enforced
+        schema = StructType([StructField(VALUE_COLUMN, VariantType())])
+        df_source = df_source.withColumnRenamed(LINE_CONTENT, VALUE_COLUMN)
+
     # Step 1: Create temporary view from source DataFrame
     source_view = f"__sas_json_source_view_{uuid.uuid4().hex}"
     df_source.create_or_replace_temp_view(source_view)
@@ -1102,6 +1223,9 @@ def construct_row_by_schema(
         elif isinstance(content, str):
             with suppress(json.JSONDecodeError):
                 decoded_content = json.loads(content)
+                # JSON null ('null' string) → treat as null struct
+                if decoded_content is None:
+                    return None
                 if isinstance(decoded_content, dict):
                     content = decoded_content
             for sf in schema.fields:
@@ -1121,6 +1245,8 @@ def construct_row_by_schema(
         inner_schema = schema.element_type
         if isinstance(content, str):
             content = json.loads(content)
+        if content is None:
+            return None
         if inner_schema is not None:
             for ele in content:
                 result.append(

@@ -78,10 +78,11 @@ mod rdp_handler_tests {
         params.insert("ignore-cert".to_string(), "true".to_string());
 
         // Spawn handler in background
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for ready instruction
         let msg = timeout(CONNECT_TIMEOUT, to_client_rx.recv())
@@ -153,10 +154,11 @@ mod rdp_handler_tests {
         params.insert("read-only".to_string(), "true".to_string());
         params.insert("disable-copy".to_string(), "true".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection
         let _ = timeout(CONNECT_TIMEOUT, to_client_rx.recv()).await;
@@ -197,10 +199,11 @@ mod rdp_handler_tests {
         params.insert("width".to_string(), "800".to_string());
         params.insert("height".to_string(), "600".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for initial connection and first image
         let mut connected = false;
@@ -275,10 +278,11 @@ mod rdp_handler_tests {
             params.insert("ignore-cert".to_string(), "true".to_string());
             params.insert("color-depth".to_string(), color_depth.to_string());
 
-            let handle =
-                tokio::spawn(
-                    async move { handler.connect(params, to_client_tx, from_client_rx).await },
-                );
+            let handle = tokio::spawn(async move {
+                handler
+                    .connect(params, to_client_tx, from_client_rx, None)
+                    .await
+            });
 
             // Wait for connection
             let _ = timeout(CONNECT_TIMEOUT, to_client_rx.recv()).await;
@@ -309,10 +313,11 @@ mod rdp_handler_tests {
         params.insert("security".to_string(), "rdp".to_string());
         params.insert("ignore-cert".to_string(), "true".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection and first image
         let mut connected = false;
@@ -366,10 +371,11 @@ mod rdp_handler_tests {
         params.insert("security".to_string(), "rdp".to_string());
         params.insert("ignore-cert".to_string(), "true".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection and first image
         let mut connected = false;
@@ -434,10 +440,11 @@ mod rdp_handler_tests {
         params.insert("ignore-cert".to_string(), "true".to_string());
 
         // Spawn handler
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         let mut received_ready = false;
         let mut received_img = false;
@@ -529,6 +536,191 @@ mod rdp_handler_tests {
         }
 
         // Cleanup
+        handle.abort();
+    }
+}
+
+mod video_tests {
+    use super::*;
+    use bytes::Bytes;
+    use guacr_handlers::EncodedFrame;
+    use guacr_handlers::{video::VideoOutput, ProtocolHandler};
+    use guacr_rdp::RdpHandler;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+    use std::sync::{Arc, Mutex};
+    use tokio::sync::mpsc;
+
+    struct MockVideoOutput {
+        frames: Arc<Mutex<Vec<EncodedFrame>>>,
+        keyframe_requested: Arc<AtomicBool>,
+        target_bitrate_bps: Arc<AtomicU32>,
+    }
+
+    impl MockVideoOutput {
+        fn new() -> Self {
+            Self {
+                frames: Arc::new(Mutex::new(Vec::new())),
+                keyframe_requested: Arc::new(AtomicBool::new(false)),
+                target_bitrate_bps: Arc::new(AtomicU32::new(0)),
+            }
+        }
+        fn frame_count(&self) -> usize {
+            self.frames.lock().unwrap().len()
+        }
+        fn had_keyframe(&self) -> bool {
+            self.frames.lock().unwrap().iter().any(|f| f.is_keyframe)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl VideoOutput for MockVideoOutput {
+        async fn send_frame(&self, frame: EncodedFrame) -> guacr_handlers::Result<()> {
+            self.frames.lock().unwrap().push(frame);
+            Ok(())
+        }
+        fn keyframe_requested(&self) -> Arc<AtomicBool> {
+            self.keyframe_requested.clone()
+        }
+        fn target_bitrate_bps(&self) -> Arc<AtomicU32> {
+            self.target_bitrate_bps.clone()
+        }
+    }
+
+    const HOST: &str = "127.0.0.1";
+    const PORT: u16 = 3389;
+    const USERNAME: &str = "linuxuser";
+    const PASSWORD: &str = "alpine";
+
+    async fn skip_if_not_available() -> bool {
+        if !port_is_open(HOST, PORT).await {
+            eprintln!(
+                "Skipping RDP video tests - server not available on {}:{}",
+                HOST, PORT
+            );
+            return true;
+        }
+        false
+    }
+
+    fn base_params() -> std::collections::HashMap<String, String> {
+        let mut p = std::collections::HashMap::new();
+        p.insert("hostname".to_string(), HOST.to_string());
+        p.insert("port".to_string(), PORT.to_string());
+        p.insert("username".to_string(), USERNAME.to_string());
+        p.insert("password".to_string(), PASSWORD.to_string());
+        p.insert("width".to_string(), "1024".to_string());
+        p.insert("height".to_string(), "768".to_string());
+        p.insert("security".to_string(), "rdp".to_string());
+        p.insert("ignore-cert".to_string(), "true".to_string());
+        p
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires RDP server
+    async fn test_rdp_h264_path_sends_frames() {
+        if skip_if_not_available().await {
+            return;
+        }
+
+        let handler = RdpHandler::with_defaults();
+        let (to_client_tx, mut to_client_rx) = mpsc::channel::<Bytes>(1024);
+        let (_from_client_tx, from_client_rx) = mpsc::channel::<Bytes>(1024);
+        let mock = Arc::new(MockVideoOutput::new());
+        let mock_ref = mock.clone();
+
+        let video_tx: Option<Arc<dyn VideoOutput>> = Some(mock);
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(base_params(), to_client_tx, from_client_rx, video_tx)
+                .await
+        });
+
+        // Collect data channel output for a few seconds
+        let mut received_img = false;
+        for _ in 0..30 {
+            match timeout(Duration::from_millis(500), to_client_rx.recv()).await {
+                Ok(Some(msg)) => {
+                    if String::from_utf8_lossy(&msg).contains("img,") {
+                        received_img = true;
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        assert!(
+            !received_img,
+            "H.264 path must not send img instructions for screen content"
+        );
+        assert!(
+            mock_ref.frame_count() > 0,
+            "expected H.264 frames to be sent to VideoOutput"
+        );
+        assert!(
+            mock_ref.had_keyframe(),
+            "expected at least one IDR keyframe"
+        );
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires RDP server
+    async fn test_rdp_pli_triggers_keyframe() {
+        if skip_if_not_available().await {
+            return;
+        }
+
+        let handler = RdpHandler::with_defaults();
+        let (to_client_tx, _to_client_rx) = mpsc::channel::<Bytes>(1024);
+        let (_from_client_tx, from_client_rx) = mpsc::channel::<Bytes>(1024);
+        let mock = Arc::new(MockVideoOutput::new());
+        let mock_ref = mock.clone();
+        let keyframe_flag = mock.keyframe_requested();
+
+        let video_tx: Option<Arc<dyn VideoOutput>> = Some(mock);
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(base_params(), to_client_tx, from_client_rx, video_tx)
+                .await
+        });
+
+        // Wait for frames to start arriving
+        for _ in 0..50 {
+            if mock_ref.frame_count() > 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(
+            mock_ref.frame_count() > 0,
+            "no frames arrived before PLI test"
+        );
+
+        let frames_before = mock_ref.frame_count();
+        // Simulate a PLI from the browser
+        keyframe_flag.store(true, Ordering::Release);
+
+        // Wait for the encode loop to consume the flag and produce a keyframe
+        for _ in 0..50 {
+            if mock_ref.frame_count() > frames_before {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
+        let frames = mock_ref.frames.lock().unwrap();
+        let new_frames = &frames[frames_before..];
+        assert!(!new_frames.is_empty(), "expected frames after PLI");
+        assert!(
+            new_frames.iter().any(|f| f.is_keyframe),
+            "expected IDR frame after PLI"
+        );
+        assert!(
+            !keyframe_flag.load(Ordering::Acquire),
+            "keyframe flag must be cleared by encode loop"
+        );
+        drop(frames);
         handle.abort();
     }
 }

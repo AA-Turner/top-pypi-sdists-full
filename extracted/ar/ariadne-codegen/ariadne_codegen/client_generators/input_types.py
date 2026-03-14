@@ -19,6 +19,7 @@ from ..codegen import (
     generate_method_call,
     generate_module,
     generate_name,
+    generate_pass,
     generate_pydantic_field,
     model_has_forward_refs,
 )
@@ -78,9 +79,9 @@ class InputTypesGenerator:
         class_defs = self._filter_class_defs(types_to_include=types_to_include)
         self._generated_public_names = [class_def.name for class_def in class_defs]
 
-        if self._used_enums:
+        if used_imports := self.get_used_enums():
             self._imports.append(
-                generate_import_from(self.get_used_enums(), self.enums_module, 1)
+                generate_import_from(used_imports, self.enums_module, 1)
             )
 
         for scalar_name in self._used_scalars:
@@ -156,7 +157,7 @@ class InputTypesGenerator:
         class_def = generate_class_def(
             name=definition.name,
             base_names=[BASE_MODEL_CLASS_NAME],
-            description=definition.description,
+            description=definition.description or "",
         )
         lineno = 0
         for org_name, field in definition.fields.items():
@@ -195,6 +196,9 @@ class InputTypesGenerator:
                 docstring = ast.Expr(value=ast.Constant(value=field.description))
                 class_def.body.append(docstring)
             self._save_dependencies(root_type=definition.name, field_type=field_type)
+
+        if not class_def.body:
+            class_def.body.append(generate_pass())
 
         if self.plugin_manager:
             class_def = self.plugin_manager.generate_input_class(

@@ -29,7 +29,6 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct RegexCache {
     cache: HashMap<String, Arc<Regex>>,
-    fancy_cache: HashMap<String, Arc<FancyRegex>>,
     usage_stats: HashMap<String, u64>,
 }
 
@@ -43,7 +42,6 @@ impl RegexCache {
     pub fn new() -> Self {
         Self {
             cache: HashMap::new(),
-            fancy_cache: HashMap::new(),
             usage_stats: HashMap::new(),
         }
     }
@@ -61,24 +59,6 @@ impl RegexCache {
         Ok(regex)
     }
 
-    /// Get or compile a fancy regex pattern
-    pub fn get_fancy_regex(&mut self, pattern: &str) -> Result<Arc<FancyRegex>, Box<fancy_regex::Error>> {
-        if let Some(regex) = self.fancy_cache.get(pattern) {
-            *self.usage_stats.entry(pattern.to_string()).or_insert(0) += 1;
-            return Ok(regex.clone());
-        }
-
-        match FancyRegex::new(pattern) {
-            Ok(regex) => {
-                let arc_regex = Arc::new(regex);
-                self.fancy_cache.insert(pattern.to_string(), arc_regex.clone());
-                *self.usage_stats.entry(pattern.to_string()).or_insert(0) += 1;
-                Ok(arc_regex)
-            }
-            Err(e) => Err(Box::new(e)),
-        }
-    }
-
     /// Get cache statistics
     pub fn get_stats(&self) -> HashMap<String, u64> {
         self.usage_stats.clone()
@@ -87,7 +67,6 @@ impl RegexCache {
     /// Clear cache (useful for testing)
     pub fn clear(&mut self) {
         self.cache.clear();
-        self.fancy_cache.clear();
         self.usage_stats.clear();
     }
 }
@@ -108,21 +87,6 @@ pub fn get_cached_regex(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
         guard
     });
     cache.get_regex(pattern)
-}
-
-/// Get a fancy regex from the global cache
-///
-/// If the mutex is poisoned (another thread panicked while holding the lock),
-/// this function recovers by clearing the cache and continuing. This ensures
-/// the library never panics due to mutex poisoning.
-pub fn get_cached_fancy_regex(pattern: &str) -> Result<Arc<FancyRegex>, Box<fancy_regex::Error>> {
-    let mut cache = GLOBAL_REGEX_CACHE.lock().unwrap_or_else(|poisoned| {
-        // Recover from poisoned mutex by clearing the cache
-        let mut guard = poisoned.into_inner();
-        guard.clear();
-        guard
-    });
-    cache.get_fancy_regex(pattern)
 }
 
 /// Get cache usage statistics
@@ -169,17 +133,6 @@ macro_rules! regex_lazy {
 #[macro_export]
 macro_rules! regex_cached {
     ($pattern:expr) => {{ $crate::utils::regex_cache::get_cached_regex($pattern).expect("Failed to compile regex") }};
-}
-
-/// Macro for getting fancy regex from global cache.
-///
-/// # Panics
-///
-/// Panics if the regex pattern is invalid. This is acceptable for static patterns
-/// where we want to fail fast during development.
-#[macro_export]
-macro_rules! fancy_regex_cached {
-    ($pattern:expr) => {{ $crate::utils::regex_cache::get_cached_fancy_regex($pattern).expect("Failed to compile fancy regex") }};
 }
 
 // Also make the macro available directly from this module
@@ -319,38 +272,13 @@ pub static XMPP_URI_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(XMPP_UR
 
 // Heading patterns
 pub static ATX_HEADING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)(#{1,6})(\s+|$)").unwrap());
-pub static CLOSED_ATX_HEADING_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)(#{1,6})(\s+)(.*)(\s+)(#+)(\s*)$").unwrap());
-pub static SETEXT_HEADING_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)[^\s]+.*\n(\s*)(=+|-+)\s*$").unwrap());
-pub static TRAILING_PUNCTUATION_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[.,:);!?]$").unwrap());
-
-// ATX heading patterns for MD051 and other rules
-pub static ATX_HEADING_WITH_CAPTURE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+?)(?:\s+#*\s*)?$").unwrap());
-pub static SETEXT_HEADING_WITH_CAPTURE: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"^([^\n]+)\n([=\-])\2+\s*$").unwrap());
 
 // List patterns
 pub static UNORDERED_LIST_MARKER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)([*+-])(\s+)").unwrap());
 pub static ORDERED_LIST_MARKER_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(\s*)(\d+)([.)])(\s+)").unwrap());
-pub static LIST_MARKER_ANY_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)(?:([*+-])|(\d+)[.)])(\s+)").unwrap());
-
-// Code block patterns
-pub static FENCED_CODE_BLOCK_START_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)(```|~~~)(.*)$").unwrap());
-pub static FENCED_CODE_BLOCK_END_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)(```|~~~)(\s*)$").unwrap());
-pub static INDENTED_CODE_BLOCK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s{4,})(.*)$").unwrap());
-pub static CODE_FENCE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(`{3,}|~{3,})").unwrap());
 
 // Emphasis patterns
-pub static EMPHASIS_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"(\s|^)(\*{1,2}|_{1,2})(?=\S)(.+?)(?<=\S)(\2)(\s|$)").unwrap());
-pub static SPACE_IN_EMPHASIS_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"(\*|_)(\s+)(.+?)(\s+)(\1)").unwrap());
 
 // MD037 specific emphasis patterns - improved to avoid false positives
 // Only match emphasis with spaces that are actually complete emphasis blocks
@@ -361,58 +289,16 @@ pub static UNDERSCORE_EMPHASIS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:^|[^_])_(\s+[^_]+\s*|\s*[^_]+\s+)_(?:[^_]|$)").unwrap());
 pub static DOUBLE_UNDERSCORE_EMPHASIS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:^|[^_])__(\s+[^_]+\s*|\s*[^_]+\s+)__(?:[^_]|$)").unwrap());
-pub static DOUBLE_ASTERISK_EMPHASIS: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\*\*\s+([^*]+?)\s+\*\*").unwrap());
-pub static DOUBLE_ASTERISK_SPACE_START: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\*\*\s+([^*]+?)\*\*").unwrap());
-pub static DOUBLE_ASTERISK_SPACE_END: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\*\*([^*]+?)\s+\*\*").unwrap());
-
 // Code block patterns
 pub static FENCED_CODE_BLOCK_START: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)```(?:[^`\r\n]*)$").unwrap());
 pub static FENCED_CODE_BLOCK_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)```\s*$").unwrap());
-pub static ALTERNATE_FENCED_CODE_BLOCK_START: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*)~~~(?:[^~\r\n]*)$").unwrap());
-pub static ALTERNATE_FENCED_CODE_BLOCK_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)~~~\s*$").unwrap());
-pub static INDENTED_CODE_BLOCK_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s{4,})").unwrap());
 
 // HTML patterns
 pub static HTML_TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<([a-zA-Z][^>]*)>").unwrap());
-pub static HTML_SELF_CLOSING_TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<([a-zA-Z][^>]*/)>").unwrap());
-pub static HTML_TAG_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new("(?i)</?[a-zA-Z][^>]*>").unwrap());
-pub static HTML_OPENING_TAG_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new("(?i)<[a-zA-Z][^>]*>").unwrap());
 pub static HTML_TAG_QUICK_CHECK: LazyLock<Regex> = LazyLock::new(|| Regex::new("(?i)</?[a-zA-Z]").unwrap());
-
-// Link patterns for MD051 and other rules
-pub static LINK_REFERENCE_DEFINITION_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*\[([^\]]+)\]:\s+(.+)$").unwrap());
-pub static INLINE_LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap());
-pub static LINK_TEXT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]*)\]").unwrap());
-pub static LINK_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"(?<!\\)\[([^\]]*)\]\(([^)#]*)#([^)]+)\)").unwrap());
-pub static EXTERNAL_URL_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"^(https?://|ftp://|www\.|[^/]+\.[a-z]{2,})").unwrap());
 
 // Image patterns
 pub static IMAGE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!\[([^\]]*)\]\(([^)]+)\)").unwrap());
-
-// Whitespace patterns
-pub static TRAILING_WHITESPACE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+$").unwrap());
-pub static MULTIPLE_BLANK_LINES_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n{3,}").unwrap());
-
-// Front matter patterns
-pub static FRONT_MATTER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^---\n.*?\n---\n").unwrap());
-
-// MD051 specific patterns
-pub static INLINE_CODE_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| FancyRegex::new(r"`[^`]+`").unwrap());
-pub static ITALIC_ASTERISK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*([^*]+?)\*").unwrap());
-pub static ITALIC_UNDERSCORE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"_([^_]+?)_").unwrap());
-pub static LINK_TEXT_FULL_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\[([^\]]*)\]\([^)]*\)").unwrap());
-pub static STRIKETHROUGH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"~~(.+?)~~").unwrap());
-pub static MULTIPLE_HYPHENS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-{2,}").unwrap());
-pub static TOC_SECTION_START: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#+\s*(?:Table of Contents|Contents|TOC)\s*$").unwrap());
 
 // Blockquote patterns
 pub static BLOCKQUOTE_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*>+\s*)").unwrap());
@@ -456,22 +342,12 @@ pub fn is_blank_in_blockquote_context(line: &str) -> bool {
 
 // MD013 specific patterns
 pub static IMAGE_REF_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^!\[.*?\]\[.*?\]$").unwrap());
-pub static LINK_REF_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\[.*?\]:\s*https?://\S+$").unwrap());
-/// Greedy URL pattern for finding URLs in text for length calculation.
-///
-/// Pattern `https?://\S+` matches until whitespace, which may include trailing
-/// punctuation. This is intentional for MD013 line length calculation where
-/// we replace URLs with fixed-length placeholders.
-///
-/// For precise URL extraction, use `URL_STANDARD_REGEX` instead.
-pub static URL_IN_TEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://\S+").unwrap());
-pub static SENTENCE_END: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[.!?]\s+[A-Z]").unwrap());
+pub static LINK_REF_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"^\[.*?\]:\s*\S+(\s+["'(].*)?\s*$"#).unwrap());
 pub static ABBREVIATION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc|i\.e|e\.g|Inc|Corp|Ltd|Co|St|Ave|Blvd|Rd|Ph\.D|M\.D|B\.A|M\.A|Ph\.D|U\.S|U\.K|U\.N|N\.Y|L\.A|D\.C)\.\s+[A-Z]").unwrap()
 });
-pub static DECIMAL_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d+\.\s*\d+").unwrap());
 pub static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\d+\.\s+").unwrap());
-pub static REFERENCE_LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]*)\]\[([^\]]*)\]").unwrap());
 
 // Email pattern
 pub static EMAIL_PATTERN: LazyLock<Regex> =
@@ -494,9 +370,8 @@ pub static SHORTCUT_REF_REGEX: LazyLock<FancyRegex> =
 pub static INLINE_LINK_FANCY_REGEX: LazyLock<FancyRegex> =
     LazyLock::new(|| FancyRegex::new(r"(?<!\\)\[([^\]]+)\]\(([^)]+)\)").unwrap());
 
-// Inline image with fancy regex (used by MD052 and text_reflow)
-pub static INLINE_IMAGE_FANCY_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"!\[([^\]]*)\]\(([^)]+)\)").unwrap());
+// Inline image (used by MD052 and text_reflow)
+pub static INLINE_IMAGE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!\[([^\]]*)\]\(([^)]+)\)").unwrap());
 
 // Linked images (clickable badges) - all 4 variants
 // Must be detected before inline_image and inline_link to treat as atomic units
@@ -505,154 +380,59 @@ pub static INLINE_IMAGE_FANCY_REGEX: LazyLock<FancyRegex> =
 // The [^\]]* pattern cannot match nested brackets. This is rare in practice.
 //
 // Pattern 1: Inline image in inline link - [![alt](img-url)](link-url)
-pub static LINKED_IMAGE_INLINE_INLINE: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)").unwrap());
+pub static LINKED_IMAGE_INLINE_INLINE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)").unwrap());
 
 // Pattern 2: Reference image in inline link - [![alt][img-ref]](link-url)
-pub static LINKED_IMAGE_REF_INLINE: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\[!\[([^\]]*)\]\[([^\]]*)\]\]\(([^)]+)\)").unwrap());
+pub static LINKED_IMAGE_REF_INLINE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[!\[([^\]]*)\]\[([^\]]*)\]\]\(([^)]+)\)").unwrap());
 
 // Pattern 3: Inline image in reference link - [![alt](img-url)][link-ref]
-pub static LINKED_IMAGE_INLINE_REF: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\[!\[([^\]]*)\]\(([^)]+)\)\]\[([^\]]*)\]").unwrap());
+pub static LINKED_IMAGE_INLINE_REF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[!\[([^\]]*)\]\(([^)]+)\)\]\[([^\]]*)\]").unwrap());
 
 // Pattern 4: Reference image in reference link - [![alt][img-ref]][link-ref]
-pub static LINKED_IMAGE_REF_REF: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\[!\[([^\]]*)\]\[([^\]]*)\]\]\[([^\]]*)\]").unwrap());
+pub static LINKED_IMAGE_REF_REF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[!\[([^\]]*)\]\[([^\]]*)\]\]\[([^\]]*)\]").unwrap());
 
 // Reference image: ![alt][ref] or ![alt][]
-pub static REF_IMAGE_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"!\[((?:[^\[\]\\]|\\.|\[[^\]]*\])*)\]\[([^\]]*)\]").unwrap());
+pub static REF_IMAGE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"!\[((?:[^\[\]\\]|\\.|\[[^\]]*\])*)\]\[([^\]]*)\]").unwrap());
 
 // Footnote reference: [^note]
-pub static FOOTNOTE_REF_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| FancyRegex::new(r"\[\^([^\]]+)\]").unwrap());
-
-// Strikethrough with fancy regex: ~~text~~
-pub static STRIKETHROUGH_FANCY_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| FancyRegex::new(r"~~([^~]+)~~").unwrap());
+pub static FOOTNOTE_REF_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\^([^\]]+)\]").unwrap());
 
 // Wiki-style links: [[wiki]] or [[wiki|display text]]
-pub static WIKI_LINK_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| FancyRegex::new(r"\[\[([^\]]+)\]\]").unwrap());
+pub static WIKI_LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[([^\]]+)\]\]").unwrap());
 
 // Math formulas: $inline$ or $$display$$
 pub static INLINE_MATH_REGEX: LazyLock<FancyRegex> =
     LazyLock::new(|| FancyRegex::new(r"(?<!\$)\$(?!\$)([^\$]+)\$(?!\$)").unwrap());
-pub static DISPLAY_MATH_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| FancyRegex::new(r"\$\$([^\$]+)\$\$").unwrap());
+pub static DISPLAY_MATH_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\$([^\$]+)\$\$").unwrap());
 
 // Emoji shortcodes: :emoji:
-pub static EMOJI_SHORTCODE_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r":([a-zA-Z0-9_+-]+):").unwrap());
+pub static EMOJI_SHORTCODE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r":([a-zA-Z0-9_+-]+):").unwrap());
 
 // HTML tags (opening, closing, self-closing)
-pub static HTML_TAG_PATTERN: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"</?[a-zA-Z][^>]*>|<[a-zA-Z][^>]*/\s*>").unwrap());
+pub static HTML_TAG_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"</?[a-zA-Z][^>]*>|<[a-zA-Z][^>]*/\s*>").unwrap());
 
 // HTML entities: &nbsp; &mdash; etc
-pub static HTML_ENTITY_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"&[a-zA-Z][a-zA-Z0-9]*;|&#\d+;|&#x[0-9a-fA-F]+;").unwrap());
+pub static HTML_ENTITY_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"&[a-zA-Z][a-zA-Z0-9]*;|&#\d+;|&#x[0-9a-fA-F]+;").unwrap());
 
 // Hugo/Go template shortcodes: {{< figure ... >}} and {{% shortcode %}}
 // Matches both delimiters: {{< ... >}} (shortcode) and {{% ... %}} (template)
 // Handles multi-line content with embedded quotes and newlines
-pub static HUGO_SHORTCODE_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r"\{\{[<%][\s\S]*?[%>]\}\}").unwrap());
+pub static HUGO_SHORTCODE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{[<%][\s\S]*?[%>]\}\}").unwrap());
 
 // HTML comment pattern
 pub static HTML_COMMENT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<!--[\s\S]*?-->").unwrap());
 
 // HTML heading pattern (matches <h1> through <h6> tags)
+// Uses FancyRegex because the pattern requires a backreference (\1)
 pub static HTML_HEADING_PATTERN: LazyLock<FancyRegex> =
     LazyLock::new(|| FancyRegex::new(r"^\s*<h([1-6])(?:\s[^>]*)?>.*</h\1>\s*$").unwrap());
-
-// Heading quick check pattern
-pub static HEADING_CHECK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^(?:\s*)#").unwrap());
-
-// Horizontal rule patterns
-pub static HR_DASH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\-{3,}\s*$").unwrap());
-pub static HR_ASTERISK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\*{3,}\s*$").unwrap());
-pub static HR_UNDERSCORE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^_{3,}\s*$").unwrap());
-pub static HR_SPACED_DASH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\-\s+){2,}\-\s*$").unwrap());
-pub static HR_SPACED_ASTERISK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\*\s+){2,}\*\s*$").unwrap());
-pub static HR_SPACED_UNDERSCORE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(_\s+){2,}_\s*$").unwrap());
-
-/// Utility functions for quick content checks
-/// Check if content contains any headings (quick check before regex)
-pub fn has_heading_markers(content: &str) -> bool {
-    content.contains('#')
-}
-
-/// Check if content contains any lists (quick check before regex)
-pub fn has_list_markers(content: &str) -> bool {
-    content.contains('*')
-        || content.contains('-')
-        || content.contains('+')
-        || (content.contains('.') && content.contains(|c: char| c.is_ascii_digit()))
-}
-
-/// Check if content contains any code blocks (quick check before regex)
-pub fn has_code_block_markers(content: &str) -> bool {
-    content.contains("```") || content.contains("~~~") || content.contains("\n    ")
-    // Indented code block potential
-}
-
-/// Check if content contains any emphasis markers (quick check before regex)
-pub fn has_emphasis_markers(content: &str) -> bool {
-    content.contains('*') || content.contains('_')
-}
-
-/// Check if content contains any HTML tags (quick check before regex)
-pub fn has_html_tags(content: &str) -> bool {
-    content.contains('<') && (content.contains('>') || content.contains("/>"))
-}
-
-/// Check if content contains any links (quick check before regex)
-pub fn has_link_markers(content: &str) -> bool {
-    (content.contains('[') && content.contains(']'))
-        || content.contains("http://")
-        || content.contains("https://")
-        || content.contains("ftp://")
-}
-
-/// Check if content contains any images (quick check before regex)
-pub fn has_image_markers(content: &str) -> bool {
-    content.contains("![")
-}
-
-/// Optimize URL detection by implementing a character-by-character scanner
-/// that's much faster than regex for cases where we know there's no URL
-pub fn contains_url(content: &str) -> bool {
-    // Fast check - if these substrings aren't present, there's no URL
-    if !content.contains("://") {
-        return false;
-    }
-
-    let chars: Vec<char> = content.chars().collect();
-    let mut i = 0;
-
-    while i < chars.len() {
-        // Look for the start of a URL protocol
-        if i + 2 < chars.len()
-            && ((chars[i] == 'h' && chars[i + 1] == 't' && chars[i + 2] == 't')
-                || (chars[i] == 'f' && chars[i + 1] == 't' && chars[i + 2] == 'p'))
-        {
-            // Scan forward to find "://"
-            let mut j = i;
-            while j + 2 < chars.len() {
-                if chars[j] == ':' && chars[j + 1] == '/' && chars[j + 2] == '/' {
-                    return true;
-                }
-                j += 1;
-
-                // Don't scan too far ahead for the protocol
-                if j > i + 10 {
-                    break;
-                }
-            }
-        }
-        i += 1;
-    }
-
-    false
-}
 
 /// Escapes a string to be used in a regex pattern
 pub fn escape_regex(s: &str) -> String {
@@ -680,7 +460,6 @@ mod tests {
     fn test_regex_cache_new() {
         let cache = RegexCache::new();
         assert!(cache.cache.is_empty());
-        assert!(cache.fancy_cache.is_empty());
         assert!(cache.usage_stats.is_empty());
     }
 
@@ -688,7 +467,6 @@ mod tests {
     fn test_regex_cache_default() {
         let cache = RegexCache::default();
         assert!(cache.cache.is_empty());
-        assert!(cache.fancy_cache.is_empty());
         assert!(cache.usage_stats.is_empty());
     }
 
@@ -719,32 +497,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_fancy_regex_compilation() {
-        let mut cache = RegexCache::new();
-
-        // First call compiles and caches
-        let regex1 = cache.get_fancy_regex(r"(?<=foo)bar").unwrap();
-        assert_eq!(cache.fancy_cache.len(), 1);
-        assert_eq!(cache.usage_stats.get(r"(?<=foo)bar"), Some(&1));
-
-        // Second call returns cached version
-        let regex2 = cache.get_fancy_regex(r"(?<=foo)bar").unwrap();
-        assert_eq!(cache.fancy_cache.len(), 1);
-        assert_eq!(cache.usage_stats.get(r"(?<=foo)bar"), Some(&2));
-
-        // Both should be the same Arc
-        assert!(Arc::ptr_eq(&regex1, &regex2));
-    }
-
-    #[test]
-    fn test_get_fancy_regex_invalid_pattern() {
-        let mut cache = RegexCache::new();
-        let result = cache.get_fancy_regex(r"(?<=invalid");
-        assert!(result.is_err());
-        assert!(cache.fancy_cache.is_empty());
-    }
-
-    #[test]
     fn test_get_stats() {
         let mut cache = RegexCache::new();
 
@@ -752,12 +504,10 @@ mod tests {
         let _ = cache.get_regex(r"\d+").unwrap();
         let _ = cache.get_regex(r"\d+").unwrap();
         let _ = cache.get_regex(r"\w+").unwrap();
-        let _ = cache.get_fancy_regex(r"(?<=foo)bar").unwrap();
 
         let stats = cache.get_stats();
         assert_eq!(stats.get(r"\d+"), Some(&2));
         assert_eq!(stats.get(r"\w+"), Some(&1));
-        assert_eq!(stats.get(r"(?<=foo)bar"), Some(&1));
     }
 
     #[test]
@@ -766,17 +516,14 @@ mod tests {
 
         // Add some patterns
         let _ = cache.get_regex(r"\d+").unwrap();
-        let _ = cache.get_fancy_regex(r"(?<=foo)bar").unwrap();
 
         assert!(!cache.cache.is_empty());
-        assert!(!cache.fancy_cache.is_empty());
         assert!(!cache.usage_stats.is_empty());
 
         // Clear cache
         cache.clear();
 
         assert!(cache.cache.is_empty());
-        assert!(cache.fancy_cache.is_empty());
         assert!(cache.usage_stats.is_empty());
     }
 
@@ -787,15 +534,9 @@ mod tests {
         let regex2 = get_cached_regex(r"\d{3}").unwrap();
         assert!(Arc::ptr_eq(&regex1, &regex2));
 
-        // Test get_cached_fancy_regex
-        let fancy1 = get_cached_fancy_regex(r"(?<=test)ing").unwrap();
-        let fancy2 = get_cached_fancy_regex(r"(?<=test)ing").unwrap();
-        assert!(Arc::ptr_eq(&fancy1, &fancy2));
-
         // Test stats
         let stats = get_cache_stats();
         assert!(stats.contains_key(r"\d{3}"));
-        assert!(stats.contains_key(r"(?<=test)ing"));
     }
 
     #[test]
@@ -810,93 +551,6 @@ mod tests {
         let re2 = regex_lazy!(r"^start.*finish$");
         assert!(re2.is_match("start and finish"));
         assert!(!re2.is_match("start without end"));
-    }
-
-    #[test]
-    fn test_has_heading_markers() {
-        assert!(has_heading_markers("# Heading"));
-        assert!(has_heading_markers("Text with # symbol"));
-        assert!(!has_heading_markers("Text without heading marker"));
-    }
-
-    #[test]
-    fn test_has_list_markers() {
-        assert!(has_list_markers("* Item"));
-        assert!(has_list_markers("- Item"));
-        assert!(has_list_markers("+ Item"));
-        assert!(has_list_markers("1. Item"));
-        assert!(!has_list_markers("Text without list markers"));
-    }
-
-    #[test]
-    fn test_has_code_block_markers() {
-        assert!(has_code_block_markers("```code```"));
-        assert!(has_code_block_markers("~~~code~~~"));
-        assert!(has_code_block_markers("Text\n    indented code"));
-        assert!(!has_code_block_markers("Text without code blocks"));
-    }
-
-    #[test]
-    fn test_has_emphasis_markers() {
-        assert!(has_emphasis_markers("*emphasis*"));
-        assert!(has_emphasis_markers("_emphasis_"));
-        assert!(has_emphasis_markers("**bold**"));
-        assert!(has_emphasis_markers("__bold__"));
-        assert!(!has_emphasis_markers("no emphasis"));
-    }
-
-    #[test]
-    fn test_has_html_tags() {
-        assert!(has_html_tags("<div>content</div>"));
-        assert!(has_html_tags("<br/>"));
-        assert!(has_html_tags("<img src='test.jpg'>"));
-        assert!(!has_html_tags("no html tags"));
-        assert!(!has_html_tags("less than < but no tag"));
-    }
-
-    #[test]
-    fn test_has_link_markers() {
-        assert!(has_link_markers("[text](url)"));
-        assert!(has_link_markers("[reference][1]"));
-        assert!(has_link_markers("http://example.com"));
-        assert!(has_link_markers("https://example.com"));
-        assert!(has_link_markers("ftp://example.com"));
-        assert!(!has_link_markers("no links here"));
-    }
-
-    #[test]
-    fn test_has_image_markers() {
-        assert!(has_image_markers("![alt text](image.png)"));
-        assert!(has_image_markers("![](image.png)"));
-        assert!(!has_image_markers("[link](url)"));
-        assert!(!has_image_markers("no images"));
-    }
-
-    #[test]
-    fn test_contains_url() {
-        assert!(contains_url("http://example.com"));
-        assert!(contains_url("Text with https://example.com link"));
-        assert!(contains_url("ftp://example.com"));
-        assert!(!contains_url("Text without URL"));
-        assert!(!contains_url("http not followed by ://"));
-
-        // Edge cases
-        assert!(!contains_url("http"));
-        assert!(!contains_url("https"));
-        assert!(!contains_url("://"));
-        assert!(contains_url("Visit http://site.com now"));
-        assert!(contains_url("See https://secure.site.com/path"));
-    }
-
-    #[test]
-    fn test_contains_url_performance() {
-        // Test early exit for strings without "://"
-        let long_text = "a".repeat(10000);
-        assert!(!contains_url(&long_text));
-
-        // Test with URL at the end
-        let text_with_url = format!("{long_text}https://example.com");
-        assert!(contains_url(&text_with_url));
     }
 
     #[test]
@@ -938,28 +592,9 @@ mod tests {
         assert!(ORDERED_LIST_MARKER_REGEX.is_match("1. Item"));
         assert!(ORDERED_LIST_MARKER_REGEX.is_match("99. Item"));
 
-        // Test code block patterns
-        assert!(FENCED_CODE_BLOCK_START_REGEX.is_match("```"));
-        assert!(FENCED_CODE_BLOCK_START_REGEX.is_match("```rust"));
-        assert!(FENCED_CODE_BLOCK_START_REGEX.is_match("~~~"));
-        assert!(FENCED_CODE_BLOCK_END_REGEX.is_match("```"));
-        assert!(FENCED_CODE_BLOCK_END_REGEX.is_match("~~~"));
-
-        // Test emphasis patterns
-        assert!(ITALIC_ASTERISK_REGEX.is_match("*italic*"));
-        assert!(ITALIC_UNDERSCORE_REGEX.is_match("_italic_"));
-
         // Test HTML patterns
         assert!(HTML_TAG_REGEX.is_match("<div>"));
         assert!(HTML_TAG_REGEX.is_match("<span class='test'>"));
-        assert!(HTML_SELF_CLOSING_TAG_REGEX.is_match("<br/>"));
-        assert!(HTML_SELF_CLOSING_TAG_REGEX.is_match("<img src='test'/>"));
-
-        // Test whitespace patterns
-        assert!(TRAILING_WHITESPACE_REGEX.is_match("line with spaces   "));
-        assert!(TRAILING_WHITESPACE_REGEX.is_match("tabs\t\t"));
-        assert!(MULTIPLE_BLANK_LINES_REGEX.is_match("\n\n\n"));
-        assert!(MULTIPLE_BLANK_LINES_REGEX.is_match("\n\n\n\n"));
 
         // Test blockquote pattern
         assert!(BLOCKQUOTE_PREFIX_RE.is_match("> Quote"));

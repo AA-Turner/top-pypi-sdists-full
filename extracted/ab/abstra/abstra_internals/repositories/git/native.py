@@ -4,13 +4,16 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from abstra_internals.environment import REMOTE_NAME
+from abstra_internals.logger import AbstraLogger
 
 from .types import (
+    CleanupResult,
     GitCommit,
     GitFileChange,
     GitRepositoryInterface,
     GitStatus,
     LargeFileInfo,
+    MaintenanceResult,
 )
 
 TEMP_ABSTRA_EMAIL = "abstra@abstra.app"
@@ -106,11 +109,11 @@ class NativeGitRepository(GitRepositoryInterface):
                 try:
                     lock_file.unlink()
                     cleaned = True
-                    print(
+                    AbstraLogger.info(
                         f"Cleaned up stale lock file: {lock_file.relative_to(self.working_directory)}"
                     )
                 except Exception as e:
-                    print(f"Failed to clean lock file {lock_file}: {e}")
+                    AbstraLogger.warning(f"Failed to clean lock file {lock_file}: {e}")
 
         return cleaned
 
@@ -129,7 +132,7 @@ class NativeGitRepository(GitRepositoryInterface):
         )
 
         if is_lock_error:
-            print("Detected stale lock file error. Attempting cleanup...")
+            AbstraLogger.info("Detected stale lock file error. Attempting cleanup...")
             cleaned = self._detect_and_cleanup_stale_locks()
 
             if cleaned:
@@ -737,6 +740,9 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.has_remote(REMOTE_NAME):
             return False, "Abstra Remote not found"
 
+        # Run maintenance before push to free space and avoid issues
+        self.run_maintenance()
+
         success, _, err = self._run_git_command(["push", REMOTE_NAME, branch])
         error_message = None if success else f"Git push failed with error: {err}"
 
@@ -907,7 +913,9 @@ class NativeGitRepository(GitRepositoryInterface):
         try:
             relative_path = path.relative_to(self.working_directory)
         except ValueError:
-            print("Path is outside the working directory; cannot untrack.")
+            AbstraLogger.warning(
+                "Path is outside the working directory; cannot untrack."
+            )
             return
 
         self._run_git_command(["rm", "--cached", "-r", str(relative_path)])
@@ -987,3 +995,72 @@ class NativeGitRepository(GitRepositoryInterface):
 
         except Exception as e:
             return False, f"Failed to update .gitignore: {str(e)}"
+
+    def cleanup_orphan_temp_objects(self) -> CleanupResult:
+        """Clean up orphan temporary object directories from failed git operations.
+
+        These directories (tmp_objdir-incoming-*) are created during receive-pack
+        operations and should be cleaned up automatically, but may remain if the
+        operation fails or times out.
+        """
+        if not self.is_git_repository():
+            return CleanupResult(success=False)
+
+        objects_dir = self.working_directory / ".git" / "objects"
+        if not objects_dir.exists():
+            return CleanupResult(success=False)
+
+        cleaned_count = 0
+        bytes_freed = 0
+
+        try:
+            for item in objects_dir.iterdir():
+                if item.is_dir() and item.name.startswith("tmp_objdir-"):
+                    try:
+                        # Calculate size before deletion
+                        dir_size = sum(
+                            f.stat().st_size for f in item.rglob("*") if f.is_file()
+                        )
+                        shutil.rmtree(item)
+                        cleaned_count += 1
+                        bytes_freed += dir_size
+                    except Exception as e:
+                        AbstraLogger.warning(
+                            f"Failed to clean temp directory {item.name}: {e}"
+                        )
+
+            return CleanupResult(
+                success=True,
+                directories_cleaned=cleaned_count,
+                bytes_freed=bytes_freed,
+            )
+        except Exception as e:
+            AbstraLogger.error(f"Error during temp objects cleanup: {e}")
+            return CleanupResult(
+                success=False,
+                directories_cleaned=cleaned_count,
+                bytes_freed=bytes_freed,
+            )
+
+    def run_maintenance(self) -> MaintenanceResult:
+        """Run git repository maintenance tasks.
+
+        This performs:
+        1. Cleanup of orphan temporary object directories (tmp_objdir-*)
+        2. Git garbage collection (only if git determines it's needed)
+        """
+        if not self.is_git_repository():
+            return MaintenanceResult(success=False)
+
+        # 1. Clean orphan temp directories
+        cleanup_result = self.cleanup_orphan_temp_objects()
+
+        # 2. Run git gc --auto (only runs if git thinks it's needed)
+        # This compacts loose objects and removes unreachable objects
+        gc_success, _, _ = self._run_git_command(["gc", "--auto", "--quiet"])
+
+        return MaintenanceResult(
+            success=True,
+            cleanup=cleanup_result,
+            gc_ran=gc_success,
+        )

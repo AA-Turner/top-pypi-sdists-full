@@ -6,7 +6,6 @@ import asyncio
 import os
 from dataclasses import dataclass, field
 from functools import cached_property
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import nio
@@ -105,6 +104,7 @@ from .constants import (
     ORIGINAL_SENDER_KEY,
     ROUTER_AGENT_NAME,
     VOICE_RAW_AUDIO_FALLBACK_KEY,
+    resolve_avatar_path,
 )
 from .knowledge.utils import MultiKnowledgeVectorDb, resolve_agent_knowledge
 from .logging_config import emoji, get_logger
@@ -129,6 +129,7 @@ from .scheduling import (
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    from pathlib import Path
 
     import structlog
     from agno.agent import Agent
@@ -526,7 +527,7 @@ class AgentBot:
             return
 
         entity_type = "teams" if self.agent_name in self.config.teams else "agents"
-        avatar_path = Path(__file__).parent.parent.parent / "avatars" / entity_type / f"{self.agent_name}.png"
+        avatar_path = resolve_avatar_path(entity_type, self.agent_name)
 
         if avatar_path.exists():
             try:
@@ -2106,8 +2107,6 @@ class AgentBot:
                 self.config,
                 agent_name=agent_name,
                 session_id=session_id,
-                room_id=room_id,
-                thread_id=thread_id,
                 execution_identity=execution_identity,
             )
             if self.config.get_agent_memory_backend(agent_name) == "mem0":
@@ -2118,7 +2117,6 @@ class AgentBot:
                         self.storage_path,
                         session_id,
                         self.config,
-                        room_id,
                         thread_history,
                         user_id,
                         execution_identity=execution_identity,
@@ -2384,8 +2382,6 @@ class AgentBot:
                 self.config,
                 agent_name=self.agent_name,
                 session_id=session_id,
-                room_id=room_id,
-                thread_id=thread_id,
                 execution_identity=execution_identity,
             )
             if self.config.get_agent_memory_backend(self.agent_name) == "mem0":
@@ -2396,7 +2392,6 @@ class AgentBot:
                         self.storage_path,
                         session_id,
                         self.config,
-                        room_id,
                         thread_history,
                         user_id,
                         execution_identity=execution_identity,
@@ -2819,7 +2814,6 @@ class TeamBot(AgentBot):
                     self.storage_path,
                     session_id,
                     self.config,
-                    room_id,
                     thread_history,
                     user_id,
                     execution_identity=execution_identity,

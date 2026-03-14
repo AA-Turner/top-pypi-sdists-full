@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Dict, List, Optional, Union
 
 from redisvl.extensions.constants import (
@@ -6,7 +7,7 @@ from redisvl.extensions.constants import (
     ROLE_FIELD_NAME,
     TOOL_FIELD_NAME,
 )
-from redisvl.extensions.message_history.schema import ChatMessage
+from redisvl.extensions.message_history.schema import ChatMessage, ChatRole
 from redisvl.utils.utils import create_ulid, deserialize
 
 
@@ -46,6 +47,15 @@ class BaseMessageHistory:
         Args:
             id_field (Optional[str]): The id_field of the entry to delete.
                 If None then the last entry is deleted.
+        """
+        raise NotImplementedError
+
+    def count(self, session_tag: Optional[str] = None) -> int:
+        """Count the number of messages in the conversation history.
+
+        Args:
+            session_tag (Optional[str]): The session tag to filter messages by.
+                If None, counts all messages in the history.
         """
         raise NotImplementedError
 
@@ -104,25 +114,38 @@ class BaseMessageHistory:
         if role is None:
             return None
 
-        valid_roles = {"system", "user", "llm", "tool"}
+        deprecated_roles = {"llm"}
+        valid_roles = {r.value for r in ChatRole}
 
         # Handle single role string
         if isinstance(role, str):
-            if role not in valid_roles:
-                raise ValueError(
-                    f"Invalid role '{role}'. Valid roles are: {valid_roles}"
+            if role in valid_roles:
+                return [role]
+            elif role in deprecated_roles:
+                warnings.warn(
+                    f"Role '{role}' is a deprecated value. Update to valid roles: {valid_roles}.",
+                    DeprecationWarning,
+                    stacklevel=2,
                 )
-            return [role]
+                return [role]
+            else:
+                raise ValueError(f"Invalid role '{role}'. Valid roles: {valid_roles}")
 
         # Handle list of roles
         if isinstance(role, list):
             if not role:  # Empty list
                 raise ValueError("roles cannot be empty")
             for r in role:
-                if r not in valid_roles:
-                    raise ValueError(
-                        f"Invalid role '{r}'. Valid roles are: {valid_roles}"
+                if r in valid_roles:
+                    continue
+                elif r in deprecated_roles:
+                    warnings.warn(
+                        f"Role '{r}' is a deprecated value. Update to valid roles: {valid_roles}.",
+                        DeprecationWarning,
+                        stacklevel=2,
                     )
+                else:
+                    raise ValueError(f"Invalid role '{r}'. Valid roles: {valid_roles}")
             return role
 
         raise ValueError("role must be a string or list of strings")

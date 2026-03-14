@@ -247,7 +247,12 @@ cdef hybrid_stack_trace(
 
     for native_frame in native_stack:
         symbol = native_frame[0]
-        if pidx >= 0 and "_PyEval_EvalFrameDefault" in symbol:
+        # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter LLVM-generated functions
+        is_python_frame_boundary = "_PyEval_EvalFrameDefault" in symbol or (
+            symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol
+        )
+        if pidx >= 0 and is_python_frame_boundary:
             while True:
                 # If we're not keeping all frames and we've reached the
                 # first one we want to keep, remove frames above it.
@@ -272,7 +277,8 @@ cdef hybrid_stack_trace(
         # We ran out of native frames without using up all of our Python
         # frames. We've seen this happen on stripped interpreters on Alpine
         # Linux in CI. Presumably this indicates that unwinding failed to
-        # symbolify some of the calls to _PyEval_EvalFrameDefault.
+        # symbolify some of the Python frame boundaries (_PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter functions).
         return python_stack
     assert hidx == -1
 
@@ -722,6 +728,10 @@ cdef class Tracker:
         trace_python_allocators (bool): Whether or not to trace Python allocators
             as independent allocations. (see :ref:`Python allocators`).
             Defaults to False.
+        track_object_lifetimes (bool): Whether or not to track which objects are
+            created during the tracking session and still alive at the end (or
+            in other words, what objects are leaked by the code being tracked).
+            Defaults to False.
         follow_fork (bool): Whether or not to continue tracking in a subprocess
             that is forked from the tracked process (see :ref:`Tracking across
             Forks`). Defaults to False.
@@ -770,7 +780,8 @@ cdef class Tracker:
     def __cinit__(self, object file_name=None, *, object destination=None,
                   bool native_traces=False, unsigned int memory_interval_ms = 10,
                   bool follow_fork=False, bool trace_python_allocators=False,
-                  track_object_lifetimes=False, FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
+                  bool track_object_lifetimes=False,
+                  FileFormat file_format=FileFormat.ALL_ALLOCATIONS):
         if (file_name, destination).count(None) != 1:
             raise TypeError("Exactly one of 'file_name' or 'destination' argument must be specified")
 
@@ -843,8 +854,6 @@ cdef class Tracker:
             if "greenlet" in sys.modules:
                 NativeTracker.beginTrackingGreenlets()
 
-            self._surviving_objects = []
-
             NativeTracker.createTracker(
                 move(writer),
                 self._native_traces,
@@ -857,7 +866,8 @@ cdef class Tracker:
 
     @cython.profile(False)
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self._populate_suriving_objects()
+        if self._track_object_lifetimes:
+            self._populate_surviving_objects()
         with tracker_creation_lock:
             NativeTracker.destroyTracker()
             sys.setprofile(self._previous_profile_func)
@@ -866,9 +876,13 @@ cdef class Tracker:
             for attr in ("_name", "_ident"):
                 delattr(threading.Thread, attr)
 
-    cdef void _populate_suriving_objects(self):
-        assert NativeTracker.getTracker() != NULL
-        cdef unordered_set[PyObject*] objects = NativeTracker.getTracker().getSurvivingObjects()
+    cdef void _populate_surviving_objects(self):
+        cdef NativeTracker *tracker = NativeTracker.getTracker()
+        if tracker == NULL:
+            return
+
+        cdef unordered_set[PyObject*] objects = tracker.getSurvivingObjects()
+        self._surviving_objects = []
         for obj in objects:
             self._surviving_objects.append(<object>obj)
             Py_DECREF(<object>obj)
@@ -878,10 +892,18 @@ cdef class Tracker:
 
         Returns:
             list: A list of objects that were alive at the end of the tracking period.
+
+        Raises:
+            RuntimeError: If *track_object_lifetimes* was not enabled at
+                Tracker construction, or if tracking has not completed yet.
         """
         if not self._track_object_lifetimes:
             raise RuntimeError(
                 "track_object_lifetimes=True was not provided at Tracker construction"
+            )
+        if self._surviving_objects is None:
+            raise RuntimeError(
+                "Tracking was never started or has not finished yet or failed."
             )
         return tuple(self._surviving_objects)
 
@@ -1642,7 +1664,12 @@ def get_symbolic_support():
     locations = unwindHere()
     for location in locations:
         function, file, line = location.split(":")
-        if function != "_PyEval_EvalFrameDefault":
+        # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
+        # or Python 3.14 tail call interpreter LLVM-generated functions
+        is_python_frame_boundary = function == "_PyEval_EvalFrameDefault" or (
+            function.startswith("_TAIL_CALL_") and ".llvm." in function
+        )
+        if not is_python_frame_boundary:
             continue
         if not file:
             return SymbolicSupport.FUNCTION_NAME_ONLY

@@ -13,6 +13,7 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
+    unquote_if_quoted,
 )
 from snowflake.snowpark._internal.utils import (
     TempObjectType,
@@ -383,7 +384,13 @@ def _read_csv_with_partitions(
             if not columns_length_equals(
                 len(non_metadata_fields), len(partition_columns), len(schema.fields)
             ):
-                exception = Exception(f"csv load from {filename} failed.")
+                exception = Exception(
+                    f"CSV file column count mismatch for {filename}: "
+                    f"schema has {len(schema.fields)} fields "
+                    f"[{', '.join(f.name for f in schema.fields)}] "
+                    f"but data has {len(non_metadata_fields)} columns "
+                    f"({len(partition_columns)} partition columns)."
+                )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
                 raise exception
 
@@ -395,7 +402,11 @@ def _read_csv_with_partitions(
                         and f'"{schema.fields[i].name}"' != non_metadata_fields[i].name
                     ):
                         exception = Exception(
-                            "CSV header does not conform to the schema"
+                            "CSV header does not conform to the schema.\n"
+                            f"Header field at position {i}: "
+                            f"{unquote_if_quoted(non_metadata_fields[i].name)}\n"
+                            f"Schema field at position {i}: "
+                            f"{schema.fields[i].name}"
                         )
                         attach_custom_error_code(
                             exception, ErrorCodes.INVALID_OPERATION
@@ -481,8 +492,17 @@ def _read_csv_with_partitions(
             if not columns_length_equals(
                 len(non_metadata_fields), len(partition_columns), len(headers)
             ):
+                display_headers = [unquote_if_quoted(h) for h in headers]
+                inferred_names = [
+                    unquote_if_quoted(f.name) for f in non_metadata_fields
+                ]
                 exception = Exception(
-                    f"CSV header: {headers} does not conform to the schema"
+                    "CSV header does not conform to the schema.\n"
+                    f"Header has {len(headers)} columns: "
+                    f"{display_headers}\n"
+                    f"Inferred schema has {len(non_metadata_fields)} columns "
+                    f"({len(partition_columns)} partition columns): "
+                    f"{inferred_names}"
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                 raise exception

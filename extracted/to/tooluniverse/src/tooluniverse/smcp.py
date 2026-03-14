@@ -570,6 +570,19 @@ class SMCP(FastMCP):
         except Exception as e:
             self.logger.error(f"Error registering custom MCP methods: {e}")
 
+    async def get_tools(self) -> dict:
+        """Return registered tools as {name: Tool} dict (fastmcp 2/3 compat).
+
+        fastmcp 2 had get_tools() returning a dict; fastmcp 3 replaced it with
+        list_tools() returning a list.  This shim unifies both APIs.
+        """
+        if hasattr(FastMCP, "list_tools"):
+            # fastmcp 3+: list_tools() is async and returns a list of Tool objects
+            tools = await FastMCP.list_tools(self)
+            return {t.name: t for t in tools}
+        # fastmcp 2: delegate to the inherited get_tools() coroutine
+        return await FastMCP.get_tools(self)  # type: ignore[attr-defined]
+
     def _get_valid_categories(self):
         """Get valid tool categories from ToolUniverse."""
         try:
@@ -1663,17 +1676,30 @@ class SMCP(FastMCP):
 
             # Build function signature dynamically with Pydantic Field support
             import inspect
+            import keyword
             from typing import Annotated
             from pydantic import Field
+
+            def _sanitize_param_name(name: str) -> str:
+                """Convert an API param name to a valid Python identifier."""
+                safe = name.replace("-", "_")
+                if keyword.iskeyword(safe) or not safe.isidentifier():
+                    safe = safe + "_"
+                return safe
 
             # Create parameter signature for the function
             func_params = []
             param_annotations = {}
+            # Maps safe Python name → original API param name (only populated when different)
+            _param_name_map: dict[str, str] = {}
 
             # Process parameters in two phases: required first, then optional
             # This ensures Python function signature validity (no default args before non-default)
             for is_required_phase in [True, False]:
                 for param_name, param_info in properties.items():
+                    safe_name = _sanitize_param_name(param_name)
+                    if safe_name != param_name:
+                        _param_name_map[safe_name] = param_name
                     param_description = param_info.get(
                         "description", f"{param_name} parameter"
                     )
@@ -1691,10 +1717,10 @@ class SMCP(FastMCP):
                     if is_required:
                         # Required parameter with description and schema info
                         annotated_type = Annotated[python_type, pydantic_field]
-                        param_annotations[param_name] = annotated_type
+                        param_annotations[safe_name] = annotated_type
                         func_params.append(
                             inspect.Parameter(
-                                param_name,
+                                safe_name,
                                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                                 annotation=annotated_type,
                             )
@@ -1704,10 +1730,10 @@ class SMCP(FastMCP):
                         annotated_type = Annotated[
                             Union[python_type, type(None)], pydantic_field
                         ]
-                        param_annotations[param_name] = annotated_type
+                        param_annotations[safe_name] = annotated_type
                         func_params.append(
                             inspect.Parameter(
-                                param_name,
+                                safe_name,
                                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                                 default=None,
                                 annotation=annotated_type,
@@ -1733,10 +1759,13 @@ class SMCP(FastMCP):
                         kwargs.pop("_task", None) if "_task" in kwargs else None
                     )
 
-                    # Filter out None values for optional parameters
-                    # Note: _tooluniverse_stream was extracted and popped above
-                    # so it won't be in args_dict, which is what we want
-                    args_dict = {k: v for k, v in kwargs.items() if v is not None}
+                    # Filter out None values for optional parameters and reverse-map
+                    # sanitized param names (e.g. from_ → from, phys_par → phys-par)
+                    args_dict = {
+                        _param_name_map.get(k, k): v
+                        for k, v in kwargs.items()
+                        if v is not None
+                    }
 
                     # Check if tool supports tasks
                     execution_config = tool_config.get("execution", {})

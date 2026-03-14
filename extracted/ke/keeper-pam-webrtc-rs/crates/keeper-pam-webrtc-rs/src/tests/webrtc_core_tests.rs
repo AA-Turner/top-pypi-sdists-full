@@ -18,6 +18,7 @@ async fn create_test_peer_connection() -> WebRTCPeerConnection {
         Some("test_conversation".to_string()),
         None,                           // ksm_config (no credential refresh in tests)
         "test-client-v1.0".to_string(), // client_version
+        false,                          // enable_video
     )
     .await
     .expect("Failed to create test peer connection")
@@ -59,6 +60,7 @@ async fn test_keepalive_lifecycle() {
         Some("test_conversation".to_string()),
         None,                           // ksm_config (no credential refresh in tests)
         "test-client-v1.0".to_string(), // client_version
+        false,                          // enable_video
     )
     .await
     .expect("Failed to create peer connection");
@@ -174,6 +176,7 @@ async fn test_network_change_detection() {
         Some("test_conversation".to_string()),
         None,                           // ksm_config (no credential refresh in tests)
         "test-client-v1.0".to_string(), // client_version
+        false,                          // enable_video
     )
     .await
     .expect("Failed to create peer connection");

@@ -22,6 +22,7 @@ use guacr_handlers::{
     StandardCursor, SyncFlowControl,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Browser client for RBI sessions
 pub struct BrowserClient {
@@ -46,6 +47,7 @@ impl BrowserClient {
         config: RbiConfig,
         recording_config: &RecordingConfig,
         params: &HashMap<String, String>,
+        _video_tx: Option<Arc<dyn guacr_handlers::VideoOutput>>,
     ) -> Self {
         let mut clipboard = RbiClipboard::new(config.clipboard_buffer_size);
         clipboard.set_restrictions(config.disable_copy, config.disable_paste);
@@ -329,9 +331,9 @@ impl BrowserClient {
                             let frame_changed = dirty_tracker.has_changed(&screenshot);
 
                             if frame_changed {
-                                // Send only changed frames (using chunked blob protocol)
-                                if let Err(e) = self.send_screenshot(&screenshot, &to_client).await {
-                                    warn!("RBI: Failed to send screenshot: {}", e);
+                                let send_result = self.send_screenshot(&screenshot, &to_client).await;
+                                if let Err(e) = send_result {
+                                    warn!("RBI: Failed to send frame: {}", e);
                                     break;
                                 }
 
@@ -525,7 +527,8 @@ impl BrowserClient {
                                     match chrome_session.capture_screenshot().await {
                                         Ok(Some(screenshot)) => {
                                             if dirty_tracker.has_changed(&screenshot) {
-                                                if let Err(e) = self.send_screenshot(&screenshot, &to_client).await {
+                                                let send_result = self.send_screenshot(&screenshot, &to_client).await;
+                                                if let Err(e) = send_result {
                                                     warn!("RBI: Failed to send scroll frame: {}", e);
                                                 } else {
                                                     debug!("RBI: Sent immediate scroll frame");
@@ -1116,7 +1119,7 @@ mod tests {
         let config = RbiConfig::default();
         let recording_config = RecordingConfig::default();
         let params = HashMap::new();
-        let client = BrowserClient::new(1920, 1080, config, &recording_config, &params);
+        let client = BrowserClient::new(1920, 1080, config, &recording_config, &params, None);
         assert_eq!(client.width, 1920);
         assert_eq!(client.height, 1080);
     }

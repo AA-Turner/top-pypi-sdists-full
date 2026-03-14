@@ -23,6 +23,8 @@ guacr-vnc = { path = "../guacr-vnc", version = "2.0.0", optional = true }
 guacr-sftp = { path = "../guacr-sftp", version = "2.0.0", optional = true }
 guacr-database = { path = "../guacr-database", version = "2.0.0", optional = true }
 guacr-rbi = { path = "../guacr-rbi", version = "2.0.0", optional = true }
+guacr-tn3270 = { path = "../guacr-tn3270", version = "2.0.0", optional = true }
+guacr-tn5250 = { path = "../guacr-tn5250", version = "2.0.0", optional = true }
 
 # guacd wire protocol (server-side handshake, protocol args, TCP listener)
 guacr-guacd = { path = "../guacr-guacd", version = "2.0.0", optional = true }
@@ -36,10 +38,12 @@ vnc = ["guacr-vnc"]
 sftp = ["guacr-sftp"]
 database = ["guacr-database"]
 rbi = ["guacr-rbi"]
+tn3270 = ["guacr-tn3270"]
+tn5250 = ["guacr-tn5250"]
 
 # Enable guacd wire protocol compatibility (select/args/connect/ready handshake)
 # This allows guacr to act as a drop-in replacement for guacd on TCP port 4822
 guacd-compat = ["guacr-guacd"]
 
 # All protocols
-all = ["ssh", "telnet", "rdp", "vnc", "sftp", "database", "rbi"]
+all = ["ssh", "telnet", "rdp", "vnc", "sftp", "database", "rbi", "tn3270", "tn5250"]

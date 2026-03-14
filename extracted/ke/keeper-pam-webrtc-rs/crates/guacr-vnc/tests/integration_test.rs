@@ -70,10 +70,11 @@ mod vnc_handler_tests {
         params.insert("password".to_string(), PASSWORD.to_string());
 
         // Spawn handler in background
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Try to receive messages - handler may not be fully implemented
         let msg_result = timeout(CONNECT_TIMEOUT, to_client_rx.recv()).await;
@@ -140,10 +141,11 @@ mod vnc_handler_tests {
         params.insert("port".to_string(), PORT.to_string());
         params.insert("password".to_string(), PASSWORD.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection and initial frames
         let mut received_frame = false;
@@ -188,10 +190,11 @@ mod vnc_handler_tests {
         params.insert("password".to_string(), PASSWORD.to_string());
         params.insert("read-only".to_string(), "true".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection and verify we receive frames
         let mut received_frame = false;
@@ -234,10 +237,11 @@ mod vnc_handler_tests {
         params.insert("port".to_string(), PORT.to_string());
         params.insert("password".to_string(), PASSWORD.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for initial connection and verify we receive frames
         let mut received_frame = false;
@@ -280,10 +284,11 @@ mod vnc_handler_tests {
         params.insert("port".to_string(), PORT.to_string());
         params.insert("password".to_string(), PASSWORD.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection and verify we receive frames
         let mut received_frame = false;
@@ -329,10 +334,11 @@ mod vnc_handler_tests {
             params.insert("password".to_string(), PASSWORD.to_string());
             params.insert("encoding".to_string(), encoding.to_string());
 
-            let handle =
-                tokio::spawn(
-                    async move { handler.connect(params, to_client_tx, from_client_rx).await },
-                );
+            let handle = tokio::spawn(async move {
+                handler
+                    .connect(params, to_client_tx, from_client_rx, None)
+                    .await
+            });
 
             // Wait for connection
             let _ = timeout(CONNECT_TIMEOUT, to_client_rx.recv()).await;

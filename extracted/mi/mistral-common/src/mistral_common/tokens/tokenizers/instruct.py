@@ -31,8 +31,9 @@ from mistral_common.protocol.instruct.messages import (
     ToolMessage,
     UserMessage,
 )
-from mistral_common.protocol.instruct.request import InstructRequest
+from mistral_common.protocol.instruct.request import InstructRequest, ModelSettings
 from mistral_common.protocol.instruct.tool_calls import Tool, ToolCall
+from mistral_common.protocol.speech.request import SpeechRequest
 from mistral_common.protocol.transcription.request import StreamingMode, TranscriptionRequest
 from mistral_common.tokens.tokenizers.audio import AudioEncoder, TranscriptionFormat
 from mistral_common.tokens.tokenizers.base import (
@@ -144,8 +145,8 @@ class InstructTokenizerBase(
 
     @classmethod
     def validate_messages(cls, messages: list[UATS]) -> None:
-        # for v7 we start validates messages
-        ...
+        # We start validating messages for v7
+        return
 
     def encode_instruct(
         self,
@@ -187,6 +188,7 @@ class InstructTokenizerBase(
                     msg_idx == first_user_idx,
                     system_prompt=request.system_prompt,
                     force_img_first=True,  # img is always first when providing text/img chunk pair
+                    settings=request.settings,
                 )
                 images.extend(new_images)
                 audios.extend(new_audios)
@@ -228,17 +230,12 @@ class InstructTokenizerBase(
             audios=audios,
         )
 
-    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE) -> str:
         r"""Decode tokens to a string.
 
         Args:
             tokens: The tokens to decode.
             special_token_policy: The policy to use for special tokens.
-                Passing `None` will default to `self._special_token_policy` for
-                [Tekkenizer][mistral_common.tokens.tokenizers.tekken.Tekkenizer] and `SpecialTokenPolicy.IGNORE`
-                for [SentencePieceTokenizer][mistral_common.tokens.tokenizers.sentencepiece.SentencePieceTokenizer].
-                Note that passing `None` will be deprecated and `special_token_policy` will default to
-                `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.
@@ -265,6 +262,7 @@ class InstructTokenizerV1(
         is_first: bool,
         system_prompt: str | None = None,
         force_img_first: bool = False,
+        settings: ModelSettings = ModelSettings.none(),
     ) -> tuple[list[int], list[np.ndarray], list[Audio]]:
         r"""Encode a user message.
 
@@ -378,6 +376,9 @@ class InstructTokenizerV1(
     def encode_transcription(self, request: TranscriptionRequest) -> Tokenized:
         raise TokenizerException(f"Transcription not available for {self.tokenizer.version}")
 
+    def encode_speech_request(self, request: SpeechRequest) -> Tokenized:
+        raise TokenizerException(f"Speech request not available for tokenizer {self.tokenizer.version.value}")
+
 
 class InstructTokenizerV2(
     InstructTokenizerV1, Generic[InstructRequestType, FIMRequestType, TokenizedType, AssistantMessageType]
@@ -387,7 +388,7 @@ class InstructTokenizerV2(
     This tokenizer adds supports to images, tools and FIM requests.
     """
 
-    _user_message_position_to_encode_tools = UserMessagePosition.last
+    _message_position_to_encode_tools_settings = UserMessagePosition.last
 
     def __init__(
         self,
@@ -422,6 +423,7 @@ class InstructTokenizerV2(
         is_first: bool,
         system_prompt: str | None = None,
         force_img_first: bool = False,
+        settings: ModelSettings = ModelSettings.none(),
     ) -> tuple[list[int], list[np.ndarray], list[Audio]]:
         r"""Encode a user message.
 
@@ -436,19 +438,28 @@ class InstructTokenizerV2(
         Returns:
             The encoded tokens and the list of images.
         """
-        do_encode_tools = False
-        do_encode_tools |= is_first and (self._user_message_position_to_encode_tools == UserMessagePosition.first)
-        do_encode_tools |= is_last and (self._user_message_position_to_encode_tools == UserMessagePosition.last)
-        tools_tokens: list[int] = []
+        do_encode_tools_settings = False
+        do_encode_tools_settings |= is_first and (
+            self._message_position_to_encode_tools_settings == UserMessagePosition.first
+        )
+        do_encode_tools_settings |= is_last and (
+            self._message_position_to_encode_tools_settings == UserMessagePosition.last
+        )
+        tools_settings_tokens: list[int] = []
 
-        if do_encode_tools and available_tools:
-            tools = [tool.model_dump() for tool in available_tools]
+        if do_encode_tools_settings and available_tools:
+            tools = [tool.model_dump(exclude={"function": {"strict": True}}) for tool in available_tools]
             tools_json_tokens = self.tokenizer.encode(json.dumps(tools, ensure_ascii=False), bos=False, eos=False)
-            tools_tokens = [
-                self.BEGIN_AVAILABLE_TOOLS,
-                *tools_json_tokens,
-                self.END_AVAILABLE_TOOLS,
-            ]
+            tools_settings_tokens.extend(
+                [
+                    self.BEGIN_AVAILABLE_TOOLS,
+                    *tools_json_tokens,
+                    self.END_AVAILABLE_TOOLS,
+                ]
+            )
+
+        if do_encode_tools_settings:
+            tools_settings_tokens.extend(self._encode_settings(settings=settings))
 
         tokens, image, audio = self.encode_user_content(
             content=message.content,
@@ -457,7 +468,7 @@ class InstructTokenizerV2(
             force_img_first=force_img_first,
         )
 
-        prefix_tokens = [*tools_tokens, self.BEGIN_INST]
+        prefix_tokens = [*tools_settings_tokens, self.BEGIN_INST]
         suffix_tokens = [self.END_INST]
 
         curr_tokens = prefix_tokens + tokens + suffix_tokens
@@ -529,6 +540,14 @@ class InstructTokenizerV2(
             *self.tokenizer.encode(tool_call_str, bos=False, eos=False),
         ]
         return curr_tokens
+
+    def _encode_settings(
+        self,
+        settings: ModelSettings,
+    ) -> list[int]:
+        r"""Encode model settings as tokens. Returns empty list by default."""
+        assert self.tokenizer.model_settings_builder is None, "`model_settings_builder` not supported for this version."
+        return []
 
     def encode_assistant_message(
         self, message: AssistantMessageType, is_before_last_user_message: bool, continue_message: bool
@@ -905,6 +924,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
         is_first: bool,
         system_prompt: str | None = None,
         force_img_first: bool = False,
+        settings: ModelSettings = ModelSettings.none(),
     ) -> tuple[list[int], list[np.ndarray], list[Audio]]:
         r"""Encode a user message.
 
@@ -928,6 +948,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
             is_first=is_first,
             system_prompt=None,
             force_img_first=force_img_first,
+            settings=settings,
         )
 
         return tokens, images, audio
@@ -969,6 +990,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
             is_last=True,
             is_first=True,
             system_prompt=None,
+            settings=ModelSettings.none(),
         )
 
         tokens = [*prefix, *tokens]
@@ -986,9 +1008,10 @@ class InstructTokenizerV7(InstructTokenizerV3):
         _audio = Audio.from_base64(audio) if isinstance(audio, str) else Audio.from_bytes(audio)
         audio_enc = self.audio_encoder.encode_audio(_audio, transcription_delay_ms)
 
+        audios = [audio_enc.audio] if audio_enc.audio is not None else []
         return Tokenized(
             tokens=audio_enc.tokens,
-            audios=[audio_enc.audio],
+            audios=audios,
         )
 
     def _encode_streaming_transcription(self, request: TranscriptionRequest) -> Tokenized:
@@ -1045,6 +1068,7 @@ class InstructTokenizerV7(InstructTokenizerV3):
 
     @classmethod
     def validate_messages(cls, messages: list[UATS]) -> None:
+        r"""Validates that system prompts and audio chunks are not used together in v7."""
         if cls._has_audio(messages):
             if any(isinstance(message, SystemMessage) for message in messages):
                 raise ValueError("System messages are not yet allowed when audio is present")
@@ -1123,6 +1147,60 @@ class InstructTokenizerV7(InstructTokenizerV3):
 
         return curr_tokens
 
+    def _encode_audio_for_speech_request(self, ref_audio: str | bytes | None, voice: str | None) -> Tokenized:
+        r"""Encode reference audio or voice preset into a Tokenized object.
+
+        Args:
+            ref_audio: Base64-encoded string or raw bytes of reference audio, or None.
+            voice: Preset voice name, or None.
+
+        Returns:
+            Tokenized object with audio tokens and optional audio data.
+        """
+        assert ref_audio is not None or voice is not None, (
+            f"Either ref_audio or voice must be defined to encode audio, got {ref_audio=} and {voice=}"
+        )
+        assert self.audio_encoder is not None, (
+            f"Audio encoder must be defined to encode audio, got {self.audio_encoder=}"
+        )
+        _audio = None
+        if ref_audio is not None:
+            _audio = Audio.from_base64(ref_audio) if isinstance(ref_audio, str) else Audio.from_bytes(ref_audio)
+        audio_enc = self.audio_encoder.encode_audio_for_speech_request(_audio, voice)
+
+        return Tokenized(
+            tokens=audio_enc.tokens,
+            audios=[audio_enc.audio] if audio_enc.audio is not None else [],
+        )
+
+    def encode_speech_request(self, request: SpeechRequest) -> Tokenized:
+        r"""Encode a speech synthesis request into a tokenized sequence.
+
+        Produces: [BOS] + audio_tokens + [TEXT_TO_AUDIO] + text_tokens + [AUDIO_TO_TEXT] + [BEGIN_AUDIO].
+
+        Args:
+            request: The speech request containing input text and voice/audio data.
+
+        Returns:
+            Tokenized object with the full token sequence and optional audio data.
+        """
+        assert self.audio_encoder is not None, (
+            f"Audio encoder must be defined to encode audio, got {self.audio_encoder=}"
+        )
+        init_tokens = self.start()
+        tokenized = Tokenized(tokens=init_tokens)
+        tokenized_audio = self._encode_audio_for_speech_request(request.ref_audio, request.voice)
+        tokenized.tokens.extend(tokenized_audio.tokens)
+        tokenized.audios.extend(tokenized_audio.audios)
+        tokens: list[int] = tokenized.tokens
+        tokens.append(self.audio_encoder.text_to_audio_token)
+        tokens.extend(self.tokenizer.encode(request.input, bos=False, eos=False))
+        tokens.append(self.audio_encoder.audio_to_text_token)
+        tokens.append(self.audio_encoder.begin_audio_token)
+        tokenized.tokens = tokens
+
+        return tokenized
+
 
 class InstructTokenizerV11(InstructTokenizerV7):
     r"""Instruct tokenizer V11.
@@ -1170,7 +1248,7 @@ class InstructTokenizerV13(InstructTokenizerV11):
         - call id is no longer tokenized for tool calls or results.
     """
 
-    _user_message_position_to_encode_tools = UserMessagePosition.first
+    _message_position_to_encode_tools_settings = UserMessagePosition.first
 
     def __init__(
         self,
@@ -1243,3 +1321,57 @@ class InstructTokenizerV13(InstructTokenizerV11):
         if chunk.closed:
             think_tokens.append(self.END_THINK)
         return think_tokens
+
+    @classmethod
+    def validate_messages(cls, messages: list[UATS]) -> None:
+        r"""Allows system prompts and audio chunks to coexist in v13."""
+        return
+
+
+class InstructTokenizerV15(InstructTokenizerV13):
+    r"""Instruct tokenizer V15.
+
+    Extends V13 with model settings encoding. Inherits V13's tool call behavior
+    (no call ID in tool calls/results, first-position tools, think support).
+    """
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        image_encoder: ImageEncoder | None = None,
+        audio_encoder: AudioEncoder | None = None,
+    ) -> None:
+        super().__init__(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder)
+        self.BEGIN_MODEL_SETTINGS = self.tokenizer.get_special_token(SpecialTokens.begin_model_settings.value)
+        self.END_MODEL_SETTINGS = self.tokenizer.get_special_token(SpecialTokens.end_model_settings.value)
+
+    def _validate_settings(self, settings: ModelSettings) -> None:
+        r"""Validate model settings against the tokenizer's model settings builder."""
+        model_settings_builder = self.tokenizer.model_settings_builder
+        if model_settings_builder is None:
+            raise TokenizerException(f"Tokenizer {self.tokenizer.version} needs a `model_settings_builder`.")
+        model_settings_builder.validate_settings(settings)
+
+    def _encode_settings(
+        self,
+        settings: ModelSettings,
+    ) -> list[int]:
+        r"""Encode model settings as special-token-delimited JSON tokens."""
+        self._validate_settings(settings)
+        if settings == ModelSettings.none():
+            return []
+        dumped_settings = json.dumps(settings.model_dump(exclude_none=True), ensure_ascii=False, sort_keys=True)
+        setting_json_tokens = self.tokenizer.encode(dumped_settings, bos=False, eos=False)
+        settings_tokens = [
+            self.BEGIN_MODEL_SETTINGS,
+            *setting_json_tokens,
+            self.END_MODEL_SETTINGS,
+        ]
+        return settings_tokens
+
+    def encode_system_message(self, message: SystemMessage) -> list[int]:
+        r"""Encode a system message, rejecting ThinkChunk content."""
+        if isinstance(message.content, list):
+            if any(isinstance(chunk, ThinkChunk) for chunk in message.content):
+                raise TokenizerException("ThinkChunk in system message is not supported for this model")
+        return super().encode_system_message(message)

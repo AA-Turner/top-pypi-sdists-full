@@ -80,6 +80,12 @@ CAST_FUNCTIONS = {
 }
 
 
+def timestamp_to_spark_string(col: Column) -> Column:
+    formatted = snowpark_fn.to_varchar(col, "YYYY-MM-DD HH24:MI:SS.FF6")
+    trimmed = snowpark_fn.rtrim(formatted, snowpark_fn.lit("0"))
+    return snowpark_fn.rtrim(trimmed, snowpark_fn.lit("."))
+
+
 def map_cast(
     exp: expressions_proto.Expression,
     column_mapping: ColumnNameMap,
@@ -203,11 +209,14 @@ def map_cast(
                 col
                 != timestamp_0L,  # 0L timestamp is mapped to False, other values are mapped to True
             ).otherwise(snowpark_fn.lit(None))
+        case (TimestampType(), StringType()):
+            result_exp = timestamp_to_spark_string(col)
         case (TimestampType(), DateType()):
             result_exp = snowpark_fn.to_date(col)
         case (DateType(), TimestampType()):
             result_exp = snowpark_fn.to_timestamp(col)
-            result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
+            if to_type.tzinfo == TimestampTimeZone.NTZ:
+                result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
         case (TimestampType() as f, TimestampType() as t) if f.tzinfo == t.tzinfo:
             result_exp = col
         case (
@@ -229,18 +238,21 @@ def map_cast(
             result_exp = snowpark_fn.to_timestamp(
                 result_exp, snowpark_fn.lit(6)
             )  # microseconds precision
-            result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
+            if to_type.tzinfo == TimestampTimeZone.NTZ:
+                result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
         case (_, TimestampType()) if isinstance(from_type, BooleanType):
             result_exp = snowpark_fn.to_timestamp(
                 col.cast(LongType()), snowpark_fn.lit(6)
             )  # microseconds precision
-            result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
+            if to_type.tzinfo == TimestampTimeZone.NTZ:
+                result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
         case (_, TimestampType()):
             if spark_sql_ansi_enabled:
                 result_exp = snowpark_fn.to_timestamp(col)
             else:
                 result_exp = snowpark_fn.function("try_to_timestamp")(col)
-            result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
+            if to_type.tzinfo == TimestampTimeZone.NTZ:
+                result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
         case (DateType(), _) if isinstance(to_type, (_NumericType, BooleanType)):
             result_exp = snowpark_fn.cast(snowpark_fn.lit(None), to_type)
         case (_, DateType()):

@@ -2,6 +2,7 @@ use crate::channel::{Channel, PythonHandlerMessage};
 use crate::models::{NetworkAccessChecker, TunnelTimeouts};
 use crate::unlikely; // Branch prediction optimization
 use crate::webrtc_data_channel::WebRTCDataChannel;
+use guacr_handlers::video::VideoOutput;
 use log::{debug, error};
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -54,6 +55,7 @@ pub(crate) async fn setup_channel_for_data_channel(
     python_handler_tx: Option<mpsc::Sender<PythonHandlerMessage>>,
     handler_registry: Option<Arc<guacr_handlers::ProtocolHandlerRegistry>>,
     spawned_task_completion_tx: Arc<tokio::sync::mpsc::UnboundedSender<()>>,
+    video_output: Option<Arc<dyn VideoOutput>>,
 ) -> anyhow::Result<Channel> {
     // Create a channel to receive messages from the data channel
     let (tx, rx) = mpsc::unbounded_channel();
@@ -81,6 +83,7 @@ pub(crate) async fn setup_channel_for_data_channel(
         python_handler_tx,
         handler_registry,
         spawned_task_completion_tx,
+        video_output,
     })
     .await?;
 

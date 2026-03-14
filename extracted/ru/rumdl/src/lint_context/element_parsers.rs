@@ -3,7 +3,7 @@ use crate::utils::code_block_utils::CodeBlockUtils;
 use crate::utils::mkdocs_admonitions;
 use crate::utils::mkdocs_tabs;
 use crate::utils::regex_cache::URL_SIMPLE_REGEX;
-use pulldown_cmark::{Event, Options, Parser};
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -302,54 +302,87 @@ pub(super) fn parse_html_tags(
     static HTML_TAG_REGEX: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new(r"(?i)<(/?)([a-zA-Z][a-zA-Z0-9-]*)(?:\s+[^>]*?)?\s*(/?)>").unwrap());
 
-    let mut html_tags = Vec::with_capacity(content.matches('<').count());
+    let bytes = content.as_bytes();
+    let content_len = bytes.len();
+    let mut html_tags = Vec::new();
+    let mut search_pos = 0;
 
-    for cap in HTML_TAG_REGEX.captures_iter(content) {
-        let full_match = cap.get(0).unwrap();
-        let match_start = full_match.start();
-        let match_end = full_match.end();
+    // Find each '<' and run the regex from that position instead of scanning full content
+    while search_pos < content_len {
+        let Some(lt_offset) = bytes[search_pos..].iter().position(|&b| b == b'<') else {
+            break;
+        };
+        let lt_pos = search_pos + lt_offset;
+        search_pos = lt_pos + 1;
+
+        // Quick check: next char after '<' must be '/' or ASCII alpha for a valid tag
+        if lt_pos + 1 >= content_len {
+            break;
+        }
+        let next = bytes[lt_pos + 1];
+        if next != b'/' && !next.is_ascii_alphabetic() {
+            continue;
+        }
 
         // Skip if in code block
-        if CodeBlockUtils::is_in_code_block_or_span(code_blocks, match_start) {
+        if CodeBlockUtils::is_in_code_block_or_span(code_blocks, lt_pos) {
             continue;
         }
 
-        let is_closing = !cap.get(1).unwrap().as_str().is_empty();
-        let tag_name_original = cap.get(2).unwrap().as_str();
-        let tag_name = tag_name_original.to_lowercase();
-        let is_self_closing = !cap.get(3).unwrap().as_str().is_empty();
+        // Determine search window: from '<' to the next '>' (with a reasonable limit)
+        // This handles multi-line tags where attributes span lines
+        let window_end = bytes[lt_pos..]
+            .iter()
+            .position(|&b| b == b'>')
+            .map_or(content_len.min(lt_pos + 4096), |offset| lt_pos + offset + 1);
+        let window = &content[lt_pos..window_end];
 
-        // Skip JSX components in MDX files (tags starting with uppercase letter)
-        // JSX components like <Chart />, <MyComponent> should not be treated as HTML
-        if flavor.supports_jsx() && tag_name_original.chars().next().is_some_and(|c| c.is_uppercase()) {
-            continue;
-        }
-
-        // Find which line this tag is on
-        let mut line_num = 1;
-        let mut col_start = match_start;
-        let mut col_end = match_end;
-        for (idx, line_info) in lines.iter().enumerate() {
-            if match_start >= line_info.byte_offset {
-                line_num = idx + 1;
-                col_start = match_start - line_info.byte_offset;
-                col_end = match_end - line_info.byte_offset;
-            } else {
-                break;
+        if let Some(cap) = HTML_TAG_REGEX.captures(window) {
+            let full_match = cap.get(0).unwrap();
+            // Only accept matches starting at position 0 (the '<' we found)
+            if full_match.start() != 0 {
+                continue;
             }
-        }
 
-        html_tags.push(HtmlTag {
-            line: line_num,
-            start_col: col_start,
-            end_col: col_end,
-            byte_offset: match_start,
-            byte_end: match_end,
-            tag_name,
-            is_closing,
-            is_self_closing,
-            raw_content: full_match.as_str().to_string(),
-        });
+            let match_start = lt_pos;
+            let match_end = lt_pos + full_match.end();
+
+            let is_closing = !cap.get(1).unwrap().as_str().is_empty();
+            let tag_name_original = cap.get(2).unwrap().as_str();
+            let tag_name = tag_name_original.to_lowercase();
+            let is_self_closing = !cap.get(3).unwrap().as_str().is_empty();
+
+            // Skip JSX components in MDX files (tags starting with uppercase letter)
+            if flavor.supports_jsx() && tag_name_original.chars().next().is_some_and(|c| c.is_uppercase()) {
+                continue;
+            }
+
+            // Find which line this tag is on using binary search
+            let line_idx = lines.partition_point(|info| info.byte_offset <= match_start);
+            let line_idx = line_idx.saturating_sub(1);
+            let line_num = line_idx + 1;
+            let col_start = match_start - lines[line_idx].byte_offset;
+            let col_end = if match_end <= lines[line_idx].byte_offset + lines[line_idx].byte_len {
+                match_end - lines[line_idx].byte_offset
+            } else {
+                lines[line_idx].byte_len
+            };
+
+            html_tags.push(HtmlTag {
+                line: line_num,
+                start_col: col_start,
+                end_col: col_end,
+                byte_offset: match_start,
+                byte_end: match_end,
+                tag_name,
+                is_closing,
+                is_self_closing,
+                raw_content: full_match.as_str().to_string(),
+            });
+
+            // Advance past the match to avoid overlapping
+            search_pos = match_end;
+        }
     }
 
     html_tags
@@ -453,19 +486,13 @@ pub(super) fn parse_bare_urls(content: &str, lines: &[LineInfo], code_blocks: &[
             "other"
         };
 
-        // Find which line this URL is on
-        let mut line_num = 1;
-        let mut col_start = match_start;
-        let mut col_end = match_end;
-        for (idx, line_info) in lines.iter().enumerate() {
-            if match_start >= line_info.byte_offset {
-                line_num = idx + 1;
-                col_start = match_start - line_info.byte_offset;
-                col_end = match_end - line_info.byte_offset;
-            } else {
-                break;
-            }
-        }
+        // Find which line this URL is on using binary search
+        let line_idx = lines
+            .partition_point(|info| info.byte_offset <= match_start)
+            .saturating_sub(1);
+        let line_num = line_idx + 1;
+        let col_start = match_start - lines[line_idx].byte_offset;
+        let col_end = match_end - lines[line_idx].byte_offset;
 
         bare_urls.push(BareUrl {
             line: line_num,
@@ -507,19 +534,13 @@ pub(super) fn parse_bare_urls(content: &str, lines: &[LineInfo], code_blocks: &[
 
         let email = full_match.as_str();
 
-        // Find which line this email is on
-        let mut line_num = 1;
-        let mut col_start = match_start;
-        let mut col_end = match_end;
-        for (idx, line_info) in lines.iter().enumerate() {
-            if match_start >= line_info.byte_offset {
-                line_num = idx + 1;
-                col_start = match_start - line_info.byte_offset;
-                col_end = match_end - line_info.byte_offset;
-            } else {
-                break;
-            }
-        }
+        // Find which line this email is on using binary search
+        let line_idx = lines
+            .partition_point(|info| info.byte_offset <= match_start)
+            .saturating_sub(1);
+        let line_num = line_idx + 1;
+        let col_start = match_start - lines[line_idx].byte_offset;
+        let col_end = match_end - lines[line_idx].byte_offset;
 
         bare_urls.push(BareUrl {
             line: line_num,
@@ -533,4 +554,111 @@ pub(super) fn parse_bare_urls(content: &str, lines: &[LineInfo], code_blocks: &[
     }
 
     bare_urls
+}
+
+/// Detect lazy continuation lines within list items using pulldown-cmark's SoftBreak events.
+///
+/// Lazy continuation occurs when text continues a list item paragraph but with less
+/// indentation than expected. pulldown-cmark identifies this via SoftBreak followed by Text
+/// within a list Item, where the Text starts at a column less than the item's content column.
+pub(super) fn detect_lazy_continuation_lines(
+    content: &str,
+    lines: &[LineInfo],
+    line_offsets: &[usize],
+) -> Vec<LazyContLine> {
+    use crate::utils::blockquote::effective_indent_in_blockquote;
+
+    let mut lazy_lines = Vec::new();
+    let parser = Parser::new_ext(content, Options::all());
+
+    // Stack of (expected_indent_within_context, blockquote_level) for nested items
+    let mut item_stack: Vec<(usize, usize)> = vec![];
+    let mut after_soft_break = false;
+
+    for (event, range) in parser.into_offset_iter() {
+        match event {
+            Event::Start(Tag::Item) => {
+                let line_num = byte_to_line(line_offsets, range.start);
+                let line_info = lines.get(line_num.saturating_sub(1));
+                let line_content = line_info.map(|li| li.content(content)).unwrap_or("");
+
+                // Determine blockquote level from the line content
+                let bq_level = line_content
+                    .chars()
+                    .take_while(|c| *c == '>' || c.is_whitespace())
+                    .filter(|&c| c == '>')
+                    .count();
+
+                // Calculate expected indent relative to blockquote context
+                let expected_indent = if bq_level > 0 {
+                    // For blockquote lists, expected indent is the marker width
+                    line_info
+                        .and_then(|li| li.list_item.as_ref())
+                        .map(|item| item.content_column.saturating_sub(item.marker_column))
+                        .unwrap_or(2)
+                } else {
+                    // For regular lists, use content_column directly
+                    line_info
+                        .and_then(|li| li.list_item.as_ref())
+                        .map(|item| item.content_column)
+                        .unwrap_or(0)
+                };
+
+                item_stack.push((expected_indent, bq_level));
+                after_soft_break = false;
+            }
+            Event::End(TagEnd::Item) => {
+                item_stack.pop();
+                after_soft_break = false;
+            }
+            Event::SoftBreak if !item_stack.is_empty() => {
+                after_soft_break = true;
+            }
+            // Detect content starting after a soft break - text, code, or inline formatting
+            Event::Text(_)
+            | Event::Code(_)
+            | Event::Start(Tag::Emphasis)
+            | Event::Start(Tag::Strong)
+            | Event::Start(Tag::Strikethrough)
+            | Event::Start(Tag::Subscript)
+            | Event::Start(Tag::Superscript)
+            | Event::Start(Tag::Link { .. })
+            | Event::Start(Tag::Image { .. })
+                if after_soft_break =>
+            {
+                if let Some(&(expected_indent, expected_bq_level)) = item_stack.last() {
+                    let line_num = byte_to_line(line_offsets, range.start);
+                    let line_info = lines.get(line_num.saturating_sub(1));
+                    let line_content = line_info.map(|li| li.content(content)).unwrap_or("");
+                    let fallback_indent = line_info.map(|li| li.indent).unwrap_or(0);
+
+                    let actual_indent =
+                        effective_indent_in_blockquote(line_content, expected_bq_level, fallback_indent);
+
+                    if actual_indent < expected_indent {
+                        lazy_lines.push(LazyContLine {
+                            line_num,
+                            expected_indent,
+                            current_indent: actual_indent,
+                            blockquote_level: expected_bq_level,
+                        });
+                    }
+                }
+                after_soft_break = false;
+            }
+            _ => {
+                after_soft_break = false;
+            }
+        }
+    }
+
+    lazy_lines
+}
+
+/// Convert a byte offset to a 1-indexed line number
+fn byte_to_line(line_offsets: &[usize], byte_offset: usize) -> usize {
+    match line_offsets.binary_search(&byte_offset) {
+        Ok(idx) => idx + 1,
+        Err(idx) => idx.max(1),
+    }
 }

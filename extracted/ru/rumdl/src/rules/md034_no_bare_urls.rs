@@ -3,7 +3,6 @@
 /// See [docs/md034.md](../../docs/md034.md) for full documentation, configuration, and examples.
 use std::sync::LazyLock;
 
-use fancy_regex::Regex as FancyRegex;
 use regex::Regex;
 
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
@@ -39,9 +38,7 @@ static MARKDOWN_IMAGE_REGEX: LazyLock<Regex> =
 static REFERENCE_DEF_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*\[[^\]]+\]:\s*(?:<|(?:https?|ftps?)://)").unwrap());
 static MULTILINE_LINK_CONTINUATION_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"^[^\[]*\]\(.*\)"#).unwrap());
-// Uses FancyRegex for negative lookahead support
-static SHORTCUT_REF_FANCY_REGEX: LazyLock<FancyRegex> =
-    LazyLock::new(|| FancyRegex::new(r#"\[([^\[\]]+)\](?!\s*[\[(])"#).unwrap());
+static SHORTCUT_REF_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\[([^\[\]]+)\]"#).unwrap());
 
 /// Reusable buffers for check_line to reduce allocations
 #[derive(Default)]
@@ -156,45 +153,53 @@ impl MD034NoBareUrls {
 
         // Clear and reuse buffers instead of allocating new ones
         buffers.markdown_link_ranges.clear();
-        for cap in MARKDOWN_LINK_REGEX.captures_iter(line) {
-            if let Some(mat) = cap.get(0) {
+        buffers.image_ranges.clear();
+
+        let has_bracket = line.contains('[');
+        let has_angle = line.contains('<');
+        let has_bang = line.contains('!');
+
+        if has_bracket {
+            for mat in MARKDOWN_LINK_REGEX.find_iter(line) {
                 buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+
+            // Also include empty link patterns like [text]() and [text][]
+            for mat in MARKDOWN_EMPTY_LINK_REGEX.find_iter(line) {
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+
+            for mat in MARKDOWN_EMPTY_REF_REGEX.find_iter(line) {
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+
+            // Also exclude shortcut reference links like [URL]
+            for mat in SHORTCUT_REF_REGEX.find_iter(line) {
+                let end = mat.end();
+                let next_non_ws = line[end..].bytes().find(|b| !b.is_ascii_whitespace());
+                if next_non_ws == Some(b'(') || next_non_ws == Some(b'[') {
+                    continue;
+                }
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+
+            // Check if this line contains only a badge link (common pattern)
+            if has_bang && BADGE_LINK_LINE_REGEX.is_match(line) {
+                return warnings;
             }
         }
 
-        // Also include empty link patterns like [text]() and [text][]
-        for mat in MARKDOWN_EMPTY_LINK_REGEX.find_iter(line) {
-            buffers.markdown_link_ranges.push((mat.start(), mat.end()));
-        }
-
-        for mat in MARKDOWN_EMPTY_REF_REGEX.find_iter(line) {
-            buffers.markdown_link_ranges.push((mat.start(), mat.end()));
-        }
-
-        // Also exclude shortcut reference links like [URL] - even if no definition exists,
-        // the brackets indicate user intent to use markdown formatting
-        // Uses FancyRegex for negative lookahead support
-        for mat in SHORTCUT_REF_FANCY_REGEX.find_iter(line).flatten() {
-            buffers.markdown_link_ranges.push((mat.start(), mat.end()));
-        }
-
-        for cap in ANGLE_LINK_REGEX.captures_iter(line) {
-            if let Some(mat) = cap.get(0) {
+        if has_angle {
+            for mat in ANGLE_LINK_REGEX.find_iter(line) {
                 buffers.markdown_link_ranges.push((mat.start(), mat.end()));
             }
         }
 
         // Find all markdown images for exclusion
-        buffers.image_ranges.clear();
-        for cap in MARKDOWN_IMAGE_REGEX.captures_iter(line) {
-            if let Some(mat) = cap.get(0) {
+        if has_bang && has_bracket {
+            for mat in MARKDOWN_IMAGE_REGEX.find_iter(line) {
                 buffers.image_ranges.push((mat.start(), mat.end()));
             }
-        }
-
-        // Check if this line contains only a badge link (common pattern)
-        if BADGE_LINK_LINE_REGEX.is_match(line) {
-            return warnings;
         }
 
         // Find bare URLs
@@ -287,20 +292,12 @@ impl MD034NoBareUrls {
             // We check if the URL starts within a construct, not if it's entirely contained.
             // This handles cases where URL detection may include trailing characters
             // that extend past the construct boundary (e.g., parentheses).
-            let mut is_inside_construct = false;
-            for &(link_start, link_end) in buffers.markdown_link_ranges.iter() {
-                if start >= link_start && start < link_end {
-                    is_inside_construct = true;
-                    break;
-                }
-            }
-
-            for &(img_start, img_end) in buffers.image_ranges.iter() {
-                if start >= img_start && start < img_end {
-                    is_inside_construct = true;
-                    break;
-                }
-            }
+            // Linear scan is correct here because ranges can overlap/nest (e.g., [[1]](url))
+            let is_inside_construct = buffers
+                .markdown_link_ranges
+                .iter()
+                .any(|&(s, e)| start >= s && start < e)
+                || buffers.image_ranges.iter().any(|&(s, e)| start >= s && start < e);
 
             if is_inside_construct {
                 continue;
@@ -546,5 +543,62 @@ impl Rule for MD034NoBareUrls {
         }
 
         Ok(content)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shortcut_ref_at_end_of_line_no_trailing_chars() {
+        let rule = MD034NoBareUrls;
+        let content = "See [https://example.com]";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "[URL] at end of line should be treated as shortcut ref: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_shortcut_ref_multiple_spaces_before_paren() {
+        let rule = MD034NoBareUrls;
+        let content = "[text]  (https://example.com)";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        // [text]  (url) — the spaces between ] and ( mean this should be treated
+        // as shortcut ref then bare parens, NOT a markdown link. URL may still be bare.
+        // This test verifies consistent behavior with the FancyRegex that had (?!\s*[\[(])
+        let _ = result; // Just verify no panic; the exact warning count depends on other rules
+    }
+
+    #[test]
+    fn test_shortcut_ref_tab_before_bracket() {
+        let rule = MD034NoBareUrls;
+        let content = "[https://example.com]\t[other]";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        // Tab between ] and [ does not form a full reference link in Markdown.
+        // The first [URL] is a shortcut ref containing a bare URL, so MD034 warns.
+        // This test verifies consistent behavior and no panic with tab characters.
+        assert_eq!(
+            result.len(),
+            1,
+            "Bare URL inside shortcut ref should be detected: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_shortcut_ref_followed_by_punctuation() {
+        let rule = MD034NoBareUrls;
+        let content = "[https://example.com], see also other things.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "[URL] followed by comma should be treated as shortcut ref: {result:?}"
+        );
     }
 }

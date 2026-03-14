@@ -64,8 +64,14 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "eval",
         # Import manipulation
         "importlib",
+        "_frozen_importlib",
+        "_frozen_importlib_external",
+        "_imp",
         "pkgutil",
         "zipimport",
+        "gc",
+        # Attribute access (getattr equivalent bypasses)
+        "inspect",
         # Operator module bypasses
         "_operator",
         "operator",
@@ -135,6 +141,9 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         # File reading/enumeration
         "fileinput",
         "glob",
+        "platform",
+        "linecache",
+        "difflib",
         # Code compilation (writes .pyc files)
         "compileall",
         "py_compile",

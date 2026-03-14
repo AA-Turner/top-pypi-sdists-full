@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "concurrencytest"
-version = "0.1.10"
-description = "Python testtools extension for running unittest test suites concurrently"
+version = "0.1.11"
+description = "Run unittest test suites concurrently"
 license = "GPL-2.0-or-later"
 license-files = ["LICENSE"]
 authors = [{name = "Corey Goldberg"}]
@@ -47,6 +47,9 @@ lint = [
     "refurb",
     "ruff",
 ]
+type = [
+    "mypy",
+]
 validate = [
     "packaging",
     "tomli",
@@ -55,6 +58,9 @@ validate = [
 
 [tool.setuptools]
 py-modules = ["concurrencytest"]
+
+[tool.mypy]
+ignore_missing_imports = true
 
 [tool.black]
 line-length = 88
@@ -70,10 +76,10 @@ target-version = "py310"
 [tool.ruff.lint]
 fixable = ["ALL"]
 select = [
-    "E", "F", "I", "N", "FURB", "RUF", "TID", "UP", "W"
+    "D", "E", "F", "I", "N", "FURB", "RUF", "TID", "UP", "W"
 ]
 extend-ignore = [
-    "N802",
+    "D101", "D102", "D103", "D107", "D203", "D213", "N802",
 ]
 
 [tool.ruff.format]

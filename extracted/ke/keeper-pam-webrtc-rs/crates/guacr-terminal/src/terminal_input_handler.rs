@@ -10,9 +10,9 @@
 
 use crate::{
     extract_selection_text, format_clear_selection_instructions, format_clipboard_instructions,
-    format_selection_overlay_instructions, handle_mouse_selection, parse_clipboard_blob,
-    parse_mouse_instruction, DirtyTracker, MouseEvent, MouseSelection, SelectionResult,
-    TerminalEmulator,
+    format_selection_overlay_instructions, handle_mouse_selection, handle_mouse_selection_ratatui,
+    parse_clipboard_blob, parse_mouse_instruction, DirtyTracker, MouseEvent, MouseSelection,
+    SelectionResult, TerminalEmulator,
 };
 
 /// Unified terminal input handler
@@ -98,6 +98,30 @@ impl TerminalInputHandler {
             self.cols,
             self.rows,
             false, // shift_pressed - TODO: track modifier state
+        )
+    }
+
+    /// Handle mouse event for selection using a ratatui buffer
+    ///
+    /// Uses the buffer's actual dimensions so this stays correct after resize.
+    pub fn handle_mouse_event_ratatui(
+        &mut self,
+        mouse_event: MouseEvent,
+        buffer: &ratatui::buffer::Buffer,
+        char_width: u32,
+        char_height: u32,
+    ) -> SelectionResult {
+        let cols = buffer.area.width;
+        let rows = buffer.area.height;
+        handle_mouse_selection_ratatui(
+            mouse_event,
+            &mut self.mouse_selection,
+            buffer,
+            char_width,
+            char_height,
+            cols,
+            rows,
+            false,
         )
     }
 

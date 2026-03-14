@@ -1,31 +1,25 @@
 Metadata-Version: 2.4
 Name: sphinx-issues
-Version: 5.0.1
+Version: 6.0.0
 Summary: A Sphinx extension for linking to your project's issue tracker
 Keywords: sphinx,issues,github
-Author-email: Steven Loria <sloria1@gmail.com>
-Requires-Python: >=3.9
+Author-email: Steven Loria <oss@stevenloria.com>
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Framework :: Sphinx :: Extension
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Documentation
 License-File: LICENSE
-Requires-Dist: sphinx
-Requires-Dist: sphinx-issues[tests] ; extra == "dev"
-Requires-Dist: tox ; extra == "dev"
-Requires-Dist: pre-commit>=3.6,<5.0 ; extra == "dev"
-Requires-Dist: pytest ; extra == "tests"
+Requires-Dist: sphinx>=8.1.0
 Project-URL: Issues, https://github.com/sloria/sphinx-issues/issues
 Project-URL: Source, https://github.com/sloria/sphinx-issues
-Provides-Extra: dev
-Provides-Extra: tests
 
 =============
 sphinx-issues
@@ -160,6 +154,13 @@ The ``:cwe:`` and ``:cve:`` are included within `newer versions of Sphinx <https
 If you use these roles and are using Sphinx<8.1, you will need to
 install sphinx-issues<5.
 
+Sphinx version support policy
+*****************************
+
+We support the latest released version of Sphinx that is older than 1 year.
+We unofficially support earlier released versions of Sphinx, but may increase
+the lower-bound in our dependency pin without warning if needed.
+
 Credits
 *******
 
@@ -173,6 +174,29 @@ MIT licensed. See the bundled `LICENSE <https://github.com/sloria/sphinx-issues/
 
 Changelog
 *********
+
+6.0.0 (2026-03-13)
+------------------
+
+- *Backwards-incompatible*: Remove implicit extraction of group/project from
+  GitHub URLs in ``issues_uri``. If you relied on setting _only_
+  ``issues_uri`` (e.g. ``https://github.com/myuser/myproject/issues/{issue}``)
+  without also setting ``issues_github_path`` or ``issues_default_group_project``,
+  you must now explicitly set one of those options in your ``conf.py``:
+
+  Before: 
+  
+  .. code-block:: python
+
+      issues_uri = "https://github.com/myuser/myproject/issues/{issue}"
+
+  After:
+
+  .. code-block:: python
+
+      issues_github_path = "myuser/myproject"
+- Support Python 3.10-3.14. 3.9 is no longer supported, as it is EOL.
+- Pin lower bound of Sphinx to 8.1.0 (see "Sphinx version support policy above").
 
 5.0.1 (2025-04-10)
 ------------------

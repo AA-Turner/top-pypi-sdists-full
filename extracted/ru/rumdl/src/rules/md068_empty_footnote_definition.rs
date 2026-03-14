@@ -19,9 +19,9 @@
 //! [^1]: This is the footnote content.
 //! ```
 
-use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
+use crate::rule::{FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rules::md066_footnote_validation::{FOOTNOTE_DEF_PATTERN, strip_blockquote_prefix};
-use crate::utils::element_cache::ElementCache;
+use crate::utils::calculate_indentation_width_default;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -58,8 +58,7 @@ impl MD068EmptyFootnoteDefinition {
                 // interprets as an indented code block. We check the stripped content
                 // to see if it's a legitimate continuation (4+ columns of indentation).
                 // If in_code_block but doesn't start with indentation, it's a fenced code block.
-                if next_line_info.in_code_block && ElementCache::calculate_indentation_width_default(next_stripped) < 4
-                {
+                if next_line_info.in_code_block && calculate_indentation_width_default(next_stripped) < 4 {
                     // This is a fenced code block, not an indented continuation
                     continue;
                 }
@@ -70,7 +69,7 @@ impl MD068EmptyFootnoteDefinition {
                 }
 
                 // If next non-empty line has 4+ columns of indentation, it's a continuation
-                if ElementCache::calculate_indentation_width_default(next_stripped) >= 4 {
+                if calculate_indentation_width_default(next_stripped) >= 4 {
                     return true;
                 }
 
@@ -95,6 +94,18 @@ impl Rule for MD068EmptyFootnoteDefinition {
 
     fn description(&self) -> &'static str {
         "Footnote definitions should not be empty"
+    }
+
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Other
+    }
+
+    fn fix_capability(&self) -> FixCapability {
+        FixCapability::Unfixable
+    }
+
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        ctx.content.is_empty() || !ctx.content.contains("[^")
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {

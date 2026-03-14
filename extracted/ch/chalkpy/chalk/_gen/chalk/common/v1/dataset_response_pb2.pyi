@@ -1,5 +1,6 @@
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import query_status_pb2 as _query_status_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -15,17 +16,23 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class DatasetSampleFilter(_message.Message):
-    __slots__ = ("lower_bound", "upper_bound", "max_samples")
+    __slots__ = ("lower_bound", "lower_bound_delta", "upper_bound", "upper_bound_delta", "max_samples")
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    LOWER_BOUND_DELTA_FIELD_NUMBER: _ClassVar[int]
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    UPPER_BOUND_DELTA_FIELD_NUMBER: _ClassVar[int]
     MAX_SAMPLES_FIELD_NUMBER: _ClassVar[int]
     lower_bound: _timestamp_pb2.Timestamp
+    lower_bound_delta: _duration_pb2.Duration
     upper_bound: _timestamp_pb2.Timestamp
+    upper_bound_delta: _duration_pb2.Duration
     max_samples: int
     def __init__(
         self,
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        lower_bound_delta: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        upper_bound_delta: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         max_samples: _Optional[int] = ...,
     ) -> None: ...
 

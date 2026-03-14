@@ -1,31 +1,41 @@
 [tool.poetry]
 name = "robocorp-log"
-version = "3.0.1"
+version = "3.1.2"
 description = "Automatic trace logging for Python"
-authors = [
-	"Fabio Z. <fabio@robocorp.com>",
-]
+authors = ["Sema4.ai <dev@sema4.ai>"]
 readme = "README.md"
 repository = "https://github.com/robocorp/robocorp/"
 license = "Apache-2.0"
-packages = [{include = "robocorp/log", from = "src"}]
-include = ["**/_index.py", "**/_index_v2.py", "**/_index_v3.py"]
+packages = [{ include = "robocorp/log", from = "src" }]
+include = [
+    { path = "src/robocorp/log/_index.py", format = [
+        "sdist",
+        "wheel",
+    ] },
+    { path = "src/robocorp/log/_index_v2.py", format = [
+        "sdist",
+        "wheel",
+    ] },
+    { path = "src/robocorp/log/_index_v3.py", format = [
+        "sdist",
+        "wheel",
+    ] },
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Logging",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9.2"
+python = "^3.10"
 tomli = { version = "^2.0.1", python = "<3.11" }
 psutil = ">=5.0,<8.0"
 
 [tool.poetry.group.dev.dependencies]
-robocorp-devutils = {path = "../devutils/", develop = true}
+robocorp-devutils = { path = "../devutils/", develop = true }
 types-psutil = ">=5.9"
 
 [tool.mypy]

@@ -50,6 +50,11 @@ class TraceServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.FromString,
         )
+        self.GetSpanSourceAggregates = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetSpanSourceAggregates",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesResponse.FromString,
+        )
 
 
 class TraceServiceServicer(object):
@@ -97,6 +102,12 @@ class TraceServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSpanSourceAggregates(self, request, context):
+        """GetSpanSourceAggregates returns span counts aggregated by (service, resource_group)"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_TraceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -134,6 +145,11 @@ def add_TraceServiceServicer_to_server(servicer, server):
             servicer.ListSpanAggregated,
             request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.SerializeToString,
+        ),
+        "GetSpanSourceAggregates": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSpanSourceAggregates,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.TraceService", rpc_method_handlers)
@@ -337,6 +353,35 @@ class TraceService(object):
             "/chalk.server.v1.TraceService/ListSpanAggregated",
             chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSpanSourceAggregates(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetSpanSourceAggregates",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanSourceAggregatesResponse.FromString,
             options,
             channel_credentials,
             insecure,

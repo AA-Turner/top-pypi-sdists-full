@@ -7080,9 +7080,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setBackgroundMode(self, value : int) -> None:
-        '''Sets the display mode of the background
-        See :class:`BackgroundMode`
-        :param value: '''
+        ''':deprecated: Use ChartFrame.Area.FillFormat.FillType property instead.'''
         raise NotImplementedError()
 
     def getDefaultHeightRatioToChart(self) -> float:
@@ -7108,7 +7106,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getBackground(self) -> int:
-        ''':deprecated: Use ChartFrame.BackgroundMode property instead.'''
+        ''':deprecated: Use ChartFrame.Area.FillFormat.FillType property instead.'''
         raise NotImplementedError()
 
     def getFont(self) -> Font:
@@ -7188,7 +7186,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setBackground(self, value : int) -> None:
-        ''':deprecated: Use ChartFrame.BackgroundMode property instead.'''
+        ''':deprecated: Use ChartFrame.Area.FillFormat.FillType property instead.'''
         raise NotImplementedError()
 
     def getDefaultYRatioToChart(self) -> float:
@@ -7208,8 +7206,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getBackgroundMode(self) -> int:
-        '''Gets the display mode of the background
-        See :class:`BackgroundMode`'''
+        ''':deprecated: Use ChartFrame.Area.FillFormat.FillType property instead.'''
         raise NotImplementedError()
 
     def getX(self) -> int:
@@ -7466,7 +7463,8 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getOnCategoryAxisPointXPx(self, index : int) -> float:
-        '''Gets x-coordinate of the point on category axis after calls Chart.Calculate() method. Only applies to Area chart.
+        '''Gets x-coordinate of the point on category axis after calls Chart.Calculate() method.
+        Only applies to Area chart.
         :param index: '''
         raise NotImplementedError()
 
@@ -11384,7 +11382,8 @@ class DataLabels:
         raise NotImplementedError()
 
     def isNeverOverlap(self) -> bool:
-        '''Indicates whether the datalabels display never overlap. (For Pie chart)'''
+        '''Indicates whether datalabels never overlap when performing Pie Chart to image.
+        Note: this property is only meaningful when Pie Chart to image.'''
         raise NotImplementedError()
 
     def setShowCellRange(self, value : bool) -> None:
@@ -11406,7 +11405,8 @@ class DataLabels:
         raise NotImplementedError()
 
     def setNeverOverlap(self, value : bool) -> None:
-        '''Indicates whether the datalabels display never overlap. (For Pie chart)
+        '''Indicates whether datalabels never overlap when performing Pie Chart to image.
+        Note: this property is only meaningful when Pie Chart to image.
         :param value: '''
         raise NotImplementedError()
 
@@ -17957,6 +17957,12 @@ class HtmlLoadOptions:
         The default value is false.'''
         raise NotImplementedError()
 
+    def getParagrahLayoutMode(self) -> int:
+        '''Specifies how HTML &lt;p&gt; elements are rendered when loading HTML.
+        The default value is :attr:`HtmlParagraphLayoutMode.NORMAL`.
+        See :class:`HtmlParagraphLayoutMode`'''
+        raise NotImplementedError()
+
     def setAutoFitColsAndRows(self, value : bool) -> None:
         '''Indicates whether auto-fit columns and rows. The default value is false.
         :param value: '''
@@ -17979,6 +17985,13 @@ class HtmlLoadOptions:
         ''':deprecated: Use HtmlLoadOptions.StreamProvider property instead.'''
         raise NotImplementedError()
 
+    def setParagrahLayoutMode(self, value : int) -> None:
+        '''Specifies how HTML &lt;p&gt; elements are rendered when loading HTML.
+        The default value is :attr:`HtmlParagraphLayoutMode.NORMAL`.
+        See :class:`HtmlParagraphLayoutMode`
+        :param value: '''
+        raise NotImplementedError()
+
     def getStreamProvider(self) -> IStreamProvider:
         '''Gets the StreamProviderImportHtmlFile for importing objects.'''
         raise NotImplementedError()
@@ -17997,6 +18010,16 @@ class HtmlOfficeMathOutputType:
 
     MATH_ML : HtmlOfficeMathOutputType
     '''Converts OfficeMath to HTML using MathML.'''
+
+
+class HtmlParagraphLayoutMode:
+    '''Specifies how HTML &lt;p&gt; elements are rendered when loading HTML.'''
+
+    NORMAL : HtmlParagraphLayoutMode
+    '''Treat &lt;p&gt; inside &lt;td&gt; as inline content in a single cell.'''
+
+    AS_ROW : HtmlParagraphLayoutMode
+    '''Starts a new row for each &lt;p&gt; element.'''
 
 
 class HtmlSaveOptions:
@@ -24899,11 +24922,11 @@ class NumbersLoadOptions:
     '''Represents the options of loading Apple Numbers files.'''
 
     def getPreserveTableName(self) -> bool:
-        '''Indicates whether to preserve table names when exporting from Numbers.'''
+        '''Indicates whether to preserve table names when importing from Numbers.'''
         raise NotImplementedError()
 
     def setPreserveTableName(self, value : bool) -> None:
-        '''Indicates whether to preserve table names when exporting from Numbers.
+        '''Indicates whether to preserve table names when importing from Numbers.
         :param value: '''
         raise NotImplementedError()
 
@@ -34741,7 +34764,7 @@ class SaveOptions:
         raise NotImplementedError()
 
     def setRefreshChartCache(self, value : bool) -> None:
-        '''Indicates whether refreshing chart cache data
+        '''Indicates whether to cache the latest data of the chart.
         :param value: '''
         raise NotImplementedError()
 
@@ -34772,7 +34795,7 @@ class SaveOptions:
         raise NotImplementedError()
 
     def getRefreshChartCache(self) -> bool:
-        '''Indicates whether refreshing chart cache data'''
+        '''Indicates whether to cache the latest data of the chart.'''
         raise NotImplementedError()
 
     def setCachedFileFolder(self, value : str) -> None:
@@ -35408,7 +35431,7 @@ class Series:
 
     def getLeaderLines(self) -> Line:
         '''Represents leader lines on a chart. Leader lines connect data labels to data points.
-        This object isn鈥檛 a collection; there鈥檚 no object that represents a single leader line.'''
+        This object isn't a collection; there's no object that represents a single leader line.'''
         raise NotImplementedError()
 
     def setValues(self, value : str) -> None:
@@ -35507,7 +35530,6 @@ class Series:
 
     def setHas3DEffect(self, value : bool) -> None:
         '''True if the series has a three-dimensional appearance.
-        Applies only to bubble charts.
         :param value: '''
         raise NotImplementedError()
 
@@ -35567,8 +35589,7 @@ class Series:
         raise NotImplementedError()
 
     def getHas3DEffect(self) -> bool:
-        '''True if the series has a three-dimensional appearance.
-        Applies only to bubble charts.'''
+        '''True if the series has a three-dimensional appearance.'''
         raise NotImplementedError()
 
     def getShapeProperties(self) -> ShapePropertyCollection:
@@ -41452,6 +41473,12 @@ class TableDataSourceType:
 class TableStyle:
     '''Represents the style of the table.'''
 
+    def create(self, name : str, sheets : WorksheetCollection) -> TableStyle:
+        '''Creates an empty table/pivot table style.
+        :param name: The name of table.
+        :param sheets: The :class:`WorksheetCollection`'''
+        raise NotImplementedError()
+
     def getName(self) -> str:
         '''Gets the name of table style.'''
         raise NotImplementedError()
@@ -41661,10 +41688,16 @@ class TableStyleElementType:
     '''Table style element that applies to PivotTable's third subtotal row.'''
 
     TOTAL_ROW : TableStyleElementType
-    '''Table style element that applies to table's total row.'''
+    '''Table style element that applies to Table's total row.'''
 
     WHOLE_TABLE : TableStyleElementType
     '''Table style element that applies to table's entire content.'''
+
+    GRAND_TOTAL_COLUMN_HEADER : TableStyleElementType
+    '''Table style element that applies to pivot table's header of grand total column.'''
+
+    GRAND_TOTAL_ROW_HEADER : TableStyleElementType
+    '''Table style element that applies to pivot table's header of grand total row.'''
 
 
 class TableStyleType:

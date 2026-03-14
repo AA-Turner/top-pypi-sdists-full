@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-drawio
-Version: 1.13.0
+Version: 1.15.0
 Summary: MkDocs plugin for embedding Drawio files
 License: MIT
 License-File: LICENSE
@@ -31,8 +31,8 @@ Description-Content-Type: text/markdown
 [![Publish Badge](https://github.com/tuunit/mkdocs-drawio/workflows/Publish/badge.svg)](https://github.com/tuunit/mkdocs-drawio/actions)
 [![PyPI](https://img.shields.io/pypi/v/mkdocs-drawio)](https://pypi.org/project/mkdocs-drawio/)
 
-Sergey ([onixpro](https://github.com/onixpro)) is the original creator of this plugin but since his repository isn't maintained anymore we forked it on the 19th December of 2023 and have been keeping it up-to-date and expanding on the features since then. 
-[Buy Sergey a ☕](https://www.buymeacoffee.com/SergeyLukin) 
+Sergey ([onixpro](https://github.com/onixpro)) is the original creator of this plugin but since his repository isn't maintained anymore we forked it on the 19th December of 2023 and have been keeping it up-to-date and expanding on the features since then.
+[Buy Sergey a ☕](https://www.buymeacoffee.com/SergeyLukin)
 
 ## Features
 
@@ -84,6 +84,8 @@ plugins:
 
 ## Configuration Options
 
+Full documentation of the configuration options and examples can be found in the [official documentation](https://tuunit.github.io/mkdocs-drawio/)
+
 By default the plugin uses the official url for the minified drawio javascript library. To use a custom source for the drawio viewer you can overwritte the url. This might be useful in airlocked environments.
 
 > If you want to use a self-hosted JavaScript viewer file. You should download the latest version from the [official drawio repo](https://github.com/jgraph/drawio/blob/dev/src/main/webapp/js/viewer-static.min.js).
@@ -113,6 +115,7 @@ plugins:
         lightbox: true     # Display the lightbox / fullscreen button
         position: "top"    # Control the position of the toolbar (top or bottom)
         no_hide: false     # Do not hide the toolbar when not hovering over diagrams
+        show_title: false  # Show the diagram title in the toolbar based on the file name
 ```
 
 ## Material Integration
@@ -139,7 +142,14 @@ Add `docs/javascripts/drawio-reload.js` to your project:
 
 ```js
 document$.subscribe(({ body }) => {
+  // if drawio toolbar icons/buttons are not showing or missing due to title being longer than the image width
+  // you can set a minimum width for the graph viewer by uncommenting the following line
+  // GraphViewer.prototype.minWidth = 500;
+
   GraphViewer.processElements()
+
+  // required to fix duplicate display of external drawio graphs (via http)
+  reload();
 })
 ```
 

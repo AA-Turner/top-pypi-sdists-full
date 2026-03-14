@@ -104,3 +104,53 @@ class ListKubeEventsResponse(_message.Message):
     EVENTS_FIELD_NUMBER: _ClassVar[int]
     events: _containers.RepeatedCompositeFieldContainer[KubeEvent]
     def __init__(self, events: _Optional[_Iterable[_Union[KubeEvent, _Mapping]]] = ...) -> None: ...
+
+class KubeEventFacet(_message.Message):
+    __slots__ = ("path", "name")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    name: str
+    def __init__(self, path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetKubeEventFacetsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetKubeEventFacetsResponse(_message.Message):
+    __slots__ = ("facets",)
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    facets: _containers.RepeatedCompositeFieldContainer[KubeEventFacet]
+    def __init__(self, facets: _Optional[_Iterable[_Union[KubeEventFacet, _Mapping]]] = ...) -> None: ...
+
+class GetKubeEventFacetValuesRequest(_message.Message):
+    __slots__ = ("path", "start_time", "end_time", "limit")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class KubeEventFacetValue(_message.Message):
+    __slots__ = ("value", "count")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    count: int
+    def __init__(self, value: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+
+class GetKubeEventFacetValuesResponse(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[KubeEventFacetValue]
+    def __init__(self, values: _Optional[_Iterable[_Union[KubeEventFacetValue, _Mapping]]] = ...) -> None: ...

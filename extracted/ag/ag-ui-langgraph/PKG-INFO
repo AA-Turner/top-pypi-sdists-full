@@ -1,22 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ag-ui-langgraph
-Version: 0.0.25
+Version: 0.0.26
 Summary: Implementation of the AG-UI protocol for LangGraph.
-Author: Ran Shem Tov
-Author-email: ran@copilotkit.ai
-Requires-Python: >=3.10,<3.14
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Author-email: Ran Shem Tov <ran@copilotkit.ai>
+Requires-Python: <3.14,>=3.10
+Requires-Dist: ag-ui-protocol>=0.1.10
+Requires-Dist: langchain-core>=0.3.0
+Requires-Dist: langchain>=0.3.0
+Requires-Dist: langgraph<1.1.0,>=0.3.25
+Requires-Dist: pydantic>=2.0.0
 Provides-Extra: fastapi
-Requires-Dist: ag-ui-protocol (>=0.1.10,<0.2.0)
-Requires-Dist: fastapi (>=0.115.12,<0.116.0) ; extra == "fastapi"
-Requires-Dist: langchain (>=0.3.0)
-Requires-Dist: langchain-core (>=0.3.0)
-Requires-Dist: langgraph (>=0.3.25,<1.1.0)
-Requires-Dist: pydantic (>=2.0.0)
+Requires-Dist: fastapi>=0.115.12; extra == 'fastapi'
 Description-Content-Type: text/markdown
 
 # ag-ui-langgraph
@@ -59,4 +53,3 @@ cd python/ag_ui_langgraph/examples
 poetry install
 poetry run dev
 ```
-

@@ -2,12 +2,15 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::csv_import::CsvImporter;
@@ -108,6 +111,7 @@ impl ProtocolHandler for OracleHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Oracle handler starting");
 
@@ -183,6 +187,25 @@ impl ProtocolHandler for OracleHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "Oracle", cols, rows);
 
+        // Initialize threat detection if enabled.
+        // ThreatContext is created first so SessionGuard can borrow from it,
+        // avoiding extra Arc/String clones.
+        let threat_ctx = crate::threat::ThreatContext {
+            hostname: hostname.to_string(),
+            username: username.to_string(),
+            #[cfg(feature = "threat-detection")]
+            detector: Arc::new(
+                ThreatDetector::new(crate::threat::threat_config_from_params(&params)).map_err(
+                    |e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)),
+                )?,
+            ),
+            #[cfg(feature = "threat-detection")]
+            session_id: crate::threat::new_session_id(),
+        };
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard =
+            SessionGuard::new(threat_ctx.detector.clone(), threat_ctx.session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("Oracle: Sent display init instructions");
@@ -218,6 +241,7 @@ impl ProtocolHandler for OracleHandler {
                     // in a way that keeps it on the same thread
                     self.run_real_mode_session(
                         conn,
+                        &threat_ctx,
                         &security,
                         &recording_config,
                         &mut recorder,
@@ -232,15 +256,12 @@ impl ProtocolHandler for OracleHandler {
                     warn!("{}", err_msg);
 
                     executor
-                        .terminal
                         .write_error(&err_msg)
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     executor
-                        .terminal
                         .write_line("")
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     executor
-                        .terminal
                         .write_line("Falling back to simulation mode...")
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -261,6 +282,7 @@ impl ProtocolHandler for OracleHandler {
                         port,
                         &username,
                         &service,
+                        &threat_ctx,
                         &security,
                         &recording_config,
                         &mut recorder,
@@ -279,6 +301,7 @@ impl ProtocolHandler for OracleHandler {
                 port,
                 &username,
                 &service,
+                &threat_ctx,
                 &security,
                 &recording_config,
                 &mut recorder,
@@ -319,6 +342,7 @@ impl OracleHandler {
     async fn run_real_mode_session(
         &self,
         conn: oracle::Connection,
+        threat_ctx: &crate::threat::ThreatContext,
         security: &DatabaseSecuritySettings,
         recording_config: &RecordingConfig,
         recorder: &mut Option<MultiFormatRecorder>,
@@ -333,15 +357,12 @@ impl OracleHandler {
 
         // Send welcome message
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("Connected to Oracle Database")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -359,26 +380,21 @@ impl OracleHandler {
 
             if let Some(ver) = version {
                 executor
-                    .terminal
                     .write_line(&ver)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
         }
 
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("Type 'help' for available commands.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -435,6 +451,25 @@ impl OracleHandler {
                             if let Some(query) = pending_query {
                                 info!("Oracle: Query: {}", query);
 
+                        // Check for threats before execution
+                        if let Some(threat_desc) = threat_ctx.check_query(&query, "oracle").await {
+                            executor
+                                .write_error(&format!(
+                                    "Session terminated by security policy: {}",
+                                    threat_desc
+                                ))
+                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            if let Ok((_, instrs)) = executor.render_screen().await {
+                                for instr in instrs {
+                                    let _ = send_and_record(to_client, recorder, instr).await;
+                                }
+                            }
+                            return Err(HandlerError::Disconnected(format!(
+                                "Threat detected: {}",
+                                threat_desc
+                            )));
+                        }
+
                         // Record query input
                         record_query_input(recorder, recording_config, &query);
 
@@ -477,11 +512,11 @@ impl OracleHandler {
                         // Check read-only mode
                         if let Err(msg) = check_query_allowed(&query, security) {
                             executor
-                                .terminal
+
                                 .write_error(&msg)
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             let (_, result_instructions) = executor
@@ -538,6 +573,7 @@ impl OracleHandler {
         port: u16,
         username: &str,
         service: &str,
+        threat_ctx: &crate::threat::ThreatContext,
         security: &DatabaseSecuritySettings,
         recording_config: &RecordingConfig,
         recorder: &mut Option<MultiFormatRecorder>,
@@ -547,64 +583,50 @@ impl OracleHandler {
     ) -> guacr_handlers::Result<()> {
         // Send initial screen with Oracle information
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("Oracle Database Handler - SIMULATION MODE")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line(&format!(
                 "Target: {}@{}:{}/{}",
                 username, hostname, port, service
             ))
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
         // Note about Oracle client requirements
         executor
-            .terminal
             .write_line("To enable real Oracle connections:")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("  1. Download Oracle Instant Client from oracle.com")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("  2. Accept Oracle's OTN License")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("  3. Set environment variable:")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("     export ORACLE_HOME=/path/to/instantclient")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("Type 'help' for available commands.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_line("")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -662,6 +684,25 @@ impl OracleHandler {
                             if let Some(query) = pending_query {
                                 info!("Oracle: Command: {}", query);
 
+                        // Check for threats before execution
+                        if let Some(threat_desc) = threat_ctx.check_query(&query, "oracle").await {
+                            executor
+                                .write_error(&format!(
+                                    "Session terminated by security policy: {}",
+                                    threat_desc
+                                ))
+                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            if let Ok((_, instrs)) = executor.render_screen().await {
+                                for instr in instrs {
+                                    let _ = send_and_record(to_client, recorder, instr).await;
+                                }
+                            }
+                            return Err(HandlerError::Disconnected(format!(
+                                "Threat detected: {}",
+                                threat_desc
+                            )));
+                        }
+
                         // Record query input
                         record_query_input(recorder, recording_config, &query);
 
@@ -689,11 +730,11 @@ impl OracleHandler {
                         // Check read-only mode
                         if let Err(msg) = check_query_allowed(&query, security) {
                             executor
-                                .terminal
+
                                 .write_error(&msg)
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             executor
-                                .terminal
+
                                 .write_prompt()
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             let (_, result_instructions) = executor
@@ -714,7 +755,7 @@ impl OracleHandler {
                             Ok(output) => {
                                 for line in output.lines() {
                                     executor
-                                        .terminal
+
                                         .write_line(line)
                                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                                 }
@@ -724,14 +765,14 @@ impl OracleHandler {
                                 record_error_output(recorder, &e);
 
                                 executor
-                                    .terminal
+
                                     .write_error(&e)
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
                         }
 
                         executor
-                            .terminal
+
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -896,7 +937,6 @@ async fn execute_real_query(
     // Display results
     if result.is_error {
         executor
-            .terminal
             .write_error(&result.message)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     } else if !result.columns.is_empty() {
@@ -913,7 +953,6 @@ async fn execute_real_query(
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
         executor
-            .terminal
             .write_line(&format!(
                 "\n{} row(s) selected. ({})",
                 result.rows.len(),
@@ -922,13 +961,11 @@ async fn execute_real_query(
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     } else {
         executor
-            .terminal
             .write_success(&result.message)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -958,11 +995,9 @@ async fn handle_csv_export_real(
 
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -979,7 +1014,6 @@ async fn handle_csv_export_real(
     }
 
     executor
-        .terminal
         .write_line("Executing query for export...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1036,7 +1070,6 @@ async fn handle_csv_export_real(
             let mut exporter = CsvExporter::new(stream_idx);
 
             executor
-                .terminal
                 .write_line(&format!("Beginning CSV download ({} rows)...", rows.len()))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1060,13 +1093,11 @@ async fn handle_csv_export_real(
             match exporter.export_query_result(&query_result, to_client).await {
                 Ok(()) => {
                     executor
-                        .terminal
                         .write_success("Download complete.")
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
                 Err(e) => {
                     executor
-                        .terminal
                         .write_error(&format!("Export failed: {}", e))
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
@@ -1074,14 +1105,12 @@ async fn handle_csv_export_real(
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&e)
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1108,11 +1137,9 @@ async fn handle_csv_import_real(
 ) -> guacr_handlers::Result<()> {
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1130,11 +1157,9 @@ async fn handle_csv_import_real(
 
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1152,11 +1177,9 @@ async fn handle_csv_import_real(
 
     if table_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <table_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1173,11 +1196,9 @@ async fn handle_csv_import_real(
     }
 
     executor
-        .terminal
         .write_line(&format!("Import into table: {}", table_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1194,7 +1215,6 @@ async fn handle_csv_import_real(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} columns, {} rows",
             csv_data.headers.len(),
@@ -1258,7 +1278,6 @@ async fn handle_csv_import_real(
     .map_err(|e| HandlerError::ProtocolError(format!("Task join error: {}", e)))?;
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} rows inserted, {} errors",
             success_count, error_count
@@ -1266,7 +1285,6 @@ async fn handle_csv_import_real(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1338,81 +1356,63 @@ async fn handle_builtin_command(
     match query_lower.as_str() {
         "help" | "?" => {
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Oracle SQL*Plus Commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("SQL Commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT ... FROM ...   Execute query")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  DESC table_name       Describe table")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("SQL*Plus Commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SHOW USER             Show current user")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  QUIT/EXIT             Disconnect")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
             if !security.disable_csv_export {
                 executor
-                    .terminal
                     .write_line("  \\e <query>            Export query as CSV")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             if !security.disable_csv_import && !security.base.read_only {
                 executor
-                    .terminal
                     .write_line("  \\i <table>            Import CSV into table")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
 
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Example queries:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT SYSDATE FROM DUAL;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT * FROM ALL_TABLES WHERE ROWNUM <= 10;")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1430,7 +1430,6 @@ async fn handle_builtin_command(
         }
         "quit" | "exit" | "bye" => {
             executor
-                .terminal
                 .write_line("Disconnected from Oracle Database.")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -1464,11 +1463,9 @@ async fn handle_csv_export_simulated(
 
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -1485,7 +1482,6 @@ async fn handle_csv_export_simulated(
     }
 
     executor
-        .terminal
         .write_line("Executing query for export (simulation)...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -1513,7 +1509,6 @@ async fn handle_csv_export_simulated(
     let mut exporter = CsvExporter::new(stream_idx);
 
     executor
-        .terminal
         .write_line(&format!(
             "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
             result.rows.len()
@@ -1540,20 +1535,17 @@ async fn handle_csv_export_simulated(
     match exporter.export_query_result(&result, to_client).await {
         Ok(()) => {
             executor
-                .terminal
                 .write_line("Download complete (simulation data).")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Export failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -1582,12 +1574,16 @@ impl EventBasedHandler for OracleHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

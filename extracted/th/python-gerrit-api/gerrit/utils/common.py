@@ -4,7 +4,7 @@
 import json
 
 
-def strip_trailing_slash(url):
+def strip_trailing_slash(url: str) -> str:
     """
     remove url's trailing slash
     :param url: url
@@ -29,6 +29,8 @@ def decode_response(response):
     content = response.content.strip()
     if response.encoding:
         content = content.decode(response.encoding)
+    else:
+        content = content.decode("utf-8")
     if not content:
         return content
     if content_type.split(";")[0] != "application/json":

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.6.16
+Version: 0.6.19
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -109,21 +109,6 @@ Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == "na
 Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == "nat"
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "nat"
 Requires-Dist: anyio==4.11.0; extra == "nat"
-Provides-Extra: pydanticai
-Requires-Dist: requests<3.0.0,>=2.32.4; extra == "pydanticai"
-Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "pydanticai"
-Requires-Dist: datarobot-predict<2.0.0,>=1.13.2; extra == "pydanticai"
-Requires-Dist: openai<2.0.0,>=1.76.2; extra == "pydanticai"
-Requires-Dist: ragas<0.4.0,>=0.3.8; extra == "pydanticai"
-Requires-Dist: pyjwt<3.0.0,>=2.10.1; extra == "pydanticai"
-Requires-Dist: opentelemetry-instrumentation-requests<1.0.0,>=0.43b0; extra == "pydanticai"
-Requires-Dist: opentelemetry-instrumentation-aiohttp-client<1.0.0,>=0.43b0; extra == "pydanticai"
-Requires-Dist: opentelemetry-instrumentation-httpx<1.0.0,>=0.43b0; extra == "pydanticai"
-Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "pydanticai"
-Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "pydanticai"
-Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.9; extra == "pydanticai"
-Requires-Dist: pyarrow==21.0.0; extra == "pydanticai"
-Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,vertexai]<1.9.0,>=1.0.5; extra == "pydanticai"
 Provides-Extra: auth
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "auth"
 Requires-Dist: aiohttp<4.0.0,>=3.9.0; extra == "auth"

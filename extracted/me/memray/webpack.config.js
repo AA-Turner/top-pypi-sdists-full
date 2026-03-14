@@ -54,15 +54,11 @@ module.exports = {
         },
         {
           from: "node_modules/d3/dist/d3.min.js",
-          to: "vendor/d3.v4.min.js",
+          to: "vendor/d3.min.js",
         },
         {
           from: "node_modules/d3-scale-chromatic/dist/d3-scale-chromatic.min.js",
-          to: "vendor/d3-scale-chromatic.v1.min.js",
-        },
-        {
-          from: "node_modules/d3-tip/dist/index.js",
-          to: "vendor/d3-tip.min.js",
+          to: "vendor/d3-scale-chromatic.min.js",
         },
         {
           from: "node_modules/d3-flame-graph/dist/d3-flamegraph.min.js",

@@ -15,6 +15,7 @@ from redis_om import has_redisearch
 
 from .conftest import py_test_mark_sync
 
+
 if not has_redisearch():
     pytestmark = pytest.mark.skip
 

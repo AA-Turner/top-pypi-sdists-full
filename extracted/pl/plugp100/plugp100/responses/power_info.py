@@ -1,10 +1,10 @@
 import dataclasses
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 @dataclasses.dataclass
 class PowerInfo:
-    current_power: float = property(lambda self: self.info["current_power"])
+    current_power: Optional[float] = property(lambda self: self.info.get("current_power"))
 
     def __init__(self, info: Dict[str, Any]):
         self.info = info

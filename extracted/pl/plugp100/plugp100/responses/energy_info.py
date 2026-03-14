@@ -1,14 +1,14 @@
 import dataclasses
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 @dataclasses.dataclass
 class EnergyInfo:
-    today_runtime: float = property(lambda self: self.info["today_runtime"])
-    month_runtime: float = property(lambda self: self.info["month_runtime"])
-    today_energy: float = property(lambda self: self.info["today_energy"])
-    month_energy: float = property(lambda self: self.info["month_energy"])
-    current_power: float = property(lambda self: self.info["current_power"])
+    today_runtime: Optional[float] = property(lambda self: self.info.get("today_runtime"))
+    month_runtime: Optional[float] = property(lambda self: self.info.get("month_runtime"))
+    today_energy: Optional[float] = property(lambda self: self.info.get("today_energy"))
+    month_energy: Optional[float] = property(lambda self: self.info.get("month_energy"))
+    current_power: Optional[float] = property(lambda self: self.info.get("current_power"))
 
     def __init__(self, info: Dict[str, Any]):
         self.info = info

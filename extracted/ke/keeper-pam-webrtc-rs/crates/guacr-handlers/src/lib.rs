@@ -30,6 +30,7 @@ mod security;
 mod session;
 mod sync_control;
 mod throughput;
+pub mod video;
 
 #[cfg(feature = "vsphere")]
 mod vsphere;
@@ -121,6 +122,7 @@ pub use session::{
 };
 pub use sync_control::SyncFlowControl;
 pub use throughput::ThroughputTracker;
+pub use video::{EncodedFrame, VideoOutput};
 
 // vSphere REST API client exports
 #[cfg(feature = "vsphere")]

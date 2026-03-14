@@ -22,8 +22,21 @@ Usage::
         ListExportErrorsPaginator,
         ListExportsPaginator,
         ListImportErrorsPaginator,
+        ListImportFileEnrichmentsPaginator,
         ListImportsPaginator,
         ListManagedAccountsPaginator,
+        ListNetworkMigrationAnalysesPaginator,
+        ListNetworkMigrationAnalysisResultsPaginator,
+        ListNetworkMigrationCodeGenerationSegmentsPaginator,
+        ListNetworkMigrationCodeGenerationsPaginator,
+        ListNetworkMigrationDefinitionsPaginator,
+        ListNetworkMigrationDeployedStacksPaginator,
+        ListNetworkMigrationDeploymentsPaginator,
+        ListNetworkMigrationExecutionsPaginator,
+        ListNetworkMigrationMapperSegmentConstructsPaginator,
+        ListNetworkMigrationMapperSegmentsPaginator,
+        ListNetworkMigrationMappingUpdatesPaginator,
+        ListNetworkMigrationMappingsPaginator,
         ListSourceServerActionsPaginator,
         ListTemplateActionsPaginator,
         ListWavesPaginator,
@@ -44,8 +57,21 @@ Usage::
     list_export_errors_paginator: ListExportErrorsPaginator = client.get_paginator("list_export_errors")
     list_exports_paginator: ListExportsPaginator = client.get_paginator("list_exports")
     list_import_errors_paginator: ListImportErrorsPaginator = client.get_paginator("list_import_errors")
+    list_import_file_enrichments_paginator: ListImportFileEnrichmentsPaginator = client.get_paginator("list_import_file_enrichments")
     list_imports_paginator: ListImportsPaginator = client.get_paginator("list_imports")
     list_managed_accounts_paginator: ListManagedAccountsPaginator = client.get_paginator("list_managed_accounts")
+    list_network_migration_analyses_paginator: ListNetworkMigrationAnalysesPaginator = client.get_paginator("list_network_migration_analyses")
+    list_network_migration_analysis_results_paginator: ListNetworkMigrationAnalysisResultsPaginator = client.get_paginator("list_network_migration_analysis_results")
+    list_network_migration_code_generation_segments_paginator: ListNetworkMigrationCodeGenerationSegmentsPaginator = client.get_paginator("list_network_migration_code_generation_segments")
+    list_network_migration_code_generations_paginator: ListNetworkMigrationCodeGenerationsPaginator = client.get_paginator("list_network_migration_code_generations")
+    list_network_migration_definitions_paginator: ListNetworkMigrationDefinitionsPaginator = client.get_paginator("list_network_migration_definitions")
+    list_network_migration_deployed_stacks_paginator: ListNetworkMigrationDeployedStacksPaginator = client.get_paginator("list_network_migration_deployed_stacks")
+    list_network_migration_deployments_paginator: ListNetworkMigrationDeploymentsPaginator = client.get_paginator("list_network_migration_deployments")
+    list_network_migration_executions_paginator: ListNetworkMigrationExecutionsPaginator = client.get_paginator("list_network_migration_executions")
+    list_network_migration_mapper_segment_constructs_paginator: ListNetworkMigrationMapperSegmentConstructsPaginator = client.get_paginator("list_network_migration_mapper_segment_constructs")
+    list_network_migration_mapper_segments_paginator: ListNetworkMigrationMapperSegmentsPaginator = client.get_paginator("list_network_migration_mapper_segments")
+    list_network_migration_mapping_updates_paginator: ListNetworkMigrationMappingUpdatesPaginator = client.get_paginator("list_network_migration_mapping_updates")
+    list_network_migration_mappings_paginator: ListNetworkMigrationMappingsPaginator = client.get_paginator("list_network_migration_mappings")
     list_source_server_actions_paginator: ListSourceServerActionsPaginator = client.get_paginator("list_source_server_actions")
     list_template_actions_paginator: ListTemplateActionsPaginator = client.get_paginator("list_template_actions")
     list_waves_paginator: ListWavesPaginator = client.get_paginator("list_waves")
@@ -65,8 +91,21 @@ from .paginator import (
     ListExportErrorsPaginator,
     ListExportsPaginator,
     ListImportErrorsPaginator,
+    ListImportFileEnrichmentsPaginator,
     ListImportsPaginator,
     ListManagedAccountsPaginator,
+    ListNetworkMigrationAnalysesPaginator,
+    ListNetworkMigrationAnalysisResultsPaginator,
+    ListNetworkMigrationCodeGenerationSegmentsPaginator,
+    ListNetworkMigrationCodeGenerationsPaginator,
+    ListNetworkMigrationDefinitionsPaginator,
+    ListNetworkMigrationDeployedStacksPaginator,
+    ListNetworkMigrationDeploymentsPaginator,
+    ListNetworkMigrationExecutionsPaginator,
+    ListNetworkMigrationMapperSegmentConstructsPaginator,
+    ListNetworkMigrationMapperSegmentsPaginator,
+    ListNetworkMigrationMappingsPaginator,
+    ListNetworkMigrationMappingUpdatesPaginator,
     ListSourceServerActionsPaginator,
     ListTemplateActionsPaginator,
     ListWavesPaginator,
@@ -87,8 +126,21 @@ __all__ = (
     "ListExportErrorsPaginator",
     "ListExportsPaginator",
     "ListImportErrorsPaginator",
+    "ListImportFileEnrichmentsPaginator",
     "ListImportsPaginator",
     "ListManagedAccountsPaginator",
+    "ListNetworkMigrationAnalysesPaginator",
+    "ListNetworkMigrationAnalysisResultsPaginator",
+    "ListNetworkMigrationCodeGenerationSegmentsPaginator",
+    "ListNetworkMigrationCodeGenerationsPaginator",
+    "ListNetworkMigrationDefinitionsPaginator",
+    "ListNetworkMigrationDeployedStacksPaginator",
+    "ListNetworkMigrationDeploymentsPaginator",
+    "ListNetworkMigrationExecutionsPaginator",
+    "ListNetworkMigrationMapperSegmentConstructsPaginator",
+    "ListNetworkMigrationMapperSegmentsPaginator",
+    "ListNetworkMigrationMappingUpdatesPaginator",
+    "ListNetworkMigrationMappingsPaginator",
     "ListSourceServerActionsPaginator",
     "ListTemplateActionsPaginator",
     "ListWavesPaginator",

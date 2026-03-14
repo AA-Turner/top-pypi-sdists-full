@@ -20,12 +20,34 @@ class KubeEventsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsResponse.FromString,
         )
+        self.GetKubeEventFacets = channel.unary_unary(
+            "/chalk.server.v1.KubeEventsService/GetKubeEventFacets",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsResponse.FromString,
+        )
+        self.GetKubeEventFacetValues = channel.unary_unary(
+            "/chalk.server.v1.KubeEventsService/GetKubeEventFacetValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesResponse.FromString,
+        )
 
 
 class KubeEventsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ListKubeEvents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubeEventFacets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubeEventFacetValues(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -38,6 +60,16 @@ def add_KubeEventsServiceServicer_to_server(servicer, server):
             servicer.ListKubeEvents,
             request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsResponse.SerializeToString,
+        ),
+        "GetKubeEventFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubeEventFacets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsResponse.SerializeToString,
+        ),
+        "GetKubeEventFacetValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubeEventFacetValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.KubeEventsService", rpc_method_handlers)
@@ -67,6 +99,64 @@ class KubeEventsService(object):
             "/chalk.server.v1.KubeEventsService/ListKubeEvents",
             chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubeEventFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeEventsService/GetKubeEventFacets",
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubeEventFacetValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeEventsService/GetKubeEventFacetValues",
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventFacetValuesResponse.FromString,
             options,
             channel_credentials,
             insecure,

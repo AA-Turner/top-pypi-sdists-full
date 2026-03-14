@@ -93,10 +93,13 @@ from dstack._internal.server.models import (
     ComputeGroupModel,
     DecryptedString,
     EventModel,
+    ExportedFleetModel,
+    ExportModel,
     FileArchiveModel,
     FleetModel,
     GatewayComputeModel,
     GatewayModel,
+    ImportModel,
     InstanceHealthCheckModel,
     InstanceModel,
     JobMetricsPoint,
@@ -167,6 +170,8 @@ async def create_project(
     ssh_private_key: str = "",
     ssh_public_key: str = "",
     is_public: bool = False,
+    templates_repo: Optional[str] = None,
+    deleted: bool = False,
 ) -> ProjectModel:
     if owner is None:
         owner = await create_user(session=session, name="test_owner")
@@ -177,6 +182,8 @@ async def create_project(
         ssh_private_key=ssh_private_key,
         ssh_public_key=ssh_public_key,
         is_public=is_public,
+        templates_repo=templates_repo,
+        deleted=deleted,
     )
     session.add(project)
     await session.commit()
@@ -302,7 +309,8 @@ async def create_run(
     repo: RepoModel,
     user: UserModel,
     fleet: Optional[FleetModel] = None,
-    run_name: str = "test-run",
+    gateway: Optional[GatewayModel] = None,
+    run_name: Optional[str] = None,
     status: RunStatus = RunStatus.SUBMITTED,
     termination_reason: Optional[RunTerminationReason] = None,
     submitted_at: datetime = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc),
@@ -314,6 +322,8 @@ async def create_run(
     resubmission_attempt: int = 0,
     next_triggered_at: Optional[datetime] = None,
 ) -> RunModel:
+    if run_name is None:
+        run_name = "test-run"
     if run_spec is None:
         run_spec = get_run_spec(
             run_name=run_name,
@@ -340,6 +350,7 @@ async def create_run(
         desired_replica_count=1,
         resubmission_attempt=resubmission_attempt,
         next_triggered_at=next_triggered_at,
+        gateway=gateway,
     )
     session.add(run)
     await session.commit()
@@ -456,6 +467,8 @@ def get_job_runtime_data(
     ports: Optional[dict[int, int]] = None,
     offer: Optional[InstanceOfferWithAvailability] = None,
     volume_names: Optional[list[str]] = None,
+    working_dir: Optional[str] = None,
+    username: Optional[str] = None,
 ) -> JobRuntimeData:
     return JobRuntimeData(
         network_mode=NetworkMode(network_mode),
@@ -465,6 +478,8 @@ def get_job_runtime_data(
         ports=ports,
         offer=offer,
         volume_names=volume_names,
+        working_dir=working_dir,
+        username=username,
     )
 
 
@@ -508,6 +523,24 @@ async def create_compute_group(
     session.add(compute_group)
     await session.commit()
     return compute_group
+
+
+async def create_export(
+    session: AsyncSession,
+    exporter_project: ProjectModel,
+    importer_projects: list[ProjectModel],
+    exported_fleets: list[FleetModel],
+    name: str = "test-export",
+) -> ExportModel:
+    export = ExportModel(
+        name=name,
+        project=exporter_project,
+        imports=[ImportModel(project=project) for project in importer_projects],
+        exported_fleets=[ExportedFleetModel(fleet=fleet) for fleet in exported_fleets],
+    )
+    session.add(export)
+    await session.commit()
+    return export
 
 
 async def create_probe(

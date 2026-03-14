@@ -241,7 +241,7 @@ declare interface IJobProbe {
 }
 
 declare interface IJobSpec {
-    app_specs?: IAppSpec;
+    app_specs?: IAppSpec[];
     commands: string[];
     env?: { [key: string]: string };
     home_dir?: string;
@@ -293,9 +293,15 @@ declare interface IJobProvisioningData {
     backend_data?: string;
 }
 
+declare interface IJobRuntimeData {
+    working_dir?: string | null;
+    username?: string | null;
+}
+
 declare interface IJobSubmission {
     id: string;
     job_provisioning_data?: IJobProvisioningData | null;
+    job_runtime_data?: IJobRuntimeData | null;
     error_code?: TJobErrorCode | null;
     submission_num: number;
     status: TJobStatus;

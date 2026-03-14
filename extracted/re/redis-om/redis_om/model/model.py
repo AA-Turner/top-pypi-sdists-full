@@ -22,12 +22,13 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    no_type_check,
 )
 from typing import get_args as typing_get_args
-from typing import no_type_check
 
 from more_itertools import ichunked
 from pydantic import BaseModel
+
 
 try:
     from pydantic import ConfigDict, TypeAdapter, field_validator
@@ -71,6 +72,7 @@ from .render_tree import render_tree
 from .token_escaper import TokenEscaper
 from .types import Coordinates, CoordinateType, GeoFilter
 
+
 model_registry = {}
 _T = TypeVar("_T")
 Model = TypeVar("Model", bound="RedisModel")
@@ -113,8 +115,11 @@ def convert_datetime_to_timestamp(obj):
     elif isinstance(obj, datetime.datetime):
         return obj.timestamp()
     elif isinstance(obj, datetime.date):
-        # Convert date to datetime at midnight and get timestamp
-        dt = datetime.datetime.combine(obj, datetime.time.min)
+        # Date values represent calendar days, so normalize to UTC midnight
+        # to avoid timezone-dependent day shifts on round-trip conversion.
+        dt = datetime.datetime.combine(
+            obj, datetime.time.min, tzinfo=datetime.timezone.utc
+        )
         return dt.timestamp()
     else:
         return obj
@@ -136,7 +141,9 @@ def convert_timestamp_to_datetime(obj, model_fields):
                     # For Optional[T] which is Union[T, None], get the non-None type
                     args = getattr(field_type, "__args__", ())
                     non_none_types = [
-                        arg for arg in args if arg is not type(None)  # noqa: E721
+                        arg
+                        for arg in args
+                        if arg is not type(None)  # noqa: E721
                     ]
                     if len(non_none_types) == 1:
                         field_type = non_none_types[0]
@@ -148,8 +155,13 @@ def convert_timestamp_to_datetime(obj, model_fields):
                     try:
                         if isinstance(value, str):
                             value = float(value)
-                        # Use fromtimestamp to preserve local timezone behavior
-                        dt = datetime.datetime.fromtimestamp(value)
+                        # Return UTC-aware datetime for consistency.
+                        # Timestamps are always UTC-referenced, so we return
+                        # UTC-aware datetimes. Users can convert to their
+                        # preferred timezone with dt.astimezone(tz).
+                        dt = datetime.datetime.fromtimestamp(
+                            value, datetime.timezone.utc
+                        )
                         # If the field is specifically a date, convert to date
                         if field_type is datetime.date:
                             result[key] = dt.date()
@@ -253,7 +265,9 @@ def convert_base64_to_bytes(obj, model_fields):
                     # For Optional[T] which is Union[T, None], get the non-None type
                     args = getattr(field_type, "__args__", ())
                     non_none_types = [
-                        arg for arg in args if arg is not type(None)  # noqa: E721
+                        arg
+                        for arg in args
+                        if arg is not type(None)  # noqa: E721
                     ]
                     if len(non_none_types) == 1:
                         field_type = non_none_types[0]
@@ -634,10 +648,10 @@ def embedded(cls):
 
 def is_supported_container_type(typ: Optional[type]) -> bool:
     # TODO: Wait, why don't we support indexing sets?
-    if typ == list or typ == tuple or typ == Literal:
+    if typ is list or typ is tuple or typ is Literal:
         return True
     unwrapped = get_origin(typ)
-    return unwrapped == list or unwrapped == tuple or unwrapped == Literal
+    return unwrapped is list or unwrapped is tuple or unwrapped is Literal
 
 
 def validate_model_fields(model: Type["RedisModel"], field_values: Dict[str, Any]):
@@ -1054,7 +1068,7 @@ class FindQuery:
                         field_type, RedisModel
                     ):
                         current_model = field_type
-                    elif field_type == dict:
+                    elif field_type is dict:
                         # Dict fields - we can't validate nested paths, just accept them
                         return
                     else:
@@ -1087,7 +1101,7 @@ class FindQuery:
                             field_type, RedisModel
                         ):
                             current_model = field_type
-                        elif field_type == dict:
+                        elif field_type is dict:
                             return  # Can't validate further into dict
                         else:
                             raise QueryNotSupportedError(
@@ -1172,18 +1186,18 @@ class FindQuery:
                     field_type = getattr(field_info, "type_", str)
 
                 # Handle common type conversions directly for efficiency
-                if field_type == int:
+                if field_type is int:
                     converted_data[field_name] = int(raw_value)
-                elif field_type == float:
+                elif field_type is float:
                     converted_data[field_name] = float(raw_value)
-                elif field_type == bool:
+                elif field_type is bool:
                     # Redis may store bool as "True"/"False" or "1"/"0"
                     converted_data[field_name] = raw_value.lower() in (
                         "true",
                         "1",
                         "yes",
                     )
-                elif field_type == str:
+                elif field_type is str:
                     converted_data[field_name] = raw_value
                 else:
                     # For complex types, keep as string (could be enhanced later)
@@ -1229,7 +1243,7 @@ class FindQuery:
             field_type = getattr(field_info, "annotation", None)
 
             # Check for dict fields
-            if field_type == dict:
+            if field_type is dict:
                 return True
 
             # Check for embedded models (subclasses of RedisModel)
@@ -1246,9 +1260,7 @@ class FindQuery:
 
         return False
 
-    def _parse_full_document_projection_as_dict(
-        self, res: Any
-    ) -> List[Dict[str, Any]]:
+    def _parse_full_document_projection_as_dict(self, res: Any) -> List[Dict[str, Any]]:
         """Parse results using efficient JSON.GET with JSONPath for deep field projection."""
         # Check if this is a JsonModel - only JsonModels support JSON.GET
         is_json_model = any(base.__name__ == "JsonModel" for base in self.model.__mro__)
@@ -1259,9 +1271,7 @@ class FindQuery:
             # Fallback for HashModel (shouldn't happen since HashModel doesn't support deep fields)
             return self._parse_fallback_projection_as_dict(res)
 
-    def _parse_json_path_projection_as_dict(
-        self, res: Any
-    ) -> List[Dict[str, Any]]:
+    def _parse_json_path_projection_as_dict(self, res: Any) -> List[Dict[str, Any]]:
         """Use JSON.GET with JSONPath to efficiently extract deep fields."""
         # Extract document keys from search results
         doc_keys = []
@@ -1327,9 +1337,7 @@ class FindQuery:
 
         return projected_results
 
-    def _parse_fallback_projection_as_dict(
-        self, res: Any
-    ) -> List[Dict[str, Any]]:
+    def _parse_fallback_projection_as_dict(self, res: Any) -> List[Dict[str, Any]]:
         """Fallback method using full document parsing (for HashModel or when JSON.GET fails)."""
         # Get full model instances first
         full_models = self.model.from_redis(res, self.knn)
@@ -1366,9 +1374,7 @@ class FindQuery:
 
         return current
 
-    def _parse_full_document_projection_as_models(
-        self, res: Any
-    ) -> List[PartialModel]:
+    def _parse_full_document_projection_as_models(self, res: Any) -> List[PartialModel]:
         """Parse full document results and project only requested fields as partial models."""
         # Get the projected data first
         projected_dicts = self._parse_full_document_projection_as_dict(res)
@@ -1522,8 +1528,7 @@ class FindQuery:
             return "|".join([escaper.escape(str(v)) for v in value])
         except TypeError:
             log.debug(
-                "Escaping single non-iterable value used for an IN or "
-                "NOT_IN query: %s",
+                "Escaping single non-iterable value used for an IN or NOT_IN query: %s",
                 value,
             )
         return escaper.escape(str(value))
@@ -1569,8 +1574,10 @@ class FindQuery:
                     if isinstance(v, datetime.date) and not isinstance(
                         v, datetime.datetime
                     ):
-                        # Convert date to datetime at midnight
-                        v = datetime.datetime.combine(v, datetime.time.min)
+                        # Use UTC midnight so query conversion matches storage conversion.
+                        v = datetime.datetime.combine(
+                            v, datetime.time.min, tzinfo=datetime.timezone.utc
+                        )
                     v = v.timestamp()
                 return v
 
@@ -1895,9 +1902,7 @@ class FindQuery:
             if self.return_as_dict:
                 results = self._parse_full_document_projection_as_dict(raw_result)
             else:
-                results = self._parse_full_document_projection_as_models(
-                    raw_result
-                )
+                results = self._parse_full_document_projection_as_models(raw_result)
         elif self.projected_fields and self.return_as_dict:
             # .values('field1', 'field2') - specific fields as dicts
             results = self._parse_projected_results(raw_result)
@@ -1956,9 +1961,7 @@ class FindQuery:
         return self.execute()
 
     def page(self, offset=0, limit=10):
-        return self.copy(offset=offset, limit=limit).execute(
-            exhaust_results=False
-        )
+        return self.copy(offset=offset, limit=limit).execute(exhaust_results=False)
 
     def sort_by(self, *fields: str):
         if not fields:
@@ -3350,9 +3353,7 @@ class HashModel(RedisModel, abc.ABC):
                 field_info, "separator", SINGLE_VALUE_TAG_FIELD_SEPARATOR
             )
             if getattr(field_info, "full_text_search", False) is True:
-                schema = (
-                    f"{name} TAG SEPARATOR {separator} " f"{name} AS {name}_fts TEXT"
-                )
+                schema = f"{name} TAG SEPARATOR {separator} {name} AS {name}_fts TEXT"
             else:
                 schema = f"{name} TAG SEPARATOR {separator}"
         elif issubclass(typ, RedisModel):

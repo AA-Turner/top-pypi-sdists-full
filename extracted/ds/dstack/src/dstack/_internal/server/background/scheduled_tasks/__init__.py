@@ -14,8 +14,10 @@ from dstack._internal.server.background.scheduled_tasks.gateways import (
 from dstack._internal.server.background.scheduled_tasks.idle_volumes import (
     process_idle_volumes,
 )
+from dstack._internal.server.background.scheduled_tasks.instance_healthchecks import (
+    delete_instance_healthchecks,
+)
 from dstack._internal.server.background.scheduled_tasks.instances import (
-    delete_instance_health_checks,
     process_instances,
 )
 from dstack._internal.server.background.scheduled_tasks.metrics import (
@@ -93,22 +95,22 @@ def start_scheduled_tasks() -> AsyncIOScheduler:
     _scheduler.add_job(collect_metrics, IntervalTrigger(seconds=10), max_instances=1)
     _scheduler.add_job(delete_metrics, IntervalTrigger(minutes=5), max_instances=1)
     _scheduler.add_job(delete_events, IntervalTrigger(minutes=7), max_instances=1)
+    _scheduler.add_job(process_gateways_connections, IntervalTrigger(seconds=15))
+    _scheduler.add_job(
+        process_idle_volumes, IntervalTrigger(seconds=60, jitter=10), max_instances=1
+    )
+    _scheduler.add_job(delete_instance_healthchecks, IntervalTrigger(minutes=5), max_instances=1)
     if settings.ENABLE_PROMETHEUS_METRICS:
         _scheduler.add_job(
             collect_prometheus_metrics, IntervalTrigger(seconds=10), max_instances=1
         )
         _scheduler.add_job(delete_prometheus_metrics, IntervalTrigger(minutes=5), max_instances=1)
-    _scheduler.add_job(process_gateways_connections, IntervalTrigger(seconds=15))
-    _scheduler.add_job(
-        process_idle_volumes, IntervalTrigger(seconds=60, jitter=10), max_instances=1
-    )
-    _scheduler.add_job(
-        process_fleets,
-        IntervalTrigger(seconds=10, jitter=2),
-        max_instances=1,
-    )
-    _scheduler.add_job(delete_instance_health_checks, IntervalTrigger(minutes=5), max_instances=1)
     if not FeatureFlags.PIPELINE_PROCESSING_ENABLED:
+        _scheduler.add_job(
+            process_fleets,
+            IntervalTrigger(seconds=10, jitter=2),
+            max_instances=1,
+        )
         _scheduler.add_job(
             process_gateways, IntervalTrigger(seconds=10, jitter=2), max_instances=5
         )
@@ -127,34 +129,34 @@ def start_scheduled_tasks() -> AsyncIOScheduler:
             max_instances=4 if replica == 0 else 1,
         )
         _scheduler.add_job(
-            process_running_jobs,
-            IntervalTrigger(seconds=4, jitter=2),
-            kwargs={"batch_size": 5},
-            max_instances=2 if replica == 0 else 1,
-        )
-        _scheduler.add_job(
-            process_terminating_jobs,
-            IntervalTrigger(seconds=4, jitter=2),
-            kwargs={"batch_size": 5},
-            max_instances=2 if replica == 0 else 1,
-        )
-        _scheduler.add_job(
             process_runs,
             IntervalTrigger(seconds=2, jitter=1),
             kwargs={"batch_size": 5},
             max_instances=2 if replica == 0 else 1,
         )
-        _scheduler.add_job(
-            process_instances,
-            IntervalTrigger(seconds=4, jitter=2),
-            kwargs={"batch_size": 5},
-            max_instances=2 if replica == 0 else 1,
-        )
         if not FeatureFlags.PIPELINE_PROCESSING_ENABLED:
+            _scheduler.add_job(
+                process_instances,
+                IntervalTrigger(seconds=4, jitter=2),
+                kwargs={"batch_size": 5},
+                max_instances=2 if replica == 0 else 1,
+            )
             _scheduler.add_job(
                 process_compute_groups,
                 IntervalTrigger(seconds=15, jitter=2),
                 kwargs={"batch_size": 1},
+                max_instances=2 if replica == 0 else 1,
+            )
+            _scheduler.add_job(
+                process_running_jobs,
+                IntervalTrigger(seconds=4, jitter=2),
+                kwargs={"batch_size": 5},
+                max_instances=2 if replica == 0 else 1,
+            )
+            _scheduler.add_job(
+                process_terminating_jobs,
+                IntervalTrigger(seconds=4, jitter=2),
+                kwargs={"batch_size": 5},
                 max_instances=2 if replica == 0 else 1,
             )
     _scheduler.start()

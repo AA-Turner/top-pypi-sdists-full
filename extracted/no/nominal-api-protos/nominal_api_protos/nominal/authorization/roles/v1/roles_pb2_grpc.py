@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.authorization.roles.v1 import roles_pb2 as nominal_dot_authorization_dot_roles_dot_v1_dot_roles__pb2
+from nominal_api_protos.nominal.authorization.roles.v1 import roles_pb2 as nominal_dot_authorization_dot_roles_dot_v1_dot_roles__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

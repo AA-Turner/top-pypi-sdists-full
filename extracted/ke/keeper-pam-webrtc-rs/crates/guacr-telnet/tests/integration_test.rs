@@ -68,10 +68,11 @@ mod telnet_handler_tests {
         // Note: Simple telnet doesn't always require auth
 
         // Spawn handler in background
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for ready instruction
         let msg = timeout(CONNECT_TIMEOUT, to_client_rx.recv())
@@ -124,10 +125,11 @@ mod telnet_handler_tests {
         params.insert("port".to_string(), PORT.to_string());
         params.insert("enable-pipe".to_string(), "true".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Look for pipe instruction
         let mut found_pipe = false;
@@ -165,10 +167,11 @@ mod telnet_handler_tests {
         params.insert("hostname".to_string(), HOST.to_string());
         params.insert("port".to_string(), PORT.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for connection
         for _ in 0..10 {

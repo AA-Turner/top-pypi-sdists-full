@@ -323,9 +323,29 @@ impl TerminalRenderer {
         y: u32,
         has_cursor: bool,
     ) -> Result<()> {
-        // Background color
         let bg = self.vt100_color_to_rgb(cell.bgcolor(), false);
+        let fg = self.vt100_color_to_rgb(cell.fgcolor(), true);
+        self.render_glyph_at(img, &cell.contents(), fg, bg, x, y)?;
+        if has_cursor {
+            self.draw_cursor(img, x, y)?;
+        }
+        Ok(())
+    }
 
+    /// Render a character cell to the image buffer.
+    ///
+    /// Shared by render_cell (vt100) and render_ratatui_cell (ratatui).
+    /// Callers extract the symbol and colors from their respective cell types,
+    /// then delegate here for the background fill + glyph rendering.
+    fn render_glyph_at(
+        &self,
+        img: &mut RgbImage,
+        symbol: &str,
+        fg: Rgb<u8>,
+        bg: Rgb<u8>,
+        x: u32,
+        y: u32,
+    ) -> Result<()> {
         // Fill cell background
         for py in y..(y + self.char_height).min(img.height()) {
             for px in x..(x + self.char_width).min(img.width()) {
@@ -333,28 +353,21 @@ impl TerminalRenderer {
             }
         }
 
-        // Render character using fontdue
-        if let Some(c) = cell.contents().chars().next() {
+        if let Some(c) = symbol.chars().next() {
             if c != ' ' && c != '\0' {
-                let fg = self.vt100_color_to_rgb(cell.fgcolor(), true);
-
-                // Check for Unicode box drawing characters (U+2500-U+257F)
-                // Render these manually for consistency and crispness
+                // Box drawing characters (U+2500–U+257F): render manually for crispness
                 if Self::is_box_drawing_char(c) {
                     self.render_box_drawing_char(img, c, x, y, fg)?;
                     return Ok(());
                 }
 
-                // Check for Unicode block drawing characters (U+2580-U+259F)
-                // These are often missing from fonts, so render them manually
+                // Block elements (U+2580–U+259F): often missing from fonts, render as rectangles
                 if let Some(block_region) = Self::get_block_character_region(c) {
-                    // Render block character as a filled rectangle
                     let (x_start, y_start, x_end, y_end) = block_region;
                     let x0 = x + (self.char_width as f32 * x_start) as u32;
                     let y0 = y + (self.char_height as f32 * y_start) as u32;
                     let x1 = x + (self.char_width as f32 * x_end) as u32;
                     let y1 = y + (self.char_height as f32 * y_end) as u32;
-
                     for py in y0..y1.min(img.height()) {
                         for px in x0..x1.min(img.width()) {
                             img.put_pixel(px, py, fg);
@@ -363,17 +376,11 @@ impl TerminalRenderer {
                     return Ok(());
                 }
 
-                // Get the best font for this character (primary or fallback)
-                // This matches guacd's behavior which uses Pango with system font fallback
                 let font = self.get_font_for_char(c);
-
-                // Rasterize glyph at dynamic font size
                 let (metrics, bitmap) = font.rasterize(c, self.font_size);
 
-                // If neither font has this glyph, render a placeholder rectangle
-                // This ensures the user sees SOMETHING instead of invisible characters
+                // Missing glyph: render a small placeholder rectangle
                 if bitmap.is_empty() && metrics.width == 0 {
-                    // Draw a small centered rectangle as a fallback "missing glyph" indicator
                     let margin_x = self.char_width / 4;
                     let margin_y = self.char_height / 4;
                     for py in (y + margin_y)..(y + self.char_height - margin_y).min(img.height()) {
@@ -385,38 +392,21 @@ impl TerminalRenderer {
                     return Ok(());
                 }
 
-                // CRITICAL: Use consistent baseline alignment, not centering
-                // This ensures all characters appear at the same size/position
-                // Baseline is positioned at 75% down the cell height (standard terminal practice)
-                const BASELINE_RATIO: f32 = 0.75; // Baseline at 75% from top
-
-                // Horizontal: center the glyph
+                // Baseline at 75% of cell height (standard terminal practice)
+                const BASELINE_RATIO: f32 = 0.75;
                 let glyph_x =
                     x + ((self.char_width as i32 - metrics.width as i32) / 2).max(0) as u32;
-
-                // Vertical: align to baseline using fontdue's PositiveYDown coordinate system
-                // fontdue metrics: bounds.ymin = bottom edge offset from baseline (negative for descenders)
-                //                  bounds.height = total glyph height
-                // For PositiveYDown: glyph_top = baseline - height - ymin
-                //
-                // Example: 'A' with ymin=0, height=20 at baseline=28.5
-                //   glyph_top = 28.5 - 20 - 0 = 8.5 (correct: top at 8.5, bottom at 28.5)
-                // Example: 'g' with ymin=-6, height=22 at baseline=28.5
-                //   glyph_top = 28.5 - 22 - (-6) = 12.5 (correct: top at 12.5, extends to 34.5)
                 let baseline_y = y as f32 + (self.char_height as f32 * BASELINE_RATIO);
                 let glyph_y =
                     (baseline_y - metrics.bounds.height - metrics.bounds.ymin).max(y as f32) as u32;
 
-                // Draw glyph bitmap (grayscale alpha blending)
                 for (i, &alpha) in bitmap.iter().enumerate() {
                     if alpha > 0 {
                         let dx = (i % metrics.width) as u32;
                         let dy = (i / metrics.width) as u32;
                         let px = glyph_x + dx;
                         let py = glyph_y + dy;
-
                         if px < img.width() && py < img.height() {
-                            // Alpha blend foreground over background
                             let alpha_f = alpha as f32 / 255.0;
                             let current = img.get_pixel(px, py);
                             let blended = Rgb([
@@ -436,12 +426,6 @@ impl TerminalRenderer {
                 }
             }
         }
-
-        // Render cursor if present
-        if has_cursor {
-            self.draw_cursor(img, x, y)?;
-        }
-
         Ok(())
     }
 
@@ -587,9 +571,9 @@ impl TerminalRenderer {
                             let gx = i % metrics.width;
                             let gy = i / metrics.width;
                             let px = glyph_x + gx as u32;
-                            let py = glyph_y
-                                .saturating_sub(metrics.height as u32 - metrics.ymin as u32)
-                                + gy as u32;
+                            let py = glyph_y.saturating_sub(
+                                (metrics.height as i32 - metrics.ymin).max(0) as u32,
+                            ) + gy as u32;
 
                             if px < img.width() && py < img.height() {
                                 let alpha_f = alpha as f32 / 255.0;
@@ -805,6 +789,124 @@ impl TerminalRenderer {
             format_rect(0, x, y, width_px, height_px),
             format_cfill(14, 0, 0, 0, 0, 255), // Black background
         ]
+    }
+
+    /// Render a ratatui buffer to JPEG using fontdue
+    ///
+    /// Mirrors render_screen_with_size_and_quality() but reads from
+    /// a ratatui::buffer::Buffer instead of a vt100::Screen.
+    pub fn render_ratatui_buffer(
+        &self,
+        buffer: &ratatui::buffer::Buffer,
+        quality: u8,
+    ) -> Result<Vec<u8>> {
+        let area = buffer.area;
+        let width_px = area.width as u32 * self.char_width;
+        let height_px = area.height as u32 * self.char_height;
+
+        if width_px == 0 || height_px == 0 {
+            return Err(crate::TerminalError::RenderError(format!(
+                "Invalid render dimensions: {}x{} px ({}x{} chars)",
+                width_px, height_px, area.width, area.height
+            )));
+        }
+
+        let mut img = RgbImage::new(width_px, height_px);
+        for pixel in img.pixels_mut() {
+            *pixel = Rgb([0, 0, 0]);
+        }
+
+        for row in 0..area.height {
+            for col in 0..area.width {
+                let idx = row as usize * area.width as usize + col as usize;
+                let cell = &buffer.content[idx];
+                let x_px = col as u32 * self.char_width;
+                let y_px = row as u32 * self.char_height;
+                self.render_ratatui_cell(&mut img, cell, x_px, y_px)?;
+            }
+        }
+
+        let mut jpeg_data = Vec::new();
+        let mut encoder =
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, quality);
+        encoder.encode_image(&img)?;
+        Ok(jpeg_data)
+    }
+
+    fn render_ratatui_cell(
+        &self,
+        img: &mut RgbImage,
+        cell: &ratatui::buffer::Cell,
+        x: u32,
+        y: u32,
+    ) -> Result<()> {
+        let bg = self.ratatui_color_to_rgb(cell.bg, false);
+        let fg = self.ratatui_color_to_rgb(cell.fg, true);
+        self.render_glyph_at(img, cell.symbol(), fg, bg, x, y)
+    }
+
+    fn ratatui_color_to_rgb(&self, color: ratatui::style::Color, is_foreground: bool) -> Rgb<u8> {
+        use ratatui::style::Color;
+        match color {
+            Color::Reset => {
+                if is_foreground {
+                    Rgb(self.color_scheme.foreground)
+                } else {
+                    Rgb(self.color_scheme.background)
+                }
+            }
+            Color::Black => Rgb([0, 0, 0]),
+            Color::Red => Rgb([205, 0, 0]),
+            Color::Green => Rgb([0, 205, 0]),
+            Color::Yellow => Rgb([205, 205, 0]),
+            Color::Blue => Rgb([0, 0, 238]),
+            Color::Magenta => Rgb([205, 0, 205]),
+            Color::Cyan => Rgb([0, 205, 205]),
+            Color::Gray => Rgb([229, 229, 229]),
+            Color::DarkGray => Rgb([127, 127, 127]),
+            Color::LightRed => Rgb([255, 0, 0]),
+            Color::LightGreen => Rgb([0, 255, 0]),
+            Color::LightYellow => Rgb([255, 255, 0]),
+            Color::LightBlue => Rgb([92, 92, 255]),
+            Color::LightMagenta => Rgb([255, 0, 255]),
+            Color::LightCyan => Rgb([0, 255, 255]),
+            Color::White => Rgb([255, 255, 255]),
+            Color::Rgb(r, g, b) => Rgb([r, g, b]),
+            Color::Indexed(i) => Self::xterm_256_color(i),
+        }
+    }
+
+    fn xterm_256_color(index: u8) -> Rgb<u8> {
+        match index {
+            0 => Rgb([0, 0, 0]),
+            1 => Rgb([205, 0, 0]),
+            2 => Rgb([0, 205, 0]),
+            3 => Rgb([205, 205, 0]),
+            4 => Rgb([0, 0, 238]),
+            5 => Rgb([205, 0, 205]),
+            6 => Rgb([0, 205, 205]),
+            7 => Rgb([229, 229, 229]),
+            8 => Rgb([127, 127, 127]),
+            9 => Rgb([255, 0, 0]),
+            10 => Rgb([0, 255, 0]),
+            11 => Rgb([255, 255, 0]),
+            12 => Rgb([92, 92, 255]),
+            13 => Rgb([255, 0, 255]),
+            14 => Rgb([0, 255, 255]),
+            15 => Rgb([255, 255, 255]),
+            16..=231 => {
+                let i = index - 16;
+                let b = i % 6;
+                let g = (i / 6) % 6;
+                let r = i / 36;
+                let scale = |v: u8| if v == 0 { 0 } else { 55 + v * 40 };
+                Rgb([scale(r), scale(g), scale(b)])
+            }
+            232..=255 => {
+                let v = 8 + (index - 232) * 10;
+                Rgb([v, v, v])
+            }
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 import copy
 import json
 from datetime import datetime, timezone
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID
 
@@ -57,6 +57,7 @@ from dstack._internal.server.services.runs import run_model_to_run
 from dstack._internal.server.services.runs.spec import validate_run_spec_and_set_defaults
 from dstack._internal.server.testing.common import (
     create_backend,
+    create_export,
     create_fleet,
     create_gateway,
     create_gateway_compute,
@@ -70,6 +71,7 @@ from dstack._internal.server.testing.common import (
     get_fleet_spec,
     get_job_provisioning_data,
     get_run_spec,
+    get_ssh_fleet_configuration,
     list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
@@ -1384,6 +1386,99 @@ class TestGetRunPlan:
         assert response.status_code == 200, response.json()
         assert response.json() == run_plan_dict
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_run_plan_with_offer_from_imported_fleet(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+    ) -> None:
+        importer_user = await create_user(session, global_role=GlobalRole.USER)
+        exporter_project = await create_project(session, name="exporter-project")
+        importer_project = await create_project(
+            session, name="importer-project", owner=importer_user
+        )
+        await add_project_member(
+            session=session,
+            project=importer_project,
+            user=importer_user,
+            project_role=ProjectRole.USER,
+        )
+        fleet = await create_fleet(
+            session=session,
+            project=exporter_project,
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_instance(
+            session=session,
+            project=exporter_project,
+            fleet=fleet,
+            instance_num=1,
+            backend=BackendType.REMOTE,
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_project,
+            importer_projects=[importer_project],
+            exported_fleets=[fleet],
+        )
+
+        run_spec = {"configuration": {"type": "dev-environment", "ide": "vscode"}}
+        body = {"run_spec": run_spec}
+        response = await client.post(
+            "/api/project/importer-project/runs/get_plan",
+            headers=get_auth_headers(importer_user.token),
+            json=body,
+        )
+        assert response.status_code == 200, response.json()
+        response_json = response.json()
+        assert response_json["project_name"] == "importer-project"
+        assert response_json["job_plans"][0]["offers"][0]["backend"] == "remote"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_no_offers_if_imported_ssh_fleet_is_empty(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+    ) -> None:
+        importer_user = await create_user(session, global_role=GlobalRole.USER)
+        exporter_project = await create_project(session, name="exporter-project")
+        importer_project = await create_project(
+            session, name="importer-project", owner=importer_user
+        )
+        await add_project_member(
+            session=session,
+            project=importer_project,
+            user=importer_user,
+            project_role=ProjectRole.USER,
+        )
+        fleet = await create_fleet(
+            session=session,
+            project=exporter_project,
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_project,
+            importer_projects=[importer_project],
+            exported_fleets=[fleet],
+        )
+
+        run_spec = {"configuration": {"type": "dev-environment", "ide": "vscode"}}
+        body = {"run_spec": run_spec}
+        response = await client.post(
+            "/api/project/importer-project/runs/get_plan",
+            headers=get_auth_headers(importer_user.token),
+            json=body,
+        )
+        assert response.status_code == 200, response.json()
+        response_json = response.json()
+        assert response_json["project_name"] == "importer-project"
+        assert len(response_json["job_plans"][0]["offers"]) == 0
+
     @pytest.mark.parametrize(
         ("client_version", "expected_availability"),
         [
@@ -2299,14 +2394,7 @@ class TestDeleteRuns:
 
 @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
 class TestSubmitService:
-    @pytest.fixture(autouse=True)
-    def mock_gateway_connection(self) -> Generator[AsyncMock, None, None]:
-        with patch(
-            "dstack._internal.server.services.gateways.gateway_connections_pool.get_or_add"
-        ) as get_conn_mock:
-            get_conn_mock.return_value.client = Mock()
-            get_conn_mock.return_value.client.return_value = AsyncMock()
-            yield get_conn_mock
+    pytestmark = pytest.mark.usefixtures("mock_gateway_connection")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

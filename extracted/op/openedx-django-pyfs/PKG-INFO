@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-django-pyfs
-Version: 3.8.0
+Version: 4.0.0
 Summary: Django pyfilesystem integration
 Home-page: https://github.com/openedx/django-pyfs
 Author: Open edX
@@ -13,7 +13,6 @@ Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: Apache Software License

@@ -1,8 +1,8 @@
 import json
 import logging
 import time
-from collections.abc import Mapping
 from collections import defaultdict
+from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -12,7 +12,6 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from verifiers.types import (
-    ChatCompletionToolParam,
     ClientConfig,
     ErrorInfo,
     GenerateMetadata,
@@ -21,12 +20,16 @@ from verifiers.types import (
     SamplingArgs,
     State,
     TokenUsage,
+    Tool,
 )
 from verifiers.utils.error_utils import ErrorChain
 from verifiers.utils.message_utils import messages_to_printable, sanitize_tool_calls
+from verifiers.utils.metric_utils import compute_pass_at_k
 from verifiers.utils.path_utils import get_results_path
 from verifiers.utils.usage_utils import (
     StateUsageTracker,
+)
+from verifiers.utils.usage_utils import (
     extract_usage_tokens as extract_usage_tokens_from_response,
 )
 from verifiers.utils.version_utils import get_version_info
@@ -63,7 +66,7 @@ def make_serializable(value: object) -> str | int | float | bool | list | dict |
     >>> json.dumps(value, default=make_serializable)
     """
     if isinstance(value, BaseModel):
-        return value.model_dump()
+        return value.model_dump(exclude_none=True)
     elif isinstance(value, (datetime, date)):
         return value.isoformat()
     elif isinstance(value, Path):
@@ -134,7 +137,9 @@ def get_hf_hub_dataset_name(outputs: GenerateOutputs) -> str:
     return dataset_name
 
 
-def state_to_output(state: State, state_columns: list[str] = []) -> RolloutOutput:
+def state_to_output(
+    state: State, state_columns: list[str] | None = None
+) -> RolloutOutput:
     """Convert a State to a serializable RolloutOutput.
 
     Args:
@@ -162,7 +167,7 @@ def state_to_output(state: State, state_columns: list[str] = []) -> RolloutOutpu
         is_truncated=state.get("is_truncated", False),
         stop_condition=state.get("stop_condition", None),
         metrics=state.get("metrics", {}),
-        oai_tools=state.get("oai_tools", None),
+        tool_defs=state.get("tool_defs"),
     )
     usage = _extract_state_token_usage(state)
     if usage is None:
@@ -187,13 +192,16 @@ def state_to_output(state: State, state_columns: list[str] = []) -> RolloutOutpu
             }
     if usage is not None:
         output["token_usage"] = usage
+
     # sanitize messages (handle None for error cases)
     prompt = state.get("prompt")
     if prompt is not None:
-        output["prompt"] = sanitize_tool_calls(messages_to_printable(prompt))
+        output_prompt = sanitize_tool_calls(messages_to_printable(prompt))
+        output["prompt"] = output_prompt
     completion = state.get("completion")
     if completion is not None:
-        output["completion"] = sanitize_tool_calls(messages_to_printable(completion))
+        output_completion = sanitize_tool_calls(messages_to_printable(completion))
+        output["completion"] = output_completion
     # use repr for error
     if state.get("error") is not None:
         error_chain = ErrorChain(state.get("error"))
@@ -210,11 +218,11 @@ def state_to_output(state: State, state_columns: list[str] = []) -> RolloutOutpu
     if "info" in output and not output["info"]:
         output.pop("info")
     # flatten metrics to top-level keys (backwards compatibility)
-    state_metrics = state.get("metrics", {})
+    state_metrics = state.get("metrics") or {}
     for k, v in state_metrics.items():
         output[k] = v
     # add state columns (must be serializable)
-    for col in state_columns:
+    for col in state_columns or []:
         value = state.get(col)
         if not is_json_serializable(value):
             raise ValueError(
@@ -227,7 +235,7 @@ def state_to_output(state: State, state_columns: list[str] = []) -> RolloutOutpu
 
 
 def states_to_outputs(
-    states: list[State], state_columns: list[str] = []
+    states: list[State], state_columns: list[str] | None = None
 ) -> list[RolloutOutput]:
     """Convert a list of States to serializable RolloutOutputs."""
     return [state_to_output(state, state_columns) for state in states]
@@ -247,6 +255,7 @@ class GenerateOutputsBuilder:
         state_columns: list[str] | None,
         sampling_args: SamplingArgs,
         results_path: Path | None,
+        pass_threshold: float = 0.5,
     ):
         self.env_id = env_id
         self.env_args = env_args
@@ -257,13 +266,14 @@ class GenerateOutputsBuilder:
         self.state_columns = state_columns or []
         self.sampling_args = sampling_args
         self.results_path = results_path or get_results_path(env_id, model)
+        self.pass_threshold = pass_threshold
         self.start_time = time.time()
         self.base_url = self._compute_base_url(self.client)
         self.version_info = get_version_info(env_id=env_id)
 
         # Accumulated outputs
         self.outputs: list[RolloutOutput] = []
-        self.tools_list: list[list[ChatCompletionToolParam] | None] = []
+        self.tools_list: list[list[Tool] | None] = []
 
     @staticmethod
     def _format_base_url(url: str) -> str:
@@ -285,7 +295,7 @@ class GenerateOutputsBuilder:
         """Accumulate new outputs."""
         self.outputs.extend(new_outputs)
         for output in new_outputs:
-            self.tools_list.append(output.get("oai_tools"))
+            self.tools_list.append(output.get("tool_defs"))
 
     def build_metadata(self) -> GenerateMetadata:
         """Build metadata from accumulated outputs."""
@@ -308,6 +318,11 @@ class GenerateOutputsBuilder:
         has_errors = [e is not None for e in errors]
         avg_error = sum(has_errors) / len(has_errors) if has_errors else 0.0
 
+        # compute pass@k and pass^k from accumulated outputs
+        pass_at_k, pass_all_k = compute_pass_at_k(
+            self.outputs, self.rollouts_per_example, self.pass_threshold
+        )
+
         input_tokens_total = 0.0
         output_tokens_total = 0.0
         usage_seen = False
@@ -328,10 +343,21 @@ class GenerateOutputsBuilder:
             }
 
         # Determine tools (use first non-None if all same)
-        def tools_key(tools: list | None) -> str:
+        def tool_name(tool: Tool | dict[str, Any]) -> str:
+            if isinstance(tool, dict):
+                function = tool.get("function")
+                if isinstance(function, dict):
+                    name = function.get("name")
+                    if isinstance(name, str):
+                        return name
+                name = tool.get("name")
+                return name if isinstance(name, str) else ""
+            return tool.name
+
+        def tools_key(tools: list[Tool] | None) -> str:
             if not tools:
                 return ""
-            return str(sorted([t.get("function", {}).get("name", "") for t in tools]))
+            return str(sorted(tool_name(t) for t in tools))
 
         unique_tools = set(tools_key(t) for t in self.tools_list)
         tools = (
@@ -353,6 +379,9 @@ class GenerateOutputsBuilder:
             avg_reward=avg_reward,
             avg_metrics=avg_metrics,
             avg_error=avg_error,
+            pass_at_k=pass_at_k,
+            pass_all_k=pass_all_k,
+            pass_threshold=self.pass_threshold,
             usage=usage,
             version_info=self.version_info,
             state_columns=self.state_columns,

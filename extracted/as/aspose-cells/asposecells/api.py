@@ -1476,6 +1476,9 @@ class HtmlLinkTargetType(IntEnum):
 class HtmlOfficeMathOutputType(IntEnum):
     IMAGE = 0,
     MATH_ML = 1,
+class HtmlParagraphLayoutMode(IntEnum):
+    AS_ROW = 1,
+    NORMAL = 0,
 class HtmlVersion(IntEnum):
     DEFAULT = 0,
     HTML_5 = 2,
@@ -3001,7 +3004,9 @@ class TableStyleElementType(IntEnum):
     FIRST_SUBTOTAL_ROW = 19,
     FIRST_TOTAL_CELL = 13,
     GRAND_TOTAL_COLUMN = 28,
+    GRAND_TOTAL_COLUMN_HEADER = 128,
     GRAND_TOTAL_ROW = 29,
+    GRAND_TOTAL_ROW_HEADER = 129,
     HEADER_ROW = 9,
     LAST_COLUMN = 7,
     LAST_HEADER_CELL = 12,
@@ -3521,6 +3526,7 @@ from com.aspose.cells import SpreadsheetConverter
 from com.aspose.cells import SpreadsheetLocker
 from com.aspose.cells import SpreadsheetMerger
 from com.aspose.cells import SpreadsheetSplitter
+from com.aspose.cells import TableStyle
 from com.aspose.cells import TextConverter
 
 

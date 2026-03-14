@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Union
 
 from .literals import (
@@ -26,22 +27,37 @@ from .literals import (
     ApplicationProgressStatusType,
     BootModeType,
     ChangeServerLifeCycleStateSourceServerLifecycleStateType,
+    CodeGenerationOutputFormatStatusType,
+    CodeGenerationOutputFormatTypeType,
     DataReplicationErrorStringType,
     DataReplicationInitiationStepNameType,
     DataReplicationInitiationStepStatusType,
     DataReplicationStateType,
+    ExecutionStageActivityType,
+    ExecutionStageType,
+    ExecutionStatusType,
     ExportStatusType,
     FirstBootType,
     ImportErrorTypeType,
+    ImportFileEnrichmentStatusType,
     ImportStatusType,
     InitiatedByType,
     InternetProtocolType,
+    IpAssignmentStrategyType,
     JobLogEventType,
     JobStatusType,
     JobTypeType,
     LaunchDispositionType,
     LaunchStatusType,
     LifeCycleStateType,
+    NetworkMigrationAnalysisResultStatusType,
+    NetworkMigrationCodeGenerationArtifactSubTypeType,
+    NetworkMigrationCodeGenerationArtifactTypeType,
+    NetworkMigrationCodeGenerationSegmentTypeType,
+    NetworkMigrationDeployedStackStatusType,
+    NetworkMigrationFailedResourceStatusType,
+    NetworkMigrationJobStatusType,
+    NetworkMigrationMapperSegmentTypeType,
     PostLaunchActionExecutionStatusType,
     PostLaunchActionsDeploymentTypeType,
     ReplicationConfigurationDataPlaneRoutingType,
@@ -49,18 +65,22 @@ from .literals import (
     ReplicationConfigurationEbsEncryptionType,
     ReplicationConfigurationReplicatedDiskStagingDiskTypeType,
     ReplicationTypeType,
+    SecurityGroupMappingStrategyType,
+    SourceEnvironmentType,
     SsmDocumentTypeType,
     SsmParameterStoreParameterTypeType,
+    TargetDeploymentType,
     TargetInstanceTypeRightSizingMethodType,
+    TargetNetworkTopologyType,
     VolumeTypeType,
     WaveHealthStatusType,
     WaveProgressStatusType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -74,12 +94,15 @@ __all__ = (
     "CPUTypeDef",
     "ChangeServerLifeCycleStateRequestTypeDef",
     "ChangeServerLifeCycleStateSourceServerLifecycleTypeDef",
+    "ChecksumTypeDef",
+    "CodeGenerationOutputFormatStatusDetailsTypeDef",
     "ConnectorResponseTypeDef",
     "ConnectorSsmCommandConfigTypeDef",
     "ConnectorTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateConnectorRequestTypeDef",
     "CreateLaunchConfigurationTemplateRequestTypeDef",
+    "CreateNetworkMigrationDefinitionRequestTypeDef",
     "CreateReplicationConfigurationTemplateRequestTypeDef",
     "CreateWaveRequestTypeDef",
     "DataReplicationErrorTypeDef",
@@ -91,6 +114,7 @@ __all__ = (
     "DeleteConnectorRequestTypeDef",
     "DeleteJobRequestTypeDef",
     "DeleteLaunchConfigurationTemplateRequestTypeDef",
+    "DeleteNetworkMigrationDefinitionRequestTypeDef",
     "DeleteReplicationConfigurationTemplateRequestTypeDef",
     "DeleteSourceServerRequestTypeDef",
     "DeleteVcenterClientRequestTypeDef",
@@ -120,15 +144,21 @@ __all__ = (
     "DisconnectFromServiceRequestTypeDef",
     "DiskTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EnrichmentSourceS3ConfigurationTypeDef",
+    "EnrichmentTargetS3ConfigurationTypeDef",
     "ExportErrorDataTypeDef",
     "ExportTaskErrorTypeDef",
     "ExportTaskSummaryTypeDef",
     "ExportTaskTypeDef",
     "FinalizeCutoverRequestTypeDef",
     "GetLaunchConfigurationRequestTypeDef",
+    "GetNetworkMigrationDefinitionRequestTypeDef",
+    "GetNetworkMigrationMapperSegmentConstructRequestTypeDef",
+    "GetNetworkMigrationMapperSegmentConstructResponseTypeDef",
     "GetReplicationConfigurationRequestTypeDef",
     "IdentificationHintsTypeDef",
     "ImportErrorDataTypeDef",
+    "ImportFileEnrichmentTypeDef",
     "ImportTaskErrorTypeDef",
     "ImportTaskSummaryApplicationsTypeDef",
     "ImportTaskSummaryServersTypeDef",
@@ -172,6 +202,10 @@ __all__ = (
     "ListImportErrorsRequestPaginateTypeDef",
     "ListImportErrorsRequestTypeDef",
     "ListImportErrorsResponseTypeDef",
+    "ListImportFileEnrichmentsFiltersTypeDef",
+    "ListImportFileEnrichmentsRequestPaginateTypeDef",
+    "ListImportFileEnrichmentsRequestTypeDef",
+    "ListImportFileEnrichmentsResponseTypeDef",
     "ListImportsRequestFiltersTypeDef",
     "ListImportsRequestPaginateTypeDef",
     "ListImportsRequestTypeDef",
@@ -179,6 +213,53 @@ __all__ = (
     "ListManagedAccountsRequestPaginateTypeDef",
     "ListManagedAccountsRequestTypeDef",
     "ListManagedAccountsResponseTypeDef",
+    "ListNetworkMigrationAnalysesFiltersTypeDef",
+    "ListNetworkMigrationAnalysesRequestPaginateTypeDef",
+    "ListNetworkMigrationAnalysesRequestTypeDef",
+    "ListNetworkMigrationAnalysesResponseTypeDef",
+    "ListNetworkMigrationAnalysisResultsFiltersTypeDef",
+    "ListNetworkMigrationAnalysisResultsRequestPaginateTypeDef",
+    "ListNetworkMigrationAnalysisResultsRequestTypeDef",
+    "ListNetworkMigrationAnalysisResultsResponseTypeDef",
+    "ListNetworkMigrationCodeGenerationSegmentsFiltersTypeDef",
+    "ListNetworkMigrationCodeGenerationSegmentsRequestPaginateTypeDef",
+    "ListNetworkMigrationCodeGenerationSegmentsRequestTypeDef",
+    "ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef",
+    "ListNetworkMigrationCodeGenerationsFiltersTypeDef",
+    "ListNetworkMigrationCodeGenerationsRequestPaginateTypeDef",
+    "ListNetworkMigrationCodeGenerationsRequestTypeDef",
+    "ListNetworkMigrationCodeGenerationsResponseTypeDef",
+    "ListNetworkMigrationDefinitionsRequestFiltersTypeDef",
+    "ListNetworkMigrationDefinitionsRequestPaginateTypeDef",
+    "ListNetworkMigrationDefinitionsRequestTypeDef",
+    "ListNetworkMigrationDefinitionsResponseTypeDef",
+    "ListNetworkMigrationDeployedStacksRequestPaginateTypeDef",
+    "ListNetworkMigrationDeployedStacksRequestTypeDef",
+    "ListNetworkMigrationDeployedStacksResponseTypeDef",
+    "ListNetworkMigrationDeployerJobFiltersTypeDef",
+    "ListNetworkMigrationDeployerJobResponseTypeDef",
+    "ListNetworkMigrationDeploymentsRequestPaginateTypeDef",
+    "ListNetworkMigrationDeploymentsRequestTypeDef",
+    "ListNetworkMigrationExecutionRequestFiltersTypeDef",
+    "ListNetworkMigrationExecutionsRequestPaginateTypeDef",
+    "ListNetworkMigrationExecutionsRequestTypeDef",
+    "ListNetworkMigrationExecutionsResponseTypeDef",
+    "ListNetworkMigrationMapperSegmentConstructsFiltersTypeDef",
+    "ListNetworkMigrationMapperSegmentConstructsRequestPaginateTypeDef",
+    "ListNetworkMigrationMapperSegmentConstructsRequestTypeDef",
+    "ListNetworkMigrationMapperSegmentConstructsResponseTypeDef",
+    "ListNetworkMigrationMapperSegmentsFiltersTypeDef",
+    "ListNetworkMigrationMapperSegmentsRequestPaginateTypeDef",
+    "ListNetworkMigrationMapperSegmentsRequestTypeDef",
+    "ListNetworkMigrationMapperSegmentsResponseTypeDef",
+    "ListNetworkMigrationMappingUpdatesFiltersTypeDef",
+    "ListNetworkMigrationMappingUpdatesRequestPaginateTypeDef",
+    "ListNetworkMigrationMappingUpdatesRequestTypeDef",
+    "ListNetworkMigrationMappingUpdatesResponseTypeDef",
+    "ListNetworkMigrationMappingsFiltersTypeDef",
+    "ListNetworkMigrationMappingsRequestPaginateTypeDef",
+    "ListNetworkMigrationMappingsRequestTypeDef",
+    "ListNetworkMigrationMappingsResponseTypeDef",
     "ListSourceServerActionsRequestPaginateTypeDef",
     "ListSourceServerActionsRequestTypeDef",
     "ListSourceServerActionsResponseTypeDef",
@@ -194,7 +275,26 @@ __all__ = (
     "ManagedAccountTypeDef",
     "MarkAsArchivedRequestTypeDef",
     "NetworkInterfaceTypeDef",
+    "NetworkMigrationAnalysisJobDetailsTypeDef",
+    "NetworkMigrationAnalysisResultSourceTypeDef",
+    "NetworkMigrationAnalysisResultTargetTypeDef",
+    "NetworkMigrationAnalysisResultTypeDef",
+    "NetworkMigrationCodeGenerationArtifactTypeDef",
+    "NetworkMigrationCodeGenerationJobDetailsTypeDef",
+    "NetworkMigrationCodeGenerationSegmentTypeDef",
+    "NetworkMigrationDefinitionSummaryTypeDef",
+    "NetworkMigrationDefinitionTypeDef",
+    "NetworkMigrationDeployedStackDetailsTypeDef",
+    "NetworkMigrationDeployerJobDetailsTypeDef",
+    "NetworkMigrationExecutionTypeDef",
+    "NetworkMigrationFailedResourceDetailsTypeDef",
+    "NetworkMigrationMapperSegmentConstructTypeDef",
+    "NetworkMigrationMapperSegmentResponseTypeDef",
+    "NetworkMigrationMapperSegmentTypeDef",
+    "NetworkMigrationMappingJobDetailsTypeDef",
+    "NetworkMigrationMappingUpdateJobDetailsTypeDef",
     "OSTypeDef",
+    "OperationUnionTypeDef",
     "PaginatorConfigTypeDef",
     "ParticipatingServerTypeDef",
     "PauseReplicationRequestTypeDef",
@@ -214,7 +314,10 @@ __all__ = (
     "ResumeReplicationRequestTypeDef",
     "RetryDataReplicationRequestTypeDef",
     "S3BucketSourceTypeDef",
+    "S3ConfigurationTypeDef",
+    "SourceConfigurationTypeDef",
     "SourcePropertiesTypeDef",
+    "SourceS3ConfigurationTypeDef",
     "SourceServerActionDocumentResponseTypeDef",
     "SourceServerActionDocumentTypeDef",
     "SourceServerActionsRequestFiltersTypeDef",
@@ -229,13 +332,31 @@ __all__ = (
     "StartCutoverResponseTypeDef",
     "StartExportRequestTypeDef",
     "StartExportResponseTypeDef",
+    "StartImportFileEnrichmentRequestTypeDef",
+    "StartImportFileEnrichmentResponseTypeDef",
     "StartImportRequestTypeDef",
     "StartImportResponseTypeDef",
+    "StartNetworkMigrationAnalysisRequestTypeDef",
+    "StartNetworkMigrationAnalysisResponseTypeDef",
+    "StartNetworkMigrationCodeGenerationRequestTypeDef",
+    "StartNetworkMigrationCodeGenerationResponseTypeDef",
+    "StartNetworkMigrationDeployerJobResponseTypeDef",
+    "StartNetworkMigrationDeploymentRequestTypeDef",
+    "StartNetworkMigrationMappingRequestTypeDef",
+    "StartNetworkMigrationMappingResponseTypeDef",
+    "StartNetworkMigrationMappingUpdateConstructTypeDef",
+    "StartNetworkMigrationMappingUpdateRequestTypeDef",
+    "StartNetworkMigrationMappingUpdateResponseTypeDef",
+    "StartNetworkMigrationMappingUpdateSegmentTypeDef",
     "StartReplicationRequestTypeDef",
     "StartTestRequestTypeDef",
     "StartTestResponseTypeDef",
     "StopReplicationRequestTypeDef",
     "TagResourceRequestTypeDef",
+    "TargetNetworkTypeDef",
+    "TargetNetworkUpdateTypeDef",
+    "TargetS3ConfigurationTypeDef",
+    "TargetS3ConfigurationUpdateTypeDef",
     "TemplateActionDocumentResponseTypeDef",
     "TemplateActionDocumentTypeDef",
     "TemplateActionsRequestFiltersTypeDef",
@@ -248,6 +369,9 @@ __all__ = (
     "UpdateConnectorRequestTypeDef",
     "UpdateLaunchConfigurationRequestTypeDef",
     "UpdateLaunchConfigurationTemplateRequestTypeDef",
+    "UpdateNetworkMigrationDefinitionRequestTypeDef",
+    "UpdateNetworkMigrationMapperSegmentRequestTypeDef",
+    "UpdateOperationTypeDef",
     "UpdateReplicationConfigurationRequestTypeDef",
     "UpdateReplicationConfigurationTemplateRequestTypeDef",
     "UpdateSourceServerReplicationTypeRequestTypeDef",
@@ -306,6 +430,20 @@ class ChangeServerLifeCycleStateSourceServerLifecycleTypeDef(TypedDict):
     state: ChangeServerLifeCycleStateSourceServerLifecycleStateType
 
 
+ChecksumTypeDef = TypedDict(
+    "ChecksumTypeDef",
+    {
+        "encryptionAlgorithm": NotRequired[Literal["SHA256"]],
+        "hash": NotRequired[str],
+    },
+)
+
+
+class CodeGenerationOutputFormatStatusDetailsTypeDef(TypedDict):
+    status: NotRequired[CodeGenerationOutputFormatStatusType]
+    statusDetailList: NotRequired[str]
+
+
 class ConnectorSsmCommandConfigTypeDef(TypedDict):
     s3OutputEnabled: bool
     cloudWatchOutputEnabled: bool
@@ -328,6 +466,18 @@ class LaunchTemplateDiskConfTypeDef(TypedDict):
 
 class LicensingTypeDef(TypedDict):
     osByol: NotRequired[bool]
+
+
+class TargetNetworkTypeDef(TypedDict):
+    topology: TargetNetworkTopologyType
+    inboundCidr: NotRequired[str]
+    outboundCidr: NotRequired[str]
+    inspectionCidr: NotRequired[str]
+
+
+class TargetS3ConfigurationTypeDef(TypedDict):
+    s3Bucket: str
+    s3BucketOwner: str
 
 
 class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -390,6 +540,10 @@ class DeleteJobRequestTypeDef(TypedDict):
 
 class DeleteLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     launchConfigurationTemplateID: str
+
+
+class DeleteNetworkMigrationDefinitionRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
 
 
 class DeleteReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -514,6 +668,18 @@ DiskTypeDef = TypedDict(
 )
 
 
+class EnrichmentSourceS3ConfigurationTypeDef(TypedDict):
+    s3Bucket: str
+    s3BucketOwner: str
+    s3Key: str
+
+
+class EnrichmentTargetS3ConfigurationTypeDef(TypedDict):
+    s3Bucket: str
+    s3BucketOwner: str
+    s3Key: str
+
+
 class ExportErrorDataTypeDef(TypedDict):
     rawError: NotRequired[str]
 
@@ -532,6 +698,28 @@ class FinalizeCutoverRequestTypeDef(TypedDict):
 class GetLaunchConfigurationRequestTypeDef(TypedDict):
     sourceServerID: str
     accountID: NotRequired[str]
+
+
+class GetNetworkMigrationDefinitionRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+
+
+class GetNetworkMigrationMapperSegmentConstructRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+    networkMigrationExecutionID: str
+    segmentID: str
+    constructID: str
+
+
+class NetworkMigrationMapperSegmentConstructTypeDef(TypedDict):
+    constructID: NotRequired[str]
+    constructType: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    logicalID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    properties: NotRequired[dict[str, str]]
 
 
 class GetReplicationConfigurationRequestTypeDef(TypedDict):
@@ -645,6 +833,10 @@ class ListImportErrorsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListImportFileEnrichmentsFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
 class ListImportsRequestFiltersTypeDef(TypedDict):
     importIDs: NotRequired[Sequence[str]]
 
@@ -656,6 +848,119 @@ class ListManagedAccountsRequestTypeDef(TypedDict):
 
 class ManagedAccountTypeDef(TypedDict):
     accountId: NotRequired[str]
+
+
+class ListNetworkMigrationAnalysesFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
+class NetworkMigrationAnalysisJobDetailsTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[NetworkMigrationJobStatusType]
+    statusDetails: NotRequired[str]
+
+
+class ListNetworkMigrationAnalysisResultsFiltersTypeDef(TypedDict):
+    vpcIDs: NotRequired[Sequence[str]]
+
+
+class ListNetworkMigrationCodeGenerationSegmentsFiltersTypeDef(TypedDict):
+    segmentIDs: NotRequired[Sequence[str]]
+
+
+class ListNetworkMigrationCodeGenerationsFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
+class ListNetworkMigrationDefinitionsRequestFiltersTypeDef(TypedDict):
+    networkMigrationDefinitionIDs: NotRequired[Sequence[str]]
+
+
+class NetworkMigrationDefinitionSummaryTypeDef(TypedDict):
+    networkMigrationDefinitionID: NotRequired[str]
+    name: NotRequired[str]
+    sourceEnvironment: NotRequired[SourceEnvironmentType]
+    arn: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    scopeTags: NotRequired[dict[str, str]]
+
+
+class ListNetworkMigrationDeployedStacksRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationDeployerJobFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
+class NetworkMigrationDeployerJobDetailsTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[NetworkMigrationJobStatusType]
+    statusDetails: NotRequired[str]
+
+
+class ListNetworkMigrationExecutionRequestFiltersTypeDef(TypedDict):
+    networkMigrationExecutionIDs: NotRequired[Sequence[str]]
+    networkMigrationExecutionStatuses: NotRequired[Sequence[ExecutionStatusType]]
+
+
+class NetworkMigrationExecutionTypeDef(TypedDict):
+    networkMigrationDefinitionID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    status: NotRequired[ExecutionStatusType]
+    stage: NotRequired[ExecutionStageType]
+    activity: NotRequired[ExecutionStageActivityType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    tags: NotRequired[dict[str, str]]
+
+
+class ListNetworkMigrationMapperSegmentConstructsFiltersTypeDef(TypedDict):
+    constructIDs: NotRequired[Sequence[str]]
+    constructTypes: NotRequired[Sequence[str]]
+
+
+class ListNetworkMigrationMapperSegmentsFiltersTypeDef(TypedDict):
+    segmentIDs: NotRequired[Sequence[str]]
+
+
+class ListNetworkMigrationMappingUpdatesFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
+class NetworkMigrationMappingUpdateJobDetailsTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[NetworkMigrationJobStatusType]
+    statusDetails: NotRequired[str]
+
+
+class ListNetworkMigrationMappingsFiltersTypeDef(TypedDict):
+    jobIDs: NotRequired[Sequence[str]]
+
+
+class NetworkMigrationMappingJobDetailsTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[NetworkMigrationJobStatusType]
+    statusDetails: NotRequired[str]
 
 
 class SourceServerActionsRequestFiltersTypeDef(TypedDict):
@@ -686,8 +991,34 @@ class NetworkInterfaceTypeDef(TypedDict):
     isPrimary: NotRequired[bool]
 
 
+class NetworkMigrationAnalysisResultSourceTypeDef(TypedDict):
+    vpcID: NotRequired[str]
+    subnetID: NotRequired[str]
+
+
+class NetworkMigrationAnalysisResultTargetTypeDef(TypedDict):
+    vpcID: NotRequired[str]
+    subnetID: NotRequired[str]
+
+
+class S3ConfigurationTypeDef(TypedDict):
+    s3Bucket: NotRequired[str]
+    s3BucketOwner: NotRequired[str]
+    s3Key: NotRequired[str]
+
+
+class NetworkMigrationFailedResourceDetailsTypeDef(TypedDict):
+    logicalID: NotRequired[str]
+    status: NotRequired[NetworkMigrationFailedResourceStatusType]
+    statusReason: NotRequired[str]
+
+
 class OSTypeDef(TypedDict):
     fullString: NotRequired[str]
+
+
+class UpdateOperationTypeDef(TypedDict):
+    properties: NotRequired[Mapping[str, str]]
 
 
 class PauseReplicationRequestTypeDef(TypedDict):
@@ -733,6 +1064,12 @@ class RetryDataReplicationRequestTypeDef(TypedDict):
     accountID: NotRequired[str]
 
 
+class SourceS3ConfigurationTypeDef(TypedDict):
+    s3Bucket: str
+    s3BucketOwner: str
+    s3Key: str
+
+
 class SourceServerConnectorActionTypeDef(TypedDict):
     credentialsSecretArn: NotRequired[str]
     connectorArn: NotRequired[str]
@@ -749,6 +1086,34 @@ class StartExportRequestTypeDef(TypedDict):
     s3Key: str
     s3BucketOwner: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+
+class StartNetworkMigrationAnalysisRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+
+
+class StartNetworkMigrationCodeGenerationRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    codeGenerationOutputFormatTypes: NotRequired[Sequence[CodeGenerationOutputFormatTypeType]]
+
+
+class StartNetworkMigrationDeploymentRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+
+
+class StartNetworkMigrationMappingRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    securityGroupMappingStrategy: NotRequired[SecurityGroupMappingStrategyType]
+
+
+class StartNetworkMigrationMappingUpdateSegmentTypeDef(TypedDict):
+    segmentID: str
+    targetAccount: NotRequired[str]
+    scopeTags: NotRequired[Mapping[str, str]]
 
 
 class StartReplicationRequestTypeDef(TypedDict):
@@ -770,6 +1135,18 @@ class StopReplicationRequestTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+
+class TargetNetworkUpdateTypeDef(TypedDict):
+    topology: NotRequired[TargetNetworkTopologyType]
+    inboundCidr: NotRequired[str]
+    outboundCidr: NotRequired[str]
+    inspectionCidr: NotRequired[str]
+
+
+class TargetS3ConfigurationUpdateTypeDef(TypedDict):
+    s3Bucket: NotRequired[str]
+    s3BucketOwner: NotRequired[str]
 
 
 class TerminateTargetInstancesRequestTypeDef(TypedDict):
@@ -798,6 +1175,13 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     accountID: NotRequired[str]
+
+
+class UpdateNetworkMigrationMapperSegmentRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+    networkMigrationExecutionID: str
+    segmentID: str
+    scopeTags: NotRequired[Mapping[str, str]]
 
 
 class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -901,10 +1285,53 @@ class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartImportFileEnrichmentResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartNetworkMigrationAnalysisResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartNetworkMigrationCodeGenerationResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartNetworkMigrationDeployerJobResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartNetworkMigrationMappingResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartNetworkMigrationMappingUpdateResponseTypeDef(TypedDict):
+    jobID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ChangeServerLifeCycleStateRequestTypeDef(TypedDict):
     sourceServerID: str
     lifeCycle: ChangeServerLifeCycleStateSourceServerLifecycleTypeDef
     accountID: NotRequired[str]
+
+
+class NetworkMigrationCodeGenerationJobDetailsTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[NetworkMigrationJobStatusType]
+    statusDetails: NotRequired[str]
+    codeGenerationOutputFormatStatusDetailsMap: NotRequired[
+        dict[CodeGenerationOutputFormatTypeType, CodeGenerationOutputFormatStatusDetailsTypeDef]
+    ]
 
 
 class ConnectorResponseTypeDef(TypedDict):
@@ -979,6 +1406,12 @@ class ListManagedAccountsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListNetworkMigrationDeployedStacksRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeJobsRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[DescribeJobsRequestFiltersTypeDef]
     accountID: NotRequired[str]
@@ -1017,6 +1450,23 @@ class DescribeVcenterClientsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ImportFileEnrichmentTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    status: NotRequired[ImportFileEnrichmentStatusType]
+    statusDetails: NotRequired[str]
+    checksum: NotRequired[ChecksumTypeDef]
+    s3BucketTarget: NotRequired[EnrichmentTargetS3ConfigurationTypeDef]
+
+
+class StartImportFileEnrichmentRequestTypeDef(TypedDict):
+    s3BucketSource: EnrichmentSourceS3ConfigurationTypeDef
+    s3BucketTarget: EnrichmentTargetS3ConfigurationTypeDef
+    clientToken: NotRequired[str]
+    ipAssignmentStrategy: NotRequired[IpAssignmentStrategyType]
+
+
 class ExportTaskErrorTypeDef(TypedDict):
     errorDateTime: NotRequired[str]
     errorData: NotRequired[ExportErrorDataTypeDef]
@@ -1034,6 +1484,17 @@ class ExportTaskTypeDef(TypedDict):
     progressPercentage: NotRequired[float]
     summary: NotRequired[ExportTaskSummaryTypeDef]
     tags: NotRequired[dict[str, str]]
+
+
+class GetNetworkMigrationMapperSegmentConstructResponseTypeDef(TypedDict):
+    construct: NetworkMigrationMapperSegmentConstructTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListNetworkMigrationMapperSegmentConstructsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationMapperSegmentConstructTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ImportTaskErrorTypeDef(TypedDict):
@@ -1107,6 +1568,17 @@ class ListExportsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListImportFileEnrichmentsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[ListImportFileEnrichmentsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListImportFileEnrichmentsRequestTypeDef(TypedDict):
+    filters: NotRequired[ListImportFileEnrichmentsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListImportsRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[ListImportsRequestFiltersTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1120,6 +1592,203 @@ class ListImportsRequestTypeDef(TypedDict):
 
 class ListManagedAccountsResponseTypeDef(TypedDict):
     items: list[ManagedAccountTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationAnalysesRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationAnalysesFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationAnalysesRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationAnalysesFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationAnalysesResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationAnalysisJobDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationAnalysisResultsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationAnalysisResultsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationAnalysisResultsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationAnalysisResultsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationCodeGenerationSegmentsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationCodeGenerationSegmentsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationCodeGenerationSegmentsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationCodeGenerationSegmentsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationCodeGenerationsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationCodeGenerationsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationCodeGenerationsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationCodeGenerationsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationDefinitionsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[ListNetworkMigrationDefinitionsRequestFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationDefinitionsRequestTypeDef(TypedDict):
+    filters: NotRequired[ListNetworkMigrationDefinitionsRequestFiltersTypeDef]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListNetworkMigrationDefinitionsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationDeploymentsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationDeployerJobFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationDeploymentsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationDeployerJobFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationDeployerJobResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationDeployerJobDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationExecutionsRequestPaginateTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationExecutionRequestFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationExecutionsRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationExecutionRequestFiltersTypeDef]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListNetworkMigrationExecutionsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationExecutionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMapperSegmentConstructsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    segmentID: str
+    filters: NotRequired[ListNetworkMigrationMapperSegmentConstructsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationMapperSegmentConstructsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    segmentID: str
+    filters: NotRequired[ListNetworkMigrationMapperSegmentConstructsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMapperSegmentsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMapperSegmentsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationMapperSegmentsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMapperSegmentsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMappingUpdatesRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMappingUpdatesFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationMappingUpdatesRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMappingUpdatesFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMappingUpdatesResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationMappingUpdateJobDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMappingsRequestPaginateTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMappingsFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListNetworkMigrationMappingsRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    filters: NotRequired[ListNetworkMigrationMappingsFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationMappingsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationMappingJobDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1165,6 +1834,73 @@ class ListWavesRequestTypeDef(TypedDict):
     accountID: NotRequired[str]
 
 
+class NetworkMigrationAnalysisResultTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    analyzerType: NotRequired[Literal["REACHABILITY_ANALYZER"]]
+    source: NotRequired[NetworkMigrationAnalysisResultSourceTypeDef]
+    target: NotRequired[NetworkMigrationAnalysisResultTargetTypeDef]
+    status: NotRequired[NetworkMigrationAnalysisResultStatusType]
+    analysisResult: NotRequired[str]
+
+
+class NetworkMigrationCodeGenerationArtifactTypeDef(TypedDict):
+    artifactID: NotRequired[str]
+    artifactType: NotRequired[NetworkMigrationCodeGenerationArtifactTypeType]
+    artifactSubType: NotRequired[NetworkMigrationCodeGenerationArtifactSubTypeType]
+    logicalID: NotRequired[str]
+    outputS3Configuration: NotRequired[S3ConfigurationTypeDef]
+    checksum: NotRequired[ChecksumTypeDef]
+    createdAt: NotRequired[datetime]
+
+
+class NetworkMigrationMapperSegmentResponseTypeDef(TypedDict):
+    jobID: str
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    segmentID: str
+    segmentType: NetworkMigrationMapperSegmentTypeType
+    name: str
+    description: str
+    logicalID: str
+    checksum: ChecksumTypeDef
+    outputS3Configuration: S3ConfigurationTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    scopeTags: dict[str, str]
+    targetAccount: str
+    referencedSegments: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class NetworkMigrationMapperSegmentTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    segmentID: NotRequired[str]
+    segmentType: NotRequired[NetworkMigrationMapperSegmentTypeType]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    logicalID: NotRequired[str]
+    checksum: NotRequired[ChecksumTypeDef]
+    outputS3Configuration: NotRequired[S3ConfigurationTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    scopeTags: NotRequired[dict[str, str]]
+    targetAccount: NotRequired[str]
+    referencedSegments: NotRequired[list[str]]
+
+
+class NetworkMigrationDeployedStackDetailsTypeDef(TypedDict):
+    status: NotRequired[NetworkMigrationDeployedStackStatusType]
+    stackPhysicalID: NotRequired[str]
+    stackLogicalID: NotRequired[str]
+    segmentID: NotRequired[str]
+    targetAccount: NotRequired[str]
+    failedResources: NotRequired[list[NetworkMigrationFailedResourceDetailsTypeDef]]
+
+
 class SourcePropertiesTypeDef(TypedDict):
     lastUpdatedDateTime: NotRequired[str]
     recommendedInstanceType: NotRequired[str]
@@ -1174,6 +1910,10 @@ class SourcePropertiesTypeDef(TypedDict):
     cpus: NotRequired[list[CPUTypeDef]]
     ramBytes: NotRequired[int]
     os: NotRequired[OSTypeDef]
+
+
+class OperationUnionTypeDef(TypedDict):
+    update: NotRequired[UpdateOperationTypeDef]
 
 
 class PutSourceServerActionRequestTypeDef(TypedDict):
@@ -1338,6 +2078,11 @@ class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
     storeSnapshotOnLocalZone: NotRequired[bool]
 
 
+class SourceConfigurationTypeDef(TypedDict):
+    sourceEnvironment: SourceEnvironmentType
+    sourceS3Configuration: SourceS3ConfigurationTypeDef
+
+
 class UpdateSourceServerRequestTypeDef(TypedDict):
     sourceServerID: str
     accountID: NotRequired[str]
@@ -1375,6 +2120,12 @@ class ListApplicationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListNetworkMigrationCodeGenerationsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationCodeGenerationJobDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListConnectorsResponseTypeDef(TypedDict):
     items: list[ConnectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1390,6 +2141,12 @@ class DataReplicationInfoTypeDef(TypedDict):
     dataReplicationError: NotRequired[DataReplicationErrorTypeDef]
     lastSnapshotDateTime: NotRequired[str]
     replicatorId: NotRequired[str]
+
+
+class ListImportFileEnrichmentsResponseTypeDef(TypedDict):
+    items: list[ImportFileEnrichmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListExportErrorsResponseTypeDef(TypedDict):
@@ -1443,6 +2200,43 @@ class LifeCycleTypeDef(TypedDict):
     state: NotRequired[LifeCycleStateType]
 
 
+class ListNetworkMigrationAnalysisResultsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationAnalysisResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class NetworkMigrationCodeGenerationSegmentTypeDef(TypedDict):
+    jobID: NotRequired[str]
+    networkMigrationExecutionID: NotRequired[str]
+    networkMigrationDefinitionID: NotRequired[str]
+    segmentID: NotRequired[str]
+    segmentType: NotRequired[NetworkMigrationCodeGenerationSegmentTypeType]
+    logicalID: NotRequired[str]
+    mapperSegmentID: NotRequired[str]
+    artifacts: NotRequired[list[NetworkMigrationCodeGenerationArtifactTypeDef]]
+    createdAt: NotRequired[datetime]
+
+
+class ListNetworkMigrationMapperSegmentsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationMapperSegmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListNetworkMigrationDeployedStacksResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationDeployedStackDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class StartNetworkMigrationMappingUpdateConstructTypeDef(TypedDict):
+    segmentID: str
+    constructID: str
+    constructType: str
+    operation: NotRequired[OperationUnionTypeDef]
+
+
 class ListSourceServerActionsResponseTypeDef(TypedDict):
     items: list[SourceServerActionDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1477,6 +2271,44 @@ class ListTemplateActionsResponseTypeDef(TypedDict):
     items: list[TemplateActionDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CreateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
+    name: str
+    targetS3Configuration: TargetS3ConfigurationTypeDef
+    targetNetwork: TargetNetworkTypeDef
+    description: NotRequired[str]
+    sourceConfigurations: NotRequired[Sequence[SourceConfigurationTypeDef]]
+    targetDeployment: NotRequired[TargetDeploymentType]
+    tags: NotRequired[Mapping[str, str]]
+    scopeTags: NotRequired[Mapping[str, str]]
+
+
+class NetworkMigrationDefinitionTypeDef(TypedDict):
+    arn: str
+    networkMigrationDefinitionID: str
+    name: str
+    description: str
+    sourceConfigurations: list[SourceConfigurationTypeDef]
+    targetS3Configuration: TargetS3ConfigurationTypeDef
+    targetNetwork: TargetNetworkTypeDef
+    targetDeployment: TargetDeploymentType
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
+    scopeTags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
+    networkMigrationDefinitionID: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    sourceConfigurations: NotRequired[Sequence[SourceConfigurationTypeDef]]
+    targetS3Configuration: NotRequired[TargetS3ConfigurationUpdateTypeDef]
+    targetNetwork: NotRequired[TargetNetworkUpdateTypeDef]
+    targetDeployment: NotRequired[TargetDeploymentType]
+    scopeTags: NotRequired[Mapping[str, str]]
 
 
 class ListWavesResponseTypeDef(TypedDict):
@@ -1529,6 +2361,19 @@ class SourceServerTypeDef(TypedDict):
     userProvidedID: NotRequired[str]
     fqdnForActionFramework: NotRequired[str]
     connectorAction: NotRequired[SourceServerConnectorActionTypeDef]
+
+
+class ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef(TypedDict):
+    items: list[NetworkMigrationCodeGenerationSegmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class StartNetworkMigrationMappingUpdateRequestTypeDef(TypedDict):
+    networkMigrationExecutionID: str
+    networkMigrationDefinitionID: str
+    constructs: NotRequired[Sequence[StartNetworkMigrationMappingUpdateConstructTypeDef]]
+    segments: NotRequired[Sequence[StartNetworkMigrationMappingUpdateSegmentTypeDef]]
 
 
 class PostLaunchActionsStatusTypeDef(TypedDict):

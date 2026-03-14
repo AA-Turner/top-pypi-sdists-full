@@ -75,3 +75,18 @@ def test_entity_model_root_rejects_mixin_with_repository_map():
 def test_entity_model_rejects_non_mixin_without_repository_map():
     with pytest.raises(ValidationError, match="repository\\.map"):
         EntityModel(**_entity_edl())
+
+
+def test_entity_model_accepts_external_reference_with_hierarchical_scope():
+    edl = _entity_edl()
+    edl["properties"]["departamento"] = {
+        "type": "RH.EST.ORG/departamento",
+        "cardinality": "1_1",
+    }
+    edl["repository"]["properties"]["departamento"] = {
+        "relation_column": "RH.EST.ADM/empresa/departamento",
+    }
+
+    model = EntityModel(**edl)
+
+    assert model.properties["departamento"].type == "RH.EST.ORG/departamento"

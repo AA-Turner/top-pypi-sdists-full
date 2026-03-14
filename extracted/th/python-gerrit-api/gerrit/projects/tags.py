@@ -4,6 +4,7 @@
 import logging
 from urllib.parse import quote_plus
 import requests
+from gerrit import GerritClient
 from gerrit.utils.common import params_creator
 from gerrit.utils.gerritbase import GerritBase
 from gerrit.utils.exceptions import (
@@ -17,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class GerritProjectTag(GerritBase):
-    def __init__(self, name: str, project: str, gerrit):
+    def __init__(self, name: str, project: str, gerrit: GerritClient):
         self.name = name
         self.project = project
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.project}/tags/{quote_plus(self.name)}"
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return self.name
@@ -39,7 +40,7 @@ class GerritProjectTag(GerritBase):
 class GerritProjectTags:
     tag_prefix = "refs/tags/"
 
-    def __init__(self, project, gerrit):
+    def __init__(self, project, gerrit: GerritClient):
         self.project = project
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.project}/tags"

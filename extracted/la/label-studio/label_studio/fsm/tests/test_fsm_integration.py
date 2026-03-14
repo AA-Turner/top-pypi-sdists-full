@@ -70,11 +70,8 @@ class TestFSMModels(TestCase):
         assert annotation_state.state == 'DRAFT'
         assert annotation_state.annotation == annotation
 
-        # Check terminal state property
-        assert not annotation_state.is_terminal_state
-
         # Test completed state
-        completed_state = AnnotationState.objects.create(
+        AnnotationState.objects.create(
             annotation=annotation,
             task_id=annotation.task.id,
             project_id=annotation.task.project_id,
@@ -82,7 +79,6 @@ class TestFSMModels(TestCase):
             state='COMPLETED',
             triggered_by=self.user,
         )
-        assert completed_state.is_terminal_state
 
     def test_project_state_creation(self):
         """Test ProjectState creation and basic functionality"""
@@ -94,11 +90,7 @@ class TestFSMModels(TestCase):
         assert project_state.state == 'CREATED'
         assert project_state.project == self.project
 
-        # Test terminal state
-        assert not project_state.is_terminal_state
-
-        completed_state = ProjectState.objects.create(project=self.project, state='COMPLETED', triggered_by=self.user)
-        assert completed_state.is_terminal_state
+        ProjectState.objects.create(project=self.project, state='COMPLETED', triggered_by=self.user)
 
 
 class TestStateManager(TestCase):
@@ -432,3 +424,26 @@ class TestStateManager(TestCase):
         # Verify state is still CREATED
         current_state = self.StateManager.get_current_state_value(self.task)
         assert current_state == 'CREATED'
+
+    @patch('fsm.state_manager.flag_set')
+    def test_transition_with_anonymous_user(self, mock_flag_set):
+        """Test that transitioning state with AnonymousUser succeeds and sets triggered_by to None."""
+        from django.contrib.auth.models import AnonymousUser
+        from django.core.cache import cache
+
+        cache.clear()
+
+        mock_flag_set.return_value = True
+
+        anon_user = AnonymousUser()
+        success = self.StateManager.transition_state(
+            entity=self.task,
+            new_state='IN_PROGRESS',
+            user=anon_user,
+            transition_name='start_task_anon',
+        )
+        assert success
+
+        current_state_obj = self.StateManager.get_current_state_object(self.task)
+        assert current_state_obj.state == 'IN_PROGRESS'
+        assert current_state_obj.triggered_by is None

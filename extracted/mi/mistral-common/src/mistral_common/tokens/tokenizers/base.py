@@ -16,9 +16,11 @@ from mistral_common.protocol.instruct.messages import (
 )
 from mistral_common.protocol.instruct.request import InstructRequest
 from mistral_common.protocol.instruct.tool_calls import Tool
+from mistral_common.protocol.speech.request import SpeechRequest
 from mistral_common.protocol.transcription.request import TranscriptionRequest
 from mistral_common.tokens.tokenizers.audio import AudioEncoder
 from mistral_common.tokens.tokenizers.image import ImageEncoder
+from mistral_common.tokens.tokenizers.model_settings_builder import ModelSettingsBuilder
 
 
 class UserMessagePosition(str, Enum):
@@ -59,6 +61,10 @@ class SpecialTokens(str, Enum):
         transcribe: The transcribe token.
         begin_think: The beginning of think token.
         end_think: The end of think token.
+        streaming_pad: The streaming pad token.
+        streaming_word: The streaming word token.
+        text_to_audio: The text to audio token.
+        audio_to_text: The audio to text token.
 
     Examples:
         >>> unk = SpecialTokens.unk
@@ -93,6 +99,10 @@ class SpecialTokens(str, Enum):
     end_think = "[/THINK]"
     streaming_pad = "[STREAMING_PAD]"
     streaming_word = "[STREAMING_WORD]"
+    text_to_audio = "[NEXT_AUDIO_TEXT]"
+    audio_to_text = "[REPEAT_AUDIO_TEXT]"
+    begin_model_settings = "[MODEL_SETTINGS]"
+    end_model_settings = "[/MODEL_SETTINGS]"
 
 
 class SpecialTokenPolicy(str, Enum):
@@ -142,6 +152,10 @@ class TokenizerVersion(str, Enum):
     def _version_num(self) -> int:
         return int(self.value[1:])
 
+    @property
+    def supports_model_settings(self) -> bool:
+        return self >= TokenizerVersion.v15
+
     def __lt__(self, other: "str | TokenizerVersion") -> bool:
         if isinstance(other, str):
             other = TokenizerVersion(other)
@@ -168,10 +182,11 @@ class TokenizerVersion(str, Enum):
     v7 = "v7"  # vocab_size = 32768 (spm) or 131072 (tekken) with improved system prompt and function calling
     v11 = "v11"  # 131072 (tekken) with improved function calling
     v13 = "v13"  # 131072 (tekken) with no call id and better prompt caching
+    v15 = "v15"  # 131072 (tekken) with model settings
 
 
 class Tokenized(MistralBase):
-    r"""A tokenized [`InstructRequest`][mistral_common.tokens.instruct.request].
+    r"""A tokenized [`InstructRequest`][mistral_common.protocol.instruct.request.InstructRequest].
 
     Attributes:
         tokens: The token ids.
@@ -207,6 +222,11 @@ class Tokenizer(ABC):
     def num_special_tokens(self) -> int:
         r"""The number of special tokens of the tokenizer."""
 
+    @property
+    @abstractmethod
+    def model_settings_builder(self) -> ModelSettingsBuilder | None:
+        r"""The model settings builder, or None if unsupported by this version."""
+
     @abstractmethod
     def vocab(self) -> list[str]:
         r"""All tokens in the vocabulary as strings."""
@@ -240,17 +260,12 @@ class Tokenizer(ABC):
         """Convert a string to a list of token ids."""
 
     @abstractmethod
-    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE) -> str:
         r"""Decode the token ids to a string.
 
         Args:
             tokens: The token ids to decode.
             special_token_policy: The policy to use for special tokens.
-                Passing `None` will default to `self._special_token_policy` for
-                [Tekkenizer][mistral_common.tokens.tokenizers.tekken.Tekkenizer] and `SpecialTokenPolicy.IGNORE`
-                for [SentencePieceTokenizer][mistral_common.tokens.tokenizers.sentencepiece.SentencePieceTokenizer].
-                Note that passing `None` will be deprecated and `special_token_policy` will default to
-                `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.
@@ -268,16 +283,6 @@ class Tokenizer(ABC):
     @abstractmethod
     def version(self) -> TokenizerVersion:
         r"""Get the version of the tokenizer."""
-
-    @abstractmethod
-    def to_string(self, tokens: list[int]) -> str:
-        r"""[DEPRECATED] Converts a list of token ids into a string, keeping special tokens.
-
-        Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead.
-
-        This is a convenient method for debugging.
-        """
-        ...
 
     @abstractmethod
     def _to_string(self, tokens: list[int]) -> str: ...
@@ -349,20 +354,28 @@ class InstructTokenizer(Generic[InstructRequestType, FIMRequestType, TokenizedTy
         Returns:
             Tokenized: The tokenized representation of the audio data, including processed audio and tokens
         """
-        ...
 
     @abstractmethod
-    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
+    def encode_speech_request(self, request: SpeechRequest) -> TokenizedType:
+        r"""Encodes a speech synthesis request into a tokenized format.
+
+        This method processes a speech request containing text input and
+        optional reference audio or voice preset, and returns the tokenized output.
+
+        Args:
+            request: The speech request object containing the text and voice/audio data.
+
+        Returns:
+            Tokenized: The tokenized representation of the speech request.
+        """
+
+    @abstractmethod
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy) -> str:
         r"""Convert token ids to string
 
         Args:
             tokens: The token ids to decode.
             special_token_policy: The policy to use for special tokens.
-                Passing `None` will default to `self._special_token_policy` for
-                [Tekkenizer][mistral_common.tokens.tokenizers.tekken.Tekkenizer] and `SpecialTokenPolicy.IGNORE`
-                for [SentencePieceTokenizer][mistral_common.tokens.tokenizers.sentencepiece.SentencePieceTokenizer].
-                Note that passing `None` will be deprecated and `special_token_policy` will default to
-                `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.5.4
+Version: 1.6.0
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only
@@ -18,7 +18,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: charset-normalizer>=3
-Requires-Dist: click<=8.1.8
 Requires-Dist: cookiecutter
 Requires-Dist: gitpython
 Requires-Dist: httpx
@@ -33,9 +32,9 @@ Requires-Dist: rich
 Requires-Dist: ruff
 Requires-Dist: semver~=3.0.2
 Requires-Dist: tomlkit
-Requires-Dist: typer>=0.9
+Requires-Dist: typer>=0.12.5
 Requires-Dist: typing-extensions>=4.7
-Requires-Dist: uv
+Requires-Dist: uv>=0.6.9
 Requires-Dist: websocket-client
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
@@ -44,7 +43,7 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Dynamic: license-file
 
-# Comfy-Cli: A Command Line Tool for ComfyUI
+# comfy-cli: A Command Line Tool for ComfyUI
 
 [![Test ComfyUI Example Workflows](https://github.com/Comfy-Org/ComfyUI-Mirror/actions/workflows/test-workflows.yaml/badge.svg)](https://github.com/Comfy-Org/ComfyUI-Mirror/actions/workflows/test-workflows.yaml)
 
@@ -167,7 +166,7 @@ Comfy provides commands that allow you to easily run the installed ComfyUI.
   `comfy install --pr "https://github.com/comfyanonymous/ComfyUI/pull/1234"`
 
   - If you want to run ComfyUI with a specific pull request, you can use the `--pr` option. This will automatically install the specified pull request and run ComfyUI with it.
-  - Important: When using --pr, any --version and --commit parameters are ignored. The PR branch will be checked out regardless of version settings.
+  - Important: The --pr option cannot be combined with --version or --commit and will be rejected if used together.
 
 - To test a frontend pull request:
 

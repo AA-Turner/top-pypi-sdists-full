@@ -5,7 +5,7 @@ from core.utils.common import load_func
 from django.conf import settings
 from django.utils import timezone
 from faker import Faker
-from tasks.models import Annotation, AnnotationDraft, Prediction, Task, TaskLock
+from tasks.models import Annotation, AnnotationDraft, FailedPrediction, Prediction, Task, TaskLock
 
 
 class TaskFactory(factory.django.DjangoModelFactory):
@@ -15,6 +15,7 @@ class TaskFactory(factory.django.DjangoModelFactory):
         }
     )
     project = factory.SubFactory(load_func(settings.PROJECT_FACTORY))
+    overlap = factory.LazyAttribute(lambda obj: obj.project.maximum_annotations if obj.project else 1)
 
     class Meta:
         model = Task
@@ -75,6 +76,17 @@ class PredictionFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Prediction
+
+
+class FailedPredictionFactory(factory.django.DjangoModelFactory):
+    task = factory.SubFactory(TaskFactory)
+    project = factory.SelfAttribute('task.project')
+    message = factory.Faker('sentence')
+    error_type = factory.Faker('word')
+    model_version = factory.Faker('word')
+
+    class Meta:
+        model = FailedPrediction
 
 
 class TaskLockFactory(factory.django.DjangoModelFactory):

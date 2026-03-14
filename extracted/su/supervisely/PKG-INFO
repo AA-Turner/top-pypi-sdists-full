@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervisely
-Version: 6.73.547
+Version: 6.73.550
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -30,7 +30,7 @@ Requires-Dist: pillow<=12.1.1,>=5.4.1
 Requires-Dist: python-json-logger<=3.0.1,>=0.1.11
 Requires-Dist: packaging>=20.0
 Requires-Dist: requests<3.0.0,>=2.27.1
-Requires-Dist: requests-toolbelt>=0.9.1
+Requires-Dist: requests-toolbelt<2.0.0,>=1.0.0
 Requires-Dist: Shapely<=2.1.2,>=1.7.1
 Requires-Dist: bidict<1.0.0,>=0.21.2
 Requires-Dist: varname<1.0.0,>=0.8.1
@@ -69,7 +69,7 @@ Requires-Dist: rich
 Requires-Dist: click
 Requires-Dist: imutils==0.5.4
 Requires-Dist: urllib3<3.0.0,>=2.6.3; python_version >= "3.10"
-Requires-Dist: urllib3<2.3.0,>=2.2.3; python_version < "3.10"
+Requires-Dist: urllib3<=2.2.3,>=1.26.15; python_version < "3.10"
 Requires-Dist: cacheout==0.14.1
 Requires-Dist: jsonschema<=4.23.0,>=2.6.0
 Requires-Dist: pyjwt<3.0.0,>=2.1.0

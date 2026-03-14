@@ -11,11 +11,13 @@ SeedLink request client for ObsPy.
 import fnmatch
 import warnings
 
+import numpy as np
 from lxml import etree
 
 from obspy import Stream
 from .slclient import SLClient, SLPacket
 from .client.seedlinkconnection import SeedLinkConnection
+from obspy.io.mseed.core import _read_mseed
 
 
 class Client(object):
@@ -74,38 +76,32 @@ class Client(object):
         >>> from obspy import UTCDateTime
         >>> client = Client('rtserver.ipgp.fr')
         >>> t = UTCDateTime() - 1500
-        >>> st = client.get_waveforms("G", "FDFM", "00", "BHZ", t, t + 5)
+        >>> st = client.get_waveforms("G", "FDFM", "10", "BHZ", t, t + 5)
         >>> print(st)  # doctest: +ELLIPSIS
         1 Trace(s) in Stream:
-        G.FDFM.00.BHZ | 20... | 20.0 Hz, ... samples
+        G.FDFM.10.BHZ | 20... | 20.0 Hz, ... samples
 
         Most servers support '?' single-character wildcard in location and
         channel code fields:
 
-        >>> st = client.get_waveforms("G", "FDFM", "??", "B??", t, t + 5)
+        >>> st = client.get_waveforms("G", "FDFM", "1?", "B??", t, t + 5)
         >>> st = st.sort(reverse=True)
         >>> print(st)  # doctest: +ELLIPSIS
-        6 Trace(s) in Stream:
+        3 Trace(s) in Stream:
         G.FDFM.10.BHZ | 20... | 20.0 Hz, ... samples
         G.FDFM.10.BHN | 20... | 20.0 Hz, ... samples
         G.FDFM.10.BHE | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHZ | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHN | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHE | 20... | 20.0 Hz, ... samples
 
         Depending on server capabilities, '*' multi-character wildcards might
         work in any parameter:
 
-        >>> st = client.get_waveforms("*", "FDFM", "*", "B*", t, t + 5)
+        >>> st = client.get_waveforms("*", "FDFM", "1*", "B*", t, t + 5)
         >>> st = st.sort(reverse=True)
         >>> print(st)  # doctest: +ELLIPSIS
-        6 Trace(s) in Stream:
+        3 Trace(s) in Stream:
         G.FDFM.10.BHZ | 20... | 20.0 Hz, ... samples
         G.FDFM.10.BHN | 20... | 20.0 Hz, ... samples
         G.FDFM.10.BHE | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHZ | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHN | 20... | 20.0 Hz, ... samples
-        G.FDFM.00.BHE | 20... | 20.0 Hz, ... samples
 
         .. note::
 
@@ -185,15 +181,23 @@ class Client(object):
         self._connect()
         self._slclient.initialize()
         self.stream = Stream()
-        self._slclient.run(packet_handler=self._packet_handler)
-        stream = self.stream
+
+        # holds all data received by the client
+        self.bulk_data_container = list()
+
+        self._slclient.run(packet_handler=self._fast_packet_handler)
+
+        # process the data all in one go, much more efficient
+        input = np.concatenate(self.bulk_data_container)
+        self.bulk_data_container = list()
+        stream = _read_mseed(input)
+
         stream.trim(starttime, endtime)
         self.stream = None
-        stream.sort()
         return stream
 
     def get_info(self, network=None, station=None, location=None, channel=None,
-                 level='station', cache=True):
+                 level='station', cache=True, warn_on_excluded_stations=False):
         """
         Request available stations information from the seedlink server.
 
@@ -204,18 +208,28 @@ class Client(object):
         >>> info = client.get_info(station="FDFM")
         >>> print(info)
         [('G', 'FDFM')]
-        >>> info = client.get_info(station="FD?M", channel='*Z',
-        ...                        level='channel')
+        >>> info = client.get_info(
+        ...     station="FD?M", channel='[LBH]HZ', location='10',
+        ...     level='channel')
         >>> print(info)  # doctest: +NORMALIZE_WHITESPACE
-        [('G', 'FDFM', '00', 'BHZ'), ('G', 'FDFM', '00', 'HHZ'),
-         ('G', 'FDFM', '00', 'HNZ'), ('G', 'FDFM', '00', 'LHZ'),
-         ('G', 'FDFM', '10', 'BHZ'), ('G', 'FDFM', '10', 'HHZ'),
+        [('G', 'FDFM', '10', 'BHZ'), ('G', 'FDFM', '10', 'HHZ'),
          ('G', 'FDFM', '10', 'LHZ')]
 
         Available station information is cached after the first request to the
         server, so use ``cache=False`` on subsequent requests if there is a
         need to force fetching new information from the server (should only
         concern programs running in background for a very long time).
+
+        .. note::
+            Stations/channels are excluded from the results for which the
+            server indicates it is serving them in general but it also states
+            no data are in ring buffer currently.
+            If interested in these "no data" stations/channels, either set
+            ``warn_on_excluded_stations=True`` which will show a warning
+            message with excluded stations or use ``debug=True`` when
+            initializing the client which will print the raw server ``seedlink
+            INFO`` xml response which will show these stations listed with
+            ``begin_seq`` and ``end_seq`` both with value ``'000000'``.
 
         :type network: str
         :param network: Network code. Supports ``fnmatch`` wildcards, e.g.
@@ -232,6 +246,10 @@ class Client(object):
         :type cache: bool
         :param cache: Subsequent function calls are cached, use ``cache=False``
             to force fetching station metadata again from the server.
+        :type warn_on_excluded_stations: bool
+        :param warn_on_excluded_stations: Whether to show a warning for
+            stations that are excluded from the results because the server
+            indicates there is no data currently available.
         :rtype: list
         :returns: list of 2-tuples (or 4-tuples with ``level='channel'``) with
             network/station (network/station/location/channel, respectively)
@@ -289,26 +307,43 @@ class Client(object):
             parser = etree.XMLParser(encoding='utf-8')
             xml = etree.fromstring(info.encode('utf-8'), parser=parser)
         station_cache = set()
+        excluded_stations = set()
         for tag in xml.xpath('./station'):
             net = tag.attrib['network']
             sta = tag.attrib['name']
             item = (net, sta)
             if level == 'channel':
                 subtags = tag.xpath('./stream')
-                for subtag in subtags:
-                    loc = subtag.attrib['location']
-                    cha = subtag.attrib['seedname']
-                    station_cache.add(item + (loc, cha))
                 # If no data is in ring buffer (e.g. station outage?) then it
                 # seems the seedlink server replies with no subtags for the
                 # channels
                 if not subtags:
-                    station_cache.add(item + (None, None))
-            else:
+                    excluded_stations.add(item)
+                    continue
+                for subtag in subtags:
+                    loc = subtag.attrib['location']
+                    cha = subtag.attrib['seedname']
+                    station_cache.add(item + (loc, cha))
+            elif level == 'station':
+                # remove stations that seem to have no data
+                if all(tag.attrib[key] == '000000'
+                       for key in ('begin_seq', 'end_seq')):
+                    excluded_stations.add(item)
+                    continue
                 station_cache.add(item)
+            else:
+                raise NotImplementedError()
         # change results to an Inventory object
         self._station_cache = station_cache
         self._station_cache_level = level
+        if warn_on_excluded_stations and excluded_stations:
+            msg = ('Some stations were excluded from results because server '
+                   'indicates no data available (use debug=True in Client '
+                   'initialization for details, suppress warning with '
+                   'warn_on_excluded_stations=False): ')
+            msg += ', '.join('.'.join(item)
+                             for item in sorted(excluded_stations))
+            warnings.warn(msg)
         return self.get_info(
             network=network, station=station, location=location,
             channel=channel, cache=True, level=level)
@@ -349,6 +384,46 @@ class Client(object):
         # new samples add to the main stream which is then trimmed
         self.stream += trace
         self.stream.merge(-1)
+        return False
+
+    def _fast_packet_handler(self, count, slpack):
+        """
+        Custom packet handler that accumulates all received data in a
+        list of numpy arrays. These can then be converted in one go,
+        reducing the processing time up to 90% compared to
+        _packet_handler().
+        """
+        # check if not a complete packet
+        if slpack is None or (slpack == SLPacket.SLNOPACKET) or \
+                (slpack == SLPacket.SLERROR):
+            return False
+
+        # get basic packet info
+        type_ = slpack.get_type()
+        if self.debug:
+            print(type_)
+
+        # process INFO packets here
+        if type_ == SLPacket.TYPE_SLINF:
+            if self.debug:
+                print(SLPacket.TYPE_SLINF)
+            return False
+        elif type_ == SLPacket.TYPE_SLINFT:
+            if self.debug:
+                print("Complete INFO:",
+                      self._slclient.slconn.get_info_string())
+            return True
+
+        # process packet data
+        msr_record = slpack.msrecord
+        if msr_record is None:
+            if self.debug:
+                print("Blockette contains no trace")
+            return False
+
+        # add to bulk_data_container
+        self.bulk_data_container.append(np.frombuffer(msr_record,
+                                        dtype=np.int8))
         return False
 
 

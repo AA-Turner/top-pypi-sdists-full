@@ -1711,6 +1711,37 @@ class TestIESO(BaseTestISO):
         assert data[TIME_COLUMN].min() == start
         assert data[TIME_COLUMN].max() == end - pd.Timedelta(minutes=5)
 
+    def test_get_lmp_real_time_5_min_ontario_zonal_today(self):
+        """Test with today's data which uses the new XML schema (r2) with
+        separate DeliveryDate/DeliveryHour elements and flat ZonalPrice
+        elements."""
+        start = pd.Timestamp.now(tz=self.default_timezone).normalize()
+        end = start + pd.Timedelta(hours=1)
+
+        with file_vcr.use_cassette(
+            f"test_get_lmp_real_time_5_min_ontario_zonal_today_{start.date()}.yaml",
+        ):
+            data = self.iso.get_lmp_real_time_5_min_ontario_zonal(start, end=end)
+
+        self._check_lmp_ontario_zonal_data(data, interval_minutes=5)
+        assert (data[TIME_COLUMN].dt.date == start.date()).all()
+
+    def test_get_lmp_real_time_5_min_ontario_zonal_old_format(self):
+        """Test with a date that uses the old XML schema (r1) with combined
+        DeliveryDate text and RealTimePriceComponents elements."""
+        # March 4, 2026 uses the old format
+        start = pd.Timestamp("2026-03-04", tz=self.default_timezone)
+        end = start + pd.Timedelta(hours=1)
+
+        with file_vcr.use_cassette(
+            "test_get_lmp_real_time_5_min_ontario_zonal_old_format.yaml",
+        ):
+            data = self.iso.get_lmp_real_time_5_min_ontario_zonal(start, end=end)
+
+        self._check_lmp_ontario_zonal_data(data, interval_minutes=5)
+        assert (data[TIME_COLUMN].dt.date == start.date()).all()
+        assert len(data) == 12  # 1 hour = 12 five-minute intervals
+
     """get_lmp_day_ahead_hourly_ontario_zonal"""
 
     def test_get_lmp_day_ahead_hourly_ontario_zonal_latest(self):
@@ -1959,6 +1990,31 @@ class TestIESO(BaseTestISO):
         assert data["Interval Start"].min() == start
         assert data["Interval End"].max() == end
 
+    def test_get_load_zonal_5_min_year_boundary_transition(self):
+        start = (
+            pd.Timestamp.now(tz=self.default_timezone) - pd.DateOffset(days=2)
+        ).floor("5min")
+        end = start + pd.DateOffset(days=2)
+
+        with file_vcr.use_cassette(
+            f"test_get_load_zonal_5_min_year_boundary_transition_{start.date()}_{end.date()}.yaml",
+        ):
+            data = self.iso.get_load_zonal_5_min(start, end=end)
+
+        self._check_load_zonal(data, 5)
+
+        assert data["Interval Start"].min() == start
+        assert data["Interval Start"].max() < end
+        assert data["Interval End"].max() <= end + pd.Timedelta(minutes=5)
+
+        years_in_data = data["Interval Start"].dt.year.unique()
+        if start.year != end.year:
+            assert len(years_in_data) > 1
+            assert start.year in years_in_data
+            assert end.year in years_in_data
+
+        assert data["Interval Start"].is_monotonic_increasing
+
     """get_load_daily_zonal_hourly"""
 
     def test_get_load_zonal_hourly_latest(self):
@@ -1982,6 +2038,26 @@ class TestIESO(BaseTestISO):
 
         assert data["Interval Start"].min() == start
         assert data["Interval End"].max() == end
+
+    def test_get_load_zonal_hourly_year_boundary_transition(self):
+        start = pd.Timestamp("2025-12-29", tz=self.default_timezone).floor("h")
+        end = pd.Timestamp("2026-01-02", tz=self.default_timezone)
+
+        with file_vcr.use_cassette(
+            "test_get_load_zonal_hourly_year_boundary_transition.yaml",
+        ):
+            data = self.iso.get_load_zonal_hourly(start, end=end)
+
+        self._check_load_zonal(data, 60)
+
+        assert data["Interval Start"].min() == start
+        assert data["Interval End"].max() == end
+
+        years_in_data = data["Interval Start"].dt.year.unique()
+        assert 2025 in years_in_data
+        assert 2026 in years_in_data
+
+        assert data["Interval Start"].is_monotonic_increasing
 
     """get_real_time_totals"""
 

@@ -49,10 +49,31 @@ class AddEntrypoint(LinterFix):
         )
 
 
+class DeleteStage(LinterFix):
+    label = "Delete stage"
+
+    def __init__(self, stage: StageWithFile) -> None:
+        self.stage = stage
+
+    def make_label(self):
+        return f"Delete {self.stage.type_name} '{self.stage.title}'"
+
+    def fix(self):
+        repo = LocalProjectRepository()
+        with repo.atomic() as project:
+            project.delete_stage(self.stage.id)
+
+    @property
+    def name(self):
+        return (
+            f"{self.__class__.__name__}:{self.stage.__class__.__name__}:{self.stage.id}"
+        )
+
+
 class NoEntrypointFound(LinterIssue):
     def __init__(self, stage: StageWithFile) -> None:
         self.label = f"The {stage.type_name} entitled {stage.title} points to a non-existent file: {stage.file}"
-        self.fixes = [AddEntrypoint(stage)]
+        self.fixes = [AddEntrypoint(stage), DeleteStage(stage)]
 
 
 class MissingEntrypoint(LinterRule):

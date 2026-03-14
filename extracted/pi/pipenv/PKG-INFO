@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipenv
-Version: 2026.0.3
+Version: 2026.1.0
 Summary: Python Development Workflow for Humans.
 Author-email: Pipenv maintainer team <distutils-sig@python.org>
 License: MIT License (MIT)
@@ -36,9 +36,9 @@ Requires-Dist: towncrier; extra == "dev"
 Provides-Extra: safety
 Requires-Dist: safety>=3.0.0; extra == "safety"
 Provides-Extra: tests
-Requires-Dist: flaky; extra == "tests"
 Requires-Dist: mock; extra == "tests"
 Requires-Dist: pytest>=5; extra == "tests"
+Requires-Dist: pytest-rerunfailures; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
 Dynamic: license-file

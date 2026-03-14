@@ -1351,9 +1351,34 @@ def _is_running_in_snowpark_submit() -> bool:
     return os.getenv("SNOWPARK_SUBMIT_JOB") == "true"
 
 
-def init_spark_session(conf: SparkConf = None) -> SparkSession:
+def init_spark_session(
+    conf: SparkConf = None,
+    connection_parameters: Optional[Dict[str, str]] = None,
+) -> SparkSession:
+    """
+    Initialize and return a Spark session connected to Snowflake.
+
+    Parameters:
+        conf (SparkConf): Optional Spark configuration.
+        connection_parameters (dict): Optional dictionary of connection parameters to use
+            to create the Snowpark session (e.g. connection_name, account, user, password,
+            host, warehouse, database, schema, etc.). If not provided, the connection
+            resolver will determine which connection to use from connections.toml.
+            Not supported inside snowpark-submit jobs.
+
+    Returns:
+        A new SparkSession connected to the Snowpark Connect server.
+    """
     if _is_running_in_snowpark_submit():
-        # Running inside snowpark-submit - use existing Spark session
+        # Running inside snowpark-submit - use existing Spark session.
+        # The server container already has its own Snowflake connection
+        # via SPCS environment variables / snowpark-submit CLI flags.
+        if connection_parameters is not None:
+            raise ValueError(
+                "connection_parameters in init_spark_session() is not supported "
+                "inside snowpark-submit jobs. To specify a connection, use the "
+                "--snowflake-connection-name flag when invoking snowpark-submit."
+            )
         from pyspark.sql import SparkSession
 
         builder = SparkSession.builder
@@ -1368,7 +1393,11 @@ def init_spark_session(conf: SparkConf = None) -> SparkSession:
         )
 
         snowpark_session = _get_current_snowpark_session()
-        start_session(snowpark_session=snowpark_session)
+
+        start_session(
+            snowpark_session=snowpark_session,
+            connection_parameters=connection_parameters,
+        )
         return get_session(conf=conf)
 
 

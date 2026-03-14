@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gpt-researcher
-Version: 0.14.7
+Version: 0.14.8
 Summary: GPT Researcher is an autonomous agent designed for comprehensive online research on a variety of tasks.
 Home-page: https://github.com/assafelovic/gpt-researcher
 Author: Assaf Elovic
@@ -170,6 +170,10 @@ Requires-Dist: langchain-xai; extra == "requirements-txt"
 Requires-Dist: playwright; extra == "requirements-txt"
 Requires-Dist: scrapy; extra == "requirements-txt"
 Requires-Dist: selenium; extra == "requirements-txt"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 <div align="center" id="top">
 

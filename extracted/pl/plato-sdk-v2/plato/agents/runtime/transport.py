@@ -325,7 +325,7 @@ class NFSTransport(Transport):
 
         remote = self.agent_mount_path
         nfs_src = f"{self.world_vm_ip}:{self.path}"
-        mount_cmd = f"mkdir -p {remote} && mount -t nfs -o vers=3,soft,timeo=30,nolock {nfs_src} {remote}"
+        mount_cmd = f"mkdir -p {remote} && mount -t nfs -o vers=3,soft,timeo=150,retrans=3,nolock {nfs_src} {remote}"
         exit_code, _, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,

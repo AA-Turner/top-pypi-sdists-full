@@ -90,7 +90,7 @@
     # See https://github.com/docker-library/docker/pull/166
     DOCKER_TLS_CERTDIR: ""
     CIBW_BEFORE_ALL_LINUX: "yum install -y wget && bash ci/build-boost.sh"
-    CIBW_SKIP: "*-musllinux*"
+    CIBW_SKIP: "*-musllinux* cp36-manylinux*"
   script:
     - curl -sSL https://get.docker.com/ | sh
     - python -m pip install cibuildwheel==2.19.2

@@ -10,6 +10,7 @@ from core.feature_flags import flag_set
 from core.permissions import all_permissions
 from core.redis import start_job_async_or_sync
 from core.utils.common import batch
+from core.utils.exceptions import extract_message
 from django.conf import settings
 from django.core.files import File
 from django.core.files.storage import FileSystemStorage
@@ -43,8 +44,15 @@ logger = logging.getLogger(__name__)
     name='get',
     decorator=extend_schema(
         tags=['Export'],
-        summary='Get export formats',
-        description='Retrieve the available export formats for the current project by ID.',
+        summary='[Deprecated] Get export formats',
+        description="""
+        This endpoint is deprecated in Enterprise. Use the async export API instead:
+        POST /api/projects/{{id}}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+
+        In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
+
+        Retrieve the available export formats for the current project by ID.""",
+        deprecated=True,
         parameters=[
             OpenApiParameter(
                 name='id',
@@ -119,8 +127,13 @@ class ExportFormatsListAPI(generics.RetrieveAPIView):
             ),
         ],
         tags=['Export'],
-        summary='Easy export of tasks and annotations',
+        summary='[Deprecated] Easy export of tasks and annotations',
         description="""
+        This endpoint is deprecated in Enterprise. Use the async export API instead:
+        POST /api/projects/{{id}}/exports/ (see [Create new export](/api#operation/api_projects_exports_create)).
+
+        In Label Studio Enterprise, this endpoint will always return a 404 Not Found response with instructions to use the async export API.
+
         <i>Note: if you have a large project it's recommended to use
         export snapshots, this easy export endpoint might have timeouts.</i><br/><br>
         Export annotated tasks as a file in a specific format.
@@ -142,6 +155,7 @@ class ExportFormatsListAPI(generics.RetrieveAPIView):
             settings.HOSTNAME or 'https://localhost:8080',
             settings.HOSTNAME or 'https://localhost:8080',
         ),
+        deprecated=True,
         responses={
             200: OpenApiResponse(
                 description='Exported data',
@@ -462,7 +476,7 @@ class ExportDetailAPI(generics.RetrieveDestroyAPIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     data={
                         'detail': 'Could not delete file from storage. Check that your user has permissions to delete files: %s'
-                        % str(e)
+                        % extract_message(e)
                     },
                 )
 

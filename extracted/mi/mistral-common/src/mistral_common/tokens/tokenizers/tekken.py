@@ -18,6 +18,7 @@ from mistral_common.tokens.tokenizers.base import (
     TokenizerVersion,
 )
 from mistral_common.tokens.tokenizers.image import ImageConfig
+from mistral_common.tokens.tokenizers.model_settings_builder import ModelSettingsBuilder
 
 warnings.filterwarnings(
     action="once",
@@ -150,6 +151,7 @@ class Tekkenizer(Tokenizer):
         _path: str | Path | None = None,
         image_config: ImageConfig | None = None,
         audio_config: AudioConfig | None = None,
+        model_settings_builder: ModelSettingsBuilder | None = None,
     ):
         r"""Initialize the tekken tokenizer.
 
@@ -162,7 +164,14 @@ class Tekkenizer(Tokenizer):
             version: The version of the tokenizer.
             name: The name of the tokenizer.
             image_config: The image configuration of the tokenizer.
+            audio_config: The audio configuration of the tokenizer.
+            model_settings_builder: The builder for model settings, or None if unsupported.
         """
+        if not version.supports_model_settings and model_settings_builder is not None:
+            raise ValueError(
+                f"model_settings_builder is not supported for {version=} but got {model_settings_builder=}"
+            )
+
         assert vocab_size <= len(vocab) + num_special_tokens, (
             vocab_size,
             len(vocab),
@@ -216,6 +225,7 @@ class Tekkenizer(Tokenizer):
         self._vocab = [self.id_to_piece(i) for i in range(vocab_size)]
         self._special_token_policy = SpecialTokenPolicy.IGNORE
         self._file_path = Path(_path) if _path is not None else None
+        self._model_settings_builder = model_settings_builder
 
     @property
     def file_path(self) -> Path:
@@ -223,6 +233,11 @@ class Tekkenizer(Tokenizer):
         if self._file_path is None:
             raise ValueError("The tokenizer was not loaded from a file.")
         return self._file_path
+
+    @property
+    def model_settings_builder(self) -> ModelSettingsBuilder | None:
+        r"""The model settings builder, or None if unsupported by this version."""
+        return self._model_settings_builder
 
     @classmethod
     def from_file(cls: type["Tekkenizer"], path: str | Path) -> "Tekkenizer":
@@ -253,7 +268,7 @@ class Tekkenizer(Tokenizer):
         special_tokens_dicts: list[SpecialTokenInfo] | None = untyped.get("special_tokens", None)
         if special_tokens_dicts is None:
             # Tokenizer > v7 should find special tokens in the tokenizer file
-            if version > TokenizerVersion("v7"):
+            if version > TokenizerVersion.v7:
                 raise ValueError(
                     f"Special tokens not found in {path}. "
                     "Please update your tokenizer file and include all special tokens you need."
@@ -267,7 +282,7 @@ class Tekkenizer(Tokenizer):
 
         if mm := untyped.get("multimodal"):
             # deprecated - only allowed for tokenizers <= v11
-            if version > TokenizerVersion("v11"):
+            if version > TokenizerVersion.v11:
                 raise ValueError(
                     f"The image config has to be called 'image' in {path} for tokenizers of version {version.value}."
                 )
@@ -281,6 +296,15 @@ class Tekkenizer(Tokenizer):
             encoding_config = AudioSpectrogramConfig(**encoding_config)
             untyped["audio"] = AudioConfig(encoding_config=encoding_config, **audio)
 
+        if (
+            model_settings_builder := untyped.get("model_settings_builder")
+        ) is not None and not version.supports_model_settings:
+            raise ValueError(
+                f"model_settings_builder is not supported for {version=} but got {model_settings_builder=}"
+            )
+        elif model_settings_builder is not None:
+            model_settings_builder = ModelSettingsBuilder.model_validate(model_settings_builder)
+
         model_data: ModelData = untyped
 
         return cls(
@@ -293,6 +317,7 @@ class Tekkenizer(Tokenizer):
             name=path.name.replace(".json", ""),
             image_config=model_data.get("image"),
             audio_config=model_data.get("audio"),
+            model_settings_builder=model_settings_builder,
             _path=path,
         )
 
@@ -337,27 +362,6 @@ class Tekkenizer(Tokenizer):
     def version(self) -> TokenizerVersion:
         r"""The version of the tokenizer."""
         return self._version
-
-    @property
-    def special_token_policy(self) -> SpecialTokenPolicy:
-        r"""The policy for handling special tokens."""
-        return self._special_token_policy
-
-    @special_token_policy.setter
-    def special_token_policy(self, policy: SpecialTokenPolicy) -> None:
-        r"""Set the policy for handling special tokens."""
-        if not isinstance(policy, SpecialTokenPolicy):
-            raise ValueError(f"Expected SpecialTokenPolicy, got {type(policy)}.")
-
-        warnings.warn(
-            (
-                "The attributed `special_token_policy` is deprecated and will be removed in 1.10.0. "
-                "Please pass a special token policy explicitly to the relevant methods."
-            ),
-            FutureWarning,
-        )
-
-        self._special_token_policy = policy
 
     @cached_property
     def bos_id(self) -> int:
@@ -467,53 +471,22 @@ class Tekkenizer(Tokenizer):
         warnings.warn("`get_control_token` is deprecated. Use `get_special_token` instead.", FutureWarning)
         return self.get_special_token(s)
 
-    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE) -> str:
         r"""Decode a list of token ids into a string.
 
         Args:
             tokens: The list of token ids to decode.
             special_token_policy: The policy for handling special tokens.
-                Use the tokenizer's [attribute][mistral_common.tokens.tokenizers.tekken.Tekkenizer.special_token_policy]
-                if `None`. Passing `None` is deprecated and will be changed
-                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The decoded string.
         """
-        if special_token_policy is not None and not isinstance(special_token_policy, (str, SpecialTokenPolicy)):
+        if not isinstance(special_token_policy, (str, SpecialTokenPolicy)):
             raise ValueError(
-                f"Expected `special_token_policy` to be None or SpecialTokenPolicy, got {type(special_token_policy)}."
+                f"Expected `special_token_policy` to be SpecialTokenPolicy, got {type(special_token_policy)}."
             )
-
-        if special_token_policy is None:
-            warnings.warn(
-                (
-                    f"Using the tokenizer's special token policy ({self._special_token_policy}) is deprecated. "
-                    "It will be removed in 1.10.0. "
-                    "Please pass a special token policy explicitly. "
-                    "Future default will be SpecialTokenPolicy.IGNORE."
-                ),
-                FutureWarning,
-            )
-            special_token_policy = self._special_token_policy
 
         return "".join(self._decode_all(tokens, special_token_policy=special_token_policy))
-
-    def to_string(self, tokens: list[int]) -> str:
-        r"""[DEPRECATED] Converts a list of token ids into a string, keeping special tokens.
-
-        Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead.
-
-        This is a convenient method for debugging.
-        """
-        warnings.warn(
-            (
-                "`to_string` is deprecated and will be removed in 1.10.0. "
-                "Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead."
-            ),
-            FutureWarning,
-        )
-        return self._to_string(tokens)
 
     def _to_string(self, tokens: list[int]) -> str:
         return self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP)
@@ -522,31 +495,18 @@ class Tekkenizer(Tokenizer):
         r"""Convert a token id to its string representation."""
         return self.decode([token_id], special_token_policy=SpecialTokenPolicy.KEEP)
 
-    def id_to_byte_piece(self, token_id: int, special_token_policy: SpecialTokenPolicy | None = None) -> bytes:
+    def id_to_byte_piece(
+        self, token_id: int, special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE
+    ) -> bytes:
         r"""Convert a token id to its byte representation.
 
         Args:
             token_id: The token id to convert.
             special_token_policy: The policy for handling special tokens.
-                Use the tokenizer's [attribute][mistral_common.tokens.tokenizers.tekken.Tekkenizer.special_token_policy]
-                if `None`. Passing `None` is deprecated and will be changed
-                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
 
         Returns:
             The byte representation of the token.
         """
-        if special_token_policy is None:
-            warnings.warn(
-                (
-                    f"Using the tokenizer's special token policy ({self._special_token_policy}) is deprecated. "
-                    "It will be removed in 1.10.0. "
-                    "Please pass a special token policy explicitly. "
-                    "Future default will be SpecialTokenPolicy.IGNORE."
-                ),
-                FutureWarning,
-            )
-            special_token_policy = self._special_token_policy
-
         if token_id < self.num_special_tokens:
             if special_token_policy == SpecialTokenPolicy.KEEP:
                 return self._all_special_tokens[token_id]["token_str"].encode("utf-8")

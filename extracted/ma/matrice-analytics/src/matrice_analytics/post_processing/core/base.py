@@ -428,10 +428,10 @@ class BaseProcessor(ABC):
         
         if segmentation is not None:
             detection["segmentation"] = segmentation
-        
-        # Note: confidence and track_id are typically excluded from agg_summary detections
-        # but can be included if needed for specific use cases
-        
+
+        if track_id is not None:
+            detection["track_id"] = track_id
+
         return detection
     
     def create_count_object(self, category: str, count: int) -> Dict[str, Any]:

@@ -1,5 +1,5 @@
-"""This file and its contents are licensed under the Apache License 2.0. Please see the included NOTICE for copyright information and LICENSE for a copy of the license.
-"""
+"""This file and its contents are licensed under the Apache License 2.0. Please see the included NOTICE for copyright information and LICENSE for a copy of the license."""
+
 import base64
 import concurrent.futures
 import itertools
@@ -18,7 +18,7 @@ import django_rq
 import rq
 import rq.exceptions
 from core.feature_flags import flag_set
-from core.redis import is_job_in_queue, is_job_on_worker, redis_connected, start_job_async_or_sync
+from core.redis import redis_connected, start_job_async_or_sync
 from core.utils.common import load_func
 from core.utils.iterators import iterate_queryset
 from data_export.serializers import ExportDataSerializer
@@ -29,6 +29,7 @@ from django.db.models import JSONField
 from django.shortcuts import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from fsm.functions import backfill_fsm_states_for_tasks
 from io_storages.utils import StorageObject, get_uri_via_regex, parse_bucket_uri
 from rest_framework.exceptions import ValidationError
 from rq.job import Job
@@ -249,8 +250,7 @@ class StorageInfo(models.Model):
             )
             self.save(update_fields=['status', 'traceback'])
             logger.info(
-                f'Storage {self} status moved to `failed` '
-                f'because the job {self.last_sync_job} has too old ping time'
+                f'Storage {self} status moved to `failed` because the job {self.last_sync_job} has too old ping time'
             )
 
     def job_health_check(self):
@@ -275,7 +275,7 @@ class StorageInfo(models.Model):
                 'This typically occurs due to an out-of-memory (OOM) error.'
             )
             self.save(update_fields=['status', 'traceback'])
-            logger.info(f'Storage {self} status moved to `failed` ' f'because of the failed job {self.last_sync_job}')
+            logger.info(f'Storage {self} status moved to `failed` because of the failed job {self.last_sync_job}')
 
         # job is not found in redis (maybe deleted while redeploy), storage status is still active
         elif job_status == 'not found':
@@ -287,9 +287,7 @@ class StorageInfo(models.Model):
                 'or workers reloaded unexpectedly.'
             )
             self.save(update_fields=['status', 'traceback'])
-            logger.info(
-                f'Storage {self} status moved to `failed` ' f'because the job {self.last_sync_job} was not found'
-            )
+            logger.info(f'Storage {self} status moved to `failed` because the job {self.last_sync_job} was not found')
 
 
 class Storage(StorageInfo):
@@ -400,34 +398,16 @@ class ImportStorage(Storage):
                     logger.debug(f'No storage info found for URI={uri}')
                     return
 
-                if flag_set('fflag_optic_all_optic_1938_storage_proxy', user=self.project.organization.created_by):
-                    if task is None:
-                        logger.error(f'Task is required to resolve URI={uri}', exc_info=True)
-                        raise ValueError(f'Task is required to resolve URI={uri}')
+                if task is None:
+                    logger.error(f'Task is required to resolve URI={uri}', exc_info=True)
+                    raise ValueError(f'Task is required to resolve URI={uri}')
 
-                    proxy_url = urljoin(
-                        settings.HOSTNAME,
-                        reverse('storages:task-storage-data-resolve', kwargs={'task_id': task.id})
-                        + f'?fileuri={base64.urlsafe_b64encode(extracted_uri.encode()).decode()}',
-                    )
-                    return uri.replace(extracted_uri, proxy_url)
-
-                # ff off: old logic without proxy
-                else:
-                    if self.presign and task is not None:
-                        proxy_url = urljoin(
-                            settings.HOSTNAME,
-                            reverse('storages:task-storage-data-presign', kwargs={'task_id': task.id})
-                            + f'?fileuri={base64.urlsafe_b64encode(extracted_uri.encode()).decode()}',
-                        )
-                        return uri.replace(extracted_uri, proxy_url)
-                    else:
-                        # this branch is our old approach:
-                        # it generates presigned URLs if storage.presign=True;
-                        # or it inserts base64 media into task data if storage.presign=False
-                        http_url = self.generate_http_url(extracted_uri)
-
-                return uri.replace(extracted_uri, http_url)
+                proxy_url = urljoin(
+                    settings.HOSTNAME,
+                    reverse('storages:task-storage-data-resolve', kwargs={'task_id': task.id})
+                    + f'?fileuri={base64.urlsafe_b64encode(extracted_uri.encode()).decode()}',
+                )
+                return uri.replace(extracted_uri, proxy_url)
             except Exception:
                 logger.info(f"Can't resolve URI={uri}", exc_info=True)
 
@@ -448,14 +428,14 @@ class ImportStorage(Storage):
         link_kwargs = asdict(link_object)
         data = link_kwargs.pop('task_data', None)
 
-        allow_skip = data.get('allow_skip', None)
+        allow_skip = data.get('allow_skip', True)
 
         # predictions
         predictions = data.get('predictions') or []
         if predictions:
             if 'data' not in data:
                 raise ValueError(
-                    'If you use "predictions" field in the task, ' 'you must put "data" field in the task too'
+                    'If you use "predictions" field in the task, you must put "data" field in the task too'
                 )
 
         # annotations
@@ -464,7 +444,7 @@ class ImportStorage(Storage):
         if annotations:
             if 'data' not in data:
                 raise ValueError(
-                    'If you use "annotations" field in the task, ' 'you must put "data" field in the task too'
+                    'If you use "annotations" field in the task, you must put "data" field in the task too'
                 )
             cancelled_annotations = len([a for a in annotations if a.get('was_cancelled', False)])
 
@@ -485,7 +465,7 @@ class ImportStorage(Storage):
                 total_annotations=len(annotations) - cancelled_annotations,
                 cancelled_annotations=cancelled_annotations,
                 inner_id=max_inner_id,
-                allow_skip=(allow_skip if allow_skip is not None else True),
+                allow_skip=allow_skip,
             )
             # Save with skip_fsm flag to bypass FSM during bulk import
             task.save(skip_fsm=True)
@@ -646,9 +626,6 @@ class ImportStorage(Storage):
             )
 
         # Create initial FSM states for all tasks created during storage sync
-        # CurrentContext is now available because we use start_job_async_or_sync
-        from fsm.functions import backfill_fsm_states_for_tasks
-
         backfill_fsm_states_for_tasks(self.id, tasks_created, link_class)
 
         self.project.update_tasks_states(
@@ -669,29 +646,21 @@ class ImportStorage(Storage):
 
     def sync(self):
         if redis_connected():
-            queue_name = 'low'
-            queue = django_rq.get_queue(queue_name)
-            meta = {'project': self.project.id, 'storage': self.id}
-            if not is_job_in_queue(queue, 'import_sync_background', meta=meta) and not is_job_on_worker(
-                job_id=self.last_sync_job, queue_name=queue_name
-            ):
-                if not self.info_set_queued():
-                    return
-                # Use start_job_async_or_sync to automatically capture and restore CurrentContext
-                # This ensures user_id, organization_id, and request_id are available in the worker
-                sync_job = start_job_async_or_sync(
-                    import_sync_background,
-                    self.__class__,
-                    self.id,
-                    queue_name=queue_name,
-                    meta=meta,
-                    project_id=self.project.id,
-                    organization_id=self.project.organization.id,
-                    on_failure=storage_background_failure,
-                    job_timeout=settings.RQ_LONG_JOB_TIMEOUT,
-                )
-                self.info_set_job(sync_job.id)
-                logger.info(f'Storage sync background job {sync_job.id} for storage {self} has been started')
+            if not self.info_set_queued():
+                return
+            sync_job = start_job_async_or_sync(
+                import_sync_background,
+                self.__class__,
+                self.id,
+                queue_name='low',
+                meta={'project': self.project.id, 'storage': self.id},
+                project_id=self.project.id,
+                organization_id=self.project.organization.id,
+                on_failure=storage_background_failure,
+                job_timeout=settings.RQ_LONG_JOB_TIMEOUT,
+            )
+            self.info_set_job(sync_job.id)
+            logger.info(f'Storage sync background job {sync_job.id} for storage {self} has been started')
         else:
             try:
                 logger.info(f'Start syncing storage {self}')
@@ -828,7 +797,7 @@ class ExportStorage(Storage, ProjectStorageMixin):
             # Updating progress in thread requires coordinating on count and db writes, so just
             # batching to keep it simpler.
             for annotation_batch in _batched(
-                iterate_queryset(Annotation.objects.filter(project=self.project), chunk_size=chunk_size),
+                iterate_queryset(annotations, chunk_size=chunk_size),
                 chunk_size,
             ):
                 futures = []
@@ -863,13 +832,13 @@ class ExportStorage(Storage, ProjectStorageMixin):
             export_sync_fn = export_sync_background
 
         if redis_connected():
-            queue = django_rq.get_queue('low')
             if not self.info_set_queued():
                 return
-            sync_job = queue.enqueue(
+            sync_job = start_job_async_or_sync(
                 export_sync_fn,
                 self.__class__,
                 self.id,
+                queue_name='low',
                 job_timeout=settings.RQ_LONG_JOB_TIMEOUT,
                 project_id=self.project.id,
                 organization_id=self.project.organization.id,
@@ -891,7 +860,6 @@ class ExportStorage(Storage, ProjectStorageMixin):
 
 
 class ImportStorageLink(models.Model):
-
     task = models.OneToOneField('tasks.Task', on_delete=models.CASCADE, related_name='%(app_label)s_%(class)s')
     key = models.TextField(_('key'), null=False, help_text='External link key')
 
@@ -921,7 +889,6 @@ class ImportStorageLink(models.Model):
 
 
 class ExportStorageLink(models.Model):
-
     annotation = models.ForeignKey(
         'tasks.Annotation', on_delete=models.CASCADE, related_name='%(app_label)s_%(class)s'
     )

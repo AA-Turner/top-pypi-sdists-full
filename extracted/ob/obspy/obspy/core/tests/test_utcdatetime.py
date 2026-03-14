@@ -2,9 +2,11 @@
 import copy
 import datetime
 import itertools
+import pickle
 import warnings
 from functools import partial
 from operator import ge, eq, lt, le, gt, ne
+from pathlib import Path
 
 from packaging.version import parse as parse_version
 import numpy as np
@@ -1521,3 +1523,74 @@ class TestUTCDateTime:
         # skip ISO8601 mode
         assert UTC('2019-01-01T02-02:33', iso8601=False) == \
                UTC(2019, 1, 1, 2, 2, 33)
+
+    @pytest.mark.parametrize(
+        "path",
+        (Path(__file__).parent / "data" / "utc_pickles").glob("*.pkl")
+    )
+    def test_read_old_pickles(self, path):
+        """Load many old pickle files, ensure each can be unpickled."""
+        expected = UTC("2017-09-17T16:00:00")
+        with warnings.catch_warnings(record=True):
+            # We don't need to display warnings here; we know some old
+            # pickle files might trigger them.
+            warnings.simplefilter("always", ObsPyDeprecationWarning)
+            with open(path, "rb") as f:
+                utc = pickle.load(f)
+        assert utc == expected
+
+    def test_set_ns_raises_for_non_integer_value(self):
+        """_set_ns should reject non-integer nanosecond inputs."""
+        utc = UTC(0)
+        with pytest.raises(TypeError, match="nanoseconds must be set"):
+            utc._set_ns(1.5)
+
+    def test_setstate_raises_for_missing_ns_dict_state(self):
+        """__setstate__ should fail when dict state has no recoverable ns."""
+        utc = UTC(0)
+        with pytest.raises(ValueError, match="Cannot reconstruct UTCDateTime"):
+            utc.__setstate__({})
+
+    def test_setstate_raises_for_unsupported_state_type(self):
+        """__setstate__ should reject state payloads with unsupported types."""
+        utc = UTC(0)
+        with pytest.raises(
+            TypeError, match="Unsupported UTCDateTime pickle state"
+        ):
+            utc.__setstate__(42)
+
+    def test_compact_and_spaced_ordinal_string_parsing(self):
+        """String parser should handle compact and spaced ordinal dates."""
+        assert UTC("2009001") == UTC(2009, 1, 1)
+        assert UTC("2009 001") == UTC(2009, 1, 1)
+
+    def test_julday_raises_for_non_int_like_value(self):
+        """Non-integer julday values should raise TypeError."""
+        with pytest.raises(
+            TypeError, match="Failed to convert 'julday' to int"
+        ):
+            UTC(year=2016, julday="x")
+
+    def test_year_zero_with_julday_hits_strptime_failure_fallback(self):
+        """Year zero with julday cannot be normalized via strptime."""
+        with pytest.raises(TypeError, match="required argument 'month'"):
+            UTC(year=0, julday=1)
+
+    def test_set_ns_accepts_numpy_integer_type(self):
+        """_set_ns should accept NumPy integer scalar values."""
+        utc = UTC(0)
+        value = np.int64(123456789)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter('always')
+            utc._set_ns(value)
+        assert utc.ns == int(value)
+
+    def test_timetuple_matches_datetime_timetuple(self):
+        """timetuple() should proxy to datetime.timetuple()."""
+        dt = UTC(2020, 2, 3, 4, 5, 6, 700000)
+        assert dt.timetuple() == dt.datetime.timetuple()
+
+    def test_strptime_classmethod(self):
+        """strptime() should parse and return UTCDateTime."""
+        dt = UTC.strptime("2019-07-06 05:04:03", "%Y-%m-%d %H:%M:%S")
+        assert dt == UTC(2019, 7, 6, 5, 4, 3)

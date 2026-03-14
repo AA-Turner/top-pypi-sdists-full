@@ -18,6 +18,7 @@ from gridstatus.isone_api.isone_api_constants import (
     ISONE_CONSTRAINT_FIVE_MIN_FINAL_COLUMNS,
     ISONE_CONSTRAINT_FIVE_MIN_PRELIM_COLUMNS,
     ISONE_FCM_RECONFIGURATION_COLUMNS,
+    ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS,
     ISONE_RESERVE_ZONE_ALL_COLUMNS,
     ISONE_RESERVE_ZONE_COLUMN_MAP,
     ISONE_RESERVE_ZONE_FLOAT_COLUMNS,
@@ -898,6 +899,74 @@ class ISONEAPI:
                 "Total Imports",
             ]
         ].sort_values(["Interval Start", "Location"])
+
+    @support_date_range("DAY_START")
+    def get_zonal_load_estimated_5_min(
+        self,
+        date: str | pd.Timestamp | Literal["latest"],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Get five-minute estimated zonal load data for all load zones.
+
+        Args:
+            date (pd.Timestamp | Literal["latest"]): The start date for the data
+                request. Use "latest" for most recent data.
+            end (pd.Timestamp | None): The end date for the data request. Only used
+                if date is not "latest".
+            verbose (bool): Whether to print verbose logging information.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing five-minute estimated zonal load data.
+        """
+        url = self._build_url("fiveminuteestimatedzonalload", date)
+        response = self.make_api_call(url, verbose=verbose)
+
+        records = self._prepare_records(
+            self._safe_get(
+                response,
+                "isone_web_services",
+                "five_min_estimated_zonal_loads",
+                "five_min_estimated_zonal_load",
+            ),
+        )
+
+        if not records:
+            raise NoDataFoundException(
+                f"No five-minute estimated zonal load data found for {date}",
+            )
+
+        df = pd.DataFrame(records)
+
+        df["Interval Start"] = pd.to_datetime(
+            df["interval_begin_date"],
+            utc=True,
+        ).dt.tz_convert(self.default_timezone)
+        df["Interval End"] = df["Interval Start"] + pd.Timedelta(minutes=5)
+
+        df = df.rename(
+            columns={
+                "load_zone_id": "Load Zone ID",
+                "load_zone_name": "Load Zone Name",
+                "estimated_load_mw": "Estimated Load",
+                "estimated_btm_pv_mw": "Estimated BTM Solar",
+            },
+        )
+
+        df["Load Zone ID"] = pd.to_numeric(df["Load Zone ID"], errors="coerce")
+        df["Estimated Load"] = pd.to_numeric(
+            df["Estimated Load"],
+            errors="coerce",
+        )
+        df["Estimated BTM Solar"] = pd.to_numeric(
+            df["Estimated BTM Solar"],
+            errors="coerce",
+        )
+
+        return df[ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS].sort_values(
+            ["Interval Start", "Load Zone ID"],
+        )
 
     @support_date_range("HOUR_START")
     def get_lmp_real_time_5_min_prelim(
@@ -1797,7 +1866,10 @@ class ISONEAPI:
             interval_end = interval_start + pd.DateOffset(months=1)
             annotated_auctions.append((auction, interval_start, interval_end))
 
-        return self._parse_fcm_reconfiguration_dataframe(annotated_auctions)
+        return self._parse_fcm_reconfiguration_dataframe(
+            annotated_auctions,
+            auction_type="monthly",
+        )
 
     @support_date_range(frequency="YEAR_START")
     def get_fcm_reconfiguration_annual(
@@ -1807,7 +1879,10 @@ class ISONEAPI:
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
-        Get FCM Annual Reconfiguration Auction data.
+        Get FCM Annual Reconfiguration Auction data for all three auctions (ARA1, ARA2, ARA3).
+
+        Queries the API for all three annual reconfiguration auctions using the endpoint
+        /fcmara/cp/{cp}/ara/{ARA} where {ARA} can be ARA1, ARA2, or ARA3.
 
         Args:
             date (str | pd.Timestamp): The start date for the data request. Use "latest" for most recent data.
@@ -1815,42 +1890,122 @@ class ISONEAPI:
             verbose (bool): Whether to print verbose logging information.
 
         Returns:
-            pd.DataFrame: A DataFrame containing annual reconfiguration auction data.
+            pd.DataFrame: A DataFrame containing annual reconfiguration auction data with an "ARA"
+                          column with values 1, 2, or 3 distinguishing between ARA1, ARA2, and ARA3.
+                          Note that not all three auctions may exist for all commitment periods
+                          (e.g., ARA3 may not exist yet for recent periods).
         """
         if date == "latest":
             endpoint = f"{self.base_url}/fcmara/current"
+            response = self.make_api_call(endpoint, verbose=verbose)
+            auctions = self._prepare_records(
+                self._safe_get(response, "FCMRAResults", "FCMRAResult"),
+            )
+            target_cp = None
+            if auctions:
+                auction = auctions[0].get("Auction", auctions[0])
+                period = auction.get("CommitmentPeriod", {})
+                if isinstance(period, dict) and period.get("Description"):
+                    target_cp = period["Description"]
         else:
             start = date[0] if isinstance(date, tuple) else pd.Timestamp(date)
-            cp_label = self._get_fcm_commitment_period_label(start)
-            endpoint = f"{self.base_url}/fcmara/cp/{cp_label}"
-
-        response = self.make_api_call(endpoint, verbose=verbose)
-
-        auctions = self._prepare_records(
-            self._safe_get(response, "FCMRAResults", "FCMRAResult"),
-        )
+            target_cp = self._get_fcm_commitment_period_label(start)
 
         annotated_auctions: list[tuple[dict, pd.Timestamp, pd.Timestamp]] = []
-        for wrapper in auctions:
-            auction = wrapper.get("Auction", wrapper)
-            period = auction.get("CommitmentPeriod", {})
-            begin = period.get("BeginDate")
-            end = period.get("EndDate")
 
-            if begin and end:
-                interval_start = pd.Timestamp(begin)
-                interval_end = pd.Timestamp(end)
-            else:
-                description = auction.get("Description")
-                interval_start = (
-                    pd.Timestamp(description)
-                    if description
-                    else pd.Timestamp(auction.get("ApprovalDate"))
+        if target_cp:
+            cp_start_year = int(target_cp.split("-")[0])
+            use_historical_endpoint = cp_start_year <= 2020
+
+            if use_historical_endpoint:
+                endpoint = f"{self.base_url}/fcmara/cp/{target_cp}"
+                response = self.make_api_call(endpoint, verbose=verbose)
+                auctions = self._prepare_records(
+                    self._safe_get(response, "FCMRAResults", "FCMRAResult"),
                 )
-                interval_end = interval_start + pd.DateOffset(years=1)
 
-            annotated_auctions.append((auction, interval_start, interval_end))
-        return self._parse_fcm_reconfiguration_dataframe(annotated_auctions)
+                for wrapper in auctions:
+                    auction = wrapper.get("Auction", wrapper)
+                    period = auction.get("CommitmentPeriod", {})
+                    begin = period.get("BeginDate")
+                    end_date = period.get("EndDate")
+
+                    if begin and end_date:
+                        interval_start = pd.Timestamp(begin)
+                        interval_end = pd.Timestamp(end_date)
+                    else:
+                        description = auction.get("Description")
+                        interval_start = (
+                            pd.Timestamp(description)
+                            if description
+                            else pd.Timestamp(auction.get("ApprovalDate"))
+                        )
+                        interval_end = interval_start + pd.DateOffset(years=1)
+
+                    annotated_auctions.append(
+                        (auction, interval_start, interval_end),
+                    )
+            else:
+                for ara_type in ["ARA1", "ARA2", "ARA3"]:
+                    endpoint = f"{self.base_url}/fcmara/cp/{target_cp}/ara/{ara_type}"
+
+                    try:
+                        response = self.make_api_call(endpoint, verbose=verbose)
+                        auctions = self._prepare_records(
+                            self._safe_get(response, "FCMRAResults", "FCMRAResult"),
+                        )
+
+                        for wrapper in auctions:
+                            auction = wrapper.get("Auction", wrapper)
+                            period = auction.get("CommitmentPeriod", {})
+                            begin = period.get("BeginDate")
+                            end_date = period.get("EndDate")
+
+                            if begin and end_date:
+                                interval_start = pd.Timestamp(begin)
+                                interval_end = pd.Timestamp(end_date)
+                            else:
+                                description = auction.get("Description")
+                                interval_start = (
+                                    pd.Timestamp(description)
+                                    if description
+                                    else pd.Timestamp(auction.get("ApprovalDate"))
+                                )
+                                interval_end = interval_start + pd.DateOffset(years=1)
+
+                            annotated_auctions.append(
+                                (auction, interval_start, interval_end),
+                            )
+                    except Exception as e:
+                        log.debug(
+                            f"Could not fetch {ara_type} for CP {target_cp}: {e}",
+                        )
+
+        else:
+            for wrapper in auctions:
+                auction = wrapper.get("Auction", wrapper)
+                period = auction.get("CommitmentPeriod", {})
+                begin = period.get("BeginDate")
+                end_date = period.get("EndDate")
+
+                if begin and end_date:
+                    interval_start = pd.Timestamp(begin)
+                    interval_end = pd.Timestamp(end_date)
+                else:
+                    description = auction.get("Description")
+                    interval_start = (
+                        pd.Timestamp(description)
+                        if description
+                        else pd.Timestamp(auction.get("ApprovalDate"))
+                    )
+                    interval_end = interval_start + pd.DateOffset(years=1)
+
+                annotated_auctions.append((auction, interval_start, interval_end))
+
+        return self._parse_fcm_reconfiguration_dataframe(
+            annotated_auctions,
+            auction_type="annual",
+        )
 
     def _get_fcm_commitment_period_label(self, timestamp: pd.Timestamp) -> str:
         start_year = timestamp.year if timestamp.month >= 6 else timestamp.year - 1
@@ -1860,6 +2015,7 @@ class ISONEAPI:
     def _parse_fcm_reconfiguration_dataframe(
         self,
         auction_records: list[tuple[dict, pd.Timestamp, pd.Timestamp]],
+        auction_type: str = "monthly",
     ) -> pd.DataFrame:
         frames: list[pd.DataFrame] = []
 
@@ -1894,13 +2050,21 @@ class ISONEAPI:
             )
 
             zone_frame = zone_frame.rename(columns=zone_column_map)
-            zone_frame = zone_frame.assign(
-                **{
-                    "Interval Start": interval_start,
-                    "Interval End": interval_end,
-                    "Location Type": "Capacity Zone",
-                },
-            )
+            zone_assign_dict = {
+                "Interval Start": interval_start,
+                "Interval End": interval_end,
+                "Location Type": "Capacity Zone",
+            }
+            if auction_type == "annual":
+                auction_type_str = auction.get("Type", "")
+                ara_value = None
+                if auction_type_str.startswith("ARA"):
+                    try:
+                        ara_value = int(auction_type_str.replace("ARA", ""))
+                    except ValueError:
+                        pass
+                zone_assign_dict["ARA"] = ara_value
+            zone_frame = zone_frame.assign(**zone_assign_dict)
             frames.append(zone_frame)
 
             interface_frame = pd.json_normalize(
@@ -1915,14 +2079,22 @@ class ISONEAPI:
             )
 
             interface_frame = interface_frame.rename(columns=interface_column_map)
-            interface_frame = interface_frame.assign(
-                **{
-                    "Interval Start": interval_start,
-                    "Interval End": interval_end,
-                    "Location Type": "External Interface",
-                    "Capacity Zone Type": None,
-                },
-            )
+            interface_assign_dict = {
+                "Interval Start": interval_start,
+                "Interval End": interval_end,
+                "Location Type": "External Interface",
+                "Capacity Zone Type": None,
+            }
+            if auction_type == "annual":
+                auction_type_str = auction.get("Type", "")
+                ara_value = None
+                if auction_type_str.startswith("ARA"):
+                    try:
+                        ara_value = int(auction_type_str.replace("ARA", ""))
+                    except ValueError:
+                        pass
+                interface_assign_dict["ARA"] = ara_value
+            interface_frame = interface_frame.assign(**interface_assign_dict)
             frames.append(interface_frame)
 
         df = pd.concat(frames, ignore_index=True)
@@ -1940,10 +2112,20 @@ class ISONEAPI:
             if column in df.columns:
                 df[column] = pd.to_numeric(df[column], errors="coerce")
 
-        df = df.reindex(columns=ISONE_FCM_RECONFIGURATION_COLUMNS)
-        df = df.sort_values(
-            ["Interval Start", "Location ID"],
-        ).reset_index(drop=True)
+        if auction_type == "annual":
+            df["ARA"] = df["ARA"].astype("Int64")
+
+        columns_to_use = (
+            ISONE_FCM_RECONFIGURATION_COLUMNS
+            if auction_type == "annual"
+            else [col for col in ISONE_FCM_RECONFIGURATION_COLUMNS if col != "ARA"]
+        )
+        df = df.reindex(columns=columns_to_use)
+
+        sort_columns = ["Interval Start", "Location ID"]
+        if auction_type == "annual":
+            sort_columns.insert(1, "ARA")
+        df = df.sort_values(sort_columns).reset_index(drop=True)
 
         log.debug(
             f"Processed FCM reconfiguration auction data. "

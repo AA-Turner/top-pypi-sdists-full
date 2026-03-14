@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..base import BaseMigration, DataMigrationError
 
+
 log = logging.getLogger(__name__)
 
 
@@ -180,9 +181,9 @@ class MigrationStats:
         self.converted_fields = 0
         self.skipped_fields = 0
         self.failed_conversions = 0
-        self.errors: List[Tuple[str, str, str, Exception]] = (
-            []
-        )  # (key, field, value, error)
+        self.errors: List[
+            Tuple[str, str, str, Exception]
+        ] = []  # (key, field, value, error)
 
     def add_conversion_error(self, key: str, field: str, value: Any, error: Exception):
         """Record a conversion error."""
@@ -393,7 +394,9 @@ class MigrationState:
         }
 
         self.redis.set(
-            self.state_key, json.dumps(state_data), ex=86400  # Expire after 24 hours
+            self.state_key,
+            json.dumps(state_data),
+            ex=86400,  # Expire after 24 hours
         )
 
     def load_progress(self) -> Dict[str, Any]:
@@ -497,9 +500,7 @@ class MigrationState:
         self._clear_progress_on_completion()
         log.info("Migration state cleared - migration completed successfully")
 
-    def _process_hash_model(
-        self, model_class, datetime_fields: List[str]
-    ) -> None:
+    def _process_hash_model(self, model_class, datetime_fields: List[str]) -> None:
         """Process HashModel instances to convert datetime fields with enhanced error handling."""
         # Get all keys for this model
         key_pattern = model_class.make_key("*")
@@ -583,9 +584,7 @@ class MigrationState:
                     self._check_error_threshold()
 
                     # Save progress periodically
-                    self._save_progress_if_needed(
-                        model_class.__name__, total_keys
-                    )
+                    self._save_progress_if_needed(model_class.__name__, total_keys)
 
                 except DataMigrationError:
                     # Re-raise migration errors
@@ -610,9 +609,7 @@ class MigrationState:
             # Progress reporting
             self._log_progress(processed_count, total_keys, "HashModel keys")
 
-    def _process_json_model(
-        self, model_class, datetime_fields: List[str]
-    ) -> None:
+    def _process_json_model(self, model_class, datetime_fields: List[str]) -> None:
         """Process JsonModel instances to convert datetime fields with enhanced error handling."""
         # Get all keys for this model
         key_pattern = model_class.make_key("*")
@@ -681,9 +678,7 @@ class MigrationState:
                     self._check_error_threshold()
 
                     # Save progress periodically
-                    self._save_progress_if_needed(
-                        model_class.__name__, total_keys
-                    )
+                    self._save_progress_if_needed(model_class.__name__, total_keys)
 
                 except DataMigrationError:
                     # Re-raise migration errors
@@ -728,9 +723,7 @@ class MigrationState:
             return result
         elif isinstance(data, list):
             return [
-                self._convert_datetime_fields_in_dict(
-                    item, datetime_fields, redis_key
-                )
+                self._convert_datetime_fields_in_dict(item, datetime_fields, redis_key)
                 for item in data
             ]
         else:
@@ -826,9 +819,7 @@ class MigrationState:
 
         log.info("Migration rollback completed.")
 
-    def _rollback_hash_model(
-        self, model_class, datetime_fields: List[str]
-    ) -> None:
+    def _rollback_hash_model(self, model_class, datetime_fields: List[str]) -> None:
         """Rollback HashModel instances by converting timestamps back to ISO strings."""
         key_pattern = model_class.make_key("*")
 
@@ -862,9 +853,7 @@ class MigrationState:
             if updates:
                 self.redis.hset(key, mapping=updates)  # type: ignore[misc]
 
-    def _rollback_json_model(
-        self, model_class, datetime_fields: List[str]
-    ) -> None:
+    def _rollback_json_model(self, model_class, datetime_fields: List[str]) -> None:
         """Rollback JsonModel instances by converting timestamps back to ISO strings."""
         key_pattern = model_class.make_key("*")
 

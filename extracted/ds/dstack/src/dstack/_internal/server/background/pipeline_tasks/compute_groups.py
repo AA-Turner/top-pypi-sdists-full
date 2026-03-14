@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Sequence
+from typing import Sequence, TypedDict
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import joinedload, load_only
@@ -12,14 +12,19 @@ from dstack._internal.core.errors import BackendError
 from dstack._internal.core.models.compute_groups import ComputeGroupStatus
 from dstack._internal.core.models.instances import InstanceStatus
 from dstack._internal.server.background.pipeline_tasks.base import (
+    NOW_PLACEHOLDER,
     Fetcher,
     Heartbeater,
+    ItemUpdateMap,
     Pipeline,
     PipelineItem,
-    UpdateMap,
+    UpdateMapDateTime,
     Worker,
-    get_processed_update_map,
-    get_unlock_update_map,
+    log_lock_token_changed_after_processing,
+    log_lock_token_mismatch,
+    resolve_now_placeholders,
+    set_processed_update_map_fields,
+    set_unlock_update_map_fields,
 )
 from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import ComputeGroupModel, InstanceModel, ProjectModel
@@ -191,51 +196,44 @@ class ComputeGroupWorker(Worker[PipelineItem]):
             )
             compute_group_model = res.unique().scalar_one_or_none()
             if compute_group_model is None:
-                logger.warning(
-                    "Failed to process %s item %s: lock_token mismatch."
-                    " The item is expected to be processed and updated on another fetch iteration.",
-                    item.__tablename__,
-                    item.id,
-                )
+                log_lock_token_mismatch(logger, item)
                 return
 
-        terminate_result = _TerminateResult()
+        result = _TerminateResult()
         # TODO: Fetch only compute groups with all instances terminating.
         if all(i.status == InstanceStatus.TERMINATING for i in compute_group_model.instances):
-            terminate_result = await _terminate_compute_group(compute_group_model)
-        if terminate_result.compute_group_update_map:
+            result = await _terminate_compute_group(compute_group_model)
+        set_processed_update_map_fields(result.compute_group_update_map)
+        if result.instances_update_map:
+            set_processed_update_map_fields(result.instances_update_map)
+        set_unlock_update_map_fields(result.compute_group_update_map)
+        if result.compute_group_update_map.get("deleted", False):
             logger.info("Terminated compute group %s", compute_group_model.id)
-        else:
-            terminate_result.compute_group_update_map = get_processed_update_map()
-
-        terminate_result.compute_group_update_map |= get_unlock_update_map()
 
         async with get_session_ctx() as session:
+            now = get_current_datetime()
+            resolve_now_placeholders(result.compute_group_update_map, now=now)
+            resolve_now_placeholders(result.instances_update_map, now=now)
             res = await session.execute(
                 update(ComputeGroupModel)
                 .where(
                     ComputeGroupModel.id == compute_group_model.id,
                     ComputeGroupModel.lock_token == compute_group_model.lock_token,
                 )
-                .values(**terminate_result.compute_group_update_map)
+                .values(**result.compute_group_update_map)
                 .returning(ComputeGroupModel.id)
             )
             updated_ids = list(res.scalars().all())
             if len(updated_ids) == 0:
-                logger.warning(
-                    "Failed to update %s item %s after processing: lock_token changed."
-                    " The item is expected to be processed and updated on another fetch iteration.",
-                    item.__tablename__,
-                    item.id,
-                )
+                log_lock_token_changed_after_processing(logger, item)
                 return
-            if not terminate_result.instances_update_map:
+            if not result.instances_update_map:
                 return
             instances_ids = [i.id for i in compute_group_model.instances]
             res = await session.execute(
                 update(InstanceModel)
                 .where(InstanceModel.id.in_(instances_ids))
-                .values(**terminate_result.instances_update_map)
+                .values(**result.instances_update_map)
             )
             for instance_model in compute_group_model.instances:
                 emit_instance_status_change_event(
@@ -243,13 +241,33 @@ class ComputeGroupWorker(Worker[PipelineItem]):
                     instance_model=instance_model,
                     old_status=instance_model.status,
                     new_status=InstanceStatus.TERMINATED,
+                    termination_reason=instance_model.termination_reason,
+                    termination_reason_message=instance_model.termination_reason_message,
                 )
+
+
+class _ComputeGroupUpdateMap(ItemUpdateMap, total=False):
+    status: ComputeGroupStatus
+    deleted: bool
+    deleted_at: UpdateMapDateTime
+    first_termination_retry_at: UpdateMapDateTime
+    last_termination_retry_at: UpdateMapDateTime
+
+
+class _InstanceBulkUpdateMap(TypedDict, total=False):
+    last_processed_at: UpdateMapDateTime
+    deleted: bool
+    deleted_at: UpdateMapDateTime
+    finished_at: UpdateMapDateTime
+    status: InstanceStatus
 
 
 @dataclass
 class _TerminateResult:
-    compute_group_update_map: UpdateMap = field(default_factory=dict)
-    instances_update_map: UpdateMap = field(default_factory=dict)
+    compute_group_update_map: _ComputeGroupUpdateMap = field(
+        default_factory=_ComputeGroupUpdateMap
+    )
+    instances_update_map: _InstanceBulkUpdateMap = field(default_factory=_InstanceBulkUpdateMap)
 
 
 async def _terminate_compute_group(compute_group_model: ComputeGroupModel) -> _TerminateResult:
@@ -283,15 +301,15 @@ async def _terminate_compute_group(compute_group_model: ComputeGroupModel) -> _T
             compute_group,
         )
     except Exception as e:
+        retry_at = get_current_datetime()
+        first_termination_retry_at = compute_group_model.first_termination_retry_at
         if compute_group_model.first_termination_retry_at is None:
-            result.compute_group_update_map["first_termination_retry_at"] = get_current_datetime()
-        result.compute_group_update_map["last_termination_retry_at"] = get_current_datetime()
-        if _next_termination_retry_at(
-            result.compute_group_update_map["last_termination_retry_at"]
-        ) < _get_termination_deadline(
-            result.compute_group_update_map.get(
-                "first_termination_retry_at", compute_group_model.first_termination_retry_at
-            )
+            result.compute_group_update_map["first_termination_retry_at"] = NOW_PLACEHOLDER
+            first_termination_retry_at = retry_at
+        assert first_termination_retry_at is not None
+        result.compute_group_update_map["last_termination_retry_at"] = NOW_PLACEHOLDER
+        if _next_termination_retry_at(retry_at) < _get_termination_deadline(
+            first_termination_retry_at
         ):
             logger.warning(
                 "Failed to terminate compute group %s. Will retry. Error: %r",
@@ -309,11 +327,9 @@ async def _terminate_compute_group(compute_group_model: ComputeGroupModel) -> _T
             exc_info=not isinstance(e, BackendError),
         )
     terminated_result = _get_terminated_result()
-    return _TerminateResult(
-        compute_group_update_map=result.compute_group_update_map
-        | terminated_result.compute_group_update_map,
-        instances_update_map=result.instances_update_map | terminated_result.instances_update_map,
-    )
+    terminated_result.compute_group_update_map.update(result.compute_group_update_map)
+    terminated_result.instances_update_map.update(result.instances_update_map)
+    return terminated_result
 
 
 def _next_termination_retry_at(last_termination_retry_at: datetime) -> datetime:
@@ -325,19 +341,16 @@ def _get_termination_deadline(first_termination_retry_at: datetime) -> datetime:
 
 
 def _get_terminated_result() -> _TerminateResult:
-    now = get_current_datetime()
     return _TerminateResult(
         compute_group_update_map={
-            "last_processed_at": now,
             "deleted": True,
-            "deleted_at": now,
+            "deleted_at": NOW_PLACEHOLDER,
             "status": ComputeGroupStatus.TERMINATED,
         },
         instances_update_map={
-            "last_processed_at": now,
             "deleted": True,
-            "deleted_at": now,
-            "finished_at": now,
+            "deleted_at": NOW_PLACEHOLDER,
+            "finished_at": NOW_PLACEHOLDER,
             "status": InstanceStatus.TERMINATED,
         },
     )

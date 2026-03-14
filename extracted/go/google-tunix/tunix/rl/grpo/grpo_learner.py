@@ -20,9 +20,11 @@ import dataclasses
 from typing import Iterable, List, Sequence, TypeVar
 
 import flax
+from flax import nnx
 import jax
 import jax.numpy as jnp
 import numpy as np
+from tunix.generate import utils
 from tunix.rl import algorithm_config as algo_config_lib
 from tunix.rl import common
 from tunix.rl import function_registry
@@ -32,6 +34,7 @@ from tunix.rl import rl_learner
 TrainingInputT = rl_learner.TrainingInputT
 RewardFn = rl_learner.RewardFn
 MetricFn = rl_learner.MetricFn
+
 
 @flax.struct.dataclass(frozen=True)
 class TrainExample(common.TrainExample):
@@ -43,15 +46,18 @@ class GRPOConfig(algo_config_lib.AlgorithmConfig):
   """Configuration for GRPO algorithms.
 
   Attributes:
-    algo_variant: The core algorithm variant to use.
-    advantage_estimator: The advantage estimator to use.
-    policy_loss_fn: The policy loss function to use.
-    loss_agg_mode: The aggregation mode for the loss function.
+    algo_variant: The algorithm variant to use. Default: `grpo`.
+    advantage_estimator: The advantage estimator to use. Default: `grpo`.
+    policy_loss_fn: The policy loss function to use. Default: `grpo`.
+    loss_agg_mode: The aggregation mode for the loss function. Default:
+      `sequence-mean-token-mean`.
+    reward_manager: The reward manager to use. Default: `sequence-level`.
     loss_algo: The loss algorithm to use. To be deprecated.
     num_generations: The number of times the policy generates multiple responses
       for a given prompt within a single training step. This corresponds to 'G'
-      in Algorithm 1 in the paper. A higher value means more samples are used to
-      compute relative advantages.
+      in Algorithm 1 in the `paper
+      <https://arxiv.org/abs/2402.03300>`_.
+      A higher value means more samples are used to compute relative advantages.
     num_iterations: The number of iterations per batch (𝜇 in GRPO algo 1).
     beta: The coefficient for the KL divergence penalty (𝛽) in the GRPO loss
       function. This term prevents policy updates from deviating too far from
@@ -62,14 +68,17 @@ class GRPOConfig(algo_config_lib.AlgorithmConfig):
     loss_algo: use GRPO or GSPO for loss computation. GRPO loss is per-batch
       normalized instead of per-response normalized as mentioned in the paper.
       For GSPO, we use gspo-token loss which is more flexible.
-    References: - GRPO: https://arxiv.org/abs/2402.03300 - GSPO:
-      https://www.arxiv.org/pdf/2507.18071
+
+  References:
+    - GRPO: https://arxiv.org/abs/2402.03300
+    - GSPO: https://arxiv.org/abs/2507.18071
   """
 
   algo_variant: str = "grpo"
   advantage_estimator: str = "grpo"
   policy_loss_fn: str = "grpo"
   loss_agg_mode: str = "sequence-mean-token-mean"
+  reward_manager: str = "sequence-level"
   loss_algo: (
       str
   ) = (  # grpo or gspo-token # TODO(sizhi): Remove this option once gspo is
@@ -108,9 +117,6 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
   generating multiple responses for a given prompt, evaluating these responses
   using a reward model, and then calculating a relative advantage based on the
   group's performance to update the policy.
-
-  References:
-    - https://arxiv.org/abs/2402.03300
   """
 
   def __init__(
@@ -157,7 +163,7 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
     policy_loss_fn = function_registry.get_policy_loss_fn(
         self.algo_config.policy_loss_fn
     )
-    
+
     # Workaround for passing in importance_sampling_algo as jax transforms
     # doesn't like partial functions with kwargs.
     loss_fn = lambda model, train_example, algo_config: policy_loss_fn(
@@ -178,7 +184,10 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
             "algo_config": self.algo_config,
         }
     )
-    self.rl_cluster.actor_trainer.with_rl_metrics_to_log({"kl": np.mean})
+    self.rl_cluster.actor_trainer.with_rl_metrics_to_log({
+      "kl": np.mean,
+      "pg_clipfrac": np.mean,
+    })
     self.rl_cluster.actor_trainer.with_tqdm_metrics_to_display([
         lambda: "kl" if self.algo_config.beta != 0.0 else None,
     ])
@@ -200,6 +209,10 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
       prompt IDs, completion IDs, masks, advantages, and per-token log
       probabilities from the reference and policy models.
     """
+    rollout_config = self.rl_cluster.cluster_config.rollout_config
+    if isinstance(rollout_config, dict):
+      rollout_config = rollout_config[mode]
+
     training_input["prompts"] = list(training_input["prompts"])
     pad_value = self.rl_cluster.rollout.pad_id()
     eos_value = self.rl_cluster.rollout.eos_id()
@@ -210,18 +223,24 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
             self._rollout_micro_batch_size * self.algo_config.num_generations
         ),
     )
-    completion_ids = rollout_output.tokens
-    prompt_ids = rollout_output.left_padded_prompt_tokens
-    completion_text = rollout_output.text
+    padded_completion_ids = np.array([
+        utils.pad_to_length(
+            completion_ids,
+            target_length=rollout_config.max_tokens_to_generate,
+            pad_value=pad_value,
+            left=False,
+        )
+        for completion_ids in rollout_output.tokens
+    ])
+    prompt_ids = jnp.array(rollout_output.left_padded_prompt_tokens)
 
     # Assemble masks
     prompt_mask = prompt_ids != pad_value
-    completion_padding_mask = jnp.not_equal(completion_ids, pad_value)
-    completion_mask = common.make_completion_mask(
-        completion_ids, eos_tok=eos_value
-    )
-    # Apply the padding mask to the completion mask.
-    completion_mask = completion_mask * completion_padding_mask
+    completion_mask = np.not_equal(padded_completion_ids, pad_value)
+
+    # Convert completion_ids and completion_mask to jax arrays
+    jax_completion_ids = jnp.array(padded_completion_ids)
+    jax_completion_mask = jnp.array(completion_mask)
 
     if self.algo_config.beta != 0.0:
       devices = self.rl_cluster.r2m[rl_cluster_lib.Role.REFERENCE].devices
@@ -229,7 +248,7 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
       with self.rl_cluster.perf.span("refer_inference", devices) as interval:
         ref_per_token_logps = self.rl_cluster.get_ref_per_token_logps(
             prompt_tokens=prompt_ids,
-            completion_tokens=completion_ids,
+            completion_tokens=jax_completion_ids,
             pad_id=pad_value,
             eos_id=eos_value,
             micro_batch_size=(
@@ -247,7 +266,7 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
       ) as interval:
         old_per_token_logps = self.rl_cluster.get_old_per_token_logps(
             prompt_tokens=prompt_ids,
-            completion_tokens=completion_ids,
+            completion_tokens=jax_completion_ids,
             micro_batch_size=(
                 self._compute_logps_micro_batch_size
                 * self.algo_config.num_generations
@@ -261,7 +280,7 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
       # Compute rewards and advantages
       rewards = self._compute_rewards(
           prompts=training_input["prompts"],
-          completions=completion_text,
+          completions=rollout_output.text,
           mode=mode,
           **{k: v for k, v in training_input.items() if k != "prompts"},
       )
@@ -271,6 +290,16 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
       advantages = advantage_estimator(
           rewards=rewards, num_generations=self.algo_config.num_generations
       )
+
+    # Log raw scores from the reward model fn
+    self.rl_cluster.buffer_metrics(
+        {
+            "rewards/score/mean": (np.mean(rewards), np.mean),
+            "rewards/score/max": (np.max(rewards), np.max),
+            "rewards/score/min": (np.min(rewards), np.min),
+        },
+        mode=mode,
+    )
 
     # Log completion lengths.
     agg_completion_mask = completion_mask.sum(axis=-1)
@@ -291,11 +320,13 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
         },
         mode=mode,
     )
+
+    # log user defined metrics
     for m_fn in self.metric_fns:
       user_defined_metric = m_fn(
           prompts=training_input["prompts"],
-          completions=completion_text,
-          advances=advantages,
+          completions=rollout_output.text,
+          advantages=advantages,
           rewards=rewards,
           **{k: v for k, v in training_input.items() if k != "prompts"},
       )
@@ -304,10 +335,10 @@ class GRPOLearner(rl_learner.RLLearner[TGrpoConfig]):
     return TrainExample(
         prompt_ids=prompt_ids,
         prompt_mask=prompt_mask,
-        completion_ids=completion_ids,
-        completion_mask=completion_mask,
+        completion_ids=jax_completion_ids,
+        completion_mask=jax_completion_mask,
         ref_per_token_logps=ref_per_token_logps,
-        advantages=advantages,
+        advantages=jax.device_put(advantages),
         old_per_token_logps=old_per_token_logps,
     )
 
@@ -441,8 +472,10 @@ def grpo_loss_fn(
 
   # TODO(yangmu): trace this part as "actor_inference_and_training".
   # with perf_tracer.span("...", list(completion_ids.devices())):
+  graphdef, state = nnx.split(model)
   per_token_logps = common.compute_per_token_logps(
-      model,
+      graphdef,
+      state,
       prompt_tokens=train_example.prompt_ids,
       completion_tokens=completion_ids,
       pad_id=pad_id,
@@ -473,23 +506,34 @@ def grpo_loss_fn(
   coef_1 = jnp.exp(seq_importance_ratio)
   coef_2 = jnp.clip(coef_1, 1 - epsilon, 1 + epsilon_high)
 
+  # Compute pg_clipfrac
+  pg_losses_1 = -coef_1 * jnp.expand_dims(advantages, 1)
+  pg_losses_2 = -coef_2 * jnp.expand_dims(advantages, 1)
+  pg_clipfrac = jnp.sum(
+      (pg_losses_2 > pg_losses_1) * completion_mask
+  ) / jnp.clip(jnp.sum(completion_mask), min=1)
+
   # TODO(tsbao): We should handle token level advantages.
   per_token_loss = -jnp.minimum(
       coef_1 * jnp.expand_dims(advantages, 1),
       coef_2 * jnp.expand_dims(advantages, 1),
   )
 
-  aux = {"kl": 0.0}
+  # add KL penalty
+  mean_kl = 0.0
   if beta is not None and beta != 0.0:
     kl = common.compute_kl_divergence(
         per_token_logps, train_example.ref_per_token_logps
     )
     per_token_loss = per_token_loss + beta * kl
-
-    # Log mean KL.
-    aux["kl"] = (kl * completion_mask).sum() / jnp.clip(
+    mean_kl = (kl * completion_mask).sum() / jnp.clip(
         completion_mask.sum(), min=1
     )
+
+  aux = {
+    "kl": mean_kl,
+    "pg_clipfrac": pg_clipfrac,
+  }
 
   loss = common.aggregate_loss(
       per_token_loss, completion_mask, loss_aggregation_mode
@@ -499,7 +543,7 @@ def grpo_loss_fn(
 
 
 @function_registry.register_advantage_estimator("grpo")
-def compute_advantages(rewards: jax.Array, num_generations: int) -> jax.Array:
+def compute_advantages(rewards: np.ndarray, num_generations: int) -> np.ndarray:
   """Compute group relative advantages.
 
   Args:
@@ -517,6 +561,35 @@ def compute_advantages(rewards: jax.Array, num_generations: int) -> jax.Array:
   mean_grouped_rewards = mean_grouped_rewards.repeat(num_generations)
   std_grouped_rewards = std_grouped_rewards.repeat(num_generations)
   return (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+
+
+@function_registry.register_advantage_estimator("rloo")
+def compute_rloo_advantages(
+    rewards: np.ndarray, num_generations: int
+) -> np.ndarray:
+  """Compute RLOO (REINFORCE Leave-One-Out) advantages.
+
+  RLOO computes a baseline for each completion by averaging the rewards of all
+  other completions to the same prompt.
+
+  Args:
+    rewards: reward functions output.
+    num_generations: Number of generations.
+
+  Returns:
+    RLOO advantages.
+  """
+  if num_generations < 2:
+    # RLOO requires at least 2 samples to calculate a baseline.
+    return np.zeros_like(rewards)
+
+  reshaped_rewards = rewards.reshape(-1, num_generations)
+  loo_mean = (
+      reshaped_rewards.sum(axis=-1, keepdims=True) - reshaped_rewards
+  ) / (num_generations - 1)
+  rloo_advantages = reshaped_rewards - loo_mean
+
+  return rloo_advantages.flatten()
 
 
 GrpoConfig = GRPOConfig

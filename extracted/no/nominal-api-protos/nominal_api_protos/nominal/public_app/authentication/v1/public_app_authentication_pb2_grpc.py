@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.public_app.authentication.v1 import public_app_authentication_pb2 as nominal_dot_public__app_dot_authentication_dot_v1_dot_public__app__authentication__pb2
+from nominal_api_protos.nominal.public_app.authentication.v1 import public_app_authentication_pb2 as nominal_dot_public__app_dot_authentication_dot_v1_dot_public__app__authentication__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

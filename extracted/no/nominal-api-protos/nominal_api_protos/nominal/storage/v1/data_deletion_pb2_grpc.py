@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.storage.v1 import data_deletion_pb2 as nominal_dot_storage_dot_v1_dot_data__deletion__pb2
+from nominal_api_protos.nominal.storage.v1 import data_deletion_pb2 as nominal_dot_storage_dot_v1_dot_data__deletion__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -65,6 +65,11 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.FromString,
         )
+        self.GetMetricOptions = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetMetricOptions",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.FromString,
+        )
 
 
 class ChartsServiceServicer(object):
@@ -130,6 +135,12 @@ class ChartsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetMetricOptions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ChartsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -182,6 +193,11 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.GetQueryMetrics,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.SerializeToString,
+        ),
+        "GetMetricOptions": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMetricOptions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ChartsService", rpc_method_handlers)
@@ -472,6 +488,35 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/GetQueryMetrics",
             chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMetricOptions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetMetricOptions",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

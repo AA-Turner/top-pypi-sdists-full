@@ -21,6 +21,7 @@ Usage::
         DescribeConfigRulesPaginator,
         DescribeConfigurationAggregatorSourcesStatusPaginator,
         DescribeConfigurationAggregatorsPaginator,
+        DescribeConformancePackCompliancePaginator,
         DescribeConformancePackStatusPaginator,
         DescribeConformancePacksPaginator,
         DescribeOrganizationConfigRuleStatusesPaginator,
@@ -58,6 +59,7 @@ Usage::
     describe_config_rules_paginator: DescribeConfigRulesPaginator = client.get_paginator("describe_config_rules")
     describe_configuration_aggregator_sources_status_paginator: DescribeConfigurationAggregatorSourcesStatusPaginator = client.get_paginator("describe_configuration_aggregator_sources_status")
     describe_configuration_aggregators_paginator: DescribeConfigurationAggregatorsPaginator = client.get_paginator("describe_configuration_aggregators")
+    describe_conformance_pack_compliance_paginator: DescribeConformancePackCompliancePaginator = client.get_paginator("describe_conformance_pack_compliance")
     describe_conformance_pack_status_paginator: DescribeConformancePackStatusPaginator = client.get_paginator("describe_conformance_pack_status")
     describe_conformance_packs_paginator: DescribeConformancePacksPaginator = client.get_paginator("describe_conformance_packs")
     describe_organization_config_rule_statuses_paginator: DescribeOrganizationConfigRuleStatusesPaginator = client.get_paginator("describe_organization_config_rule_statuses")
@@ -95,6 +97,7 @@ from .paginator import (
     DescribeConfigRulesPaginator,
     DescribeConfigurationAggregatorSourcesStatusPaginator,
     DescribeConfigurationAggregatorsPaginator,
+    DescribeConformancePackCompliancePaginator,
     DescribeConformancePacksPaginator,
     DescribeConformancePackStatusPaginator,
     DescribeOrganizationConfigRulesPaginator,
@@ -134,6 +137,7 @@ __all__ = (
     "DescribeConfigRulesPaginator",
     "DescribeConfigurationAggregatorSourcesStatusPaginator",
     "DescribeConfigurationAggregatorsPaginator",
+    "DescribeConformancePackCompliancePaginator",
     "DescribeConformancePackStatusPaginator",
     "DescribeConformancePacksPaginator",
     "DescribeOrganizationConfigRuleStatusesPaginator",

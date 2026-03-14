@@ -230,6 +230,14 @@ def get_or_create_snowpark_session(
     5. If no connections.toml exists (e.g., Snowflake Notebooks), use existing session
     6. Error if connections.toml exists but no valid connection is configured
     """
+    # Fast path: if a session already exists and no custom configs are requested,
+    # return it immediately without running the connection resolver.
+    # This avoids repeatedly reading connections.toml on every request.
+    if custom_configs is None:
+        existing_session = _get_current_snowpark_session()
+        if existing_session is not None:
+            return existing_session
+
     session_configs = {}
     if _is_running_in_SPCS():
         # Running in SPCS, use environment variables injected by SPCS run time

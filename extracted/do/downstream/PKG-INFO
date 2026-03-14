@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: downstream
-Version: 1.21.10
+Version: 1.22.0
 Summary: downstream provides efficient, constant-space algorithms for stream curation
 Author-email: Matthew Andres Moreno <m.more500@gmail.com>
 License: MIT license
@@ -22,7 +22,7 @@ Requires-Dist: lazy-loader>=0.4
 Requires-Dist: joinem>=0.8.1
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: opytional>=0.1.0
-Requires-Dist: polars!=1.20.0,!=1.37.*,>=1.0.0
+Requires-Dist: polars!=1.20.0,!=1.37.*,!=1.39.*,>=1.0.0
 Provides-Extra: jit
 Requires-Dist: numba>=0.60.0; extra == "jit"
 Provides-Extra: testing
@@ -68,7 +68,7 @@ To install from PyPi with pip, run
 A containerized release of `downstream` is available via <https://ghcr.io>
 
 ```bash
-singularity exec docker://ghcr.io/mmore500/downstream:v1.21.10 python3 -m downstream --help
+singularity exec docker://ghcr.io/mmore500/downstream:v1.22.0 python3 -m downstream --help
 ```
 
 ## Citing

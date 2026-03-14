@@ -987,9 +987,8 @@ def _get_job_submission_cost(job_submission: JobSubmission) -> float:
 
 async def process_terminating_run(session: AsyncSession, run_model: RunModel):
     """
-    Used by both `process_runs` and `stop_run` to process a TERMINATING run.
     Stops the jobs gracefully and marks them as TERMINATING.
-    Jobs should be terminated by `process_terminating_jobs`.
+    Jobs then should be terminated by `process_terminating_jobs`.
     When all jobs are terminated, assigns a finished status to the run.
     Caller must acquire the lock on run.
     """
@@ -1003,10 +1002,6 @@ async def process_terminating_run(session: AsyncSession, run_model: RunModel):
             continue
         unfinished_jobs_count += 1
         if job_model.status == JobStatus.TERMINATING:
-            if job_termination_reason == JobTerminationReason.ABORTED_BY_USER:
-                # Override termination reason so that
-                # abort actions such as volume force detach are triggered
-                job_model.termination_reason = job_termination_reason
             continue
 
         if job_model.status == JobStatus.RUNNING and job_termination_reason not in {

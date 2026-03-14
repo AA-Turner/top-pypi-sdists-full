@@ -1427,6 +1427,37 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         additional_env_vars: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
+class NodePodMetricsFilter(_message.Message):
+    __slots__ = ("pod_label_regex", "namespace_regex", "node_selector")
+    class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    POD_LABEL_REGEX_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_REGEX_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    pod_label_regex: str
+    namespace_regex: str
+    node_selector: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        pod_label_regex: _Optional[str] = ...,
+        namespace_regex: _Optional[str] = ...,
+        node_selector: _Optional[_Mapping[str, str]] = ...,
+    ) -> None: ...
+
+class ClusterManagerConfig(_message.Message):
+    __slots__ = ("node_pod_metrics_filters",)
+    NODE_POD_METRICS_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    node_pod_metrics_filters: _containers.RepeatedCompositeFieldContainer[NodePodMetricsFilter]
+    def __init__(
+        self, node_pod_metrics_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...
+    ) -> None: ...
+
 class BackgroundPersistenceDeploymentSpecs(_message.Message):
     __slots__ = (
         "common_persistence_specs",
@@ -1444,6 +1475,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "bootstrap_cloud_resources",
         "suspended",
         "observability_daemons",
+        "cluster_manager_config",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -1460,6 +1492,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_MANAGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -1475,6 +1508,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     bootstrap_cloud_resources: bool
     suspended: bool
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
+    cluster_manager_config: ClusterManagerConfig
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -1492,6 +1526,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         bootstrap_cloud_resources: bool = ...,
         suspended: bool = ...,
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
+        cluster_manager_config: _Optional[_Union[ClusterManagerConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
@@ -1545,19 +1580,21 @@ class OtelCollectorSpec(_message.Message):
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):
-    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id", "instance_type")
+    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id", "instance_type", "serve_over_http")
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STORAGE_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    SERVE_OVER_HTTP_FIELD_NUMBER: _ClassVar[int]
     click_house_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     storage: KubePersistentVolumeClaim
     gateway_id: str
     instance_type: str
+    serve_over_http: bool
     def __init__(
         self,
         click_house_version: _Optional[str] = ...,
@@ -1566,6 +1603,7 @@ class ClickHouseSpec(_message.Message):
         storage: _Optional[_Union[KubePersistentVolumeClaim, _Mapping]] = ...,
         gateway_id: _Optional[str] = ...,
         instance_type: _Optional[str] = ...,
+        serve_over_http: bool = ...,
     ) -> None: ...
 
 class ZombieKillerSpec(_message.Message):

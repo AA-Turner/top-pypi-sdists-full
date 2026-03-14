@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.comments.v1 import comments_pb2 as nominal_dot_comments_dot_v1_dot_comments__pb2
+from nominal_api_protos.nominal.comments.v1 import comments_pb2 as nominal_dot_comments_dot_v1_dot_comments__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

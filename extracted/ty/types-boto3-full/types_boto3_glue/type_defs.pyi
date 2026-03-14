@@ -7144,6 +7144,8 @@ class BatchGetPartitionRequestTypeDef(TypedDict):
     TableName: str
     PartitionsToGet: Sequence[PartitionValueListUnionTypeDef]
     CatalogId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
+    QuerySessionContext: NotRequired[QuerySessionContextTypeDef]
 
 class RecipeOutputTypeDef(TypedDict):
     Name: str

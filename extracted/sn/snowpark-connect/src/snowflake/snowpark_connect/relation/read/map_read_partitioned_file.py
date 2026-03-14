@@ -28,6 +28,7 @@ from snowflake.snowpark.types import (
     IntegerType,
     MapType,
     StringType,
+    StructField,
     StructType,
 )
 from snowflake.snowpark_connect.config import external_table_location, str_to_bool
@@ -146,12 +147,33 @@ def _read_file_with_partitions(
     schema: StructType | None,
     snowpark_options: dict[str, Any],
     raw_options: dict[str, Any],
+    fix_relaxed_types: bool = False,
 ) -> tuple[DataFrame, bool]:
     df, _, uses_external_table = _read_partitioned_file_with_partitions(
         session, reader, file_format, path, schema, snowpark_options, raw_options
     )
 
+    # TODO: SNOW-3198432 USE_RELAXED_TYPES only updates the schema, but not the underlying SQL query,
+    # so we need to reconstruct the dataframe to update the underlying SQL query with the widened schema.
+    # This can be removed once we have a proper fix for this in Snowpark Python.
+    if fix_relaxed_types:
+        df = _fix_relaxed_schema(df, reader, path)
+
     return df, uses_external_table
+
+
+def _fix_relaxed_schema(df: DataFrame, reader: DataFrameReader, path: str) -> DataFrame:
+    normalized_schema = StructType(
+        [
+            StructField(
+                unquote_if_quoted(f.name),  # id instead of "id"
+                f.datatype,
+                nullable=f.nullable,
+            )
+            for f in df.schema.fields
+        ]
+    )
+    return reader.schema(normalized_schema).json(path)
 
 
 def read_file(

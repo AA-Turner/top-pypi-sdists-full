@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/dstackai/dstack/runner/internal/api"
-	"github.com/dstackai/dstack/runner/internal/executor"
-	"github.com/dstackai/dstack/runner/internal/log"
-	"github.com/dstackai/dstack/runner/internal/schemas"
+	"github.com/dstackai/dstack/runner/internal/common/api"
+	"github.com/dstackai/dstack/runner/internal/common/log"
+	"github.com/dstackai/dstack/runner/internal/runner/executor"
+	"github.com/dstackai/dstack/runner/internal/runner/schemas"
 )
 
 // TODO: set some reasonable value; (optional) make configurable
@@ -146,18 +146,27 @@ func (s *Server) uploadCodePostHandler(w http.ResponseWriter, r *http.Request) (
 
 func (s *Server) runPostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	s.executor.Lock()
-	defer s.executor.Unlock()
 	if s.executor.GetRunnerState() != executor.WaitRun {
+		s.executor.Unlock()
 		return nil, &api.Error{Status: http.StatusConflict}
 	}
+	s.executor.SetRunnerState(executor.ServeLogs)
+	s.executor.Unlock()
 
 	var runCtx context.Context
 	runCtx, s.cancelRun = context.WithCancel(context.Background())
+	username, workingDir, err := s.executor.GetJobInfo(runCtx)
 	go func() {
 		_ = s.executor.Run(runCtx) // INFO: all errors are handled inside the Run()
 		s.jobBarrierCh <- nil      // notify server that job finished
 	}()
-	s.executor.SetRunnerState(executor.ServeLogs)
+
+	if err == nil {
+		return &schemas.JobInfoResponse{
+			Username:   username,
+			WorkingDir: workingDir,
+		}, nil
+	}
 
 	return nil, nil
 }

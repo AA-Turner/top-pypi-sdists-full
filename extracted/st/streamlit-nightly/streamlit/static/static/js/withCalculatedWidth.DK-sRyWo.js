@@ -1,0 +1,1 @@
+import{cl as l,Y as n,c as s,aC as h}from"./index.xBaIe2Cx.js";const o=t=>{const a=e=>{const{width:i,elementRef:c}=n();return s(h,{ref:c,children:s(t,{...e,width:i})})};return a.displayName=`withCalculatedWidth(${t.displayName||t.name})`,l(a,t)};export{o as w};

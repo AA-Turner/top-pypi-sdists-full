@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.procedures.executions.v1 import procedure_executions_pb2 as nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2
+from nominal_api_protos.nominal.procedures.executions.v1 import procedure_executions_pb2 as nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -631,6 +631,19 @@ async def smart_commit(
 
     deleted = set(meta.deleted)
 
+    # Files that appear in both meta.deleted and the overlay were deleted then
+    # re-created (e.g. cross-device mv overwrites via unlink+create).  The
+    # overlay is authoritative — if the file exists there it is not deleted.
+    resurrected = deleted & overlay_files
+    if resurrected:
+        _smart_commit_debug(
+            "resurrected files (in deleted AND overlay): count=%d sample=%s",
+            len(resurrected),
+            list(resurrected)[:5],
+        )
+        deleted -= resurrected
+        modified |= resurrected
+
     for relpath in original_files:
         if relpath in deleted:
             continue
@@ -673,7 +686,12 @@ async def smart_commit(
         mode = stat_mod.S_IMODE(st.st_mode)
         is_symlink = stat_mod.S_ISLNK(st.st_mode)
         symlink_target = os.readlink(local_path) if is_symlink else None
-        data = symlink_target.encode("utf-8") if is_symlink else local_path.read_bytes()
+        if is_symlink:
+            if symlink_target is None:
+                raise RuntimeError(f"Expected symlink target for {local_path}")
+            data = symlink_target.encode("utf-8")
+        else:
+            data = local_path.read_bytes()
         size = len(data)
         new_md5 = hashlib.md5(data).hexdigest()
         key = dvc_file_key(s3_config, new_md5)

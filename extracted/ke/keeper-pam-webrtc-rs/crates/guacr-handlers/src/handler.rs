@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use crate::error::Result;
 use crate::events::EventBasedHandler;
+use crate::video::VideoOutput;
 
 /// Health status of a protocol handler
 #[derive(Debug, Clone, PartialEq)]
@@ -38,9 +40,10 @@ pub struct HandlerStats {
 /// # Example
 ///
 /// ```no_run
-/// use guacr_handlers::{ProtocolHandler, Result, HealthStatus};
+/// use guacr_handlers::{ProtocolHandler, Result, HealthStatus, VideoOutput};
 /// use async_trait::async_trait;
 /// use std::collections::HashMap;
+/// use std::sync::Arc;
 /// use tokio::sync::mpsc;
 /// use bytes::Bytes;
 ///
@@ -56,7 +59,8 @@ pub struct HandlerStats {
 ///         &self,
 ///         params: HashMap<String, String>,
 ///         to_client: mpsc::Sender<Bytes>,
-///         mut from_client: mpsc::Receiver<Bytes>,
+///         from_client: mpsc::Receiver<Bytes>,
+///         _video_tx: Option<Arc<dyn VideoOutput>>,
 ///     ) -> Result<()> {
 ///         // Implementation here
 ///         Ok(())
@@ -108,6 +112,10 @@ pub trait ProtocolHandler: Send + Sync {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         from_client: mpsc::Receiver<Bytes>,
+        // `Some` for graphical protocols (RDP, VNC, RBI) when H.264 transport is active.
+        // `None` for terminal protocols, guacd sessions, old vault clients, and encoder
+        // initialisation failures — the handler falls back to JPEG dirty-rect in those cases.
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<()>;
 
     /// Graceful disconnect (optional, cleanup on drop)

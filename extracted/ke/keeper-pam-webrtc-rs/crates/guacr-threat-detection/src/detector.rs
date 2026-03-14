@@ -12,7 +12,8 @@ use std::sync::Arc;
 /// Uses static slices instead of allocating a HashSet per call.
 pub fn should_trigger_analysis(protocol: &str, submit_type: &str) -> bool {
     let triggers: &[&str] = match protocol {
-        "ssh" | "telnet" | "kubernetes" | "mysql" | "postgres" | "sql-server" => &["return"],
+        "ssh" | "telnet" | "kubernetes" | "mysql" | "postgres" | "sql-server" | "oracle"
+        | "cassandra" | "dynamodb" | "elasticsearch" | "mongodb" | "redis" => &["return"],
         "rdp" | "vnc" => &["return", "click", "escape"],
         "http" => &["return", "click"],
         _ => &["return"],

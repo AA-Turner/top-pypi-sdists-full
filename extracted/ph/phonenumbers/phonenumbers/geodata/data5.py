@@ -7680,6 +7680,7 @@ data = {
  '4824':{'en': 'Plock', 'pl': u('P\u0142ock')},
  '4825':{'en': 'Siedlce', 'pl': 'Siedlce'},
  '4829':{'en': u('Ostrol\u0119ka'), 'pl': u('Ostro\u0142\u0119ka')},
+ '4830':{'en': u('Krak\u00f3w'), 'pl': u('Krak\u00f3w')},
  '4832':{'en': 'Katowice', 'pl': 'Katowice'},
  '4833':{'en': 'Bielsko-Biala', 'pl': u('Bielsko-Bia\u0142a')},
  '4834':{'en': u('Cz\u0119stochowa'), 'pl': u('Cz\u0119stochowa')},
@@ -10018,5 +10019,4 @@ data = {
  '494557':{'de': 'Blunk', 'en': 'Blunk'},
  '494558':{'de': 'Todesfelde', 'en': 'Todesfelde'},
  '494559':{'de': 'Wensin', 'en': 'Wensin'},
- '494561':{'de': 'Neustadt in Holstein', 'en': 'Neustadt in Holstein'},
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-agent
-Version: 0.7.33
+Version: 0.7.34
 Summary: Cua (Computer Use) Agent for AI-driven computer interaction
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.12

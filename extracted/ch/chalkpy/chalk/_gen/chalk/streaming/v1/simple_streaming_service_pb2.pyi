@@ -89,19 +89,29 @@ class SimpleStreamingUnaryInvokeRequest(_message.Message):
     ) -> None: ...
 
 class SimpleStreamingUnaryInvokeResponse(_message.Message):
-    __slots__ = ("num_rows_succeed", "num_rows_failed", "num_rows_skipped", "error", "output_data", "execution_errors")
+    __slots__ = (
+        "num_rows_succeed",
+        "num_rows_failed",
+        "num_rows_skipped",
+        "error",
+        "output_data",
+        "execution_errors",
+        "row_statuses",
+    )
     NUM_ROWS_SUCCEED_FIELD_NUMBER: _ClassVar[int]
     NUM_ROWS_FAILED_FIELD_NUMBER: _ClassVar[int]
     NUM_ROWS_SKIPPED_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_DATA_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    ROW_STATUSES_FIELD_NUMBER: _ClassVar[int]
     num_rows_succeed: int
     num_rows_failed: int
     num_rows_skipped: int
     error: _chalk_error_pb2.ChalkError
     output_data: bytes
     execution_errors: _containers.RepeatedCompositeFieldContainer[StreamingError]
+    row_statuses: _containers.RepeatedScalarFieldContainer[StreamingMessageStatus]
     def __init__(
         self,
         num_rows_succeed: _Optional[int] = ...,
@@ -110,6 +120,7 @@ class SimpleStreamingUnaryInvokeResponse(_message.Message):
         error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
         output_data: _Optional[bytes] = ...,
         execution_errors: _Optional[_Iterable[_Union[StreamingError, _Mapping]]] = ...,
+        row_statuses: _Optional[_Iterable[_Union[StreamingMessageStatus, str]]] = ...,
     ) -> None: ...
 
 class TestStreamingResolverRequest(_message.Message):

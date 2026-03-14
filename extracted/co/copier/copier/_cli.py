@@ -438,7 +438,7 @@ class CopierUpdateSubApp(_Subcommand):
 
 
 @CopierApp.subcommand("check-update")
-class CopierCheckUpdateSubApp(_Subcommand):
+class CopierCheckUpdateSubApp(cli.Application):  # type: ignore[misc]
     """The `copier check-update` subcommand.
 
     Use this subcommand to check if an existing subproject is using the
@@ -459,6 +459,25 @@ class CopierCheckUpdateSubApp(_Subcommand):
         """
     )
 
+    answers_file = cli.SwitchAttr(
+        ["-a", "--answers-file"],
+        default=None,
+        help=(
+            "Check for updates using this path (relative to `destination_path`) "
+            "to find the answers file"
+        ),
+    )
+    quiet = cli.Flag(
+        ["-q", "--quiet"],
+        help=(
+            "Suppress status output, exit with status 2 when a new template version is "
+            "available"
+        ),
+    )
+    prereleases = cli.Flag(
+        ["-g", "--prereleases"],
+        help="Use prereleases to compare template VCS tags.",
+    )
     output_format = cli.SwitchAttr(
         ["--output-format"],
         cli.Set("plain", "json"),
@@ -481,6 +500,7 @@ class CopierCheckUpdateSubApp(_Subcommand):
         def inner() -> int:
             update_available, current_version, latest_version = get_update_data(
                 dst_path=destination_path,
+                answers_file=self.answers_file,
                 use_prereleases=self.prereleases,
             )
 

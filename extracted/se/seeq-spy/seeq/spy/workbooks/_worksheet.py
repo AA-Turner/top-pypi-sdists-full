@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import copy
 import glob
 import json
 import os
-import re
-from typing import Optional, Union, Iterable
-
 import pandas as pd
+import re
 from deprecated import deprecated
+from typing import Optional, Union, Iterable
 
 from seeq import spy
 from seeq.base import util
@@ -347,7 +347,7 @@ class Worksheet(Item):
 
         if 'Current Workstep ID' in self.definition and self.definition['Current Workstep ID']:
             new_workstep = self._instantiate_new_workstep(definition={
-                'Data': self.worksteps[self.definition['Current Workstep ID']].data
+                'Data': copy.deepcopy(self.worksteps[self.definition['Current Workstep ID']].data)
             })
         else:
             new_workstep = self._instantiate_new_workstep()

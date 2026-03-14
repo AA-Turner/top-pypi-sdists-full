@@ -35,6 +35,7 @@ from tests._compat import EmailStr, PositiveInt, ValidationError
 
 from .conftest import py_test_mark_sync
 
+
 if not has_redis_json():
     pytestmark = pytest.mark.skip
 
@@ -463,9 +464,7 @@ def test_in_query(members, m):
 @py_test_mark_sync
 def test_not_in_query(members, m):
     member1, member2, member3 = members
-    actual = (
-        m.Member.find(m.Member.pk >> [member2.pk, member3.pk]).sort_by("age").all()
-    )
+    actual = m.Member.find(m.Member.pk >> [member2.pk, member3.pk]).sort_by("age").all()
     assert actual == [member1]
 
 
@@ -517,9 +516,7 @@ def test_exact_match_queries(members, m):
     ).all()
     assert actual == [member2]
 
-    actual = (
-        m.Member.find(m.Member.address.city == "Portland").sort_by("age").all()
-    )
+    actual = m.Member.find(m.Member.address.city == "Portland").sort_by("age").all()
     assert actual == [member2, member1, member3]
 
 
@@ -542,19 +539,18 @@ def test_recursive_query_expression_resolution(members, m):
 def test_recursive_query_field_resolution(members, m):
     member1, _, _ = members
     member1.address.note = m.Note(
-        description="Weird house", created_on=datetime.datetime.now()
+        description="Weird house",
+        created_on=datetime.datetime.now(datetime.timezone.utc),
     )
     member1.save()
-    actual = m.Member.find(
-        m.Member.address.note.description == "Weird house"
-    ).all()
+    actual = m.Member.find(m.Member.address.note.description == "Weird house").all()
     assert actual == [member1]
 
     member1.orders = [
         m.Order(
             items=[m.Item(price=10.99, name="Ball")],
             total=10.99,
-            created_on=datetime.datetime.now(),
+            created_on=datetime.datetime.now(datetime.timezone.utc),
         )
     ]
     member1.save()
@@ -614,12 +610,10 @@ def test_tag_queries_punctuation(address, m):
     member2.save()
 
     assert (
-        m.Member.find(m.Member.first_name == "Andrew, the Michael").first()
-        == member1
+        m.Member.find(m.Member.first_name == "Andrew, the Michael").first() == member1
     )
     assert (
-        m.Member.find(m.Member.last_name == "St. Brookins-on-Pier").first()
-        == member1
+        m.Member.find(m.Member.last_name == "St. Brookins-on-Pier").first() == member1
     )
 
     # Notice that when we index and query multiple values that use the internal
@@ -627,9 +621,7 @@ def test_tag_queries_punctuation(address, m):
     # the queries will succeed. We apply a workaround that queries for the union
     # of the two values separated by the tag separator.
     assert m.Member.find(m.Member.email == "a|b@example.com").all() == [member1]
-    assert m.Member.find(m.Member.email == "a|villain@example.com").all() == [
-        member2
-    ]
+    assert m.Member.find(m.Member.email == "a|villain@example.com").all() == [member2]
 
 
 @py_test_mark_sync
@@ -726,9 +718,7 @@ def test_numeric_queries(members, m):
     actual = m.Member.find(~(m.Member.age == 100)).sort_by("age").all()
     assert actual == [member2, member1]
 
-    actual = (
-        m.Member.find(m.Member.age > 30, m.Member.age < 40).sort_by("age").all()
-    )
+    actual = m.Member.find(m.Member.age > 30, m.Member.age < 40).sort_by("age").all()
     assert actual == [member2, member1]
 
     actual = m.Member.find(m.Member.age != 34).sort_by("age").all()
@@ -1323,7 +1313,6 @@ def test_merged_model_error():
 
 @py_test_mark_sync
 def test_model_validate_uses_default_values():
-
     class ChildCls:
         def __init__(self, first_name: str, other_name: str):
             self.first_name = first_name

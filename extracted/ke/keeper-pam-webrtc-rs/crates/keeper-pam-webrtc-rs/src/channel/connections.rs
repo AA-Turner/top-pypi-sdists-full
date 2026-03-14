@@ -861,14 +861,18 @@ pub async fn setup_outbound_task(
                                 // and not delaying shutdown excessively.
                                 dc.drain(Duration::from_millis(500)).await;
 
-                                // The drain completed or timed out. Either way the
-                                // CloseConnection may not have reached the client (SCTP is
-                                // typically broken when guacd closes without a disconnect
-                                // opcode). Force the channel run loop to exit now rather
-                                // than waiting ~90s for ICE timeout to close the session.
-                                should_exit_for_task
-                                    .store(true, std::sync::atomic::Ordering::Release);
-                                shutdown_notify_for_task.notify_one();
+                                // The drain completed or timed out. For guacd, force the
+                                // channel run loop to exit now rather than waiting ~90s for
+                                // ICE timeout - SCTP is typically broken when guacd closes
+                                // without a disconnect opcode.
+                                // For tunnel protocols (PortForward, Socks5, etc.), only
+                                // this one TCP connection is dead; the WebRTC channel must
+                                // stay open for other/future connections.
+                                if active_protocol == ActiveProtocol::Guacd {
+                                    should_exit_for_task
+                                        .store(true, std::sync::atomic::Ordering::Release);
+                                    shutdown_notify_for_task.notify_one();
+                                }
                             } else if unlikely!(should_log_connection(false)) {
                                 debug!(
                                     "Channel({}): Conn {}: Skipping CloseConnection for unexpected EOF \

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: concurrencytest
-Version: 0.1.10
-Summary: Python testtools extension for running unittest test suites concurrently
+Version: 0.1.11
+Summary: Run unittest test suites concurrently
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
 License-Expression: GPL-2.0-or-later
@@ -32,112 +32,320 @@ Dynamic: license-file
 concurrencytest
 ===============
 
-![testing goats](https://raw.github.com/cgoldberg/concurrencytest/master/testing-goats.png "testing goats")
+![testing goats](https://raw.github.com/cgoldberg/concurrencytest/master/testing-goats.png)
 
-### Python testtools extension for running unittest test suites concurrently.
-
-----
+## Python - Run unittest test suites concurrently
 
 - Development: [GitHub](https://github.com/cgoldberg/concurrencytest)
 - Download/Install: [PyPI](https://pypi.org/project/concurrencytest)
 - License: [GPLv2+](https://raw.githubusercontent.com/cgoldberg/concurrencytest/refs/heads/master/LICENSE)
 - Copyright (c) 2013-2026 [Corey Goldberg](https://github.com/cgoldberg)
-- Original code from:
-  - Bazaar (`bzrlib.tests.__init__.py`, v2.6, copied Jun 01 2013)
-  - Copyright (c) 2005-2011 Canonical Ltd
+
+----
+
+| Type | Status |
+| ---- | ------ |
+| Latest Version | [![Latest Version](https://img.shields.io/pypi/v/concurrencytest.svg)](https://pypi.org/project/concurrencytest) |
+| Supported Python Versions | [![Supported Python Versions](https://img.shields.io/pypi/pyversions/concurrencytest.svg)](https://pypi.org/project/concurrencytest) |
+| Build/Tests (CI) | [![Build/Tests (GitHub)](https://github.com/cgoldberg/concurrencytest/actions/workflows/test.yml/badge.svg)](https://github.com/cgoldberg/concurrencytest/actions) |
 
 ----
 
 ## About
 
-`concurrencytest` allows you to parallelize a `unittest` tests across a configurable
-number of worker processes. Tests are assigned to worker processes in a round-robin
-fashion.
+`concurrencytest` allows parallel execution of `unittest` tests across multiple
+worker processes.
 
-This module provides the `ConcurrentTestSuite` class from `testtools` and the
-`fork_for_tests` function (`make_tests` implementation needed to use
-`ConcurrentTestSuite`).
-
-You can specify the number of worker process to use when calling `fork_for_tests`, or
-use the default concurrecy (1 process per available CPU core).
-
-For more info about writing/running tests with the `unittest` testing framework, see
-the [official documentation](https://docs.python.org/library/unittest.html).
+- Default: 1 process per CPU core using round-robin test distribution.
+- Optional: specify number of processes and partition strategy.
 
 ----
 
-Install from PyPI:
+## Components
+
+- `ConcurrentTestSuite` class: unittest-compatible `TestSuite` for running parallel tests.
+- `fork_for_tests` function: fork-based `make_tests` implementation.
+- `partition_tests` function: round-robin test distribution.
+- `partition_tests_by_class`: class-local test distribution.
+
+----
+
+## Installation
+
+Install from [PyPI](https://pypi.org/project/concurrencytest):
+
 ```
 pip install concurrencytest
 ```
 
 ----
 
-Requires:
+## Requirements
 
-- support for `os.fork()` (Unix-like systems only)
-- [testtools](https://pypi.python.org/pypi/testtools) : `pip install testtools`
-- [python-subunit](https://pypi.python.org/pypi/python-subunit) : `pip install python-subunit`
+- Python 3.10+
+- Unix-like OS with `os.fork()`
+- Dependencies:
+  - [testtools](https://pypi.python.org/pypi/testtools)
+  - [python-subunit](https://pypi.python.org/pypi/python-subunit)
 
 ----
 
-Example:
+## Usage
+
+#### Basic steps:
+
+1. write your tests in normal `unittest` style (test methods inside a
+   `unittest.TestCase` class)
+2. load a suite of tests using `unittest.TestLoader` (or `unittest.defaultTestLoader`):
+  - `suite = unittest.TestLoader().discover("tests")`
+  - `suite = unittest.TestLoader().loadTestsFromModule(my_tests)`
+  - `suite = unittest.TestLoader().loadTestsFromTestCase(MyTests)`
+  - `suite = unittest.TestLoader().loadTestsFromName("MyTests.test_1")`
+  - `suite = unittest.TestLoader().loadTestsFromNames("MyTests.test_1", "MyTests.test_2")`
+3. Wrap with `ConcurrentTestSuite`:
+  - `concurrent_suite = ConcurrentTestSuite(suite)`
+  - `concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(4))`
+4. Run the suite using a unittest-compatible runner:
+  - `unittest.TextTestRunner().run(concurrent_suite)`
+
+
+#### Configuring number of processes and partition strategy:
+
+The `concurrencytest` module provides a `make_tests` implementation
+(`fork_for_tests`). This allows you to specify the number of worker processes
+to use and a partition strategy for specifying how tests are distributed to
+workers. If `ConcurrentTestSuite` is instantiated without a `make_tests`
+argument, it defaults to forking one process per available CPU core, and
+distributing tests using a round-robin strategy.
+
+The `fork_for_tests` function is called with positional or keyword arguments
+like this:
+
+```
+fork_for_tests(num_processes, partition_func)
+```
+
+- `num_processes` (optional): Number of worker processes to spawn
+  - Defaults to the number of CPUs on the system.
+- `partition_func` (optional): Function used to partition tests across workers.
+  - Defaults to `partition_tests` (round-robin partition strategy).
+
+Available partition functions:
+
+- `partition_tests` (round-robin):
+
+  This is the default strategy.
+
+  This function splits a test suite into its individual test cases and assigns
+  them in a round-robin fashion to distribute load evenly across workers. This
+  helps avoid situations where one worker gets all slow tests while others
+  finish quickly. One potential drawback is that if you have a
+  `setUpClass`/`tearDownClass` defined in a `TestCase`, it may be run multiple
+  times if tests from the same class are run on different workers.
+
+- `partition_tests_by_class` (class-local):
+
+  This function groups all tests belonging to the same test case class and
+  assigns them as a block to the worker with the current smallest number of
+  tests already assigned. This ensures that all tests from a single class run
+  in the same worker, which preserves `setUpClass`/`tearDownClass` lifecycle
+  semantics.
+
+Examples of creating a `ConcurrentTestSuite`:
+
+- default concurrency and round-robin partition strategy:
+
+  `ConcurrentTestSuite(suite)`
+
+- 4 worker processes and round-robin partition strategy:
+
+  `ConcurrentTestSuite(suite, fork_for_tests(4))`
+
+- default concurrency and class-local partition strategy:
+
+  `ConcurrentTestSuite(suite, fork_for_tests(partition_func=partition_tests_by_class))`
+
+- 4 worker processes and class-local partition strategy:
+
+  `ConcurrentTestSuite(suite, fork_for_tests(4, partition_tests_by_class))`
+
+----
+
+## Examples
+
+
+#### Basic example:
 
 ```python
 import time
 import unittest
 
-from concurrencytest import ConcurrentTestSuite, fork_for_tests
+from concurrencytest import ConcurrentTestSuite
+
+"""Tests just sleep for demo."""
 
 
 class ExampleTestCase(unittest.TestCase):
-    """Dummy tests that sleep for demo."""
 
-    def test_me_1(self):
-        time.sleep(0.5)
+    def test_1(self):
+        time.sleep(1)
 
-    def test_me_2(self):
-        time.sleep(0.5)
+    def test_2(self):
+        time.sleep(1)
 
-    def test_me_3(self):
-        time.sleep(0.5)
+    def test_3(self):
+        time.sleep(1)
 
-    def test_me_4(self):
-        time.sleep(0.5)
+    def test_4(self):
+        time.sleep(1)
 
 
 runner = unittest.TextTestRunner()
 
 # Run the tests from above sequentially
-suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
+suite = unittest.defaultTestLoader.loadTestsFromTestCase(ExampleTestCase)
+print("running sequential (without concurrencytest):")
 runner.run(suite)
 
-# Run same tests concurrently across 4 processes
-suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
-concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(4))
-runner.run(concurrent_suite)
+print()
 
-# Run same tests concurrently using 1 process per available CPU core
-suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
-concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests())
+# Run same tests concurrently across multiple processes
+# (1 process per available CPU core)
+suite = unittest.defaultTestLoader.loadTestsFromTestCase(ExampleTestCase)
+print("running parallel:")
+concurrent_suite = ConcurrentTestSuite(suite)
 runner.run(concurrent_suite)
 ```
+
 Output:
 
 ```
-.....
-----------------------------------------------------------------------
-Ran 4 tests in 2.002s
-
-OK
+running sequential (without concurrencytest):
 ....
 ----------------------------------------------------------------------
-Ran 4 tests in 0.510s
+Ran 4 tests in 4.002s
 
 OK
+
+running parallel:
 ....
 ----------------------------------------------------------------------
-Ran 4 tests in 0.507s
+Ran 4 tests in 1.009s
 
 OK
 ```
+
+#### Advanced example:
+
+```python
+import time
+import unittest
+
+from concurrencytest import (
+    ConcurrentTestSuite,
+    fork_for_tests,
+    partition_tests_by_class,
+)
+
+"""Tests just sleep for demo."""
+
+
+class ExampleTestCase1(unittest.TestCase):
+
+    def test_1(self):
+        time.sleep(1)
+
+    def test_2(self):
+        time.sleep(1)
+
+
+class ExampleTestCase2(unittest.TestCase):
+    """Dummy tests that sleep for demo."""
+
+    def test_3(self):
+        time.sleep(1)
+
+    def test_4(self):
+        time.sleep(1)
+
+
+def load_test_suite(*test_cases):
+    suite = unittest.TestSuite()
+    for cls in test_cases:
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(cls))
+    return suite
+
+
+runner = unittest.TextTestRunner()
+
+# Run the tests from above sequentially
+suite = load_test_suite(ExampleTestCase1, ExampleTestCase2)
+print("running sequential (without concurrencytest):")
+runner.run(suite)
+
+print()
+
+# Run same tests concurrently across multiple processes
+# (1 process per available CPU core)
+suite = load_test_suite(ExampleTestCase1, ExampleTestCase2)
+concurrent_suite = ConcurrentTestSuite(suite)
+print("running parallel:")
+runner.run(concurrent_suite)
+
+print()
+
+# Run same tests concurrently across 4 processes
+suite = load_test_suite(ExampleTestCase1, ExampleTestCase2)
+concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(2))
+print("running parallel (2 processes):")
+runner.run(concurrent_suite)
+
+print()
+
+# Run same tests concurrently across multiple processes
+# (1 process per available CPU core), keeping tests class-local
+suite = load_test_suite(ExampleTestCase1, ExampleTestCase2)
+concurrent_suite = ConcurrentTestSuite(
+    suite, fork_for_tests(partition_func=partition_tests_by_class)
+)
+print("running parallel (grouped by class):")
+runner.run(concurrent_suite)
+```
+
+Output:
+
+```
+running sequential (without concurrencytest):
+....
+----------------------------------------------------------------------
+Ran 4 tests in 4.002s
+
+OK
+
+running parallel:
+....
+----------------------------------------------------------------------
+Ran 4 tests in 1.010s
+
+OK
+
+running parallel (2 processes):
+....
+----------------------------------------------------------------------
+Ran 4 tests in 2.006s
+
+OK
+
+running parallel (grouped by class):
+....
+----------------------------------------------------------------------
+Ran 4 tests in 2.008s
+
+OK
+```
+
+## Notes
+
+For more info about writing/running tests with the `unittest` testing
+framework, see the
+[official documentation](https://docs.python.org/library/unittest.html).

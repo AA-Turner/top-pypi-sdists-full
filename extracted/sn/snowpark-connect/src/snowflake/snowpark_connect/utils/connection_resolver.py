@@ -110,10 +110,11 @@ def resolve_connection_name() -> str:
         raise RuntimeError(
             "No 'spark-connect' connection found and no default connection is configured. "
             "Please either:\n"
-            "  1. Create a connection named 'spark-connect', or\n"
-            "  2. Set 'default_connection_name' in your connections.toml, or\n"
-            "  3. Set SNOWFLAKE_DEFAULT_CONNECTION_NAME environment variable, or\n"
-            "  4. Create a connection named 'default'"
+            "  1. Pass connection_parameters={'connection_name': '<name>'} to init_spark_session(), or\n"
+            "  2. Create a connection named 'spark-connect' in connections.toml, or\n"
+            "  3. Set 'default_connection_name' in your connections.toml, or\n"
+            "  4. Set SNOWFLAKE_DEFAULT_CONNECTION_NAME environment variable, or\n"
+            "  5. Create a connection named 'default' in connections.toml"
         )
 
     except ImportError:

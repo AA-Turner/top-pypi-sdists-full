@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydoll-python
-Version: 2.21.2
+Version: 2.21.3
 Summary: Pydoll is a library for automating chromium-based browsers without a WebDriver, offering realistic interactions.
 License-File: LICENSE
 Author: Thalison Fernandes

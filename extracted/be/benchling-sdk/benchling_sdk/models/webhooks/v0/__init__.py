@@ -138,6 +138,7 @@ __all__ = [
     "WebhookEnvelopeV0",
     "WebhookEnvelopeV0App",
     "WebhookEnvelopeV0AppDefinition",
+    "WebhookEnvelopeV0Channel",
     "WebhookEnvelopeV0Version",
     "WebhookMessageV0",
     "WorkflowOutputCreatedWebhookV2",
@@ -292,6 +293,7 @@ if TYPE_CHECKING:
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app_definition
+    import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_channel
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_version
     import benchling_api_client.webhooks.v0.stable.models.webhook_message_v0
     import benchling_api_client.webhooks.v0.stable.models.workflow_output_created_webhook_v2
@@ -702,6 +704,9 @@ if TYPE_CHECKING:
     WebhookEnvelopeV0AppDefinition = (
         benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app_definition.WebhookEnvelopeV0AppDefinition
     )
+    WebhookEnvelopeV0Channel = (
+        benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_channel.WebhookEnvelopeV0Channel
+    )
     WebhookEnvelopeV0Version = (
         benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_version.WebhookEnvelopeV0Version
     )
@@ -900,6 +905,7 @@ else:
         "WebhookEnvelopeV0": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0",
         "WebhookEnvelopeV0App": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app",
         "WebhookEnvelopeV0AppDefinition": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app_definition",
+        "WebhookEnvelopeV0Channel": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_channel",
         "WebhookEnvelopeV0Version": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_version",
         "WebhookMessageV0": "benchling_api_client.webhooks.v0.stable.models.webhook_message_v0",
         "WorkflowOutputCreatedWebhookV2": "benchling_api_client.webhooks.v0.stable.models.workflow_output_created_webhook_v2",

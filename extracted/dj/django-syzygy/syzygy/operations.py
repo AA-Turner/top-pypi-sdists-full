@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 
 from django.db import models
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.migrations import operations
 from django.db.models.fields import NOT_PROVIDED
 from django.utils.functional import cached_property
@@ -137,7 +138,7 @@ def _get_field_default(field):
             target_field = field.to_fields[0] or "pk"
             field_default = getattr(field_default, target_field)
     else:
-        field_default = field.get_default()
+        field_default = BaseDatabaseSchemaEditor._effective_default(field)
     return field_default
 
 
@@ -206,7 +207,7 @@ class AddField(operations.AddField):
         model = to_state.apps.get_model(app_label, self.model_name)
         if not self.allow_migrate_model(schema_editor.connection.alias, model):
             return
-        # Defer the removal of DEFAUT to `PostAddField`
+        # Defer the removal of DEFAULT to `PostAddField`
         with self._preserve_column_default(schema_editor, model):
             return super().database_forwards(
                 app_label, schema_editor, from_state, to_state

@@ -35,11 +35,13 @@ use guacr_handlers::{
     // Recording
     RecordingConfig,
     StandardCursor,
+    VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
     PIPE_NAME_STDIN,
     PIPE_STREAM_STDOUT,
 };
 use guacr_protocol::{format_chunked_blobs, TextProtocolEncoder};
+use guacr_recorder::build_terminal_sink;
 use guacr_terminal::{
     format_clipboard_instructions, handle_mouse_selection, mouse_event_to_x11_sequence,
     parse_clipboard_blob, parse_key_instruction, parse_mouse_instruction,
@@ -121,6 +123,7 @@ impl ProtocolHandler for TelnetHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("Telnet handler starting connection");
 
@@ -141,6 +144,21 @@ impl ProtocolHandler for TelnetHandler {
                 recording_config.is_typescript_enabled()
             );
         }
+
+        // Initialize encrypted typescript upload sink (router-side recording).
+        // Returns None when recording_router_base_url or resource_key_bytes are absent.
+        let mut ts_sink = match build_terminal_sink(&params).await {
+            Ok(sink) => {
+                if sink.is_some() {
+                    info!("Telnet: Encrypted typescript upload enabled");
+                }
+                sink
+            }
+            Err(e) => {
+                warn!("Telnet: Failed to connect typescript upload sink: {} — continuing without upload", e);
+                None
+            }
+        };
 
         // Parse terminal configuration (font, color-scheme, terminal-type, scrollback, backspace)
         let terminal_config = TerminalConfig::from_params(&params);
@@ -401,7 +419,7 @@ impl ProtocolHandler for TelnetHandler {
                 _ = keepalive_interval.tick() => {
                     if let Some(sync_instr) = keepalive.check() {
                         trace!("Telnet: Sending keep-alive sync");
-                        if to_client.send(sync_instr).await.is_err() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
                             info!("Telnet: Client channel closed, ending session");
                             break;
                         }
@@ -434,7 +452,11 @@ impl ProtocolHandler for TelnetHandler {
                                         if threat.should_terminate() {
                                             error!("Telnet: TERMINATING SESSION due to threat in terminal output: {}", threat.description);
                                             let msg = format!("Session terminated: {}", threat.description);
-                                            send_error_best_effort(&to_client, &msg, 517).await; // RESOURCE_CLOSED
+                                            send_error_best_effort(&to_client, &msg, 517).await;
+                                            if let Some(sink) = ts_sink.take() {
+                                                let _ = sink.finalize().await;
+                                            }
+                                            detector.cleanup_session(&session_id);
                                             break;
                                         }
                                     }
@@ -447,6 +469,20 @@ impl ProtocolHandler for TelnetHandler {
                             // Record output if recording is enabled
                             if let Some(ref mut rec) = recorder {
                                 let _ = rec.record_output(&buf[..n]);
+                            }
+
+                            // Encrypted typescript upload (router-side recording)
+                            let ts_upload_failed = if let Some(ref mut sink) = ts_sink {
+                                sink.write_pty_output(&buf[..n]).await
+                                    .map_err(|e| {
+                                        warn!("Telnet: Typescript upload error: {} — disabling upload", e);
+                                    })
+                                    .is_err()
+                            } else {
+                                false
+                            };
+                            if ts_upload_failed {
+                                ts_sink = None;
                             }
 
                             // Process terminal output (for image rendering)
@@ -596,7 +632,11 @@ impl ProtocolHandler for TelnetHandler {
                                             if threat.should_terminate() {
                                                 error!("Telnet: TERMINATING SESSION due to threat in keyboard input: {}", threat.description);
                                                 let msg = format!("Session terminated: {}", threat.description);
-                                                send_error_best_effort(&to_client, &msg, 517).await; // RESOURCE_CLOSED
+                                                send_error_best_effort(&to_client, &msg, 517).await;
+                                                if let Some(sink) = ts_sink.take() {
+                                                    let _ = sink.finalize().await;
+                                                }
+                                                detector.cleanup_session(&session_id);
                                                 break;
                                             }
                                         }
@@ -970,6 +1010,15 @@ impl ProtocolHandler for TelnetHandler {
             }
         }
 
+        // Finalize encrypted typescript upload
+        if let Some(sink) = ts_sink {
+            if let Err(e) = sink.finalize().await {
+                warn!("Telnet: Failed to finalize typescript upload: {}", e);
+            } else {
+                info!("Telnet: Typescript upload finalized");
+            }
+        }
+
         send_disconnect(&to_client).await;
         info!("Telnet handler connection ended");
         Ok(())
@@ -996,12 +1045,16 @@ impl EventBasedHandler for TelnetHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096, // channel capacity
         )
         .await

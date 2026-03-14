@@ -32,6 +32,24 @@ class InterfaceMethod(StrEnum):
     AUTO = "auto"
 
 
+class InterfaceAddrGenMode(StrEnum):
+    """IPv6 address generation mode."""
+
+    EUI64 = "eui64"
+    STABLE_PRIVACY = "stable-privacy"
+    DEFAULT_OR_EUI64 = "default-or-eui64"
+    DEFAULT = "default"
+
+
+class InterfaceIp6Privacy(StrEnum):
+    """IPv6 privacy extension behavior."""
+
+    DEFAULT = "default"
+    DISABLED = "disabled"
+    ENABLED_PREFER_PUBLIC = "enabled-prefer-public"
+    ENABLED = "enabled"
+
+
 class WifiMode(StrEnum):
     """WifiMode type."""
 
@@ -76,6 +94,7 @@ class IPv4(IpBase, ResponseData):
     address: list[IPv4Interface]
     nameservers: list[IPv4Address]
     gateway: IPv4Address | None
+    route_metric: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +104,9 @@ class IPv6(IpBase, ResponseData):
     address: list[IPv6Interface]
     nameservers: list[IPv6Address]
     gateway: IPv6Address | None
+    route_metric: int | None
+    addr_gen_mode: InterfaceAddrGenMode
+    ip6_privacy: InterfaceIp6Privacy
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +173,7 @@ class IPv4Config(Request):
     method: InterfaceMethod | None = None
     gateway: IPv4Address | None = None
     nameservers: list[IPv4Address] | None = None
+    route_metric: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +184,9 @@ class IPv6Config(Request):
     method: InterfaceMethod | None = None
     gateway: IPv6Address | None = None
     nameservers: list[IPv6Address] | None = None
+    route_metric: int | None = None
+    addr_gen_mode: InterfaceAddrGenMode | None = None
+    ip6_privacy: InterfaceIp6Privacy | None = None
 
 
 @dataclass(frozen=True, slots=True)

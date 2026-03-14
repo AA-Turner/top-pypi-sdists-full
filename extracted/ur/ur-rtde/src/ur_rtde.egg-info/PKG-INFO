@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ur_rtde
-Version: 1.6.2
+Version: 1.6.3
 Summary: A Python interface for controlling and receiving data from a UR robot using the Real-Time Data Exchange (RTDE) interface of the robot.
 Home-page: https://gitlab.com/sdurobotics/ur_rtde
 Author: Anders Prier Lindvig

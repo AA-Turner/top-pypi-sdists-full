@@ -15,6 +15,7 @@ from typing import (
 from uuid import UUID
 
 import uuid_utils
+from typing_extensions import deprecated
 
 # PyO3
 from tensorzero import (
@@ -768,6 +769,9 @@ class TensorZeroGateway(BaseTensorZeroGateway):
         :return: A `GetInferencesResponse` object.
         """
 
+    @deprecated(
+        "`experimental_render_samples` will be removed in a future release (2026.6+ / #6745). Please use `experimental_launch_optimization_workflow` instead."
+    )
     def experimental_render_samples(
         self,
         *,
@@ -794,6 +798,9 @@ class TensorZeroGateway(BaseTensorZeroGateway):
         """
         ...
 
+    @deprecated(
+        "`experimental_launch_optimization` will be removed in a future release (2026.6+ / #6745). Please use `experimental_launch_optimization_workflow` instead."
+    )
     def experimental_launch_optimization(
         self,
         *,
@@ -862,7 +869,9 @@ class TensorZeroGateway(BaseTensorZeroGateway):
     def experimental_run_evaluation(
         self,
         *,
-        evaluation_name: str,
+        evaluation_name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        evaluator_names: Optional[List[str]] = None,
         dataset_name: Optional[str] = None,
         datapoint_ids: Optional[List[str]] = None,
         variant_name: Optional[str] = None,
@@ -876,7 +885,12 @@ class TensorZeroGateway(BaseTensorZeroGateway):
         Run an evaluation for a specific variant on a dataset or specific datapoints.
         This function is only available in EmbeddedGateway mode.
 
-        :param evaluation_name: The name of the evaluation to run
+        Specify either `evaluation_name` (to use a configured evaluation) or
+        `function_name` + `evaluator_names` (to use top-level evaluators directly).
+
+        :param evaluation_name: The name of a configured evaluation (mutually exclusive with function_name/evaluator_names)
+        :param function_name: The name of the function to evaluate (requires evaluator_names, mutually exclusive with evaluation_name)
+        :param evaluator_names: List of top-level evaluator names to use (requires function_name, mutually exclusive with evaluation_name)
         :param dataset_name: The name of the dataset to use for evaluation (mutually exclusive with datapoint_ids)
         :param datapoint_ids: Specific datapoint IDs to evaluate (mutually exclusive with dataset_name)
         :param variant_name: The name of the variant to evaluate
@@ -1227,6 +1241,9 @@ class AsyncTensorZeroGateway(BaseTensorZeroGateway):
         :return: A `GetInferencesResponse` object.
         """
 
+    @deprecated(
+        "`experimental_render_samples` will be removed in a future release (2026.6+ / #6745). Please use `experimental_launch_optimization_workflow` instead."
+    )
     async def experimental_render_samples(
         self,
         *,
@@ -1252,6 +1269,9 @@ class AsyncTensorZeroGateway(BaseTensorZeroGateway):
         :return: A list of rendered samples.
         """
 
+    @deprecated(
+        "`experimental_launch_optimization` will be removed in a future release (2026.6+ / #6745). Please use `experimental_launch_optimization_workflow` instead."
+    )
     async def experimental_launch_optimization(
         self,
         *,
@@ -1320,7 +1340,9 @@ class AsyncTensorZeroGateway(BaseTensorZeroGateway):
     async def experimental_run_evaluation(
         self,
         *,
-        evaluation_name: str,
+        evaluation_name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        evaluator_names: Optional[List[str]] = None,
         dataset_name: Optional[str] = None,
         datapoint_ids: Optional[List[str]] = None,
         variant_name: Optional[str] = None,
@@ -1334,7 +1356,12 @@ class AsyncTensorZeroGateway(BaseTensorZeroGateway):
         Run an evaluation for a specific variant on a dataset or specific datapoints.
         This function is only available in EmbeddedGateway mode.
 
-        :param evaluation_name: The name of the evaluation to run
+        Specify either `evaluation_name` (to use a configured evaluation) or
+        `function_name` + `evaluator_names` (to use top-level evaluators directly).
+
+        :param evaluation_name: The name of a configured evaluation (mutually exclusive with function_name/evaluator_names)
+        :param function_name: The name of the function to evaluate (requires evaluator_names, mutually exclusive with evaluation_name)
+        :param evaluator_names: List of top-level evaluator names to use (requires function_name, mutually exclusive with evaluation_name)
         :param dataset_name: The name of the dataset to use for evaluation (mutually exclusive with datapoint_ids)
         :param datapoint_ids: Specific datapoint IDs to evaluate (mutually exclusive with dataset_name)
         :param variant_name: The name of the variant to evaluate

@@ -144,12 +144,8 @@ class _TestSchemaMigration(BaseSchemaMigration):
             self.redis.execute_command(f"FT.CREATE {index_name} {new_schema}")
             # Update tracking keys with worker isolation
             new_hash = hashlib.sha1(new_schema.encode("utf-8")).hexdigest()
-            self.redis.set(
-                f"{schema_hash_key(index_name)}:{worker_prefix}", new_hash
-            )
-            self.redis.set(
-                f"{schema_text_key(index_name)}:{worker_prefix}", new_schema
-            )
+            self.redis.set(f"{schema_hash_key(index_name)}:{worker_prefix}", new_hash)
+            self.redis.set(f"{schema_text_key(index_name)}:{worker_prefix}", new_schema)
 
     def down(self) -> None:
         """Rollback the migration operations."""
@@ -162,9 +158,7 @@ class _TestSchemaMigration(BaseSchemaMigration):
             except Exception:
                 pass
             if prev_schema:
-                self.redis.execute_command(
-                    f"FT.CREATE {index_name} {prev_schema}"
-                )
+                self.redis.execute_command(f"FT.CREATE {index_name} {prev_schema}")
                 prev_hash = hashlib.sha1(prev_schema.encode("utf-8")).hexdigest()
                 self.redis.set(
                     f"{schema_hash_key(index_name)}:{worker_prefix}", prev_hash
@@ -205,9 +199,7 @@ def test_rollback_successful_single_operation(clean_redis):
         redis.execute_command(f"FT.CREATE {index_name} {original_schema}")
         original_hash = hashlib.sha1(original_schema.encode("utf-8")).hexdigest()
         redis.set(f"{schema_hash_key(index_name)}:{worker_prefix}", original_hash)
-        redis.set(
-            f"{schema_text_key(index_name)}:{worker_prefix}", original_schema
-        )
+        redis.set(f"{schema_text_key(index_name)}:{worker_prefix}", original_schema)
 
         # Create and apply migration
         migration = _TestSchemaMigration(
@@ -244,12 +236,8 @@ def test_rollback_successful_single_operation(clean_redis):
         assert success is True
 
         # Verify rollback restored original schema
-        restored_hash = redis.get(
-            f"{schema_hash_key(index_name)}:{worker_prefix}"
-        )
-        restored_text = redis.get(
-            f"{schema_text_key(index_name)}:{worker_prefix}"
-        )
+        restored_hash = redis.get(f"{schema_hash_key(index_name)}:{worker_prefix}")
+        restored_text = redis.get(f"{schema_text_key(index_name)}:{worker_prefix}")
         assert restored_hash == original_hash
         assert restored_text == original_schema
 
@@ -336,13 +324,9 @@ def test_rollback_multiple_operations(redis):
         hash1 = hashlib.sha1(original_schema1.encode("utf-8")).hexdigest()
         hash2 = hashlib.sha1(original_schema2.encode("utf-8")).hexdigest()
         redis.set(f"{schema_hash_key(index1_name)}:{worker_prefix}", hash1)
-        redis.set(
-            f"{schema_text_key(index1_name)}:{worker_prefix}", original_schema1
-        )
+        redis.set(f"{schema_text_key(index1_name)}:{worker_prefix}", original_schema1)
         redis.set(f"{schema_hash_key(index2_name)}:{worker_prefix}", hash2)
-        redis.set(
-            f"{schema_text_key(index2_name)}:{worker_prefix}", original_schema2
-        )
+        redis.set(f"{schema_text_key(index2_name)}:{worker_prefix}", original_schema2)
 
         # Create migration with multiple operations
         migration = _TestSchemaMigration(
@@ -379,18 +363,10 @@ def test_rollback_multiple_operations(redis):
         assert success is True
 
         # Verify both indices were rolled back to original schemas
-        restored_hash1 = redis.get(
-            f"{schema_hash_key(index1_name)}:{worker_prefix}"
-        )
-        restored_text1 = redis.get(
-            f"{schema_text_key(index1_name)}:{worker_prefix}"
-        )
-        restored_hash2 = redis.get(
-            f"{schema_hash_key(index2_name)}:{worker_prefix}"
-        )
-        restored_text2 = redis.get(
-            f"{schema_text_key(index2_name)}:{worker_prefix}"
-        )
+        restored_hash1 = redis.get(f"{schema_hash_key(index1_name)}:{worker_prefix}")
+        restored_text1 = redis.get(f"{schema_text_key(index1_name)}:{worker_prefix}")
+        restored_hash2 = redis.get(f"{schema_hash_key(index2_name)}:{worker_prefix}")
+        restored_text2 = redis.get(f"{schema_text_key(index2_name)}:{worker_prefix}")
 
         assert restored_hash1 == hash1
         assert restored_text1 == original_schema1
@@ -500,9 +476,7 @@ def test_rollback_dry_run(redis):
         migrator.discover_migrations = mock_discover
 
         # Perform dry-run rollback
-        success = migrator.rollback(
-            "006_dry_run_test", dry_run=True, verbose=True
-        )
+        success = migrator.rollback("006_dry_run_test", dry_run=True, verbose=True)
         assert success is True
 
         # Verify nothing actually changed (dry run)
@@ -590,9 +564,7 @@ def test_rollback_state_consistency(redis):
         redis.execute_command(f"FT.CREATE {index_name} {original_schema}")
         original_hash = hashlib.sha1(original_schema.encode("utf-8")).hexdigest()
         redis.set(f"{schema_hash_key(index_name)}:{worker_prefix}", original_hash)
-        redis.set(
-            f"{schema_text_key(index_name)}:{worker_prefix}", original_schema
-        )
+        redis.set(f"{schema_text_key(index_name)}:{worker_prefix}", original_schema)
 
         migration = _TestSchemaMigration(
             migration_id="008_consistency_test",
@@ -629,12 +601,8 @@ def test_rollback_state_consistency(redis):
         assert success is True
 
         # Verify complete state consistency after rollback
-        restored_hash = redis.get(
-            f"{schema_hash_key(index_name)}:{worker_prefix}"
-        )
-        restored_text = redis.get(
-            f"{schema_text_key(index_name)}:{worker_prefix}"
-        )
+        restored_hash = redis.get(f"{schema_hash_key(index_name)}:{worker_prefix}")
+        restored_text = redis.get(f"{schema_text_key(index_name)}:{worker_prefix}")
 
         # Hash and text should match original exactly
         assert restored_hash == original_hash

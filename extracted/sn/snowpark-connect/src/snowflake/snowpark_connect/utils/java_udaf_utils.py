@@ -323,6 +323,9 @@ def create_java_udaf_for_reduce_scala_function(
         schema_json=schema_json,
     )
     create_udf_sql = udf_def.to_create_function_sql()
-    logger.info(f"Creating Java UDAF: {create_udf_sql}")
+    logger.info(
+        f"Creating Java UDAF: {udf_name}({','.join([str(param) for param in sql_input_params])})"
+    )
+    logger.debug(f"Java UDAF with body: {create_udf_sql}")
     session.sql(create_udf_sql).collect()
     return JavaUdaf(udf_name, pciudf._input_types, pciudf._return_type)

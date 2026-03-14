@@ -805,7 +805,9 @@ class Query:
         By default, queries only accept replies whose key expression intersects with the query's.
         I.e. it's not possible to send reply with key expression ``foo/bar`` to a query with
         key expression ``baz/*``.
-        The query may contain special unstable parameter ``_anyke`` which enables disjoint replies.
+        To allow disjoint replies, use the ``accept_replies`` parameter with :attr:`ReplyKeyExpr.ANY`
+        in :meth:`Session.get` or :meth:`Session.declare_querier`.
+        Alternatively, the query may contain special parameter ``_anyke`` which also enables disjoint replies.
         See the :class:`Selector` documentation for more information about this parameter.
 
     See :ref:`query-reply` for more information on the query/reply paradigm.
@@ -837,6 +839,10 @@ class Query:
     def attachment(self) -> ZBytes | None:
         """The attachment of this query, if any."""
 
+    def accepts_replies(self) -> ReplyKeyExpr:
+        """Returns the :class:`ReplyKeyExpr` setting of this query, indicating whether replies
+        must match the query's key expression or can use any key expression."""
+
     def reply(
         self,
         key_expr: _IntoKeyExpr,
@@ -853,6 +859,10 @@ class Query:
 
         .. note::
            See the class documentation for important details about which key expression to use for replies.
+
+        .. deprecated::
+           The ``congestion_control`` and ``priority`` parameters are deprecated and will be ignored.
+           Response QoS now automatically matches the original query's QoS to avoid priority inversion.
         """
 
     def reply_err(self, payload: _IntoZBytes, *, encoding: _IntoEncoding | None = None):
@@ -874,6 +884,10 @@ class Query:
 
         .. note::
            See the class documentation for important details about which key expression to use for replies.
+
+        .. deprecated::
+           The ``congestion_control`` and ``priority`` parameters are deprecated and will be ignored.
+           Response QoS now automatically matches the original query's QoS to avoid priority inversion.
         """
 
     @_unstable
@@ -956,6 +970,10 @@ class Querier:
     @property
     def key_expr(self) -> KeyExpr:
         """Returns the :class:`KeyExpr` this querier sends queries on."""
+
+    @property
+    def accept_replies(self) -> ReplyKeyExpr:
+        """Returns the :class:`ReplyKeyExpr` setting of this querier."""
 
     @property
     def matching_status(self) -> bool:
@@ -1083,6 +1101,29 @@ QueryTarget.ALL.__doc__ = (
     """Deliver the query to all queryables matching the query's key expression."""
 )
 QueryTarget.ALL_COMPLETE.__doc__ = """Deliver the query to all queryables matching the query's key expression that are declared as complete."""
+
+@final
+class ReplyKeyExpr(Enum):
+    """Controls whether replies to a query must match the query's key expression.
+
+    :attr:`ReplyKeyExpr.MATCHING_QUERY` (default) means that replies must have a key expression
+    matching the query's key expression.
+    :attr:`ReplyKeyExpr.ANY` allows replies with any key expression, even if it doesn't match the query.
+
+    It is set by the ``accept_replies`` parameter of :meth:`Session.get` or :meth:`Session.declare_querier` methods.
+    """
+
+    ANY = auto()
+    MATCHING_QUERY = auto()
+
+    DEFAULT = MATCHING_QUERY
+
+ReplyKeyExpr.ANY.__doc__ = (
+    """Accept replies whose key expressions may not match the query key expression."""
+)
+ReplyKeyExpr.MATCHING_QUERY.__doc__ = (
+    """Accept replies whose key expressions match the query key expression."""
+)
 
 @final
 @_unstable
@@ -1307,7 +1348,7 @@ class Selector:
     for the exhaustive list):
 
     - ``[unstable]`` ``_time``: used to express interest in only values dated within a certain time range, values for this parameter must be readable by the Zenoh Time DSL for the value to be considered valid.
-    - ``[unstable]`` ``_anyke``: used in queries to express interest in replies coming from any key expression. By default, only replies whose key expression match query's key expression are accepted. ``_anyke`` disables the query-reply key expression matching check.
+    - ``_anyke``: used in queries to express interest in replies coming from any key expression. By default, only replies whose key expression match query's key expression are accepted. ``_anyke`` disables the query-reply key expression matching check. See also :attr:`ReplyKeyExpr.ANY` as the preferred API for this functionality.
 
     See also: :ref:`key-expressions`, :ref:`query-parameters`
     """
@@ -1430,6 +1471,7 @@ class Session:
         *,
         target: QueryTarget | None = None,
         consolidation: _IntoQueryConsolidation | None = None,
+        accept_replies: ReplyKeyExpr | None = None,
         timeout: float | int | None = None,
         congestion_control: CongestionControl | None = None,
         priority: Priority | None = None,
@@ -1454,6 +1496,7 @@ class Session:
         *,
         target: QueryTarget | None = None,
         consolidation: _IntoQueryConsolidation | None = None,
+        accept_replies: ReplyKeyExpr | None = None,
         timeout: float | int | None = None,
         congestion_control: CongestionControl | None = None,
         priority: Priority | None = None,
@@ -1478,6 +1521,7 @@ class Session:
         *,
         target: QueryTarget | None = None,
         consolidation: _IntoQueryConsolidation | None = None,
+        accept_replies: ReplyKeyExpr | None = None,
         timeout: float | int | None = None,
         congestion_control: CongestionControl | None = None,
         priority: Priority | None = None,
@@ -1576,6 +1620,7 @@ class Session:
         *,
         target: QueryTarget | None = None,
         consolidation: _IntoQueryConsolidation | None = None,
+        accept_replies: ReplyKeyExpr | None = None,
         timeout: float | int | None = None,
         congestion_control: CongestionControl | None = None,
         priority: Priority | None = None,
@@ -1603,6 +1648,236 @@ class SessionInfo:
 
     def peers_zid(self) -> list[ZenohId]:
         """Return the :class:`ZenohId` of the zenoh peers this process is currently connected to."""
+
+    def transports(self) -> list[Transport]:
+        """Return the list of :class:`Transport` instances for currently open transports."""
+
+    def links(self) -> list[Link]:
+        """Return the list of :class:`Link` instances for currently open links."""
+
+    @overload
+    def declare_transport_events_listener(
+        self,
+        handler: _RustHandler[TransportEvent] | None = None,
+        *,
+        history: bool | None = None,
+    ) -> TransportEventsListener[Handler[TransportEvent]]:
+        """Declare a listener for transport events (connections opening/closing).
+
+        :param handler: The handler for receiving transport events (see :ref:`channels-and-callbacks`).
+        :param history: If True, existing transports will be reported upon declaration.
+        :returns: A :class:`TransportEventsListener` that yields :class:`TransportEvent` instances.
+        """
+
+    @overload
+    def declare_transport_events_listener(
+        self,
+        handler: _PythonHandler[TransportEvent, _H],
+        *,
+        history: bool | None = None,
+    ) -> TransportEventsListener[_H]: ...
+    @overload
+    def declare_transport_events_listener(
+        self, handler: _PythonCallback[TransportEvent], *, history: bool | None = None
+    ) -> TransportEventsListener[None]: ...
+    @overload
+    def declare_link_events_listener(
+        self,
+        handler: _RustHandler[LinkEvent] | None = None,
+        *,
+        history: bool | None = None,
+    ) -> LinkEventsListener[Handler[LinkEvent]]:
+        """Declare a listener for link events (links being added/removed).
+
+        :param handler: The handler for receiving link events (see :ref:`channels-and-callbacks`).
+        :param history: If True, existing links will be reported upon declaration.
+        :returns: A :class:`LinkEventsListener` that yields :class:`LinkEvent` instances.
+        """
+
+    @overload
+    def declare_link_events_listener(
+        self, handler: _PythonHandler[LinkEvent, _H], *, history: bool | None = None
+    ) -> LinkEventsListener[_H]: ...
+    @overload
+    def declare_link_events_listener(
+        self, handler: _PythonCallback[LinkEvent], *, history: bool | None = None
+    ) -> LinkEventsListener[None]: ...
+
+@final
+class Transport:
+    """Information about a Zenoh transport connection.
+
+    A Transport represents a connection to another Zenoh node (peer or router).
+    It provides information about the remote node and the transport characteristics.
+    """
+
+    @property
+    def zid(self) -> ZenohId:
+        """The :class:`ZenohId` of the remote node."""
+
+    @property
+    def whatami(self) -> WhatAmI:
+        """The :class:`WhatAmI` type of the remote node."""
+
+    @property
+    def is_qos(self) -> bool:
+        """Whether this transport supports QoS (Quality of Service)."""
+
+    @property
+    def is_multicast(self) -> bool:
+        """Whether this is a multicast transport."""
+
+    def __eq__(self, other: Transport) -> bool: ...
+    def __repr__(self) -> str: ...
+
+@final
+class Link:
+    """Information about a Zenoh link within a transport.
+
+    A Link represents a single network connection within a transport.
+    Transports may have multiple links for redundancy or different network paths.
+    """
+
+    @property
+    def zid(self) -> ZenohId:
+        """The :class:`ZenohId` of the remote node."""
+
+    @property
+    def src(self) -> str:
+        """The source locator of this link."""
+
+    @property
+    def dst(self) -> str:
+        """The destination locator of this link."""
+
+    @property
+    def group(self) -> str | None:
+        """The multicast group this link belongs to, if any."""
+
+    @property
+    def mtu(self) -> int:
+        """The Maximum Transmission Unit (MTU) of this link."""
+
+    @property
+    def is_streamed(self) -> bool:
+        """Whether this link uses a streamed protocol (e.g., TCP) or datagram (e.g., UDP)."""
+
+    @property
+    def interfaces(self) -> list[str]:
+        """The network interfaces used by this link."""
+
+    @property
+    def auth_identifier(self) -> str | None:
+        """The authentication identifier for this link, if any."""
+
+    @property
+    def priorities(self) -> tuple[int, int] | None:
+        """The priority range (min, max) for this link, if configured."""
+
+    @property
+    def reliability(self) -> Reliability | None:
+        """The reliability setting for this link, if configured."""
+
+    def __eq__(self, other: Link) -> bool: ...
+    def __repr__(self) -> str: ...
+
+@final
+class TransportEvent:
+    """An event indicating a transport connection was opened or closed.
+
+    TransportEvent is emitted by :class:`TransportEventsListener` when a transport
+    connection to another Zenoh node is established or terminated.
+    """
+
+    @property
+    def kind(self) -> SampleKind:
+        """The kind of event: :attr:`SampleKind.PUT` for opened, :attr:`SampleKind.DELETE` for closed."""
+
+    @property
+    def transport(self) -> Transport:
+        """The :class:`Transport` that was opened or closed."""
+
+    def __repr__(self) -> str: ...
+
+@final
+class TransportEventsListener(Generic[_H]):
+    """A listener that receives notifications when transport connections open or close.
+
+    The listener is created using :meth:`SessionInfo.declare_transport_events_listener` and
+    yields :class:`TransportEvent` instances when connections to other Zenoh nodes are
+    established or terminated.
+    """
+
+    def __enter__(self) -> Self: ...
+    def __exit__(self, *_args, **_kwargs): ...
+    @property
+    def handler(self) -> _H:
+        """The handler associated with this TransportEventsListener instance.
+
+        See :ref:`channels-and-callbacks` for more information on handlers."""
+
+    def undeclare(self):
+        """Stop listening for transport events."""
+
+    def try_recv(
+        self: TransportEventsListener[Handler[TransportEvent]],
+    ) -> TransportEvent | None:
+        """Try to receive a :class:`TransportEvent` without blocking."""
+
+    def recv(self: TransportEventsListener[Handler[TransportEvent]]) -> TransportEvent:
+        """Receive a :class:`TransportEvent`, blocking until one is available."""
+
+    def __iter__(
+        self: TransportEventsListener[Handler[TransportEvent]],
+    ) -> Handler[TransportEvent]:
+        """Iterate over received :class:`TransportEvent` instances."""
+
+@final
+class LinkEvent:
+    """An event indicating a link was added or removed.
+
+    LinkEvent is emitted by :class:`LinkEventsListener` when a link
+    within a transport is established or terminated.
+    """
+
+    @property
+    def kind(self) -> SampleKind:
+        """The kind of event: :attr:`SampleKind.PUT` for added, :attr:`SampleKind.DELETE` for removed."""
+
+    @property
+    def link(self) -> Link:
+        """The :class:`Link` that was added or removed."""
+
+    def __repr__(self) -> str: ...
+
+@final
+class LinkEventsListener(Generic[_H]):
+    """A listener that receives notifications when links are added or removed.
+
+    The listener is created using :meth:`SessionInfo.declare_link_events_listener` and
+    yields :class:`LinkEvent` instances when links within transports are
+    established or terminated.
+    """
+
+    def __enter__(self) -> Self: ...
+    def __exit__(self, *_args, **_kwargs): ...
+    @property
+    def handler(self) -> _H:
+        """The handler associated with this LinkEventsListener instance.
+
+        See :ref:`channels-and-callbacks` for more information on handlers."""
+
+    def undeclare(self):
+        """Stop listening for link events."""
+
+    def try_recv(self: LinkEventsListener[Handler[LinkEvent]]) -> LinkEvent | None:
+        """Try to receive a :class:`LinkEvent` without blocking."""
+
+    def recv(self: LinkEventsListener[Handler[LinkEvent]]) -> LinkEvent:
+        """Receive a :class:`LinkEvent`, blocking until one is available."""
+
+    def __iter__(self: LinkEventsListener[Handler[LinkEvent]]) -> Handler[LinkEvent]:
+        """Iterate over received :class:`LinkEvent` instances."""
 
 @_unstable
 @final

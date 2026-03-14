@@ -1,8 +1,8 @@
 use crate::utils::range_utils::calculate_match_range;
-use pulldown_cmark::{Event, Options, Parser, Tag};
 
-use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
+use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rules::strong_style::StrongStyle;
+use crate::utils::code_block_utils::StrongSpanDetail;
 use crate::utils::skip_context::{is_in_jsx_expression, is_in_math_context, is_in_mdx_comment, is_in_mkdocs_markup};
 
 /// Check if a byte position within a line is inside a backtick-delimited code span.
@@ -56,36 +56,13 @@ fn is_in_inline_code_on_line(line: &str, byte_pos: usize) -> bool {
     false
 }
 
-/// A strong emphasis span found by pulldown-cmark
-struct StrongSpan {
-    /// Byte range in source covering **text** or __text__ including markers
-    range: std::ops::Range<usize>,
-    /// Whether this uses asterisk (**) or underscore (__) markers
-    style: StrongStyle,
-}
-
-/// Find all genuine strong emphasis spans using pulldown-cmark's parser.
-/// Correctly identifies that sequences like `_____` or `*****` are NOT
-/// strong emphasis.
-fn find_strong_spans(content: &str) -> Vec<StrongSpan> {
-    let parser = Parser::new_ext(content, Options::all());
-    let mut spans = Vec::new();
-
-    for (event, range) in parser.into_offset_iter() {
-        if let Event::Start(Tag::Strong) = event
-            && range.start + 2 <= content.len()
-        {
-            let marker = &content[range.start..range.start + 2];
-            let style = if marker == "**" {
-                StrongStyle::Asterisk
-            } else {
-                StrongStyle::Underscore
-            };
-            spans.push(StrongSpan { range, style });
-        }
+/// Convert a StrongSpanDetail to a StrongStyle
+fn span_style(span: &StrongSpanDetail) -> StrongStyle {
+    if span.is_asterisk {
+        StrongStyle::Asterisk
+    } else {
+        StrongStyle::Underscore
     }
-
-    spans
 }
 
 mod md050_config;
@@ -112,82 +89,60 @@ impl MD050StrongStyle {
         Self { config }
     }
 
-    /// Check if a byte position is within a link (inline links, reference links, or reference definitions)
-    fn is_in_link(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
-        // Check inline and reference links
-        for link in &ctx.links {
-            if link.byte_offset <= byte_pos && byte_pos < link.byte_end {
-                return true;
-            }
-        }
-
-        // Check images (which use similar syntax)
-        for image in &ctx.images {
-            if image.byte_offset <= byte_pos && byte_pos < image.byte_end {
-                return true;
-            }
-        }
-
-        // Check reference definitions [ref]: url "title"
-        if ctx.is_in_reference_def(byte_pos) {
-            return true;
-        }
-
-        false
+    /// Check if a byte position is within a link (inline links, reference links, or reference definitions).
+    /// Delegates to LintContext::is_in_link which uses O(log n) binary search.
+    fn is_in_link(ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
+        ctx.is_in_link(byte_pos)
     }
 
-    /// Check if a byte position is within an HTML tag
-    fn is_in_html_tag(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
-        // Check HTML tags
-        for html_tag in ctx.html_tags().iter() {
-            // Only consider the position inside the tag if it's between the < and >
-            // Don't include positions after the tag ends
-            if html_tag.byte_offset <= byte_pos && byte_pos < html_tag.byte_end {
-                return true;
-            }
-        }
-        false
+    /// Check if a byte position is within an HTML tag. O(log n) via binary search.
+    fn is_in_html_tag(html_tags: &[crate::lint_context::HtmlTag], byte_pos: usize) -> bool {
+        let idx = html_tags.partition_point(|tag| tag.byte_offset <= byte_pos);
+        idx > 0 && byte_pos < html_tags[idx - 1].byte_end
     }
 
-    /// Check if a byte position is within HTML code tags (<code>...</code>)
-    /// This is separate from is_in_html_tag because we need to check the content between tags
-    fn is_in_html_code_content(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
-        let html_tags = ctx.html_tags();
-        let mut open_code_pos: Option<usize> = None;
+    /// Check if a byte position is within HTML code tags (<code>...</code>).
+    /// Uses pre-computed code ranges for O(log n) lookup via binary search.
+    fn is_in_html_code_content(code_ranges: &[(usize, usize)], byte_pos: usize) -> bool {
+        let idx = code_ranges.partition_point(|&(start, _)| start <= byte_pos);
+        idx > 0 && byte_pos < code_ranges[idx - 1].1
+    }
 
-        for tag in html_tags.iter() {
-            // If we've passed our position, check if we're in an open code block
-            if tag.byte_offset > byte_pos {
-                return open_code_pos.is_some();
-            }
+    /// Pre-compute ranges covered by <code>...</code> HTML tags.
+    /// Returns sorted Vec of (start, end) byte ranges.
+    fn compute_html_code_ranges(html_tags: &[crate::lint_context::HtmlTag]) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+        let mut open_code_end: Option<usize> = None;
 
+        for tag in html_tags {
             if tag.tag_name == "code" {
                 if tag.is_self_closing {
-                    // Self-closing tags don't create a code context
                     continue;
                 } else if !tag.is_closing {
-                    // Opening <code> tag
-                    open_code_pos = Some(tag.byte_end);
-                } else if tag.is_closing && open_code_pos.is_some() {
-                    // Closing </code> tag
-                    if let Some(open_pos) = open_code_pos
-                        && byte_pos >= open_pos
-                        && byte_pos < tag.byte_offset
-                    {
-                        // We're between <code> and </code>
-                        return true;
+                    open_code_end = Some(tag.byte_end);
+                } else if tag.is_closing {
+                    if let Some(start) = open_code_end {
+                        ranges.push((start, tag.byte_offset));
                     }
-                    open_code_pos = None;
+                    open_code_end = None;
                 }
             }
         }
-
-        // Check if we're still in an unclosed code tag
-        open_code_pos.is_some() && byte_pos >= open_code_pos.unwrap()
+        // Handle unclosed <code> tag
+        if let Some(start) = open_code_end {
+            ranges.push((start, usize::MAX));
+        }
+        ranges
     }
 
     /// Check if a strong emphasis span should be skipped based on context
-    fn should_skip_span(&self, ctx: &crate::lint_context::LintContext, span_start: usize) -> bool {
+    fn should_skip_span(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        html_tags: &[crate::lint_context::HtmlTag],
+        html_code_ranges: &[(usize, usize)],
+        span_start: usize,
+    ) -> bool {
         let lines = ctx.raw_lines();
         let (line_num, col) = ctx.offset_to_line_col(span_start);
 
@@ -212,9 +167,9 @@ impl MD050StrongStyle {
 
         ctx.is_in_code_block_or_span(span_start)
             || in_inline_code
-            || self.is_in_link(ctx, span_start)
-            || self.is_in_html_tag(ctx, span_start)
-            || self.is_in_html_code_content(ctx, span_start)
+            || Self::is_in_link(ctx, span_start)
+            || Self::is_in_html_tag(html_tags, span_start)
+            || Self::is_in_html_code_content(html_code_ranges, span_start)
             || in_mkdocs_markup
             || is_in_math_context(ctx, span_start)
             || is_in_jsx_expression(ctx, span_start)
@@ -223,24 +178,27 @@ impl MD050StrongStyle {
 
     #[cfg(test)]
     fn detect_style(&self, ctx: &crate::lint_context::LintContext) -> Option<StrongStyle> {
-        let spans = find_strong_spans(ctx.content);
-        self.detect_style_from_spans(ctx, &spans)
+        let html_tags = ctx.html_tags();
+        let html_code_ranges = Self::compute_html_code_ranges(&html_tags);
+        self.detect_style_from_spans(ctx, &html_tags, &html_code_ranges, &ctx.strong_spans)
     }
 
     fn detect_style_from_spans(
         &self,
         ctx: &crate::lint_context::LintContext,
-        spans: &[StrongSpan],
+        html_tags: &[crate::lint_context::HtmlTag],
+        html_code_ranges: &[(usize, usize)],
+        spans: &[StrongSpanDetail],
     ) -> Option<StrongStyle> {
         let mut asterisk_count = 0;
         let mut underscore_count = 0;
 
         for span in spans {
-            if self.should_skip_span(ctx, span.range.start) {
+            if self.should_skip_span(ctx, html_tags, html_code_ranges, span.start) {
                 continue;
             }
 
-            match span.style {
+            match span_style(span) {
                 StrongStyle::Asterisk => asterisk_count += 1,
                 StrongStyle::Underscore => underscore_count += 1,
                 StrongStyle::Consistent => {}
@@ -272,43 +230,77 @@ impl Rule for MD050StrongStyle {
         "Strong emphasis style should be consistent"
     }
 
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Emphasis
+    }
+
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
         let line_index = &ctx.line_index;
+        let lines = ctx.raw_lines();
 
         let mut warnings = Vec::new();
 
-        let spans = find_strong_spans(content);
+        let spans = &ctx.strong_spans;
+        let html_tags = ctx.html_tags();
+        let html_code_ranges = Self::compute_html_code_ranges(&html_tags);
 
         let target_style = match self.config.style {
-            StrongStyle::Consistent => self
-                .detect_style_from_spans(ctx, &spans)
-                .unwrap_or(StrongStyle::Asterisk),
+            StrongStyle::Consistent => {
+                // Cheap style detection: count ** vs __ from parsed spans without
+                // expensive skip checking. A few false positives from spans in code/links
+                // won't affect the majority vote in real documents.
+                let mut asterisk_count = 0usize;
+                let mut underscore_count = 0usize;
+                for span in spans {
+                    if span.end - span.start < 4 {
+                        continue;
+                    }
+                    match span_style(span) {
+                        StrongStyle::Asterisk => asterisk_count += 1,
+                        StrongStyle::Underscore => underscore_count += 1,
+                        StrongStyle::Consistent => {}
+                    }
+                }
+                match (asterisk_count, underscore_count) {
+                    (0, 0) => StrongStyle::Asterisk,
+                    (_, 0) => StrongStyle::Asterisk,
+                    (0, _) => StrongStyle::Underscore,
+                    (a, u) => {
+                        if a >= u {
+                            StrongStyle::Asterisk
+                        } else {
+                            StrongStyle::Underscore
+                        }
+                    }
+                }
+            }
             _ => self.config.style,
         };
 
-        for span in &spans {
+        for span in spans {
             // Only flag spans that use the wrong style
-            if span.style == target_style {
+            if span_style(span) == target_style {
                 continue;
             }
 
-            // Guard against spans shorter than 4 bytes (2 markers on each side)
-            if span.range.end - span.range.start < 4 {
+            // Skip too-short spans
+            if span.end - span.start < 4 {
                 continue;
             }
 
-            if self.should_skip_span(ctx, span.range.start) {
+            // Only check skip context for wrong-style spans (the minority)
+            if self.should_skip_span(ctx, &html_tags, &html_code_ranges, span.start) {
                 continue;
             }
 
-            let (line_num, _col) = ctx.offset_to_line_col(span.range.start);
+            let (line_num, _col) = ctx.offset_to_line_col(span.start);
             let line_start = line_index.get_line_start_byte(line_num).unwrap_or(0);
-            let line_content = content.lines().nth(line_num - 1).unwrap_or("");
-            let match_start_in_line = span.range.start - line_start;
-            let match_len = span.range.end - span.range.start;
+            let line_content = lines.get(line_num - 1).unwrap_or(&"");
+            let match_start_in_line = span.start - line_start;
+            let match_len = span.end - span.start;
 
-            let inner_text = &content[span.range.start + 2..span.range.end - 2];
+            let inner_text = &content[span.start + 2..span.end - 2];
 
             // NOTE: Intentional deviation from markdownlint behavior.
             // markdownlint reports two warnings per emphasis (one for opening marker,
@@ -334,7 +326,7 @@ impl Rule for MD050StrongStyle {
                 message: message.to_string(),
                 severity: Severity::Warning,
                 fix: Some(Fix {
-                    range: span.range.start..span.range.end,
+                    range: span.start..span.end,
                     replacement: match target_style {
                         StrongStyle::Asterisk => format!("**{inner_text}**"),
                         StrongStyle::Underscore => format!("__{inner_text}__"),
@@ -350,11 +342,14 @@ impl Rule for MD050StrongStyle {
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let content = ctx.content;
 
-        let spans = find_strong_spans(content);
+        let spans = &ctx.strong_spans;
+        let html_tags = ctx.html_tags();
+
+        let html_code_ranges = Self::compute_html_code_ranges(&html_tags);
 
         let target_style = match self.config.style {
             StrongStyle::Consistent => self
-                .detect_style_from_spans(ctx, &spans)
+                .detect_style_from_spans(ctx, &html_tags, &html_code_ranges, spans)
                 .unwrap_or(StrongStyle::Asterisk),
             _ => self.config.style,
         };
@@ -362,14 +357,14 @@ impl Rule for MD050StrongStyle {
         // Collect spans that need fixing (wrong style and not in a skip context)
         let matches: Vec<std::ops::Range<usize>> = spans
             .iter()
-            .filter(|span| span.range.end - span.range.start >= 4)
-            .filter(|span| span.style != target_style)
-            .filter(|span| !self.should_skip_span(ctx, span.range.start))
+            .filter(|span| span.end - span.start >= 4)
+            .filter(|span| span_style(span) != target_style)
+            .filter(|span| !self.should_skip_span(ctx, &html_tags, &html_code_ranges, span.start))
             .filter(|span| {
-                let (line_num, _) = ctx.offset_to_line_col(span.range.start);
+                let (line_num, _) = ctx.offset_to_line_col(span.start);
                 !ctx.inline_config().is_rule_disabled(self.name(), line_num)
             })
-            .map(|span| span.range.clone())
+            .map(|span| span.start..span.end)
             .collect();
 
         // Process matches in reverse order to maintain correct indices

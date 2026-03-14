@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-core
-Version: 2.69.0
+Version: 2.70.0
 Summary: A python library to define and validate data types in Docling.
 Author-email: Cesar Berrospi Ramis <ceb@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 Maintainer-email: Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>, Cesar Berrospi Ramis <ceb@zurich.ibm.com>
@@ -134,6 +134,17 @@ different use cases.
 - [Chunking docs](https://docling-project.github.io/docling/concepts/chunking/)
 - [Hybrid chunking example](https://docling-project.github.io/docling/examples/hybrid_chunking/)
 - [Advanced chunking and serialization](https://docling-project.github.io/docling/examples/advanced_chunking_and_serialization/)
+
+### Profiling
+
+The Profiling API enables extraction of comprehensive statistics from DoclingDocument objects,
+both for individual documents and collections. It provides metrics on document structure
+(pages, tables, pictures, text items) along with statistical distributions (deciles, histograms)
+and visualization capabilities for analyzing document collections at scale.
+
+👉 More details:
+- [Document profiling example](./examples/document_profiling.py)
+- [Collection statistics visualization](./examples/visualize_collection_stats.py)
 
 ## Contributing
 

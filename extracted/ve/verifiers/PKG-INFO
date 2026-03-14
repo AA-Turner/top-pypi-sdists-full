@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: verifiers
-Version: 0.1.10
+Version: 0.1.11
 Summary: Verifiers: Environments for LLM Reinforcement Learning
 Project-URL: Homepage, https://github.com/primeintellect-ai/verifiers
 Project-URL: Documentation, https://github.com/primeintellect-ai/verifiers
@@ -22,7 +22,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.14,>=3.10
-Requires-Dist: datasets>=3.0.0
+Requires-Dist: anthropic>=0.78.0
+Requires-Dist: datasets<4.7.0,>=3.0.0
 Requires-Dist: gepa
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: math-verify>=0.8.0
@@ -32,8 +33,8 @@ Requires-Dist: nest-asyncio>=1.6.0
 Requires-Dist: numpy
 Requires-Dist: openai-agents>=0.0.7
 Requires-Dist: openai>=1.108.1
-Requires-Dist: prime-sandboxes>=0.2.14
-Requires-Dist: prime-tunnel>=0.1.1
+Requires-Dist: prime-sandboxes>=0.2.16
+Requires-Dist: prime-tunnel>=0.1.4
 Requires-Dist: pydantic>=2.11.9
 Requires-Dist: pyzmq>=27.1.0
 Requires-Dist: requests
@@ -103,9 +104,11 @@ Verifiers: Environments for LLM Reinforcement Learning
 
 ## News & Updates
 
+- [03/12/26] v0.1.11 is released, featuring a unified client stack, major `RLMEnv` and env server reliability improvements, a substantially refined eval TUI, new pass@k and ablation sweep support, and bundled opencode environments.
+- [02/10/26] v0.1.10 is released, featuring OpenEnv and BrowserEnv integrations, resumed evals, improved rollout and token tracking, safer sandbox lifecycle behavior, refreshed workspace setup, and opencode harbor improvements.
 - [01/08/26] v0.1.9 is released, featuring a number of new experimental environment class types, monitor rubrics for automatic metric collection, improved workspace setup flow, improved error handling, bug fixes, and a documentation overhaul.
 - [11/19/25] v0.1.8 is released, featuring a major refactor of the rollout system to use trajectory-based tracking for token-in token-out training across turns, as well as support for truncated or branching rollouts.
-- [11/07/25] Verifiers v0.1.7 is released! This includes an improved quickstart configuration for training with [prime-rl], a new included "nano" trainer (`vf.RLTrainer`, replacing `vf.GRPOTrainer`), and a number of bug fixes and improvements to the documentation.
+- [11/07/25] Verifiers v0.1.7 is released! This includes an improved quickstart configuration for training with [prime-rl](https://github.com/PrimeIntellect-ai/prime-rl), a new included "nano" trainer (`vf.RLTrainer`, replacing `vf.GRPOTrainer`), and a number of bug fixes and improvements to the documentation.
 - [10/27/25] A new iteration of the Prime Intellect [Environments Program](https://docs.google.com/spreadsheets/d/13UDfRDjgIZXsMI2s9-Lmn8KSMMsgk2_zsfju6cx_pNU/edit?gid=0#gid=0) is live!  
 
 
@@ -228,17 +231,17 @@ prime eval run primeintellect/math-python
 
 ## Documentation
 
-**[Environments](environments.md)** — Create datasets, rubrics, and custom multi-turn interaction protocols.
+**[Environments](docs/environments.md)** — Create datasets, rubrics, and custom multi-turn interaction protocols.
 
-**[Evaluation](evaluation.md)** - Evaluate models using your environments.
+**[Evaluation](docs/evaluation.md)** - Evaluate models using your environments.
 
-**[Training](training.md)** — Train models in your environments with reinforcement learning.
+**[Training](docs/training.md)** — Train models in your environments with reinforcement learning.
 
-**[Development](development.md)** — Contributing to verifiers
+**[Development](docs/development.md)** — Contributing to verifiers
 
-**[API Reference](reference.md)** — Understanding the API and data structures
+**[API Reference](docs/reference.md)** — Understanding the API and data structures
 
-**[FAQs](faqs.md)** - Other frequently asked questions.
+**[FAQs](docs/faqs.md)** - Other frequently asked questions.
 
 
 ## Citation

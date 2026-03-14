@@ -1114,6 +1114,8 @@ class FootFallUseCase(BaseProcessor):
             if stream_info:
                 self._start_geometry_resolver(config, stream_info)
                 _resolved = self._resolved_geometry_cache
+            config.use_foot_center = False
+            print(config.use_foot_center)
 
             if context is None:
                 context = ProcessingContext()

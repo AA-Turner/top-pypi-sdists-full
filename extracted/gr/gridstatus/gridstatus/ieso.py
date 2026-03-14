@@ -3116,55 +3116,44 @@ class IESO(ISOBase):
 
         delivery_date_text = root.find(".//DeliveryDate", ns).text
 
-        # Extract date and hour from the text (e.g., "For 2025-04-23 - Hour 12")
-        delivery_date = pd.Timestamp(
-            delivery_date_text.split(" - ")[0].replace("For ", ""),
-        )
-        delivery_hour = int(delivery_date_text.split(" - ")[1].replace("Hour ", ""))
+        if " - " in delivery_date_text:
+            # Format: "For 2025-04-23 - Hour 12"
+            delivery_date = pd.Timestamp(
+                delivery_date_text.split(" - ")[0].replace("For ", ""),
+            )
+            delivery_hour = int(
+                delivery_date_text.split(" - ")[1].replace("Hour ", ""),
+            )
+        else:
+            # Format: <DeliveryDate>2026-03-05</DeliveryDate>
+            #         <DeliveryHour>10</DeliveryHour>
+            delivery_date = pd.Timestamp(delivery_date_text)
+            delivery_hour = int(root.find(".//DeliveryHour", ns).text)
 
         base_datetime = (
             pd.to_datetime(delivery_date) + pd.Timedelta(hours=delivery_hour - 1)
         ).tz_localize(self.default_timezone)
 
-        price_components = root.findall(".//RealTimePriceComponents", ns)
+        zonal_prices = root.findall(".//ZonalPrice", ns)
 
-        zonal_prices = {}
-        loss_prices = {}
-        congestion_prices = {}
-
-        for component in price_components:
-            component_type = component.find("OntarioZonalPrice", ns).text
-
-            # Intervals are 1-indexed, so we loop from 1 to 12
-            for interval in range(1, 13):
-                interval_element_name = f"OntarioZonalPriceInterval{interval}"
-                interval_value_name = f"Interval{interval}"
-
-                interval_element = component.find(interval_element_name, ns)
-                if interval_element is not None:
-                    interval_value_elem = interval_element.find(interval_value_name, ns)
-                    if interval_value_elem is not None and interval_value_elem.text:
-                        value = float(interval_value_elem.text)
-
-                        if component_type == "Zonal Price":
-                            zonal_prices[interval] = value
-                        elif component_type == "Energy Loss Price":
-                            loss_prices[interval] = value
-                        elif component_type == "Energy Congestion Price":
-                            congestion_prices[interval] = value
         data_rows = []
 
-        for interval in range(1, 13):
-            if interval in zonal_prices:
+        if zonal_prices:
+            # New XML schema (r2): flat ZonalPrice elements with
+            # LmpCap, LossPriceCap, CongPriceCap
+            for zp in zonal_prices:
+                interval = int(zp.find("Interval", ns).text)
+                lmp_elem = zp.find("LmpCap", ns)
+                if lmp_elem is None or not lmp_elem.text:
+                    continue
+                lmp = float(lmp_elem.text)
+                loss = float(zp.find("LossPriceCap", ns).text or 0)
+                congestion = float(zp.find("CongPriceCap", ns).text or 0)
+                energy = lmp - congestion - loss
+
                 minutes_offset = (interval - 1) * 5
                 interval_start = base_datetime + pd.Timedelta(minutes=minutes_offset)
                 interval_end = interval_start + pd.Timedelta(minutes=5)
-
-                lmp = zonal_prices.get(interval, 0)
-                loss = loss_prices.get(interval, 0)
-                congestion = congestion_prices.get(interval, 0)
-
-                energy = lmp - congestion - loss
 
                 data_rows.append(
                     {
@@ -3177,6 +3166,62 @@ class IESO(ISOBase):
                         "Loss": loss,
                     },
                 )
+        else:
+            # Old XML schema (r1): RealTimePriceComponents with separate
+            # sections for Zonal Price, Energy Loss Price, Energy Congestion Price
+            price_components = root.findall(".//RealTimePriceComponents", ns)
+
+            lmp_prices = {}
+            loss_prices = {}
+            congestion_prices = {}
+
+            for component in price_components:
+                component_type = component.find("OntarioZonalPrice", ns).text
+
+                for interval in range(1, 13):
+                    interval_element_name = f"OntarioZonalPriceInterval{interval}"
+                    interval_value_name = f"Interval{interval}"
+
+                    interval_element = component.find(interval_element_name, ns)
+                    if interval_element is not None:
+                        interval_value_elem = interval_element.find(
+                            interval_value_name,
+                            ns,
+                        )
+                        if interval_value_elem is not None and interval_value_elem.text:
+                            value = float(interval_value_elem.text)
+
+                            if component_type == "Zonal Price":
+                                lmp_prices[interval] = value
+                            elif component_type == "Energy Loss Price":
+                                loss_prices[interval] = value
+                            elif component_type == "Energy Congestion Price":
+                                congestion_prices[interval] = value
+
+            for interval in range(1, 13):
+                if interval in lmp_prices:
+                    minutes_offset = (interval - 1) * 5
+                    interval_start = base_datetime + pd.Timedelta(
+                        minutes=minutes_offset,
+                    )
+                    interval_end = interval_start + pd.Timedelta(minutes=5)
+
+                    lmp = lmp_prices.get(interval, 0)
+                    loss = loss_prices.get(interval, 0)
+                    congestion = congestion_prices.get(interval, 0)
+                    energy = lmp - congestion - loss
+
+                    data_rows.append(
+                        {
+                            "Interval Start": interval_start,
+                            "Interval End": interval_end,
+                            "Location": ONTARIO_LOCATION,
+                            "LMP": lmp,
+                            "Energy": energy,
+                            "Congestion": congestion,
+                            "Loss": loss,
+                        },
+                    )
 
         df = (
             pd.DataFrame(data_rows)
@@ -3642,7 +3687,7 @@ class IESO(ISOBase):
 
         return df
 
-    @support_date_range(frequency=None)
+    @support_date_range(frequency="YEAR_START")
     def get_load_zonal_5_min(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
@@ -3656,7 +3701,7 @@ class IESO(ISOBase):
 
         return self._parse_load_zonal_data(url, date, end)
 
-    @support_date_range(frequency=None)
+    @support_date_range(frequency="YEAR_START")
     def get_load_zonal_hourly(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
@@ -3667,6 +3712,7 @@ class IESO(ISOBase):
             url = f"{PUBLIC_REPORTS_URL_PREFIX}/DemandZonal/PUB_DemandZonal.csv"
         else:
             url = f"{PUBLIC_REPORTS_URL_PREFIX}/DemandZonal/PUB_DemandZonal_{date.year}.csv"
+
         return self._parse_load_zonal_data(url, date, end)
 
     def _parse_load_zonal_data(
@@ -3678,17 +3724,27 @@ class IESO(ISOBase):
         df = pd.read_csv(url, skiprows=3, parse_dates=["Date"])
 
         if "Interval" in df.columns:
-            df["Interval Start"] = (
+            interval_start = (
                 df["Date"]
                 + pd.to_timedelta(df["Hour"] - 1, unit="h")
                 + pd.to_timedelta((df["Interval"] - 1) * 5, unit="m")
             ).dt.tz_localize(self.default_timezone)
-            df["Interval End"] = df["Interval Start"] + pd.Timedelta(minutes=5)
+            df = df.assign(
+                **{
+                    "Interval Start": interval_start,
+                    "Interval End": interval_start + pd.Timedelta(minutes=5),
+                },
+            )
         else:
-            df["Interval Start"] = (
+            interval_start = (
                 df["Date"] + pd.to_timedelta(df["Hour"] - 1, unit="h")
             ).dt.tz_localize(self.default_timezone)
-            df["Interval End"] = df["Interval Start"] + pd.Timedelta(hours=1)
+            df = df.assign(
+                **{
+                    "Interval Start": interval_start,
+                    "Interval End": interval_start + pd.Timedelta(hours=1),
+                },
+            )
             df.rename(columns={"Zone Total": "Zones Total"}, inplace=True)
         df.columns = df.columns.str.title()
         if date == "latest":
@@ -4172,10 +4228,7 @@ class IESO(ISOBase):
             csv_text = "\n".join(lines[1:])
             data = pd.read_csv(StringIO(csv_text))
         else:
-            # Subtract 1 day to the date to get the file because this is a day-ahead
-            # dataset
-            file_date = date - pd.DateOffset(days=1)
-            url = f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}_{file_date.strftime('%Y%m%d')}.csv"
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}_{date.strftime('%Y%m%d')}.csv"
 
             data = pd.read_csv(url, skiprows=1)
             base_datetime = date.normalize()

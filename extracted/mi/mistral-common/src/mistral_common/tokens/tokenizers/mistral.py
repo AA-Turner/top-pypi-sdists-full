@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import Any, Callable, Generic
 
@@ -13,15 +12,14 @@ from mistral_common.protocol.instruct.messages import (
     ToolMessageType,
     UserMessageType,
 )
-from mistral_common.protocol.instruct.normalize import InstructRequestNormalizer, normalizer_for_tokenizer_version
+from mistral_common.protocol.instruct.normalize import InstructRequestNormalizer, get_normalizer
 from mistral_common.protocol.instruct.request import ChatCompletionRequest
 from mistral_common.protocol.instruct.validator import (
     MistralRequestValidator,
-    MistralRequestValidatorV3,
-    MistralRequestValidatorV5,
-    MistralRequestValidatorV13,
     ValidationMode,
+    get_validator,
 )
+from mistral_common.protocol.speech.request import SpeechRequest
 from mistral_common.protocol.transcription.request import TranscriptionRequest
 from mistral_common.tokens.tokenizers.audio import AudioConfig, AudioEncoder, SpecialAudioIDs
 from mistral_common.tokens.tokenizers.base import (
@@ -45,6 +43,7 @@ from mistral_common.tokens.tokenizers.instruct import (
     InstructTokenizerV7,
     InstructTokenizerV11,
     InstructTokenizerV13,
+    InstructTokenizerV15,
 )
 from mistral_common.tokens.tokenizers.sentencepiece import (
     SentencePieceTokenizer,
@@ -94,6 +93,8 @@ def load_audio_encoder(audio_config: AudioConfig, tokenizer: Tekkenizer) -> Audi
         audio=get_special_token_or_none(SpecialTokens.audio.value),
         begin_audio=get_special_token_or_none(SpecialTokens.begin_audio.value),
         streaming_pad=get_special_token_or_none(SpecialTokens.streaming_pad.value),
+        text_to_audio=get_special_token_or_none(SpecialTokens.text_to_audio.value),
+        audio_to_text=get_special_token_or_none(SpecialTokens.audio_to_text.value),
     )
     return AudioEncoder(audio_config, special_ids)
 
@@ -213,32 +214,19 @@ class MistralTokenizer(
             )
 
     @classmethod
-    def from_model(cls, model: str, strict: bool = False) -> "MistralTokenizer":
+    def from_model(cls, model: str, strict: bool = True) -> "MistralTokenizer":
         r"""Get the Mistral tokenizer for a given model.
 
         Args:
             model: The model name.
-            strict: Whether to use strict model name matching. If `False`, the model name is matched as a substring.
-                This is deprecated and will be removed in `mistral_common=1.10.0`.
+            strict: Has to be True, not used.
 
         Returns:
             The Mistral tokenizer for the given model.
         """
-        if not strict:
-            warnings.warn(
-                "Calling `MistralTokenizer.from_model(..., strict=False)` is deprecated as it can lead to incorrect "
-                "tokenizers. It is strongly recommended to use MistralTokenizer.from_model(..., strict=True)` "
-                "which will become the default in `mistral_common=1.10.0`."
-                "If you are using `mistral_common` for open-sourced model weights, we recommend using "
-                "`MistralTokenizer.from_file('<path/to/tokenizer/file>')` instead.",
-                FutureWarning,
-            )
 
-            # TODO(Delete this code in mistral_common >= 1.10.0
-            # Prefix search the model name mapping
-            for model_name, tokenizer_cls in MODEL_NAME_TO_TOKENIZER_CLS.items():
-                if model_name in model.lower():
-                    return tokenizer_cls()
+        if not strict:
+            raise ValueError("strict has to be `True` since v1.10.0.")
 
         if model not in MODEL_NAME_TO_TOKENIZER_CLS:
             raise TokenizerException(f"Unrecognized model: {model}")
@@ -316,14 +304,15 @@ class MistralTokenizer(
             assert isinstance(tokenizer, Tekkenizer), "Audio is only supported for tekken tokenizers"
             audio_encoder = load_audio_encoder(audio_config, tokenizer)
 
-        request_normalizer = normalizer_for_tokenizer_version(tokenizer.version)
+        request_normalizer = get_normalizer(tokenizer.version, tokenizer.model_settings_builder)
+        validator = get_validator(tokenizer.version, mode=mode)
 
         if tokenizer.version == TokenizerVersion.v1:
             assert image_encoder is None, "Tokenizer version needs to be >= v3"
             assert audio_encoder is None, "Tokenizer version needs to be >= v7"
             return MistralTokenizer(
                 InstructTokenizerV1(tokenizer),
-                validator=MistralRequestValidator(mode=mode),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
         elif tokenizer.version == TokenizerVersion.v2:
@@ -331,32 +320,38 @@ class MistralTokenizer(
             assert audio_encoder is None, "Tokenizer version needs to be >= v7"
             return MistralTokenizer(
                 InstructTokenizerV2(tokenizer),
-                validator=MistralRequestValidator(mode=mode),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
         elif tokenizer.version == TokenizerVersion.v3:
             assert audio_encoder is None, "Tokenizer version needs to be >= v7"
             return MistralTokenizer(
                 InstructTokenizerV3(tokenizer, image_encoder=image_encoder),
-                validator=MistralRequestValidatorV3(mode=mode),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
         elif tokenizer.version == TokenizerVersion.v7:
             return MistralTokenizer(
                 InstructTokenizerV7(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder),
-                validator=MistralRequestValidatorV5(mode=mode),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
         elif tokenizer.version == TokenizerVersion.v11:
             return MistralTokenizer(
                 InstructTokenizerV11(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder),
-                validator=MistralRequestValidatorV5(mode=mode),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
         elif tokenizer.version == TokenizerVersion.v13:
             return MistralTokenizer(
                 InstructTokenizerV13(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder),
-                validator=MistralRequestValidatorV13(mode=mode),
+                validator=validator,
+                request_normalizer=request_normalizer,
+            )
+        elif tokenizer.version == TokenizerVersion.v15:
+            return MistralTokenizer(
+                InstructTokenizerV15(tokenizer, image_encoder=image_encoder, audio_encoder=audio_encoder),
+                validator=validator,
                 request_normalizer=request_normalizer,
             )
 
@@ -404,6 +399,17 @@ class MistralTokenizer(
         """
         return self.instruct_tokenizer.encode_transcription(request)
 
+    def encode_speech_request(self, request: SpeechRequest) -> TokenizedType:
+        r"""Encodes a speech synthesis request.
+
+        Args:
+            request: The speech request to encode.
+
+        Returns:
+            The encoded speech request.
+        """
+        return self.instruct_tokenizer.encode_speech_request(request)
+
     def encode_fim(self, request: FIMRequest) -> TokenizedType:
         r"""Encodes a fill in the middle request.
 
@@ -415,13 +421,12 @@ class MistralTokenizer(
         """
         return self.instruct_tokenizer.encode_fim(request)
 
-    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy = SpecialTokenPolicy.IGNORE) -> str:
         r"""Decodes a list of tokens into a string.
 
         Args:
             tokens: The tokens to decode.
-            special_token_policy: The policy to use for special tokens. Passing `None` is deprecated and will be changed
-                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.10.0`.
+            special_token_policy: The policy to use for special tokens.
 
         Returns:
             The decoded string.
@@ -449,17 +454,4 @@ MODEL_NAME_TO_TOKENIZER_CLS: dict[str, Callable[[], MistralTokenizer]] = {
     "codestral-2405": MistralTokenizer.v3,
     "codestral-mamba-2407": MistralTokenizer.v3,
     "pixtral-12b-2409": lambda: MistralTokenizer.v3(is_tekken=True, is_mm=True),
-    # The following are deprecated - only left for backward comp. Delete in >= 1.10.0
-    "open-mistral-7b": MistralTokenizer.v1,
-    "open-mixtral-8x7b": MistralTokenizer.v1,
-    "mistral-embed": MistralTokenizer.v1,
-    "mistral-small-v1": MistralTokenizer.v2,
-    "mistral-large-v1": MistralTokenizer.v2,
-    "mistral-small": MistralTokenizer.v3,
-    "mistral-large": MistralTokenizer.v3,
-    "open-mixtral-8x22b": MistralTokenizer.v3,
-    "codestral-22b": MistralTokenizer.v3,
-    "mistral-nemo": lambda: MistralTokenizer.v3(is_tekken=True),
-    "pixtral": lambda: MistralTokenizer.v3(is_tekken=True, is_mm=True),
-    "pixtral-large": lambda: MistralTokenizer.v7(is_mm=True),
 }

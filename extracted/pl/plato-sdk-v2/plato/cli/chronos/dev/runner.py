@@ -581,11 +581,14 @@ class DevRunner:
         # Sync local plato-fuse binary to VM if PLATO_FUSE_BINARY is set.
         fuse_binary = os.environ.get("PLATO_FUSE_BINARY")
         if fuse_binary and Path(fuse_binary).is_file():
+            if not self.sync_manager:
+                raise RuntimeError("sync_manager must be initialized")
+            sync_manager = self.sync_manager
             with self._startup_profiler.time("setup.env.packages.sync_fuse_binary"):
                 console.print(f"  [dim]Syncing local plato-fuse binary: {fuse_binary}[/dim]")
                 from plato.cli.chronos.dev.ssh import build_ssh_command_string
 
-                ssh_cmd = build_ssh_command_string(self.world_env.job_id, self.sync_manager.ssh_key_path)
+                ssh_cmd = build_ssh_command_string(self.world_env.job_id, sync_manager.ssh_key_path)
                 proc = await asyncio.create_subprocess_exec(
                     "rsync",
                     "-az",

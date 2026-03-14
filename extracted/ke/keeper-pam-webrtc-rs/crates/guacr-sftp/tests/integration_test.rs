@@ -70,10 +70,11 @@ mod integration_tests {
         params.insert("username".to_string(), USERNAME.to_string());
         params.insert("password".to_string(), PASSWORD.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for initial file browser rendering
         // SFTP handler renders a graphical file browser which takes time
@@ -116,10 +117,11 @@ mod integration_tests {
         params.insert("username".to_string(), USERNAME.to_string());
         params.insert("password".to_string(), PASSWORD.to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Give the handler time to connect and render
         // SFTP handler needs to: connect SSH, start SFTP subsystem, read directory, render PNG
@@ -149,10 +151,11 @@ mod integration_tests {
         params.insert("username".to_string(), "wronguser".to_string());
         params.insert("password".to_string(), "wrongpass".to_string());
 
-        let handle =
-            tokio::spawn(
-                async move { handler.connect(params, to_client_tx, from_client_rx).await },
-            );
+        let handle = tokio::spawn(async move {
+            handler
+                .connect(params, to_client_tx, from_client_rx, None)
+                .await
+        });
 
         // Wait for handler to fail
         // With wrong password, the handler should return an error and close the channel

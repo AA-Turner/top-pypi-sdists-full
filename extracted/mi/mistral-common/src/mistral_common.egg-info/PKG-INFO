@@ -1,18 +1,21 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.9.1
+Version: 1.10.0
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: bam4d <bam4d@mistral.ai>
 License-Expression: Apache-2.0
-Requires-Python: <3.14,>=3.10.0
+Requires-Python: <3.15,>=3.10.0
 Description-Content-Type: text/markdown
-Requires-Dist: pydantic<3.0,>=2.7
+Requires-Dist: pydantic<3.0,>=2.7; python_version <= "3.13"
+Requires-Dist: pydantic<3.0,>=2.12; python_version >= "3.14"
 Requires-Dist: jsonschema>=4.21.1
 Requires-Dist: typing-extensions>=4.11.0
-Requires-Dist: tiktoken>=0.7.0
+Requires-Dist: tiktoken>=0.7.0; python_version <= "3.13"
+Requires-Dist: tiktoken>=0.12.0; python_version >= "3.14"
 Requires-Dist: pillow>=10.3.0
 Requires-Dist: requests>=2.0.0
-Requires-Dist: numpy>=1.25
+Requires-Dist: numpy<2.4,>=1.25; python_version <= "3.12"
+Requires-Dist: numpy>=1.25; python_version > "3.12"
 Requires-Dist: pydantic-extra-types[pycountry]>=2.10.5
 Provides-Extra: opencv
 Requires-Dist: opencv-python-headless>=4.0.0; extra == "opencv"
@@ -28,11 +31,12 @@ Requires-Dist: mistral_common[soxr]; extra == "audio"
 Provides-Extra: image
 Requires-Dist: mistral_common[opencv]; extra == "image"
 Provides-Extra: hf-hub
-Requires-Dist: huggingface-hub>=0.32.4; extra == "hf-hub"
+Requires-Dist: huggingface-hub>=1.0; extra == "hf-hub"
 Provides-Extra: server
-Requires-Dist: fastapi[standard]>=0.115.12; extra == "server"
+Requires-Dist: fastapi[standard]>=0.118.3; extra == "server"
 Requires-Dist: pydantic-settings>=2.9.1; extra == "server"
 Requires-Dist: click>=8.1.0; extra == "server"
+Requires-Dist: uvloop>=0.22.1; python_version >= "3.14" and extra == "server"
 
 <div align="center">
 

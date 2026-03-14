@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: efinance
-Version: 0.5.5.2
+Version: 0.5.7
 Summary: A finance tool to get stock,fund and futures data base on eastmoney
 Author-email: micro sheep <micro-sheep@outlook.com>
 License: MIT
@@ -26,6 +26,7 @@ Requires-Dist: multitasking
 Requires-Dist: jsonpath
 Requires-Dist: rich
 Requires-Dist: beautifulsoup4
+Dynamic: license-file
 
 ## Introduction
 
@@ -37,6 +38,11 @@ Requires-Dist: beautifulsoup4
 [![Github Stars](https://img.shields.io/github/stars/Micro-sheep/efinance.svg?style=social&label=Star&maxAge=60)](https://github.com/Micro-sheep/efinance)
 
 [`efinance`](https://github.com/Micro-sheep/efinance) 是由个人打造的用于获取股票、基金、期货数据的免费开源 Python 库，你可以使用它很方便地获取数据以便更好地服务于个人的交易系统需求。
+
+**郑重声明：本项目仅供学习交流使用，不得用于商业用途。**
+
+> **💡 遇到限流或网络报错？** 使用过程中若遇到限流、连接超时等网络相关报错，可尝试 **[TickFlow](https://tickflow.org?utm_source=efinance&utm_medium=readme)** 作为替代数据源：  
+> [https://tickflow.org](https://tickflow.org?utm_source=efinance&utm_medium=readme)
 
 - [`Source Code`](https://github.com/Micro-sheep/efinance)
 - [`Docs`](https://efinance.readthedocs.io)
@@ -571,6 +577,5 @@ pdoc . -d numpy
 
 ## Contact
 
-[![zhihu](https://img.shields.io/badge/知乎-blue)](https://www.zhihu.com/people/la-ge-lang-ri-96-69)
 [![Github](https://img.shields.io/badge/Github-blue?style=social&logo=github)](https://github.com/Micro-sheep)
 [![Email](https://img.shields.io/badge/Email-blue)](mailto:micro-sheep@outlook.com)

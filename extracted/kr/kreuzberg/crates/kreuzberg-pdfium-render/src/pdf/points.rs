@@ -12,6 +12,7 @@ use {crate::pdf::bitmap::PdfBitmap, crate::pdf::document::PdfDocument, crate::pd
 /// device-independent unit equal to 1/72 inches, roughly 0.358 mm. Points are converted to pixels
 /// when a [PdfPage] is rendered into a [PdfBitmap].
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[allow(clippy::derive_ord_xor_partial_ord)]
 pub struct PdfPoints {
     pub value: f32,
 }

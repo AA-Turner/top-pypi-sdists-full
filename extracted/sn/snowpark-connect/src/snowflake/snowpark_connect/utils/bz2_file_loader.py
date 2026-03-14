@@ -35,6 +35,7 @@ from snowflake.snowpark.types import (
 # =============================================================================
 
 LINE_CONTENT = "line_content"
+VALUE_COLUMN = "value"
 FILE_SPLITS_GENERATOR_NAME = "FILE_SPLITS_GENERATOR"
 JSON_PARALLEL_LOADER_NAME = "JSON_PARALLEL_LOADER"
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-api-doc-tools
-Version: 2.1.2
+Version: 3.0.0
 Summary: Tools for writing and generating API documentation for edX REST APIs
 Home-page: https://github.com/openedx/api-doc-tools
 Author: Open edX Project
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt

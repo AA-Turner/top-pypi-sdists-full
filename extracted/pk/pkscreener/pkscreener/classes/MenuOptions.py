@@ -821,6 +821,7 @@ class menus:
                                                  skip=skip)
     
     def renderUserType(self, selectedMenu:menu=None, skip=[], asList=False, renderStyle=None):
+            userTypeMenuDict["1"] = "Enjoy the Premium trial in Limited Mode!" if not self.is_subscription_enabled else "I am a paid/premium subscriber"
             # Top level Application Main menu for user type
             return self.renderMenuFromDictionary(dict=userTypeMenuDict,
                                                 exceptionKeys=["1","2","Z"],

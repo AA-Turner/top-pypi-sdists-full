@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from nominal.settings.coachmarks.v1 import coachmarks_pb2 as nominal_dot_settings_dot_coachmarks_dot_v1_dot_coachmarks__pb2
+from nominal_api_protos.nominal.settings.coachmarks.v1 import coachmarks_pb2 as nominal_dot_settings_dot_coachmarks_dot_v1_dot_coachmarks__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

@@ -28,6 +28,26 @@ from nsj_rest_lib2.util.entity_name_util import format_entity_name
 logger = get_logger()
 
 
+def _build_escopo_from_url(kwargs: dict[str, Any]) -> str:
+    """
+    Resolve o escopo dinamico a partir da URL.
+
+    Quando `escopo_in_url=True`, o escopo e exposto em tres segmentos
+    (`/AAA/BBB/CCC/recurso`), refletindo o formato `AAA.BBB.CCC`.
+    """
+
+    escopo_parts = [
+        str(kwargs.pop("entity_escopo_1", "") or "").strip(),
+        str(kwargs.pop("entity_escopo_2", "") or "").strip(),
+        str(kwargs.pop("entity_escopo_3", "") or "").strip(),
+    ]
+    escopo_parts = [part for part in escopo_parts if part]
+    if escopo_parts:
+        return ".".join(escopo_parts).upper()
+
+    return str(kwargs.pop("entity_escopo", "") or "").strip()
+
+
 def _get_query_args() -> tuple[str | None, str | None, bool]:
     """
     Le tenant/grupo_empresarial/force_reload da query string e do body.
@@ -107,15 +127,27 @@ def setup_dynamic_routes(
     """
 
     if not escopo_in_url:
-        COLLECTION_DYNAMIC_ROUTE = f"/{APP_NAME}/{dynamic_root_path}/<entity_resource>"
-        ONE_DYNAMIC_ROUTE = f"/{APP_NAME}/{dynamic_root_path}/<entity_resource>/<id>"
+        collection_dynamic_routes = [
+            f"/{APP_NAME}/{dynamic_root_path}/<entity_resource>"
+        ]
+        one_dynamic_routes = [
+            f"/{APP_NAME}/{dynamic_root_path}/<entity_resource>/<id>"
+        ]
     else:
-        COLLECTION_DYNAMIC_ROUTE = (
-            f"/{APP_NAME}/{dynamic_root_path}/<entity_escopo>/<entity_resource>"
-        )
-        ONE_DYNAMIC_ROUTE = (
-            f"/{APP_NAME}/{dynamic_root_path}/<entity_escopo>/<entity_resource>/<id>"
-        )
+        collection_dynamic_routes = [
+            (
+                f"/{APP_NAME}/{dynamic_root_path}/"
+                "<entity_escopo_1>/<entity_escopo_2>/<entity_escopo_3>/<entity_resource>"
+            ),
+            f"/{APP_NAME}/{dynamic_root_path}/<entity_escopo>/<entity_resource>",
+        ]
+        one_dynamic_routes = [
+            (
+                f"/{APP_NAME}/{dynamic_root_path}/"
+                "<entity_escopo_1>/<entity_escopo_2>/<entity_escopo_3>/<entity_resource>/<id>"
+            ),
+            f"/{APP_NAME}/{dynamic_root_path}/<entity_escopo>/<entity_resource>/<id>",
+        ]
 
     entity_loader = EntityLoader(edls_path=edls_path)
 
@@ -129,7 +161,7 @@ def setup_dynamic_routes(
                 return (format_json_error(msg), 400, {**DEFAULT_RESP_HEADERS})
             entity_resource = kwargs.pop("entity_resource")
 
-            entity_escopo = kwargs.pop("entity_escopo", "")
+            entity_escopo = _build_escopo_from_url(kwargs)
 
             tenant, grupo_empresarial, force_reload = _get_query_args()
             entity_id = kwargs.get("id")
@@ -261,7 +293,7 @@ def setup_dynamic_routes(
                 return ("", 405, {})
 
             route = ListRoute(
-                url=COLLECTION_DYNAMIC_ROUTE,
+                url=collection_dynamic_routes[0],
                 http_method="GET",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -306,7 +338,7 @@ def setup_dynamic_routes(
                 return ("", 405, {})
 
             route = GetRoute(
-                url=ONE_DYNAMIC_ROUTE,
+                url=one_dynamic_routes[0],
                 http_method="GET",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -369,7 +401,7 @@ def setup_dynamic_routes(
             )
 
             route = PostRoute(
-                url=COLLECTION_DYNAMIC_ROUTE,
+                url=collection_dynamic_routes[0],
                 http_method="POST",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -434,7 +466,7 @@ def setup_dynamic_routes(
             )
 
             route = PutRoute(
-                url=ONE_DYNAMIC_ROUTE,
+                url=one_dynamic_routes[0],
                 http_method="PUT",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -493,7 +525,7 @@ def setup_dynamic_routes(
             )
 
             route = PatchRoute(
-                url=ONE_DYNAMIC_ROUTE,
+                url=one_dynamic_routes[0],
                 http_method="PATCH",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -536,7 +568,7 @@ def setup_dynamic_routes(
                 return ("", 405, {})
 
             route = DeleteRoute(
-                url=ONE_DYNAMIC_ROUTE,
+                url=one_dynamic_routes[0],
                 http_method="DELETE",
                 dto_class=etities_dict[dto_class_name],
                 entity_class=etities_dict[entity_class_name],
@@ -572,39 +604,54 @@ def setup_dynamic_routes(
     )
 
     # Registrando as rotas no flask
-    flask_app.add_url_rule(
-        COLLECTION_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(list_dynamic, multidb, dynamic_root_path),
-        view_func=list_dynamic,
-        methods=["GET"],
-    )
-    flask_app.add_url_rule(
-        ONE_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(get_dynamic, multidb, dynamic_root_path),
-        view_func=get_dynamic,
-        methods=["GET"],
-    )
-    flask_app.add_url_rule(
-        COLLECTION_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(post_dynamic, multidb, dynamic_root_path),
-        view_func=post_dynamic,
-        methods=["POST"],
-    )
-    flask_app.add_url_rule(
-        ONE_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(put_dynamic, multidb, dynamic_root_path),
-        view_func=put_dynamic,
-        methods=["PUT"],
-    )
-    flask_app.add_url_rule(
-        ONE_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(patch_dynamic, multidb, dynamic_root_path),
-        view_func=patch_dynamic,
-        methods=["PATCH"],
-    )
-    flask_app.add_url_rule(
-        ONE_DYNAMIC_ROUTE,
-        endpoint=_endpoint_name(delete_dynamic, multidb, dynamic_root_path),
-        view_func=delete_dynamic,
-        methods=["DELETE"],
-    )
+    for index, route in enumerate(collection_dynamic_routes):
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                list_dynamic, multidb, f"{dynamic_root_path}_list_{index}"
+            ),
+            view_func=list_dynamic,
+            methods=["GET"],
+        )
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                post_dynamic, multidb, f"{dynamic_root_path}_post_{index}"
+            ),
+            view_func=post_dynamic,
+            methods=["POST"],
+        )
+
+    for index, route in enumerate(one_dynamic_routes):
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                get_dynamic, multidb, f"{dynamic_root_path}_get_{index}"
+            ),
+            view_func=get_dynamic,
+            methods=["GET"],
+        )
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                put_dynamic, multidb, f"{dynamic_root_path}_put_{index}"
+            ),
+            view_func=put_dynamic,
+            methods=["PUT"],
+        )
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                patch_dynamic, multidb, f"{dynamic_root_path}_patch_{index}"
+            ),
+            view_func=patch_dynamic,
+            methods=["PATCH"],
+        )
+        flask_app.add_url_rule(
+            route,
+            endpoint=_endpoint_name(
+                delete_dynamic, multidb, f"{dynamic_root_path}_delete_{index}"
+            ),
+            view_func=delete_dynamic,
+            methods=["DELETE"],
+        )

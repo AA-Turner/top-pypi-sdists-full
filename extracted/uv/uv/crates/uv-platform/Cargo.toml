@@ -1,6 +1,6 @@
 [package]
 name = "uv-platform"
-version = "0.0.29"
+version = "0.0.30"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -35,7 +35,7 @@ rustix = { workspace = true }
 procfs = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-registry = { workspace = true }
+windows-version = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

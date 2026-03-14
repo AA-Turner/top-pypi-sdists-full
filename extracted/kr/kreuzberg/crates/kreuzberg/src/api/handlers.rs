@@ -399,6 +399,7 @@ pub async fn embed_handler(JsonApi(request): JsonApi<EmbedRequest>) -> Result<Js
                 total_chunks: request.texts.len(),
                 first_page: None,
                 last_page: None,
+                heading_context: None,
             },
         })
         .collect();
@@ -528,8 +529,7 @@ pub async fn chunk_handler(JsonApi(request): JsonApi<ChunkRequest>) -> Result<Js
         overlap,
         trim: cfg.trim.unwrap_or(true),
         chunker_type,
-        embedding: None,
-        preset: None,
+        ..Default::default()
     };
 
     // Perform chunking - convert any remaining errors to validation errors since they're likely config issues

@@ -4,6 +4,8 @@
 use bytes::Bytes;
 use std::sync::Arc;
 
+use crate::video::VideoOutput;
+
 /// Protocol handler events (zero-copy)
 ///
 /// Events are sent from protocol handlers to the WebRTC layer.
@@ -80,6 +82,7 @@ pub trait EventBasedHandler: Send + Sync {
         params: std::collections::HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: tokio::sync::mpsc::Receiver<Bytes>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), crate::error::HandlerError>;
 }
 
@@ -151,7 +154,7 @@ impl InstructionSender {
 ///
 /// # Example
 /// ```no_run
-/// # use guacr_handlers::{connect_with_event_adapter, EventCallback, HandlerEvent, Result};
+/// # use guacr_handlers::{connect_with_event_adapter, EventCallback, HandlerEvent, Result, VideoOutput};
 /// # use std::collections::HashMap;
 /// # use std::sync::Arc;
 /// # use tokio::sync::mpsc;
@@ -160,15 +163,17 @@ impl InstructionSender {
 /// #     params: HashMap<String, String>,
 /// #     callback: Arc<dyn EventCallback>,
 /// #     from_client: mpsc::Receiver<Bytes>,
+/// #     video_tx: Option<Arc<dyn VideoOutput>>,
 /// # ) -> Result<()> {
 /// connect_with_event_adapter(
-///     |p, tx, rx| async move {
+///     |p, tx, rx, vtx| async move {
 ///         // Your channel-based connect implementation
 ///         Ok(())
 ///     },
 ///     params,
 ///     callback,
 ///     from_client,
+///     video_tx,
 ///     128,  // channel capacity
 /// ).await
 /// # }
@@ -178,6 +183,7 @@ pub async fn connect_with_event_adapter<F, Fut>(
     params: std::collections::HashMap<String, String>,
     callback: Arc<dyn EventCallback>,
     from_client: tokio::sync::mpsc::Receiver<Bytes>,
+    video_tx: Option<Arc<dyn VideoOutput>>,
     channel_capacity: usize,
 ) -> Result<(), crate::error::HandlerError>
 where
@@ -185,6 +191,7 @@ where
         std::collections::HashMap<String, String>,
         tokio::sync::mpsc::Sender<Bytes>,
         tokio::sync::mpsc::Receiver<Bytes>,
+        Option<Arc<dyn VideoOutput>>,
     ) -> Fut,
     Fut: std::future::Future<Output = Result<(), crate::error::HandlerError>>,
 {
@@ -203,8 +210,8 @@ where
         }
     });
 
-    // Call the channel-based connect function
-    connect_fn(params, to_client, from_client).await
+    // Call the channel-based connect function, forwarding the video output handle
+    connect_fn(params, to_client, from_client, video_tx).await
 }
 
 #[cfg(test)]

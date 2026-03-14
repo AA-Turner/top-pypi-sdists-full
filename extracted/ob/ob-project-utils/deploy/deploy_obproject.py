@@ -887,7 +887,7 @@ def deploy_apps():
             "deploy",
             "--no-loader",
             "--config-file",
-            app_config,
+            updated_config_path,
             f"--project={PROJECT}",
             f"--branch={BRANCH}",
             "--readiness-condition=async",
@@ -899,7 +899,7 @@ def deploy_apps():
             # Add project root and src/ to PYTHONPATH so apps can import from src/
             # using direct imports like `from mymodule import ...`
             "--env",
-            "PYTHONPATH=.:./src",
+            "EXTRA_PYTHONPATH=.:./src",
         ]
         # Only add --dep-from-pyproject if config.yml doesn't have dependencies
         if not app_config_has_dependencies(app_config):

@@ -315,6 +315,12 @@ class XrsSpatialDataArrayAccessor:
         from .interpolate import spline
         return spline(x, y, z, self._obj, **kwargs)
 
+    # ---- Preview ----
+
+    def preview(self, **kwargs):
+        from .preview import preview
+        return preview(self._obj, **kwargs)
+
     # ---- Raster to vector ----
 
     def polygonize(self, **kwargs):
@@ -390,6 +396,12 @@ class XrsSpatialDataArrayAccessor:
     def sipi(self, red_agg, blue_agg, **kwargs):
         from .multispectral import sipi
         return sipi(self._obj, red_agg, blue_agg, **kwargs)
+
+    # ---- Rasterize ----
+
+    def rasterize(self, geometries, **kwargs):
+        from .rasterize import rasterize
+        return rasterize(geometries, like=self._obj, **kwargs)
 
 
 @xr.register_dataset_accessor("xrs")
@@ -619,6 +631,12 @@ class XrsSpatialDatasetAccessor:
         from .surface_distance import surface_direction
         return surface_direction(self._obj, elevation, **kwargs)
 
+    # ---- Preview ----
+
+    def preview(self, **kwargs):
+        from .preview import preview
+        return preview(self._obj, **kwargs)
+
     # ---- Fire ----
 
     def burn_severity_class(self, **kwargs):
@@ -662,3 +680,18 @@ class XrsSpatialDatasetAccessor:
     def sipi(self, nir, red, blue, **kwargs):
         from .multispectral import sipi
         return sipi(self._obj, nir=nir, red=red, blue=blue, **kwargs)
+
+    # ---- Rasterize ----
+
+    def rasterize(self, geometries, **kwargs):
+        from .rasterize import rasterize
+        ds = self._obj
+        # Find a 2D variable with y/x dims to use as template
+        for var in ds.data_vars:
+            da = ds[var]
+            if da.ndim == 2 and 'y' in da.dims and 'x' in da.dims:
+                return rasterize(geometries, like=da, **kwargs)
+        raise ValueError(
+            "Dataset has no 2D variable with 'y' and 'x' dimensions "
+            "to use as rasterize template"
+        )

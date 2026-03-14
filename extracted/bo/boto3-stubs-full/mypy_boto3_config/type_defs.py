@@ -179,6 +179,7 @@ __all__ = (
     "DescribeConfigurationRecorderStatusResponseTypeDef",
     "DescribeConfigurationRecordersRequestTypeDef",
     "DescribeConfigurationRecordersResponseTypeDef",
+    "DescribeConformancePackComplianceRequestPaginateTypeDef",
     "DescribeConformancePackComplianceRequestTypeDef",
     "DescribeConformancePackComplianceResponseTypeDef",
     "DescribeConformancePackStatusRequestPaginateTypeDef",
@@ -1710,6 +1711,12 @@ class DescribeConfigurationAggregatorSourcesStatusRequestPaginateTypeDef(TypedDi
 
 class DescribeConfigurationAggregatorsRequestPaginateTypeDef(TypedDict):
     ConfigurationAggregatorNames: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeConformancePackComplianceRequestPaginateTypeDef(TypedDict):
+    ConformancePackName: str
+    Filters: NotRequired[ConformancePackComplianceFiltersTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

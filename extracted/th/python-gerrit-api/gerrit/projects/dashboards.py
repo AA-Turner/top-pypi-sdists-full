@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # @Author: Jialiang Shi
+from gerrit import GerritClient
 from gerrit.utils.gerritbase import GerritBase
 
 
 class GerritProjectDashboard(GerritBase):
-    def __init__(self, id: str, project: str, gerrit):
+    def __init__(self, id: str, project: str, gerrit: GerritClient):
         self.id = id
         self.project = project
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.project}/dashboards/{self.id}"
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return str(self.id)
@@ -25,7 +26,7 @@ class GerritProjectDashboard(GerritBase):
 
 
 class GerritProjectDashboards:
-    def __init__(self, project, gerrit):
+    def __init__(self, project, gerrit: GerritClient):
         self.project = project
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.project}/dashboards"

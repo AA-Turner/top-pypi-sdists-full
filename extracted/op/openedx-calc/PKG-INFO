@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-calc
-Version: 4.0.3
+Version: 5.0.0
 Summary: A helper library for mathematical calculations and symbolic mathematics, used by Open edX.
 Home-page: https://github.com/openedx/openedx-calc
 Author: edX
@@ -12,9 +12,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: lxml

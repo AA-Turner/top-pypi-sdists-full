@@ -12,7 +12,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='redfish',
-      version='3.3.4',
+      version='3.3.5',
       description='Redfish Python Library',
       long_description=long_description,
       long_description_content_type='text/x-rst',
@@ -29,7 +29,7 @@ setup(name='redfish',
       packages=find_packages('src'),
       package_dir={'': 'src'},
       install_requires=[
-          'jsonpath_rw',
+          'jsonpath_ng',
           'jsonpointer',
           "requests",
           'requests_toolbelt',

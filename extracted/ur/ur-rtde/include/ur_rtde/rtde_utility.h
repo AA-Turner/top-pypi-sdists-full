@@ -359,6 +359,14 @@ class RTDEUtility
     return !s.empty() && std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isdigit(c); }) == s.end();
   }
 
+  static inline bool isAllZero(const std::vector<double>& v)
+  {
+    return std::all_of(v.begin(), v.end(), [](double d)
+    {
+      return d == 0.0;
+    });
+  }
+
   static void preciseSleep(double seconds)
   {
     using namespace std;

@@ -3,16 +3,17 @@
 # @Author: Jialiang Shi
 from base64 import b64decode
 from urllib.parse import quote_plus
+from gerrit import GerritClient
 from gerrit.utils.gerritbase import GerritBase
 
 
 class GerritProjectCommit(GerritBase):
-    def __init__(self, commit: str, project: str, gerrit):
+    def __init__(self, commit: str, project: str, gerrit: GerritClient):
         self.commit = commit
         self.project = project
         self.gerrit = gerrit
         self.endpoint = f"/projects/{self.project}/commits/{self.commit}"
-        super().__init__(self)
+        super().__init__()
 
     def __str__(self):
         return self.commit

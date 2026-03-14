@@ -1,0 +1,33 @@
+[package]
+name = "guacr-recorder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Video session recording: fMP4 muxing, AES-256-GCM encryption, WebSocket upload"
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "io-util", "time", "fs"] }
+base64.workspace = true
+
+guacr-handlers = { path = "../guacr-handlers" }
+
+# Streaming AES-256-GCM (matching Python cryptography library wire format)
+aes = "0.8"
+ctr = "0.9"
+ghash = "0.5"
+
+# Key derivation and metadata encryption (matching Python tunnel_encrypt / derive_key)
+aes-gcm = "0.10.3"
+hkdf = "0.12.4"
+sha2 = "0.10.9"
+rand = "0.8"
+
+# WebSocket upload to router
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
+futures-util = "0.3"

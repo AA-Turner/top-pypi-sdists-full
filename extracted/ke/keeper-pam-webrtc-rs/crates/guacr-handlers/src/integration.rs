@@ -65,7 +65,7 @@ pub async fn handle_guacd_with_handlers(
     let handler_task = tokio::spawn(async move {
         debug!("Protocol handler task started: {}", protocol_name);
         match handler_clone
-            .connect(params_clone, handler_to_client, handler_from_client)
+            .connect(params_clone, handler_to_client, handler_from_client, None)
             .await
         {
             Ok(()) => {

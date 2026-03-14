@@ -2,11 +2,14 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig,
+    ProtocolHandler, RecordingConfig, VideoOutput,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+#[cfg(feature = "threat-detection")]
+use guacr_threat_detection::{SessionGuard, ThreatDetector};
 use tiberius::{AuthMethod, Client, Config, Row};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
@@ -75,6 +78,7 @@ impl ProtocolHandler for SqlServerHandler {
         params: HashMap<String, String>,
         to_client: mpsc::Sender<Bytes>,
         mut from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
         info!("SQL Server handler starting");
 
@@ -147,6 +151,17 @@ impl ProtocolHandler for SqlServerHandler {
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "SQLServer", cols, rows);
 
+        // Initialize threat detection if enabled
+        #[cfg(feature = "threat-detection")]
+        let threat_detector = Arc::new(
+            ThreatDetector::new(crate::threat::threat_config_from_params(&params))
+                .map_err(|e| HandlerError::ProtocolError(format!("Threat detector init: {}", e)))?,
+        );
+        #[cfg(feature = "threat-detection")]
+        let threat_session_id = crate::threat::new_session_id();
+        #[cfg(feature = "threat-detection")]
+        let _threat_guard = SessionGuard::new(threat_detector.clone(), threat_session_id.clone());
+
         // Send display initialization instructions (ready, name, cursor, size)
         QueryExecutor::send_display_init(&to_client, width, height).await?;
         debug!("SQL Server: Sent display init instructions");
@@ -181,11 +196,9 @@ impl ProtocolHandler for SqlServerHandler {
                 warn!("SQL Server: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -210,29 +223,23 @@ impl ProtocolHandler for SqlServerHandler {
                 info!("SQL Server: Connected successfully");
 
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line(&format!("Connected to SQL Server at {}:{}", hostname, port))
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 if let Some(db) = database {
                     executor
-                        .terminal
                         .write_line(&format!("Database: {}", db))
                         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 }
                 executor
-                    .terminal
                     .write_line("Type 'help' for available commands.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -261,39 +268,30 @@ impl ProtocolHandler for SqlServerHandler {
                 warn!("SQL Server: {}", error_msg);
 
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_error(&error_msg)
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("Troubleshooting:")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  1. Check hostname and port")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  2. Verify SQL Server is running")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  3. Check SQL authentication is enabled")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_line("  4. Verify credentials")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                 executor
-                    .terminal
                     .write_prompt()
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -355,6 +353,15 @@ impl ProtocolHandler for SqlServerHandler {
                         Ok((needs_render, instructions, pending_query)) => {
                     if let Some(query) = pending_query {
                         info!("SQL Server: Executing query: {}", query);
+
+                        // Check for threats before execution
+                        #[cfg(feature = "threat-detection")]
+                        crate::handler_helpers::maybe_terminate_on_threat(
+                            &threat_detector, &threat_session_id, &query,
+                            username, hostname, "sql-server",
+                            &mut executor, &to_client, &mut recorder,
+                        )
+                        .await?;
 
                         // Record query input
                         record_query_input(&mut recorder, &recording_config, &query);
@@ -556,59 +563,46 @@ async fn handle_builtin_command(
     match query_lower.as_str() {
         "help" | "\\h" | "\\?" | ":help" => {
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Available commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  help         Show this help")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  quit         Disconnect")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             if !security.disable_csv_export {
                 executor
-                    .terminal
                     .write_line("  \\e <query>   Export query results as CSV")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             if !security.disable_csv_import && !security.base.read_only {
                 executor
-                    .terminal
                     .write_line("  \\i <table>   Import CSV data into table")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             }
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("Common SQL commands:")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT name FROM sys.databases")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  SELECT * FROM sys.tables")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("  sp_help 'table_name'")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_line("")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             executor
-                .terminal
                 .write_prompt()
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -626,7 +620,6 @@ async fn handle_builtin_command(
         }
         "quit" | "exit" | ":quit" | "go quit" => {
             executor
-                .terminal
                 .write_line("Bye")
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             let (_, instructions) = executor
@@ -662,11 +655,9 @@ async fn handle_csv_export(
     // Check if export is allowed
     if security.disable_csv_export {
         executor
-            .terminal
             .write_error("CSV export is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -683,7 +674,6 @@ async fn handle_csv_export(
     }
 
     executor
-        .terminal
         .write_line("Executing query for export...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -702,7 +692,6 @@ async fn handle_csv_export(
         Ok(result) => {
             if result.rows.is_empty() {
                 executor
-                    .terminal
                     .write_line("Query returned no results to export.")
                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
             } else {
@@ -712,7 +701,6 @@ async fn handle_csv_export(
                 let mut exporter = CsvExporter::new(stream_idx);
 
                 executor
-                    .terminal
                     .write_line(&format!(
                         "Beginning CSV download ({} rows). Press Ctrl+C to cancel.",
                         result.rows.len()
@@ -730,13 +718,11 @@ async fn handle_csv_export(
                 match exporter.export_query_result(&result, to_client).await {
                     Ok(()) => {
                         executor
-                            .terminal
                             .write_line("Download complete.")
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
                     Err(e) => {
                         executor
-                            .terminal
                             .write_error(&format!("Export failed: {}", e))
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                     }
@@ -745,14 +731,12 @@ async fn handle_csv_export(
         }
         Err(e) => {
             executor
-                .terminal
                 .write_error(&format!("Query failed: {}", e))
                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         }
     }
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -780,11 +764,9 @@ async fn handle_csv_import(
     // Check if import is allowed
     if security.disable_csv_import {
         executor
-            .terminal
             .write_error("CSV import is disabled by your administrator.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -803,11 +785,9 @@ async fn handle_csv_import(
     // Check read-only mode
     if security.base.read_only {
         executor
-            .terminal
             .write_error("Import blocked: read-only mode is enabled.")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -825,11 +805,9 @@ async fn handle_csv_import(
 
     if table_name.is_empty() {
         executor
-            .terminal
             .write_error("Usage: \\i <table_name>")
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         executor
-            .terminal
             .write_prompt()
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
         let (_, instructions) = executor
@@ -846,11 +824,9 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_line(&format!("Import into table: {}", table_name))
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     executor
-        .terminal
         .write_line("Demo: Importing sample data...")
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
@@ -867,7 +843,6 @@ async fn handle_csv_import(
         .map_err(HandlerError::ProtocolError)?;
 
     executor
-        .terminal
         .write_line(&format!(
             "Parsed {} columns, {} rows",
             csv_data.headers.len(),
@@ -894,7 +869,6 @@ async fn handle_csv_import(
     }
 
     executor
-        .terminal
         .write_success(&format!(
             "Import complete: {} rows inserted, {} errors",
             success_count, error_count
@@ -902,7 +876,6 @@ async fn handle_csv_import(
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     executor
-        .terminal
         .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
     let (_, instructions) = executor
@@ -931,12 +904,16 @@ impl EventBasedHandler for SqlServerHandler {
         params: HashMap<String, String>,
         callback: Arc<dyn EventCallback>,
         from_client: mpsc::Receiver<Bytes>,
+        _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Result<(), HandlerError> {
         guacr_handlers::connect_with_event_adapter(
-            |params, to_client, from_client| self.connect(params, to_client, from_client),
+            |params, to_client, from_client, _video_tx| {
+                self.connect(params, to_client, from_client, _video_tx)
+            },
             params,
             callback,
             from_client,
+            _video_tx,
             4096,
         )
         .await

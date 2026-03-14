@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
-from plato.chronos.models import OTelSpan
+from plato.chronos.models import OTelSpanSchema
 
 
 def _build_request_args(
@@ -39,7 +39,7 @@ def sync(
     span_id: str,
     session_public_id: str | None = None,
     x_api_key: str | None = None,
-) -> OTelSpan:
+) -> OTelSpanSchema:
     """Get a span by ID.
 
     Optionally pass session_public_id to narrow the search and verify org access.
@@ -53,7 +53,7 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return OTelSpan.model_validate(response.json())
+    return OTelSpanSchema.model_validate(response.json())
 
 
 async def asyncio(
@@ -61,7 +61,7 @@ async def asyncio(
     span_id: str,
     session_public_id: str | None = None,
     x_api_key: str | None = None,
-) -> OTelSpan:
+) -> OTelSpanSchema:
     """Get a span by ID.
 
     Optionally pass session_public_id to narrow the search and verify org access.
@@ -75,4 +75,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return OTelSpan.model_validate(response.json())
+    return OTelSpanSchema.model_validate(response.json())
