@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pypandoc
-Version: 1.16.2
+Version: 1.17
 Summary: Thin wrapper for pandoc.
-Home-page: https://github.com/JessicaTegner/pypandoc
-Author: b'Juho Veps\xc3\xa4l\xc3\xa4inen; Maintained by Jessica Tegner'
-Author-email: jessica@jessicategner.com
-License: MIT
 Project-URL: Source, https://github.com/JessicaTegner/pypandoc
 Project-URL: Tracker, https://github.com/JessicaTegner/pypandoc/issues
+Author: Juho Vepsäläinen
+Author-email: Jessica Tegner <jessica@jessicategner.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -15,8 +15,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Topic :: Text Processing
-Classifier: Topic :: Text Processing :: Filters
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
@@ -29,20 +27,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Text Processing :: Filters
 Requires-Python: >=3.7
+Provides-Extra: tinytex
+Requires-Dist: pytinytex; extra == 'tinytex'
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-python
-Dynamic: summary
 
 # pypandoc
 
@@ -89,8 +79,8 @@ pip install pypandoc_binary
 Prebuilt [wheels for Windows and Mac OS X](https://pypi.python.org/pypi/pypandoc_binary/)
 
 If you use Linux and have [your own wheelhouse](https://wheel.readthedocs.org/en/latest/#usage),
-you can build a wheel which include pandoc with
-`python setup_binary.py download_pandoc; python setup.py bdist_wheel`. Be aware that this works only
+you can build a wheel which includes pandoc with
+`uv build --wheel binary/`. Be aware that this works only
 on 64bit intel systems, as we only download it from the
 [official releases](https://github.com/jgm/pandoc/releases).
 
@@ -125,6 +115,17 @@ The default install location is included in the search path for pandoc, so you
 don't need to add it to the `PATH`.
 
 By default, the latest pandoc version is installed. If you want to specify your own version, say 1.19.1, use `download_pandoc(version='1.19.1')` instead.
+
+You can also use pypandocs build in cli to download pandoc
+
+```
+# install latest pandoc to default path
+pypandoc download
+
+# Download a specific version
+pypandoc download --version 3.6
+```
+
 
 #### Installing pandoc manually
 
@@ -280,6 +281,39 @@ output = pypandoc.convert_file('demo.md', 'pdf', outputfile='demo.pdf',
 it won't work. This gotcha has to do with the way
 [`subprocess.Popen`](https://docs.python.org/2/library/subprocess.html#subprocess.Popen) works.
 
+## PDF and LaTeX Support with TinyTeX
+
+Converting to PDF requires a LaTeX engine (like `pdflatex`, `xelatex`, or `lualatex`) to be installed on your system. pypandoc integrates with [pytinytex](https://github.com/JessicaTegner/PyTinyTeX) to make this seamless -- no manual LaTeX setup required.
+
+### Quick Start
+
+```
+pip install pypandoc[tinytex]
+```
+
+Then download TinyTeX (a lightweight LaTeX distribution) once:
+
+```
+pytinytex download
+```
+
+That's it. PDF conversion just works:
+
+```python
+import pypandoc
+
+pypandoc.convert_file('document.md', 'pdf', outputfile='document.pdf')
+```
+
+### Automatic Package Installation
+
+When converting to PDF or LaTeX, pypandoc will automatically:
+
+1. Add TinyTeX to the system PATH so pandoc can find the LaTeX engines
+2. If compilation fails due to a missing LaTeX package (e.g. `booktabs.sty`), install it via `tlmgr` and retry the conversion -- up to 3 attempts
+
+This means you can start with a minimal TinyTeX installation and let pypandoc install only the LaTeX packages your documents actually need, on the fly.
+
 ## Logging Messages
 
 Pypandoc logs messages using the [Python logging library](https://docs.python.org/3/library/logging.html).
@@ -306,6 +340,23 @@ print(pypandoc.get_pandoc_path())
 print(pypandoc.get_pandoc_formats())
 ```
 
+## Command-Line Usage
+
+Pypandoc includes a CLI that can be invoked via `python -m pypandoc` or, if installed with pip, the `pypandoc` command.
+
+```
+# Show pypandoc, pandoc and (if installed) pytinytex versions
+pypandoc version
+
+# Pass arguments through to the pandoc binary
+pypandoc pandoc input.md -o output.html
+
+# Download pandoc
+pypandoc download
+pypandoc download --version 3.6
+pypandoc download --target /usr/local/bin
+```
+
 ## Related
 
 * [pydocverter](https://github.com/msabramo/pydocverter) is a client for a service called
@@ -320,7 +371,7 @@ Contributions are welcome. When opening a PR, please keep the following guidelin
 
 1. Before implementing, please open an issue for discussion.
 2. Make sure you have tests for the new logic.
-3. Make sure your code passes `flake8 pypandoc/*.py tests.py`
+3. Make sure your code passes `flake8 pypandoc/*.py tests/`
 4. Add yourself to contributors at `README.md` unless you are already there. In that case tweak your contributions.
 
 Note that for citeproc tests to pass you'll need to have [pandoc-citeproc](https://github.com/jgm/pandoc-citeproc) installed. If you installed a prebuilt wheel or conda package, it is already included.

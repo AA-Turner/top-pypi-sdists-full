@@ -4,9 +4,6 @@
 # See the file LICENSE for copying permission.
 from typing import (
     Iterable,
-    Optional,
-    Set,
-    Tuple,
 )
 from slixmpp import JID
 from slixmpp.xmlstream import (
@@ -22,11 +19,11 @@ class DiscoItem(ElementBase):
     plugin_attrib = name
     interfaces = {'jid', 'node', 'name'}
 
-    def get_node(self) -> Optional[str]:
+    def get_node(self) -> str | None:
         """Return the item's node name or ``None``."""
         return self._get_attr('node', None)
 
-    def get_name(self) -> Optional[str]:
+    def get_name(self) -> str | None:
         """Return the item's human readable name, or ``None``."""
         return self._get_attr('name', None)
 
@@ -68,9 +65,9 @@ class DiscoItems(ElementBase):
     interfaces = {'node', 'items'}
 
     # Cache items
-    _items: Set[Tuple[JID, Optional[str]]]
+    _items: set[tuple[JID, str | None]]
 
-    def setup(self, xml: Optional[ET.ElementTree] = None):
+    def setup(self, xml: ET.ElementTree | None = None):
         """
         Populate the stanza object using an optional XML object.
 
@@ -83,8 +80,8 @@ class DiscoItems(ElementBase):
         ElementBase.setup(self, xml)
         self._items = {item[0:2] for item in self['items']}
 
-    def add_item(self, jid: JID, node: Optional[str] = None,
-                 name: Optional[str] = None):
+    def add_item(self, jid: JID, node: str | None = None,
+                 name: str | None = None):
         """
         Add a new item element. Each item is required to have a
         JID, but may also specify a node value to reference
@@ -105,7 +102,7 @@ class DiscoItems(ElementBase):
             return True
         return False
 
-    def del_item(self, jid: JID, node: Optional[str] = None) -> bool:
+    def del_item(self, jid: JID, node: str | None = None) -> bool:
         """
         Remove a single item.
 
@@ -121,7 +118,7 @@ class DiscoItems(ElementBase):
                     return True
         return False
 
-    def get_items(self) -> Set[DiscoItem]:
+    def get_items(self) -> set[DiscoItem]:
         """Return all items."""
         items = set()
         for item in self['substanzas']:

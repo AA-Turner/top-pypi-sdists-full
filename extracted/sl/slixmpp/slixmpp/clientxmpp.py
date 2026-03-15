@@ -8,8 +8,9 @@
 # :license: MIT, see LICENSE for more details
 import asyncio
 import logging
+from asyncio import Future
 from inspect import iscoroutinefunction
-from typing import Optional, Any, Callable, Tuple, Dict, Set, List
+from typing import Any, Callable
 
 from slixmpp.jid import JID
 from slixmpp.stanza import StreamFeatures, Iq
@@ -21,6 +22,7 @@ from slixmpp.xmlstream import XMLStream
 from slixmpp.xmlstream.stanzabase import StanzaBase
 from slixmpp.xmlstream.matcher import StanzaPath, MatchXPath
 from slixmpp.xmlstream.handler import Callback, CoroutineCallback
+from slixmpp.features.feature_limits.limits import Limits
 
 
 log = logging.getLogger(__name__)
@@ -39,6 +41,9 @@ class ClientXMPP(BaseXMPP):
         # ... Register plugins and event handlers ...
         xmpp.connect()
         asyncio.get_event_loop().run_forever()
+
+    If the server supports XEP-0478, then ``self.limits.max_bytes`` and
+    ``self.limits.idle_seconds`` will be populated accordingly.
 
     :param jid: The JID of the XMPP user account.
     :param password: The password for the XMPP user account.
@@ -68,7 +73,7 @@ class ClientXMPP(BaseXMPP):
         self.default_domain = self.boundjid.host
         self.default_lang = lang
 
-        self.credentials: Dict[str, str] = {}
+        self.credentials: dict[str, str] = {}
 
         self.password = password
 
@@ -80,9 +85,9 @@ class ClientXMPP(BaseXMPP):
                 "version='1.0'")
         self.stream_footer = "</stream:stream>"
 
-        self.features: Set[str] = set()
-        self._stream_feature_handlers: Dict[str, Tuple[Callable, bool]] = {}
-        self._stream_feature_order: List[Tuple[int, str]] = []
+        self.features: set[str] = set()
+        self._stream_feature_handlers: dict[str, tuple[Callable, bool]] = {}
+        self._stream_feature_order: list[tuple[int, str]] = []
 
         self.tls_services = {'xmpps-client'}
         self.starttls_services = {'xmpp-client'}
@@ -130,6 +135,9 @@ class ClientXMPP(BaseXMPP):
         self.register_plugin('feature_rosterver')
         self.register_plugin('feature_preapproval')
         self.register_plugin('feature_mechanisms')
+        self.register_plugin('feature_limits')
+
+        self.limits = Limits()
 
         if sasl_mech:
             self['feature_mechanisms'].use_mech = sasl_mech
@@ -142,7 +150,7 @@ class ClientXMPP(BaseXMPP):
     def password(self, value: str) -> None:
         self.credentials['password'] = value
 
-    def connect(self, host: Optional[str] = None, port: Optional[int] = None) -> asyncio.Future:
+    def connect(self, host: str | None = None, port: int | None = None) -> asyncio.Future:
         """Connect to the XMPP server.
 
         When no address is given, a SRV lookup for the server will
@@ -184,7 +192,7 @@ class ClientXMPP(BaseXMPP):
         self._stream_feature_order.remove((order, name))
         self._stream_feature_order.sort()
 
-    def update_roster(self, jid: JID, **kwargs) -> None:
+    def update_roster(self, jid: JID, **kwargs) -> Future[Iq] | None:
         """Add or change a roster item.
 
         :param jid: The JID of the entry to modify.
@@ -246,7 +254,7 @@ class ClientXMPP(BaseXMPP):
 
         return iq.send(callback, timeout)
 
-    def _reset_connection_state(self, event: Optional[Any] = None) -> None:
+    def _reset_connection_state(self, event: Any | None = None) -> None:
         #TODO: Use stream state here
         self.authenticated = False
         self.sessionstarted = False
@@ -254,7 +262,7 @@ class ClientXMPP(BaseXMPP):
         self.bindfail = False
         self.features = set()
 
-    async def _handle_stream_features(self, features: StreamFeatures) -> Optional[bool]:
+    async def _handle_stream_features(self, features: StreamFeatures) -> bool | None:
         """Process the received stream features.
 
         :param features: The features stanza.

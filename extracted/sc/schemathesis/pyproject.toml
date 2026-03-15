@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.12.0"
+version = "4.12.1"
 description = "Property-based testing framework for Open API and GraphQL based apps"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -98,6 +98,7 @@ truncation_limit_chars = 0
 testpaths = "tests"
 norecursedirs = ".hypothesis .idea .git src docs .pytest_cache .mypy_cache .tox"
 filterwarnings = [
+    "error::pytest.PytestUnraisableExceptionWarning",
     # anyio streams not closed during aiohttp test server teardown (flaky on Python 3.13+)
     "ignore:Unclosed <MemoryObject.*:ResourceWarning",
     "ignore:.*Unclosed <MemoryObject.*:pytest.PytestUnraisableExceptionWarning",

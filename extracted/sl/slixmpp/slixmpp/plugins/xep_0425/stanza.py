@@ -2,8 +2,8 @@
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
-# See the file LICENSE for copying permissio
-from slixmpp.stanza import Message, Iq
+# See the file LICENSE for copying permission
+from slixmpp.stanza import Iq
 from slixmpp.xmlstream import (
     ElementBase,
     register_stanza_plugin,
@@ -16,6 +16,17 @@ NS = 'urn:xmpp:message-moderate:1'
 
 
 class Moderate(ElementBase):
+    """
+    Moderate request element.
+
+    .. code-block:: xml
+
+          <moderate id="stanza-id-1" xmlns='urn:xmpp:message-moderate:1'>
+            <retract xmlns='urn:xmpp:message-retract:1'/>
+            <reason>This message contains inappropriate content for this forum</reason>
+          </moderate>
+
+    """
     namespace = NS
     name = 'moderate'
     plugin_attrib = 'moderate'
@@ -24,6 +35,16 @@ class Moderate(ElementBase):
 
 
 class Moderated(ElementBase):
+    """
+    Moderated message notification element.
+
+    .. code-block:: xml
+
+        <moderated by='room@muc.example.com/macbeth' xmlns='urn:xmpp:message-moderate:1'>
+          <occupant-id xmlns="urn:xmpp:occupant-id:0" id="dd72603deec90a38ba552f7c68cbcc61bca202cd" />
+        </moderated>
+
+    """
     namespace = NS
     name = 'moderated'
     plugin_attrib = 'moderated'

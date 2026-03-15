@@ -3,7 +3,7 @@
 # Copyright (C) 2020 Emmanuel Gil Peyrot
 # This file is part of slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Iterable, List, Tuple
+from typing import Iterable
 
 from slixmpp.xmlstream import ElementBase, ET
 
@@ -16,7 +16,7 @@ class Propose(JingleMessage):
     plugin_attrib = 'jingle_propose'
     interfaces = {'id', 'descriptions'}
 
-    def get_descriptions(self) -> List[Tuple[str, str]]:
+    def get_descriptions(self) -> list[tuple[str, str]]:
         result = []
         for desc in self.xml:
             namespace = desc.tag.split('}')[0][1:]
@@ -24,7 +24,7 @@ class Propose(JingleMessage):
             result.append((namespace, media))
         return result
 
-    def set_descriptions(self, descriptions: Iterable[Tuple[str, str]]):
+    def set_descriptions(self, descriptions: Iterable[tuple[str, str]]):
         self.del_descriptions()
         for namespace, media in descriptions:
             desc = ET.Element('{%s}description' % namespace)

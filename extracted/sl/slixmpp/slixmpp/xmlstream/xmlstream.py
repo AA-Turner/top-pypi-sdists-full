@@ -9,19 +9,12 @@
 # :license: MIT, see LICENSE for more details
 from typing import (
     Any,
-    Dict,
     Awaitable,
     Generator,
     Coroutine,
     Callable,
     Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
-    Tuple,
     TypeVar,
-    Type,
     cast,
 )
 
@@ -81,28 +74,22 @@ class InvalidCABundle(Exception):
         Exception raised when the CA Bundle file hasn't been found.
     """
 
-    def __init__(self, path: Optional[Union[Path, Iterable[Path]]]):
+    def __init__(self, path: Path | Iterable[Path] | None):
         self.path = path
 
 
 _T = TypeVar('_T', str, ElementBase, StanzaBase)
 
 
-SyncFilter = Callable[[StanzaBase], Optional[StanzaBase]]
-AsyncFilter = Callable[[StanzaBase], Awaitable[Optional[StanzaBase]]]
+SyncFilter = Callable[[StanzaBase], StanzaBase | None]
+AsyncFilter = Callable[[StanzaBase], Awaitable[StanzaBase | None]]
 
 
-Filter = Union[
-    SyncFilter,
-    AsyncFilter,
-]
+Filter = SyncFilter | AsyncFilter
 
-_FiltersDict = Dict[str, List[Filter]]
+_FiltersDict = dict[str, list[Filter]]
 
-Handler = Callable[[Any], Union[
-    Any,
-    Coroutine[Any, Any, Any]
-]]
+Handler = Callable[[Any], Any | Coroutine[Any, Any, Any]]
 
 
 class XMLStream(asyncio.BaseProtocol):
@@ -132,23 +119,23 @@ class XMLStream(asyncio.BaseProtocol):
     :param int port: The port to use for the connection. Defaults to 0.
     """
 
-    transport: Optional[Transport]
+    transport: Transport | None
 
     # The socket that is used internally by the transport object
-    socket: Optional[ssl.SSLSocket]
+    socket: ssl.SSLSocket | None
 
     # The backoff of the connect routine (increases exponentially
     # after each failure)
     _connect_loop_wait: float
 
-    parser: Optional[ET.XMLPullParser]
+    parser: ET.XMLPullParser | None
     xml_depth: int
-    xml_root: Optional[ET.Element]
+    xml_root: ET.Element | None
 
     waiting_queue: asyncio.Queue
 
     # A dict of {name: handle}
-    scheduled_events: Dict[str, TimerHandle]
+    scheduled_events: dict[str, TimerHandle]
 
     ssl_context: ssl.SSLContext
 
@@ -159,7 +146,7 @@ class XMLStream(asyncio.BaseProtocol):
     #: The list of accepted ciphers, in OpenSSL Format.
     #: It might be useful to override it for improved security
     #: over the python defaults.
-    ciphers: Optional[str]
+    ciphers: str | None
 
     #: Path to a file containing certificates for verifying the
     #: server SSL certificate. A non-``None`` value will trigger
@@ -169,19 +156,19 @@ class XMLStream(asyncio.BaseProtocol):
     #:
     #:     On Mac OS X, certificates in the system keyring will
     #:     be consulted, even if they are not in the provided file.
-    ca_certs: Optional[Union[Path, Iterable[Path]]]
+    ca_certs: Path | Iterable[Path] | None
 
     #: Path to a file containing a client certificate to use for
     #: authenticating via SASL EXTERNAL. If set, there must also
     #: be a corresponding `:attr:keyfile` value.
-    certfile: Optional[str]
+    certfile: str | None
 
     #: Path to a file containing the private key for the selected
     #: client certificate to use for authenticating via SASL EXTERNAL.
-    keyfile: Optional[str]
+    keyfile: str | None
 
     # The asyncio event loop
-    _loop: Optional[AbstractEventLoop]
+    _loop: AbstractEventLoop | None
 
     #: The default port to return when querying DNS records.
     default_port: int
@@ -197,7 +184,7 @@ class XMLStream(asyncio.BaseProtocol):
     #: using DNS lookups, this is not used. Once set, it will be re-used until
     #: connect() is called with no parameters (or both host and port set to
     #: None).
-    custom_address: Optional[Tuple[str, int]]
+    custom_address: tuple[str, int] | None
 
     #: Enable connecting to the server directly over SSL, in
     #: particular when the service provides two ports: one for
@@ -226,8 +213,8 @@ class XMLStream(asyncio.BaseProtocol):
     #: stream wrapper it
     default_ns: str
 
-    default_lang: Optional[str]
-    peer_default_lang: Optional[str]
+    default_lang: str | None
+    peer_default_lang: str | None
 
     #: The namespace of the enveloping stream element.
     stream_ns: str
@@ -254,16 +241,16 @@ class XMLStream(asyncio.BaseProtocol):
     #: A mapping of XML namespaces to well-known prefixes.
     namespace_map: dict
 
-    __root_stanza: List[Type[StanzaBase]]
-    __handlers: List[BaseHandler]
-    __event_handlers: Dict[str, List[Tuple[Handler, bool]]]
+    __root_stanza: list[type[StanzaBase]]
+    __handlers: list[BaseHandler]
+    __event_handlers: dict[str, list[tuple[Handler, bool]]]
     __filters: _FiltersDict
 
     # Current connection attempt (Future)
-    _current_connection_attempt: Optional[Future]
+    _current_connection_attempt: Future | None
 
     #: The reason why we are disconnecting from the server
-    disconnect_reason: Optional[str]
+    disconnect_reason: str | None
 
     #: An asyncio Future being done when the stream is disconnected.
     disconnected: Future
@@ -273,18 +260,18 @@ class XMLStream(asyncio.BaseProtocol):
     # If we want to bypass the send() check (e.g. unit tests)
     _always_send_everything: bool
 
-    _run_out_filters: Optional[Future]
-    __slow_tasks: List[Task]
-    __queued_stanzas: List[Tuple[Union[StanzaBase, str], bool]]
+    _run_out_filters: Future | None
+    __slow_tasks: list[Task]
+    __queued_stanzas: list[tuple[StanzaBase | str, bool]]
 
     #: List of DNS SRV services records which map to TLS services
-    tls_services: Set[str]
+    tls_services: set[str]
     #: List of DNS SRV services records which map to STARTTLS services
-    starttls_services: Set[str]
+    starttls_services: set[str]
 
     def __init__(self, host: str = '', port: int = 0,
-                 ssl_context: Optional[ssl.SSLContext] = None,
-                 loop: Optional[asyncio.AbstractEventLoop] = None):
+                 ssl_context: ssl.SSLContext | None = None,
+                 loop: asyncio.AbstractEventLoop | None = None):
         self.transport = None
         self.socket = None
         self._connect_loop_wait = 0
@@ -432,7 +419,7 @@ class XMLStream(asyncio.BaseProtocol):
             self.disconnected.set_result(True)
         self.disconnected = asyncio.Future(loop=self.loop)
 
-    def connect(self, host: Optional[str] = None, port: Optional[int] = None) -> asyncio.Future:
+    def connect(self, host: str | None = None, port: int | None = None) -> asyncio.Future:
         """Create a new socket and connect to the server.
 
         :param host: The name of the desired server for the connection.
@@ -460,7 +447,7 @@ class XMLStream(asyncio.BaseProtocol):
         )
         return self._current_connection_attempt
 
-    async def _connect_loop(self) -> Optional[asyncio.Future]:
+    async def _connect_loop(self) -> asyncio.Future | None:
         """
         Loop over the various connection methods. Only wait minimally before
         retries within the same loop. If everything fails, the connection
@@ -519,11 +506,11 @@ class XMLStream(asyncio.BaseProtocol):
         return None
 
     async def _attempt_connection(self, host: str, port: int, tls: bool,
-                                  server_hostname: Optional[str]) -> bool:
+                                  server_hostname: str | None) -> bool:
         """Try to connect to a remote server."""
         self.event_when_connected = "connected"
         self._connect_loop_wait += 1
-        ssl_context: Optional[ssl.SSLContext] = None
+        ssl_context: ssl.SSLContext | None = None
         if tls:
             ssl_context = self.get_ssl_context()
 
@@ -647,7 +634,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         self.event("eof_received")
 
-    def connection_lost(self, exception: Optional[BaseException]) -> None:
+    def connection_lost(self, exception: BaseException | None) -> None:
         """On any kind of disconnection, initiated by us or not.  This signals the
         closure of the TCP connection
         """
@@ -664,7 +651,7 @@ class XMLStream(asyncio.BaseProtocol):
         self._set_disconnected_future()
         self.event("disconnected", self.disconnect_reason or exception)
 
-    def reschedule_connection_attempt(self) -> Optional[asyncio.Future]:
+    def reschedule_connection_attempt(self) -> asyncio.Future | None:
         """
         Increase the exponential back-off and initiate another background
         _connect_loop call to connect to the server.
@@ -692,7 +679,7 @@ class XMLStream(asyncio.BaseProtocol):
             self._current_connection_attempt.cancel()
             self._current_connection_attempt = None
 
-    def disconnect(self, wait: Union[float, int] = 2.0, reason: Optional[str] = None, ignore_send_queue: bool = False) -> Future:
+    def disconnect(self, wait: float | int = 2.0, reason: str | None = None, ignore_send_queue: bool = False) -> Future:
         """Close the XML stream and wait for an acknowldgement from the server for
         at most `wait` seconds.  After the given number of seconds has
         passed without a response from the server, or when the server
@@ -735,7 +722,7 @@ class XMLStream(asyncio.BaseProtocol):
             future.set_result(None)
             return future
 
-    async def _consume_send_queue_before_disconnecting(self, reason: Optional[str], wait: float) -> None:
+    async def _consume_send_queue_before_disconnecting(self, reason: str | None, wait: float) -> None:
         """Wait until the send queue is empty before disconnecting"""
         try:
             await asyncio.wait_for(
@@ -747,7 +734,7 @@ class XMLStream(asyncio.BaseProtocol):
         self.disconnect_reason = reason
         await self._end_stream_wait(wait)
 
-    async def _end_stream_wait(self, wait: Union[int, float] = 2, reason: Optional[str] = None) -> None:
+    async def _end_stream_wait(self, wait: int | float = 2, reason: str | None = None) -> None:
         """
         Run abort() if we do not received the disconnected event
         after a waiting time.
@@ -774,7 +761,7 @@ class XMLStream(asyncio.BaseProtocol):
             self.transport.abort()
             self.event("killed")
 
-    def reconnect(self, wait: Union[int, float] = 2.0, reason: str = "Reconnecting") -> None:
+    def reconnect(self, wait: int | float = 2.0, reason: str = "Reconnecting") -> None:
         """Calls disconnect(), and once we are disconnected (after the timeout, or
         when the server acknowledgement is received), call connect()
         """
@@ -796,7 +783,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         pass
 
-    def configure_dns(self, resolver: Any, domain: Optional[str] = None, port: Optional[int] = None) -> None:
+    def configure_dns(self, resolver: Any, domain: str | None = None, port: int | None = None) -> None:
         """
         Configure and set options for a :class:`~dns.resolver.Resolver`
         instance, and other DNS related tasks. For example, you
@@ -828,7 +815,7 @@ class XMLStream(asyncio.BaseProtocol):
                 log.debug('Loaded cert file %s and key file %s',
                           self.certfile, self.keyfile)
         if self.ca_certs is not None:
-            ca_cert: Optional[Path] = None
+            ca_cert: Path | None = None
             # XXX: Compat before d733c54518.
             if isinstance(self.ca_certs, str):
                 self.ca_certs = Path(self.ca_certs)
@@ -915,7 +902,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         pass
 
-    def register_stanza(self, stanza_class: Type[StanzaBase]) -> None:
+    def register_stanza(self, stanza_class: type[StanzaBase]) -> None:
         """Add a stanza object class as a known root stanza.
 
         A root stanza is one that appears as a direct child of the stream's
@@ -933,7 +920,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         self.__root_stanza.append(stanza_class)
 
-    def remove_stanza(self, stanza_class: Type[StanzaBase]) -> None:
+    def remove_stanza(self, stanza_class: type[StanzaBase]) -> None:
         """Remove a stanza from being a known root stanza.
 
         A root stanza is one that appears as a direct child of the stream's
@@ -945,7 +932,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         self.__root_stanza.remove(stanza_class)
 
-    def add_filter(self, mode: FilterString, handler: Callable[[StanzaBase], Optional[StanzaBase]], order: Optional[int] = None) -> None:
+    def add_filter(self, mode: FilterString, handler: Callable[[StanzaBase], StanzaBase | None], order: int | None = None) -> None:
         """Add a filter for incoming or outgoing stanzas.
 
         These filters are applied before incoming stanzas are
@@ -967,11 +954,11 @@ class XMLStream(asyncio.BaseProtocol):
         else:
             self.__filters[mode].append(handler)
 
-    def del_filter(self, mode: str, handler: Callable[[StanzaBase], Optional[StanzaBase]]) -> None:
+    def del_filter(self, mode: str, handler: Callable[[StanzaBase], StanzaBase | None]) -> None:
         """Remove an incoming or outgoing filter."""
         self.__filters[mode].remove(handler)
 
-    def register_handler(self, handler: BaseHandler, before: Optional[BaseHandler] = None, after: Optional[BaseHandler] = None) -> None:
+    def register_handler(self, handler: BaseHandler, before: BaseHandler | None = None, after: BaseHandler | None = None) -> None:
         """Add a stream event handler that will be executed when a matching
         stanza is received.
 
@@ -996,7 +983,7 @@ class XMLStream(asyncio.BaseProtocol):
             idx += 1
         return False
 
-    async def get_dns_records(self, domain: str, port: Optional[int] = None) -> List[Tuple[str, str, str, int]]:
+    async def get_dns_records(self, domain: str, port: int | None = None) -> list[tuple[str, str, str, int]]:
         """Get the DNS records for a domain.
 
         :param domain: The domain in question.
@@ -1046,7 +1033,7 @@ class XMLStream(asyncio.BaseProtocol):
 
         # Need to keep handlers that do not use
         # the given function pointer
-        def filter_pointers(handler: Tuple[Callable[..., Any], bool]) -> bool:
+        def filter_pointers(handler: tuple[Callable[..., Any], bool]) -> bool:
             return handler[0] != pointer
 
         self.__event_handlers[name] = list(filter(
@@ -1146,8 +1133,8 @@ class XMLStream(asyncio.BaseProtocol):
                     pass
 
     def schedule(self, name: str, seconds: int, callback: Callable[..., None],
-            args: Tuple[Any, ...] = tuple(),
-            kwargs: Dict[Any, Any] = {}, repeat: bool = False) -> None:
+            args: tuple[Any, ...] = tuple(),
+            kwargs: dict[Any, Any] = {}, repeat: bool = False) -> None:
         """Schedule a callback function to execute after a given delay.
 
         :param name: A unique name for the scheduled callback.
@@ -1232,7 +1219,7 @@ class XMLStream(asyncio.BaseProtocol):
     async def _continue_slow_send(
             self,
             task: asyncio.Task,
-            already_used: Set[Filter]
+            already_used: set[Filter]
     ) -> None:
         """
         Used when an item in the send queue has taken too long to process.
@@ -1273,7 +1260,7 @@ class XMLStream(asyncio.BaseProtocol):
         Background loop that processes stanzas to send.
         """
         while True:
-            data: Optional[Union[StanzaBase, str]]
+            data: StanzaBase | str | None
             (data, use_filters) = await self.waiting_queue.get()
             try:
                 if isinstance(data, StanzaBase):
@@ -1331,7 +1318,7 @@ class XMLStream(asyncio.BaseProtocol):
                 log.error('Exception raised in send queue:', exc_info=True)
             self.waiting_queue.task_done()
 
-    def send(self, data: Union[StanzaBase, str], use_filters: bool = True) -> None:
+    def send(self, data: StanzaBase | str, use_filters: bool = True) -> None:
         """A wrapper for :meth:`send_raw()` for sending stanza objects.
 
         :param data: The :class:`~slixmpp.xmlstream.stanzabase.StanzaBase`
@@ -1374,7 +1361,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         self.send(tostring(data))
 
-    def send_raw(self, data: Union[str, bytes]) -> None:
+    def send_raw(self, data: str | bytes) -> None:
         """Send raw data across the stream.
 
         :param string data: Any bytes or utf-8 string value.
@@ -1387,7 +1374,7 @@ class XMLStream(asyncio.BaseProtocol):
         self.transport.write(data)
 
     def _build_stanza(self, xml: ET.Element,
-                      default_ns: Optional[str] = None) -> StanzaBase:
+                      default_ns: str | None = None) -> StanzaBase:
         """Create a stanza object from a given XML object.
 
         If a specialized stanza type is not found for the XML, then
@@ -1427,7 +1414,7 @@ class XMLStream(asyncio.BaseProtocol):
         # Convert the raw XML object into a stanza object. If no registered
         # stanza type applies, a generic StanzaBase stanza will be used.
         try:
-            stanza: Optional[StanzaBase] = self._build_stanza(xml)
+            stanza: StanzaBase | None = self._build_stanza(xml)
         except Exception as exc:
             log.exception("Unable to parse stanza: %s,\n%s", exc, xml)
             stanza = None
@@ -1469,7 +1456,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         pass
 
-    async def wait_until(self, event: str, timeout: Union[int, float] = 30) -> Any:
+    async def wait_until(self, event: str, timeout: int | float = 30) -> Any:
         """Utility method to wake on the next firing of an event.
         (Registers a disposable handler on it)
 

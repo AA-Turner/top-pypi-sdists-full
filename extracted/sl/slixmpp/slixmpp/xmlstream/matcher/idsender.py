@@ -10,8 +10,6 @@ from slixmpp.xmlstream.stanzabase import StanzaBase
 from slixmpp.jid import JID
 from slixmpp.types import TypedDict
 
-from typing import Dict
-
 
 class CriteriaType(TypedDict):
     self: JID
@@ -39,7 +37,7 @@ class MatchIDSender(MatcherBase):
         selfjid = self._criteria['self']
         peerjid = self._criteria['peer']
 
-        allowed: Dict[str, bool] = {}
+        allowed: dict[str, bool] = {}
         allowed[''] = True
         allowed[selfjid.bare] = True
         allowed[selfjid.domain] = True

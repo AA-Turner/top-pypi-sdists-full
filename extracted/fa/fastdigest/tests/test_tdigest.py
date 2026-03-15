@@ -11,9 +11,17 @@ from utils import (
     RTOL,
     ATOL,
     DEFAULT_MAX_CENTROIDS,
+    SAMPLE_QUANTILES,
+    SAMPLE_RANKS,
     calculate_sample_quantiles,
+    calculate_sample_ranks,
     check_sample_quantiles,
+    check_sample_ranks,
     check_tdigest_equality,
+    compare_values,
+    generate_normal,
+    quantile,
+    rank,
 )
 
 
@@ -74,6 +82,8 @@ def test_from_values(values: Sequence[int]) -> None:
     assert d == TDigest()
     with pytest.raises(ValueError):
         TDigest.from_values(values, max_centroids=-1)
+    with pytest.raises(ValueError):
+        TDigest.from_values([float("nan")])
     with pytest.raises(ValueError):
         TDigest.from_values(values, w=-1)
 
@@ -264,7 +274,11 @@ def test_weighted_updates() -> None:
     assert d.mass == 10.0
     assert d.sum() == 20.0
     with pytest.raises(ValueError):
+        d.update(float("nan"))
+    with pytest.raises(ValueError):
         d.update(1, w=0)
+    with pytest.raises(ValueError):
+        d.batch_update([float("nan")])
     with pytest.raises(ValueError):
         d.batch_update([1, 2], w=[1])
     with pytest.raises(ValueError):
@@ -280,8 +294,11 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
     data = list(range(2, 199))
     random.shuffle(data)
     d = TDigest.from_values(data)
-    expected = calculate_sample_quantiles(range(2, 199))
+    expected = calculate_sample_quantiles(data)
     check_sample_quantiles(d, expected)
+    results = d.quantile_vec(SAMPLE_QUANTILES)
+    assert isinstance(results, list)
+    compare_values("quantile_vec", SAMPLE_QUANTILES, expected, results)
     with pytest.raises(ValueError):
         empty_digest.quantile(0.5)
     p = d.percentile(50)
@@ -297,15 +314,18 @@ def test_quantile_median_min_max(empty_digest: TDigest) -> None:
 # CDF tests (cdf, probability)
 # -------------------------------------------------------------------
 def test_cdf_methods(empty_digest: TDigest) -> None:
-    d = TDigest.from_values(range(1, 101))
-    rank_est = d.cdf(50)
-    expected_rank = (50 - 1) / (100 - 1)
-    assert 0 <= rank_est <= 1
-    assert math.isclose(rank_est, expected_rank, rel_tol=RTOL, abs_tol=ATOL)
+    data = list(range(2, 199))
+    random.shuffle(data)
+    d = TDigest.from_values(data)
+    expected = calculate_sample_ranks(data)
+    check_sample_ranks(d, expected)
+    results = d.cdf_vec(SAMPLE_RANKS)
+    assert isinstance(results, list)
+    compare_values("cdf_vec", SAMPLE_RANKS, expected, results)
     with pytest.raises(ValueError):
         empty_digest.cdf(50)
     p_est = d.probability(80, 100)
-    expected_p = ((100 - 1) - (80 - 1)) / (100 - 1)
+    expected_p = rank(data, 100) - rank(data, 80)
     assert math.isclose(p_est, expected_p, rel_tol=RTOL, abs_tol=ATOL)
 
 
@@ -329,17 +349,54 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 
 
 # -------------------------------------------------------------------
-# Serialization tests: to/from dict and pickle
+# Deviation tests (mad, std, is_normal)
+# -------------------------------------------------------------------
+
+
+def test_mad(empty_digest: TDigest) -> None:
+    values = list(range(1, 101))
+    d = TDigest.from_values(values)
+    median = quantile(values, 0.5)
+    devs = sorted([abs(v - median) for v in values])
+    n = len(devs)
+    pos = (n - 1) * 0.5
+    lo = int(pos)
+    hi = lo + 1
+    expected_mad = (
+        devs[lo]
+        if hi >= n
+        else devs[lo] * (1 - (pos - lo)) + devs[hi] * (pos - lo)
+    )
+    assert math.isclose(d.mad(), expected_mad, rel_tol=0.02, abs_tol=ATOL)
+    d = TDigest.from_values([42.0, 42.0, 42.0])
+    assert d.mad() == 0.0
+    with pytest.raises(ValueError):
+        empty_digest.mad()
+
+
+def test_std_and_is_normal() -> None:
+    sigma = 2.0
+    data = generate_normal(1000, sigma=sigma)
+    d = TDigest.from_values(data)
+    assert d.is_normal()
+    assert math.isclose(d.std(), sigma, rel_tol=0.02, abs_tol=ATOL)
+    d = TDigest.from_values(range(1001))
+    assert not d.is_normal()
+
+
+# -------------------------------------------------------------------
+# Serialization tests: to/from dict, bytes, and pickle
 # -------------------------------------------------------------------
 def test_to_from_dict() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
-    d.update(6.0)
     d_dict = d.to_dict()
     assert isinstance(d_dict, dict)
     new_d = TDigest.from_dict(d_dict)
     check_tdigest_equality(d, new_d)
-    assert d.mean() == new_d.mean() == 3.0
-    d = TDigest.from_values(range(1, 101), max_centroids=3)
+    assert d.mean() == new_d.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
     d_dict = d.to_dict()
     new_d = TDigest.from_dict(d_dict)
     check_tdigest_equality(d, new_d)
@@ -359,6 +416,59 @@ def test_to_from_dict() -> None:
         TDigest.from_dict(d_dict)
 
 
+def test_to_from_bytes() -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    d_bytes = d.to_bytes()
+    assert isinstance(d_bytes, bytes)
+    new_d = TDigest.from_bytes(d_bytes)
+    check_tdigest_equality(d, new_d)
+    assert d.mean() == new_d.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
+    d_bytes = d.to_bytes()
+    new_d = TDigest.from_bytes(d_bytes)
+    check_tdigest_equality(d, new_d)
+    d = TDigest()
+    d_bytes = d.to_bytes()
+    assert isinstance(d_bytes, bytes)
+    new_d = TDigest.from_bytes(d_bytes)
+    assert isinstance(new_d, TDigest)
+    assert d == new_d
+    d = TDigest(3)
+    d_bytes = d.to_bytes()
+    new_d = TDigest.from_bytes(d_bytes)
+    assert isinstance(new_d, TDigest)
+    assert d == new_d
+    empty_bytes = b""
+    with pytest.raises(ValueError):
+        TDigest.from_bytes(empty_bytes)
+    fake_bytes = b"fake_bytes"
+    with pytest.raises(ValueError):
+        TDigest.from_bytes(fake_bytes)
+
+
+def test_pickle_unpickle() -> None:
+    d = TDigest.from_values([1.0, 2.0, 3.0])
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    check_tdigest_equality(d, unpickled)
+    assert d.mean() == unpickled.mean() == 2.0
+    d = TDigest(max_centroids=3)
+    d.batch_update(range(1, 101), 99.9)
+    d.update(42, math.e)
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    check_tdigest_equality(d, unpickled)
+    d = TDigest()
+    dumped = pickle.dumps(d)
+    unpickled: TDigest = pickle.loads(dumped)
+    assert d == unpickled
+
+
+# -------------------------------------------------------------------
+# Copy tests
+# -------------------------------------------------------------------
 @pytest.mark.parametrize(
     "copy_func",
     [
@@ -377,23 +487,6 @@ def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
     empty = TDigest()
     empty_copy = copy_func(empty)
     assert len(empty_copy) == 0
-
-
-def test_pickle_unpickle() -> None:
-    d = TDigest.from_values([1.0, 2.0, 3.0])
-    d.update(6.0)
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    check_tdigest_equality(d, unpickled)
-    assert d.mean() == unpickled.mean() == 3.0
-    d = TDigest.from_values(range(1, 101), max_centroids=3)
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    check_tdigest_equality(d, unpickled)
-    d = TDigest()
-    dumped = pickle.dumps(d)
-    unpickled = pickle.loads(dumped)
-    assert d == unpickled
 
 
 # -------------------------------------------------------------------

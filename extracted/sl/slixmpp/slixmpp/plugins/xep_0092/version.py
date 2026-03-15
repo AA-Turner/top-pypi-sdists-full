@@ -6,7 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import Optional
 
 import slixmpp
 from slixmpp import JID
@@ -75,7 +74,7 @@ class XEP_0092(BasePlugin):
             iq['error']['condition'] = 'service-unavailable'
         iq.send()
 
-    def get_version(self, jid: JID, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+    def get_version(self, jid: JID, ifrom: JID | None = None, **iqkwargs) -> Future:
         """
         Retrieve the software version of a remote agent.
 

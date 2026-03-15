@@ -6,9 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import (
-    Optional,
-)
 
 from slixmpp import Message
 from slixmpp.xmlstream import register_stanza_plugin
@@ -41,7 +38,7 @@ class XEP_0107(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('user_mood', UserMood)
 
-    def publish_mood(self, value: Optional[str] = None, text: Optional[str] = None, **pubsubkwargs) -> Future:
+    def publish_mood(self, value: str | None = None, text: str | None = None, **pubsubkwargs) -> Future:
         """
         Publish the user's current mood.
 

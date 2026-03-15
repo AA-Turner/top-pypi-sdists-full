@@ -5,7 +5,6 @@ from slixmpp.plugins import BasePlugin
 from slixmpp.types import JidStr
 
 from . import stanza
-from ..xep_0004 import Form
 
 
 class XEP_0490(BasePlugin):
@@ -30,13 +29,25 @@ class XEP_0490(BasePlugin):
         }
 
     def flag_chat(self, chat: JidStr, stanza_id: str, **kwargs) -> Future[Iq]:
+        """
+        Flag a chat as displayed.
+
+        :param chat: JID of the chat to set as displayed.
+        :param stanza_id: stanza-id of which to set the display marker.
+
+        """
         displayed = stanza.Displayed()
         displayed["stanza_id"]["id"] = stanza_id
         return self.xmpp.plugin["xep_0223"].store(
             displayed, node=stanza.NS, id=str(chat), **kwargs
         )
 
-    def catch_up(self, **kwargs):
+    def catch_up(self, **kwargs) -> Future[Iq]:
+        """
+        Get all displayed status.
+
+        Can take any keyword parameters from XEP-0060’s ``get_items()``.
+        """
         return self.xmpp.plugin["xep_0060"].get_items(
             self.xmpp.boundjid.bare, stanza.NS, **kwargs
         )

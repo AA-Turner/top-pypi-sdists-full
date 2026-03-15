@@ -5,7 +5,6 @@
 import logging
 from asyncio import Event, Task, FIRST_COMPLETED, wait, CancelledError
 from enum import Enum
-from typing import Optional, Tuple, Union
 
 from slixmpp.stanza import Message, Presence
 from slixmpp.exceptions import IqError, IqTimeout
@@ -42,14 +41,14 @@ class PingTask:
     _event: Event
     _current_task: Task
     timeout: float
-    _interval: float
+    interval: float
     _plugin: 'XEP_0410'
 
     def __init__(self, muc_resource: JID, orig_jid: JID,
                  plugin: 'XEP_0410', interval: float, timeout: float) -> None:
         self._event = Event()
         self._plugin = plugin
-        self._interval = interval
+        self.interval = interval
         self.timeout = timeout
         self._current_task = plugin.xmpp.loop.create_task(self.run(
             muc_resource,
@@ -76,7 +75,7 @@ class PingTask:
                 done, pending = await wait(
                     [self._plugin.xmpp.loop.create_task(self._event.wait())],
                     return_when=FIRST_COMPLETED,
-                    timeout=self._interval,
+                    timeout=self.interval,
                 )
                 # If the event is set, then the timer was reset and we clear it
                 # before going back to waiting
@@ -128,16 +127,15 @@ class XEP_0410(BasePlugin):
         "ping_interval": 900,
         "ping_timeout": 30,
     }
-    ping_interval: Union[int, float]
+    ping_interval: int | float
     # Cache of the last bound JID, to be able to recover if we bind to
     # another resource while running
-    boundjid: Optional[JID] = None
+    boundjid: JID | None = None
     # Dictionary mapping a (muc resource, from jid) to an asyncio task in
     # the process of being executed
-    ping_timers: dict[Tuple[JID, JID], PingTask]
+    ping_timers: dict[tuple[JID, JID], PingTask]
     # Cache of the latest ping results
-    last_ping_results: dict[Tuple[JID, JID], PingStatus]
-
+    last_ping_results: dict[tuple[JID, JID], PingStatus]
 
     def plugin_init(self):
         self.ping_timers = dict()
@@ -204,9 +202,9 @@ class XEP_0410(BasePlugin):
                 )
 
     def enable_self_ping(self, muc_resource: JID,
-                         orig_jid: Optional[JID] = None,
-                         interval: Optional[float] = None,
-                         timeout: Optional[float] = None) -> None:
+                         orig_jid: JID | None = None,
+                         interval: float | None = None,
+                         timeout: float | None = None) -> None:
         """
         Enable client self-ping.
         The given MUC resource will be pinged periodically if the MUC is inactive,
@@ -232,7 +230,7 @@ class XEP_0410(BasePlugin):
             )
 
     def disable_self_ping(self, muc_resource: JID,
-                                 orig_jid: Optional[JID] = None) -> None:
+                          orig_jid: JID | None = None) -> None:
         """
         Disable client self-ping. Cancels the scheduled pings for the given
         MUC resource.
@@ -250,7 +248,7 @@ class XEP_0410(BasePlugin):
             del self.last_ping_results[key]
 
     def get_ping_status(self, muc_resource: JID,
-                        orig_jid: Optional[JID] = None) -> PingStatus:
+                        orig_jid: JID | None = None) -> PingStatus:
         """
         Return the last pinged status for a specific muc resource.
 
@@ -263,7 +261,7 @@ class XEP_0410(BasePlugin):
         key = (muc_resource, orig_jid)
         return self.last_ping_results.get(key, PingStatus.UNTRIED)
 
-    def _on_muc_activity(self, event: Union[Presence, Message]):
+    def _on_muc_activity(self, event: Presence | Message):
         """Handle both messages and presences from mucs to see if we need to
         reset the timer"""
         if event['type'] == 'error':
@@ -287,8 +285,8 @@ class XEP_0410(BasePlugin):
             return PingStatus.DISCONNECTED
 
     async def send_self_ping(self, muc_resource: JID,
-                             orig_jid: Optional[JID] = None,
-                             timeout: Optional[float] = None) -> PingStatus:
+                             orig_jid: JID | None = None,
+                             timeout: float | None = None) -> PingStatus:
         """
         Send a single self-ping to a MUC, and return the result.
 
@@ -312,7 +310,7 @@ class XEP_0410(BasePlugin):
             result = self._handle_condition(exc.condition)
         return result
 
-    def _update_ping_results(self, key: Tuple[JID, JID], result: PingStatus) -> None:
+    def _update_ping_results(self, key: tuple[JID, JID], result: PingStatus) -> None:
         """
         Internal use only: used to update the ping results dict from the timer.
         """

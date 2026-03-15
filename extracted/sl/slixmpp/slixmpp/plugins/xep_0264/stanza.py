@@ -1,5 +1,3 @@
-from typing import Optional
-
 from slixmpp import register_stanza_plugin
 from slixmpp.plugins.xep_0234.stanza import File
 from slixmpp.xmlstream import ElementBase
@@ -25,7 +23,7 @@ class Thumbnail(ElementBase):
         self._set_attr("height", str(v))
 
 
-def _int_or_none(v) -> Optional[int]:
+def _int_or_none(v) -> int | None:
     try:
         return int(v)
     except ValueError:

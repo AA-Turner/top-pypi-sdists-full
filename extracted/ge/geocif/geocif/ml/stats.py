@@ -131,14 +131,15 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone):
 
     # Fill in the ag statistics columns with data when available
     # Compute national scale statistics
-    crop = df["crop"].unique()[0]
+
+    crop = df["Crop"].unique()[0]
     # Change crop to lower case and replace space by _
     crop = crop.lower().replace(" ", "_")
-    season = df["Harvest Year"].unique()[0]
+    season = df["Season"].unique()[0]
 
     # Read in the area stats for the crop and season
     # HACK: Bangladesh rice uses country-specific filename
-    country = df["country"].unique()[0]
+    country = df["Country"].unique()[0]
     if crop == "rice" and country.lower() == "bangladesh":
         stat_file = dir_stats / "bangladesh_rice.xlsx"
     else:
@@ -151,7 +152,7 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone):
             continue
 
         # Loop over each Country, Region, harvest year combination and add the area
-        grp = df.groupby(["country", "region", "Harvest Year"], dropna=False)
+        grp = df.groupby(["Country", "Region", "Harvest Year"], dropna=False)
         for key, group in tqdm(grp, desc=f"Adding {stat} {method}", leave=False):
             country, region, year = key
 

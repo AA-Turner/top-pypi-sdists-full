@@ -1,5 +1,6 @@
+import io
 import os
-from fractions import Fraction
+import struct
 
 import pytest
 
@@ -7,6 +8,63 @@ import av
 import av.datasets
 
 from .common import fate_suite
+
+
+def _crc32_mpeg(data: bytes) -> int:
+    crc = 0xFFFFFFFF
+    for byte in data:
+        crc ^= byte << 24
+        for _ in range(8):
+            if crc & 0x80000000:
+                crc = (crc << 1) ^ 0x04C11DB7
+            else:
+                crc <<= 1
+            crc &= 0xFFFFFFFF
+    return crc
+
+
+def _make_ts_packet(pid: int, payload: bytes, pusi: bool = False, cc: int = 0) -> bytes:
+    pid_hi = (pid >> 8) & 0x1F
+    pid_lo = pid & 0xFF
+    if pusi:
+        pid_hi |= 0x40
+    header = bytes([0x47, pid_hi, pid_lo, 0x10 | (cc & 0x0F)])
+    pkt = header + payload
+    return (pkt + b"\xff" * (188 - len(pkt)))[:188]
+
+
+def _make_unknown_stream_ts() -> bytes:
+    """Build a minimal MPEG-TS byte string whose only stream has AVMEDIA_TYPE_UNKNOWN.
+
+    Uses stream_type=0x82 in the PMT, which FFmpeg does not map to any known
+    media type, resulting in ``stream.type == "unknown"``.
+    """
+    pat_data = bytes(
+        [0x00, 0xB0, 0x0D, 0x00, 0x01, 0xC1, 0x00, 0x00, 0x00, 0x01, 0xE1, 0x00]
+    )
+    pat_data += struct.pack(">I", _crc32_mpeg(pat_data))
+    pat_payload = bytes([0x00]) + pat_data
+
+    # fmt: off
+    pmt_data = bytes([0x02, 0xB0, 0x12, 0x00, 0x01, 0xC1, 0x00, 0x00,
+                      0xE1, 0x02, 0xF0, 0x00, 0x82, 0xE1, 0x02, 0xF0, 0x00,
+    ])
+    # fmt: on
+    pmt_data += struct.pack(">I", _crc32_mpeg(pmt_data))
+    pmt_payload = bytes([0x00]) + pmt_data
+
+    pes_header = bytes([0x00, 0x00, 0x01, 0xBD, 0x00, 0x0A, 0x80, 0x00, 0x00])
+    pes_data = pes_header + b"\xaa" * (184 - len(pes_header))
+
+    packets: list[bytes] = []
+    for i in range(2):
+        packets.append(_make_ts_packet(0x0000, pat_payload, pusi=True, cc=i))
+    for i in range(2):
+        packets.append(_make_ts_packet(0x0100, pmt_payload, pusi=True, cc=i))
+    for i in range(200):
+        packets.append(_make_ts_packet(0x0102, pes_data, pusi=(i % 10 == 0), cc=i % 16))
+
+    return b"".join(packets)
 
 
 class TestStreams:
@@ -179,15 +237,15 @@ class TestStreams:
                     input_data_stream
                 )
 
-                for packet in input_container.demux(input_data_stream):
-                    payload = bytes(packet)
+                for data_packet in input_container.demux(input_data_stream):
+                    payload = bytes(data_packet)
                     if not payload:
                         continue
                     copied_payloads.append(payload)
                     clone = av.Packet(payload)
-                    clone.pts = packet.pts
-                    clone.dts = packet.dts
-                    clone.time_base = packet.time_base
+                    clone.pts = data_packet.pts
+                    clone.dts = data_packet.dts
+                    clone.time_base = data_packet.time_base
                     clone.stream = output_data_stream
                     output_container.mux(clone)
 
@@ -196,8 +254,8 @@ class TestStreams:
             assert output_stream.codec_context is None
 
             remuxed_payloads: list[bytes] = []
-            for packet in remuxed.demux(output_stream):
-                payload = bytes(packet)
+            for data_packet in remuxed.demux(output_stream):
+                payload = bytes(data_packet)
                 if payload:
                     remuxed_payloads.append(payload)
 
@@ -287,7 +345,11 @@ class TestStreams:
             for packet in ic.demux(ic.streams.video):
                 if packet.dts is None:
                     continue
-                packet.stream = stream_map[packet.stream.index]
+                updated_stream = stream_map.get(packet.stream.index)
+                if isinstance(updated_stream, av.video.stream.VideoStream):
+                    packet.stream = updated_stream
+                else:
+                    raise ValueError("Expected a VideoStream")
                 oc.mux(packet)
 
         with av.open(out2_path) as c:
@@ -297,3 +359,12 @@ class TestStreams:
             assert att.name == "attachment.txt"
             assert att.mimetype == "text/plain"
             assert att.data == b"hello\n"
+
+    def test_unknown_stream_type(self) -> None:
+        ts_data = _make_unknown_stream_ts()
+
+        with av.open(io.BytesIO(ts_data), format="mpegts") as container:
+            assert len(container.streams) == 1
+            stream = container.streams[0]
+            assert stream.type == "unknown"
+            assert type(stream) is av.stream.Stream

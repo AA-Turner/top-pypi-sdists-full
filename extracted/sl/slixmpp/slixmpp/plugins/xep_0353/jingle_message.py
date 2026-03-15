@@ -5,7 +5,7 @@
 # See the file LICENSE for copying permission.
 import logging
 
-from typing import Iterable, Tuple, Optional
+from typing import Iterable
 
 from slixmpp import JID, Message
 from slixmpp.plugins import BasePlugin
@@ -71,28 +71,28 @@ class XEP_0353(BasePlugin):
     def _handle_reject(self, message):
         self.xmpp.event('jingle_message_reject', message)
 
-    def propose(self, mto: JID, sid: str, descriptions: Iterable[Tuple[str, str]], *, mfrom: Optional[JID] = None):
+    def propose(self, mto: JID, sid: str, descriptions: Iterable[tuple[str, str]], *, mfrom: JID | None = None):
         msg = self.xmpp.make_message(mto, mfrom=mfrom)
         msg['jingle_propose']['id'] = sid
         msg['jingle_propose']['descriptions'] = descriptions
         msg.send()
 
-    def retract(self, mto: JID, sid: str, *, mfrom: Optional[JID] = None):
+    def retract(self, mto: JID, sid: str, *, mfrom: JID | None = None):
         msg = self.xmpp.make_message(mto, mfrom=mfrom)
         msg['jingle_retract']['id'] = sid
         msg.send()
 
-    def accept(self, mto: JID, sid: str, *, mfrom: Optional[JID] = None):
+    def accept(self, mto: JID, sid: str, *, mfrom: JID | None = None):
         msg = self.xmpp.make_message(mto, mfrom=mfrom)
         msg['jingle_accept']['id'] = sid
         msg.send()
 
-    def proceed(self, mto: JID, sid: str, *, mfrom: Optional[JID] = None):
+    def proceed(self, mto: JID, sid: str, *, mfrom: JID | None = None):
         msg = self.xmpp.make_message(mto, mfrom=mfrom)
         msg['jingle_proceed']['id'] = sid
         msg.send()
 
-    def reject(self, mto: JID, sid: str, *, mfrom: Optional[JID] = None):
+    def reject(self, mto: JID, sid: str, *, mfrom: JID | None = None):
         msg = self.xmpp.make_message(mto, mfrom=mfrom)
         msg['jingle_reject']['id'] = sid
         msg.send()

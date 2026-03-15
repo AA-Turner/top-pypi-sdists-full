@@ -7,7 +7,7 @@
 from slixmpp.stanza import Presence
 from slixmpp.types import RosterState, ResourceDict, RosterDBProtocol, JidStr
 
-from typing import TYPE_CHECKING, Optional, Dict, Any, List, Union
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from slixmpp import BaseXMPP
@@ -113,14 +113,14 @@ class RosterItem:
     xmpp: 'BaseXMPP'
     jid: JidStr
     owner: JidStr
-    db: Optional[RosterDBProtocol]
+    db: RosterDBProtocol | None
     _state: RosterState
-    resources: Dict[str, ResourceDict]
-    _db_state: Dict[str, Any]
-    last_status: Optional[Presence]
+    resources: dict[str, ResourceDict]
+    _db_state: dict[str, Any]
+    last_status: Presence | None
 
-    def __init__(self, xmpp: 'BaseXMPP', jid: JidStr, owner: Optional[JidStr] = None,
-                 state: Optional[RosterState] = None, db: Optional[RosterDBProtocol] = None, roster=None):
+    def __init__(self, xmpp: 'BaseXMPP', jid: JidStr, owner: JidStr | None = None,
+                 state: RosterState | None = None, db: RosterDBProtocol | None = None, roster=None):
         """
         Create a new roster item.
 
@@ -157,7 +157,7 @@ class RosterItem:
         self._db_state = {}
         self.load()
 
-    def set_backend(self, db: Optional[RosterDBProtocol]=None, save: bool = True) -> None:
+    def set_backend(self, db: RosterDBProtocol | None=None, save: bool = True) -> None:
         """
         Set the datastore interface object for the roster item.
 
@@ -170,7 +170,7 @@ class RosterItem:
             self.save()
         self.load()
 
-    def load(self) -> Optional[RosterState]:
+    def load(self) -> RosterState | None:
         """
         Load the item's state information from an external datastore,
         if one has been provided.
@@ -217,7 +217,7 @@ class RosterItem:
         else:
             raise KeyError
 
-    def __setitem__(self, key: str, value: Union[str, List[str], bool]) -> None:
+    def __setitem__(self, key: str, value: str | list[str] | bool) -> None:
         """
         Set the value of a state field.
 

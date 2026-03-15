@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__subtitles__subtitle
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -1255,6 +1237,7 @@ static int __Pyx_init_co_variables(void) {
       #define __Pyx_PyFloat_FromString(obj)  PyFloat_FromString(obj, NULL)
     #endif
     
+#include <stddef.h>
 
     #if PY_MAJOR_VERSION <= 2
     #define PyDict_GetItemWithError _PyDict_GetItemWithError
@@ -1797,8 +1780,8 @@ struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy {
 };
 
 
-/* "av/subtitles/subtitle.pxd":8
- * 
+/* "av/subtitles/subtitle.pxd":7
+ *     cdef lib.AVSubtitle struct
  * 
  * cdef class SubtitleSet:             # <<<<<<<<<<<<<<
  *     cdef SubtitleProxy proxy
@@ -1811,8 +1794,8 @@ struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet {
 };
 
 
-/* "av/subtitles/subtitle.pxd":13
- * 
+/* "av/subtitles/subtitle.pxd":11
+ *     cdef readonly tuple rects
  * 
  * cdef class Subtitle:             # <<<<<<<<<<<<<<
  *     cdef SubtitleProxy proxy
@@ -1826,7 +1809,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle {
 };
 
 
-/* "av/subtitles/subtitle.pxd":18
+/* "av/subtitles/subtitle.pxd":16
  *     cdef readonly bytes type
  * 
  * cdef class TextSubtitle(Subtitle):             # <<<<<<<<<<<<<<
@@ -1838,7 +1821,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_TextSubtitle {
 };
 
 
-/* "av/subtitles/subtitle.pxd":21
+/* "av/subtitles/subtitle.pxd":19
  *     pass
  * 
  * cdef class ASSSubtitle(Subtitle):             # <<<<<<<<<<<<<<
@@ -1850,7 +1833,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_ASSSubtitle {
 };
 
 
-/* "av/subtitles/subtitle.pxd":24
+/* "av/subtitles/subtitle.pxd":22
  *     pass
  * 
  * cdef class BitmapSubtitle(Subtitle):             # <<<<<<<<<<<<<<
@@ -1863,7 +1846,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_BitmapSubtitle {
 };
 
 
-/* "av/subtitles/subtitle.pxd":27
+/* "av/subtitles/subtitle.pxd":25
  *     cdef readonly planes
  * 
  * cdef class BitmapSubtitlePlane:             # <<<<<<<<<<<<<<
@@ -1879,7 +1862,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_BitmapSubtitlePlane {
 };
 
 
-/* "av/subtitles/subtitle.py":273
+/* "av/subtitles/subtitle.py":269
  * 
  * @cython.cclass
  * class AssSubtitle(Subtitle):             # <<<<<<<<<<<<<<
@@ -1891,7 +1874,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle_AssSubtitle {
 };
 
 
-/* "av/subtitles/subtitle.py":24
+/* "av/subtitles/subtitle.py":23
  *     """
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):             # <<<<<<<<<<<<<<
@@ -1904,7 +1887,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__ {
 };
 
 
-/* "av/subtitles/subtitle.py":33
+/* "av/subtitles/subtitle.py":32
  *             self.proxy = proxy_or_sentinel
  *             self.rects = tuple(
  *                 build_subtitle(self, i) for i in range(self.proxy.struct.num_rects)             # <<<<<<<<<<<<<<
@@ -1922,7 +1905,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr {
 };
 
 
-/* "av/subtitles/subtitle.py":213
+/* "av/subtitles/subtitle.py":209
  * @cython.cclass
  * class BitmapSubtitle(Subtitle):
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -1935,7 +1918,7 @@ struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__ {
 };
 
 
-/* "av/subtitles/subtitle.py":215
+/* "av/subtitles/subtitle.py":211
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         self.planes = tuple(
  *             BitmapSubtitlePlane(self, i) for i in range(4) if self.ptr.linesize[i]             # <<<<<<<<<<<<<<
@@ -2305,53 +2288,6 @@ static int __Pyx_GetException(PyObject **type, PyObject **value, PyObject **tb);
 /* pep479.proto */
 static void __Pyx_Generator_Replace_StopIteration(int in_async_gen);
 
-/* PyDictVersioning.proto (used by GetModuleGlobalName) */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-#define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
-#define __PYX_GET_DICT_VERSION(dict)  (((PyDictObject*)(dict))->ma_version_tag)
-#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)\
-    (version_var) = __PYX_GET_DICT_VERSION(dict);\
-    (cache_var) = (value);
-#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP) {\
-    static PY_UINT64_T __pyx_dict_version = 0;\
-    static PyObject *__pyx_dict_cached_value = NULL;\
-    if (likely(__PYX_GET_DICT_VERSION(DICT) == __pyx_dict_version)) {\
-        (VAR) = __Pyx_XNewRef(__pyx_dict_cached_value);\
-    } else {\
-        (VAR) = __pyx_dict_cached_value = (LOOKUP);\
-        __pyx_dict_version = __PYX_GET_DICT_VERSION(DICT);\
-    }\
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj);
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj);
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version);
-#else
-#define __PYX_GET_DICT_VERSION(dict)  (0)
-#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)
-#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP)  (VAR) = (LOOKUP);
-#endif
-
-/* GetModuleGlobalName.proto */
-#if CYTHON_USE_DICT_VERSIONS
-#define __Pyx_GetModuleGlobalName(var, name)  do {\
-    static PY_UINT64_T __pyx_dict_version = 0;\
-    static PyObject *__pyx_dict_cached_value = NULL;\
-    (var) = (likely(__pyx_dict_version == __PYX_GET_DICT_VERSION(__pyx_mstate_global->__pyx_d))) ?\
-        (likely(__pyx_dict_cached_value) ? __Pyx_NewRef(__pyx_dict_cached_value) : __Pyx_GetBuiltinName(name)) :\
-        __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
-} while(0)
-#define __Pyx_GetModuleGlobalNameUncached(var, name)  do {\
-    PY_UINT64_T __pyx_dict_version;\
-    PyObject *__pyx_dict_cached_value;\
-    (var) = __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
-} while(0)
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value);
-#else
-#define __Pyx_GetModuleGlobalName(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
-#define __Pyx_GetModuleGlobalNameUncached(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
-#endif
-
 /* ExtTypeTest.proto */
 static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
 
@@ -2562,6 +2498,53 @@ enum __Pyx_ImportType_CheckSize_3_2_4 {
 static PyTypeObject *__Pyx_ImportType_3_2_4(PyObject* module, const char *module_name, const char *class_name, size_t size, size_t alignment, enum __Pyx_ImportType_CheckSize_3_2_4 check_size);
 #endif
 
+/* PyDictVersioning.proto (used by GetModuleGlobalName) */
+#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+#define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
+#define __PYX_GET_DICT_VERSION(dict)  (((PyDictObject*)(dict))->ma_version_tag)
+#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)\
+    (version_var) = __PYX_GET_DICT_VERSION(dict);\
+    (cache_var) = (value);
+#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP) {\
+    static PY_UINT64_T __pyx_dict_version = 0;\
+    static PyObject *__pyx_dict_cached_value = NULL;\
+    if (likely(__PYX_GET_DICT_VERSION(DICT) == __pyx_dict_version)) {\
+        (VAR) = __Pyx_XNewRef(__pyx_dict_cached_value);\
+    } else {\
+        (VAR) = __pyx_dict_cached_value = (LOOKUP);\
+        __pyx_dict_version = __PYX_GET_DICT_VERSION(DICT);\
+    }\
+}
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj);
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj);
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version);
+#else
+#define __PYX_GET_DICT_VERSION(dict)  (0)
+#define __PYX_UPDATE_DICT_CACHE(dict, value, cache_var, version_var)
+#define __PYX_PY_DICT_LOOKUP_IF_MODIFIED(VAR, DICT, LOOKUP)  (VAR) = (LOOKUP);
+#endif
+
+/* GetModuleGlobalName.proto (used by GetNameInClass) */
+#if CYTHON_USE_DICT_VERSIONS
+#define __Pyx_GetModuleGlobalName(var, name)  do {\
+    static PY_UINT64_T __pyx_dict_version = 0;\
+    static PyObject *__pyx_dict_cached_value = NULL;\
+    (var) = (likely(__pyx_dict_version == __PYX_GET_DICT_VERSION(__pyx_mstate_global->__pyx_d))) ?\
+        (likely(__pyx_dict_cached_value) ? __Pyx_NewRef(__pyx_dict_cached_value) : __Pyx_GetBuiltinName(name)) :\
+        __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
+} while(0)
+#define __Pyx_GetModuleGlobalNameUncached(var, name)  do {\
+    PY_UINT64_T __pyx_dict_version;\
+    PyObject *__pyx_dict_cached_value;\
+    (var) = __Pyx__GetModuleGlobalName(name, &__pyx_dict_version, &__pyx_dict_cached_value);\
+} while(0)
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value);
+#else
+#define __Pyx_GetModuleGlobalName(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
+#define __Pyx_GetModuleGlobalNameUncached(var, name)  (var) = __Pyx__GetModuleGlobalName(name)
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
+#endif
+
 /* GetNameInClass.proto */
 #define __Pyx_GetNameInClass(var, nmspace, name)  (var) = __Pyx__GetNameInClass(nmspace, name)
 static PyObject *__Pyx__GetNameInClass(PyObject *nmspace, PyObject *name);
@@ -2658,9 +2641,6 @@ static CYTHON_INLINE long __Pyx_PyLong_As_long(PyObject *);
 
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
-
-/* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint64_t(uint64_t value);
 
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_char(char value);
@@ -2915,8 +2895,6 @@ static CYTHON_INLINE double __pyx_f_7cpython_7complex_7complex_4imag_imag(PyComp
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
 /* Module declarations from "cython.view" */
@@ -2969,6 +2947,8 @@ static CYTHON_INLINE double __pyx_f_7cpython_7complex_7complex_4imag_imag(PyComp
 
 /* Module declarations from "cpython.complex" */
 
+/* Module declarations from "libc.stddef" */
+
 /* Module declarations from "cpython.unicode" */
 
 /* Module declarations from "cpython.pyport" */
@@ -3002,6 +2982,7 @@ static CYTHON_INLINE double __pyx_f_7cpython_7complex_7complex_4imag_imag(PyComp
 /* Module declarations from "cpython" */
 
 /* Module declarations from "av.subtitles.subtitle" */
+static PyObject *__pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel = 0;
 static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitles_8subtitle_build_subtitle(struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *, int); /*proto*/
 /* #### Code section: typeinfo ### */
 /* #### Code section: before_global_var ### */
@@ -3129,7 +3110,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_codeobj_tab[2];
-  PyObject *__pyx_string_tab[101];
+  PyObject *__pyx_string_tab[100];
   PyObject *__pyx_number_tab[2];
 /* #### Code section: module_state_contents ### */
 
@@ -3233,65 +3214,64 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_ass __pyx_string_tab[39]
 #define __pyx_n_u_av_subtitles_subtitle __pyx_string_tab[40]
 #define __pyx_n_u_cinit___locals_genexpr __pyx_string_tab[41]
-#define __pyx_n_u_cinit_bypass_sentinel __pyx_string_tab[42]
-#define __pyx_n_u_class __pyx_string_tab[43]
-#define __pyx_n_u_class_getitem __pyx_string_tab[44]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[45]
-#define __pyx_n_u_close __pyx_string_tab[46]
-#define __pyx_n_u_create __pyx_string_tab[47]
-#define __pyx_n_u_dialogue __pyx_string_tab[48]
-#define __pyx_n_u_dict __pyx_string_tab[49]
-#define __pyx_n_u_end __pyx_string_tab[50]
-#define __pyx_n_u_genexpr __pyx_string_tab[51]
-#define __pyx_n_u_getstate __pyx_string_tab[52]
-#define __pyx_n_u_height __pyx_string_tab[53]
-#define __pyx_n_u_i __pyx_string_tab[54]
-#define __pyx_n_u_id __pyx_string_tab[55]
-#define __pyx_n_u_index __pyx_string_tab[56]
-#define __pyx_n_u_items __pyx_string_tab[57]
-#define __pyx_n_u_main __pyx_string_tab[58]
-#define __pyx_n_u_module __pyx_string_tab[59]
-#define __pyx_n_u_name __pyx_string_tab[60]
-#define __pyx_n_u_next __pyx_string_tab[61]
-#define __pyx_n_u_object __pyx_string_tab[62]
-#define __pyx_n_u_pop __pyx_string_tab[63]
-#define __pyx_n_u_proxy_or_sentinel __pyx_string_tab[64]
-#define __pyx_n_u_pts __pyx_string_tab[65]
-#define __pyx_n_u_pyx_state __pyx_string_tab[66]
-#define __pyx_n_u_qualname __pyx_string_tab[67]
-#define __pyx_n_u_reduce __pyx_string_tab[68]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[69]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[70]
-#define __pyx_n_u_send __pyx_string_tab[71]
-#define __pyx_n_u_set_name __pyx_string_tab[72]
-#define __pyx_n_u_setdefault __pyx_string_tab[73]
-#define __pyx_n_u_setstate __pyx_string_tab[74]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[75]
-#define __pyx_n_u_start __pyx_string_tab[76]
-#define __pyx_n_u_staticmethod __pyx_string_tab[77]
-#define __pyx_n_u_subtitle __pyx_string_tab[78]
-#define __pyx_n_u_subtitle_format __pyx_string_tab[79]
-#define __pyx_n_u_test __pyx_string_tab[80]
-#define __pyx_n_u_text __pyx_string_tab[81]
-#define __pyx_n_u_throw __pyx_string_tab[82]
-#define __pyx_n_u_value __pyx_string_tab[83]
-#define __pyx_n_u_values __pyx_string_tab[84]
-#define __pyx_n_u_width __pyx_string_tab[85]
-#define __pyx_n_u_x __pyx_string_tab[86]
-#define __pyx_n_u_y __pyx_string_tab[87]
-#define __pyx_kp_b__10 __pyx_string_tab[88]
-#define __pyx_kp_b__5 __pyx_string_tab[89]
-#define __pyx_kp_b__6 __pyx_string_tab[90]
-#define __pyx_kp_b__7 __pyx_string_tab[91]
-#define __pyx_kp_b__8 __pyx_string_tab[92]
-#define __pyx_kp_b__9 __pyx_string_tab[93]
-#define __pyx_kp_b_iso88591_a __pyx_string_tab[94]
-#define __pyx_kp_b_iso88591_q __pyx_string_tab[95]
-#define __pyx_n_b_N __pyx_string_tab[96]
-#define __pyx_n_b_ass __pyx_string_tab[97]
-#define __pyx_n_b_bitmap __pyx_string_tab[98]
-#define __pyx_n_b_none __pyx_string_tab[99]
-#define __pyx_n_b_text __pyx_string_tab[100]
+#define __pyx_n_u_class __pyx_string_tab[42]
+#define __pyx_n_u_class_getitem __pyx_string_tab[43]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[44]
+#define __pyx_n_u_close __pyx_string_tab[45]
+#define __pyx_n_u_create __pyx_string_tab[46]
+#define __pyx_n_u_dialogue __pyx_string_tab[47]
+#define __pyx_n_u_dict __pyx_string_tab[48]
+#define __pyx_n_u_end __pyx_string_tab[49]
+#define __pyx_n_u_genexpr __pyx_string_tab[50]
+#define __pyx_n_u_getstate __pyx_string_tab[51]
+#define __pyx_n_u_height __pyx_string_tab[52]
+#define __pyx_n_u_i __pyx_string_tab[53]
+#define __pyx_n_u_id __pyx_string_tab[54]
+#define __pyx_n_u_index __pyx_string_tab[55]
+#define __pyx_n_u_items __pyx_string_tab[56]
+#define __pyx_n_u_main __pyx_string_tab[57]
+#define __pyx_n_u_module __pyx_string_tab[58]
+#define __pyx_n_u_name __pyx_string_tab[59]
+#define __pyx_n_u_next __pyx_string_tab[60]
+#define __pyx_n_u_object __pyx_string_tab[61]
+#define __pyx_n_u_pop __pyx_string_tab[62]
+#define __pyx_n_u_proxy_or_sentinel __pyx_string_tab[63]
+#define __pyx_n_u_pts __pyx_string_tab[64]
+#define __pyx_n_u_pyx_state __pyx_string_tab[65]
+#define __pyx_n_u_qualname __pyx_string_tab[66]
+#define __pyx_n_u_reduce __pyx_string_tab[67]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[68]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[69]
+#define __pyx_n_u_send __pyx_string_tab[70]
+#define __pyx_n_u_set_name __pyx_string_tab[71]
+#define __pyx_n_u_setdefault __pyx_string_tab[72]
+#define __pyx_n_u_setstate __pyx_string_tab[73]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[74]
+#define __pyx_n_u_start __pyx_string_tab[75]
+#define __pyx_n_u_staticmethod __pyx_string_tab[76]
+#define __pyx_n_u_subtitle __pyx_string_tab[77]
+#define __pyx_n_u_subtitle_format __pyx_string_tab[78]
+#define __pyx_n_u_test __pyx_string_tab[79]
+#define __pyx_n_u_text __pyx_string_tab[80]
+#define __pyx_n_u_throw __pyx_string_tab[81]
+#define __pyx_n_u_value __pyx_string_tab[82]
+#define __pyx_n_u_values __pyx_string_tab[83]
+#define __pyx_n_u_width __pyx_string_tab[84]
+#define __pyx_n_u_x __pyx_string_tab[85]
+#define __pyx_n_u_y __pyx_string_tab[86]
+#define __pyx_kp_b__10 __pyx_string_tab[87]
+#define __pyx_kp_b__5 __pyx_string_tab[88]
+#define __pyx_kp_b__6 __pyx_string_tab[89]
+#define __pyx_kp_b__7 __pyx_string_tab[90]
+#define __pyx_kp_b__8 __pyx_string_tab[91]
+#define __pyx_kp_b__9 __pyx_string_tab[92]
+#define __pyx_kp_b_iso88591_a __pyx_string_tab[93]
+#define __pyx_kp_b_iso88591_q __pyx_string_tab[94]
+#define __pyx_n_b_N __pyx_string_tab[95]
+#define __pyx_n_b_ass __pyx_string_tab[96]
+#define __pyx_n_b_bitmap __pyx_string_tab[97]
+#define __pyx_n_b_none __pyx_string_tab[98]
+#define __pyx_n_b_text __pyx_string_tab[99]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_1 __pyx_number_tab[1]
 /* #### Code section: module_state_clear ### */
@@ -3336,7 +3316,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr);
   Py_CLEAR(clear_module_state->__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr);
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<101; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<100; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -3388,7 +3368,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr);
   Py_VISIT(traverse_module_state->__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr);
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<101; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<100; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -3720,7 +3700,7 @@ static CYTHON_INLINE PyObject *__pyx_f_7cpython_11contextvars_get_value_no_defau
 }
 #endif /*!(#if !CYTHON_COMPILING_IN_LIMITED_API)*/
 
-/* "av/subtitles/subtitle.py":9
+/* "av/subtitles/subtitle.py":8
  * @cython.cclass
  * class SubtitleProxy:
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -3743,7 +3723,7 @@ static void __pyx_pw_2av_9subtitles_8subtitle_13SubtitleProxy_1__dealloc__(PyObj
 
 static void __pyx_pf_2av_9subtitles_8subtitle_13SubtitleProxy___dealloc__(struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *__pyx_v_self) {
 
-  /* "av/subtitles/subtitle.py":10
+  /* "av/subtitles/subtitle.py":9
  * class SubtitleProxy:
  *     def __dealloc__(self):
  *         lib.avsubtitle_free(cython.address(self.struct))             # <<<<<<<<<<<<<<
@@ -3752,7 +3732,7 @@ static void __pyx_pf_2av_9subtitles_8subtitle_13SubtitleProxy___dealloc__(struct
 */
   avsubtitle_free((&__pyx_v_self->__pyx_struct));
 
-  /* "av/subtitles/subtitle.py":9
+  /* "av/subtitles/subtitle.py":8
  * @cython.cclass
  * class SubtitleProxy:
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -3967,7 +3947,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_13SubtitleProxy_4__setstate_c
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":24
+/* "av/subtitles/subtitle.py":23
  *     """
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):             # <<<<<<<<<<<<<<
@@ -3997,24 +3977,24 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_1__cinit__(PyObject *
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_proxy_or_sentinel,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 24, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 23, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 23, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 24, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 23, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 23, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -4025,7 +4005,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_1__cinit__(PyObject *
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 24, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 23, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4047,7 +4027,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_1__cinit__(PyObject *
 }
 static PyObject *__pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "av/subtitles/subtitle.py":33
+/* "av/subtitles/subtitle.py":32
  *             self.proxy = proxy_or_sentinel
  *             self.rects = tuple(
  *                 build_subtitle(self, i) for i in range(self.proxy.struct.num_rects)             # <<<<<<<<<<<<<<
@@ -4067,7 +4047,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___gene
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 33, __pyx_L1_error)
+    __PYX_ERR(0, 32, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -4076,7 +4056,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___gene
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __pyx_cur_scope->__pyx_genexpr_arg_0 = __pyx_genexpr_arg_0;
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_cinit___locals_genexpr, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!gen)) __PYX_ERR(0, 33, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_cinit___locals_genexpr, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!gen)) __PYX_ERR(0, 32, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -4116,20 +4096,20 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2gen
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started generator");
-    __PYX_ERR(0, 33, __pyx_L1_error)
+    __PYX_ERR(0, 32, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0;
   __pyx_t_2 = __pyx_t_1;
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_cur_scope->__pyx_v_i = __pyx_t_3;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 33, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 32, __pyx_L1_error) }
     if (unlikely(((PyObject *)__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self) == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "cannot pass None into a C function argument that is declared 'not None'");
-      __PYX_ERR(0, 33, __pyx_L1_error)
+      __PYX_ERR(0, 32, __pyx_L1_error)
     }
     __pyx_t_4 = ((PyObject *)__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self);
     __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_5 = ((PyObject *)__pyx_f_2av_9subtitles_8subtitle_build_subtitle(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_t_4), __pyx_cur_scope->__pyx_v_i)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 33, __pyx_L1_error)
+    __pyx_t_5 = ((PyObject *)__pyx_f_2av_9subtitles_8subtitle_build_subtitle(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_t_4), __pyx_cur_scope->__pyx_v_i)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_r = __pyx_t_5;
@@ -4147,7 +4127,7 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2gen
     __pyx_t_1 = __pyx_cur_scope->__pyx_t_0;
     __pyx_t_2 = __pyx_cur_scope->__pyx_t_1;
     __pyx_t_3 = __pyx_cur_scope->__pyx_t_2;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 33, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 32, __pyx_L1_error)
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
@@ -4172,7 +4152,7 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2gen
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":24
+/* "av/subtitles/subtitle.py":23
  *     """
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):             # <<<<<<<<<<<<<<
@@ -4185,8 +4165,8 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
   PyObject *__pyx_gb_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___2generator = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
   size_t __pyx_t_4;
   int __pyx_lineno = 0;
@@ -4197,7 +4177,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 24, __pyx_L1_error)
+    __PYX_ERR(0, 23, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -4205,20 +4185,17 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
 
-  /* "av/subtitles/subtitle.py":25
+  /* "av/subtitles/subtitle.py":24
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):
  *         if proxy_or_sentinel is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
  *             # Creating empty SubtitleSet for encoding
  *             self.proxy = SubtitleProxy()
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_cinit_bypass_sentinel); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__pyx_v_proxy_or_sentinel == __pyx_t_1);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_2) {
+  __pyx_t_1 = (__pyx_v_proxy_or_sentinel == __pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel);
+  if (__pyx_t_1) {
 
-    /* "av/subtitles/subtitle.py":27
+    /* "av/subtitles/subtitle.py":26
  *         if proxy_or_sentinel is _cinit_bypass_sentinel:
  *             # Creating empty SubtitleSet for encoding
  *             self.proxy = SubtitleProxy()             # <<<<<<<<<<<<<<
@@ -4229,18 +4206,18 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
     __pyx_t_4 = 1;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 27, __pyx_L1_error)
-      __Pyx_GOTREF((PyObject *)__pyx_t_1);
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
+      __Pyx_GOTREF((PyObject *)__pyx_t_2);
     }
-    __Pyx_GIVEREF((PyObject *)__pyx_t_1);
+    __Pyx_GIVEREF((PyObject *)__pyx_t_2);
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope->__pyx_v_self->proxy);
     __Pyx_DECREF((PyObject *)__pyx_cur_scope->__pyx_v_self->proxy);
-    __pyx_cur_scope->__pyx_v_self->proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_1);
-    __pyx_t_1 = 0;
+    __pyx_cur_scope->__pyx_v_self->proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_2);
+    __pyx_t_2 = 0;
 
-    /* "av/subtitles/subtitle.py":28
+    /* "av/subtitles/subtitle.py":27
  *             # Creating empty SubtitleSet for encoding
  *             self.proxy = SubtitleProxy()
  *             self.rects = ()             # <<<<<<<<<<<<<<
@@ -4253,7 +4230,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->rects);
     __pyx_cur_scope->__pyx_v_self->rects = __pyx_mstate_global->__pyx_empty_tuple;
 
-    /* "av/subtitles/subtitle.py":25
+    /* "av/subtitles/subtitle.py":24
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):
  *         if proxy_or_sentinel is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
@@ -4263,59 +4240,59 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
     goto __pyx_L3;
   }
 
-  /* "av/subtitles/subtitle.py":29
+  /* "av/subtitles/subtitle.py":28
  *             self.proxy = SubtitleProxy()
  *             self.rects = ()
  *         elif isinstance(proxy_or_sentinel, SubtitleProxy):             # <<<<<<<<<<<<<<
  *             # Creating from decoded subtitle
  *             self.proxy = proxy_or_sentinel
 */
-  __pyx_t_2 = __Pyx_TypeCheck(__pyx_v_proxy_or_sentinel, __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy); 
-  if (likely(__pyx_t_2)) {
+  __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_proxy_or_sentinel, __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy); 
+  if (likely(__pyx_t_1)) {
 
-    /* "av/subtitles/subtitle.py":31
+    /* "av/subtitles/subtitle.py":30
  *         elif isinstance(proxy_or_sentinel, SubtitleProxy):
  *             # Creating from decoded subtitle
  *             self.proxy = proxy_or_sentinel             # <<<<<<<<<<<<<<
  *             self.rects = tuple(
  *                 build_subtitle(self, i) for i in range(self.proxy.struct.num_rects)
 */
-    __pyx_t_1 = __pyx_v_proxy_or_sentinel;
-    __Pyx_INCREF(__pyx_t_1);
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy))))) __PYX_ERR(0, 31, __pyx_L1_error)
-    __Pyx_GIVEREF(__pyx_t_1);
+    __pyx_t_2 = __pyx_v_proxy_or_sentinel;
+    __Pyx_INCREF(__pyx_t_2);
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy))))) __PYX_ERR(0, 30, __pyx_L1_error)
+    __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope->__pyx_v_self->proxy);
     __Pyx_DECREF((PyObject *)__pyx_cur_scope->__pyx_v_self->proxy);
-    __pyx_cur_scope->__pyx_v_self->proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_1);
-    __pyx_t_1 = 0;
+    __pyx_cur_scope->__pyx_v_self->proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_2);
+    __pyx_t_2 = 0;
 
-    /* "av/subtitles/subtitle.py":33
+    /* "av/subtitles/subtitle.py":32
  *             self.proxy = proxy_or_sentinel
  *             self.rects = tuple(
  *                 build_subtitle(self, i) for i in range(self.proxy.struct.num_rects)             # <<<<<<<<<<<<<<
  *             )
  *         else:
 */
-    __pyx_t_1 = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___genexpr(((PyObject*)__pyx_cur_scope), __pyx_cur_scope->__pyx_v_self->proxy->__pyx_struct.num_rects); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_9__cinit___genexpr(((PyObject*)__pyx_cur_scope), __pyx_cur_scope->__pyx_v_self->proxy->__pyx_struct.num_rects); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
 
-    /* "av/subtitles/subtitle.py":32
+    /* "av/subtitles/subtitle.py":31
  *             # Creating from decoded subtitle
  *             self.proxy = proxy_or_sentinel
  *             self.rects = tuple(             # <<<<<<<<<<<<<<
  *                 build_subtitle(self, i) for i in range(self.proxy.struct.num_rects)
  *             )
 */
-    __pyx_t_3 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_Tuple(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_GIVEREF(__pyx_t_3);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->rects);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->rects);
     __pyx_cur_scope->__pyx_v_self->rects = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/subtitles/subtitle.py":29
+    /* "av/subtitles/subtitle.py":28
  *             self.proxy = SubtitleProxy()
  *             self.rects = ()
  *         elif isinstance(proxy_or_sentinel, SubtitleProxy):             # <<<<<<<<<<<<<<
@@ -4325,7 +4302,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
     goto __pyx_L3;
   }
 
-  /* "av/subtitles/subtitle.py":36
+  /* "av/subtitles/subtitle.py":35
  *             )
  *         else:
  *             raise TypeError(             # <<<<<<<<<<<<<<
@@ -4333,22 +4310,22 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
  *             )
 */
   /*else*/ {
-    __pyx_t_1 = NULL;
+    __pyx_t_2 = NULL;
     __pyx_t_4 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_SubtitleSet_requires_a_SubtitleP};
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_SubtitleSet_requires_a_SubtitleP};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 36, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 35, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 36, __pyx_L1_error)
+    __PYX_ERR(0, 35, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "av/subtitles/subtitle.py":24
+  /* "av/subtitles/subtitle.py":23
  *     """
  * 
  *     def __cinit__(self, proxy_or_sentinel=None):             # <<<<<<<<<<<<<<
@@ -4360,7 +4337,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
   __pyx_r = 0;
   goto __pyx_L0;
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("av.subtitles.subtitle.SubtitleSet.__cinit__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
@@ -4371,7 +4348,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet___cinit__(struct __py
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":40
+/* "av/subtitles/subtitle.py":39
  *             )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -4387,7 +4364,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_9subtitles_8subtitle_11SubtitleSet_2create, "SubtitleSet.create(bytes text: bytes, int start: int, int end: int, int pts: int = 0, int subtitle_format: int = 1) -> SubtitleSet\n\nCreate a SubtitleSet for encoding.\n\nArgs:\n    text: The subtitle text in ASS dialogue format\n          (e.g. b\"0,0,Default,,0,0,0,,Hello World\")\n    start: Start display time as offset from pts (typically 0)\n    end: End display time as offset from pts (i.e., duration)\n    pts: Presentation timestamp in stream time_base units\n    subtitle_format: Subtitle format (default 1 for text)\n\nNote:\n    All timing values should be in stream time_base units.\n    For MKV (time_base=1/1000), units are milliseconds.\n    For MP4 (time_base=1/1000000), units are microseconds.\n\nReturns:\n    A SubtitleSet ready for encoding");
+PyDoc_STRVAR(__pyx_doc_2av_9subtitles_8subtitle_11SubtitleSet_2create, "SubtitleSet.create(bytes text: bytes, int start: int, int end: int, int pts: int = 0, int subtitle_format: int = 1) -> SubtitleSet\n\nCreate a SubtitleSet for encoding.\n\n:param text: The subtitle text in ASS dialogue format\n    (e.g. ``b\"0,0,Default,,0,0,0,,Hello World\"``)\n:param start: Start display time as offset from pts (typically 0)\n:param end: End display time as offset from pts (i.e., duration)\n:param pts: Presentation timestamp in stream time_base units\n:param subtitle_format: Subtitle format (default 1 for text)\n:return: A SubtitleSet ready for encoding\n\n.. note::\n    All timing values should be in stream time_base units.\n    For MKV (time_base=1/1000), units are milliseconds.\n    For MP4 (time_base=1/1000000), units are microseconds.");
 static PyMethodDef __pyx_mdef_2av_9subtitles_8subtitle_11SubtitleSet_3create = {"create", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_3create, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_9subtitles_8subtitle_11SubtitleSet_2create};
 static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_3create(CYTHON_UNUSED PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -4423,56 +4400,56 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_text,&__pyx_mstate_global->__pyx_n_u_start,&__pyx_mstate_global->__pyx_n_u_end,&__pyx_mstate_global->__pyx_n_u_pts,&__pyx_mstate_global->__pyx_n_u_subtitle_format,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 40, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 39, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "create", 0) < (0)) __PYX_ERR(0, 40, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "create", 0) < (0)) __PYX_ERR(0, 39, __pyx_L3_error)
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_0));
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("create", 0, 3, 5, i); __PYX_ERR(0, 40, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("create", 0, 3, 5, i); __PYX_ERR(0, 39, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 39, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 39, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 40, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 39, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4480,18 +4457,18 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)__pyx_mstate_global->__pyx_int_1));
     }
     __pyx_v_text = ((PyObject*)values[0]);
-    if (__Pyx_PyInt_FromNumber(&values[1], "start", 0) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[1], "start", 0) < (0)) __PYX_ERR(0, 42, __pyx_L3_error)
     __pyx_v_start = ((PyObject*)values[1]);
-    if (__Pyx_PyInt_FromNumber(&values[2], "end", 0) < (0)) __PYX_ERR(0, 44, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[2], "end", 0) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
     __pyx_v_end = ((PyObject*)values[2]);
-    if (__Pyx_PyInt_FromNumber(&values[3], "pts", 0) < (0)) __PYX_ERR(0, 45, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[3], "pts", 0) < (0)) __PYX_ERR(0, 44, __pyx_L3_error)
     __pyx_v_pts = ((PyObject*)values[3]);
-    if (__Pyx_PyInt_FromNumber(&values[4], "subtitle_format", 0) < (0)) __PYX_ERR(0, 46, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[4], "subtitle_format", 0) < (0)) __PYX_ERR(0, 45, __pyx_L3_error)
     __pyx_v_subtitle_format = ((PyObject*)values[4]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("create", 0, 3, 5, __pyx_nargs); __PYX_ERR(0, 40, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("create", 0, 3, 5, __pyx_nargs); __PYX_ERR(0, 39, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4502,11 +4479,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyBytes_Type), 0, "text", 2))) __PYX_ERR(0, 42, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_start), (&PyLong_Type), 0, "start", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_end), (&PyLong_Type), 0, "end", 2))) __PYX_ERR(0, 44, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_pts), (&PyLong_Type), 0, "pts", 2))) __PYX_ERR(0, 45, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle_format), (&PyLong_Type), 0, "subtitle_format", 2))) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_text), (&PyBytes_Type), 0, "text", 2))) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_start), (&PyLong_Type), 0, "start", 2))) __PYX_ERR(0, 42, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_end), (&PyLong_Type), 0, "end", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_pts), (&PyLong_Type), 0, "pts", 2))) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle_format), (&PyLong_Type), 0, "subtitle_format", 2))) __PYX_ERR(0, 45, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_2create(__pyx_v_text, __pyx_v_start, __pyx_v_end, __pyx_v_pts, __pyx_v_subtitle_format);
 
   /* function exit code */
@@ -4534,82 +4511,78 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  size_t __pyx_t_4;
-  uint16_t __pyx_t_5;
-  uint32_t __pyx_t_6;
-  int64_t __pyx_t_7;
-  int __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  char *__pyx_t_10;
+  size_t __pyx_t_3;
+  uint16_t __pyx_t_4;
+  uint32_t __pyx_t_5;
+  int64_t __pyx_t_6;
+  int __pyx_t_7;
+  Py_ssize_t __pyx_t_8;
+  char *__pyx_t_9;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("create", 0);
 
-  /* "av/subtitles/subtitle.py":67
- *             A SubtitleSet ready for encoding
+  /* "av/subtitles/subtitle.py":63
+ *             For MP4 (time_base=1/1000000), units are microseconds.
  *         """
  *         subset: SubtitleSet = SubtitleSet(_cinit_bypass_sentinel)             # <<<<<<<<<<<<<<
  * 
  *         subset.proxy.struct.format = subtitle_format
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_cinit_bypass_sentinel); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 67, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = 1;
+  __pyx_t_3 = 1;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_subset = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/subtitles/subtitle.py":69
+  /* "av/subtitles/subtitle.py":65
  *         subset: SubtitleSet = SubtitleSet(_cinit_bypass_sentinel)
  * 
  *         subset.proxy.struct.format = subtitle_format             # <<<<<<<<<<<<<<
  *         subset.proxy.struct.start_display_time = start
  *         subset.proxy.struct.end_display_time = end
 */
-  __pyx_t_5 = __Pyx_PyLong_As_uint16_t(__pyx_v_subtitle_format); if (unlikely((__pyx_t_5 == ((uint16_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 69, __pyx_L1_error)
-  __pyx_v_subset->proxy->__pyx_struct.format = __pyx_t_5;
+  __pyx_t_4 = __Pyx_PyLong_As_uint16_t(__pyx_v_subtitle_format); if (unlikely((__pyx_t_4 == ((uint16_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_v_subset->proxy->__pyx_struct.format = __pyx_t_4;
 
-  /* "av/subtitles/subtitle.py":70
+  /* "av/subtitles/subtitle.py":66
  * 
  *         subset.proxy.struct.format = subtitle_format
  *         subset.proxy.struct.start_display_time = start             # <<<<<<<<<<<<<<
  *         subset.proxy.struct.end_display_time = end
  *         subset.proxy.struct.pts = pts
 */
-  __pyx_t_6 = __Pyx_PyLong_As_uint32_t(__pyx_v_start); if (unlikely((__pyx_t_6 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
-  __pyx_v_subset->proxy->__pyx_struct.start_display_time = __pyx_t_6;
+  __pyx_t_5 = __Pyx_PyLong_As_uint32_t(__pyx_v_start); if (unlikely((__pyx_t_5 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_v_subset->proxy->__pyx_struct.start_display_time = __pyx_t_5;
 
-  /* "av/subtitles/subtitle.py":71
+  /* "av/subtitles/subtitle.py":67
  *         subset.proxy.struct.format = subtitle_format
  *         subset.proxy.struct.start_display_time = start
  *         subset.proxy.struct.end_display_time = end             # <<<<<<<<<<<<<<
  *         subset.proxy.struct.pts = pts
  * 
 */
-  __pyx_t_6 = __Pyx_PyLong_As_uint32_t(__pyx_v_end); if (unlikely((__pyx_t_6 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L1_error)
-  __pyx_v_subset->proxy->__pyx_struct.end_display_time = __pyx_t_6;
+  __pyx_t_5 = __Pyx_PyLong_As_uint32_t(__pyx_v_end); if (unlikely((__pyx_t_5 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_v_subset->proxy->__pyx_struct.end_display_time = __pyx_t_5;
 
-  /* "av/subtitles/subtitle.py":72
+  /* "av/subtitles/subtitle.py":68
  *         subset.proxy.struct.start_display_time = start
  *         subset.proxy.struct.end_display_time = end
  *         subset.proxy.struct.pts = pts             # <<<<<<<<<<<<<<
  * 
  *         subset.proxy.struct.num_rects = 1
 */
-  __pyx_t_7 = __Pyx_PyLong_As_int64_t(__pyx_v_pts); if (unlikely((__pyx_t_7 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 72, __pyx_L1_error)
-  __pyx_v_subset->proxy->__pyx_struct.pts = __pyx_t_7;
+  __pyx_t_6 = __Pyx_PyLong_As_int64_t(__pyx_v_pts); if (unlikely((__pyx_t_6 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_v_subset->proxy->__pyx_struct.pts = __pyx_t_6;
 
-  /* "av/subtitles/subtitle.py":74
+  /* "av/subtitles/subtitle.py":70
  *         subset.proxy.struct.pts = pts
  * 
  *         subset.proxy.struct.num_rects = 1             # <<<<<<<<<<<<<<
@@ -4618,7 +4591,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_subset->proxy->__pyx_struct.num_rects = 1;
 
-  /* "av/subtitles/subtitle.py":75
+  /* "av/subtitles/subtitle.py":71
  * 
  *         subset.proxy.struct.num_rects = 1
  *         subset.proxy.struct.rects = cython.cast(             # <<<<<<<<<<<<<<
@@ -4627,37 +4600,37 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_subset->proxy->__pyx_struct.rects = ((struct AVSubtitleRect **)av_mallocz((sizeof(struct AVSubtitleRect *))));
 
-  /* "av/subtitles/subtitle.py":79
+  /* "av/subtitles/subtitle.py":75
  *             lib.av_mallocz(cython.sizeof(cython.pointer[lib.AVSubtitleRect])),
  *         )
  *         if subset.proxy.struct.rects == cython.NULL:             # <<<<<<<<<<<<<<
  *             raise MemoryError("Failed to allocate subtitle rects array")
  * 
 */
-  __pyx_t_8 = (__pyx_v_subset->proxy->__pyx_struct.rects == NULL);
-  if (unlikely(__pyx_t_8)) {
+  __pyx_t_7 = (__pyx_v_subset->proxy->__pyx_struct.rects == NULL);
+  if (unlikely(__pyx_t_7)) {
 
-    /* "av/subtitles/subtitle.py":80
+    /* "av/subtitles/subtitle.py":76
  *         )
  *         if subset.proxy.struct.rects == cython.NULL:
  *             raise MemoryError("Failed to allocate subtitle rects array")             # <<<<<<<<<<<<<<
  * 
  *         rect: cython.pointer[lib.AVSubtitleRect] = cython.cast(
 */
-    __pyx_t_3 = NULL;
-    __pyx_t_4 = 1;
+    __pyx_t_2 = NULL;
+    __pyx_t_3 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_rect};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_rect};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 80, __pyx_L1_error)
+    __PYX_ERR(0, 76, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":79
+    /* "av/subtitles/subtitle.py":75
  *             lib.av_mallocz(cython.sizeof(cython.pointer[lib.AVSubtitleRect])),
  *         )
  *         if subset.proxy.struct.rects == cython.NULL:             # <<<<<<<<<<<<<<
@@ -4666,7 +4639,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   }
 
-  /* "av/subtitles/subtitle.py":82
+  /* "av/subtitles/subtitle.py":78
  *             raise MemoryError("Failed to allocate subtitle rects array")
  * 
  *         rect: cython.pointer[lib.AVSubtitleRect] = cython.cast(             # <<<<<<<<<<<<<<
@@ -4675,17 +4648,17 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect = ((struct AVSubtitleRect *)av_mallocz((sizeof(struct AVSubtitleRect))));
 
-  /* "av/subtitles/subtitle.py":86
+  /* "av/subtitles/subtitle.py":82
  *             lib.av_mallocz(cython.sizeof(lib.AVSubtitleRect)),
  *         )
  *         if rect == cython.NULL:             # <<<<<<<<<<<<<<
  *             lib.av_free(subset.proxy.struct.rects)
  *             subset.proxy.struct.rects = cython.NULL
 */
-  __pyx_t_8 = (__pyx_v_rect == NULL);
-  if (unlikely(__pyx_t_8)) {
+  __pyx_t_7 = (__pyx_v_rect == NULL);
+  if (unlikely(__pyx_t_7)) {
 
-    /* "av/subtitles/subtitle.py":87
+    /* "av/subtitles/subtitle.py":83
  *         )
  *         if rect == cython.NULL:
  *             lib.av_free(subset.proxy.struct.rects)             # <<<<<<<<<<<<<<
@@ -4694,7 +4667,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
     av_free(__pyx_v_subset->proxy->__pyx_struct.rects);
 
-    /* "av/subtitles/subtitle.py":88
+    /* "av/subtitles/subtitle.py":84
  *         if rect == cython.NULL:
  *             lib.av_free(subset.proxy.struct.rects)
  *             subset.proxy.struct.rects = cython.NULL             # <<<<<<<<<<<<<<
@@ -4703,27 +4676,27 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
     __pyx_v_subset->proxy->__pyx_struct.rects = NULL;
 
-    /* "av/subtitles/subtitle.py":89
+    /* "av/subtitles/subtitle.py":85
  *             lib.av_free(subset.proxy.struct.rects)
  *             subset.proxy.struct.rects = cython.NULL
  *             raise MemoryError("Failed to allocate subtitle rect")             # <<<<<<<<<<<<<<
  * 
  *         subset.proxy.struct.rects[0] = rect
 */
-    __pyx_t_3 = NULL;
-    __pyx_t_4 = 1;
+    __pyx_t_2 = NULL;
+    __pyx_t_3 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_rect_2};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_rect_2};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 89, __pyx_L1_error)
+    __PYX_ERR(0, 85, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":86
+    /* "av/subtitles/subtitle.py":82
  *             lib.av_mallocz(cython.sizeof(lib.AVSubtitleRect)),
  *         )
  *         if rect == cython.NULL:             # <<<<<<<<<<<<<<
@@ -4732,7 +4705,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   }
 
-  /* "av/subtitles/subtitle.py":91
+  /* "av/subtitles/subtitle.py":87
  *             raise MemoryError("Failed to allocate subtitle rect")
  * 
  *         subset.proxy.struct.rects[0] = rect             # <<<<<<<<<<<<<<
@@ -4741,7 +4714,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   (__pyx_v_subset->proxy->__pyx_struct.rects[0]) = __pyx_v_rect;
 
-  /* "av/subtitles/subtitle.py":93
+  /* "av/subtitles/subtitle.py":89
  *         subset.proxy.struct.rects[0] = rect
  * 
  *         rect.x = 0             # <<<<<<<<<<<<<<
@@ -4750,7 +4723,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->x = 0;
 
-  /* "av/subtitles/subtitle.py":94
+  /* "av/subtitles/subtitle.py":90
  * 
  *         rect.x = 0
  *         rect.y = 0             # <<<<<<<<<<<<<<
@@ -4759,7 +4732,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->y = 0;
 
-  /* "av/subtitles/subtitle.py":95
+  /* "av/subtitles/subtitle.py":91
  *         rect.x = 0
  *         rect.y = 0
  *         rect.w = 0             # <<<<<<<<<<<<<<
@@ -4768,7 +4741,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->w = 0;
 
-  /* "av/subtitles/subtitle.py":96
+  /* "av/subtitles/subtitle.py":92
  *         rect.y = 0
  *         rect.w = 0
  *         rect.h = 0             # <<<<<<<<<<<<<<
@@ -4777,7 +4750,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->h = 0;
 
-  /* "av/subtitles/subtitle.py":97
+  /* "av/subtitles/subtitle.py":93
  *         rect.w = 0
  *         rect.h = 0
  *         rect.nb_colors = 0             # <<<<<<<<<<<<<<
@@ -4786,7 +4759,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->nb_colors = 0;
 
-  /* "av/subtitles/subtitle.py":98
+  /* "av/subtitles/subtitle.py":94
  *         rect.h = 0
  *         rect.nb_colors = 0
  *         rect.type = lib.SUBTITLE_ASS             # <<<<<<<<<<<<<<
@@ -4795,7 +4768,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->type = SUBTITLE_ASS;
 
-  /* "av/subtitles/subtitle.py":99
+  /* "av/subtitles/subtitle.py":95
  *         rect.nb_colors = 0
  *         rect.type = lib.SUBTITLE_ASS
  *         rect.text = cython.NULL             # <<<<<<<<<<<<<<
@@ -4804,7 +4777,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->text = NULL;
 
-  /* "av/subtitles/subtitle.py":100
+  /* "av/subtitles/subtitle.py":96
  *         rect.type = lib.SUBTITLE_ASS
  *         rect.text = cython.NULL
  *         rect.flags = 0             # <<<<<<<<<<<<<<
@@ -4813,17 +4786,17 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->flags = 0;
 
-  /* "av/subtitles/subtitle.py":102
+  /* "av/subtitles/subtitle.py":98
  *         rect.flags = 0
  * 
  *         text_len: cython.Py_ssize_t = len(text)             # <<<<<<<<<<<<<<
  *         rect.ass = cython.cast(cython.p_char, lib.av_malloc(text_len + 1))
  *         if rect.ass == cython.NULL:
 */
-  __pyx_t_9 = __Pyx_PyBytes_GET_SIZE(__pyx_v_text); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
-  __pyx_v_text_len = __pyx_t_9;
+  __pyx_t_8 = __Pyx_PyBytes_GET_SIZE(__pyx_v_text); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_v_text_len = __pyx_t_8;
 
-  /* "av/subtitles/subtitle.py":103
+  /* "av/subtitles/subtitle.py":99
  * 
  *         text_len: cython.Py_ssize_t = len(text)
  *         rect.ass = cython.cast(cython.p_char, lib.av_malloc(text_len + 1))             # <<<<<<<<<<<<<<
@@ -4832,37 +4805,37 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   __pyx_v_rect->ass = ((char *)av_malloc((__pyx_v_text_len + 1)));
 
-  /* "av/subtitles/subtitle.py":104
+  /* "av/subtitles/subtitle.py":100
  *         text_len: cython.Py_ssize_t = len(text)
  *         rect.ass = cython.cast(cython.p_char, lib.av_malloc(text_len + 1))
  *         if rect.ass == cython.NULL:             # <<<<<<<<<<<<<<
  *             raise MemoryError("Failed to allocate subtitle text")
  *         memcpy(rect.ass, cython.cast(cython.p_char, text), text_len)
 */
-  __pyx_t_8 = (__pyx_v_rect->ass == NULL);
-  if (unlikely(__pyx_t_8)) {
+  __pyx_t_7 = (__pyx_v_rect->ass == NULL);
+  if (unlikely(__pyx_t_7)) {
 
-    /* "av/subtitles/subtitle.py":105
+    /* "av/subtitles/subtitle.py":101
  *         rect.ass = cython.cast(cython.p_char, lib.av_malloc(text_len + 1))
  *         if rect.ass == cython.NULL:
  *             raise MemoryError("Failed to allocate subtitle text")             # <<<<<<<<<<<<<<
  *         memcpy(rect.ass, cython.cast(cython.p_char, text), text_len)
  *         rect.ass[text_len] = 0
 */
-    __pyx_t_3 = NULL;
-    __pyx_t_4 = 1;
+    __pyx_t_2 = NULL;
+    __pyx_t_3 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_text};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Failed_to_allocate_subtitle_text};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 105, __pyx_L1_error)
+    __PYX_ERR(0, 101, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":104
+    /* "av/subtitles/subtitle.py":100
  *         text_len: cython.Py_ssize_t = len(text)
  *         rect.ass = cython.cast(cython.p_char, lib.av_malloc(text_len + 1))
  *         if rect.ass == cython.NULL:             # <<<<<<<<<<<<<<
@@ -4871,17 +4844,17 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   }
 
-  /* "av/subtitles/subtitle.py":106
+  /* "av/subtitles/subtitle.py":102
  *         if rect.ass == cython.NULL:
  *             raise MemoryError("Failed to allocate subtitle text")
  *         memcpy(rect.ass, cython.cast(cython.p_char, text), text_len)             # <<<<<<<<<<<<<<
  *         rect.ass[text_len] = 0
  * 
 */
-  __pyx_t_10 = __Pyx_PyBytes_AsWritableString(__pyx_v_text); if (unlikely((!__pyx_t_10) && PyErr_Occurred())) __PYX_ERR(0, 106, __pyx_L1_error)
-  (void)(memcpy(__pyx_v_rect->ass, ((char *)__pyx_t_10), __pyx_v_text_len));
+  __pyx_t_9 = __Pyx_PyBytes_AsWritableString(__pyx_v_text); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L1_error)
+  (void)(memcpy(__pyx_v_rect->ass, ((char *)__pyx_t_9), __pyx_v_text_len));
 
-  /* "av/subtitles/subtitle.py":107
+  /* "av/subtitles/subtitle.py":103
  *             raise MemoryError("Failed to allocate subtitle text")
  *         memcpy(rect.ass, cython.cast(cython.p_char, text), text_len)
  *         rect.ass[text_len] = 0             # <<<<<<<<<<<<<<
@@ -4890,34 +4863,34 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
 */
   (__pyx_v_rect->ass[__pyx_v_text_len]) = 0;
 
-  /* "av/subtitles/subtitle.py":109
+  /* "av/subtitles/subtitle.py":105
  *         rect.ass[text_len] = 0
  * 
  *         subset.rects = (AssSubtitle(subset, 0),)             # <<<<<<<<<<<<<<
  * 
  *         return subset
 */
-  __pyx_t_3 = NULL;
-  __pyx_t_4 = 1;
+  __pyx_t_2 = NULL;
+  __pyx_t_3 = 1;
   {
-    PyObject *__pyx_callargs[3] = {__pyx_t_3, ((PyObject *)__pyx_v_subset), __pyx_mstate_global->__pyx_int_0};
-    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+    PyObject *__pyx_callargs[3] = {__pyx_t_2, ((PyObject *)__pyx_v_subset), __pyx_mstate_global->__pyx_int_0};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 109, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = PyTuple_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, ((PyObject *)__pyx_t_1)) != (0)) __PYX_ERR(0, 109, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, ((PyObject *)__pyx_t_1)) != (0)) __PYX_ERR(0, 105, __pyx_L1_error);
   __pyx_t_1 = 0;
-  __Pyx_GIVEREF(__pyx_t_3);
+  __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_subset->rects);
   __Pyx_DECREF(__pyx_v_subset->rects);
-  __pyx_v_subset->rects = ((PyObject*)__pyx_t_3);
-  __pyx_t_3 = 0;
+  __pyx_v_subset->rects = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "av/subtitles/subtitle.py":111
+  /* "av/subtitles/subtitle.py":107
  *         subset.rects = (AssSubtitle(subset, 0),)
  * 
  *         return subset             # <<<<<<<<<<<<<<
@@ -4929,7 +4902,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
   __pyx_r = __pyx_v_subset;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":40
+  /* "av/subtitles/subtitle.py":39
  *             )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -4941,7 +4914,6 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("av.subtitles.subtitle.SubtitleSet.create", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -4951,7 +4923,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *__pyx_pf_2av_9subt
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":113
+/* "av/subtitles/subtitle.py":109
  *         return subset
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -4987,7 +4959,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_4__repr__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/subtitles/subtitle.py":114
+  /* "av/subtitles/subtitle.py":110
  * 
  *     def __repr__(self):
  *         return (             # <<<<<<<<<<<<<<
@@ -4996,32 +4968,32 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_4__repr__(struc
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "av/subtitles/subtitle.py":115
+  /* "av/subtitles/subtitle.py":111
  *     def __repr__(self):
  *         return (
  *             f"<{self.__class__.__module__}.{self.__class__.__name__} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5[0] = __pyx_mstate_global->__pyx_kp_u_;
@@ -5032,7 +5004,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_4__repr__(struc
   __pyx_t_5[5] = __pyx_t_4;
   __pyx_t_5[6] = __pyx_mstate_global->__pyx_kp_u__3;
   __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, 1 * 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -5041,7 +5013,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_4__repr__(struc
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":113
+  /* "av/subtitles/subtitle.py":109
  *         return subset
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -5063,7 +5035,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_4__repr__(struc
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":118
+/* "av/subtitles/subtitle.py":114
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5095,7 +5067,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format___get__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":120
+  /* "av/subtitles/subtitle.py":116
  *     @property
  *     def format(self):
  *         return self.proxy.struct.format             # <<<<<<<<<<<<<<
@@ -5103,13 +5075,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format___get__
  *     @format.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_uint16_t(__pyx_v_self->proxy->__pyx_struct.format); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint16_t(__pyx_v_self->proxy->__pyx_struct.format); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":118
+  /* "av/subtitles/subtitle.py":114
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5128,7 +5100,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format___get__
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":122
+/* "av/subtitles/subtitle.py":118
  *         return self.proxy.struct.format
  * 
  *     @format.setter             # <<<<<<<<<<<<<<
@@ -5147,7 +5119,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_6format_3__set__(PyOb
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 123, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 119, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format_2__set__(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -5168,17 +5140,17 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format_2__set__(stru
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/subtitles/subtitle.py":124
+  /* "av/subtitles/subtitle.py":120
  *     @format.setter
  *     def format(self, value: int):
  *         self.proxy.struct.format = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_As_uint16_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint16_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_uint16_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint16_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 120, __pyx_L1_error)
   __pyx_v_self->proxy->__pyx_struct.format = __pyx_t_1;
 
-  /* "av/subtitles/subtitle.py":122
+  /* "av/subtitles/subtitle.py":118
  *         return self.proxy.struct.format
  * 
  *     @format.setter             # <<<<<<<<<<<<<<
@@ -5196,7 +5168,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6format_2__set__(stru
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":126
+/* "av/subtitles/subtitle.py":122
  *         self.proxy.struct.format = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5228,7 +5200,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":128
+  /* "av/subtitles/subtitle.py":124
  *     @property
  *     def start_display_time(self):
  *         return self.proxy.struct.start_display_time             # <<<<<<<<<<<<<<
@@ -5236,13 +5208,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display
  *     @start_display_time.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->proxy->__pyx_struct.start_display_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->proxy->__pyx_struct.start_display_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":126
+  /* "av/subtitles/subtitle.py":122
  *         self.proxy.struct.format = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5261,7 +5233,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":130
+/* "av/subtitles/subtitle.py":126
  *         return self.proxy.struct.start_display_time
  * 
  *     @start_display_time.setter             # <<<<<<<<<<<<<<
@@ -5280,7 +5252,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_18start_display_time_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 127, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display_time_2__set__(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -5301,17 +5273,17 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display_time_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/subtitles/subtitle.py":132
+  /* "av/subtitles/subtitle.py":128
  *     @start_display_time.setter
  *     def start_display_time(self, value: int):
  *         self.proxy.struct.start_display_time = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_As_uint32_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_uint32_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 128, __pyx_L1_error)
   __pyx_v_self->proxy->__pyx_struct.start_display_time = __pyx_t_1;
 
-  /* "av/subtitles/subtitle.py":130
+  /* "av/subtitles/subtitle.py":126
  *         return self.proxy.struct.start_display_time
  * 
  *     @start_display_time.setter             # <<<<<<<<<<<<<<
@@ -5329,7 +5301,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_18start_display_time_
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":134
+/* "av/subtitles/subtitle.py":130
  *         self.proxy.struct.start_display_time = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5361,7 +5333,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_t
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":136
+  /* "av/subtitles/subtitle.py":132
  *     @property
  *     def end_display_time(self):
  *         return self.proxy.struct.end_display_time             # <<<<<<<<<<<<<<
@@ -5369,13 +5341,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_t
  *     @end_display_time.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->proxy->__pyx_struct.end_display_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->proxy->__pyx_struct.end_display_time); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":134
+  /* "av/subtitles/subtitle.py":130
  *         self.proxy.struct.start_display_time = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5394,7 +5366,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_t
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":138
+/* "av/subtitles/subtitle.py":134
  *         return self.proxy.struct.end_display_time
  * 
  *     @end_display_time.setter             # <<<<<<<<<<<<<<
@@ -5413,7 +5385,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_time_3_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 135, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_time_2__set__(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -5434,17 +5406,17 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_time_2_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/subtitles/subtitle.py":140
+  /* "av/subtitles/subtitle.py":136
  *     @end_display_time.setter
  *     def end_display_time(self, value: int):
  *         self.proxy.struct.end_display_time = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_As_uint32_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_uint32_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L1_error)
   __pyx_v_self->proxy->__pyx_struct.end_display_time = __pyx_t_1;
 
-  /* "av/subtitles/subtitle.py":138
+  /* "av/subtitles/subtitle.py":134
  *         return self.proxy.struct.end_display_time
  * 
  *     @end_display_time.setter             # <<<<<<<<<<<<<<
@@ -5462,7 +5434,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_16end_display_time_2_
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":142
+/* "av/subtitles/subtitle.py":138
  *         self.proxy.struct.end_display_time = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5494,7 +5466,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":145
+  /* "av/subtitles/subtitle.py":141
  *     def pts(self):
  *         """Same as packet pts, in av.time_base."""
  *         return self.proxy.struct.pts             # <<<<<<<<<<<<<<
@@ -5502,13 +5474,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts___get__(st
  *     @pts.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->proxy->__pyx_struct.pts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->proxy->__pyx_struct.pts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":142
+  /* "av/subtitles/subtitle.py":138
  *         self.proxy.struct.end_display_time = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5527,7 +5499,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts___get__(st
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":147
+/* "av/subtitles/subtitle.py":143
  *         return self.proxy.struct.pts
  * 
  *     @pts.setter             # <<<<<<<<<<<<<<
@@ -5546,7 +5518,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_11SubtitleSet_3pts_3__set__(PyObjec
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyLong_Type), 0, "value", 2))) __PYX_ERR(0, 144, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts_2__set__(((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)__pyx_v_self), ((PyObject*)__pyx_v_value));
 
   /* function exit code */
@@ -5567,17 +5539,17 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts_2__set__(struct 
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/subtitles/subtitle.py":149
+  /* "av/subtitles/subtitle.py":145
  *     @pts.setter
  *     def pts(self, value: int):
  *         self.proxy.struct.pts = value             # <<<<<<<<<<<<<<
  * 
  *     def __len__(self):
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_1 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
   __pyx_v_self->proxy->__pyx_struct.pts = __pyx_t_1;
 
-  /* "av/subtitles/subtitle.py":147
+  /* "av/subtitles/subtitle.py":143
  *         return self.proxy.struct.pts
  * 
  *     @pts.setter             # <<<<<<<<<<<<<<
@@ -5595,7 +5567,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_3pts_2__set__(struct 
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":151
+/* "av/subtitles/subtitle.py":147
  *         self.proxy.struct.pts = value
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -5628,7 +5600,7 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6__len__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__len__", 0);
 
-  /* "av/subtitles/subtitle.py":152
+  /* "av/subtitles/subtitle.py":148
  * 
  *     def __len__(self):
  *         return len(self.rects)             # <<<<<<<<<<<<<<
@@ -5639,14 +5611,14 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6__len__(struc
   __Pyx_INCREF(__pyx_t_1);
   if (unlikely(__pyx_t_1 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 152, __pyx_L1_error)
+    __PYX_ERR(0, 148, __pyx_L1_error)
   }
-  __pyx_t_2 = __Pyx_PyTuple_GET_SIZE(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyTuple_GET_SIZE(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":151
+  /* "av/subtitles/subtitle.py":147
  *         self.proxy.struct.pts = value
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -5664,7 +5636,7 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_6__len__(struc
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":154
+/* "av/subtitles/subtitle.py":150
  *         return len(self.rects)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -5697,7 +5669,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_8__iter__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "av/subtitles/subtitle.py":155
+  /* "av/subtitles/subtitle.py":151
  * 
  *     def __iter__(self):
  *         return iter(self.rects)             # <<<<<<<<<<<<<<
@@ -5707,14 +5679,14 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_8__iter__(struc
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->rects;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":154
+  /* "av/subtitles/subtitle.py":150
  *         return len(self.rects)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -5734,7 +5706,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_8__iter__(struc
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":157
+/* "av/subtitles/subtitle.py":153
  *         return iter(self.rects)
  * 
  *     def __getitem__(self, i):             # <<<<<<<<<<<<<<
@@ -5766,7 +5738,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_10__getitem__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "av/subtitles/subtitle.py":158
+  /* "av/subtitles/subtitle.py":154
  * 
  *     def __getitem__(self, i):
  *         return self.rects[i]             # <<<<<<<<<<<<<<
@@ -5776,15 +5748,15 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_10__getitem__(s
   __Pyx_XDECREF(__pyx_r);
   if (unlikely(__pyx_v_self->rects == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 158, __pyx_L1_error)
+    __PYX_ERR(0, 154, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_self->rects, __pyx_v_i); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_self->rects, __pyx_v_i); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":157
+  /* "av/subtitles/subtitle.py":153
  *         return iter(self.rects)
  * 
  *     def __getitem__(self, i):             # <<<<<<<<<<<<<<
@@ -5803,12 +5775,12 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_10__getitem__(s
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":10
+/* "av/subtitles/subtitle.pxd":9
  * cdef class SubtitleSet:
  *     cdef SubtitleProxy proxy
  *     cdef readonly tuple rects             # <<<<<<<<<<<<<<
  * 
- * 
+ * cdef class Subtitle:
 */
 
 /* Python wrapper */
@@ -6046,7 +6018,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11SubtitleSet_14__setstate_cy
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":161
+/* "av/subtitles/subtitle.py":157
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -6070,7 +6042,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_subtitle", 0);
 
-  /* "av/subtitles/subtitle.py":167
+  /* "av/subtitles/subtitle.py":163
  *     The AVStream MUST be fully constructed and ready for use before this is called.
  *     """
  *     if index < 0 or cython.cast(cython.uint, index) >= subtitle.proxy.struct.num_rects:             # <<<<<<<<<<<<<<
@@ -6088,7 +6060,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/subtitle.py":168
+    /* "av/subtitles/subtitle.py":164
  *     """
  *     if index < 0 or cython.cast(cython.uint, index) >= subtitle.proxy.struct.num_rects:
  *         raise ValueError("subtitle rect index out of range")             # <<<<<<<<<<<<<<
@@ -6101,14 +6073,14 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_subtitle_rect_index_out_of_range};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 168, __pyx_L1_error)
+    __PYX_ERR(0, 164, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":167
+    /* "av/subtitles/subtitle.py":163
  *     The AVStream MUST be fully constructed and ready for use before this is called.
  *     """
  *     if index < 0 or cython.cast(cython.uint, index) >= subtitle.proxy.struct.num_rects:             # <<<<<<<<<<<<<<
@@ -6117,7 +6089,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
 */
   }
 
-  /* "av/subtitles/subtitle.py":170
+  /* "av/subtitles/subtitle.py":166
  *         raise ValueError("subtitle rect index out of range")
  * 
  *     ptr: cython.pointer[lib.AVSubtitleRect] = subtitle.proxy.struct.rects[index]             # <<<<<<<<<<<<<<
@@ -6126,7 +6098,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
 */
   __pyx_v_ptr = (__pyx_v_subtitle->proxy->__pyx_struct.rects[__pyx_v_index]);
 
-  /* "av/subtitles/subtitle.py":172
+  /* "av/subtitles/subtitle.py":168
  *     ptr: cython.pointer[lib.AVSubtitleRect] = subtitle.proxy.struct.rects[index]
  * 
  *     if ptr.type == lib.SUBTITLE_BITMAP:             # <<<<<<<<<<<<<<
@@ -6136,7 +6108,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
   __pyx_t_1 = (__pyx_v_ptr->type == SUBTITLE_BITMAP);
   if (__pyx_t_1) {
 
-    /* "av/subtitles/subtitle.py":173
+    /* "av/subtitles/subtitle.py":169
  * 
  *     if ptr.type == lib.SUBTITLE_BITMAP:
  *         return BitmapSubtitle(subtitle, index)             # <<<<<<<<<<<<<<
@@ -6145,7 +6117,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_t_4 = NULL;
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_index); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_index); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 169, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = 1;
     {
@@ -6153,14 +6125,14 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 169, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_3);
     }
     __pyx_r = ((struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/subtitle.py":172
+    /* "av/subtitles/subtitle.py":168
  *     ptr: cython.pointer[lib.AVSubtitleRect] = subtitle.proxy.struct.rects[index]
  * 
  *     if ptr.type == lib.SUBTITLE_BITMAP:             # <<<<<<<<<<<<<<
@@ -6169,7 +6141,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
 */
   }
 
-  /* "av/subtitles/subtitle.py":174
+  /* "av/subtitles/subtitle.py":170
  *     if ptr.type == lib.SUBTITLE_BITMAP:
  *         return BitmapSubtitle(subtitle, index)
  *     if ptr.type == lib.SUBTITLE_ASS or ptr.type == lib.SUBTITLE_TEXT:             # <<<<<<<<<<<<<<
@@ -6180,7 +6152,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
     case SUBTITLE_ASS:
     case SUBTITLE_TEXT:
 
-    /* "av/subtitles/subtitle.py":175
+    /* "av/subtitles/subtitle.py":171
  *         return BitmapSubtitle(subtitle, index)
  *     if ptr.type == lib.SUBTITLE_ASS or ptr.type == lib.SUBTITLE_TEXT:
  *         return AssSubtitle(subtitle, index)             # <<<<<<<<<<<<<<
@@ -6189,7 +6161,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_t_6 = NULL;
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_index); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_index); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     {
@@ -6197,14 +6169,14 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 175, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 171, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_3);
     }
     __pyx_r = ((struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/subtitle.py":174
+    /* "av/subtitles/subtitle.py":170
  *     if ptr.type == lib.SUBTITLE_BITMAP:
  *         return BitmapSubtitle(subtitle, index)
  *     if ptr.type == lib.SUBTITLE_ASS or ptr.type == lib.SUBTITLE_TEXT:             # <<<<<<<<<<<<<<
@@ -6215,7 +6187,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
     default: break;
   }
 
-  /* "av/subtitles/subtitle.py":177
+  /* "av/subtitles/subtitle.py":173
  *         return AssSubtitle(subtitle, index)
  * 
  *     raise ValueError("unknown subtitle type %r" % ptr.type)             # <<<<<<<<<<<<<<
@@ -6223,9 +6195,9 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
  * 
 */
   __pyx_t_4 = NULL;
-  __pyx_t_6 = __Pyx_PyLong_From_enum__AVSubtitleType(__pyx_v_ptr->type); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_enum__AVSubtitleType(__pyx_v_ptr->type); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_unknown_subtitle_type_r, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_7 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_unknown_subtitle_type_r, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_5 = 1;
@@ -6234,14 +6206,14 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_Raise(__pyx_t_3, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __PYX_ERR(0, 177, __pyx_L1_error)
+  __PYX_ERR(0, 173, __pyx_L1_error)
 
-  /* "av/subtitles/subtitle.py":161
+  /* "av/subtitles/subtitle.py":157
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -6263,7 +6235,7 @@ static struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *__pyx_f_2av_9subtitle
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":187
+/* "av/subtitles/subtitle.py":183
  *     """
  * 
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -6294,39 +6266,39 @@ static int __pyx_pw_2av_9subtitles_8subtitle_8Subtitle_1__cinit__(PyObject *__py
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_subtitle,&__pyx_mstate_global->__pyx_n_u_index,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 187, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 183, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 183, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 187, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 183, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 183, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 187, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 183, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 183, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 187, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 183, __pyx_L3_error)
     }
     __pyx_v_subtitle = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)values[0]);
-    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 187, __pyx_L3_error)
+    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 183, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 187, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 183, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6337,7 +6309,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_8Subtitle_1__cinit__(PyObject *__py
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 183, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(((struct __pyx_obj_2av_9subtitles_8subtitle_Subtitle *)__pyx_v_self), __pyx_v_subtitle, __pyx_v_index);
 
   /* function exit code */
@@ -6372,7 +6344,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/subtitles/subtitle.py":189
+  /* "av/subtitles/subtitle.py":185
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         if (
  *             index < 0             # <<<<<<<<<<<<<<
@@ -6386,7 +6358,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "av/subtitles/subtitle.py":190
+  /* "av/subtitles/subtitle.py":186
  *         if (
  *             index < 0
  *             or cython.cast(cython.uint, index) >= subtitle.proxy.struct.num_rects             # <<<<<<<<<<<<<<
@@ -6397,7 +6369,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
   __pyx_t_1 = __pyx_t_2;
   __pyx_L4_bool_binop_done:;
 
-  /* "av/subtitles/subtitle.py":188
+  /* "av/subtitles/subtitle.py":184
  * 
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         if (             # <<<<<<<<<<<<<<
@@ -6406,7 +6378,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
 */
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/subtitle.py":192
+    /* "av/subtitles/subtitle.py":188
  *             or cython.cast(cython.uint, index) >= subtitle.proxy.struct.num_rects
  *         ):
  *             raise ValueError("subtitle rect index out of range")             # <<<<<<<<<<<<<<
@@ -6419,14 +6391,14 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_subtitle_rect_index_out_of_range};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 192, __pyx_L1_error)
+    __PYX_ERR(0, 188, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":188
+    /* "av/subtitles/subtitle.py":184
  * 
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         if (             # <<<<<<<<<<<<<<
@@ -6435,7 +6407,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
 */
   }
 
-  /* "av/subtitles/subtitle.py":193
+  /* "av/subtitles/subtitle.py":189
  *         ):
  *             raise ValueError("subtitle rect index out of range")
  *         self.proxy = subtitle.proxy             # <<<<<<<<<<<<<<
@@ -6450,7 +6422,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
   __pyx_v_self->proxy = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleProxy *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "av/subtitles/subtitle.py":194
+  /* "av/subtitles/subtitle.py":190
  *             raise ValueError("subtitle rect index out of range")
  *         self.proxy = subtitle.proxy
  *         self.ptr = self.proxy.struct.rects[index]             # <<<<<<<<<<<<<<
@@ -6459,7 +6431,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
 */
   __pyx_v_self->ptr = (__pyx_v_self->proxy->__pyx_struct.rects[__pyx_v_index]);
 
-  /* "av/subtitles/subtitle.py":196
+  /* "av/subtitles/subtitle.py":192
  *         self.ptr = self.proxy.struct.rects[index]
  * 
  *         if self.ptr.type == lib.SUBTITLE_NONE:             # <<<<<<<<<<<<<<
@@ -6469,7 +6441,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
   switch (__pyx_v_self->ptr->type) {
     case SUBTITLE_NONE:
 
-    /* "av/subtitles/subtitle.py":197
+    /* "av/subtitles/subtitle.py":193
  * 
  *         if self.ptr.type == lib.SUBTITLE_NONE:
  *             self.type = b"none"             # <<<<<<<<<<<<<<
@@ -6482,7 +6454,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     __Pyx_DECREF(__pyx_v_self->type);
     __pyx_v_self->type = __pyx_mstate_global->__pyx_n_b_none;
 
-    /* "av/subtitles/subtitle.py":196
+    /* "av/subtitles/subtitle.py":192
  *         self.ptr = self.proxy.struct.rects[index]
  * 
  *         if self.ptr.type == lib.SUBTITLE_NONE:             # <<<<<<<<<<<<<<
@@ -6492,7 +6464,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     break;
     case SUBTITLE_BITMAP:
 
-    /* "av/subtitles/subtitle.py":199
+    /* "av/subtitles/subtitle.py":195
  *             self.type = b"none"
  *         elif self.ptr.type == lib.SUBTITLE_BITMAP:
  *             self.type = b"bitmap"             # <<<<<<<<<<<<<<
@@ -6505,7 +6477,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     __Pyx_DECREF(__pyx_v_self->type);
     __pyx_v_self->type = __pyx_mstate_global->__pyx_n_b_bitmap;
 
-    /* "av/subtitles/subtitle.py":198
+    /* "av/subtitles/subtitle.py":194
  *         if self.ptr.type == lib.SUBTITLE_NONE:
  *             self.type = b"none"
  *         elif self.ptr.type == lib.SUBTITLE_BITMAP:             # <<<<<<<<<<<<<<
@@ -6515,7 +6487,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     break;
     case SUBTITLE_TEXT:
 
-    /* "av/subtitles/subtitle.py":201
+    /* "av/subtitles/subtitle.py":197
  *             self.type = b"bitmap"
  *         elif self.ptr.type == lib.SUBTITLE_TEXT:
  *             self.type = b"text"             # <<<<<<<<<<<<<<
@@ -6528,7 +6500,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     __Pyx_DECREF(__pyx_v_self->type);
     __pyx_v_self->type = __pyx_mstate_global->__pyx_n_b_text;
 
-    /* "av/subtitles/subtitle.py":200
+    /* "av/subtitles/subtitle.py":196
  *         elif self.ptr.type == lib.SUBTITLE_BITMAP:
  *             self.type = b"bitmap"
  *         elif self.ptr.type == lib.SUBTITLE_TEXT:             # <<<<<<<<<<<<<<
@@ -6538,7 +6510,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     break;
     case SUBTITLE_ASS:
 
-    /* "av/subtitles/subtitle.py":203
+    /* "av/subtitles/subtitle.py":199
  *             self.type = b"text"
  *         elif self.ptr.type == lib.SUBTITLE_ASS:
  *             self.type = b"ass"             # <<<<<<<<<<<<<<
@@ -6551,7 +6523,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     __Pyx_DECREF(__pyx_v_self->type);
     __pyx_v_self->type = __pyx_mstate_global->__pyx_n_b_ass;
 
-    /* "av/subtitles/subtitle.py":202
+    /* "av/subtitles/subtitle.py":198
  *         elif self.ptr.type == lib.SUBTITLE_TEXT:
  *             self.type = b"text"
  *         elif self.ptr.type == lib.SUBTITLE_ASS:             # <<<<<<<<<<<<<<
@@ -6561,7 +6533,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
     break;
     default:
 
-    /* "av/subtitles/subtitle.py":205
+    /* "av/subtitles/subtitle.py":201
  *             self.type = b"ass"
  *         else:
  *             raise ValueError(f"unknown subtitle type {self.ptr.type!r}")             # <<<<<<<<<<<<<<
@@ -6569,9 +6541,9 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
  *     def __repr__(self):
 */
     __pyx_t_4 = NULL;
-    __pyx_t_6 = __Pyx_PyUnicode_From_enum__AVSubtitleType(__pyx_v_self->ptr->type, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_From_enum__AVSubtitleType(__pyx_v_self->ptr->type, 0, ' ', 'd'); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_unknown_subtitle_type, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 205, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_unknown_subtitle_type, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_5 = 1;
@@ -6580,16 +6552,16 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 205, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 205, __pyx_L1_error)
+    __PYX_ERR(0, 201, __pyx_L1_error)
     break;
   }
 
-  /* "av/subtitles/subtitle.py":187
+  /* "av/subtitles/subtitle.py":183
  *     """
  * 
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -6612,7 +6584,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_8Subtitle___cinit__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":207
+/* "av/subtitles/subtitle.py":203
  *             raise ValueError(f"unknown subtitle type {self.ptr.type!r}")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -6647,7 +6619,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_2__repr__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/subtitles/subtitle.py":208
+  /* "av/subtitles/subtitle.py":204
  * 
  *     def __repr__(self):
  *         return f"<av.{self.__class__.__name__} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
@@ -6655,17 +6627,17 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_2__repr__(struct __
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -6674,7 +6646,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_2__repr__(struct __
   __pyx_t_4[3] = __pyx_t_3;
   __pyx_t_4[4] = __pyx_mstate_global->__pyx_kp_u__3;
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -6682,7 +6654,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_2__repr__(struct __
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":207
+  /* "av/subtitles/subtitle.py":203
  *             raise ValueError(f"unknown subtitle type {self.ptr.type!r}")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -6703,7 +6675,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_2__repr__(struct __
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":16
+/* "av/subtitles/subtitle.pxd":14
  *     cdef SubtitleProxy proxy
  *     cdef lib.AVSubtitleRect *ptr
  *     cdef readonly bytes type             # <<<<<<<<<<<<<<
@@ -6946,7 +6918,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_8Subtitle_6__setstate_cython_
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":213
+/* "av/subtitles/subtitle.py":209
  * @cython.cclass
  * class BitmapSubtitle(Subtitle):
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -6977,39 +6949,39 @@ static int __pyx_pw_2av_9subtitles_8subtitle_14BitmapSubtitle_1__cinit__(PyObjec
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_subtitle,&__pyx_mstate_global->__pyx_n_u_index,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 213, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 209, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 213, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 213, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 213, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 209, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 213, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 209, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 213, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 213, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
     }
     __pyx_v_subtitle = ((struct __pyx_obj_2av_9subtitles_8subtitle_SubtitleSet *)values[0]);
-    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L3_error)
+    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 213, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 209, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7020,7 +6992,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_14BitmapSubtitle_1__cinit__(PyObjec
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 213, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, 0, "subtitle", 0))) __PYX_ERR(0, 209, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle___cinit__(((struct __pyx_obj_2av_9subtitles_8subtitle_BitmapSubtitle *)__pyx_v_self), __pyx_v_subtitle, __pyx_v_index);
 
   /* function exit code */
@@ -7041,7 +7013,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_14BitmapSubtitle_1__cinit__(PyObjec
 }
 static PyObject *__pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "av/subtitles/subtitle.py":215
+/* "av/subtitles/subtitle.py":211
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         self.planes = tuple(
  *             BitmapSubtitlePlane(self, i) for i in range(4) if self.ptr.linesize[i]             # <<<<<<<<<<<<<<
@@ -7061,7 +7033,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___g
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 215, __pyx_L1_error)
+    __PYX_ERR(0, 211, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -7069,7 +7041,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___g
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_cinit___locals_genexpr, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!gen)) __PYX_ERR(0, 215, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_cinit___locals_genexpr, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!gen)) __PYX_ERR(0, 211, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -7110,16 +7082,16 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started generator");
-    __PYX_ERR(0, 215, __pyx_L1_error)
+    __PYX_ERR(0, 211, __pyx_L1_error)
   }
   for (__pyx_t_1 = 0; __pyx_t_1 < 4; __pyx_t_1+=1) {
     __pyx_cur_scope->__pyx_v_i = __pyx_t_1;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 215, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 211, __pyx_L1_error) }
     __pyx_t_2 = ((__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self->__pyx_base.ptr->linesize[__pyx_cur_scope->__pyx_v_i]) != 0);
     if (__pyx_t_2) {
       __pyx_t_4 = NULL;
-      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 215, __pyx_L1_error) }
-      __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_cur_scope->__pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+      if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 211, __pyx_L1_error) }
+      __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_cur_scope->__pyx_v_i); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 211, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_6 = 1;
       {
@@ -7127,7 +7099,7 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2
         __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 215, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
         __Pyx_GOTREF((PyObject *)__pyx_t_3);
       }
       __pyx_r = ((PyObject *)__pyx_t_3);
@@ -7141,7 +7113,7 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2
       return __pyx_r;
       __pyx_L7_resume_from_yield:;
       __pyx_t_1 = __pyx_cur_scope->__pyx_t_0;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 215, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 211, __pyx_L1_error)
     }
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
@@ -7168,7 +7140,7 @@ static PyObject *__pyx_gb_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___2
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":213
+/* "av/subtitles/subtitle.py":209
  * @cython.cclass
  * class BitmapSubtitle(Subtitle):
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -7191,7 +7163,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle___cinit__(struct _
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 213, __pyx_L1_error)
+    __PYX_ERR(0, 209, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -7199,24 +7171,24 @@ static int __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle___cinit__(struct _
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
 
-  /* "av/subtitles/subtitle.py":215
+  /* "av/subtitles/subtitle.py":211
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         self.planes = tuple(
  *             BitmapSubtitlePlane(self, i) for i in range(4) if self.ptr.linesize[i]             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_1 = __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_1 = __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9__cinit___genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "av/subtitles/subtitle.py":214
+  /* "av/subtitles/subtitle.py":210
  * class BitmapSubtitle(Subtitle):
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):
  *         self.planes = tuple(             # <<<<<<<<<<<<<<
  *             BitmapSubtitlePlane(self, i) for i in range(4) if self.ptr.linesize[i]
  *         )
 */
-  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_GIVEREF(__pyx_t_2);
@@ -7225,7 +7197,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle___cinit__(struct _
   __pyx_cur_scope->__pyx_v_self->planes = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/subtitles/subtitle.py":213
+  /* "av/subtitles/subtitle.py":209
  * @cython.cclass
  * class BitmapSubtitle(Subtitle):
  *     def __cinit__(self, subtitle: SubtitleSet, index: cython.int):             # <<<<<<<<<<<<<<
@@ -7248,7 +7220,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle___cinit__(struct _
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":218
+/* "av/subtitles/subtitle.py":214
  *         )
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -7288,7 +7260,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/subtitles/subtitle.py":219
+  /* "av/subtitles/subtitle.py":215
  * 
  *     def __repr__(self):
  *         return (             # <<<<<<<<<<<<<<
@@ -7297,60 +7269,60 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "av/subtitles/subtitle.py":220
+  /* "av/subtitles/subtitle.py":216
  *     def __repr__(self):
  *         return (
  *             f"<{self.__class__.__module__}.{self.__class__.__name__} "             # <<<<<<<<<<<<<<
  *             f"{self.width}x{self.height} at {self.x},{self.y}; at 0x{id(self):x}>"
  *         )
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_module); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 220, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/subtitles/subtitle.py":221
+  /* "av/subtitles/subtitle.py":217
  *         return (
  *             f"<{self.__class__.__module__}.{self.__class__.__name__} "
  *             f"{self.width}x{self.height} at {self.x},{self.y}; at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_width); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_height); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_height); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_y); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_y); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_8 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_;
@@ -7369,7 +7341,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
   __pyx_t_9[13] = __pyx_t_8;
   __pyx_t_9[14] = __pyx_mstate_global->__pyx_kp_u__3;
 
-  /* "av/subtitles/subtitle.py":220
+  /* "av/subtitles/subtitle.py":216
  *     def __repr__(self):
  *         return (
  *             f"<{self.__class__.__module__}.{self.__class__.__name__} "             # <<<<<<<<<<<<<<
@@ -7377,7 +7349,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
  *         )
 */
   __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_9, 15, 1 * 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 7 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 220, __pyx_L1_error)
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -7390,7 +7362,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":218
+  /* "av/subtitles/subtitle.py":214
  *         )
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -7416,7 +7388,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_2__repr__(st
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":224
+/* "av/subtitles/subtitle.py":220
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7448,7 +7420,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1x___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":226
+  /* "av/subtitles/subtitle.py":222
  *     @property
  *     def x(self):
  *         return self.ptr.x             # <<<<<<<<<<<<<<
@@ -7456,13 +7428,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1x___get__(s
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->x); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":224
+  /* "av/subtitles/subtitle.py":220
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7481,7 +7453,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1x___get__(s
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":228
+/* "av/subtitles/subtitle.py":224
  *         return self.ptr.x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7513,7 +7485,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1y___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":230
+  /* "av/subtitles/subtitle.py":226
  *     @property
  *     def y(self):
  *         return self.ptr.y             # <<<<<<<<<<<<<<
@@ -7521,13 +7493,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1y___get__(s
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->y); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":228
+  /* "av/subtitles/subtitle.py":224
  *         return self.ptr.x
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7546,7 +7518,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_1y___get__(s
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":232
+/* "av/subtitles/subtitle.py":228
  *         return self.ptr.y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7578,7 +7550,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_5width___get
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":234
+  /* "av/subtitles/subtitle.py":230
  *     @property
  *     def width(self):
  *         return self.ptr.w             # <<<<<<<<<<<<<<
@@ -7586,13 +7558,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_5width___get
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->w); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":232
+  /* "av/subtitles/subtitle.py":228
  *         return self.ptr.y
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7611,7 +7583,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_5width___get
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":236
+/* "av/subtitles/subtitle.py":232
  *         return self.ptr.w
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7643,7 +7615,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6height___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":238
+  /* "av/subtitles/subtitle.py":234
  *     @property
  *     def height(self):
  *         return self.ptr.h             # <<<<<<<<<<<<<<
@@ -7651,13 +7623,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6height___ge
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":236
+  /* "av/subtitles/subtitle.py":232
  *         return self.ptr.w
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7676,7 +7648,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6height___ge
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":240
+/* "av/subtitles/subtitle.py":236
  *         return self.ptr.h
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7708,7 +7680,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9nb_colors__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":242
+  /* "av/subtitles/subtitle.py":238
  *     @property
  *     def nb_colors(self):
  *         return self.ptr.nb_colors             # <<<<<<<<<<<<<<
@@ -7716,13 +7688,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9nb_colors__
  *     def __len__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->nb_colors); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->nb_colors); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":240
+  /* "av/subtitles/subtitle.py":236
  *         return self.ptr.h
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -7741,7 +7713,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_9nb_colors__
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":244
+/* "av/subtitles/subtitle.py":240
  *         return self.ptr.nb_colors
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -7774,7 +7746,7 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_4__len__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__len__", 0);
 
-  /* "av/subtitles/subtitle.py":245
+  /* "av/subtitles/subtitle.py":241
  * 
  *     def __len__(self):
  *         return len(self.planes)             # <<<<<<<<<<<<<<
@@ -7783,12 +7755,12 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_4__len__(st
 */
   __pyx_t_1 = __pyx_v_self->planes;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_2 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 241, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":244
+  /* "av/subtitles/subtitle.py":240
  *         return self.ptr.nb_colors
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -7806,7 +7778,7 @@ static Py_ssize_t __pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_4__len__(st
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":247
+/* "av/subtitles/subtitle.py":243
  *         return len(self.planes)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -7839,7 +7811,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6__iter__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "av/subtitles/subtitle.py":248
+  /* "av/subtitles/subtitle.py":244
  * 
  *     def __iter__(self):
  *         return iter(self.planes)             # <<<<<<<<<<<<<<
@@ -7849,14 +7821,14 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6__iter__(st
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->planes;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 248, __pyx_L1_error)
+  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":247
+  /* "av/subtitles/subtitle.py":243
  *         return len(self.planes)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -7876,7 +7848,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_6__iter__(st
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":250
+/* "av/subtitles/subtitle.py":246
  *         return iter(self.planes)
  * 
  *     def __getitem__(self, i):             # <<<<<<<<<<<<<<
@@ -7908,7 +7880,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_8__getitem__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "av/subtitles/subtitle.py":251
+  /* "av/subtitles/subtitle.py":247
  * 
  *     def __getitem__(self, i):
  *         return self.planes[i]             # <<<<<<<<<<<<<<
@@ -7916,13 +7888,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_8__getitem__
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_self->planes, __pyx_v_i); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_self->planes, __pyx_v_i); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":250
+  /* "av/subtitles/subtitle.py":246
  *         return iter(self.planes)
  * 
  *     def __getitem__(self, i):             # <<<<<<<<<<<<<<
@@ -7941,7 +7913,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_8__getitem__
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":25
+/* "av/subtitles/subtitle.pxd":23
  * 
  * cdef class BitmapSubtitle(Subtitle):
  *     cdef readonly planes             # <<<<<<<<<<<<<<
@@ -8184,7 +8156,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_14BitmapSubtitle_12__setstate
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":256
+/* "av/subtitles/subtitle.py":252
  * @cython.cclass
  * class BitmapSubtitlePlane:
  *     def __cinit__(self, subtitle: BitmapSubtitle, index: cython.int):             # <<<<<<<<<<<<<<
@@ -8215,39 +8187,39 @@ static int __pyx_pw_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_1__cinit__(Py
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_subtitle,&__pyx_mstate_global->__pyx_n_u_index,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 256, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 252, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 256, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 252, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 256, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 252, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 256, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 252, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 256, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 252, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 256, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 252, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 256, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 252, __pyx_L3_error)
     }
     __pyx_v_subtitle = ((struct __pyx_obj_2av_9subtitles_8subtitle_BitmapSubtitle *)values[0]);
-    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 256, __pyx_L3_error)
+    __pyx_v_index = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_index == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 252, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 256, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 252, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8258,7 +8230,7 @@ static int __pyx_pw_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_1__cinit__(Py
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle, 0, "subtitle", 0))) __PYX_ERR(0, 256, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_subtitle), __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle, 0, "subtitle", 0))) __PYX_ERR(0, 252, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(((struct __pyx_obj_2av_9subtitles_8subtitle_BitmapSubtitlePlane *)__pyx_v_self), __pyx_v_subtitle, __pyx_v_index);
 
   /* function exit code */
@@ -8290,7 +8262,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/subtitles/subtitle.py":257
+  /* "av/subtitles/subtitle.py":253
  * class BitmapSubtitlePlane:
  *     def __cinit__(self, subtitle: BitmapSubtitle, index: cython.int):
  *         if index >= 4:             # <<<<<<<<<<<<<<
@@ -8300,7 +8272,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
   __pyx_t_1 = (__pyx_v_index >= 4);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/subtitle.py":258
+    /* "av/subtitles/subtitle.py":254
  *     def __cinit__(self, subtitle: BitmapSubtitle, index: cython.int):
  *         if index >= 4:
  *             raise ValueError("BitmapSubtitles have only 4 planes")             # <<<<<<<<<<<<<<
@@ -8313,14 +8285,14 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_BitmapSubtitles_have_only_4_plan};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 258, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 254, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 258, __pyx_L1_error)
+    __PYX_ERR(0, 254, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":257
+    /* "av/subtitles/subtitle.py":253
  * class BitmapSubtitlePlane:
  *     def __cinit__(self, subtitle: BitmapSubtitle, index: cython.int):
  *         if index >= 4:             # <<<<<<<<<<<<<<
@@ -8329,7 +8301,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
 */
   }
 
-  /* "av/subtitles/subtitle.py":259
+  /* "av/subtitles/subtitle.py":255
  *         if index >= 4:
  *             raise ValueError("BitmapSubtitles have only 4 planes")
  *         if not subtitle.ptr.linesize[index]:             # <<<<<<<<<<<<<<
@@ -8339,7 +8311,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
   __pyx_t_1 = (!((__pyx_v_subtitle->__pyx_base.ptr->linesize[__pyx_v_index]) != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/subtitles/subtitle.py":260
+    /* "av/subtitles/subtitle.py":256
  *             raise ValueError("BitmapSubtitles have only 4 planes")
  *         if not subtitle.ptr.linesize[index]:
  *             raise ValueError("plane does not exist")             # <<<<<<<<<<<<<<
@@ -8352,14 +8324,14 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_plane_does_not_exist};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 260, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 256, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 260, __pyx_L1_error)
+    __PYX_ERR(0, 256, __pyx_L1_error)
 
-    /* "av/subtitles/subtitle.py":259
+    /* "av/subtitles/subtitle.py":255
  *         if index >= 4:
  *             raise ValueError("BitmapSubtitles have only 4 planes")
  *         if not subtitle.ptr.linesize[index]:             # <<<<<<<<<<<<<<
@@ -8368,7 +8340,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
 */
   }
 
-  /* "av/subtitles/subtitle.py":262
+  /* "av/subtitles/subtitle.py":258
  *             raise ValueError("plane does not exist")
  * 
  *         self.subtitle = subtitle             # <<<<<<<<<<<<<<
@@ -8381,7 +8353,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
   __Pyx_DECREF((PyObject *)__pyx_v_self->subtitle);
   __pyx_v_self->subtitle = __pyx_v_subtitle;
 
-  /* "av/subtitles/subtitle.py":263
+  /* "av/subtitles/subtitle.py":259
  * 
  *         self.subtitle = subtitle
  *         self.index = index             # <<<<<<<<<<<<<<
@@ -8390,7 +8362,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
 */
   __pyx_v_self->index = __pyx_v_index;
 
-  /* "av/subtitles/subtitle.py":264
+  /* "av/subtitles/subtitle.py":260
  *         self.subtitle = subtitle
  *         self.index = index
  *         self.buffer_size = subtitle.ptr.w * subtitle.ptr.h             # <<<<<<<<<<<<<<
@@ -8399,7 +8371,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
 */
   __pyx_v_self->buffer_size = (__pyx_v_subtitle->__pyx_base.ptr->w * __pyx_v_subtitle->__pyx_base.ptr->h);
 
-  /* "av/subtitles/subtitle.py":265
+  /* "av/subtitles/subtitle.py":261
  *         self.index = index
  *         self.buffer_size = subtitle.ptr.w * subtitle.ptr.h
  *         self._buffer = cython.cast(cython.p_void, subtitle.ptr.data[index])             # <<<<<<<<<<<<<<
@@ -8408,7 +8380,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
 */
   __pyx_v_self->_buffer = ((void *)(__pyx_v_subtitle->__pyx_base.ptr->data[__pyx_v_index]));
 
-  /* "av/subtitles/subtitle.py":256
+  /* "av/subtitles/subtitle.py":252
  * @cython.cclass
  * class BitmapSubtitlePlane:
  *     def __cinit__(self, subtitle: BitmapSubtitle, index: cython.int):             # <<<<<<<<<<<<<<
@@ -8429,7 +8401,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane___cinit__(str
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":268
+/* "av/subtitles/subtitle.py":264
  * 
  *     # New-style buffer support.
  *     def __getbuffer__(self, view: cython.pointer[Py_buffer], flags: cython.int):             # <<<<<<<<<<<<<<
@@ -8467,16 +8439,16 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_2__getbuffer_
   __pyx_v_view->obj = Py_None; __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(__pyx_v_view->obj);
 
-  /* "av/subtitles/subtitle.py":269
+  /* "av/subtitles/subtitle.py":265
  *     # New-style buffer support.
  *     def __getbuffer__(self, view: cython.pointer[Py_buffer], flags: cython.int):
  *         PyBuffer_FillInfo(view, self, self._buffer, self.buffer_size, 0, flags)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_1 = PyBuffer_FillInfo(__pyx_v_view, ((PyObject *)__pyx_v_self), __pyx_v_self->_buffer, __pyx_v_self->buffer_size, 0, __pyx_v_flags); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_1 = PyBuffer_FillInfo(__pyx_v_view, ((PyObject *)__pyx_v_self), __pyx_v_self->_buffer, __pyx_v_self->buffer_size, 0, __pyx_v_flags); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 265, __pyx_L1_error)
 
-  /* "av/subtitles/subtitle.py":268
+  /* "av/subtitles/subtitle.py":264
  * 
  *     # New-style buffer support.
  *     def __getbuffer__(self, view: cython.pointer[Py_buffer], flags: cython.int):             # <<<<<<<<<<<<<<
@@ -8505,7 +8477,7 @@ static int __pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_2__getbuffer_
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":28
+/* "av/subtitles/subtitle.pxd":26
  * 
  * cdef class BitmapSubtitlePlane:
  *     cdef readonly BitmapSubtitle subtitle             # <<<<<<<<<<<<<<
@@ -8544,7 +8516,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_8subtit
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":29
+/* "av/subtitles/subtitle.pxd":27
  * cdef class BitmapSubtitlePlane:
  *     cdef readonly BitmapSubtitle subtitle
  *     cdef readonly int index             # <<<<<<<<<<<<<<
@@ -8576,7 +8548,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_5index_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->index); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 29, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->index); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8593,7 +8565,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_5index_
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.pxd":30
+/* "av/subtitles/subtitle.pxd":28
  *     cdef readonly BitmapSubtitle subtitle
  *     cdef readonly int index
  *     cdef readonly long buffer_size             # <<<<<<<<<<<<<<
@@ -8624,7 +8596,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_11buffe
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_long(__pyx_v_self->buffer_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 30, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_long(__pyx_v_self->buffer_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -8845,7 +8817,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_19BitmapSubtitlePlane_6__sets
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":278
+/* "av/subtitles/subtitle.py":274
  *     """
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -8880,7 +8852,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle___repr__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/subtitles/subtitle.py":279
+  /* "av/subtitles/subtitle.py":275
  * 
  *     def __repr__(self):
  *         return f"<av.AssSubtitle {self.dialogue!r} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
@@ -8888,14 +8860,14 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle___repr__(struct
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dialogue); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_dialogue); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_1), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_1), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_4[0] = __pyx_mstate_global->__pyx_kp_u_av_AssSubtitle;
@@ -8904,7 +8876,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle___repr__(struct
   __pyx_t_4[3] = __pyx_t_3;
   __pyx_t_4[4] = __pyx_mstate_global->__pyx_kp_u__3;
   __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, 16 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8912,7 +8884,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle___repr__(struct
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":278
+  /* "av/subtitles/subtitle.py":274
  *     """
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -8933,7 +8905,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle___repr__(struct
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":281
+/* "av/subtitles/subtitle.py":277
  *         return f"<av.AssSubtitle {self.dialogue!r} at 0x{id(self):x}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8966,7 +8938,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":286
+  /* "av/subtitles/subtitle.py":282
  *         Returns the subtitle in the ASS/SSA format. Used by the vast majority of subtitle formats.
  *         """
  *         if self.ptr.ass is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -8976,7 +8948,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
   __pyx_t_1 = (__pyx_v_self->__pyx_base.ptr->ass != NULL);
   if (__pyx_t_1) {
 
-    /* "av/subtitles/subtitle.py":287
+    /* "av/subtitles/subtitle.py":283
  *         """
  *         if self.ptr.ass is not cython.NULL:
  *             return PyBytes_FromString(self.ptr.ass)             # <<<<<<<<<<<<<<
@@ -8984,13 +8956,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = PyBytes_FromString(__pyx_v_self->__pyx_base.ptr->ass); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __pyx_t_2 = PyBytes_FromString(__pyx_v_self->__pyx_base.ptr->ass); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 283, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/subtitle.py":286
+    /* "av/subtitles/subtitle.py":282
  *         Returns the subtitle in the ASS/SSA format. Used by the vast majority of subtitle formats.
  *         """
  *         if self.ptr.ass is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -8999,7 +8971,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
 */
   }
 
-  /* "av/subtitles/subtitle.py":288
+  /* "av/subtitles/subtitle.py":284
  *         if self.ptr.ass is not cython.NULL:
  *             return PyBytes_FromString(self.ptr.ass)
  *         return b""             # <<<<<<<<<<<<<<
@@ -9011,7 +8983,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
   __pyx_r = __pyx_mstate_global->__pyx_kp_b__6;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":281
+  /* "av/subtitles/subtitle.py":277
  *         return f"<av.AssSubtitle {self.dialogue!r} at 0x{id(self):x}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9030,7 +9002,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_3ass___get__(st
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":290
+/* "av/subtitles/subtitle.py":286
  *         return b""
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9055,7 +9027,7 @@ static PyObject *__pyx_pw_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue_1__ge
 
 static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get__(struct __pyx_obj_2av_9subtitles_8subtitle_AssSubtitle *__pyx_v_self) {
   short __pyx_v_comma_count;
-  uint64_t __pyx_v_i;
+  Py_ssize_t __pyx_v_i;
   int __pyx_v_state;
   PyObject *__pyx_v_ass_text = 0;
   char __pyx_v_char;
@@ -9072,54 +9044,53 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
   int __pyx_t_6;
   int __pyx_t_7;
   int __pyx_t_8;
-  uint64_t __pyx_t_9;
-  int __pyx_t_10;
+  int __pyx_t_9;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":295
+  /* "av/subtitles/subtitle.py":291
  *         Extract the dialogue from the ass format. Strip comments.
  *         """
  *         comma_count: cython.short = 0             # <<<<<<<<<<<<<<
- *         i: uint64_t = 0
+ *         i: cython.Py_ssize_t = 0
  *         state: cython.bint = False
 */
   __pyx_v_comma_count = 0;
 
-  /* "av/subtitles/subtitle.py":296
+  /* "av/subtitles/subtitle.py":292
  *         """
  *         comma_count: cython.short = 0
- *         i: uint64_t = 0             # <<<<<<<<<<<<<<
+ *         i: cython.Py_ssize_t = 0             # <<<<<<<<<<<<<<
  *         state: cython.bint = False
  *         ass_text: bytes = self.ass
 */
   __pyx_v_i = 0;
 
-  /* "av/subtitles/subtitle.py":297
+  /* "av/subtitles/subtitle.py":293
  *         comma_count: cython.short = 0
- *         i: uint64_t = 0
+ *         i: cython.Py_ssize_t = 0
  *         state: cython.bint = False             # <<<<<<<<<<<<<<
  *         ass_text: bytes = self.ass
  *         char, next_char = cython.declare(cython.char)
 */
   __pyx_v_state = 0;
 
-  /* "av/subtitles/subtitle.py":298
- *         i: uint64_t = 0
+  /* "av/subtitles/subtitle.py":294
+ *         i: cython.Py_ssize_t = 0
  *         state: cython.bint = False
  *         ass_text: bytes = self.ass             # <<<<<<<<<<<<<<
  *         char, next_char = cython.declare(cython.char)
  *         result: bytearray = bytearray()
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_ass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 298, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 294, __pyx_L1_error)
   __pyx_v_ass_text = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/subtitles/subtitle.py":300
+  /* "av/subtitles/subtitle.py":296
  *         ass_text: bytes = self.ass
  *         char, next_char = cython.declare(cython.char)
  *         result: bytearray = bytearray()             # <<<<<<<<<<<<<<
@@ -9132,13 +9103,13 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_result = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/subtitles/subtitle.py":301
+  /* "av/subtitles/subtitle.py":297
  *         char, next_char = cython.declare(cython.char)
  *         result: bytearray = bytearray()
  *         text_len: cython.Py_ssize_t = len(ass_text)             # <<<<<<<<<<<<<<
@@ -9147,12 +9118,12 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
   if (unlikely(__pyx_v_ass_text == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 301, __pyx_L1_error)
+    __PYX_ERR(0, 297, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_PyBytes_GET_SIZE(__pyx_v_ass_text); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyBytes_GET_SIZE(__pyx_v_ass_text); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 297, __pyx_L1_error)
   __pyx_v_text_len = __pyx_t_4;
 
-  /* "av/subtitles/subtitle.py":303
+  /* "av/subtitles/subtitle.py":299
  *         text_len: cython.Py_ssize_t = len(ass_text)
  * 
  *         while comma_count < 8 and i < text_len:             # <<<<<<<<<<<<<<
@@ -9171,19 +9142,19 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     __pyx_L5_bool_binop_done:;
     if (!__pyx_t_5) break;
 
-    /* "av/subtitles/subtitle.py":304
+    /* "av/subtitles/subtitle.py":300
  * 
  *         while comma_count < 8 and i < text_len:
  *             if ass_text[i] == b","[0]:             # <<<<<<<<<<<<<<
  *                 comma_count += 1
  *             i += 1
 */
-    __pyx_t_7 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_v_i, uint64_t, 0, __Pyx_PyLong_From_uint64_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 304, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__5, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 1, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 300, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__5, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 300, __pyx_L1_error)
     __pyx_t_5 = (__pyx_t_7 == __pyx_t_8);
     if (__pyx_t_5) {
 
-      /* "av/subtitles/subtitle.py":305
+      /* "av/subtitles/subtitle.py":301
  *         while comma_count < 8 and i < text_len:
  *             if ass_text[i] == b","[0]:
  *                 comma_count += 1             # <<<<<<<<<<<<<<
@@ -9192,7 +9163,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
       __pyx_v_comma_count = (__pyx_v_comma_count + 1);
 
-      /* "av/subtitles/subtitle.py":304
+      /* "av/subtitles/subtitle.py":300
  * 
  *         while comma_count < 8 and i < text_len:
  *             if ass_text[i] == b","[0]:             # <<<<<<<<<<<<<<
@@ -9201,7 +9172,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
     }
 
-    /* "av/subtitles/subtitle.py":306
+    /* "av/subtitles/subtitle.py":302
  *             if ass_text[i] == b","[0]:
  *                 comma_count += 1
  *             i += 1             # <<<<<<<<<<<<<<
@@ -9211,7 +9182,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     __pyx_v_i = (__pyx_v_i + 1);
   }
 
-  /* "av/subtitles/subtitle.py":308
+  /* "av/subtitles/subtitle.py":304
  *             i += 1
  * 
  *         while i < text_len:             # <<<<<<<<<<<<<<
@@ -9222,17 +9193,17 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     __pyx_t_5 = (__pyx_v_i < __pyx_v_text_len);
     if (!__pyx_t_5) break;
 
-    /* "av/subtitles/subtitle.py":309
+    /* "av/subtitles/subtitle.py":305
  * 
  *         while i < text_len:
  *             char = ass_text[i]             # <<<<<<<<<<<<<<
  *             next_char = 0 if i + 1 >= text_len else ass_text[i + 1]
  * 
 */
-    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_v_i, uint64_t, 0, __Pyx_PyLong_From_uint64_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 309, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_v_i, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 1, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 305, __pyx_L1_error)
     __pyx_v_char = __pyx_t_8;
 
-    /* "av/subtitles/subtitle.py":310
+    /* "av/subtitles/subtitle.py":306
  *         while i < text_len:
  *             char = ass_text[i]
  *             next_char = 0 if i + 1 >= text_len else ass_text[i + 1]             # <<<<<<<<<<<<<<
@@ -9243,43 +9214,43 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     if (__pyx_t_5) {
       __pyx_t_8 = 0;
     } else {
-      __pyx_t_9 = (__pyx_v_i + 1);
-      __pyx_t_7 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_t_9, uint64_t, 0, __Pyx_PyLong_From_uint64_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 310, __pyx_L1_error)
+      __pyx_t_4 = (__pyx_v_i + 1);
+      __pyx_t_7 = __Pyx_GetItemInt_Bytes(__pyx_v_ass_text, __pyx_t_4, Py_ssize_t, 1, PyLong_FromSsize_t, 0, 1, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 306, __pyx_L1_error)
       __pyx_t_8 = __pyx_t_7;
     }
     __pyx_v_next_char = __pyx_t_8;
 
-    /* "av/subtitles/subtitle.py":312
+    /* "av/subtitles/subtitle.py":308
  *             next_char = 0 if i + 1 >= text_len else ass_text[i + 1]
  * 
  *             if char == b"\\"[0] and next_char == b"N"[0]:             # <<<<<<<<<<<<<<
  *                 result.append(b"\n"[0])
  *                 i += 2
 */
-    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__7, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 312, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__7, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 308, __pyx_L1_error)
     __pyx_t_6 = (__pyx_v_char == __pyx_t_8);
     if (__pyx_t_6) {
     } else {
       __pyx_t_5 = __pyx_t_6;
       goto __pyx_L11_bool_binop_done;
     }
-    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_n_b_N, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 312, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_n_b_N, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 308, __pyx_L1_error)
     __pyx_t_6 = (__pyx_v_next_char == __pyx_t_8);
     __pyx_t_5 = __pyx_t_6;
     __pyx_L11_bool_binop_done:;
     if (__pyx_t_5) {
 
-      /* "av/subtitles/subtitle.py":313
+      /* "av/subtitles/subtitle.py":309
  * 
  *             if char == b"\\"[0] and next_char == b"N"[0]:
  *                 result.append(b"\n"[0])             # <<<<<<<<<<<<<<
  *                 i += 2
  *                 continue
 */
-      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__8, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 313, __pyx_L1_error)
-      __pyx_t_10 = __Pyx_PyByteArray_Append(__pyx_v_result, __pyx_t_8); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 313, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__8, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 309, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyByteArray_Append(__pyx_v_result, __pyx_t_8); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 309, __pyx_L1_error)
 
-      /* "av/subtitles/subtitle.py":314
+      /* "av/subtitles/subtitle.py":310
  *             if char == b"\\"[0] and next_char == b"N"[0]:
  *                 result.append(b"\n"[0])
  *                 i += 2             # <<<<<<<<<<<<<<
@@ -9288,7 +9259,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
       __pyx_v_i = (__pyx_v_i + 2);
 
-      /* "av/subtitles/subtitle.py":315
+      /* "av/subtitles/subtitle.py":311
  *                 result.append(b"\n"[0])
  *                 i += 2
  *                 continue             # <<<<<<<<<<<<<<
@@ -9297,7 +9268,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
       goto __pyx_L8_continue;
 
-      /* "av/subtitles/subtitle.py":312
+      /* "av/subtitles/subtitle.py":308
  *             next_char = 0 if i + 1 >= text_len else ass_text[i + 1]
  * 
  *             if char == b"\\"[0] and next_char == b"N"[0]:             # <<<<<<<<<<<<<<
@@ -9306,7 +9277,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
     }
 
-    /* "av/subtitles/subtitle.py":317
+    /* "av/subtitles/subtitle.py":313
  *                 continue
  * 
  *             if not state:             # <<<<<<<<<<<<<<
@@ -9316,27 +9287,27 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     __pyx_t_5 = (!__pyx_v_state);
     if (__pyx_t_5) {
 
-      /* "av/subtitles/subtitle.py":318
+      /* "av/subtitles/subtitle.py":314
  * 
  *             if not state:
  *                 if char == b"{"[0] and next_char != b"\\"[0]:             # <<<<<<<<<<<<<<
  *                     state = True
  *                 else:
 */
-      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__9, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 318, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__9, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 314, __pyx_L1_error)
       __pyx_t_6 = (__pyx_v_char == __pyx_t_8);
       if (__pyx_t_6) {
       } else {
         __pyx_t_5 = __pyx_t_6;
         goto __pyx_L15_bool_binop_done;
       }
-      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__7, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 318, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__7, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 314, __pyx_L1_error)
       __pyx_t_6 = (__pyx_v_next_char != __pyx_t_8);
       __pyx_t_5 = __pyx_t_6;
       __pyx_L15_bool_binop_done:;
       if (__pyx_t_5) {
 
-        /* "av/subtitles/subtitle.py":319
+        /* "av/subtitles/subtitle.py":315
  *             if not state:
  *                 if char == b"{"[0] and next_char != b"\\"[0]:
  *                     state = True             # <<<<<<<<<<<<<<
@@ -9345,7 +9316,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
         __pyx_v_state = 1;
 
-        /* "av/subtitles/subtitle.py":318
+        /* "av/subtitles/subtitle.py":314
  * 
  *             if not state:
  *                 if char == b"{"[0] and next_char != b"\\"[0]:             # <<<<<<<<<<<<<<
@@ -9355,7 +9326,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
         goto __pyx_L14;
       }
 
-      /* "av/subtitles/subtitle.py":321
+      /* "av/subtitles/subtitle.py":317
  *                     state = True
  *                 else:
  *                     result.append(char)             # <<<<<<<<<<<<<<
@@ -9363,11 +9334,11 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
  *                 state = False
 */
       /*else*/ {
-        __pyx_t_10 = __Pyx_PyByteArray_Append(__pyx_v_result, __pyx_v_char); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 321, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyByteArray_Append(__pyx_v_result, __pyx_v_char); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 317, __pyx_L1_error)
       }
       __pyx_L14:;
 
-      /* "av/subtitles/subtitle.py":317
+      /* "av/subtitles/subtitle.py":313
  *                 continue
  * 
  *             if not state:             # <<<<<<<<<<<<<<
@@ -9377,18 +9348,18 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
       goto __pyx_L13;
     }
 
-    /* "av/subtitles/subtitle.py":322
+    /* "av/subtitles/subtitle.py":318
  *                 else:
  *                     result.append(char)
  *             elif char == b"}"[0]:             # <<<<<<<<<<<<<<
  *                 state = False
  *             i += 1
 */
-    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__10, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 322, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_GetItemInt_Bytes(__pyx_mstate_global->__pyx_kp_b__10, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 318, __pyx_L1_error)
     __pyx_t_5 = (__pyx_v_char == __pyx_t_8);
     if (__pyx_t_5) {
 
-      /* "av/subtitles/subtitle.py":323
+      /* "av/subtitles/subtitle.py":319
  *                     result.append(char)
  *             elif char == b"}"[0]:
  *                 state = False             # <<<<<<<<<<<<<<
@@ -9397,7 +9368,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
 */
       __pyx_v_state = 0;
 
-      /* "av/subtitles/subtitle.py":322
+      /* "av/subtitles/subtitle.py":318
  *                 else:
  *                     result.append(char)
  *             elif char == b"}"[0]:             # <<<<<<<<<<<<<<
@@ -9407,7 +9378,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     }
     __pyx_L13:;
 
-    /* "av/subtitles/subtitle.py":324
+    /* "av/subtitles/subtitle.py":320
  *             elif char == b"}"[0]:
  *                 state = False
  *             i += 1             # <<<<<<<<<<<<<<
@@ -9418,7 +9389,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     __pyx_L8_continue:;
   }
 
-  /* "av/subtitles/subtitle.py":326
+  /* "av/subtitles/subtitle.py":322
  *             i += 1
  * 
  *         return bytes(result)             # <<<<<<<<<<<<<<
@@ -9432,14 +9403,14 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_result};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyBytes_Type), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":290
+  /* "av/subtitles/subtitle.py":286
  *         return b""
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9461,7 +9432,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_8dialogue___get
   return __pyx_r;
 }
 
-/* "av/subtitles/subtitle.py":328
+/* "av/subtitles/subtitle.py":324
  *         return bytes(result)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9494,7 +9465,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_4text___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/subtitles/subtitle.py":333
+  /* "av/subtitles/subtitle.py":329
  *         Rarely used attribute. You're probably looking for dialogue.
  *         """
  *         if self.ptr.text is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -9504,20 +9475,20 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_4text___get__(s
   __pyx_t_1 = (__pyx_v_self->__pyx_base.ptr->text != NULL);
   if (__pyx_t_1) {
 
-    /* "av/subtitles/subtitle.py":334
+    /* "av/subtitles/subtitle.py":330
  *         """
  *         if self.ptr.text is not cython.NULL:
  *             return PyBytes_FromString(self.ptr.text)             # <<<<<<<<<<<<<<
  *         return b""
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = PyBytes_FromString(__pyx_v_self->__pyx_base.ptr->text); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
+    __pyx_t_2 = PyBytes_FromString(__pyx_v_self->__pyx_base.ptr->text); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/subtitles/subtitle.py":333
+    /* "av/subtitles/subtitle.py":329
  *         Rarely used attribute. You're probably looking for dialogue.
  *         """
  *         if self.ptr.text is not cython.NULL:             # <<<<<<<<<<<<<<
@@ -9526,7 +9497,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_4text___get__(s
 */
   }
 
-  /* "av/subtitles/subtitle.py":335
+  /* "av/subtitles/subtitle.py":331
  *         if self.ptr.text is not cython.NULL:
  *             return PyBytes_FromString(self.ptr.text)
  *         return b""             # <<<<<<<<<<<<<<
@@ -9536,7 +9507,7 @@ static PyObject *__pyx_pf_2av_9subtitles_8subtitle_11AssSubtitle_4text___get__(s
   __pyx_r = __pyx_mstate_global->__pyx_kp_b__6;
   goto __pyx_L0;
 
-  /* "av/subtitles/subtitle.py":328
+  /* "av/subtitles/subtitle.py":324
  *         return bytes(result)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11727,6 +11698,7 @@ static int __Pyx_modinit_global_init_code(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_modinit_global_init_code", 0);
   /*--- Global init code ---*/
+  __pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel = Py_None; Py_INCREF(Py_None);
   __Pyx_RefNannyFinishContext();
   return 0;
 }
@@ -11759,15 +11731,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_SubtitleProxy_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy)) __PYX_ERR(0, 8, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_SubtitleProxy_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_SubtitleProxy_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_SubtitleProxy_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy = &__pyx_type_2av_9subtitles_8subtitle_SubtitleProxy;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy);
@@ -11777,18 +11749,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleProxy, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleProxy, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleProxy) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_SubtitleSet_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet)) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_SubtitleSet_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_SubtitleSet_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_SubtitleSet_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet = &__pyx_type_2av_9subtitles_8subtitle_SubtitleSet;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet);
@@ -11798,18 +11770,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleSet, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_SubtitleSet, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_Subtitle_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle)) __PYX_ERR(0, 181, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_Subtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_Subtitle_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_Subtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle = &__pyx_type_2av_9subtitles_8subtitle_Subtitle;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle);
@@ -11819,15 +11791,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Subtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Subtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 18, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_TextSubtitle_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle)) __PYX_ERR(3, 18, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_TextSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 18, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle)) __PYX_ERR(3, 16, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_TextSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 16, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle = &__pyx_type_2av_9subtitles_8subtitle_TextSubtitle;
   #endif
@@ -11835,7 +11807,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle->tp_base = __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 18, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 16, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle);
@@ -11845,14 +11817,14 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_TextSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 18, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_TextSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_TextSubtitle) < (0)) __PYX_ERR(3, 16, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 21, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(3, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_ASSSubtitle_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle)) __PYX_ERR(3, 21, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_ASSSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 21, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle)) __PYX_ERR(3, 19, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_ASSSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 19, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle = &__pyx_type_2av_9subtitles_8subtitle_ASSSubtitle;
   #endif
@@ -11860,7 +11832,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle->tp_base = __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 21, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 19, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle);
@@ -11870,14 +11842,14 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASSSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 21, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ASSSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_ASSSubtitle) < (0)) __PYX_ERR(3, 19, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitle_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle)) __PYX_ERR(0, 212, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle)) __PYX_ERR(0, 208, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle = &__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitle;
   #endif
@@ -11885,7 +11857,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle->tp_base = __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle);
@@ -11895,10 +11867,10 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitmapSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitmapSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitle) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitlePlane_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitlePlane_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane)) __PYX_ERR(0, 251, __pyx_L1_error)
   #if !CYTHON_COMPILING_IN_LIMITED_API
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane->tp_as_buffer = &__pyx_tp_as_buffer_BitmapSubtitlePlane;
   if (!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane->tp_as_buffer->bf_releasebuffer && __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane->tp_base->tp_as_buffer && __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane->tp_base->tp_as_buffer->bf_releasebuffer) {
@@ -11911,14 +11883,14 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   #warning "The buffer protocol is not supported in the Limited C-API < 3.11."
   #endif
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitlePlane_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitlePlane_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane = &__pyx_type_2av_9subtitles_8subtitle_BitmapSubtitlePlane;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane);
@@ -11928,15 +11900,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitmapSubtitlePlane, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BitmapSubtitlePlane, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_BitmapSubtitlePlane) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle_AssSubtitle_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle)) __PYX_ERR(0, 273, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_AssSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle)) __PYX_ERR(0, 269, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle_AssSubtitle_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 269, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle = &__pyx_type_2av_9subtitles_8subtitle_AssSubtitle;
   #endif
@@ -11944,7 +11916,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle->tp_base = __pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_Subtitle;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 269, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle);
@@ -11954,18 +11926,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AssSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AssSubtitle, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 269, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle_AssSubtitle) < (0)) __PYX_ERR(0, 269, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct____cinit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct____cinit___spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct____cinit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct____cinit___spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__ = &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct____cinit__);
@@ -11976,15 +11948,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 33, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr = &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_1_genexpr);
@@ -11995,15 +11967,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__)) __PYX_ERR(0, 213, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit___spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit___spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__ = &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_2___cinit__);
@@ -12014,15 +11986,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 215, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 211, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 211, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr = &__pyx_type_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 211, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9subtitles_8subtitle___pyx_scope_struct_3_genexpr);
@@ -12380,10 +12352,10 @@ __Pyx_RefNannySetupContext("PyInit_subtitle", 0);
   (void)__Pyx_modinit_function_import_code(__pyx_mstate);
   /*--- Execution code ---*/
 
-  /* "av/subtitles/subtitle.py":13
+  /* "av/subtitles/subtitle.py":12
  * 
  * 
- * _cinit_bypass_sentinel = object()             # <<<<<<<<<<<<<<
+ * _cinit_bypass_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
 */
@@ -12393,25 +12365,27 @@ __Pyx_RefNannySetupContext("PyInit_subtitle", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_cinit_bypass_sentinel, __pyx_t_2) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_XGOTREF(__pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel);
+  __Pyx_DECREF_SET(__pyx_v_2av_9subtitles_8subtitle__cinit_bypass_sentinel, __pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_2);
+  __pyx_t_2 = 0;
 
-  /* "av/subtitles/subtitle.py":40
+  /* "av/subtitles/subtitle.py":39
  *             )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def create(
  *         text: bytes,
 */
-  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_2av_9subtitles_8subtitle_11SubtitleSet_3create, NULL, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_2av_9subtitles_8subtitle_11SubtitleSet_3create, NULL, __pyx_mstate_global->__pyx_n_u_av_subtitles_subtitle); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create, __pyx_t_2) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create, __pyx_t_2) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_3 = NULL;
-  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = 1;
   {
@@ -12419,16 +12393,16 @@ __Pyx_RefNannySetupContext("PyInit_subtitle", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_staticmethod, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 39, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create, __pyx_t_2) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_9subtitles_8subtitle_SubtitleSet, __pyx_mstate_global->__pyx_n_u_create, __pyx_t_2) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "av/subtitles/subtitle.py":1
  * import cython             # <<<<<<<<<<<<<<
  * from cython.cimports.cpython import PyBuffer_FillInfo, PyBytes_FromString
- * from cython.cimports.libc.stdint import int64_t, uint64_t
+ * from cython.cimports.libc.string import memcpy
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -12473,9 +12447,9 @@ __Pyx_RefNannySetupContext("PyInit_subtitle", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 13, __pyx_L1_error)
-  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 40, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 111, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -12502,39 +12476,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{34},{39},{32},{32},{179},{64},{1},{1},{1},{1},{1},{8},{4},{6},{7},{4},{16},{24},{7},{6},{2},{9},{50},{20},{63},{32},{22},{24},{11},{11},{14},{19},{20},{8},{13},{11},{12},{6},{3},{21},{26},{22},{9},{17},{18},{5},{6},{8},{8},{3},{7},{12},{6},{1},{2},{5},{5},{8},{10},{8},{4},{6},{3},{17},{3},{11},{12},{10},{17},{13},{4},{12},{10},{12},{19},{5},{12},{8},{15},{8},{4},{5},{5},{6},{5},{1},{1},{1},{1},{0},{1},{1},{1},{2},{2},{1},{3},{6},{4},{4}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (657 bytes) */
-const char* const cstring = "(\265/\375`\000\004=\024\000\366ho&0Q\323\006\300\300@\246j\365\266G\243\211<\303\344\333\237\210\2125\340\361\034\r\347^F\032\322Z9\360`\300\245pc\000d\000e\000,:I\305-|'\352[\355\245\017s\022v|\346\\\211;}\343\355\324\346%($\030D&\"\267\355\235\2645_\264\336\331\316\350\272:\326[6\351(\342:'}of\321\320;\312\326\362\270\323\333\361\2753\261\265\362X\237\372\322\244\340o.\347\022.Z\313\356\225\234\034\177\2656\363`8Ii\205`\010\332\332`\331>\352\020\237\036\365\206x\275\236\224\\\035[\305\232\232\375\027\223\254*r\026>\250\3441?,\225dX\200\020\256\363\336lQ\251,\270\206\305\201`\340\235oi\271\363s\215]\004\261\026\271<~\323\247\343\355\372\030\313y%\305+\252\352\004\232U'j\\\246\235\315vS\340\372|\373Is:\337{\002\r\256\204\270\276\332{\306\210i\016\364}\2634\360bX\226J2\247\332;N6\364\014\311/\032\272\005vR\t(\212 F00\036Z\300\335z\260\345\330\347\315f\353\207\035t\265z\315\352\342H\352\\c\222cX\344\272\275\262,\335\231\315t\235\236\326\274H\326\271Y\241_\263=>S\207\330\272\232\020o\245V\002\r\275\277l\031\346\264\350\010\311\220\017\000\215\002\220\010\232\264R\017\376\263\262\342\301\332\244\033\342wR\032\223\250S\222\266ln\205\320\323\312\247\003\241\310A\344v\032C\307aNC?%\367\353Q\214\262\232\024DV\252=i\364\023\304w6\253=*\304?\r[\251\352\314V\342H\311<ek\\\305\257R\336\332\017V( \2060E5|AX\006\025e\241\302\372\326\231\003>\004\rQ\n\366\301\352\035\216\2678.@\314\243\344\024\000\3006p,\250\024\320\034\346\275\020\326X\234Z\254@\220\033\231\024y\330z\342]\317j\006\001\"\267\t#B\232\213|\246\315\200[m\201\002\265 J\326\267\261Lj\343\270\206~:i\314\357\277\355Q\010\213\322\200!\235\304!\326\020\320\232\001\0218]\2247\307i\312\006\321\001\200D\211\346s\255\251\265\374O\021\021\005\363?\"\234\333\201Y\344N\367\336\206\205d\017.'f1\340Jh\340\030\034\242\320\360\322\370\246O\177\3151\030\024n\222\013&D\272qCLr:\267h\202\216T\227R\321\223\315\332\003";
-    PyObject *data = __Pyx_DecompressString(cstring, 657, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{34},{39},{32},{32},{179},{64},{1},{1},{1},{1},{1},{8},{4},{6},{7},{4},{16},{24},{7},{6},{2},{9},{50},{20},{63},{32},{22},{24},{11},{11},{14},{19},{20},{8},{13},{11},{12},{6},{3},{21},{26},{9},{17},{18},{5},{6},{8},{8},{3},{7},{12},{6},{1},{2},{5},{5},{8},{10},{8},{4},{6},{3},{17},{3},{11},{12},{10},{17},{13},{4},{12},{10},{12},{19},{5},{12},{8},{15},{8},{4},{5},{5},{6},{5},{1},{1},{1},{1},{0},{1},{1},{1},{2},{2},{1},{3},{6},{4},{4}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (648 bytes) */
+const char* const cstring = "(\265/\375`\352\003\365\023\000Fhm&0Q\323\006\300\300@\246j\365\266G\243\211<\303\344\333\237\210\2125\340\361\034\r\347^F\032\322Z9\360`\300\245pa\000b\000c\000\222\212[\370N\324\267\332K\037\346$\354\370\314\271\022w\372\306\333\251\315KPH0\210LDn\333;ik\276h\275\263\235\321uu\254\267l\322Q\304uN\372\336\314\242\241w\224\255\345q\247\267\343{gbk\345\261>\365\245I\301\337\\\316%\\\264\226\335+99\376jm\346\301p\222\322\n\301\020\006\313\366Q\207\370\364\2507\304\353\365\244\344\352\330*\326\324\354\277\230dU\221\263\360A%\217\371a\251$\303\002\204p\235\367f\213Je\3015,\016\004\003\357|K\313\235\237k\354\"\210\265\310\345\361\233>\035o\327\307X\316+)^QU'\320\254\3422\355l\266\233\002\327\347\333O\232\323\371\336\303\242\013\224\267\366\033D\304\346@\3377K\003/\206e\251$s\252\275\343dC\317\220\374\242\241[`'\225\200\242\010b\004\003\343\241\005\334\255\007[\216}\336l\266~\330AW\253\327\254.\216\244\3165&9\206E\256\333+\313\322\235\331L\327\351i\315\213d\235\233\025\3725\333\3433u\210\255\253\t\361VjE[\007\r\275\277l\031\346\264\350\010\311\220\017\000\215\002\220\010\232\264R\017\376\263\262\342\301\332\244\033\342wR\032\223\250S\222\266ln\205\320\323\312\247\003\241\310A\344v\326W{\317\330\030:\016s\032\372)\271_\217b\210\253IAd\245\332\223F?\351lV{T\210\177\032\266R\325\231\255\304\221\222y\312\246\370\325V( \2060D5|qP\007\021U\241\302\372\326\231\003\022$\r=\005\323 4\354D\326\370\305\211}\224\300\002\000\330\010<\010\177$T\207\031\\\2045\340N\242\275\223\\\226\361\310\303& \275\214\271\023\t5G4i\324\203\247I\200\365>o\250x\000u\020\032\347\201X\376\267\0261\344\305\312\304\377\266\240\2208:\003\303`\022\223X\351@K\003\2622]\225\033G\277)k\243\003\001\t<\315\340\332'k\331?\335@\024\330\177\01487*v!W\271\367d\026\222i\360\234$\013\201\253\242\001o8\211T\303\273\343\333>\3555\347\302\300\271d}\023\342s\032\247\342c\010~'\220\025I\2531\325*\252t\022\027P";
+    PyObject *data = __Pyx_DecompressString(cstring, 648, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (727 bytes) */
-const char* const cstring = "BZh91AY&SY@T\344,\000\000>_\240@\020B\347\304M\277!\\\004\277\377\377\352\000@@\002\312\343D\2008\2014#SCG\244i\241\246\201\240\006@4\003Bh\n\237\251\351&z\204\364\324h\000=F@i\275H0\032\000\000\032\000\000\000\000\002SD\004\010\312ySb\247\251\275I\351\244\320\000\032z&\240F\216\364\204\206\026\025q\327H6\2463\301\014\246\273\263\0338\221\265\217Tk\004(\274\265\024H\353\270;}&\342\333\tFA\244\300p6\2528\0033\r6\276\355\306\267\361f0\227\014\335\311\r\311\216\333VD\340\324Z\037\201\305\220`\317\"\242\035n\225\345\003\220,z\270$\"\206I\266\245\215\235z\225\226o\217\027\242\370\342\300\3738\027\204\354\330u\206H\303\317\326+\273\325C\275/\336't\330\026D\204\"\316:\222\246\216\304\350\341dX\270\246\247\375\347\373\266\177+7\243\377\263\356`\337*\3706U\370\342\033\323~,.?\310&\330\333\006\275\301b\347\211\260h\214]\375\n\206\325\376c\022i\000M\275P\311\200*\227\242=\236\330\004\262\307\246r2\223 \241\331\330]\0266\335CN\225\227y?)@Dv\337l:\353\227\2244\231'\347\005\245Xf:\325\373D\342\257$\244\352S]\010\257\316\031%I\267'y\005_\327\201\371Nw\233\325\247+,\367\352Az\353\254e\265\013\301\225\237o:!\023\360\312\022S\313J\243\304\206\3131\224\026\246r\214\236\311`\241o8\310@\332dT:\307\223:\331tO\215\316\350*\242d\244f\3214\347&,\034\213\341\230\234\206@\025\213\004\312\202\217\017\024fLNaa\2034\332\265\331\302\244\376\353\207\246\254\362\233\227.\346R6\3004\233[\337H\350?\006\020\220\224\031S\n\310\240\234~\020\365\2219I\006d\340\342\273rumL\013sbh\242\314=\335\361\231)\024F\217-s\370F\217j\007\177JA\300l\321&\272uw\227%\317\261\\}\266\370-\352\227\375Q\360\306y\352A\262\277Fr*[\177#\035rTuWg\367\270j\235\272I\311\243\2651\234\364j\031\273i\217\344&l\245a\"\233\335\3174\307\254\252\237\312.\032i\272G9\267HL\357\222T\256\2617\032\316\244\3111\354D\312\363\246\216\201\372\206\272[\307>\304W\334\300\330\344\3036,\334\343>\177\302\203\253\335\265\255\232\333~\325?\004\314\206\020\204\333\005\227M\216u\226\2469\254`#\315\366\360Y\321\251\363<]!\210of\236\013\333\214\034i\257@""\372W\240\251_\246\237\371\377\213\271\"\234(H *r\026\000";
-    PyObject *data = __Pyx_DecompressString(cstring, 727, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (721 bytes) */
+const char* const cstring = "BZh91AY&SY^\r\320b\000\000>_\240@\020B\347\304M\277!\\\004\277\377\377\352\000@@\002\252\341\316\356\032\002\010\320\215\023\021\350\232i\240\006\200\031\000\310\rOP4&\243O)\244`FA\240\030\232i\202\010\004j@z\203C5\032\000\000\000\000%4\200@\251\354\246\324d'\242b2d\000i\350L\3429\374T\022\240-+$\262\240ek_\222\031\320\250\350B\371\022\030\267&E\001\224>\230i#}\274\337\306\374\336\255\220\224d\034\246\003\002\346\255\340\022C\213\222\335\245\271:\263\342\022\347_%\277\025\010\274\305\02145\226\227L\322\244^\321*a\035\215\235\304\363L-rx\233\342h#\335Z\206\256\270\224\216/~\266\232\357\275\201\364p-\004\354\327o\203$]\247\030R\0175\007yW\204%TX !\024q\324\024\261v,\202\250\251aYK\367\207\335\261\363\253v\277\366\\\013\233\316\236\r\205;\357\r\263\333\255M\177\216I\257\255\315k\002\275\316c\201\255\255?j\355%\266\2373\311\244\300\322\202L\341\r\347\213\322\037^\201\375#n\254.M\026@\360\211\210\024\305RII\005\317e\304\247\005@\004H\313j\234\366j\340AQ\";\010\022+ \210N\307\024r1\251\022\231+\212`F\370\202DOp\300\315@\030\375\334\003\203\2515\350\2476\006\365\331\003\"\224\243'W\210\260N\013\257\203\310!\330f\302K\260_\271h$\031\256Jb\013\242p\276\326&\230\014\016\202}\240\361(\204b)^\201\307q\315\017\330\327\224eB1\312\330K\007\351!\032\315\343\362\320\233\246\006\364n\207\330\346T(e\217\222\210T`\3056mfp\261/\205\203\2736x\311\313\026s\010\232\\\031I\253\3338n\037R\350$%\003\t\335H\223\023\217\252zD\224b\233\022P5\246\236\347U\314\272\273\030\222&\261\016\276\253\344F$\321\223\307<~0\311\3530\352\356\234\rCF\204K'Vv\332pe\tgt<\315\310O$\013\225\216\275@\301S\034jXb\010]\234YI\227\254\243\263\366\270f\235\267E\344\216y\337)dL\305\333+\374D6\021\250\221=\266s\2611\3064O\323\013\006YmH\331&\335\004\316\370%:g$5]A\222c\225\023)\262y:\007\336\031\345^ly\341N\266\006\277\006\031\257f\331\014v~\024\r\357f\316\225j\351\366\241\340\231\220\302\020\233@\252\335\241\262\221\314\277\025|\002\035\217\247\"\306m?C\231\322\030\203r\345\310\270_\003\\\267\007\254\367\nS\365\307\332""\357\370\273\222)\302\204\202\360n\203\020";
+    PyObject *data = __Pyx_DecompressString(cstring, 721, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (642 bytes) */
-const char* const cstring = "x\332\205R\313n\0251\014\335\363\025\336\240\202D\007\026] Q\025\225G%6\325\025\227%R\344I|gBs\223i\342\334\316\010\361\037\375\\\234y1\225\020\214\224\214\343\330\216}\316\271\374`\371\210\335>\327l\331Q\202\026O\004\301\273\001.\240s\350)\335\240ud\200\003\240sA#\023\2449\034\"iN\2001\342\360\277\260\177\3353\365|\033\304\303-2|\034\270\r\036l\002C\316\326\024%V\372I\034\255f\212%\310\303\356\363\356\374\342\355\005\2407R\376\307\330\207\324\323\016S\2221\302\001\352l\035[\017<t\224*\370r\200!d\36045\321I\3346\201[\362\220\210\213\001g\350}`d\033\274\222t\353\23330\266La\005\035\311\276A\227\250ZP\333KZ\244\373,\021\002\006,\356]\014\375\000!BN\004\233\330JG\222\221^\274|_]\301+4F\3712\273L^\326\233\376\335\364\273\304SU\326uJK2\340\351\365\002ZZ\255\252\033\214MX;\"_\366F\3334Y\306\007\301\360\200\3311(\025\311dMJ\201\311\343\020>\370s\301\364d\321\311\255\266\336\262R#\347`\202L\"]\001\3656q\"w\250\004\376\254\031\364\010\r\324\004:\370\023E\2369\205\335\304Z\250\013\027p\220\261;\253\357\234`\367D\006`\275\241\036B\346\302QD\337P\366w><\370\215\034\2041\370\273\367y\274\336\357\02786\310<\225\361\323\323\256\214\244\324n\350e}\022\r\251[\321\333W:\254\234l\t\333\020\365M\302\226#v\035y#Z\021FV\nVk\205\257\272,\332v\351\252j\310S\337\305\371\242\036\212\340\224\360\"\222$'\361EwJ-FCR\207\216\345(\367\312\212\356\"j\252Q\337i\027\022M\2221BUh\262<g\312\030J:Z\236)\025\222HV\356Z\262M\313\326\232\021\352RV\036:\242\324\224\357\030L.\375*\345\361(\177\311\346\211\263.t]\001@\205\270\366\331\261\244v\002\334\\\372>\243\233\362\376\310i\265\364\250\200\215\203zU*\231\262\363\374\236X\263\"G{\256\273\261\227*r\212\243\313\352#\211\313\254\250/\230\213\306\216(e\230\322\270\367\314m\014\017't\231\306-=X\303m?\374z\365\375\331\317G|\274\277\025\250\353Q\033\242}*\031\277\001\200%\360\360";
-    PyObject *data = __Pyx_DecompressString(cstring, 642, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (636 bytes) */
+const char* const cstring = "x\332\205SMo\3240\020\275\363+\346\202\n\022\r\034z@\242**\037\225\270T+\226#\2225\261g\023S\307N\355\3616\021\342\177\364\3472N6!\225\020\254dg<\236\031\317\274\367\366\362\203\345\016\373}\256\331\262\243\004-\036\t\202w#\\@\357\320S\272A\353\310\000\007@\347\202F&H\247p\210\2449\001\306\210\343\377\302\376u\3174\360m\020\017\267\310\360q\3446x\260\t\0149[S\224X\351'q\264\232)\226 \017\273\317\273\363\213\267\027\200\336H\371\037S\037RO;LI\306\010\007\250\263ul=\360\330S\252\340\313\001\306\220\301\323\334D/q\333\004n\311C\".\006\234\241\367\201\221m\360J\322\255o\316\300\3302\205\025t$\373\006]\242jAm/i\221\356\263D\010\030\260\270w1\014#\204\0109\021lb+\035IFz\361\362}u\005\257\320\030\345\313\3542yYo\206w\363\347\022\217UY\327)-\311\200\307\327\013hi\265\252~46a\355\210|\331\033m\323l\031\037\004\303\003f\307\240T$\2235)\005&OC\370\340\317\005\323\243E'\267\332z\313JM\234\203\t2\211t\0054\330\304\211\334\241\022\370\263f\320\0234P\023\350\340\217\024\371\304)\354f\326B]\270\200\203\214\335[}\347\004\273'2\000\353\r\r\0202\027\216\"\372\206\262\277\363\341\301o\344 \214\301\337\275\317\343\365~\277\300\261A\346\251\214\237\236ve$\245v\343 \353\223hH\335\212\336\276\322a\345dK\330\206\250o\022\266\034\261\357\311\033\321\2120\262R\260Z+|\325e\321\266KWUC\236\206>\312MQ\230R\213\321\220dPW\216V\332\262\242\260\210\232j\324w\332\205D\2638\214\220\022\232,\205MiX\311\333kA\251\220D\234r\327\222mZ\266\326L\240\226\262\362P\207RS~]0\271t\246\224\307N\276\222\3153;}\350\3732\252\nQ\211R\344OB\256gI\355\005\242S\351\373\214n\316\373#\234\325\322\023\327\033\007\r\252T2e\347\323{b\235\2647\331\247\272\033{\251\"\2478\271\254\356H\\f\305wAW\324\324\241\224aJ\323>0\2671<\034\321e\232\266\364`\r\267\303\370\353\325\367g?\037\361\361\376V\240\256'\025\210\312\251d\374\006\005\347\347\310";
+    PyObject *data = __Pyx_DecompressString(cstring, 636, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1280 bytes) */
-const char* const bytes = "<BitmapSubtitles have only 4 planesFailed to allocate subtitle rects arrayFailed to allocate subtitle rectFailed to allocate subtitle textNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.SubtitleSet requires a SubtitleProxy or use SubtitleSet.create()?.> ,add_note at  at 0x; at 0x<av.<av.AssSubtitle av/subtitles/subtitle.pydisableenablegcisenabledno default __reduce__ due to non-trivial __cinit__plane does not existself.struct cannot be converted to a Python object for picklingsubtitle rect index out of rangeunknown subtitle type unknown subtitle type %rASSSubtitleAssSubtitleBitmapSubtitleBitmapSubtitlePlane__Pyx_PyDict_NextRefSubtitleSubtitleProxySubtitleSetTextSubtitleappendassav.subtitles.subtitle__cinit__.<locals>.genexpr_cinit_bypass_sentinel__class____class_getitem__cline_in_tracebackclosecreatedialogue__dict__endgenexpr__getstate__heightiidindexitems__main____module____name__nextobjectpopproxy_or_sentinelpts__pyx_state__qualname____reduce____reduce_cython____reduce_ex__send__set_name__setdefault__setstate____setstate_cython__startstaticmethodsubtitlesubtitle_format__test__textthrowvaluevalueswidthxy},\\\n{\230a\230qNassbitmapnonetext";
+    #else /* compression: none (1258 bytes) */
+const char* const bytes = "<BitmapSubtitles have only 4 planesFailed to allocate subtitle rects arrayFailed to allocate subtitle rectFailed to allocate subtitle textNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.SubtitleSet requires a SubtitleProxy or use SubtitleSet.create()?.> ,add_note at  at 0x; at 0x<av.<av.AssSubtitle av/subtitles/subtitle.pydisableenablegcisenabledno default __reduce__ due to non-trivial __cinit__plane does not existself.struct cannot be converted to a Python object for picklingsubtitle rect index out of rangeunknown subtitle type unknown subtitle type %rASSSubtitleAssSubtitleBitmapSubtitleBitmapSubtitlePlane__Pyx_PyDict_NextRefSubtitleSubtitleProxySubtitleSetTextSubtitleappendassav.subtitles.subtitle__cinit__.<locals>.genexpr__class____class_getitem__cline_in_tracebackclosecreatedialogue__dict__endgenexpr__getstate__heightiidindexitems__main____module____name__nextobjectpopproxy_or_sentinelpts__pyx_state__qualname____reduce____reduce_cython____reduce_ex__send__set_name__setdefault__setstate____setstate_cython__startstaticmethodsubtitlesubtitle_format__test__textthrowvaluevalueswidthxy},\\\n{\230a\230qNassbitmapnonetext";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 88; i++) {
+    for (int i = 0; i < 87; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 29) PyUnicode_InternInPlace(&string);
@@ -12545,7 +12519,7 @@ const char* const bytes = "<BitmapSubtitles have only 4 planesFailed to allocate
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 88; i < 101; i++) {
+    for (int i = 87; i < 100; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -12556,14 +12530,14 @@ const char* const bytes = "<BitmapSubtitles have only 4 planesFailed to allocate
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 101; i++) {
+    for (Py_ssize_t i = 0; i < 100; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 88;
+      PyObject **table = stringtab + 87;
       for (Py_ssize_t i=0; i<13; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -12636,12 +12610,12 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 33};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 32};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_av_subtitles_subtitle_py, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 215};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 211};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_i};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_av_subtitles_subtitle_py, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
@@ -14159,68 +14133,6 @@ static void __Pyx_Generator_Replace_StopIteration(int in_async_gen) {
     PyErr_SetObject(PyExc_RuntimeError, new_exc);
 }
 
-/* PyDictVersioning (used by GetModuleGlobalName) */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
-    PyObject **dictptr = NULL;
-    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
-    if (offset) {
-#if CYTHON_COMPILING_IN_CPYTHON
-        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
-#else
-        dictptr = _PyObject_GetDictPtr(obj);
-#endif
-    }
-    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
-}
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
-        return 0;
-    return obj_dict_version == __Pyx_get_object_dict_version(obj);
-}
-#endif
-
-/* GetModuleGlobalName */
-#if CYTHON_USE_DICT_VERSIONS
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
-#else
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
-#endif
-{
-    PyObject *result;
-#if CYTHON_COMPILING_IN_LIMITED_API
-    if (unlikely(!__pyx_m)) {
-        if (!PyErr_Occurred())
-            PyErr_SetNone(PyExc_NameError);
-        return NULL;
-    }
-    result = PyObject_GetAttr(__pyx_m, name);
-    if (likely(result)) {
-        return result;
-    }
-    PyErr_Clear();
-#elif CYTHON_AVOID_BORROWED_REFS || CYTHON_AVOID_THREAD_UNSAFE_BORROWED_REFS
-    if (unlikely(__Pyx_PyDict_GetItemRef(__pyx_mstate_global->__pyx_d, name, &result) == -1)) PyErr_Clear();
-    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return result;
-    }
-#else
-    result = _PyDict_GetItem_KnownHash(__pyx_mstate_global->__pyx_d, name, ((PyASCIIObject *) name)->hash);
-    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-    PyErr_Clear();
-#endif
-    return __Pyx_GetBuiltinName(name);
-}
-
 /* ExtTypeTest */
 static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
     __Pyx_TypeName obj_type_name;
@@ -15653,6 +15565,68 @@ bad:
     return NULL;
 }
 #endif
+
+/* PyDictVersioning (used by GetModuleGlobalName) */
+#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
+}
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
+    PyObject **dictptr = NULL;
+    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
+    if (offset) {
+#if CYTHON_COMPILING_IN_CPYTHON
+        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
+#else
+        dictptr = _PyObject_GetDictPtr(obj);
+#endif
+    }
+    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
+}
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
+        return 0;
+    return obj_dict_version == __Pyx_get_object_dict_version(obj);
+}
+#endif
+
+/* GetModuleGlobalName (used by GetNameInClass) */
+#if CYTHON_USE_DICT_VERSIONS
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
+#else
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
+#endif
+{
+    PyObject *result;
+#if CYTHON_COMPILING_IN_LIMITED_API
+    if (unlikely(!__pyx_m)) {
+        if (!PyErr_Occurred())
+            PyErr_SetNone(PyExc_NameError);
+        return NULL;
+    }
+    result = PyObject_GetAttr(__pyx_m, name);
+    if (likely(result)) {
+        return result;
+    }
+    PyErr_Clear();
+#elif CYTHON_AVOID_BORROWED_REFS || CYTHON_AVOID_THREAD_UNSAFE_BORROWED_REFS
+    if (unlikely(__Pyx_PyDict_GetItemRef(__pyx_mstate_global->__pyx_d, name, &result) == -1)) PyErr_Clear();
+    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return result;
+    }
+#else
+    result = _PyDict_GetItem_KnownHash(__pyx_mstate_global->__pyx_d, name, ((PyASCIIObject *) name)->hash);
+    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+    PyErr_Clear();
+#endif
+    return __Pyx_GetBuiltinName(name);
+}
 
 /* GetNameInClass */
 static PyObject *__Pyx__GetNameInClass(PyObject *nmspace, PyObject *name) {
@@ -18004,75 +17978,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value) {
         from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
         if (!from_bytes) return NULL;
         py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(long));
-        if (!py_bytes) goto limited_bad;
-        order_str = PyUnicode_FromString(little ? "little" : "big");
-        if (!order_str) goto limited_bad;
-        {
-            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-            if (!is_unsigned) {
-                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                if (!kwds) goto limited_bad;
-                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-            }
-            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-        }
-        limited_bad:
-        Py_XDECREF(kwds);
-        Py_XDECREF(order_str);
-        Py_XDECREF(py_bytes);
-        Py_XDECREF(from_bytes);
-        return result;
-#endif
-    }
-}
-
-/* CIntToPy */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_uint64_t(uint64_t value) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const uint64_t neg_one = (uint64_t) -1, const_zero = (uint64_t) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(uint64_t) < sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(uint64_t) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-#if !CYTHON_COMPILING_IN_PYPY
-        } else if (sizeof(uint64_t) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-#endif
-        }
-    } else {
-        if (sizeof(uint64_t) <= sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(uint64_t) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        unsigned char *bytes = (unsigned char *)&value;
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-        if (is_unsigned) {
-            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-        } else {
-            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-        }
-#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        return _PyLong_FromByteArray(bytes, sizeof(uint64_t),
-                                     little, !is_unsigned);
-#else
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        PyObject *from_bytes, *result = NULL, *kwds = NULL;
-        PyObject *py_bytes = NULL, *order_str = NULL;
-        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-        if (!from_bytes) return NULL;
-        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(uint64_t));
         if (!py_bytes) goto limited_bad;
         order_str = PyUnicode_FromString(little ? "little" : "big");
         if (!order_str) goto limited_bad;

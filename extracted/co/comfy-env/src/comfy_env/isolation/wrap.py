@@ -160,6 +160,12 @@ def _build_isolation_env_win32(env: dict, python: Path) -> dict:
     env["COMFYUI_PIXI_LIBRARY_BIN"] = str(library_bin) if library_bin.is_dir() else ""
     env["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     env["PYTHONIOENCODING"] = "utf-8"
+    # Pixi/conda envs on Windows: the Python binary resolves sys.prefix to the
+    # base UV/conda Python instead of the env, causing both stdlib version
+    # mismatches (SRE module mismatch) and missing site-packages (CGAL).
+    # PYTHONHOME forces Python to use the env's own stdlib and site-packages.
+    if (env_root / "Lib").is_dir():
+        env["PYTHONHOME"] = str(env_root)
     return env
 
 
@@ -215,7 +221,7 @@ def _find_env_dir(node_dir: Path) -> Optional[Path]:
         for item in node_dir.iterdir():
             if item.name.startswith("_env_") and item.is_dir():
                 # On Windows, resolve junctions to keep paths under MAX_PATH for LoadLibrary
-                if sys.platform == "win32" and item.is_junction():
+                if sys.platform == "win32":
                     return item.resolve()
                 return item
     except OSError:
@@ -698,6 +704,7 @@ def register_nodes(nodes_package: str = "nodes") -> tuple:
 
         if share_torch_active and host_torch_sp:
             _log(f"[comfy-env] {cf.parent.name}: sharing host torch from {host_torch_sp}")
+            env_vars["_COMFY_ENV_HOST_SP"] = str(host_torch_sp)
 
         package_root = pkg_dir
         isolation_envs[cf.parent.resolve()] = {

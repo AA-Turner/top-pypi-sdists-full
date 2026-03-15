@@ -4,10 +4,13 @@ import warnings
 import numpy as np
 
 from dipy.testing.decorators import warning_for_keywords
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 from dipy.viz.gmem import GlobalHorizon
 
-fury, have_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, have_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if have_fury:
     from dipy.viz import actor, colormap, ui
@@ -98,7 +101,7 @@ def slicer_panel(
         mem = GlobalHorizon()
 
     orig_shape = data.shape
-    print("Original shape", orig_shape)
+    logger.info("Original shape", orig_shape)
     ndim = data.ndim
     tmp = data
     if ndim == 4:
@@ -136,11 +139,11 @@ def slicer_panel(
 
     if len(data.shape) == 4:
         if data.shape[-1] == 3:
-            print("Resized to RAS shape ", tmp_new.shape)
+            logger.info("Resized to RAS shape ", tmp_new.shape)
         else:
-            print("Resized to RAS shape ", tmp_new.shape + (data.shape[-1],))
+            logger.info("Resized to RAS shape ", tmp_new.shape + (data.shape[-1],))
     else:
-        print("Resized to RAS shape ", tmp_new.shape)
+        logger.info("Resized to RAS shape ", tmp_new.shape)
 
     shape = tmp_new.shape
 

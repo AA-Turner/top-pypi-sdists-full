@@ -6,7 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import Optional
 
 import slixmpp
 from slixmpp import Iq, JID
@@ -85,8 +84,8 @@ class XEP_0128(BasePlugin):
         """
         return self.api['add_extended_info'](jid, node, None, kwargs)
 
-    def del_extended_info(self, jid: Optional[JID] = None,
-                          node: Optional[str] = None, **kwargs) -> Future:
+    def del_extended_info(self, jid: JID | None = None,
+                          node: str | None = None, **kwargs) -> Future:
         """
         Remove all extended identity information to a node.
 

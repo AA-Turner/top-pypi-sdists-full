@@ -7,12 +7,26 @@ from slixmpp.xmlstream import ElementBase
 
 
 class Hash(ElementBase):
+    """
+    Hash element, contains the name of the hash algorithm and the
+    matching digest.
+
+    .. code-block:: xml
+
+        <hash xmlns='urn:xmpp:hashes:2' algo='sha-256'>2XarmwTlNxDAMkvymloX3S5+VbylNrJt/l5QyPa+YoU=</hash>
+
+    """
     name = 'hash'
     namespace = 'urn:xmpp:hashes:2'
     plugin_attrib = 'hash'
     interfaces = {'algo', 'value'}
 
-    allowed_algos = ['sha-1', 'sha-256', 'sha-512', 'sha3-256', 'sha3-512', 'BLAKE2b256', 'BLAKE2b512']
+    allowed_algos = [
+        'sha-1',
+        'sha-256', 'sha-512',
+        'sha3-256', 'sha3-512',
+        'BLAKE2b256', 'BLAKE2b512',
+    ]
 
     def set_algo(self, value):
         if value in self.allowed_algos:

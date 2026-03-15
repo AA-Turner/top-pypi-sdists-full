@@ -49,7 +49,14 @@ class XEP_0444(BasePlugin):
         self.xmpp.event('reactions', message)
 
     def send_reactions(self, to: JID, to_id: str, reactions: Iterable[str], *, store=True):
-        """Send reactions related to a message"""
+        """
+        Send reactions related to a message.
+
+        :param to: JID to which the reactions will be sent.
+        :param to_id: ID of the message being reacted to.
+        :param reactions: Iterable object containing all reactions to set.
+        :param store: If the store hint should be set on the message.
+        """
         msg = self.xmpp.make_message(mto=to)
         self.set_reactions(msg, to_id, reactions)
         if store:
@@ -58,7 +65,13 @@ class XEP_0444(BasePlugin):
 
     @staticmethod
     def set_reactions(message: Message, to_id: str, reactions: Iterable[str]):
-        """Add reactions to a Message object."""
+        """
+        Add reactions to a Message object.
+
+        :param message: Message to enrich with reactions.
+        :param to_id: ID of the message the reactions are for.
+        :param reactions: Iterable object containing all reactions to set.
+        """
         message['reactions']['id'] = to_id
         for reaction in reactions:
             reaction_stanza = stanza.Reaction()

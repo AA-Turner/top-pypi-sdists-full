@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 Mathieu Pasquet
 # This file is part of Slixmpp.
@@ -12,7 +11,18 @@ from slixmpp.xmlstream import (
 
 NS = 'urn:xmpp:rai:0'
 
+
 class RAI(ElementBase):
+    """
+    Room Activity Indicator element
+
+    .. code-block:: xml
+
+      <rai xmlns="urn:xmpp:rai:0">
+        <activity>room1@conference.example.com</activity>
+        <activity>room3@conference.example.com</activity>
+      </rai>
+    """
     name = 'rai'
     plugin_attrib = 'rai'
     namespace = NS

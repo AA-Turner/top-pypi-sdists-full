@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.codec.hwaccel",
         "sources": [
-            "av/codec/hwaccel.pyx"
+            "av/codec/hwaccel.py"
         ]
     },
     "module_name": "av.codec.hwaccel"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__codec__hwaccel
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1413,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/codec/hwaccel.pyx",
+  "av/codec/hwaccel.py",
   "<stringsource>",
   "av/codec/hwaccel.pxd",
   "av/codec/codec.pxd",
@@ -1614,7 +1596,7 @@ static const char* const __pyx_f[] = {
 
 /*--- Type declarations ---*/
 struct __pyx_obj_2av_5codec_5codec_Codec;
-struct __pyx_obj_2av_10dictionary__Dictionary;
+struct __pyx_obj_2av_10dictionary_Dictionary;
 struct __pyx_obj_2av_5video_6format_VideoFormat;
 struct __pyx_obj_2av_5video_6format_VideoFormatComponent;
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig;
@@ -1635,8 +1617,7 @@ struct __pyx_opt_args_2av_5codec_5codec_5Codec__init {
 struct __pyx_opt_args_2av_5error_stash_exception;
 struct __pyx_opt_args_2av_5error_err_check;
 
-/* "av/error.pxd":2
- * 
+/* "av/error.pxd":1
  * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
  * cpdef int err_check(int res, filename=*) except -1
 */
@@ -1645,8 +1626,7 @@ struct __pyx_opt_args_2av_5error_stash_exception {
   PyObject *exc_info;
 };
 
-/* "av/error.pxd":3
- * 
+/* "av/error.pxd":2
  * cdef int stash_exception(exc_info=*)
  * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
 */
@@ -1657,9 +1637,9 @@ struct __pyx_opt_args_2av_5error_err_check {
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width;
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_height;
 
-/* "av/video/format.pxd":14
+/* "av/video/format.pxd":10
+ *     cdef readonly tuple components
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
- * 
  *     cpdef chroma_width(self, int luma_width=?)             # <<<<<<<<<<<<<<
  *     cpdef chroma_height(self, int luma_height=?)
  * 
@@ -1669,8 +1649,8 @@ struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width {
   int luma_width;
 };
 
-/* "av/video/format.pxd":15
- * 
+/* "av/video/format.pxd":11
+ *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)
  *     cpdef chroma_height(self, int luma_height=?)             # <<<<<<<<<<<<<<
  * 
@@ -1701,13 +1681,13 @@ struct __pyx_obj_2av_5codec_5codec_Codec {
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
-struct __pyx_obj_2av_10dictionary__Dictionary {
+struct __pyx_obj_2av_10dictionary_Dictionary {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtab;
+  struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtab;
   AVDictionary *ptr;
 };
 
@@ -1716,8 +1696,8 @@ struct __pyx_obj_2av_10dictionary__Dictionary {
  * 
  * 
  * cdef class VideoFormat:             # <<<<<<<<<<<<<<
- * 
  *     cdef lib.AVPixelFormat pix_fmt
+ *     cdef const lib.AVPixFmtDescriptor *ptr
 */
 struct __pyx_obj_2av_5video_6format_VideoFormat {
   PyObject_HEAD
@@ -1730,12 +1710,12 @@ struct __pyx_obj_2av_5video_6format_VideoFormat {
 };
 
 
-/* "av/video/format.pxd":18
+/* "av/video/format.pxd":14
  * 
  * 
  * cdef class VideoFormatComponent:             # <<<<<<<<<<<<<<
- * 
  *     cdef VideoFormat format
+ *     cdef readonly unsigned int index
 */
 struct __pyx_obj_2av_5video_6format_VideoFormatComponent {
   PyObject_HEAD
@@ -1750,18 +1730,18 @@ struct __pyx_obj_2av_5video_6format_VideoFormatComponent {
  * 
  * cdef class HWConfig:             # <<<<<<<<<<<<<<
  *     cdef object __weakref__
- *     cdef lib.AVCodecHWConfig *ptr
+ *     cdef const lib.AVCodecHWConfig *ptr
 */
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtab;
   PyObject *__weakref__;
-  struct AVCodecHWConfig *ptr;
+  struct AVCodecHWConfig const *ptr;
 };
 
 
 /* "av/codec/hwaccel.pxd":13
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr)
+ * cdef HWConfig wrap_hwconfig(const lib.AVCodecHWConfig *ptr)
  * 
  * cdef class HWAccel:             # <<<<<<<<<<<<<<
  *     cdef int _device_type
@@ -1774,6 +1754,8 @@ struct __pyx_obj_2av_5codec_7hwaccel_HWAccel {
   struct __pyx_obj_2av_5codec_5codec_Codec *codec;
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *config;
   struct AVBufferRef *ptr;
+  int device_id;
+  int is_hw_owned;
   int allow_software_fallback;
   PyObject *options;
   int flags;
@@ -1798,23 +1780,23 @@ static struct __pyx_vtabstruct_2av_5codec_5codec_Codec *__pyx_vtabptr_2av_5codec
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
 
-struct __pyx_vtabstruct_2av_10dictionary__Dictionary {
-  struct __pyx_obj_2av_10dictionary__Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary__Dictionary *, int __pyx_skip_dispatch);
+struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
+  struct __pyx_obj_2av_10dictionary_Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary_Dictionary *, int __pyx_skip_dispatch);
 };
-static struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtabptr_2av_10dictionary__Dictionary;
+static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
 /* "av/video/format.pxd":4
  * 
  * 
  * cdef class VideoFormat:             # <<<<<<<<<<<<<<
- * 
  *     cdef lib.AVPixelFormat pix_fmt
+ *     cdef const lib.AVPixFmtDescriptor *ptr
 */
 
 struct __pyx_vtabstruct_2av_5video_6format_VideoFormat {
@@ -1825,16 +1807,16 @@ struct __pyx_vtabstruct_2av_5video_6format_VideoFormat {
 static struct __pyx_vtabstruct_2av_5video_6format_VideoFormat *__pyx_vtabptr_2av_5video_6format_VideoFormat;
 
 
-/* "av/codec/hwaccel.pyx":54
+/* "av/codec/hwaccel.py":58
  * 
- * 
- * cdef class HWConfig:             # <<<<<<<<<<<<<<
+ * @cython.cclass
+ * class HWConfig:             # <<<<<<<<<<<<<<
  *     def __init__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:
 */
 
 struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig {
-  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig *);
+  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig const *);
 };
 static struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig;
 /* #### Code section: utility_code_proto ### */
@@ -2264,13 +2246,13 @@ static CYTHON_INLINE PyObject* __Pyx_PyUnicode_FromOrdinal_Padded(int value, Py_
 #include <stdlib.h>
 
 /* CIntToPyUnicode.proto */
-#define __Pyx_PyUnicode_From_int(value, width, padding_char, format_char) (\
+#define __Pyx_PyUnicode_From_Py_ssize_t(value, width, padding_char, format_char) (\
     ((format_char) == ('c')) ?\
-        __Pyx_uchar___Pyx_PyUnicode_From_int(value, width, padding_char) :\
-        __Pyx____Pyx_PyUnicode_From_int(value, width, padding_char, format_char)\
+        __Pyx_uchar___Pyx_PyUnicode_From_Py_ssize_t(value, width, padding_char) :\
+        __Pyx____Pyx_PyUnicode_From_Py_ssize_t(value, width, padding_char, format_char)\
     )
-static CYTHON_INLINE PyObject* __Pyx_uchar___Pyx_PyUnicode_From_int(int value, Py_ssize_t width, char padding_char);
-static CYTHON_INLINE PyObject* __Pyx____Pyx_PyUnicode_From_int(int value, Py_ssize_t width, char padding_char, char format_char);
+static CYTHON_INLINE PyObject* __Pyx_uchar___Pyx_PyUnicode_From_Py_ssize_t(Py_ssize_t value, Py_ssize_t width, char padding_char);
+static CYTHON_INLINE PyObject* __Pyx____Pyx_PyUnicode_From_Py_ssize_t(Py_ssize_t value, Py_ssize_t width, char padding_char, char format_char);
 
 /* JoinPyUnicode.export */
 static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
@@ -2355,6 +2337,9 @@ static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
 
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
+
+/* dict_setdefault.proto */
+static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value);
 
 /* ArgTypeTestFunc.export */
 static int __Pyx__ArgTypeTest(PyObject *obj, PyTypeObject *type, const char *name, int exact);
@@ -2529,9 +2514,6 @@ static PyObject *__Pyx_Py3MetaclassPrepare(PyObject *metaclass, PyObject *bases,
 static PyObject *__Pyx_Py3ClassCreate(PyObject *metaclass, PyObject *name, PyObject *bases, PyObject *dict,
                                       PyObject *mkw, int calculate_metaclass, int allow_py2_metaclass);
 
-/* dict_setdefault.proto (used by CLineInTraceback) */
-static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value);
-
 /* CLineInTraceback.proto (used by AddTraceback) */
 #if CYTHON_CLINE_IN_TRACEBACK && CYTHON_CLINE_IN_TRACEBACK_RUNTIME
 static int __Pyx_CLineForTraceback(PyThreadState *tstate, int c_line);
@@ -2571,11 +2553,11 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_enum__AVHWDeviceType(enum AVHWD
 /* CIntToPy.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From___pyx_anon_enum(int value);
 
-/* CIntToPy.proto */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
-
 /* CIntFromPy.proto */
 static CYTHON_INLINE enum AVHWDeviceType __Pyx_PyLong_As_enum__AVHWDeviceType(PyObject *);
+
+/* CIntToPy.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
 
 /* CIntFromPy.proto */
 static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *);
@@ -2697,15 +2679,19 @@ static int __Pyx_State_RemoveModule(void*);
 #define __PYX_ABI_MODULE_NAME "_cython_" CYTHON_ABI
 #define __PYX_TYPE_MODULE_PREFIX __PYX_ABI_MODULE_NAME "."
 
-static void __pyx_f_2av_5codec_7hwaccel_8HWConfig__init(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self, struct AVCodecHWConfig *__pyx_v_ptr); /* proto*/
+static void __pyx_f_2av_5codec_7hwaccel_8HWConfig__init(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self, struct AVCodecHWConfig const *__pyx_v_ptr); /* proto*/
 
 /* Module declarations from "libc.stdint" */
-
-/* Module declarations from "libc.stddef" */
 
 /* Module declarations from "libav" */
 
 /* Module declarations from "av.codec.codec" */
+
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.dictionary" */
 
@@ -2739,12 +2725,14 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_12is_supported___get__(s
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_4__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_6__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
-static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, PyObject *__pyx_v_device_type, PyObject *__pyx_v_device, PyObject *__pyx_v_allow_software_fallback, PyObject *__pyx_v_options, PyObject *__pyx_v_flags); /* proto */
+static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, PyObject *__pyx_v_device_type, PyObject *__pyx_v_device, PyObject *__pyx_v_allow_software_fallback, PyObject *__pyx_v_options, PyObject *__pyx_v_flags, PyObject *__pyx_v_is_hw_owned); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec); /* proto */
-static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec); /* proto */
+static struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec); /* proto */
 static void __pyx_pf_2av_5codec_7hwaccel_7HWAccel_6__dealloc__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_5codec___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_6config___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_9device_id___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
 static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback_2__set__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_7options___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self); /* proto */
@@ -2777,7 +2765,7 @@ typedef struct {
   PyObject *__pyx_empty_bytes;
   PyObject *__pyx_empty_unicode;
   PyTypeObject *__pyx_ptype_2av_5codec_5codec_Codec;
-  PyTypeObject *__pyx_ptype_2av_10dictionary__Dictionary;
+  PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
   PyTypeObject *__pyx_ptype_2av_5video_6format_VideoFormat;
   PyTypeObject *__pyx_ptype_2av_5video_6format_VideoFormatComponent;
   PyObject *__pyx_type_2av_5codec_7hwaccel_HWConfig;
@@ -2787,7 +2775,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
-  PyObject *__pyx_string_tab[92];
+  PyObject *__pyx_string_tab[93];
   PyObject *__pyx_number_tab[3];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
@@ -2819,25 +2807,25 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #endif
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
-#define __pyx_kp_u_Cannot_instantiate_CodecContext __pyx_string_tab[1]
-#define __pyx_kp_u_Hardware_context_already_initial __pyx_string_tab[2]
-#define __pyx_kp_u_No_supported_hardware_config_for __pyx_string_tab[3]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[4]
-#define __pyx_kp_u_Unknown_type_for_device_type __pyx_string_tab[5]
-#define __pyx_kp_u__2 __pyx_string_tab[6]
-#define __pyx_kp_u__3 __pyx_string_tab[7]
-#define __pyx_kp_u_add_note __pyx_string_tab[8]
-#define __pyx_kp_u_at_0x __pyx_string_tab[9]
-#define __pyx_kp_u_av __pyx_string_tab[10]
-#define __pyx_kp_u_device_type __pyx_string_tab[11]
-#define __pyx_kp_u_disable __pyx_string_tab[12]
-#define __pyx_kp_u_enable __pyx_string_tab[13]
-#define __pyx_kp_u_format __pyx_string_tab[14]
-#define __pyx_kp_u_gc __pyx_string_tab[15]
-#define __pyx_kp_u_is_supported __pyx_string_tab[16]
-#define __pyx_kp_u_isenabled __pyx_string_tab[17]
-#define __pyx_kp_u_self_ptr_cannot_be_converted_to __pyx_string_tab[18]
-#define __pyx_n_u_Dictionary __pyx_string_tab[19]
+#define __pyx_kp_u_1 __pyx_string_tab[1]
+#define __pyx_kp_u_Cannot_instantiate_CodecContext __pyx_string_tab[2]
+#define __pyx_kp_u_Hardware_context_already_initial __pyx_string_tab[3]
+#define __pyx_kp_u_No_supported_hardware_config_for __pyx_string_tab[4]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[5]
+#define __pyx_kp_u_Unknown_type_for_device_type __pyx_string_tab[6]
+#define __pyx_kp_u__2 __pyx_string_tab[7]
+#define __pyx_kp_u__3 __pyx_string_tab[8]
+#define __pyx_kp_u_add_note __pyx_string_tab[9]
+#define __pyx_kp_u_at_0x __pyx_string_tab[10]
+#define __pyx_kp_u_av __pyx_string_tab[11]
+#define __pyx_kp_u_device_type __pyx_string_tab[12]
+#define __pyx_kp_u_disable __pyx_string_tab[13]
+#define __pyx_kp_u_enable __pyx_string_tab[14]
+#define __pyx_kp_u_format __pyx_string_tab[15]
+#define __pyx_kp_u_gc __pyx_string_tab[16]
+#define __pyx_kp_u_is_supported __pyx_string_tab[17]
+#define __pyx_kp_u_isenabled __pyx_string_tab[18]
+#define __pyx_kp_u_self_ptr_cannot_be_converted_to __pyx_string_tab[19]
 #define __pyx_n_u_HWAccel __pyx_string_tab[20]
 #define __pyx_n_u_HWConfig __pyx_string_tab[21]
 #define __pyx_n_u_HWConfigMethod __pyx_string_tab[22]
@@ -2849,27 +2837,27 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_allow_software_fallback __pyx_string_tab[28]
 #define __pyx_n_u_amf __pyx_string_tab[29]
 #define __pyx_n_u_av_codec_hwaccel __pyx_string_tab[30]
-#define __pyx_n_u_av_dictionary __pyx_string_tab[31]
-#define __pyx_n_u_class __pyx_string_tab[32]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[33]
-#define __pyx_n_u_codec __pyx_string_tab[34]
-#define __pyx_n_u_cuda __pyx_string_tab[35]
-#define __pyx_n_u_d3d11va __pyx_string_tab[36]
-#define __pyx_n_u_d3d12va __pyx_string_tab[37]
-#define __pyx_n_u_device __pyx_string_tab[38]
-#define __pyx_n_u_device_type_2 __pyx_string_tab[39]
-#define __pyx_n_u_doc __pyx_string_tab[40]
-#define __pyx_n_u_drm __pyx_string_tab[41]
-#define __pyx_n_u_dxva2 __pyx_string_tab[42]
-#define __pyx_n_u_enum __pyx_string_tab[43]
-#define __pyx_n_u_flags __pyx_string_tab[44]
-#define __pyx_n_u_format_2 __pyx_string_tab[45]
-#define __pyx_n_u_getstate __pyx_string_tab[46]
-#define __pyx_n_u_hardware_configs __pyx_string_tab[47]
-#define __pyx_n_u_hw_device_ctx __pyx_string_tab[48]
-#define __pyx_n_u_hw_frame_ctx __pyx_string_tab[49]
-#define __pyx_n_u_initialize_hw_context __pyx_string_tab[50]
-#define __pyx_n_u_internal __pyx_string_tab[51]
+#define __pyx_n_u_class __pyx_string_tab[31]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[32]
+#define __pyx_n_u_codec __pyx_string_tab[33]
+#define __pyx_n_u_cuda __pyx_string_tab[34]
+#define __pyx_n_u_d3d11va __pyx_string_tab[35]
+#define __pyx_n_u_d3d12va __pyx_string_tab[36]
+#define __pyx_n_u_device __pyx_string_tab[37]
+#define __pyx_n_u_device_type_2 __pyx_string_tab[38]
+#define __pyx_n_u_doc __pyx_string_tab[39]
+#define __pyx_n_u_drm __pyx_string_tab[40]
+#define __pyx_n_u_dxva2 __pyx_string_tab[41]
+#define __pyx_n_u_enum __pyx_string_tab[42]
+#define __pyx_n_u_flags __pyx_string_tab[43]
+#define __pyx_n_u_format_2 __pyx_string_tab[44]
+#define __pyx_n_u_getstate __pyx_string_tab[45]
+#define __pyx_n_u_hardware_configs __pyx_string_tab[46]
+#define __pyx_n_u_hw_device_ctx __pyx_string_tab[47]
+#define __pyx_n_u_hw_frame_ctx __pyx_string_tab[48]
+#define __pyx_n_u_initialize_hw_context __pyx_string_tab[49]
+#define __pyx_n_u_internal __pyx_string_tab[50]
+#define __pyx_n_u_is_hw_owned __pyx_string_tab[51]
 #define __pyx_n_u_is_supported_2 __pyx_string_tab[52]
 #define __pyx_n_u_items __pyx_string_tab[53]
 #define __pyx_n_u_main __pyx_string_tab[54]
@@ -2886,30 +2874,31 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_options __pyx_string_tab[65]
 #define __pyx_n_u_pop __pyx_string_tab[66]
 #define __pyx_n_u_prepare __pyx_string_tab[67]
-#define __pyx_n_u_pyx_capi __pyx_string_tab[68]
-#define __pyx_n_u_pyx_state __pyx_string_tab[69]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[70]
-#define __pyx_n_u_qsv __pyx_string_tab[71]
-#define __pyx_n_u_qualname __pyx_string_tab[72]
-#define __pyx_n_u_reduce __pyx_string_tab[73]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[74]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[75]
-#define __pyx_n_u_sentinel __pyx_string_tab[76]
-#define __pyx_n_u_set_name __pyx_string_tab[77]
-#define __pyx_n_u_setdefault __pyx_string_tab[78]
-#define __pyx_n_u_setstate __pyx_string_tab[79]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[80]
-#define __pyx_n_u_test __pyx_string_tab[81]
-#define __pyx_n_u_vaapi __pyx_string_tab[82]
-#define __pyx_n_u_values __pyx_string_tab[83]
-#define __pyx_n_u_vdpau __pyx_string_tab[84]
-#define __pyx_n_u_videotoolbox __pyx_string_tab[85]
-#define __pyx_n_u_vulkan __pyx_string_tab[86]
-#define __pyx_n_u_weakref __pyx_string_tab[87]
-#define __pyx_n_u_x __pyx_string_tab[88]
-#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[89]
-#define __pyx_kp_b_struct___pyx_obj_2av_5codec_7hwa __pyx_string_tab[90]
-#define __pyx_kp_b_struct___pyx_obj_2av_5video_6for __pyx_string_tab[91]
+#define __pyx_n_u_primary_ctx __pyx_string_tab[68]
+#define __pyx_n_u_pyx_capi __pyx_string_tab[69]
+#define __pyx_n_u_pyx_state __pyx_string_tab[70]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[71]
+#define __pyx_n_u_qsv __pyx_string_tab[72]
+#define __pyx_n_u_qualname __pyx_string_tab[73]
+#define __pyx_n_u_reduce __pyx_string_tab[74]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[75]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[76]
+#define __pyx_n_u_sentinel __pyx_string_tab[77]
+#define __pyx_n_u_set_name __pyx_string_tab[78]
+#define __pyx_n_u_setdefault __pyx_string_tab[79]
+#define __pyx_n_u_setstate __pyx_string_tab[80]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[81]
+#define __pyx_n_u_test __pyx_string_tab[82]
+#define __pyx_n_u_vaapi __pyx_string_tab[83]
+#define __pyx_n_u_values __pyx_string_tab[84]
+#define __pyx_n_u_vdpau __pyx_string_tab[85]
+#define __pyx_n_u_videotoolbox __pyx_string_tab[86]
+#define __pyx_n_u_vulkan __pyx_string_tab[87]
+#define __pyx_n_u_weakref __pyx_string_tab[88]
+#define __pyx_n_u_x __pyx_string_tab[89]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[90]
+#define __pyx_kp_b_struct___pyx_obj_2av_5codec_7hwa __pyx_string_tab[91]
+#define __pyx_kp_b_struct___pyx_obj_2av_5video_6for __pyx_string_tab[92]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_13 __pyx_number_tab[1]
 #define __pyx_int_14 __pyx_number_tab[2]
@@ -2928,14 +2917,14 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   __Pyx_State_RemoveModule(NULL);
   #endif
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_6format_VideoFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_6format_VideoFormatComponent);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_CLEAR(clear_module_state->__pyx_type_2av_5codec_7hwaccel_HWConfig);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_CLEAR(clear_module_state->__pyx_type_2av_5codec_7hwaccel_HWAccel);
-  for (int i=0; i<92; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<93; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
@@ -2954,14 +2943,14 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_bytes);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_6format_VideoFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_6format_VideoFormatComponent);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_VISIT(traverse_module_state->__pyx_type_2av_5codec_7hwaccel_HWConfig);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_VISIT(traverse_module_state->__pyx_type_2av_5codec_7hwaccel_HWAccel);
-  for (int i=0; i<92; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<93; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
@@ -2970,15 +2959,15 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/codec/hwaccel.pyx":43
- * cdef object _singletons = weakref.WeakValueDictionary()
+/* "av/codec/hwaccel.py":45
  * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):             # <<<<<<<<<<<<<<
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:
- *         return _singletons[<int>ptr]
 */
 
-static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwaccel_wrap_hwconfig(struct AVCodecHWConfig *__pyx_v_ptr) {
+static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwaccel_wrap_hwconfig(struct AVCodecHWConfig const *__pyx_v_ptr) {
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_config = 0;
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -2994,11 +2983,11 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_hwconfig", 0);
 
-  /* "av/codec/hwaccel.pyx":44
- * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):
+  /* "av/codec/hwaccel.py":47
+ * @cython.cfunc
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:             # <<<<<<<<<<<<<<
- *         return _singletons[<int>ptr]
+ *         return _singletons[cython.cast(cython.Py_ssize_t, ptr)]
  *     except KeyError:
 */
   {
@@ -3010,38 +2999,38 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/codec/hwaccel.pyx":45
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):
+      /* "av/codec/hwaccel.py":48
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:
- *         return _singletons[<int>ptr]             # <<<<<<<<<<<<<<
+ *         return _singletons[cython.cast(cython.Py_ssize_t, ptr)]             # <<<<<<<<<<<<<<
  *     except KeyError:
  *         pass
 */
       __Pyx_XDECREF((PyObject *)__pyx_r);
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_2av_5codec_7hwaccel__singletons, ((int)__pyx_v_ptr), int, 1, __Pyx_PyLong_From_int, 0, 1, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_2av_5codec_7hwaccel__singletons, ((Py_ssize_t)__pyx_v_ptr), Py_ssize_t, 1, PyLong_FromSsize_t, 0, 1, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWConfig))))) __PYX_ERR(0, 45, __pyx_L3_error)
+      if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWConfig))))) __PYX_ERR(0, 48, __pyx_L3_error)
       __pyx_r = ((struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *)__pyx_t_4);
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "av/codec/hwaccel.pyx":44
- * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):
+      /* "av/codec/hwaccel.py":47
+ * @cython.cfunc
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:             # <<<<<<<<<<<<<<
- *         return _singletons[<int>ptr]
+ *         return _singletons[cython.cast(cython.Py_ssize_t, ptr)]
  *     except KeyError:
 */
     }
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "av/codec/hwaccel.pyx":46
+    /* "av/codec/hwaccel.py":49
  *     try:
- *         return _singletons[<int>ptr]
+ *         return _singletons[cython.cast(cython.Py_ssize_t, ptr)]
  *     except KeyError:             # <<<<<<<<<<<<<<
  *         pass
- *     cdef HWConfig config = HWConfig(_cinit_sentinel)
+ *     config: HWConfig = HWConfig(_cinit_sentinel)
 */
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_KeyError))));
     if (__pyx_t_5) {
@@ -3050,11 +3039,11 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
     }
     goto __pyx_L5_except_error;
 
-    /* "av/codec/hwaccel.pyx":44
- * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):
+    /* "av/codec/hwaccel.py":47
+ * @cython.cfunc
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:             # <<<<<<<<<<<<<<
- *         return _singletons[<int>ptr]
+ *         return _singletons[cython.cast(cython.Py_ssize_t, ptr)]
  *     except KeyError:
 */
     __pyx_L5_except_error:;
@@ -3076,12 +3065,12 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
     __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
   }
 
-  /* "av/codec/hwaccel.pyx":48
+  /* "av/codec/hwaccel.py":51
  *     except KeyError:
  *         pass
- *     cdef HWConfig config = HWConfig(_cinit_sentinel)             # <<<<<<<<<<<<<<
+ *     config: HWConfig = HWConfig(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     config._init(ptr)
- *     _singletons[<int>ptr] = config
+ *     _singletons[cython.cast(cython.Py_ssize_t, ptr)] = config
 */
   __pyx_t_6 = NULL;
   __pyx_t_7 = 1;
@@ -3089,33 +3078,33 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_2av_5codec_7hwaccel__cinit_sentinel};
     __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWConfig, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_4);
   }
   __pyx_v_config = ((struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":49
+  /* "av/codec/hwaccel.py":52
  *         pass
- *     cdef HWConfig config = HWConfig(_cinit_sentinel)
+ *     config: HWConfig = HWConfig(_cinit_sentinel)
  *     config._init(ptr)             # <<<<<<<<<<<<<<
- *     _singletons[<int>ptr] = config
+ *     _singletons[cython.cast(cython.Py_ssize_t, ptr)] = config
  *     return config
 */
-  ((struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *)__pyx_v_config->__pyx_vtab)->_init(__pyx_v_config, __pyx_v_ptr); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 49, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *)__pyx_v_config->__pyx_vtab)->_init(__pyx_v_config, __pyx_v_ptr); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 52, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":50
- *     cdef HWConfig config = HWConfig(_cinit_sentinel)
+  /* "av/codec/hwaccel.py":53
+ *     config: HWConfig = HWConfig(_cinit_sentinel)
  *     config._init(ptr)
- *     _singletons[<int>ptr] = config             # <<<<<<<<<<<<<<
+ *     _singletons[cython.cast(cython.Py_ssize_t, ptr)] = config             # <<<<<<<<<<<<<<
  *     return config
  * 
 */
-  if (unlikely((__Pyx_SetItemInt(__pyx_v_2av_5codec_7hwaccel__singletons, ((int)__pyx_v_ptr), ((PyObject *)__pyx_v_config), int, 1, __Pyx_PyLong_From_int, 0, 1, 1, 1, __Pyx_ReferenceSharing_SharedReference) < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_v_2av_5codec_7hwaccel__singletons, ((Py_ssize_t)__pyx_v_ptr), ((PyObject *)__pyx_v_config), Py_ssize_t, 1, PyLong_FromSsize_t, 0, 1, 1, 1, __Pyx_ReferenceSharing_SharedReference) < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":51
+  /* "av/codec/hwaccel.py":54
  *     config._init(ptr)
- *     _singletons[<int>ptr] = config
+ *     _singletons[cython.cast(cython.Py_ssize_t, ptr)] = config
  *     return config             # <<<<<<<<<<<<<<
  * 
  * 
@@ -3125,12 +3114,12 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
   __pyx_r = __pyx_v_config;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":43
- * cdef object _singletons = weakref.WeakValueDictionary()
+  /* "av/codec/hwaccel.py":45
  * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):             # <<<<<<<<<<<<<<
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_hwconfig(ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]) -> HWConfig:
  *     try:
- *         return _singletons[<int>ptr]
 */
 
   /* function exit code */
@@ -3146,9 +3135,9 @@ static struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_f_2av_5codec_7hwacce
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":55
- * 
- * cdef class HWConfig:
+/* "av/codec/hwaccel.py":59
+ * @cython.cclass
+ * class HWConfig:
  *     def __init__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot instantiate CodecContext")
@@ -3176,32 +3165,32 @@ static int __pyx_pw_2av_5codec_7hwaccel_8HWConfig_1__init__(PyObject *__pyx_v_se
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sentinel,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 55, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 59, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 55, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 55, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 59, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 55, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 59, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 55, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
     }
     __pyx_v_sentinel = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 55, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 59, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3234,8 +3223,8 @@ static int __pyx_pf_2av_5codec_7hwaccel_8HWConfig___init__(CYTHON_UNUSED struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "av/codec/hwaccel.pyx":56
- * cdef class HWConfig:
+  /* "av/codec/hwaccel.py":60
+ * class HWConfig:
  *     def __init__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Cannot instantiate CodecContext")
@@ -3244,12 +3233,12 @@ static int __pyx_pf_2av_5codec_7hwaccel_8HWConfig___init__(CYTHON_UNUSED struct 
   __pyx_t_1 = (__pyx_v_sentinel != __pyx_v_2av_5codec_7hwaccel__cinit_sentinel);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/codec/hwaccel.pyx":57
+    /* "av/codec/hwaccel.py":61
  *     def __init__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot instantiate CodecContext")             # <<<<<<<<<<<<<<
  * 
- *     cdef void _init(self, lib.AVCodecHWConfig *ptr):
+ *     @cython.cfunc
 */
     __pyx_t_3 = NULL;
     __pyx_t_4 = 1;
@@ -3257,15 +3246,15 @@ static int __pyx_pf_2av_5codec_7hwaccel_8HWConfig___init__(CYTHON_UNUSED struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Cannot_instantiate_CodecContext};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 57, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 57, __pyx_L1_error)
+    __PYX_ERR(0, 61, __pyx_L1_error)
 
-    /* "av/codec/hwaccel.pyx":56
- * cdef class HWConfig:
+    /* "av/codec/hwaccel.py":60
+ * class HWConfig:
  *     def __init__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Cannot instantiate CodecContext")
@@ -3273,9 +3262,9 @@ static int __pyx_pf_2av_5codec_7hwaccel_8HWConfig___init__(CYTHON_UNUSED struct 
 */
   }
 
-  /* "av/codec/hwaccel.pyx":55
- * 
- * cdef class HWConfig:
+  /* "av/codec/hwaccel.py":59
+ * @cython.cclass
+ * class HWConfig:
  *     def __init__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot instantiate CodecContext")
@@ -3294,37 +3283,37 @@ static int __pyx_pf_2av_5codec_7hwaccel_8HWConfig___init__(CYTHON_UNUSED struct 
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":59
+/* "av/codec/hwaccel.py":63
  *             raise RuntimeError("Cannot instantiate CodecContext")
  * 
- *     cdef void _init(self, lib.AVCodecHWConfig *ptr):             # <<<<<<<<<<<<<<
- *         self.ptr = ptr
- * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     def _init(
+ *         self, ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]
 */
 
-static void __pyx_f_2av_5codec_7hwaccel_8HWConfig__init(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self, struct AVCodecHWConfig *__pyx_v_ptr) {
+static void __pyx_f_2av_5codec_7hwaccel_8HWConfig__init(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_self, struct AVCodecHWConfig const *__pyx_v_ptr) {
 
-  /* "av/codec/hwaccel.pyx":60
- * 
- *     cdef void _init(self, lib.AVCodecHWConfig *ptr):
+  /* "av/codec/hwaccel.py":67
+ *         self, ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]
+ *     ) -> cython.void:
  *         self.ptr = ptr             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
 */
   __pyx_v_self->ptr = __pyx_v_ptr;
 
-  /* "av/codec/hwaccel.pyx":59
+  /* "av/codec/hwaccel.py":63
  *             raise RuntimeError("Cannot instantiate CodecContext")
  * 
- *     cdef void _init(self, lib.AVCodecHWConfig *ptr):             # <<<<<<<<<<<<<<
- *         self.ptr = ptr
- * 
+ *     @cython.cfunc             # <<<<<<<<<<<<<<
+ *     def _init(
+ *         self, ptr: cython.pointer[cython.const[lib.AVCodecHWConfig]]
 */
 
   /* function exit code */
 }
 
-/* "av/codec/hwaccel.pyx":62
+/* "av/codec/hwaccel.py":69
  *         self.ptr = ptr
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3364,7 +3353,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/codec/hwaccel.pyx":63
+  /* "av/codec/hwaccel.py":70
  * 
  *     def __repr__(self):
  *         return (             # <<<<<<<<<<<<<<
@@ -3373,51 +3362,51 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "av/codec/hwaccel.pyx":64
+  /* "av/codec/hwaccel.py":71
  *     def __repr__(self):
  *         return (
  *             f"<av.{self.__class__.__name__} "             # <<<<<<<<<<<<<<
  *             f"device_type={lib.av_hwdevice_get_type_name(self.device_type)} "
  *             f"format={self.format.name if self.format else None} "
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":65
+  /* "av/codec/hwaccel.py":72
  *         return (
  *             f"<av.{self.__class__.__name__} "
  *             f"device_type={lib.av_hwdevice_get_type_name(self.device_type)} "             # <<<<<<<<<<<<<<
  *             f"format={self.format.name if self.format else None} "
- *             f"is_supported={self.is_supported} at 0x{<int>self.ptr:x}>"
+ *             f"is_supported={self.is_supported} at 0x{cython.cast(cython.Py_ssize_t, self.ptr):x}>"
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_device_type_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_device_type_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = ((enum AVHWDeviceType)__Pyx_PyLong_As_enum__AVHWDeviceType(__pyx_t_2)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_3 = ((enum AVHWDeviceType)__Pyx_PyLong_As_enum__AVHWDeviceType(__pyx_t_2)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyUnicode_FromString(av_hwdevice_get_type_name(__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_FromString(av_hwdevice_get_type_name(__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "av/codec/hwaccel.pyx":66
+  /* "av/codec/hwaccel.py":73
  *             f"<av.{self.__class__.__name__} "
  *             f"device_type={lib.av_hwdevice_get_type_name(self.device_type)} "
  *             f"format={self.format.name if self.format else None} "             # <<<<<<<<<<<<<<
- *             f"is_supported={self.is_supported} at 0x{<int>self.ptr:x}>"
+ *             f"is_supported={self.is_supported} at 0x{cython.cast(cython.Py_ssize_t, self.ptr):x}>"
  *         )
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_6) {
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_4 = __pyx_t_7;
@@ -3426,23 +3415,23 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
     __Pyx_INCREF(Py_None);
     __pyx_t_4 = Py_None;
   }
-  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":67
+  /* "av/codec/hwaccel.py":74
  *             f"device_type={lib.av_hwdevice_get_type_name(self.device_type)} "
  *             f"format={self.format.name if self.format else None} "
- *             f"is_supported={self.is_supported} at 0x{<int>self.ptr:x}>"             # <<<<<<<<<<<<<<
+ *             f"is_supported={self.is_supported} at 0x{cython.cast(cython.Py_ssize_t, self.ptr):x}>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_supported_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_supported_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyUnicode_From_int(((int)__pyx_v_self->ptr), 0, ' ', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_From_Py_ssize_t(((Py_ssize_t)__pyx_v_self->ptr), 0, ' ', 'x'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_av;
   __pyx_t_8[1] = __pyx_t_1;
@@ -3456,7 +3445,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
   __pyx_t_8[9] = __pyx_t_4;
   __pyx_t_8[10] = __pyx_mstate_global->__pyx_kp_u_;
 
-  /* "av/codec/hwaccel.pyx":64
+  /* "av/codec/hwaccel.py":71
  *     def __repr__(self):
  *         return (
  *             f"<av.{self.__class__.__name__} "             # <<<<<<<<<<<<<<
@@ -3464,7 +3453,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
  *             f"format={self.format.name if self.format else None} "
 */
   __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 11, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 13 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 14 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-  if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 64, __pyx_L1_error)
+  if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -3475,7 +3464,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
   __pyx_t_9 = 0;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":62
+  /* "av/codec/hwaccel.py":69
  *         self.ptr = ptr
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3499,7 +3488,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_2__repr__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":70
+/* "av/codec/hwaccel.py":77
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3535,7 +3524,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_11device_type___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/codec/hwaccel.pyx":72
+  /* "av/codec/hwaccel.py":79
  *     @property
  *     def device_type(self):
  *         return HWDeviceType(self.ptr.device_type)             # <<<<<<<<<<<<<<
@@ -3544,9 +3533,9 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_11device_type___get__(st
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(__pyx_v_self->ptr->device_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(__pyx_v_self->ptr->device_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3566,14 +3555,14 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_11device_type___get__(st
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":70
+  /* "av/codec/hwaccel.py":77
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3595,7 +3584,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_11device_type___get__(st
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":74
+/* "av/codec/hwaccel.py":81
  *         return HWDeviceType(self.ptr.device_type)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3627,7 +3616,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_6format___get__(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/codec/hwaccel.pyx":76
+  /* "av/codec/hwaccel.py":83
  *     @property
  *     def format(self):
  *         return get_video_format(self.ptr.pix_fmt, 0, 0)             # <<<<<<<<<<<<<<
@@ -3635,13 +3624,13 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_6format___get__(struct _
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5video_6format_get_video_format(__pyx_v_self->ptr->pix_fmt, 0, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5video_6format_get_video_format(__pyx_v_self->ptr->pix_fmt, 0, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":74
+  /* "av/codec/hwaccel.py":81
  *         return HWDeviceType(self.ptr.device_type)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3660,7 +3649,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_6format___get__(struct _
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":78
+/* "av/codec/hwaccel.py":85
  *         return get_video_format(self.ptr.pix_fmt, 0, 0)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3696,7 +3685,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_7methods___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/codec/hwaccel.pyx":80
+  /* "av/codec/hwaccel.py":87
  *     @property
  *     def methods(self):
  *         return HWConfigMethod(self.ptr.methods)             # <<<<<<<<<<<<<<
@@ -3705,9 +3694,9 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_7methods___get__(struct 
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_HWConfigMethod); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_HWConfigMethod); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->methods); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->methods); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3727,14 +3716,14 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_7methods___get__(struct 
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":78
+  /* "av/codec/hwaccel.py":85
  *         return get_video_format(self.ptr.pix_fmt, 0, 0)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3756,7 +3745,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_7methods___get__(struct 
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":82
+/* "av/codec/hwaccel.py":89
  *         return HWConfigMethod(self.ptr.methods)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3788,7 +3777,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_12is_supported___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/codec/hwaccel.pyx":84
+  /* "av/codec/hwaccel.py":91
  *     @property
  *     def is_supported(self):
  *         return bool(self.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)             # <<<<<<<<<<<<<<
@@ -3796,13 +3785,13 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_12is_supported___get__(s
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) != 0)))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!((__pyx_v_self->ptr->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) != 0)))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":82
+  /* "av/codec/hwaccel.py":89
  *         return HWConfigMethod(self.ptr.methods)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4025,17 +4014,17 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_8HWConfig_6__setstate_cython__(CYT
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":87
+/* "av/codec/hwaccel.py":94
  * 
  * 
- * cpdef hwdevices_available():             # <<<<<<<<<<<<<<
- *     result = []
- * 
+ * @cython.ccall             # <<<<<<<<<<<<<<
+ * def hwdevices_available():
+ *     result: list = []
 */
 
 static PyObject *__pyx_pw_2av_5codec_7hwaccel_1hwdevices_available(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
 static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED int __pyx_skip_dispatch) {
-  PyObject *__pyx_v_result = NULL;
+  PyObject *__pyx_v_result = 0;
   enum AVHWDeviceType __pyx_v_x;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -4052,38 +4041,38 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("hwdevices_available", 0);
 
-  /* "av/codec/hwaccel.pyx":88
- * 
- * cpdef hwdevices_available():
- *     result = []             # <<<<<<<<<<<<<<
- * 
- *     cdef lib.AVHWDeviceType x = lib.AV_HWDEVICE_TYPE_NONE
+  /* "av/codec/hwaccel.py":96
+ * @cython.ccall
+ * def hwdevices_available():
+ *     result: list = []             # <<<<<<<<<<<<<<
+ *     x: lib.AVHWDeviceType = lib.AV_HWDEVICE_TYPE_NONE
+ *     while True:
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_result = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/codec/hwaccel.pyx":90
- *     result = []
- * 
- *     cdef lib.AVHWDeviceType x = lib.AV_HWDEVICE_TYPE_NONE             # <<<<<<<<<<<<<<
+  /* "av/codec/hwaccel.py":97
+ * def hwdevices_available():
+ *     result: list = []
+ *     x: lib.AVHWDeviceType = lib.AV_HWDEVICE_TYPE_NONE             # <<<<<<<<<<<<<<
  *     while True:
  *         x = lib.av_hwdevice_iterate_types(x)
 */
   __pyx_v_x = AV_HWDEVICE_TYPE_NONE;
 
-  /* "av/codec/hwaccel.pyx":91
- * 
- *     cdef lib.AVHWDeviceType x = lib.AV_HWDEVICE_TYPE_NONE
+  /* "av/codec/hwaccel.py":98
+ *     result: list = []
+ *     x: lib.AVHWDeviceType = lib.AV_HWDEVICE_TYPE_NONE
  *     while True:             # <<<<<<<<<<<<<<
  *         x = lib.av_hwdevice_iterate_types(x)
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:
 */
   while (1) {
 
-    /* "av/codec/hwaccel.pyx":92
- *     cdef lib.AVHWDeviceType x = lib.AV_HWDEVICE_TYPE_NONE
+    /* "av/codec/hwaccel.py":99
+ *     x: lib.AVHWDeviceType = lib.AV_HWDEVICE_TYPE_NONE
  *     while True:
  *         x = lib.av_hwdevice_iterate_types(x)             # <<<<<<<<<<<<<<
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:
@@ -4091,7 +4080,7 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
 */
     __pyx_v_x = av_hwdevice_iterate_types(__pyx_v_x);
 
-    /* "av/codec/hwaccel.pyx":93
+    /* "av/codec/hwaccel.py":100
  *     while True:
  *         x = lib.av_hwdevice_iterate_types(x)
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:             # <<<<<<<<<<<<<<
@@ -4101,16 +4090,16 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
     __pyx_t_2 = (__pyx_v_x == AV_HWDEVICE_TYPE_NONE);
     if (__pyx_t_2) {
 
-      /* "av/codec/hwaccel.pyx":94
+      /* "av/codec/hwaccel.py":101
  *         x = lib.av_hwdevice_iterate_types(x)
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:
  *             break             # <<<<<<<<<<<<<<
  *         result.append(lib.av_hwdevice_get_type_name(HWDeviceType(x)))
- * 
+ *     return result
 */
       goto __pyx_L4_break;
 
-      /* "av/codec/hwaccel.pyx":93
+      /* "av/codec/hwaccel.py":100
  *     while True:
  *         x = lib.av_hwdevice_iterate_types(x)
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:             # <<<<<<<<<<<<<<
@@ -4119,17 +4108,17 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
 */
     }
 
-    /* "av/codec/hwaccel.pyx":95
+    /* "av/codec/hwaccel.py":102
  *         if x == lib.AV_HWDEVICE_TYPE_NONE:
  *             break
  *         result.append(lib.av_hwdevice_get_type_name(HWDeviceType(x)))             # <<<<<<<<<<<<<<
- * 
  *     return result
+ * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyLong_From_enum__AVHWDeviceType(__pyx_v_x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_enum__AVHWDeviceType(__pyx_v_x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4149,21 +4138,21 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_7 = ((enum AVHWDeviceType)__Pyx_PyLong_As_enum__AVHWDeviceType(__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 95, __pyx_L1_error)
+    __pyx_t_7 = ((enum AVHWDeviceType)__Pyx_PyLong_As_enum__AVHWDeviceType(__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyUnicode_FromString(av_hwdevice_get_type_name(__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromString(av_hwdevice_get_type_name(__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 95, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_result, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_L4_break:;
 
-  /* "av/codec/hwaccel.pyx":97
+  /* "av/codec/hwaccel.py":103
+ *             break
  *         result.append(lib.av_hwdevice_get_type_name(HWDeviceType(x)))
- * 
  *     return result             # <<<<<<<<<<<<<<
  * 
  * 
@@ -4173,12 +4162,12 @@ static PyObject *__pyx_f_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED i
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":87
+  /* "av/codec/hwaccel.py":94
  * 
  * 
- * cpdef hwdevices_available():             # <<<<<<<<<<<<<<
- *     result = []
- * 
+ * @cython.ccall             # <<<<<<<<<<<<<<
+ * def hwdevices_available():
+ *     result: list = []
 */
 
   /* function exit code */
@@ -4221,7 +4210,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("hwdevices_available", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_5codec_7hwaccel_hwdevices_available(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5codec_7hwaccel_hwdevices_available(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4238,12 +4227,12 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_hwdevices_available(CYTHON_UNUSED 
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":101
- * 
- * cdef class HWAccel:
- *     def __init__(self, device_type, device=None, allow_software_fallback=True, options=None, flags=None):             # <<<<<<<<<<<<<<
- *         if isinstance(device_type, HWDeviceType):
- *             self._device_type = device_type
+/* "av/codec/hwaccel.py":108
+ * @cython.cclass
+ * class HWAccel:
+ *     def __init__(             # <<<<<<<<<<<<<<
+ *         self,
+ *         device_type,
 */
 
 /* Python wrapper */
@@ -4254,9 +4243,10 @@ static int __pyx_pw_2av_5codec_7hwaccel_7HWAccel_1__init__(PyObject *__pyx_v_sel
   PyObject *__pyx_v_allow_software_fallback = 0;
   PyObject *__pyx_v_options = 0;
   PyObject *__pyx_v_flags = 0;
+  PyObject *__pyx_v_is_hw_owned = 0;
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[5] = {0,0,0,0,0};
+  PyObject* values[6] = {0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -4270,81 +4260,172 @@ static int __pyx_pw_2av_5codec_7hwaccel_7HWAccel_1__init__(PyObject *__pyx_v_sel
   #endif
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_device_type_2,&__pyx_mstate_global->__pyx_n_u_device,&__pyx_mstate_global->__pyx_n_u_allow_software_fallback,&__pyx_mstate_global->__pyx_n_u_options,&__pyx_mstate_global->__pyx_n_u_flags,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_device_type_2,&__pyx_mstate_global->__pyx_n_u_device,&__pyx_mstate_global->__pyx_n_u_allow_software_fallback,&__pyx_mstate_global->__pyx_n_u_options,&__pyx_mstate_global->__pyx_n_u_flags,&__pyx_mstate_global->__pyx_n_u_is_hw_owned,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 101, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 108, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 108, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 101, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 108, __pyx_L3_error)
+
+      /* "av/codec/hwaccel.py":111
+ *         self,
+ *         device_type,
+ *         device=None,             # <<<<<<<<<<<<<<
+ *         allow_software_fallback=True,
+ *         options=None,
+*/
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":112
+ *         device_type,
+ *         device=None,
+ *         allow_software_fallback=True,             # <<<<<<<<<<<<<<
+ *         options=None,
+ *         flags=None,
+*/
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_True));
+
+      /* "av/codec/hwaccel.py":113
+ *         device=None,
+ *         allow_software_fallback=True,
+ *         options=None,             # <<<<<<<<<<<<<<
+ *         flags=None,
+ *         is_hw_owned=False,
+*/
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":114
+ *         allow_software_fallback=True,
+ *         options=None,
+ *         flags=None,             # <<<<<<<<<<<<<<
+ *         is_hw_owned=False,
+ *     ):
+*/
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":115
+ *         options=None,
+ *         flags=None,
+ *         is_hw_owned=False,             # <<<<<<<<<<<<<<
+ *     ):
+ *         if isinstance(device_type, HWDeviceType):
+*/
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_False));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 5, i); __PYX_ERR(0, 101, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 6, i); __PYX_ERR(0, 108, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_VARARGS(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 108, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_VARARGS(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 108, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 108, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
+
+      /* "av/codec/hwaccel.py":111
+ *         self,
+ *         device_type,
+ *         device=None,             # <<<<<<<<<<<<<<
+ *         allow_software_fallback=True,
+ *         options=None,
+*/
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":112
+ *         device_type,
+ *         device=None,
+ *         allow_software_fallback=True,             # <<<<<<<<<<<<<<
+ *         options=None,
+ *         flags=None,
+*/
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_True));
+
+      /* "av/codec/hwaccel.py":113
+ *         device=None,
+ *         allow_software_fallback=True,
+ *         options=None,             # <<<<<<<<<<<<<<
+ *         flags=None,
+ *         is_hw_owned=False,
+*/
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":114
+ *         allow_software_fallback=True,
+ *         options=None,
+ *         flags=None,             # <<<<<<<<<<<<<<
+ *         is_hw_owned=False,
+ *     ):
+*/
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/codec/hwaccel.py":115
+ *         options=None,
+ *         flags=None,
+ *         is_hw_owned=False,             # <<<<<<<<<<<<<<
+ *     ):
+ *         if isinstance(device_type, HWDeviceType):
+*/
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_False));
     }
     __pyx_v_device_type = values[0];
     __pyx_v_device = values[1];
     __pyx_v_allow_software_fallback = values[2];
     __pyx_v_options = values[3];
     __pyx_v_flags = values[4];
+    __pyx_v_is_hw_owned = values[5];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 5, __pyx_nargs); __PYX_ERR(0, 101, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 6, __pyx_nargs); __PYX_ERR(0, 108, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4355,7 +4436,15 @@ static int __pyx_pw_2av_5codec_7hwaccel_7HWAccel_1__init__(PyObject *__pyx_v_sel
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self), __pyx_v_device_type, __pyx_v_device, __pyx_v_allow_software_fallback, __pyx_v_options, __pyx_v_flags);
+  __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self), __pyx_v_device_type, __pyx_v_device, __pyx_v_allow_software_fallback, __pyx_v_options, __pyx_v_flags, __pyx_v_is_hw_owned);
+
+  /* "av/codec/hwaccel.py":108
+ * @cython.cclass
+ * class HWAccel:
+ *     def __init__(             # <<<<<<<<<<<<<<
+ *         self,
+ *         device_type,
+*/
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -4365,7 +4454,7 @@ static int __pyx_pw_2av_5codec_7hwaccel_7HWAccel_1__init__(PyObject *__pyx_v_sel
   return __pyx_r;
 }
 
-static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, PyObject *__pyx_v_device_type, PyObject *__pyx_v_device, PyObject *__pyx_v_allow_software_fallback, PyObject *__pyx_v_options, PyObject *__pyx_v_flags) {
+static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, PyObject *__pyx_v_device_type, PyObject *__pyx_v_device, PyObject *__pyx_v_allow_software_fallback, PyObject *__pyx_v_options, PyObject *__pyx_v_flags, PyObject *__pyx_v_is_hw_owned) {
   int __pyx_r;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4374,40 +4463,40 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   char const *__pyx_t_4;
   PyObject *__pyx_t_5 = NULL;
   size_t __pyx_t_6;
-  int __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  int __pyx_t_8;
   int __pyx_t_9;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "av/codec/hwaccel.pyx":102
- * cdef class HWAccel:
- *     def __init__(self, device_type, device=None, allow_software_fallback=True, options=None, flags=None):
+  /* "av/codec/hwaccel.py":117
+ *         is_hw_owned=False,
+ *     ):
  *         if isinstance(device_type, HWDeviceType):             # <<<<<<<<<<<<<<
  *             self._device_type = device_type
  *         elif isinstance(device_type, str):
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_device_type, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_device_type, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/codec/hwaccel.pyx":103
- *     def __init__(self, device_type, device=None, allow_software_fallback=True, options=None, flags=None):
+    /* "av/codec/hwaccel.py":118
+ *     ):
  *         if isinstance(device_type, HWDeviceType):
  *             self._device_type = device_type             # <<<<<<<<<<<<<<
  *         elif isinstance(device_type, str):
  *             self._device_type = int(lib.av_hwdevice_find_type_by_name(device_type))
 */
-    __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_v_device_type); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 103, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_v_device_type); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 118, __pyx_L1_error)
     __pyx_v_self->_device_type = __pyx_t_3;
 
-    /* "av/codec/hwaccel.pyx":102
- * cdef class HWAccel:
- *     def __init__(self, device_type, device=None, allow_software_fallback=True, options=None, flags=None):
+    /* "av/codec/hwaccel.py":117
+ *         is_hw_owned=False,
+ *     ):
  *         if isinstance(device_type, HWDeviceType):             # <<<<<<<<<<<<<<
  *             self._device_type = device_type
  *         elif isinstance(device_type, str):
@@ -4415,7 +4504,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
     goto __pyx_L3;
   }
 
-  /* "av/codec/hwaccel.pyx":104
+  /* "av/codec/hwaccel.py":119
  *         if isinstance(device_type, HWDeviceType):
  *             self._device_type = device_type
  *         elif isinstance(device_type, str):             # <<<<<<<<<<<<<<
@@ -4425,17 +4514,17 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   __pyx_t_2 = PyUnicode_Check(__pyx_v_device_type); 
   if (__pyx_t_2) {
 
-    /* "av/codec/hwaccel.pyx":105
+    /* "av/codec/hwaccel.py":120
  *             self._device_type = device_type
  *         elif isinstance(device_type, str):
  *             self._device_type = int(lib.av_hwdevice_find_type_by_name(device_type))             # <<<<<<<<<<<<<<
  *         elif isinstance(device_type, int):
  *             self._device_type = device_type
 */
-    __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_v_device_type); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_v_device_type); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 120, __pyx_L1_error)
     __pyx_v_self->_device_type = ((int)av_hwdevice_find_type_by_name(__pyx_t_4));
 
-    /* "av/codec/hwaccel.pyx":104
+    /* "av/codec/hwaccel.py":119
  *         if isinstance(device_type, HWDeviceType):
  *             self._device_type = device_type
  *         elif isinstance(device_type, str):             # <<<<<<<<<<<<<<
@@ -4445,7 +4534,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
     goto __pyx_L3;
   }
 
-  /* "av/codec/hwaccel.pyx":106
+  /* "av/codec/hwaccel.py":121
  *         elif isinstance(device_type, str):
  *             self._device_type = int(lib.av_hwdevice_find_type_by_name(device_type))
  *         elif isinstance(device_type, int):             # <<<<<<<<<<<<<<
@@ -4455,17 +4544,17 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   __pyx_t_2 = PyLong_Check(__pyx_v_device_type); 
   if (likely(__pyx_t_2)) {
 
-    /* "av/codec/hwaccel.pyx":107
+    /* "av/codec/hwaccel.py":122
  *             self._device_type = int(lib.av_hwdevice_find_type_by_name(device_type))
  *         elif isinstance(device_type, int):
  *             self._device_type = device_type             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError("Unknown type for device_type")
 */
-    __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_v_device_type); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_v_device_type); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L1_error)
     __pyx_v_self->_device_type = __pyx_t_3;
 
-    /* "av/codec/hwaccel.pyx":106
+    /* "av/codec/hwaccel.py":121
  *         elif isinstance(device_type, str):
  *             self._device_type = int(lib.av_hwdevice_find_type_by_name(device_type))
  *         elif isinstance(device_type, int):             # <<<<<<<<<<<<<<
@@ -4475,12 +4564,12 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
     goto __pyx_L3;
   }
 
-  /* "av/codec/hwaccel.pyx":109
+  /* "av/codec/hwaccel.py":124
  *             self._device_type = device_type
  *         else:
  *             raise ValueError("Unknown type for device_type")             # <<<<<<<<<<<<<<
  * 
- *         self._device = device
+ *         self.is_hw_owned = is_hw_owned
 */
   /*else*/ {
     __pyx_t_5 = NULL;
@@ -4489,106 +4578,236 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_Unknown_type_for_device_type};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 109, __pyx_L1_error)
+    __PYX_ERR(0, 124, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "av/codec/hwaccel.pyx":111
+  /* "av/codec/hwaccel.py":126
  *             raise ValueError("Unknown type for device_type")
  * 
- *         self._device = device             # <<<<<<<<<<<<<<
- *         self.allow_software_fallback = allow_software_fallback
- *         self.options = {} if not options else dict(options)
+ *         self.is_hw_owned = is_hw_owned             # <<<<<<<<<<<<<<
+ *         self.device_id = 0
+ *         if self._device_type == HWDeviceType.cuda and device:
 */
-  __pyx_t_1 = __pyx_v_device;
-  __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 111, __pyx_L1_error)
-  __Pyx_GIVEREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_is_hw_owned); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_v_self->is_hw_owned = __pyx_t_2;
+
+  /* "av/codec/hwaccel.py":127
+ * 
+ *         self.is_hw_owned = is_hw_owned
+ *         self.device_id = 0             # <<<<<<<<<<<<<<
+ *         if self._device_type == HWDeviceType.cuda and device:
+ *             self.device_id = int(device)
+*/
+  __pyx_v_self->device_id = 0;
+
+  /* "av/codec/hwaccel.py":128
+ *         self.is_hw_owned = is_hw_owned
+ *         self.device_id = 0
+ *         if self._device_type == HWDeviceType.cuda and device:             # <<<<<<<<<<<<<<
+ *             self.device_id = int(device)
+ * 
+*/
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cuda); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_t_7, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__pyx_t_8) {
+  } else {
+    __pyx_t_2 = __pyx_t_8;
+    goto __pyx_L5_bool_binop_done;
+  }
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_device); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_2 = __pyx_t_8;
+  __pyx_L5_bool_binop_done:;
+  if (__pyx_t_2) {
+
+    /* "av/codec/hwaccel.py":129
+ *         self.device_id = 0
+ *         if self._device_type == HWDeviceType.cuda and device:
+ *             self.device_id = int(device)             # <<<<<<<<<<<<<<
+ * 
+ *         self._device = None if device is None else f"{device}"
+*/
+    __pyx_t_5 = __Pyx_PyNumber_Int(__pyx_v_device); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_t_5); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 129, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_v_self->device_id = __pyx_t_3;
+
+    /* "av/codec/hwaccel.py":128
+ *         self.is_hw_owned = is_hw_owned
+ *         self.device_id = 0
+ *         if self._device_type == HWDeviceType.cuda and device:             # <<<<<<<<<<<<<<
+ *             self.device_id = int(device)
+ * 
+*/
+  }
+
+  /* "av/codec/hwaccel.py":131
+ *             self.device_id = int(device)
+ * 
+ *         self._device = None if device is None else f"{device}"             # <<<<<<<<<<<<<<
+ *         self.allow_software_fallback = allow_software_fallback
+ * 
+*/
+  __pyx_t_2 = (__pyx_v_device == Py_None);
+  if (__pyx_t_2) {
+    __Pyx_INCREF(Py_None);
+    __pyx_t_5 = Py_None;
+  } else {
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_device, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_5 = __pyx_t_7;
+    __pyx_t_7 = 0;
+  }
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_t_5);
   __Pyx_GOTREF(__pyx_v_self->_device);
   __Pyx_DECREF(__pyx_v_self->_device);
-  __pyx_v_self->_device = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
+  __pyx_v_self->_device = ((PyObject*)__pyx_t_5);
+  __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":112
+  /* "av/codec/hwaccel.py":132
  * 
- *         self._device = device
+ *         self._device = None if device is None else f"{device}"
  *         self.allow_software_fallback = allow_software_fallback             # <<<<<<<<<<<<<<
+ * 
  *         self.options = {} if not options else dict(options)
- *         self.flags = 0 if not flags else flags
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_allow_software_fallback); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_allow_software_fallback); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L1_error)
   __pyx_v_self->allow_software_fallback = __pyx_t_2;
 
-  /* "av/codec/hwaccel.pyx":113
- *         self._device = device
+  /* "av/codec/hwaccel.py":134
  *         self.allow_software_fallback = allow_software_fallback
+ * 
  *         self.options = {} if not options else dict(options)             # <<<<<<<<<<<<<<
- *         self.flags = 0 if not flags else flags
- *         self.ptr = NULL
+ *         if self._device_type == HWDeviceType.cuda and self.is_hw_owned:
+ *             self.options.setdefault("primary_ctx", "1")
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
-  __pyx_t_7 = (!__pyx_t_2);
-  if (__pyx_t_7) {
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __pyx_t_5;
-    __pyx_t_5 = 0;
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_8 = (!__pyx_t_2);
+  if (__pyx_t_8) {
+    __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_5 = __pyx_t_7;
+    __pyx_t_7 = 0;
   } else {
-    __pyx_t_8 = NULL;
+    __pyx_t_1 = NULL;
     __pyx_t_6 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_options};
-      __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)(&PyDict_Type), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
+      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_options};
+      __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(&PyDict_Type), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 134, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
     }
-    __pyx_t_1 = __pyx_t_5;
-    __pyx_t_5 = 0;
+    __pyx_t_5 = __pyx_t_7;
+    __pyx_t_7 = 0;
   }
-  __Pyx_GIVEREF(__pyx_t_1);
+  __Pyx_GIVEREF(__pyx_t_5);
   __Pyx_GOTREF(__pyx_v_self->options);
   __Pyx_DECREF(__pyx_v_self->options);
-  __pyx_v_self->options = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
+  __pyx_v_self->options = ((PyObject*)__pyx_t_5);
+  __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":114
- *         self.allow_software_fallback = allow_software_fallback
+  /* "av/codec/hwaccel.py":135
+ * 
  *         self.options = {} if not options else dict(options)
+ *         if self._device_type == HWDeviceType.cuda and self.is_hw_owned:             # <<<<<<<<<<<<<<
+ *             self.options.setdefault("primary_ctx", "1")
+ *         self.flags = 0 if not flags else flags
+*/
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_HWDeviceType); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_cuda); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_7 = PyObject_RichCompare(__pyx_t_5, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (__pyx_t_2) {
+  } else {
+    __pyx_t_8 = __pyx_t_2;
+    goto __pyx_L8_bool_binop_done;
+  }
+  __pyx_t_8 = __pyx_v_self->is_hw_owned;
+  __pyx_L8_bool_binop_done:;
+  if (__pyx_t_8) {
+
+    /* "av/codec/hwaccel.py":136
+ *         self.options = {} if not options else dict(options)
+ *         if self._device_type == HWDeviceType.cuda and self.is_hw_owned:
+ *             self.options.setdefault("primary_ctx", "1")             # <<<<<<<<<<<<<<
+ *         self.flags = 0 if not flags else flags
+ *         self.ptr = cython.NULL
+*/
+    if (unlikely(__pyx_v_self->options == Py_None)) {
+      PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "setdefault");
+      __PYX_ERR(0, 136, __pyx_L1_error)
+    }
+    __pyx_t_7 = __Pyx_PyDict_SetDefault(__pyx_v_self->options, __pyx_mstate_global->__pyx_n_u_primary_ctx, __pyx_mstate_global->__pyx_kp_u_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "av/codec/hwaccel.py":135
+ * 
+ *         self.options = {} if not options else dict(options)
+ *         if self._device_type == HWDeviceType.cuda and self.is_hw_owned:             # <<<<<<<<<<<<<<
+ *             self.options.setdefault("primary_ctx", "1")
+ *         self.flags = 0 if not flags else flags
+*/
+  }
+
+  /* "av/codec/hwaccel.py":137
+ *         if self._device_type == HWDeviceType.cuda and self.is_hw_owned:
+ *             self.options.setdefault("primary_ctx", "1")
  *         self.flags = 0 if not flags else flags             # <<<<<<<<<<<<<<
- *         self.ptr = NULL
+ *         self.ptr = cython.NULL
  *         self.config = None
 */
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_flags); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
-  __pyx_t_2 = (!__pyx_t_7);
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_flags); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_2 = (!__pyx_t_8);
   if (__pyx_t_2) {
     __pyx_t_3 = 0;
   } else {
-    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_flags); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_flags); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 137, __pyx_L1_error)
     __pyx_t_3 = __pyx_t_9;
   }
   __pyx_v_self->flags = __pyx_t_3;
 
-  /* "av/codec/hwaccel.pyx":115
- *         self.options = {} if not options else dict(options)
+  /* "av/codec/hwaccel.py":138
+ *             self.options.setdefault("primary_ctx", "1")
  *         self.flags = 0 if not flags else flags
- *         self.ptr = NULL             # <<<<<<<<<<<<<<
+ *         self.ptr = cython.NULL             # <<<<<<<<<<<<<<
  *         self.config = None
  * 
 */
   __pyx_v_self->ptr = NULL;
 
-  /* "av/codec/hwaccel.pyx":116
+  /* "av/codec/hwaccel.py":139
  *         self.flags = 0 if not flags else flags
- *         self.ptr = NULL
+ *         self.ptr = cython.NULL
  *         self.config = None             # <<<<<<<<<<<<<<
  * 
- *     def _initialize_hw_context(self, Codec codec not None):
+ *     def _initialize_hw_context(self, codec: Codec):
 */
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
@@ -4596,12 +4815,12 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   __Pyx_DECREF((PyObject *)__pyx_v_self->config);
   __pyx_v_self->config = ((struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *)Py_None);
 
-  /* "av/codec/hwaccel.pyx":101
- * 
- * cdef class HWAccel:
- *     def __init__(self, device_type, device=None, allow_software_fallback=True, options=None, flags=None):             # <<<<<<<<<<<<<<
- *         if isinstance(device_type, HWDeviceType):
- *             self._device_type = device_type
+  /* "av/codec/hwaccel.py":108
+ * @cython.cclass
+ * class HWAccel:
+ *     def __init__(             # <<<<<<<<<<<<<<
+ *         self,
+ *         device_type,
 */
 
   /* function exit code */
@@ -4610,7 +4829,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_AddTraceback("av.codec.hwaccel.HWAccel.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
@@ -4618,11 +4837,11 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel___init__(struct __pyx_obj_2av_5
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":118
+/* "av/codec/hwaccel.py":141
  *         self.config = None
  * 
- *     def _initialize_hw_context(self, Codec codec not None):             # <<<<<<<<<<<<<<
- *         cdef HWConfig config
+ *     def _initialize_hw_context(self, codec: Codec):             # <<<<<<<<<<<<<<
+ *         config: HWConfig
  *         for config in codec.hardware_configs:
 */
 
@@ -4634,7 +4853,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context, "HWAccel._initialize_hw_context(Codec codec)");
+PyDoc_STRVAR(__pyx_doc_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context, "HWAccel._initialize_hw_context(Codec codec: Codec)");
 static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_3_initialize_hw_context(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
@@ -4665,32 +4884,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_codec,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 118, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 141, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 118, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_initialize_hw_context", 0) < (0)) __PYX_ERR(0, 118, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_initialize_hw_context", 0) < (0)) __PYX_ERR(0, 141, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_initialize_hw_context", 1, 1, 1, i); __PYX_ERR(0, 118, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_initialize_hw_context", 1, 1, 1, i); __PYX_ERR(0, 141, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 118, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
     }
     __pyx_v_codec = ((struct __pyx_obj_2av_5codec_5codec_Codec *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_initialize_hw_context", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 118, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_initialize_hw_context", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 141, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4701,7 +4920,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, 0, "codec", 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, 0, "codec", 0))) __PYX_ERR(0, 141, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self), __pyx_v_codec);
 
   /* function exit code */
@@ -4725,7 +4944,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *__pyx_v_config = 0;
   char *__pyx_v_c_device;
   PyObject *__pyx_v_device_bytes = NULL;
-  struct __pyx_obj_2av_10dictionary__Dictionary *__pyx_v_c_options = 0;
+  struct __pyx_obj_2av_10dictionary_Dictionary *__pyx_v_c_options = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4744,23 +4963,23 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_initialize_hw_context", 0);
 
-  /* "av/codec/hwaccel.pyx":120
- *     def _initialize_hw_context(self, Codec codec not None):
- *         cdef HWConfig config
+  /* "av/codec/hwaccel.py":143
+ *     def _initialize_hw_context(self, codec: Codec):
+ *         config: HWConfig
  *         for config in codec.hardware_configs:             # <<<<<<<<<<<<<<
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):
  *                 continue
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_n_u_hardware_configs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_n_u_hardware_configs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
     __pyx_t_2 = __pyx_t_1; __Pyx_INCREF(__pyx_t_2);
     __pyx_t_3 = 0;
     __pyx_t_4 = NULL;
   } else {
-    __pyx_t_3 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_3 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_4 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4769,7 +4988,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -4779,7 +4998,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -4790,25 +5009,25 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
         #endif
         ++__pyx_t_3;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_4(__pyx_t_2);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 120, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 143, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
       }
     }
     __Pyx_GOTREF(__pyx_t_1);
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWConfig))))) __PYX_ERR(0, 120, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWConfig))))) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_config, ((struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "av/codec/hwaccel.pyx":121
- *         cdef HWConfig config
+    /* "av/codec/hwaccel.py":144
+ *         config: HWConfig
  *         for config in codec.hardware_configs:
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):             # <<<<<<<<<<<<<<
  *                 continue
@@ -4817,7 +5036,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
     __pyx_t_5 = (!((__pyx_v_config->ptr->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) != 0));
     if (__pyx_t_5) {
 
-      /* "av/codec/hwaccel.pyx":122
+      /* "av/codec/hwaccel.py":145
  *         for config in codec.hardware_configs:
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):
  *                 continue             # <<<<<<<<<<<<<<
@@ -4826,8 +5045,8 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
 */
       goto __pyx_L3_continue;
 
-      /* "av/codec/hwaccel.pyx":121
- *         cdef HWConfig config
+      /* "av/codec/hwaccel.py":144
+ *         config: HWConfig
  *         for config in codec.hardware_configs:
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):             # <<<<<<<<<<<<<<
  *                 continue
@@ -4835,7 +5054,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
 */
     }
 
-    /* "av/codec/hwaccel.pyx":123
+    /* "av/codec/hwaccel.py":146
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):
  *                 continue
  *             if self._device_type and config.device_type != self._device_type:             # <<<<<<<<<<<<<<
@@ -4848,29 +5067,29 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
       __pyx_t_5 = __pyx_t_6;
       goto __pyx_L7_bool_binop_done;
     }
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_config), __pyx_mstate_global->__pyx_n_u_device_type_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_config), __pyx_mstate_global->__pyx_n_u_device_type_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = PyObject_RichCompare(__pyx_t_1, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_8 = PyObject_RichCompare(__pyx_t_1, __pyx_t_7, Py_NE); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_5 = __pyx_t_6;
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_5) {
 
-      /* "av/codec/hwaccel.pyx":124
+      /* "av/codec/hwaccel.py":147
  *                 continue
  *             if self._device_type and config.device_type != self._device_type:
  *                 continue             # <<<<<<<<<<<<<<
  *             break
- *         else:
+ *         else:  # nobreak
 */
       goto __pyx_L3_continue;
 
-      /* "av/codec/hwaccel.pyx":123
+      /* "av/codec/hwaccel.py":146
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):
  *                 continue
  *             if self._device_type and config.device_type != self._device_type:             # <<<<<<<<<<<<<<
@@ -4879,18 +5098,18 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
 */
     }
 
-    /* "av/codec/hwaccel.pyx":125
+    /* "av/codec/hwaccel.py":148
  *             if self._device_type and config.device_type != self._device_type:
  *                 continue
  *             break             # <<<<<<<<<<<<<<
- *         else:
+ *         else:  # nobreak
  *             raise NotImplementedError(f"No supported hardware config for {codec}")
 */
     goto __pyx_L4_break;
 
-    /* "av/codec/hwaccel.pyx":120
- *     def _initialize_hw_context(self, Codec codec not None):
- *         cdef HWConfig config
+    /* "av/codec/hwaccel.py":143
+ *     def _initialize_hw_context(self, codec: Codec):
+ *         config: HWConfig
  *         for config in codec.hardware_configs:             # <<<<<<<<<<<<<<
  *             if not (config.ptr.methods & lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX):
  *                 continue
@@ -4905,17 +5124,17 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   /*else*/ {
     __pyx_L9_for_else:;
 
-    /* "av/codec/hwaccel.pyx":127
+    /* "av/codec/hwaccel.py":150
  *             break
- *         else:
+ *         else:  # nobreak
  *             raise NotImplementedError(f"No supported hardware config for {codec}")             # <<<<<<<<<<<<<<
  * 
  *         self.config = config
 */
     __pyx_t_8 = NULL;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_No_supported_hardware_config_for, __pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_No_supported_hardware_config_for, __pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9 = 1;
@@ -4924,21 +5143,21 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_NotImplementedError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 127, __pyx_L1_error)
+    __PYX_ERR(0, 150, __pyx_L1_error)
   }
   __pyx_L10_for_end:;
 
-  /* "av/codec/hwaccel.pyx":129
+  /* "av/codec/hwaccel.py":152
  *             raise NotImplementedError(f"No supported hardware config for {codec}")
  * 
  *         self.config = config             # <<<<<<<<<<<<<<
- * 
- *         cdef char *c_device = NULL
+ *         c_device: cython.p_char = cython.NULL
+ *         if self._device:
 */
   __Pyx_INCREF((PyObject *)__pyx_v_config);
   __Pyx_GIVEREF((PyObject *)__pyx_v_config);
@@ -4946,18 +5165,18 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   __Pyx_DECREF((PyObject *)__pyx_v_self->config);
   __pyx_v_self->config = __pyx_v_config;
 
-  /* "av/codec/hwaccel.pyx":131
- *         self.config = config
+  /* "av/codec/hwaccel.py":153
  * 
- *         cdef char *c_device = NULL             # <<<<<<<<<<<<<<
+ *         self.config = config
+ *         c_device: cython.p_char = cython.NULL             # <<<<<<<<<<<<<<
  *         if self._device:
  *             device_bytes = self._device.encode()
 */
   __pyx_v_c_device = NULL;
 
-  /* "av/codec/hwaccel.pyx":132
- * 
- *         cdef char *c_device = NULL
+  /* "av/codec/hwaccel.py":154
+ *         self.config = config
+ *         c_device: cython.p_char = cython.NULL
  *         if self._device:             # <<<<<<<<<<<<<<
  *             device_bytes = self._device.encode()
  *             c_device = device_bytes
@@ -4966,95 +5185,80 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_self->_device);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 154, __pyx_L1_error)
     __pyx_t_5 = (__pyx_temp != 0);
   }
 
   if (__pyx_t_5) {
 
-    /* "av/codec/hwaccel.pyx":133
- *         cdef char *c_device = NULL
+    /* "av/codec/hwaccel.py":155
+ *         c_device: cython.p_char = cython.NULL
  *         if self._device:
  *             device_bytes = self._device.encode()             # <<<<<<<<<<<<<<
  *             c_device = device_bytes
- *         cdef _Dictionary c_options = Dictionary(self.options)
+ *         c_options: Dictionary = Dictionary(self.options)
 */
     if (unlikely(__pyx_v_self->_device == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "encode");
-      __PYX_ERR(0, 133, __pyx_L1_error)
+      __PYX_ERR(0, 155, __pyx_L1_error)
     }
-    __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_self->_device, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_2 = PyUnicode_AsEncodedString(__pyx_v_self->_device, NULL, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_device_bytes = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/codec/hwaccel.pyx":134
+    /* "av/codec/hwaccel.py":156
  *         if self._device:
  *             device_bytes = self._device.encode()
  *             c_device = device_bytes             # <<<<<<<<<<<<<<
- *         cdef _Dictionary c_options = Dictionary(self.options)
+ *         c_options: Dictionary = Dictionary(self.options)
  * 
 */
-    __pyx_t_10 = __Pyx_PyBytes_AsWritableString(__pyx_v_device_bytes); if (unlikely((!__pyx_t_10) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyBytes_AsWritableString(__pyx_v_device_bytes); if (unlikely((!__pyx_t_10) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
     __pyx_v_c_device = __pyx_t_10;
 
-    /* "av/codec/hwaccel.pyx":132
- * 
- *         cdef char *c_device = NULL
+    /* "av/codec/hwaccel.py":154
+ *         self.config = config
+ *         c_device: cython.p_char = cython.NULL
  *         if self._device:             # <<<<<<<<<<<<<<
  *             device_bytes = self._device.encode()
  *             c_device = device_bytes
 */
   }
 
-  /* "av/codec/hwaccel.pyx":135
+  /* "av/codec/hwaccel.py":157
  *             device_bytes = self._device.encode()
  *             c_device = device_bytes
- *         cdef _Dictionary c_options = Dictionary(self.options)             # <<<<<<<<<<<<<<
+ *         c_options: Dictionary = Dictionary(self.options)             # <<<<<<<<<<<<<<
  * 
  *         err_check(
 */
   __pyx_t_1 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_Dictionary); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 135, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_9 = 1;
-  #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_8))) {
-    __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_8);
-    assert(__pyx_t_1);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
-    __Pyx_INCREF(__pyx_t_1);
-    __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
-    __pyx_t_9 = 0;
-  }
-  #endif
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_self->options};
-    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10dictionary_Dictionary, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L1_error)
+    __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
-  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_2av_10dictionary__Dictionary))))) __PYX_ERR(0, 135, __pyx_L1_error)
-  __pyx_v_c_options = ((struct __pyx_obj_2av_10dictionary__Dictionary *)__pyx_t_2);
+  __pyx_v_c_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":137
- *         cdef _Dictionary c_options = Dictionary(self.options)
+  /* "av/codec/hwaccel.py":159
+ *         c_options: Dictionary = Dictionary(self.options)
  * 
  *         err_check(             # <<<<<<<<<<<<<<
  *             lib.av_hwdevice_ctx_create(
- *                 &self.ptr, config.ptr.device_type, c_device, c_options.ptr, self.flags
+ *                 cython.address(self.ptr),
 */
-  __pyx_t_11 = __pyx_f_2av_5error_err_check(av_hwdevice_ctx_create((&__pyx_v_self->ptr), __pyx_v_config->ptr->device_type, __pyx_v_c_device, __pyx_v_c_options->ptr, __pyx_v_self->flags), 0, NULL); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_11 = __pyx_f_2av_5error_err_check(av_hwdevice_ctx_create((&__pyx_v_self->ptr), __pyx_v_config->ptr->device_type, __pyx_v_c_device, __pyx_v_c_options->ptr, __pyx_v_self->flags), 0, NULL); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 159, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":118
+  /* "av/codec/hwaccel.py":141
  *         self.config = None
  * 
- *     def _initialize_hw_context(self, Codec codec not None):             # <<<<<<<<<<<<<<
- *         cdef HWConfig config
+ *     def _initialize_hw_context(self, codec: Codec):             # <<<<<<<<<<<<<<
+ *         config: HWConfig
  *         for config in codec.hardware_configs:
 */
 
@@ -5077,24 +5281,24 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_2_initialize_hw_context(s
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":143
+/* "av/codec/hwaccel.py":169
  *         )
  * 
- *     def create(self, Codec codec not None):             # <<<<<<<<<<<<<<
+ *     def create(self, codec: Codec) -> HWAccel:             # <<<<<<<<<<<<<<
  *         """Create a new hardware accelerator context with the given codec"""
  *         if self.ptr:
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_5create(PyObject *__pyx_v_self, 
+static struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_5create(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_5codec_7hwaccel_7HWAccel_4create, "HWAccel.create(Codec codec)\n\nCreate a new hardware accelerator context with the given codec");
-static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_5create(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_5codec_7hwaccel_7HWAccel_4create, "HWAccel.create(Codec codec: Codec) -> HWAccel\n\nCreate a new hardware accelerator context with the given codec");
+static struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_5create(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5110,7 +5314,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
+  struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("create (wrapper)", 0);
   #if !CYTHON_METH_FASTCALL
@@ -5124,32 +5328,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_codec,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 143, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 169, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 143, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "create", 0) < (0)) __PYX_ERR(0, 143, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "create", 0) < (0)) __PYX_ERR(0, 169, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("create", 1, 1, 1, i); __PYX_ERR(0, 143, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("create", 1, 1, 1, i); __PYX_ERR(0, 169, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 143, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
     }
     __pyx_v_codec = ((struct __pyx_obj_2av_5codec_5codec_Codec *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("create", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 143, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("create", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 169, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5160,7 +5364,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, 0, "codec", 0))) __PYX_ERR(0, 143, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_codec), __pyx_mstate_global->__pyx_ptype_2av_5codec_5codec_Codec, 0, "codec", 0))) __PYX_ERR(0, 169, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self), __pyx_v_codec);
 
   /* function exit code */
@@ -5180,9 +5384,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec) {
+static struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self, struct __pyx_obj_2av_5codec_5codec_Codec *__pyx_v_codec) {
   struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_ret = NULL;
-  PyObject *__pyx_r = NULL;
+  struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
   PyObject *__pyx_t_2 = NULL;
@@ -5191,13 +5395,14 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
   PyObject *__pyx_t_5 = NULL;
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("create", 0);
 
-  /* "av/codec/hwaccel.pyx":145
- *     def create(self, Codec codec not None):
+  /* "av/codec/hwaccel.py":171
+ *     def create(self, codec: Codec) -> HWAccel:
  *         """Create a new hardware accelerator context with the given codec"""
  *         if self.ptr:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Hardware context already initialized")
@@ -5206,7 +5411,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
   __pyx_t_1 = (__pyx_v_self->ptr != 0);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/codec/hwaccel.pyx":146
+    /* "av/codec/hwaccel.py":172
  *         """Create a new hardware accelerator context with the given codec"""
  *         if self.ptr:
  *             raise RuntimeError("Hardware context already initialized")             # <<<<<<<<<<<<<<
@@ -5219,15 +5424,15 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Hardware_context_already_initial};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 146, __pyx_L1_error)
+    __PYX_ERR(0, 172, __pyx_L1_error)
 
-    /* "av/codec/hwaccel.pyx":145
- *     def create(self, Codec codec not None):
+    /* "av/codec/hwaccel.py":171
+ *     def create(self, codec: Codec) -> HWAccel:
  *         """Create a new hardware accelerator context with the given codec"""
  *         if self.ptr:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Hardware context already initialized")
@@ -5235,7 +5440,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
 */
   }
 
-  /* "av/codec/hwaccel.pyx":148
+  /* "av/codec/hwaccel.py":174
  *             raise RuntimeError("Hardware context already initialized")
  * 
  *         ret = HWAccel(             # <<<<<<<<<<<<<<
@@ -5244,88 +5449,92 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
 */
   __pyx_t_3 = NULL;
 
-  /* "av/codec/hwaccel.pyx":149
+  /* "av/codec/hwaccel.py":175
  * 
  *         ret = HWAccel(
  *             device_type=self._device_type,             # <<<<<<<<<<<<<<
  *             device=self._device,
  *             allow_software_fallback=self.allow_software_fallback,
 */
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_self->_device_type); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 175, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "av/codec/hwaccel.pyx":151
+  /* "av/codec/hwaccel.py":177
  *             device_type=self._device_type,
  *             device=self._device,
  *             allow_software_fallback=self.allow_software_fallback,             # <<<<<<<<<<<<<<
- *             options=self.options
- *         )
+ *             options=self.options,
+ *             is_hw_owned=self.is_hw_owned,
 */
-  __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_self->allow_software_fallback); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_self->allow_software_fallback); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "av/codec/hwaccel.pyx":152
- *             device=self._device,
+  /* "av/codec/hwaccel.py":179
  *             allow_software_fallback=self.allow_software_fallback,
- *             options=self.options             # <<<<<<<<<<<<<<
+ *             options=self.options,
+ *             is_hw_owned=self.is_hw_owned,             # <<<<<<<<<<<<<<
  *         )
  *         ret._initialize_hw_context(codec)
 */
+  __pyx_t_7 = __Pyx_PyBool_FromLong(__pyx_v_self->is_hw_owned); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_4 = 1;
   {
-    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 148, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_device_type_2, __pyx_t_5, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_device, __pyx_v_self->_device, __pyx_t_7, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_allow_software_fallback, __pyx_t_6, __pyx_t_7, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_options, __pyx_v_self->options, __pyx_t_7, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWAccel, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_3, NULL};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_device_type_2, __pyx_t_5, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_device, __pyx_v_self->_device, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_allow_software_fallback, __pyx_t_6, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_options, __pyx_v_self->options, __pyx_t_8, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_is_hw_owned, __pyx_t_7, __pyx_t_8, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5codec_7hwaccel_HWAccel, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_ret = ((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":154
- *             options=self.options
+  /* "av/codec/hwaccel.py":181
+ *             is_hw_owned=self.is_hw_owned,
  *         )
  *         ret._initialize_hw_context(codec)             # <<<<<<<<<<<<<<
  *         return ret
  * 
 */
-  __pyx_t_7 = ((PyObject *)__pyx_v_ret);
-  __Pyx_INCREF(__pyx_t_7);
+  __pyx_t_8 = ((PyObject *)__pyx_v_ret);
+  __Pyx_INCREF(__pyx_t_8);
   __pyx_t_4 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_7, ((PyObject *)__pyx_v_codec)};
+    PyObject *__pyx_callargs[2] = {__pyx_t_8, ((PyObject *)__pyx_v_codec)};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_initialize_hw_context, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":155
+  /* "av/codec/hwaccel.py":182
  *         )
  *         ret._initialize_hw_context(codec)
  *         return ret             # <<<<<<<<<<<<<<
  * 
  *     def __dealloc__(self):
 */
-  __Pyx_XDECREF(__pyx_r);
+  __Pyx_XDECREF((PyObject *)__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_ret);
-  __pyx_r = ((PyObject *)__pyx_v_ret);
+  __pyx_r = __pyx_v_ret;
   goto __pyx_L0;
 
-  /* "av/codec/hwaccel.pyx":143
+  /* "av/codec/hwaccel.py":169
  *         )
  * 
- *     def create(self, Codec codec not None):             # <<<<<<<<<<<<<<
+ *     def create(self, codec: Codec) -> HWAccel:             # <<<<<<<<<<<<<<
  *         """Create a new hardware accelerator context with the given codec"""
  *         if self.ptr:
 */
@@ -5337,21 +5546,22 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_4create(struct __pyx_obj_
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("av.codec.hwaccel.HWAccel.create", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF((PyObject *)__pyx_v_ret);
-  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_XGIVEREF((PyObject *)__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pyx":157
+/* "av/codec/hwaccel.py":184
  *         return ret
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.ptr:
- *             lib.av_buffer_unref(&self.ptr)
+ *             lib.av_buffer_unref(cython.address(self.ptr))
 */
 
 /* Python wrapper */
@@ -5370,36 +5580,36 @@ static void __pyx_pw_2av_5codec_7hwaccel_7HWAccel_7__dealloc__(PyObject *__pyx_v
 static void __pyx_pf_2av_5codec_7hwaccel_7HWAccel_6__dealloc__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "av/codec/hwaccel.pyx":158
+  /* "av/codec/hwaccel.py":185
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
- *             lib.av_buffer_unref(&self.ptr)
+ *             lib.av_buffer_unref(cython.address(self.ptr))
 */
   __pyx_t_1 = (__pyx_v_self->ptr != 0);
   if (__pyx_t_1) {
 
-    /* "av/codec/hwaccel.pyx":159
+    /* "av/codec/hwaccel.py":186
  *     def __dealloc__(self):
  *         if self.ptr:
- *             lib.av_buffer_unref(&self.ptr)             # <<<<<<<<<<<<<<
+ *             lib.av_buffer_unref(cython.address(self.ptr))             # <<<<<<<<<<<<<<
 */
     av_buffer_unref((&__pyx_v_self->ptr));
 
-    /* "av/codec/hwaccel.pyx":158
+    /* "av/codec/hwaccel.py":185
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
- *             lib.av_buffer_unref(&self.ptr)
+ *             lib.av_buffer_unref(cython.address(self.ptr))
 */
   }
 
-  /* "av/codec/hwaccel.pyx":157
+  /* "av/codec/hwaccel.py":184
  *         return ret
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.ptr:
- *             lib.av_buffer_unref(&self.ptr)
+ *             lib.av_buffer_unref(cython.address(self.ptr))
 */
 
   /* function exit code */
@@ -5449,7 +5659,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_5codec___get__(struct __p
  *     cdef readonly Codec codec
  *     cdef readonly HWConfig config             # <<<<<<<<<<<<<<
  *     cdef lib.AVBufferRef *ptr
- *     cdef public bint allow_software_fallback
+ *     cdef readonly int device_id
 */
 
 /* Python wrapper */
@@ -5486,6 +5696,104 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_6config___get__(struct __
 /* "av/codec/hwaccel.pxd":19
  *     cdef readonly HWConfig config
  *     cdef lib.AVBufferRef *ptr
+ *     cdef readonly int device_id             # <<<<<<<<<<<<<<
+ *     cdef readonly bint is_hw_owned
+ *     cdef public bint allow_software_fallback
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_9device_id_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_9device_id_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel_9device_id___get__(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_9device_id___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->device_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 19, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("av.codec.hwaccel.HWAccel.device_id.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/codec/hwaccel.pxd":20
+ *     cdef lib.AVBufferRef *ptr
+ *     cdef readonly int device_id
+ *     cdef readonly bint is_hw_owned             # <<<<<<<<<<<<<<
+ *     cdef public bint allow_software_fallback
+ *     cdef public dict options
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned___get__(((struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned___get__(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->is_hw_owned); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 20, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("av.codec.hwaccel.HWAccel.is_hw_owned.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/codec/hwaccel.pxd":21
+ *     cdef readonly int device_id
+ *     cdef readonly bint is_hw_owned
  *     cdef public bint allow_software_fallback             # <<<<<<<<<<<<<<
  *     cdef public dict options
  *     cdef public int flags
@@ -5515,7 +5823,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->allow_software_fallback); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 19, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->allow_software_fallback); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5553,7 +5861,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback_2__se
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(2, 19, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(2, 21, __pyx_L1_error)
   __pyx_v_self->allow_software_fallback = __pyx_t_1;
 
   /* function exit code */
@@ -5566,8 +5874,8 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback_2__se
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pxd":20
- *     cdef lib.AVBufferRef *ptr
+/* "av/codec/hwaccel.pxd":22
+ *     cdef readonly bint is_hw_owned
  *     cdef public bint allow_software_fallback
  *     cdef public dict options             # <<<<<<<<<<<<<<
  *     cdef public int flags
@@ -5629,7 +5937,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_7options_2__set__(struct __pyx_
   __Pyx_RefNannySetupContext("__set__", 0);
   __pyx_t_1 = __pyx_v_value;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(2, 20, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(2, 22, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->options);
   __Pyx_DECREF(__pyx_v_self->options);
@@ -5679,7 +5987,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_7options_4__del__(struct __pyx_
   return __pyx_r;
 }
 
-/* "av/codec/hwaccel.pxd":21
+/* "av/codec/hwaccel.pxd":23
  *     cdef public bint allow_software_fallback
  *     cdef public dict options
  *     cdef public int flags             # <<<<<<<<<<<<<<
@@ -5709,7 +6017,7 @@ static PyObject *__pyx_pf_2av_5codec_7hwaccel_7HWAccel_5flags___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 21, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5747,7 +6055,7 @@ static int __pyx_pf_2av_5codec_7hwaccel_7HWAccel_5flags_2__set__(struct __pyx_ob
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(2, 21, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(2, 23, __pyx_L1_error)
   __pyx_v_self->flags = __pyx_t_1;
 
   /* function exit code */
@@ -6227,6 +6535,14 @@ static PyObject *__pyx_getprop_2av_5codec_7hwaccel_7HWAccel_config(PyObject *o, 
   return __pyx_pw_2av_5codec_7hwaccel_7HWAccel_6config_1__get__(o);
 }
 
+static PyObject *__pyx_getprop_2av_5codec_7hwaccel_7HWAccel_device_id(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_2av_5codec_7hwaccel_7HWAccel_9device_id_1__get__(o);
+}
+
+static PyObject *__pyx_getprop_2av_5codec_7hwaccel_7HWAccel_is_hw_owned(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_2av_5codec_7hwaccel_7HWAccel_11is_hw_owned_1__get__(o);
+}
+
 static PyObject *__pyx_getprop_2av_5codec_7hwaccel_7HWAccel_allow_software_fallback(PyObject *o, CYTHON_UNUSED void *x) {
   return __pyx_pw_2av_5codec_7hwaccel_7HWAccel_23allow_software_fallback_1__get__(o);
 }
@@ -6279,6 +6595,8 @@ static PyMethodDef __pyx_methods_2av_5codec_7hwaccel_HWAccel[] = {
 static struct PyGetSetDef __pyx_getsets_2av_5codec_7hwaccel_HWAccel[] = {
   {"codec", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_codec, 0, 0, 0},
   {"config", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_config, 0, 0, 0},
+  {"device_id", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_device_id, 0, 0, 0},
+  {"is_hw_owned", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_is_hw_owned, 0, 0, 0},
   {"allow_software_fallback", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_allow_software_fallback, __pyx_setprop_2av_5codec_7hwaccel_7HWAccel_allow_software_fallback, PyDoc_STR("allow_software_fallback: 'bool'"), 0},
   {"options", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_options, __pyx_setprop_2av_5codec_7hwaccel_7HWAccel_options, PyDoc_STR("options: dict"), 0},
   {"flags", __pyx_getprop_2av_5codec_7hwaccel_7HWAccel_flags, __pyx_setprop_2av_5codec_7hwaccel_7HWAccel_flags, PyDoc_STR("flags: 'int'"), 0},
@@ -6287,7 +6605,7 @@ static struct PyGetSetDef __pyx_getsets_2av_5codec_7hwaccel_HWAccel[] = {
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_2av_5codec_7hwaccel_HWAccel_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_2av_5codec_7hwaccel_HWAccel},
-  {Py_tp_doc, (void *)PyDoc_STR("HWAccel(device_type, device=None, allow_software_fallback=True, options=None, flags=None)")},
+  {Py_tp_doc, (void *)PyDoc_STR("HWAccel(device_type, device=None, allow_software_fallback=True, options=None, flags=None, is_hw_owned=False)")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_2av_5codec_7hwaccel_HWAccel},
   {Py_tp_clear, (void *)__pyx_tp_clear_2av_5codec_7hwaccel_HWAccel},
   {Py_tp_methods, (void *)__pyx_methods_2av_5codec_7hwaccel_HWAccel},
@@ -6326,7 +6644,7 @@ static PyTypeObject __pyx_type_2av_5codec_7hwaccel_HWAccel = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("HWAccel(device_type, device=None, allow_software_fallback=True, options=None, flags=None)"), /*tp_doc*/
+  PyDoc_STR("HWAccel(device_type, device=None, allow_software_fallback=True, options=None, flags=None, is_hw_owned=False)"), /*tp_doc*/
   __pyx_tp_traverse_2av_5codec_7hwaccel_HWAccel, /*tp_traverse*/
   __pyx_tp_clear_2av_5codec_7hwaccel_HWAccel, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -6433,7 +6751,7 @@ static int __Pyx_modinit_function_export_code(__pyx_mstatetype *__pyx_mstate) {
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (unlikely(!__pyx_export_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
     #endif
-    const char * __pyx_export_name = __pyx_export_signature + 74;
+    const char * __pyx_export_name = __pyx_export_signature + 80;
     void (*const __pyx_export_pointers[])(void) = {(void (*)(void))&__pyx_f_2av_5codec_7hwaccel_wrap_hwconfig, (void (*)(void)) NULL};
     void (*const *__pyx_export_pointer)(void) = __pyx_export_pointers;
     const char *__pyx_export_current_signature = __pyx_export_signature;
@@ -6463,17 +6781,17 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig = &__pyx_vtable_2av_5codec_7hwaccel_HWConfig;
-  __pyx_vtable_2av_5codec_7hwaccel_HWConfig._init = (void (*)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig *))__pyx_f_2av_5codec_7hwaccel_8HWConfig__init;
+  __pyx_vtable_2av_5codec_7hwaccel_HWConfig._init = (void (*)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig const *))__pyx_f_2av_5codec_7hwaccel_8HWConfig__init;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5codec_7hwaccel_HWConfig_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(0, 54, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5codec_7hwaccel_HWConfig_spec, __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5codec_7hwaccel_HWConfig_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(0, 58, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5codec_7hwaccel_HWConfig_spec, __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig = &__pyx_type_2av_5codec_7hwaccel_HWConfig;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
@@ -6483,23 +6801,23 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig, __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_HWConfig, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig, __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_HWConfig, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SLOTS
   if (__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig->tp_weaklistoffset == 0) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig->tp_weaklistoffset = offsetof(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig, __weakref__);
   #endif
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5codec_7hwaccel_HWAccel_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel)) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5codec_7hwaccel_HWAccel_spec, __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5codec_7hwaccel_HWAccel_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel)) __PYX_ERR(0, 107, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5codec_7hwaccel_HWAccel_spec, __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel = &__pyx_type_2av_5codec_7hwaccel_HWAccel;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
@@ -6509,8 +6827,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_HWAccel, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_HWAccel, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -6542,16 +6860,16 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(4, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "_Dictionary",
+  __pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "Dictionary",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #else
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary) __PYX_ERR(4, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_10dictionary__Dictionary = (struct __pyx_vtabstruct_2av_10dictionary__Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary__Dictionary)) __PYX_ERR(4, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary) __PYX_ERR(4, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_10dictionary_Dictionary = (struct __pyx_vtabstruct_2av_10dictionary_Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary_Dictionary)) __PYX_ERR(4, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.video.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(5, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6573,7 +6891,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_6format_VideoFormatComponent), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_6format_VideoFormatComponent),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(5, 18, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(5, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -6920,7 +7238,7 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/codec/hwaccel.pyx":1
+  /* "av/codec/hwaccel.py":1
  * import weakref             # <<<<<<<<<<<<<<
  * from enum import IntEnum
  * 
@@ -6931,11 +7249,11 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_weakref, __pyx_t_2) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":2
+  /* "av/codec/hwaccel.py":2
  * import weakref
  * from enum import IntEnum             # <<<<<<<<<<<<<<
  * 
- * cimport libav as lib
+ * import cython
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_IntEnum};
@@ -6954,348 +7272,324 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":11
- * from av.video.format cimport get_video_format
- * 
- * from av.dictionary import Dictionary             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Dictionary};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_av_dictionary, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
-  }
-  __pyx_t_2 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_2);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Dictionary};
-    __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
-  }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "av/codec/hwaccel.pyx":14
+  /* "av/codec/hwaccel.py":12
  * 
  * 
  * class HWDeviceType(IntEnum):             # <<<<<<<<<<<<<<
  *     none = lib.AV_HWDEVICE_TYPE_NONE
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_mstate_global->__pyx_n_u_HWDeviceType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_codec_hwaccel, (PyObject *) NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_mstate_global->__pyx_n_u_HWDeviceType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_codec_hwaccel, (PyObject *) NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   if (__pyx_t_2 != __pyx_t_4) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_6, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 14, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_6, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 12, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":15
+  /* "av/codec/hwaccel.py":13
  * 
  * class HWDeviceType(IntEnum):
  *     none = lib.AV_HWDEVICE_TYPE_NONE             # <<<<<<<<<<<<<<
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU
  *     cuda = lib.AV_HWDEVICE_TYPE_CUDA
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_NONE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_NONE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_none, __pyx_t_4) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_none, __pyx_t_4) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":16
+  /* "av/codec/hwaccel.py":14
  * class HWDeviceType(IntEnum):
  *     none = lib.AV_HWDEVICE_TYPE_NONE
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU             # <<<<<<<<<<<<<<
  *     cuda = lib.AV_HWDEVICE_TYPE_CUDA
  *     vaapi = lib.AV_HWDEVICE_TYPE_VAAPI
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VDPAU); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VDPAU); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vdpau, __pyx_t_4) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vdpau, __pyx_t_4) < (0)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":17
+  /* "av/codec/hwaccel.py":15
  *     none = lib.AV_HWDEVICE_TYPE_NONE
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU
  *     cuda = lib.AV_HWDEVICE_TYPE_CUDA             # <<<<<<<<<<<<<<
  *     vaapi = lib.AV_HWDEVICE_TYPE_VAAPI
  *     dxva2 = lib.AV_HWDEVICE_TYPE_DXVA2
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_CUDA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_CUDA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cuda, __pyx_t_4) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cuda, __pyx_t_4) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":18
+  /* "av/codec/hwaccel.py":16
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU
  *     cuda = lib.AV_HWDEVICE_TYPE_CUDA
  *     vaapi = lib.AV_HWDEVICE_TYPE_VAAPI             # <<<<<<<<<<<<<<
  *     dxva2 = lib.AV_HWDEVICE_TYPE_DXVA2
  *     qsv = lib.AV_HWDEVICE_TYPE_QSV
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VAAPI); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VAAPI); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vaapi, __pyx_t_4) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vaapi, __pyx_t_4) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":19
+  /* "av/codec/hwaccel.py":17
  *     cuda = lib.AV_HWDEVICE_TYPE_CUDA
  *     vaapi = lib.AV_HWDEVICE_TYPE_VAAPI
  *     dxva2 = lib.AV_HWDEVICE_TYPE_DXVA2             # <<<<<<<<<<<<<<
  *     qsv = lib.AV_HWDEVICE_TYPE_QSV
  *     videotoolbox = lib.AV_HWDEVICE_TYPE_VIDEOTOOLBOX
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_DXVA2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_DXVA2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_dxva2, __pyx_t_4) < (0)) __PYX_ERR(0, 19, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_dxva2, __pyx_t_4) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":20
+  /* "av/codec/hwaccel.py":18
  *     vaapi = lib.AV_HWDEVICE_TYPE_VAAPI
  *     dxva2 = lib.AV_HWDEVICE_TYPE_DXVA2
  *     qsv = lib.AV_HWDEVICE_TYPE_QSV             # <<<<<<<<<<<<<<
  *     videotoolbox = lib.AV_HWDEVICE_TYPE_VIDEOTOOLBOX
  *     d3d11va = lib.AV_HWDEVICE_TYPE_D3D11VA
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_QSV); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_QSV); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_qsv, __pyx_t_4) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_qsv, __pyx_t_4) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":21
+  /* "av/codec/hwaccel.py":19
  *     dxva2 = lib.AV_HWDEVICE_TYPE_DXVA2
  *     qsv = lib.AV_HWDEVICE_TYPE_QSV
  *     videotoolbox = lib.AV_HWDEVICE_TYPE_VIDEOTOOLBOX             # <<<<<<<<<<<<<<
  *     d3d11va = lib.AV_HWDEVICE_TYPE_D3D11VA
  *     drm = lib.AV_HWDEVICE_TYPE_DRM
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VIDEOTOOLBOX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VIDEOTOOLBOX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_videotoolbox, __pyx_t_4) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_videotoolbox, __pyx_t_4) < (0)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":22
+  /* "av/codec/hwaccel.py":20
  *     qsv = lib.AV_HWDEVICE_TYPE_QSV
  *     videotoolbox = lib.AV_HWDEVICE_TYPE_VIDEOTOOLBOX
  *     d3d11va = lib.AV_HWDEVICE_TYPE_D3D11VA             # <<<<<<<<<<<<<<
  *     drm = lib.AV_HWDEVICE_TYPE_DRM
  *     opencl = lib.AV_HWDEVICE_TYPE_OPENCL
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_D3D11VA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_D3D11VA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_d3d11va, __pyx_t_4) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_d3d11va, __pyx_t_4) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":23
+  /* "av/codec/hwaccel.py":21
  *     videotoolbox = lib.AV_HWDEVICE_TYPE_VIDEOTOOLBOX
  *     d3d11va = lib.AV_HWDEVICE_TYPE_D3D11VA
  *     drm = lib.AV_HWDEVICE_TYPE_DRM             # <<<<<<<<<<<<<<
  *     opencl = lib.AV_HWDEVICE_TYPE_OPENCL
  *     mediacodec = lib.AV_HWDEVICE_TYPE_MEDIACODEC
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_DRM); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_DRM); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_drm, __pyx_t_4) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_drm, __pyx_t_4) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":24
+  /* "av/codec/hwaccel.py":22
  *     d3d11va = lib.AV_HWDEVICE_TYPE_D3D11VA
  *     drm = lib.AV_HWDEVICE_TYPE_DRM
  *     opencl = lib.AV_HWDEVICE_TYPE_OPENCL             # <<<<<<<<<<<<<<
  *     mediacodec = lib.AV_HWDEVICE_TYPE_MEDIACODEC
  *     vulkan = lib.AV_HWDEVICE_TYPE_VULKAN
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_OPENCL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_OPENCL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_opencl, __pyx_t_4) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_opencl, __pyx_t_4) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":25
+  /* "av/codec/hwaccel.py":23
  *     drm = lib.AV_HWDEVICE_TYPE_DRM
  *     opencl = lib.AV_HWDEVICE_TYPE_OPENCL
  *     mediacodec = lib.AV_HWDEVICE_TYPE_MEDIACODEC             # <<<<<<<<<<<<<<
  *     vulkan = lib.AV_HWDEVICE_TYPE_VULKAN
  *     d3d12va = lib.AV_HWDEVICE_TYPE_D3D12VA
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_MEDIACODEC); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_MEDIACODEC); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_mediacodec, __pyx_t_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_mediacodec, __pyx_t_4) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":26
+  /* "av/codec/hwaccel.py":24
  *     opencl = lib.AV_HWDEVICE_TYPE_OPENCL
  *     mediacodec = lib.AV_HWDEVICE_TYPE_MEDIACODEC
  *     vulkan = lib.AV_HWDEVICE_TYPE_VULKAN             # <<<<<<<<<<<<<<
  *     d3d12va = lib.AV_HWDEVICE_TYPE_D3D12VA
  *     amf = 13  # FFmpeg >=8
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VULKAN); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_VULKAN); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vulkan, __pyx_t_4) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_vulkan, __pyx_t_4) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":27
+  /* "av/codec/hwaccel.py":25
  *     mediacodec = lib.AV_HWDEVICE_TYPE_MEDIACODEC
  *     vulkan = lib.AV_HWDEVICE_TYPE_VULKAN
  *     d3d12va = lib.AV_HWDEVICE_TYPE_D3D12VA             # <<<<<<<<<<<<<<
  *     amf = 13  # FFmpeg >=8
  *     ohcodec = 14
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_D3D12VA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVHWDeviceType(AV_HWDEVICE_TYPE_D3D12VA); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_d3d12va, __pyx_t_4) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_d3d12va, __pyx_t_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/codec/hwaccel.pyx":28
+  /* "av/codec/hwaccel.py":26
  *     vulkan = lib.AV_HWDEVICE_TYPE_VULKAN
  *     d3d12va = lib.AV_HWDEVICE_TYPE_D3D12VA
  *     amf = 13  # FFmpeg >=8             # <<<<<<<<<<<<<<
  *     ohcodec = 14
  *     # TODO: When ffmpeg major is changed, check this enum.
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_amf, __pyx_mstate_global->__pyx_int_13) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_amf, __pyx_mstate_global->__pyx_int_13) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":29
+  /* "av/codec/hwaccel.py":27
  *     d3d12va = lib.AV_HWDEVICE_TYPE_D3D12VA
  *     amf = 13  # FFmpeg >=8
  *     ohcodec = 14             # <<<<<<<<<<<<<<
  *     # TODO: When ffmpeg major is changed, check this enum.
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ohcodec, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ohcodec, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":14
+  /* "av/codec/hwaccel.py":12
  * 
  * 
  * class HWDeviceType(IntEnum):             # <<<<<<<<<<<<<<
  *     none = lib.AV_HWDEVICE_TYPE_NONE
  *     vdpau = lib.AV_HWDEVICE_TYPE_VDPAU
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_t_2, __pyx_t_6, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_t_2, __pyx_t_6, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_t_4) < (0)) __PYX_ERR(0, 14, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HWDeviceType, __pyx_t_4) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":32
- *     # TODO: When ffmpeg major is changed, check this enum.
+  /* "av/codec/hwaccel.py":31
+ * 
  * 
  * class HWConfigMethod(IntEnum):             # <<<<<<<<<<<<<<
  *     none = 0
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.
+ *     hw_device_ctx = (
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntEnum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_codec_hwaccel, (PyObject *) NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_codec_hwaccel, (PyObject *) NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (__pyx_t_2 != __pyx_t_5) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_4, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 32, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_4, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 31, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":33
+  /* "av/codec/hwaccel.py":32
  * 
  * class HWConfigMethod(IntEnum):
  *     none = 0             # <<<<<<<<<<<<<<
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.
- *     hw_frame_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
+ *     hw_device_ctx = (
+ *         lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_none, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_none, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
 
-  /* "av/codec/hwaccel.pyx":34
- * class HWConfigMethod(IntEnum):
+  /* "av/codec/hwaccel.py":34
  *     none = 0
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.             # <<<<<<<<<<<<<<
+ *     hw_device_ctx = (
+ *         lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX             # <<<<<<<<<<<<<<
+ *     )  # This is the only one we support.
  *     hw_frame_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
- *     internal = lib.AV_CODEC_HW_CONFIG_METHOD_INTERNAL
 */
   __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hw_device_ctx, __pyx_t_5) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hw_device_ctx, __pyx_t_5) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":35
- *     none = 0
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.
+  /* "av/codec/hwaccel.py":36
+ *         lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX
+ *     )  # This is the only one we support.
  *     hw_frame_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX             # <<<<<<<<<<<<<<
  *     internal = lib.AV_CODEC_HW_CONFIG_METHOD_INTERNAL
  *     ad_hoc = lib.AV_CODEC_HW_CONFIG_METHOD_AD_HOC
 */
-  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hw_frame_ctx, __pyx_t_5) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_hw_frame_ctx, __pyx_t_5) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":36
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.
+  /* "av/codec/hwaccel.py":37
+ *     )  # This is the only one we support.
  *     hw_frame_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
  *     internal = lib.AV_CODEC_HW_CONFIG_METHOD_INTERNAL             # <<<<<<<<<<<<<<
  *     ad_hoc = lib.AV_CODEC_HW_CONFIG_METHOD_AD_HOC
  * 
 */
-  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_INTERNAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_INTERNAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_internal, __pyx_t_5) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_internal, __pyx_t_5) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":37
+  /* "av/codec/hwaccel.py":38
  *     hw_frame_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
  *     internal = lib.AV_CODEC_HW_CONFIG_METHOD_INTERNAL
  *     ad_hoc = lib.AV_CODEC_HW_CONFIG_METHOD_AD_HOC             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_AD_HOC); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From___pyx_anon_enum(AV_CODEC_HW_CONFIG_METHOD_AD_HOC); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ad_hoc, __pyx_t_5) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ad_hoc, __pyx_t_5) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/codec/hwaccel.pyx":32
- *     # TODO: When ffmpeg major is changed, check this enum.
+  /* "av/codec/hwaccel.py":31
+ * 
  * 
  * class HWConfigMethod(IntEnum):             # <<<<<<<<<<<<<<
  *     none = 0
- *     hw_device_ctx = lib.AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX  # This is the only one we support.
+ *     hw_device_ctx = (
 */
-  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_t_2, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_t_2, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_t_5) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_HWConfigMethod, __pyx_t_5) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":40
+  /* "av/codec/hwaccel.py":41
  * 
  * 
- * cdef object _cinit_sentinel = object()             # <<<<<<<<<<<<<<
- * cdef object _singletons = weakref.WeakValueDictionary()
+ * _cinit_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
+ * _singletons = cython.declare(object, weakref.WeakValueDictionary())
  * 
 */
   __pyx_t_6 = NULL;
@@ -7304,7 +7598,7 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_5codec_7hwaccel__cinit_sentinel);
@@ -7312,17 +7606,17 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":41
+  /* "av/codec/hwaccel.py":42
  * 
- * cdef object _cinit_sentinel = object()
- * cdef object _singletons = weakref.WeakValueDictionary()             # <<<<<<<<<<<<<<
+ * _cinit_sentinel = cython.declare(object, object())
+ * _singletons = cython.declare(object, weakref.WeakValueDictionary())             # <<<<<<<<<<<<<<
  * 
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr):
+ * 
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WeakValueDictionary); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WeakValueDictionary); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_7 = 1;
@@ -7331,7 +7625,7 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_5codec_7hwaccel__singletons);
@@ -7339,7 +7633,7 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/codec/hwaccel.pyx":1
+  /* "av/codec/hwaccel.py":1
  * import weakref             # <<<<<<<<<<<<<<
  * from enum import IntEnum
  * 
@@ -7388,7 +7682,7 @@ __Pyx_RefNannySetupContext("PyInit_hwaccel", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 41, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -7415,42 +7709,42 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{31},{36},{33},{179},{28},{1},{1},{8},{6},{4},{13},{7},{6},{8},{2},{14},{9},{60},{10},{7},{8},{14},{12},{7},{20},{19},{6},{23},{3},{16},{13},{9},{18},{5},{4},{7},{7},{6},{11},{7},{3},{5},{4},{5},{6},{12},{16},{13},{12},{22},{8},{12},{5},{8},{10},{13},{10},{15},{8},{4},{4},{6},{7},{6},{7},{3},{11},{12},{11},{14},{3},{12},{10},{17},{13},{8},{12},{10},{12},{19},{8},{5},{6},{5},{12},{6},{7},{1},{109},{87},{114}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (775 bytes) */
-const char* const cstring = "(\265/\375`\223\004\355\027\000\366\254{\"\020s\333\330\330\235\320Q&\202\227\335\235Ds$\002\206\345\354e\004l\212\231\375\2718\214\252\252\252\332\305n\000v\000m\000\030y\006\035\014\214\274m\231\307\346g\0345\3508\276}O\231j\336\253\375X\207\253\025\027\036\026\014(\026\024l\267\257\330\375\303\014\333W\267\r\263]\370\030\333\241\317H\360\025z\334w\rt\356\340\303\016\204k\337yk\321C\327X\033\302L\371\271\0313K\3271E\205\353\024\263\234N~\332o\227\250].\301}\345o\375\327\214\357\335*\221\010\0331\365\260\350V\234\335\370i5r\312P2/Q[|cpTT&k3$\225\t[\245(*\223\214S\305\025O3\263(n\215SP\337\255\324(t\337\"\016\333\267\036G\344cTO\304\353\245wY\243\217WDDR\210\351\000_;\327\322\211H\256bi\027\306\333\322\035\221}L/V\342W\353xa\300\323\234\355\374\032\200\277\017{\241\177\332\320\037\327n\007\3114\222\036H\243/qS\325\234\266u-\263y{\355\374\315\231\352m\016\371\266w/\273\357Mw\313\242\345\372\332\254\227\314w\331g\246\3558\363\242\316\231^%\006z\231\271\257\377~\237\314\367(s6A\245i]\234\362\225\231 ! ,\205\245+R\253\324}6\3476g.\305@\021\345\\\324\242\264q\362\035\177\211q\306T9\224K\003\257\027\347N\376>\000\003\315\270\266\037~\035a\001\333\211)\027\036\r\2510P6u\030\200\001\017\n\001\002L\007\200\001F\200\026\265\220\312t\356\3342\244\244\t\371\036\247\371\315U\344\376a\001\244^\333\343\225\215-X \200\337<9\353,\272\230V\013\213\244\311\033\346\376\276\213\245H\333\222\236\304MU\312\374\267\377,Rg\327\263m\376\336\2279\255R\321Z\227\001z\250\001\255C\314\010\215\314\220\024$\205B\007 \204(\205\314\352\001\3410\020\025\3156\303v\223\2321\242\216\005Z\312)\2103\235m\240:\021y\327\234\2060\375\303\006\313\023\232\263\367\032\031\t\245Nk\004y\300\341\242\321\307\240\331\366a\326b\264\036\021\246_6TC\271W\360\276\n\216\215\247\"\303\351\316\017\322\251\357\327\244\317\215\371.\231O\274X\341\375sJ\026\343)\234WFA4~\023\214\214\020-\014\216\245=\240\200\267\370\025\035\355\230\204\21785dRn\314\033\207/5>\004\334\266\210\036x\371(\034\313\343\036\253!\200\247\216j\030\240""\277\300\273\371\212b0\2742\000\235C\203e\031j\375d\216Qx\203O5q\221\267\rC\303\242\222~\366\304l\257\364\346\033i\367\301\312\034\023\244D~\212\343\330\307\350\253,w\001\004\031\006\215\245`\267OqlV9\244\300\243\002\2369\231\250\264\247\1775y\323@\304+\321\355\327\214F\r";
-    PyObject *data = __Pyx_DecompressString(cstring, 775, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{1},{31},{36},{33},{179},{28},{1},{1},{8},{6},{4},{13},{7},{6},{8},{2},{14},{9},{60},{7},{8},{14},{12},{7},{20},{19},{6},{23},{3},{16},{9},{18},{5},{4},{7},{7},{6},{11},{7},{3},{5},{4},{5},{6},{12},{16},{13},{12},{22},{8},{11},{12},{5},{8},{10},{13},{10},{15},{8},{4},{4},{6},{7},{6},{7},{3},{11},{11},{12},{11},{14},{3},{12},{10},{17},{13},{8},{12},{10},{12},{19},{8},{5},{6},{5},{12},{6},{7},{1},{109},{93},{114}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (783 bytes) */
+const char* const cstring = "(\265/\375`\231\004-\030\000fo\201\"\020S\334\355\177\013{K\261[\323\177\331-\251)`\204\\a\030\"|\241\252q0<.\"\000\000\300\215t\000|\000s\000/\335'c\366\214\\\225\014FF\"\277\352\323\373[GK2.#\307\270m-\361\027\1770L\346\233\013\017\013\006\024\013J:\344_\r?f\325\370\027\362\322\215Y\306Nw\316W\222\374u>\371\235FB\307d\323\214\223\214\037\272\367\242\230N\203qH\267\355o\357\254\3302l\233+\031\356\304\340N\236\342w'Y\314\234$\371\267\337\367\243w\276s_\t\202D\255\355r\216\262\255\340\272k\216\332z<\313\025\2067\236b\r\375\325\025TEQ\205\"\267x\307\340WqTT&\2143$\225I\343\265(*\223\306\273=\253\337\342(\271\017YZV\302\177\021\246qd\261#4v\256&\342\027r\346\266ll\026\021\221\026\202:\310_W\306v\"\242\274Zb69\177\274#\302\261\355\005K\375\213a\263\014h\274_\365\352\256\177\003\3629\246\263\363q\003\033I\021d\331\227T\373\355zZ\301\205\232\341>\206O\365\271\027\335\365?\327\226\363s\216cw\356\334\360\235\325An\021s\373\353\275\220j\204\370\233\261O.v[\207\374\336\252\320B\206\372\245\223\023U\225\177?>7\252\261\331\306p\302J\024\203\340rL5AB@`\nlY\264x-|\365V\366V\335\311\211\254\210\264\014\264\317\332\205\321g\\\324\311\005\277\020t\214>7\000\003\336\311\330\233\216\036eAc\252)\027\036\r\272&G\337\302\t`\200 ?\272[\022\017\n\001\202t\000\030h\004\371,v\226*t\0202\203J\233\240\261\201\253\377\334\212\340\307,p\326\357\213\315\364\365\223\005\002\371\336\024\303\360Y\236|\237\026I\224[\232s\357\230\265\024\355cR\224\372\355J\252\037\371\277E\3130\373\306\336\357\034U)^+b\014U[t\250!\241S\n\221\031\231!%iR\350 \204@EU=\26181\025M\233a;\323\2331,A\003\3607LV\354\236<Z_*\331G(\310\"~\217I7b\230P\030\231\270\252\221\337K\304b\357\227\306\377\017\205\006\177*\265\240\344I`\372>\240\233&\272\220\177\306\\\215O\321\300\277\256\014\0255*\277D\364l\304NO\227Y\261\252\0361\243\327\340\307)e\210{bl4\236\251\305\243\371S\231W\367\017\026J\203?.\342\314\331\034\233\315\322pN\261y\333\302O\305\375b\230\350\302@\374\226\321y\220\331`\371\000\026\347\337\321\020t\336,q\"-\204\267K\003""\305E\221v\266\004uIq\305\267k\0148\032\326R \216\020\331y\240(\207+\351\270\037\3068\2226@\000\213[\2208\234\241!4v\316c:.\255\274\321\340\347|\021\013\374\364\257\222\265\037H\256\022\205\377\215N\325";
+    PyObject *data = __Pyx_DecompressString(cstring, 783, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (873 bytes) */
-const char* const cstring = "BZh91AY&SYP\362A\200\000\000A\337\200@\000@\367\177\307\257cW\200\277\377\377\360P\003-{67s\200\020\320\204\310\233S\024m\244\304\321\0314i\241\240\321\2654\362\232\n\2314mS\302\021\246\321\006\2314\r\003\010z\200\0305=LF\246\247\241OHb\r\006\232\000\001\2402\003\230\000&\000\002`\000\000\000\000\224\322\001\t\2015\0312\231O\005\001\241\200\203 X\332\010\036\376c\320{\240\342\264\372\233\357\227\006\000\303\251\251\360\325\0274\216\207\261\247\307\242\240\241\227V\270\326\373d\266<\204\245J,\\8\230\272\2713\022\366E\000\217\271\036M\262\240\214(\357\032l*\221C\273K\010W\322Y\232vd\027\370\245\352\002u%\265IL\221[\203g\221Q\345s\244\215%\037r\341\027T\246_\261\345/\200\334\334c\353\325um\265\327\207m]\014z!\213d\226\2624\023\225R\217\024eM\233\220\320P_m\311A\022\232E\301\277H\006\2100f\021e\033\353#5\203\226@#\001\003#x\276p-6\266\320\312f\342\277\201\261\325\361\352L\264f@\360\341\nwQ}\331\034T\035\273\233\037/,\3219\233\335\250\363\215\0064\007\222\240\004&\243\261\035\361\016\013x\374\336\336\366\\\271\030]\340\032\204\343\353@\222P\323\316\204\253d\204\320[\266T'\"N\360\360\027\037O\214\271\366\343NN\352\354A`\302h\230\241\333\004|K\307\321?\225\236,\332_x\\\345f\263\207\322Q^\t\302\335\033\255\265\300\211\277^k\2114\234\016\354\237\022;\024-\026,\024\247\366D\202v\346L\242\027\203\327\",pv\311\301\r\244\0321>\234\242\336\002tx\\\001)%\201$[4\340i\003R\02632y\020%h6B\215s\246\006\243\374\230\203\3341=X\333TG-$G\254\005\340\364\215\264\023\201\215\220\211C8\330\202\351\337\022d5\203Q\2209t\343\265vA\245\232\320K\3179\304|\030K\336A\340\305\322m\206\020\301\341\251\232<T\331\277,\340Q\373Q\310\272\237)\236A\323\226J+Uh\274\201\365\200B|\353\262h\222\316\255$\320\243\220\356rp8\356\315\020t\224:\022\205\343\3765\200\205\001V\324\261\026\225i\342v<\200A\376\311\247\243W,J\324o\024\355Z\267\315B\035\215\347\023Ey\213\363\374\r\375\342\017Y\367_\302\201\223\033X\262\021\004\350\237W\340r\350\331\374\007\t\265\301\256\277*\307\331\236[\323m\267\271\212)\311\336X7&\322""\215\353\354\203\t47F\034G\206\335\362\300\r\264\271\272\351\224\313\213\306\326\356\354]\242\221 \233_\030j\375\351;\252\311\261\271\364\221\301\333+\035\204\t\276\014^\370\022U\361\322\320\t\037\365kc\242L\376z\301J-&R%\003L\370\320\364Pb\323\202q\006\340\265\265\373&\310+\334\023#\301clnd\254\313\010g\215PK\006\344\345f\311WJ\035\215\240S\023\244v\313\026\300\263A\231g\303\353\355\332J\272\215\355\247z\267\223qFM\325\354\272\372Y)\264\310\236\225\254\t\034p\360\254\240\342\3762\332\313A\334\000x\377\027rE8P\220P\362A\200";
-    PyObject *data = __Pyx_DecompressString(cstring, 873, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (880 bytes) */
+const char* const cstring = "BZh91AY&SYNZ\235i\000\000A\337\200@\000@\367\177\307\257cW\200\277\377\377\360P\003[osm]\316\350)\270hDd\231\240\243\305<h\247\250\364\232z@\000z\207\244\3205OI\211\352i\2224\032h4\000\000\003@h\006\232\ndD\364\312l\211\204\r4\000\006\201\240\320s\000\004\300\000L\000\000\000\000\022\232D\302\002b\247\223FBbh\r\006L\200\3208\347@\017f\321\336|\310\330\353\355\213\347\337\302\000\203\226K\351&\300F\326\252\330\211\035\233\233#\010\372\373Cj9i\204\326\026\2661(0b\001\033e\230\210\341C\340#\261\016*\245\240\244c\\3\305\345b,n\306\002\027qt\3547\3104\2154P\023\251\037\0251@\375m\237b\225+\031X\316\310\375\026\021u9\345\362:\354\360\033\225\330?|W\026\323M0\344\243\246\017R`\256K\355F\242f\355L\325\241\333\360\325\2155\026\025\275MPR\332\306\360\215\332T\005\300\342\332 ,8\316\366Ii\204\250\320\300I\221\021T\310Y$1(\256\261\016e1\207\364G$\215\233\335%\242\224\016\r\025\325\276\2150\215\245A\277{\"\371\356\246\026\301\330\334N\301y\213\305R\257pC)\273\021\333\210`\266\307\311\373\332\335\373\313\355\351\r\002Q\355\230X\2243\354\231e)$\024czb\220\242\004*\267\0307k\331\031\262\327.\005\nj\254\003\205\n:VC\265\350\372\227\017\232~\272\274Y\263\272\340\265\312I:\373E\327Jp\247\006\343L\356\"/\323\231\3606\263a\272\214\013'-J\3031\200\345\277\257dn\334\255\220& z\350\"\231\202\256L8\224\226\233\317\242\226$j7\227\"\2149\251\252\324KF(^a:)J\n0M\020v\014\265c)\323SQ\376LA\315\034\017\036\017\346\204\344\250\210\362\001z\271\"e\004\320cmp\250X6\240\302wB\221\232\301\250\310\034\234\351\3034\272\266\025/\004\273'?\025\222\273H8\031\317\n\353}\320\271\341\241\261\035JL{\266Bi\316Do-\237\214\316\260\341\277%\025\252\253\254 \\l\005\031\247qI\010\262i\005\032J\033:\212\030\\\367\242@\014I}\004\241p\376\332@B\200\251Y\324\215\224\237Q]\320\220\010?\262i\346\325\313\022\205\006\352N\324\243y(CsvD\321\\b\374\276\303ox\203\266\\\327a0\311\265\251T\"\010tK\213\340r\360m\236\003\204\232\320\323O\032F\274\3732\333Mu\333s\023R\261\336\314\033{\\M\273\\n\204\320\332\213\375\003\303^{/\003""\\\355n9\345\"\321\356\033Ky\261v\212D\202e\321\206\217\320\223\272\245\201\215\257\235\206\016\331T\334@\223\336\302\271a\020g\313m,\004\017\351\316\234'A(\334\333\354ht\2040!\205\262\272CYd\024\312\t\304\033Ai[\265M\220S\230$G\005\215q\265*\262\276\0331\242\013/m\356\324\223%L\346nl\302x\234#\256X\265\345Z\003-\230}\373\265\261SA\273\247\320\253\220\024\230\230\257H\226-\343t2\"\031\023\222\325\201\261\247^v\212\332_\306[\240x<\000\016\037\305\334\221N\024$\023\226\247Z@";
+    PyObject *data = __Pyx_DecompressString(cstring, 880, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (751 bytes) */
-const char* const cstring = "x\332mT\333n\0231\020\355\247\370\r\212J\004\345\372@A(\200\312\003U\204\240}\034\315\332\263Y\023\3076\366\354f\303\3273\366n\332E\"R\354\031{\256g\216\367\375\032\275\017\254\254\317\214\236-2\251u0\244\327\3013\215|\215\311\0340\221\322\223\256\320%Bs\024\007+\326\316\376!s\023T\356c\014\211\311\250n\341\320\332\255jCR7A\242r\207\254\326G\356\202W6+C\3166\224$\237;\252\314\311j\246T\214\274\332|\336<}\371\366\245BoT\242_\2449K\202F;\314\231\262\n\255jz\353\330z\305\307Hy\245\276\266\352\030z\345I\362sPQ\354\226\016\334\221W\231\270\010\352Q\355\027\331\006\017\342n\375\366\22126I\022;P\361\376\202.\323\352\247\337\371p\2302\324\036\014\rVSq\241\325\0074\006|iJZz6\276\303a\265\274\27726c\343\210|Y\213\367\036\371j\253\245m\270\007\352\312\346\351\336dr\355*rRz\032ES\261\033\250\302)\005\241\332L\250\205\246`Q\253\211V\357\234\324\376I`\223N0\035\257\357>jM\356\372n]q?\355\337H\\\315\365\335\247Z\336\017\251\356\253\347\317\276\337\003l\216\243\374K\004\270\221\311~\247\366\216pw\213\256\247\207\260h\240\013\032\235\013\007\310\241\3452ZhEoP\357p\337J\353\272\320e\325\035\260\344\027\335\334;\003\324\021\224\315z\002+\210'\324T\\\253\223\356\r\232\027\346\371\363\241n\227\262\3252\027X\002\230\240eI{3\016xIRy\353p\233'P\001\266\304B\\\026\273\023\361`\"^\356\0160\307\321<\212\322&\334W\031\036\250\013r>\023\333\312\232\274\234.fd\231\366R\375\036\245r\330\213\216\265\354\"3\316\255\211\022L\357\250J)\000y\3412\325\013_\022\326\325\007O\323\364BWC\204H^\273\020\013P9\206\010\020\023\305R\275\374\242\014Fc\264'yn\260\210\003\027\312\000\374\316\203,=\272)\007@\"\323\353\245\244+g\026\0074\002\010\345\244QrE\342\271>\221\014\265\330;\256\362\234l!?Db\312b4\240\3246\024\232\344\301D\354\007k(p\010\256\t\343\320\273\035\372\203\360(Q;\n\246\352\261,\027\252Hs3;\033A\036HD\326\335Ey\371\275>\335\t\036\200i\233\341\022\007xE)\205\004\262\202\356H\357\324\223{\243\302.W-\317\317\356\357\377\215\324\374\232\202L\003{3\263\023N\317B=y<\333\177\274\255\237\273\207\213\363""\263C\302(\314\230y\364\337\260\265gx=\263\360\266h_\252,\201\013G%\354\306\216\344\246\303\013\325\373l\267^\336sEc\251\235\237\t\205a\2127\205\373\013\336\304)\031";
-    PyObject *data = __Pyx_DecompressString(cstring, 751, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (766 bytes) */
+const char* const cstring = "x\332mTMo\3338\020\315O\341\255I\2205\2324\373qhZ\004n\213\344\260\201Q\354&\307\301\210\034Y\254)\222%G\262\335_\337!%\247Z`\017&\207\344|\2757O\376p\275F\357\003+\3533\243g\213Lj\035\014\351u\360L\007~\300d\366\230H\351\351\254\320%Bs\224\000+\336\316\376 \363\024T\036b\014\211\311\250n\021\320\332\255jCROA\262r\207\254\326G\356\202W6+C\3166\224\244\236;\252\314\311j\246T\234\274\332|\336\374v\373\327\255BoT\242o\2449K\201F;\314\231\262\n\255j\006\353\330z\305\307Hy\245\036[u\014\203\362$\3659\250(~\313\000\356\310\253L\\\014\365\246\342E\266\301\203\204[\277}\243\214MR\304\216T\242\277\240\313\264\372\327\357|\330O\025*\006C\243\325TBh\365\021\215\001_@\t\244\267\207\3678\256\226\357w\306fl\034\221/k\211\356\221\357\266Z`\303+Qw6O\357&\223kW\221\223\322\323(\232\312\335H\225Ni\010\325fb-4\205\213\332M\264z\347\244\367\207\227{\255\311=\274\254+\333\247\375o\222\000\363\360\362\2516\365\217\364\364\350\371\263\037z\200\315\361 \277OB7<\311<\277R\373B\270{F7P\271\024Z0\035\321@\0274:\027\366\220C\313e\240\320\312\271A\275\303\276\025\300\272\210d\325\355\261\324\007\250\\\227\315z\002+\324&\324T\274\253\237\036\014\232w\346\372z\254\333\215l\265\263\005i\000&hYRo\016#\336\2204\333:\334\346\211=\200-\261(\224\305\357\2440\230\024\226\273=\314y4\037\344\320&\354\253\r\2774\nr?+\330\312\232\274\334\346r)3&\263\234\213e\352\005H\217\002\002z9cEPl\306\031\245\034\202\031\034U+\005 /\372\245\372\340K\355\272\372\340i\232X\350j\212\020\311k\027b\3418\307\020\001b\242X\200\210a{\241\2756\rQ&\2441\332\222\256\3303\354b\216\\\024\003\360=\217\262\014\350\246r\000\211\314\240\227\226\256\222Y\\\220d\026\305\t\3742.\371\032\346V\3052\324\342\340\270\332s\261\205\375+\023S\026\247\021\245\267\261\350%\217&\3420ZC\201CpM8\214\203\333\241\337\213\240\022\265\007aZ\235\313r\245\2125\203\331\331\010BxD\326\335U\371\360\007}z\023j\000\3236\303\r\216\360;\245\024\022\310\n\272#\275S\227\257NE\243\256z^\234\275\276\3777S\363mJ2\315\356\317\223LO\337\207\272<\237\375\357\237\353\277""\335\353\203\210$\263\272\2748\333'\214\"\220Yc\377\233\274\"\207?f\205>\227\323\227jK\372\242_I\276\261\007r\323\345\225\032|\266[\221\233\252\234,O\027g\"o\230\362M\351~\002v\331+\210";
+    PyObject *data = __Pyx_DecompressString(cstring, 766, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1427 bytes) */
-const char* const bytes = ">Cannot instantiate CodecContextHardware context already initializedNo supported hardware config for Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Unknown type for device_type.?add_note at 0x<av. device_type=disableenable format=gc is_supported=isenabledself.ptr cannot be converted to a Python object for picklingDictionaryHWAccelHWConfigHWConfigMethodHWDeviceTypeIntEnum__Pyx_PyDict_NextRefWeakValueDictionaryad_hocallow_software_fallbackamfav.codec.hwaccelav.dictionary__class__cline_in_tracebackcodeccudad3d11vad3d12vadevicedevice_type__doc__drmdxva2enumflagsformat__getstate__hardware_configshw_device_ctxhw_frame_ctx_initialize_hw_contextinternalis_supporteditems__main__mediacodec__metaclass____module____mro_entries____name__namenoneobjectohcodecopencloptionspop__prepare____pyx_capi____pyx_state__pyx_vtable__qsv__qualname____reduce____reduce_cython____reduce_ex__sentinel__set_name__setdefault__setstate____setstate_cython____test__vaapivaluesvdpauvideotoolboxvulkanweakrefxint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_5codec_7hwaccel_HWConfig *(struct AVCodecHWConfig *)\000wrap_hwconfigstruct __pyx_obj_2av_5video_6format_VideoFormat *(enum AVPixelFormat, unsigned int, unsigned int)\000get_video_format";
+    #else /* compression: none (1433 bytes) */
+const char* const bytes = ">1Cannot instantiate CodecContextHardware context already initializedNo supported hardware config for Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Unknown type for device_type.?add_note at 0x<av. device_type=disableenable format=gc is_supported=isenabledself.ptr cannot be converted to a Python object for picklingHWAccelHWConfigHWConfigMethodHWDeviceTypeIntEnum__Pyx_PyDict_NextRefWeakValueDictionaryad_hocallow_software_fallbackamfav.codec.hwaccel__class__cline_in_tracebackcodeccudad3d11vad3d12vadevicedevice_type__doc__drmdxva2enumflagsformat__getstate__hardware_configshw_device_ctxhw_frame_ctx_initialize_hw_contextinternalis_hw_ownedis_supporteditems__main__mediacodec__metaclass____module____mro_entries____name__namenoneobjectohcodecopencloptionspop__prepare__primary_ctx__pyx_capi____pyx_state__pyx_vtable__qsv__qualname____reduce____reduce_cython____reduce_ex__sentinel__set_name__setdefault__setstate____setstate_cython____test__vaapivaluesvdpauvideotoolboxvulkanweakrefxint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_5codec_7hwaccel_HWConfig *(struct AVCodecHWConfig const *)\000wrap_hwconfigstruct __pyx_obj_2av_5video_6format_VideoFormat *(enum AVPixelFormat, unsigned int, unsigned int)\000get_video_format";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 89; i++) {
+    for (int i = 0; i < 90; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 19) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 20) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -7458,7 +7752,7 @@ const char* const bytes = ">Cannot instantiate CodecContextHardware context alre
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 89; i < 92; i++) {
+    for (int i = 90; i < 93; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -7469,14 +7763,14 @@ const char* const bytes = ">Cannot instantiate CodecContextHardware context alre
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 92; i++) {
+    for (Py_ssize_t i = 0; i < 93; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 89;
+      PyObject **table = stringtab + 90;
       for (Py_ssize_t i=0; i<3; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -9284,18 +9578,18 @@ static PyObject* __Pyx_PyUnicode_FromOrdinal_Padded(int value, Py_ssize_t ulengt
 }
 
 /* CIntToPyUnicode */
-static CYTHON_INLINE PyObject* __Pyx_uchar___Pyx_PyUnicode_From_int(int value, Py_ssize_t width, char padding_char) {
+static CYTHON_INLINE PyObject* __Pyx_uchar___Pyx_PyUnicode_From_Py_ssize_t(Py_ssize_t value, Py_ssize_t width, char padding_char) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
+    const Py_ssize_t neg_one = (Py_ssize_t) -1, const_zero = (Py_ssize_t) 0;
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic pop
 #endif
     const int is_unsigned = neg_one > const_zero;
     if (unlikely(!(is_unsigned || value == 0 || value > 0) ||
-                    !(sizeof(value) <= 2 || value & ~ (int) 0x01fffff || __Pyx_CheckUnicodeValue((int) value)))) {
+                    !(sizeof(value) <= 2 || value & ~ (Py_ssize_t) 0x01fffff || __Pyx_CheckUnicodeValue((int) value)))) {
         PyErr_SetString(PyExc_OverflowError, "%c arg not in range(0x110000)");
         return NULL;
     }
@@ -9304,18 +9598,18 @@ static CYTHON_INLINE PyObject* __Pyx_uchar___Pyx_PyUnicode_From_int(int value, P
     }
     return __Pyx_PyUnicode_FromOrdinal_Padded((int) value, width, padding_char);
 }
-static CYTHON_INLINE PyObject* __Pyx____Pyx_PyUnicode_From_int(int value, Py_ssize_t width, char padding_char, char format_char) {
-    char digits[sizeof(int)*3+2];
-    char *dpos, *end = digits + sizeof(int)*3+2;
+static CYTHON_INLINE PyObject* __Pyx____Pyx_PyUnicode_From_Py_ssize_t(Py_ssize_t value, Py_ssize_t width, char padding_char, char format_char) {
+    char digits[sizeof(Py_ssize_t)*3+2];
+    char *dpos, *end = digits + sizeof(Py_ssize_t)*3+2;
     const char *hex_digits = DIGITS_HEX;
     Py_ssize_t length, ulength;
     int prepend_sign, last_one_off;
-    int remaining;
+    Py_ssize_t remaining;
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
+    const Py_ssize_t neg_one = (Py_ssize_t) -1, const_zero = (Py_ssize_t) 0;
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic pop
 #endif
@@ -9332,21 +9626,21 @@ static CYTHON_INLINE PyObject* __Pyx____Pyx_PyUnicode_From_int(int value, Py_ssi
         switch (format_char) {
         case 'o':
             digit_pos = abs((int)(remaining % (8*8)));
-            remaining = (int) (remaining / (8*8));
+            remaining = (Py_ssize_t) (remaining / (8*8));
             dpos -= 2;
             memcpy(dpos, DIGIT_PAIRS_8 + digit_pos * 2, 2);
             last_one_off = (digit_pos < 8);
             break;
         case 'd':
             digit_pos = abs((int)(remaining % (10*10)));
-            remaining = (int) (remaining / (10*10));
+            remaining = (Py_ssize_t) (remaining / (10*10));
             dpos -= 2;
             memcpy(dpos, DIGIT_PAIRS_10 + digit_pos * 2, 2);
             last_one_off = (digit_pos < 10);
             break;
         case 'x':
             *(--dpos) = hex_digits[abs((int)(remaining % 16))];
-            remaining = (int) (remaining / 16);
+            remaining = (Py_ssize_t) (remaining / 16);
             break;
         default:
             assert(0);
@@ -9552,6 +9846,24 @@ __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
                  expected, obj_type_name);
     __Pyx_DECREF_TypeName(obj_type_name);
     return 0;
+}
+
+/* dict_setdefault */
+static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value) {
+    PyObject* value;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030F0000 || (!CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4)
+    PyDict_SetDefaultRef(d, key, default_value, &value);
+#elif CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX >= 0x030C0000
+    PyObject *args[] = {d, key, default_value};
+    value = PyObject_VectorcallMethod(__pyx_mstate_global->__pyx_n_u_setdefault, args, 3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+#elif CYTHON_COMPILING_IN_LIMITED_API
+    value = PyObject_CallMethodObjArgs(d, __pyx_mstate_global->__pyx_n_u_setdefault, key, default_value, NULL);
+#else
+    value = PyDict_SetDefault(d, key, default_value);
+    if (unlikely(!value)) return NULL;
+    Py_INCREF(value);
+#endif
+    return value;
 }
 
 /* ArgTypeTestFunc (used by ArgTypeTest) */
@@ -10975,24 +11287,6 @@ static PyObject *__Pyx_Py3ClassCreate(PyObject *metaclass, PyObject *name, PyObj
     return result;
 }
 
-/* dict_setdefault (used by CLineInTraceback) */
-static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value) {
-    PyObject* value;
-#if __PYX_LIMITED_VERSION_HEX >= 0x030F0000 || (!CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4)
-    PyDict_SetDefaultRef(d, key, default_value, &value);
-#elif CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX >= 0x030C0000
-    PyObject *args[] = {d, key, default_value};
-    value = PyObject_VectorcallMethod(__pyx_mstate_global->__pyx_n_u_setdefault, args, 3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
-#elif CYTHON_COMPILING_IN_LIMITED_API
-    value = PyObject_CallMethodObjArgs(d, __pyx_mstate_global->__pyx_n_u_setdefault, key, default_value, NULL);
-#else
-    value = PyDict_SetDefault(d, key, default_value);
-    if (unlikely(!value)) return NULL;
-    Py_INCREF(value);
-#endif
-    return value;
-}
-
 /* CLineInTraceback (used by AddTraceback) */
 #if CYTHON_CLINE_IN_TRACEBACK && CYTHON_CLINE_IN_TRACEBACK_RUNTIME
 #if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030A0000
@@ -11447,75 +11741,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From___pyx_anon_enum(int value) {
     }
 }
 
-/* CIntToPy */
-static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(int) < sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(int) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-#if !CYTHON_COMPILING_IN_PYPY
-        } else if (sizeof(int) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-#endif
-        }
-    } else {
-        if (sizeof(int) <= sizeof(long)) {
-            return PyLong_FromLong((long) value);
-        } else if (sizeof(int) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        unsigned char *bytes = (unsigned char *)&value;
-#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
-        if (is_unsigned) {
-            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
-        } else {
-            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
-        }
-#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        return _PyLong_FromByteArray(bytes, sizeof(int),
-                                     little, !is_unsigned);
-#else
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        PyObject *from_bytes, *result = NULL, *kwds = NULL;
-        PyObject *py_bytes = NULL, *order_str = NULL;
-        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
-        if (!from_bytes) return NULL;
-        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(int));
-        if (!py_bytes) goto limited_bad;
-        order_str = PyUnicode_FromString(little ? "little" : "big");
-        if (!order_str) goto limited_bad;
-        {
-            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
-            if (!is_unsigned) {
-                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
-                if (!kwds) goto limited_bad;
-                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
-            }
-            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
-        }
-        limited_bad:
-        Py_XDECREF(kwds);
-        Py_XDECREF(order_str);
-        Py_XDECREF(py_bytes);
-        Py_XDECREF(from_bytes);
-        return result;
-#endif
-    }
-}
-
 /* CIntFromPy */
 static CYTHON_INLINE enum AVHWDeviceType __Pyx_PyLong_As_enum__AVHWDeviceType(PyObject *x) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
@@ -11699,6 +11924,75 @@ raise_neg_overflow:
     PyErr_SetString(PyExc_OverflowError,
         "can't convert negative value to enum AVHWDeviceType");
     return (enum AVHWDeviceType) -1;
+}
+
+/* CIntToPy */
+static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value) {
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
+    const int neg_one = (int) -1, const_zero = (int) 0;
+#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
+#pragma GCC diagnostic pop
+#endif
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(int) < sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(int) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+#if !CYTHON_COMPILING_IN_PYPY
+        } else if (sizeof(int) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+#endif
+        }
+    } else {
+        if (sizeof(int) <= sizeof(long)) {
+            return PyLong_FromLong((long) value);
+        } else if (sizeof(int) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+        }
+    }
+    {
+        unsigned char *bytes = (unsigned char *)&value;
+#if !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX >= 0x030d00A4
+        if (is_unsigned) {
+            return PyLong_FromUnsignedNativeBytes(bytes, sizeof(value), -1);
+        } else {
+            return PyLong_FromNativeBytes(bytes, sizeof(value), -1);
+        }
+#elif !CYTHON_COMPILING_IN_LIMITED_API && PY_VERSION_HEX < 0x030d0000
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        return _PyLong_FromByteArray(bytes, sizeof(int),
+                                     little, !is_unsigned);
+#else
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        PyObject *from_bytes, *result = NULL, *kwds = NULL;
+        PyObject *py_bytes = NULL, *order_str = NULL;
+        from_bytes = PyObject_GetAttrString((PyObject*)&PyLong_Type, "from_bytes");
+        if (!from_bytes) return NULL;
+        py_bytes = PyBytes_FromStringAndSize((char*)bytes, sizeof(int));
+        if (!py_bytes) goto limited_bad;
+        order_str = PyUnicode_FromString(little ? "little" : "big");
+        if (!order_str) goto limited_bad;
+        {
+            PyObject *args[3+(CYTHON_VECTORCALL ? 1 : 0)] = { NULL, py_bytes, order_str };
+            if (!is_unsigned) {
+                kwds = __Pyx_MakeVectorcallBuilderKwds(1);
+                if (!kwds) goto limited_bad;
+                if (__Pyx_VectorcallBuilder_AddArgStr("signed", __Pyx_NewRef(Py_True), kwds, args+3, 0) < 0) goto limited_bad;
+            }
+            result = __Pyx_Object_Vectorcall_CallFromBuilder(from_bytes, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET, kwds);
+        }
+        limited_bad:
+        Py_XDECREF(kwds);
+        Py_XDECREF(order_str);
+        Py_XDECREF(py_bytes);
+        Py_XDECREF(from_bytes);
+        return result;
+#endif
+    }
 }
 
 /* CIntFromPy */

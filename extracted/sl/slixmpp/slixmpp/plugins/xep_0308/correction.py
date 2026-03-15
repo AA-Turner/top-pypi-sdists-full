@@ -3,7 +3,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permissio
 import logging
-from typing import Optional
 
 from slixmpp.stanza import Message
 from slixmpp.jid import JID
@@ -45,14 +44,20 @@ class XEP_0308(BasePlugin):
     def session_bind(self, jid):
         self.xmpp.plugin['xep_0030'].add_feature(Replace.namespace)
 
-    def is_correction(self, msg: Message):
+    def is_correction(self, msg: Message) -> bool:
+        """
+        Check if a message contains a correction.
+
+        :param msg: Message to check.
+        :returns: True if the message contains a correction.
+        """
         return msg.xml.find('{%s}replace' % Replace.namespace) is not None
 
     def _handle_correction(self, msg: Message):
         self.xmpp.event('message_correction', msg)
 
     def build_correction(self, id_to_replace: str, mto: JID,
-                         mfrom: Optional[JID] = None, mtype: str = 'chat',
+                         mfrom: JID | None = None, mtype: str = 'chat',
                          mbody: str = '') -> Message:
         """
         Build a corrected message.

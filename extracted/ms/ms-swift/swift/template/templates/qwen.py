@@ -1,4 +1,5 @@
 # Copyright (c) ModelScope Contributors. All rights reserved.
+import inspect
 import torch
 import torch.nn.functional as F
 import transformers
@@ -447,10 +448,16 @@ class Qwen2VLTemplate(Template):
         attention_mask = inputs.get('attention_mask_2d')
         if attention_mask is None:
             attention_mask = inputs.get('attention_mask')
+        input_ids = inputs['input_ids']
+        if 'mm_token_type_ids' in inspect.signature(get_rope_index).parameters:
+            mm_token_type_ids = torch.zeros_like(input_ids)
+            mm_token_type_ids[input_ids == self.processor.image_token_id] = 1
+            mm_token_type_ids[input_ids == self.processor.video_token_id] = 2
+            kwargs['mm_token_type_ids'] = mm_token_type_ids
         position_ids, _ = get_rope_index(
-            inputs['input_ids'],
-            inputs.get('image_grid_thw'),
-            inputs.get('video_grid_thw'),
+            input_ids,
+            image_grid_thw=inputs.get('image_grid_thw'),
+            video_grid_thw=inputs.get('video_grid_thw'),
             attention_mask=attention_mask,
             **kwargs)
         return self._concat_text_position_ids(position_ids)
@@ -631,8 +638,9 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
     def replace_tag(self, media_type: Literal['image', 'video', 'audio'], index: int,
                     inputs: StdTemplateInputs) -> List[Context]:
         from qwen_omni_utils import fetch_image, fetch_video
+        kwargs = {'image_patch_size': self.processor.image_processor.patch_size} if self.version == 'omni_v3' else {}
         if media_type == 'image':
-            inputs.images[index] = fetch_image({'image': inputs.images[index]})
+            inputs.images[index] = fetch_image({'image': inputs.images[index]}, **kwargs)
             if self.version == 'omni_v2_5':
                 return ['<|vision_bos|><|IMAGE|><|vision_eos|>']
             elif self.version == 'omni_v3':
@@ -646,7 +654,7 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
                 return ['<|audio_start|><|audio_pad|><|audio_end|>']
         elif media_type == 'video':
             video = inputs.videos[index]
-            _video = fetch_video({'video': video})
+            _video = fetch_video({'video': video}, **kwargs)
             if isinstance(_video, torch.Tensor):
                 _video = _video.to(torch.uint8)
             inputs.videos[index] = _video

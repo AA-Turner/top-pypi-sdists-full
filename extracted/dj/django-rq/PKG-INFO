@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rq
-Version: 3.2.2
+Version: 4.0.0
 Summary: An app that provides django integration for RQ (Redis Queue)
 Project-URL: changelog, https://github.com/rq/django-rq/blob/master/CHANGELOG.md
 Project-URL: homepage, https://python-rq.org/patterns/django/
@@ -38,8 +38,6 @@ Requires-Dist: redis>=3.5
 Requires-Dist: rq>=2.6.1
 Provides-Extra: prometheus
 Requires-Dist: prometheus-client>=0.4.0; extra == 'prometheus'
-Provides-Extra: sentry
-Requires-Dist: sentry-sdk>=1.0.0; extra == 'sentry'
 Provides-Extra: testing
 Requires-Dist: pytest-django>=4.5; extra == 'testing'
 Requires-Dist: pytest>=7.0; extra == 'testing'
@@ -124,12 +122,39 @@ RQ_QUEUES = {
 RQ_EXCEPTION_HANDLERS = ['path.to.my.handler']  # If you need custom exception handlers
 ```
 
-- Include `django_rq.urls` in your `urls.py`:
+## Admin Integration
+
+_New in Version 4.0_
+Django-RQ automatically integrates with Django's admin interface. Once installed, navigate to `/admin/django_rq/dashboard/` to access:
+- Queue statistics and monitoring dashboard
+- Job registry browsers (scheduled, started, finished, failed, deferred)
+- Worker management
+- Prometheus metrics endpoint (if `prometheus_client` is installed)
+
+The views are automatically registered in Django admin and a link to the dashboard is added to the admin interface's sidebar. If you want to disable this link, add `RQ_SHOW_ADMIN_LINK = False` in `settings.py`.
+
+### Standalone URLs (Alternative)
+
+For advanced use cases, you can also include Django-RQ views at a custom URL prefix:
 
 ```python
+# urls.py
 urlpatterns += [
     path('django-rq/', include('django_rq.urls'))
 ]
+```
+
+This makes views accessible at `/django-rq/` instead of within the admin interface at `/admin/django_rq/dashboard/`.
+
+### Template URL Resolution
+
+Templates in django-rq use a custom `{% rq_url %}` tag to resolve view names inside either the admin integration or standalone URLs. The tag detects the current admin namespace (when present) and falls back to the `django_rq:` namespace, avoiding hard-coded prefixes and keeping links working in both modes.
+
+If you copy or override django-rq templates, load the tag library and use `rq_url` instead of `url` for django-rq views:
+
+```django
+{% load django_rq %}
+<a href="{% rq_url 'home' %}">Django RQ</a>
 ```
 
 ## Usage
@@ -153,10 +178,10 @@ queue = django_rq.get_queue('high')
 queue.enqueue(func, foo, bar=baz)
 ```
 
-In addition to `name` argument, `get_queue` also accepts `default_timeout`, `is_async`, `autocommit`, `connection` and `queue_class` arguments. For example:
+In addition to `name` argument, `get_queue` also accepts `default_timeout`, `is_async`, `commit_mode`, `connection` and `queue_class` arguments. For example:
 
 ```python
-queue = django_rq.get_queue('default', autocommit=True, is_async=True, default_timeout=360)
+queue = django_rq.get_queue('default', commit_mode='on_db_commit', is_async=True, default_timeout=360)
 queue.enqueue(func, foo, bar=baz)
 ```
 
@@ -354,11 +379,9 @@ python manage.py rqresume
 
 ### Queue Statistics
 
-`django_rq` also provides a dashboard to monitor the status of your queues at `/django-rq/` (or whatever URL you set in your `urls.py` during installation).
+_Changed in Version 3.0_
 
-You can also add a link to this dashboard in `/admin` by adding `RQ_SHOW_ADMIN_LINK = True` in `settings.py`. Be careful though, this will override the default admin template so it may interfere with other apps that modify the default admin template.
-
-These statistics are also available in JSON format via `/django-rq/stats.json`, which is accessible to staff members. If you need to access this view via other HTTP clients (for monitoring purposes), you can define `RQ_API_TOKEN`. Then, include the token in the Authorization header as a Bearer token: `Authorization: Bearer <token>` and access it via `/django-rq/stats.json`.
+Various queue statistics are also available in JSON format via `/django-rq/stats.json`, which is accessible via a bearer token authentication scheme (defined in `settings.py` as `RQ_API_TOKEN`). Then, include the token in the Authorization header as a Bearer token: `Authorization: Bearer <token>` and access it via `/django-rq/stats.json`.
 
 ![Django RQ JSON dashboard](demo-django-rq-json-dashboard.png)
 
@@ -504,6 +527,51 @@ if DEBUG or TESTING:
 ```
 
 Note that setting the `is_async` parameter explicitly when calling `get_queue` will override this setting.
+
+### Commit Modes
+
+_New in Version 4.0_
+
+By default, jobs are enqueued when the database transaction commits. This behavior is controlled by the `COMMIT_MODE` setting:
+
+```python
+RQ = {
+    'COMMIT_MODE': 'on_db_commit',  # or 'auto', 'request_finished'
+}
+```
+
+Available commit modes:
+
+| Mode | Behavior |
+|------|----------|
+| `on_db_commit` (default) | Jobs are enqueued when the current database transaction commits. If not in a transaction, jobs are enqueued immediately |
+| `auto` | Jobs are enqueued immediately when `enqueue()` is called |
+| `request_finished` | Jobs are enqueued when Django's `request_finished` signal fires. Jobs are discarded if an exception occurs during the request |
+
+The `on_db_commit` mode is recommended when your jobs depend on database state, as it ensures the job won't run until the data it depends on has been committed. This prevents race conditions where a job tries to access data that hasn't been committed.
+
+```python
+from django.db import transaction
+
+# With COMMIT_MODE='on_db_commit'
+with transaction.atomic():
+    user = User.objects.create(username='new_user')
+    queue.enqueue(send_welcome_email, user.id) # Job not enqueued yet, it waits for DB transaction to commit
+    
+# Transaction committed - now the job is enqueued
+```
+
+You can also explicitly set `commit_mode` when calling `get_queue()`:
+
+```python
+queue = django_rq.get_queue('default', commit_mode='auto')
+```
+
+**Note:** The `AUTOCOMMIT` setting is deprecated as of version 3.0. Use `COMMIT_MODE` instead:
+- `AUTOCOMMIT: True` → `COMMIT_MODE: 'auto'`
+- `AUTOCOMMIT: False` → `COMMIT_MODE: 'request_finished'`
+
+**Migrating from version 2.x:** The default behavior has changed in version 3.0. Previously, jobs were enqueued immediately (`auto` mode). Now, jobs are enqueued when the database transaction commits (`on_db_commit` mode). To restore the old behavior, set `COMMIT_MODE: 'auto'` in your `RQ` settings.
 
 ## Running Tests
 

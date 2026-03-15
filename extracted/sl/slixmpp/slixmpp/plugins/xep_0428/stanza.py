@@ -3,10 +3,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permissio
 from abc import ABC
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
+from typing import Literal
 
 from slixmpp.stanza import Message
 from slixmpp.xmlstream import (

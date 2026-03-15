@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.option",
         "sources": [
-            "av/option.pyx"
+            "av/option.py"
         ]
     },
     "module_name": "av.option"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__option
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1413,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/option.pyx",
+  "av/option.py",
   "<stringsource>",
   "av/option.pxd",
 };
@@ -1618,8 +1600,8 @@ struct __pyx_obj_2av_6option_OptionChoice;
  * 
  * 
  * cdef class BaseOption:             # <<<<<<<<<<<<<<
- * 
  *     cdef const lib.AVOption *ptr
+ * 
 */
 struct __pyx_obj_2av_6option_BaseOption {
   PyObject_HEAD
@@ -1627,12 +1609,12 @@ struct __pyx_obj_2av_6option_BaseOption {
 };
 
 
-/* "av/option.pxd":9
- * 
+/* "av/option.pxd":7
+ *     cdef const lib.AVOption *ptr
  * 
  * cdef class Option(BaseOption):             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly tuple choices
+ * 
 */
 struct __pyx_obj_2av_6option_Option {
   struct __pyx_obj_2av_6option_BaseOption __pyx_base;
@@ -1640,12 +1622,12 @@ struct __pyx_obj_2av_6option_Option {
 };
 
 
-/* "av/option.pxd":14
- * 
+/* "av/option.pxd":10
+ *     cdef readonly tuple choices
  * 
  * cdef class OptionChoice(BaseOption):             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint is_default
+ * 
 */
 struct __pyx_obj_2av_6option_OptionChoice {
   struct __pyx_obj_2av_6option_BaseOption __pyx_base;
@@ -2067,13 +2049,6 @@ static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* s
     return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
 }
 
-/* PyObjectFastCallMethod.proto */
-#if CYTHON_VECTORCALL && PY_VERSION_HEX >= 0x03090000
-#define __Pyx_PyObject_FastCallMethod(name, args, nargsf) PyObject_VectorcallMethod(name, args, nargsf, NULL)
-#else
-static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf);
-#endif
-
 /* PyObjectFormat.proto */
 #if CYTHON_USE_UNICODE_WRITER
 static PyObject* __Pyx_PyObject_Format(PyObject* s, PyObject* f);
@@ -2394,14 +2369,18 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
+
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.option" */
 static PyObject *__pyx_v_2av_6option__cinit_sentinel = 0;
 static PyObject *__pyx_v_2av_6option__INT_TYPES = 0;
-static PyObject *__pyx_f_2av_6option_flag_in_bitfield(uint64_t, uint64_t); /*proto*/
+static int __pyx_f_2av_6option_flag_in_bitfield(uint64_t, uint64_t); /*proto*/
 /* #### Code section: typeinfo ### */
 /* #### Code section: before_global_var ### */
 #define __Pyx_MODULE_NAME "av.option"
@@ -2431,13 +2410,12 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4__setstate_cython__(CYTHON_U
 static PyObject *__pyx_pf_2av_6option_6Option_4type___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_6Option_6offset___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_6Option_7default___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_6option_6Option__norm_range(struct __pyx_obj_2av_6option_Option *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_2av_6option_6Option_3min___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_6Option_3max___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_6option_6Option___repr__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_6Option_7choices___get__(struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_6option_6Option_4__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_2av_6option_6Option_6__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_2av_6option_6Option_2__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_6option_6Option_4__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_2av_6option_12OptionChoice_5value___get__(struct __pyx_obj_2av_6option_OptionChoice *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_12OptionChoice___repr__(struct __pyx_obj_2av_6option_OptionChoice *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_6option_12OptionChoice_10is_default___get__(struct __pyx_obj_2av_6option_OptionChoice *__pyx_v_self); /* proto */
@@ -2474,7 +2452,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
-  PyObject *__pyx_string_tab[87];
+  PyObject *__pyx_string_tab[85];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
 struct __Pyx_CodeObjectCache __pyx_code_cache;
@@ -2569,28 +2547,26 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_mro_entries __pyx_string_tab[62]
 #define __pyx_n_u_name __pyx_string_tab[63]
 #define __pyx_n_u_name_2 __pyx_string_tab[64]
-#define __pyx_n_u_norm_range __pyx_string_tab[65]
-#define __pyx_n_u_object __pyx_string_tab[66]
-#define __pyx_n_u_offset __pyx_string_tab[67]
-#define __pyx_n_u_pop __pyx_string_tab[68]
-#define __pyx_n_u_prepare __pyx_string_tab[69]
-#define __pyx_n_u_pyx_capi __pyx_string_tab[70]
-#define __pyx_n_u_pyx_state __pyx_string_tab[71]
-#define __pyx_n_u_qualname __pyx_string_tab[72]
-#define __pyx_n_u_reduce __pyx_string_tab[73]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[74]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[75]
-#define __pyx_n_u_sentinel __pyx_string_tab[76]
-#define __pyx_n_u_set_name __pyx_string_tab[77]
-#define __pyx_n_u_setdefault __pyx_string_tab[78]
-#define __pyx_n_u_setstate __pyx_string_tab[79]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[80]
-#define __pyx_n_u_test __pyx_string_tab[81]
-#define __pyx_n_u_type __pyx_string_tab[82]
-#define __pyx_n_u_value __pyx_string_tab[83]
-#define __pyx_n_u_values __pyx_string_tab[84]
-#define __pyx_n_u_x __pyx_string_tab[85]
-#define __pyx_kp_b_struct___pyx_obj_2av_6option_Opt __pyx_string_tab[86]
+#define __pyx_n_u_object __pyx_string_tab[65]
+#define __pyx_n_u_offset __pyx_string_tab[66]
+#define __pyx_n_u_pop __pyx_string_tab[67]
+#define __pyx_n_u_prepare __pyx_string_tab[68]
+#define __pyx_n_u_pyx_capi __pyx_string_tab[69]
+#define __pyx_n_u_pyx_state __pyx_string_tab[70]
+#define __pyx_n_u_qualname __pyx_string_tab[71]
+#define __pyx_n_u_reduce __pyx_string_tab[72]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[73]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[74]
+#define __pyx_n_u_sentinel __pyx_string_tab[75]
+#define __pyx_n_u_set_name __pyx_string_tab[76]
+#define __pyx_n_u_setdefault __pyx_string_tab[77]
+#define __pyx_n_u_setstate __pyx_string_tab[78]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[79]
+#define __pyx_n_u_test __pyx_string_tab[80]
+#define __pyx_n_u_type __pyx_string_tab[81]
+#define __pyx_n_u_values __pyx_string_tab[82]
+#define __pyx_n_u_x __pyx_string_tab[83]
+#define __pyx_kp_b_struct___pyx_obj_2av_6option_Opt __pyx_string_tab[84]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2611,7 +2587,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_2av_6option_Option);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6option_OptionChoice);
   Py_CLEAR(clear_module_state->__pyx_type_2av_6option_OptionChoice);
-  for (int i=0; i<87; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<85; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
 return 0;
@@ -2634,7 +2610,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_2av_6option_Option);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6option_OptionChoice);
   Py_VISIT(traverse_module_state->__pyx_type_2av_6option_OptionChoice);
-  for (int i=0; i<87; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<85; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
 return 0;
@@ -2642,12 +2618,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/option.pyx":9
- * cdef object _cinit_sentinel = object()
+/* "av/option.py":11
  * 
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_option(
+ *     choices: tuple, ptr: cython.pointer[cython.const[lib.AVOption]]
 */
 
 static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyObject *__pyx_v_choices, struct AVOption const *__pyx_v_ptr) {
@@ -2663,40 +2639,40 @@ static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyOb
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_option", 0);
 
-  /* "av/option.pyx":10
- * 
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):
+  /* "av/option.py":15
+ *     choices: tuple, ptr: cython.pointer[cython.const[lib.AVOption]]
+ * ) -> Option:
  *     if ptr == NULL:             # <<<<<<<<<<<<<<
  *         return None
- *     cdef Option obj = Option(_cinit_sentinel)
+ *     obj: Option = Option(_cinit_sentinel)
 */
   __pyx_t_1 = (__pyx_v_ptr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/option.pyx":11
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):
+    /* "av/option.py":16
+ * ) -> Option:
  *     if ptr == NULL:
  *         return None             # <<<<<<<<<<<<<<
- *     cdef Option obj = Option(_cinit_sentinel)
+ *     obj: Option = Option(_cinit_sentinel)
  *     obj.ptr = ptr
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_r = ((struct __pyx_obj_2av_6option_Option *)Py_None); __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/option.pyx":10
- * 
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):
+    /* "av/option.py":15
+ *     choices: tuple, ptr: cython.pointer[cython.const[lib.AVOption]]
+ * ) -> Option:
  *     if ptr == NULL:             # <<<<<<<<<<<<<<
  *         return None
- *     cdef Option obj = Option(_cinit_sentinel)
+ *     obj: Option = Option(_cinit_sentinel)
 */
   }
 
-  /* "av/option.pyx":12
+  /* "av/option.py":17
  *     if ptr == NULL:
  *         return None
- *     cdef Option obj = Option(_cinit_sentinel)             # <<<<<<<<<<<<<<
+ *     obj: Option = Option(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     obj.ptr = ptr
  *     obj.choices = choices
 */
@@ -2706,23 +2682,23 @@ static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyOb
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_2av_6option__cinit_sentinel};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6option_Option, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_obj = ((struct __pyx_obj_2av_6option_Option *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/option.pyx":13
+  /* "av/option.py":18
  *         return None
- *     cdef Option obj = Option(_cinit_sentinel)
+ *     obj: Option = Option(_cinit_sentinel)
  *     obj.ptr = ptr             # <<<<<<<<<<<<<<
  *     obj.choices = choices
  *     return obj
 */
   __pyx_v_obj->__pyx_base.ptr = __pyx_v_ptr;
 
-  /* "av/option.pyx":14
- *     cdef Option obj = Option(_cinit_sentinel)
+  /* "av/option.py":19
+ *     obj: Option = Option(_cinit_sentinel)
  *     obj.ptr = ptr
  *     obj.choices = choices             # <<<<<<<<<<<<<<
  *     return obj
@@ -2734,7 +2710,7 @@ static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyOb
   __Pyx_DECREF(__pyx_v_obj->choices);
   __pyx_v_obj->choices = __pyx_v_choices;
 
-  /* "av/option.pyx":15
+  /* "av/option.py":20
  *     obj.ptr = ptr
  *     obj.choices = choices
  *     return obj             # <<<<<<<<<<<<<<
@@ -2746,12 +2722,12 @@ static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyOb
   __pyx_r = __pyx_v_obj;
   goto __pyx_L0;
 
-  /* "av/option.pyx":9
- * cdef object _cinit_sentinel = object()
+  /* "av/option.py":11
  * 
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_option(
+ *     choices: tuple, ptr: cython.pointer[cython.const[lib.AVOption]]
 */
 
   /* function exit code */
@@ -2767,90 +2743,43 @@ static struct __pyx_obj_2av_6option_Option *__pyx_f_2av_6option_wrap_option(PyOb
   return __pyx_r;
 }
 
-/* "av/option.pyx":18
+/* "av/option.py":23
  * 
  * 
- * cdef flag_in_bitfield(uint64_t bitfield, uint64_t flag):             # <<<<<<<<<<<<<<
- *     # Not every flag exists in every version of FFMpeg, so we define them to 0.
- *     if not flag:
-*/
-
-static PyObject *__pyx_f_2av_6option_flag_in_bitfield(uint64_t __pyx_v_bitfield, uint64_t __pyx_v_flag) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("flag_in_bitfield", 0);
-
-  /* "av/option.pyx":20
- * cdef flag_in_bitfield(uint64_t bitfield, uint64_t flag):
- *     # Not every flag exists in every version of FFMpeg, so we define them to 0.
- *     if not flag:             # <<<<<<<<<<<<<<
- *         return None
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def flag_in_bitfield(bitfield: uint64_t, flag: uint64_t) -> bool:
  *     return bool(bitfield & flag)
 */
-  __pyx_t_1 = (!(__pyx_v_flag != 0));
-  if (__pyx_t_1) {
 
-    /* "av/option.pyx":21
- *     # Not every flag exists in every version of FFMpeg, so we define them to 0.
- *     if not flag:
- *         return None             # <<<<<<<<<<<<<<
- *     return bool(bitfield & flag)
- * 
-*/
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-    goto __pyx_L0;
+static int __pyx_f_2av_6option_flag_in_bitfield(uint64_t __pyx_v_bitfield, uint64_t __pyx_v_flag) {
+  int __pyx_r;
 
-    /* "av/option.pyx":20
- * cdef flag_in_bitfield(uint64_t bitfield, uint64_t flag):
- *     # Not every flag exists in every version of FFMpeg, so we define them to 0.
- *     if not flag:             # <<<<<<<<<<<<<<
- *         return None
- *     return bool(bitfield & flag)
-*/
-  }
-
-  /* "av/option.pyx":22
- *     if not flag:
- *         return None
+  /* "av/option.py":25
+ * @cython.cfunc
+ * def flag_in_bitfield(bitfield: uint64_t, flag: uint64_t) -> bool:
  *     return bool(bitfield & flag)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyBool_FromLong((!(!((__pyx_v_bitfield & __pyx_v_flag) != 0)))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 22, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_r = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_r = (!(!((__pyx_v_bitfield & __pyx_v_flag) != 0)));
   goto __pyx_L0;
 
-  /* "av/option.pyx":18
+  /* "av/option.py":23
  * 
  * 
- * cdef flag_in_bitfield(uint64_t bitfield, uint64_t flag):             # <<<<<<<<<<<<<<
- *     # Not every flag exists in every version of FFMpeg, so we define them to 0.
- *     if not flag:
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def flag_in_bitfield(bitfield: uint64_t, flag: uint64_t) -> bool:
+ *     return bool(bitfield & flag)
 */
 
   /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_AddTraceback("av.option.flag_in_bitfield", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
   __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "av/option.pyx":69
- * 
- * cdef class BaseOption:
+/* "av/option.py":78
+ * @cython.cclass
+ * class BaseOption:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
@@ -2878,32 +2807,32 @@ static int __pyx_pw_2av_6option_10BaseOption_1__cinit__(PyObject *__pyx_v_self, 
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sentinel,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 69, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 78, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 69, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 78, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 69, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 78, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 69, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 78, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 69, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 78, __pyx_L3_error)
     }
     __pyx_v_sentinel = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 69, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 78, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2938,8 +2867,8 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/option.pyx":70
- * cdef class BaseOption:
+  /* "av/option.py":79
+ * class BaseOption:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
@@ -2948,7 +2877,7 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
   __pyx_t_1 = (__pyx_v_sentinel != __pyx_v_2av_6option__cinit_sentinel);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/option.pyx":71
+    /* "av/option.py":80
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")             # <<<<<<<<<<<<<<
@@ -2956,15 +2885,15 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
  *     @property
 */
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Cannot_construct_av, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Cannot_construct_av, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = 1;
@@ -2973,15 +2902,15 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 71, __pyx_L1_error)
+    __PYX_ERR(0, 80, __pyx_L1_error)
 
-    /* "av/option.pyx":70
- * cdef class BaseOption:
+    /* "av/option.py":79
+ * class BaseOption:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
@@ -2989,9 +2918,9 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
 */
   }
 
-  /* "av/option.pyx":69
- * 
- * cdef class BaseOption:
+  /* "av/option.py":78
+ * @cython.cclass
+ * class BaseOption:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
@@ -3012,7 +2941,7 @@ static int __pyx_pf_2av_6option_10BaseOption___cinit__(struct __pyx_obj_2av_6opt
   return __pyx_r;
 }
 
-/* "av/option.pyx":73
+/* "av/option.py":82
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3044,7 +2973,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4name___get__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":75
+  /* "av/option.py":84
  *     @property
  *     def name(self):
  *         return self.ptr.name             # <<<<<<<<<<<<<<
@@ -3052,13 +2981,13 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4name___get__(struct __pyx_ob
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":73
+  /* "av/option.py":82
  *             raise RuntimeError(f"Cannot construct av.{self.__class__.__name__}")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3077,7 +3006,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4name___get__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/option.pyx":77
+/* "av/option.py":86
  *         return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3111,7 +3040,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4help___get__(struct __pyx_ob
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":79
+  /* "av/option.py":88
  *     @property
  *     def help(self):
  *         return self.ptr.help if self.ptr.help != NULL else ""             # <<<<<<<<<<<<<<
@@ -3121,7 +3050,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4help___get__(struct __pyx_ob
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->ptr->help != NULL);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->help); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 79, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->help); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -3133,7 +3062,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4help___get__(struct __pyx_ob
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":77
+  /* "av/option.py":86
  *         return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3153,7 +3082,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4help___get__(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/option.pyx":81
+/* "av/option.py":90
  *         return self.ptr.help if self.ptr.help != NULL else ""
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3185,21 +3114,21 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_5flags___get__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":83
+  /* "av/option.py":92
  *     @property
  *     def flags(self):
  *         return self.ptr.flags             # <<<<<<<<<<<<<<
  * 
- *     # Option flags
+ *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":81
+  /* "av/option.py":90
  *         return self.ptr.help if self.ptr.help != NULL else ""
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3218,9 +3147,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_5flags___get__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/option.pyx":86
+/* "av/option.py":94
+ *         return self.ptr.flags
  * 
- *     # Option flags
  *     @property             # <<<<<<<<<<<<<<
  *     def is_encoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_ENCODING_PARAM)
@@ -3244,29 +3173,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_17is_encoding_param_1__get__(
 static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_encoding_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":88
+  /* "av/option.py":96
  *     @property
  *     def is_encoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_ENCODING_PARAM)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_decoding_param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_ENCODING_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_ENCODING_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":86
+  /* "av/option.py":94
+ *         return self.ptr.flags
  * 
- *     # Option flags
  *     @property             # <<<<<<<<<<<<<<
  *     def is_encoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_ENCODING_PARAM)
@@ -3274,7 +3205,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_encoding_param___get__(s
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_encoding_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3283,9 +3214,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_encoding_param___get__(s
   return __pyx_r;
 }
 
-/* "av/option.pyx":89
- *     def is_encoding_param(self):
+/* "av/option.py":98
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_ENCODING_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_decoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_DECODING_PARAM)
@@ -3309,29 +3240,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_17is_decoding_param_1__get__(
 static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_decoding_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":91
+  /* "av/option.py":100
  *     @property
  *     def is_decoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_DECODING_PARAM)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_audio_param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_DECODING_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_DECODING_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":89
- *     def is_encoding_param(self):
+  /* "av/option.py":98
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_ENCODING_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_decoding_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_DECODING_PARAM)
@@ -3339,7 +3272,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_decoding_param___get__(s
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_decoding_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3348,9 +3281,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_decoding_param___get__(s
   return __pyx_r;
 }
 
-/* "av/option.pyx":92
- *     def is_decoding_param(self):
+/* "av/option.py":102
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_DECODING_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_audio_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_AUDIO_PARAM)
@@ -3374,29 +3307,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_14is_audio_param_1__get__(PyO
 static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_audio_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":94
+  /* "av/option.py":104
  *     @property
  *     def is_audio_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_AUDIO_PARAM)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_video_param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_AUDIO_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_AUDIO_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":92
- *     def is_decoding_param(self):
+  /* "av/option.py":102
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_DECODING_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_audio_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_AUDIO_PARAM)
@@ -3404,7 +3339,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_audio_param___get__(stru
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_audio_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3413,9 +3348,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_audio_param___get__(stru
   return __pyx_r;
 }
 
-/* "av/option.pyx":95
- *     def is_audio_param(self):
+/* "av/option.py":106
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_AUDIO_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_video_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_VIDEO_PARAM)
@@ -3439,29 +3374,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_14is_video_param_1__get__(PyO
 static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_video_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":97
+  /* "av/option.py":108
  *     @property
  *     def is_video_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_VIDEO_PARAM)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_subtitle_param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_VIDEO_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_VIDEO_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":95
- *     def is_audio_param(self):
+  /* "av/option.py":106
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_AUDIO_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_video_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_VIDEO_PARAM)
@@ -3469,7 +3406,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_video_param___get__(stru
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_video_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3478,9 +3415,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_14is_video_param___get__(stru
   return __pyx_r;
 }
 
-/* "av/option.pyx":98
- *     def is_video_param(self):
+/* "av/option.py":110
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_VIDEO_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_subtitle_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_SUBTITLE_PARAM)
@@ -3504,29 +3441,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_17is_subtitle_param_1__get__(
 static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_subtitle_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":100
+  /* "av/option.py":112
  *     @property
  *     def is_subtitle_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_SUBTITLE_PARAM)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_export(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_SUBTITLE_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_SUBTITLE_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":98
- *     def is_video_param(self):
+  /* "av/option.py":110
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_VIDEO_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_subtitle_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_SUBTITLE_PARAM)
@@ -3534,7 +3473,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_subtitle_param___get__(s
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_subtitle_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3543,9 +3482,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_17is_subtitle_param___get__(s
   return __pyx_r;
 }
 
-/* "av/option.pyx":101
- *     def is_subtitle_param(self):
+/* "av/option.py":114
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_SUBTITLE_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_export(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_EXPORT)
@@ -3569,29 +3508,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_9is_export_1__get__(PyObject 
 static PyObject *__pyx_pf_2av_6option_10BaseOption_9is_export___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":103
+  /* "av/option.py":116
  *     @property
  *     def is_export(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_EXPORT)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_readonly(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_EXPORT); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_EXPORT); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 116, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":101
- *     def is_subtitle_param(self):
+  /* "av/option.py":114
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_SUBTITLE_PARAM)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_export(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_EXPORT)
@@ -3599,7 +3540,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_9is_export___get__(struct __p
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_export.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3608,9 +3549,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_9is_export___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/option.pyx":104
- *     def is_export(self):
+/* "av/option.py":118
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_EXPORT)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_readonly(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_READONLY)
@@ -3634,29 +3575,31 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_11is_readonly_1__get__(PyObje
 static PyObject *__pyx_pf_2av_6option_10BaseOption_11is_readonly___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":106
+  /* "av/option.py":120
  *     @property
  *     def is_readonly(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_READONLY)             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def is_filtering_param(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_READONLY); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_READONLY); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":104
- *     def is_export(self):
+  /* "av/option.py":118
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_EXPORT)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_readonly(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_READONLY)
@@ -3664,7 +3607,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_11is_readonly___get__(struct 
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_readonly.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3673,9 +3616,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_11is_readonly___get__(struct 
   return __pyx_r;
 }
 
-/* "av/option.pyx":107
- *     def is_readonly(self):
+/* "av/option.py":122
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_READONLY)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_filtering_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_FILTERING_PARAM)
@@ -3699,13 +3642,14 @@ static PyObject *__pyx_pw_2av_6option_10BaseOption_18is_filtering_param_1__get__
 static PyObject *__pyx_pf_2av_6option_10BaseOption_18is_filtering_param___get__(struct __pyx_obj_2av_6option_BaseOption *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":109
+  /* "av/option.py":124
  *     @property
  *     def is_filtering_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_FILTERING_PARAM)             # <<<<<<<<<<<<<<
@@ -3713,15 +3657,16 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_18is_filtering_param___get__(
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_FILTERING_PARAM); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_r = __pyx_t_1;
-  __pyx_t_1 = 0;
+  __pyx_t_1 = __pyx_f_2av_6option_flag_in_bitfield(__pyx_v_self->ptr->flags, AV_OPT_FLAG_FILTERING_PARAM); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":107
- *     def is_readonly(self):
+  /* "av/option.py":122
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_READONLY)
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_filtering_param(self):
  *         return flag_in_bitfield(self.ptr.flags, lib.AV_OPT_FLAG_FILTERING_PARAM)
@@ -3729,7 +3674,7 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_18is_filtering_param___get__(
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_AddTraceback("av.option.BaseOption.is_filtering_param.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3942,9 +3887,9 @@ static PyObject *__pyx_pf_2av_6option_10BaseOption_4__setstate_cython__(CYTHON_U
   return __pyx_r;
 }
 
-/* "av/option.pyx":113
- * 
- * cdef class Option(BaseOption):
+/* "av/option.py":129
+ * @cython.cclass
+ * class Option(BaseOption):
  *     @property             # <<<<<<<<<<<<<<
  *     def type(self):
  *         return OptionType(self.ptr.type)
@@ -3978,7 +3923,7 @@ static PyObject *__pyx_pf_2av_6option_6Option_4type___get__(struct __pyx_obj_2av
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":115
+  /* "av/option.py":131
  *     @property
  *     def type(self):
  *         return OptionType(self.ptr.type)             # <<<<<<<<<<<<<<
@@ -3987,9 +3932,9 @@ static PyObject *__pyx_pf_2av_6option_6Option_4type___get__(struct __pyx_obj_2av
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_OptionType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_OptionType); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4009,16 +3954,16 @@ static PyObject *__pyx_pf_2av_6option_6Option_4type___get__(struct __pyx_obj_2av
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":113
- * 
- * cdef class Option(BaseOption):
+  /* "av/option.py":129
+ * @cython.cclass
+ * class Option(BaseOption):
  *     @property             # <<<<<<<<<<<<<<
  *     def type(self):
  *         return OptionType(self.ptr.type)
@@ -4038,7 +3983,7 @@ static PyObject *__pyx_pf_2av_6option_6Option_4type___get__(struct __pyx_obj_2av
   return __pyx_r;
 }
 
-/* "av/option.pyx":117
+/* "av/option.py":133
  *         return OptionType(self.ptr.type)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4070,7 +4015,7 @@ static PyObject *__pyx_pf_2av_6option_6Option_6offset___get__(struct __pyx_obj_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":123
+  /* "av/option.py":139
  *         Options in a particular descriptor with the same offset are aliases.
  *         """
  *         return self.ptr.offset             # <<<<<<<<<<<<<<
@@ -4078,13 +4023,13 @@ static PyObject *__pyx_pf_2av_6option_6Option_6offset___get__(struct __pyx_obj_2
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->offset); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":117
+  /* "av/option.py":133
  *         return OptionType(self.ptr.type)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4103,7 +4048,7 @@ static PyObject *__pyx_pf_2av_6option_6Option_6offset___get__(struct __pyx_obj_2
   return __pyx_r;
 }
 
-/* "av/option.pyx":125
+/* "av/option.py":141
  *         return self.ptr.offset
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4137,112 +4082,152 @@ static PyObject *__pyx_pf_2av_6option_6Option_7default___get__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":127
+  /* "av/option.py":143
  *     @property
  *     def default(self):
  *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
  *             return self.ptr.default_val.i64
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,
+ *         if self.ptr.type in (
 */
-  __pyx_t_1 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_2av_6option__INT_TYPES, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_2av_6option__INT_TYPES, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/option.pyx":128
+    /* "av/option.py":144
  *     def default(self):
  *         if self.ptr.type in _INT_TYPES:
  *             return self.ptr.default_val.i64             # <<<<<<<<<<<<<<
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,
- *                              lib.AV_OPT_TYPE_RATIONAL):
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_DOUBLE,
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->__pyx_base.ptr->default_val.i64); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->__pyx_base.ptr->default_val.i64); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "av/option.pyx":127
+    /* "av/option.py":143
  *     @property
  *     def default(self):
  *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
  *             return self.ptr.default_val.i64
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,
+ *         if self.ptr.type in (
 */
   }
 
-  /* "av/option.pyx":129
+  /* "av/option.py":145
  *         if self.ptr.type in _INT_TYPES:
  *             return self.ptr.default_val.i64
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,             # <<<<<<<<<<<<<<
- *                              lib.AV_OPT_TYPE_RATIONAL):
- *             return self.ptr.default_val.dbl
+ *         if self.ptr.type in (             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_DOUBLE,
+ *             lib.AV_OPT_TYPE_FLOAT,
 */
   switch (__pyx_v_self->__pyx_base.ptr->type) {
     case AV_OPT_TYPE_DOUBLE:
+
+    /* "av/option.py":146
+ *             return self.ptr.default_val.i64
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_DOUBLE,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_FLOAT,
+ *             lib.AV_OPT_TYPE_RATIONAL,
+*/
     case AV_OPT_TYPE_FLOAT:
+
+    /* "av/option.py":147
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_DOUBLE,
+ *             lib.AV_OPT_TYPE_FLOAT,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_RATIONAL,
+ *         ):
+*/
     case AV_OPT_TYPE_RATIONAL:
 
-    /* "av/option.pyx":131
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,
- *                              lib.AV_OPT_TYPE_RATIONAL):
+    /* "av/option.py":150
+ *             lib.AV_OPT_TYPE_RATIONAL,
+ *         ):
  *             return self.ptr.default_val.dbl             # <<<<<<<<<<<<<<
- *         if self.ptr.type in (lib.AV_OPT_TYPE_STRING, lib.AV_OPT_TYPE_BINARY,
- *                              lib.AV_OPT_TYPE_IMAGE_SIZE, lib.AV_OPT_TYPE_VIDEO_RATE,
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_STRING,
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->default_val.dbl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->default_val.dbl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "av/option.pyx":129
+    /* "av/option.py":145
  *         if self.ptr.type in _INT_TYPES:
  *             return self.ptr.default_val.i64
- *         if self.ptr.type in (lib.AV_OPT_TYPE_DOUBLE, lib.AV_OPT_TYPE_FLOAT,             # <<<<<<<<<<<<<<
- *                              lib.AV_OPT_TYPE_RATIONAL):
- *             return self.ptr.default_val.dbl
+ *         if self.ptr.type in (             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_DOUBLE,
+ *             lib.AV_OPT_TYPE_FLOAT,
 */
     break;
     default: break;
   }
 
-  /* "av/option.pyx":132
- *                              lib.AV_OPT_TYPE_RATIONAL):
+  /* "av/option.py":151
+ *         ):
  *             return self.ptr.default_val.dbl
- *         if self.ptr.type in (lib.AV_OPT_TYPE_STRING, lib.AV_OPT_TYPE_BINARY,             # <<<<<<<<<<<<<<
- *                              lib.AV_OPT_TYPE_IMAGE_SIZE, lib.AV_OPT_TYPE_VIDEO_RATE,
- *                              lib.AV_OPT_TYPE_COLOR):
+ *         if self.ptr.type in (             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_STRING,
+ *             lib.AV_OPT_TYPE_BINARY,
 */
   switch (__pyx_v_self->__pyx_base.ptr->type) {
     case AV_OPT_TYPE_STRING:
+
+    /* "av/option.py":152
+ *             return self.ptr.default_val.dbl
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_STRING,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_BINARY,
+ *             lib.AV_OPT_TYPE_IMAGE_SIZE,
+*/
     case AV_OPT_TYPE_BINARY:
+
+    /* "av/option.py":153
+ *         if self.ptr.type in (
+ *             lib.AV_OPT_TYPE_STRING,
+ *             lib.AV_OPT_TYPE_BINARY,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_IMAGE_SIZE,
+ *             lib.AV_OPT_TYPE_VIDEO_RATE,
+*/
     case AV_OPT_TYPE_IMAGE_SIZE:
 
-    /* "av/option.pyx":133
- *             return self.ptr.default_val.dbl
- *         if self.ptr.type in (lib.AV_OPT_TYPE_STRING, lib.AV_OPT_TYPE_BINARY,
- *                              lib.AV_OPT_TYPE_IMAGE_SIZE, lib.AV_OPT_TYPE_VIDEO_RATE,             # <<<<<<<<<<<<<<
- *                              lib.AV_OPT_TYPE_COLOR):
- *             return self.ptr.default_val.str if self.ptr.default_val.str != NULL else ""
+    /* "av/option.py":154
+ *             lib.AV_OPT_TYPE_STRING,
+ *             lib.AV_OPT_TYPE_BINARY,
+ *             lib.AV_OPT_TYPE_IMAGE_SIZE,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_VIDEO_RATE,
+ *             lib.AV_OPT_TYPE_COLOR,
 */
     case AV_OPT_TYPE_VIDEO_RATE:
+
+    /* "av/option.py":155
+ *             lib.AV_OPT_TYPE_BINARY,
+ *             lib.AV_OPT_TYPE_IMAGE_SIZE,
+ *             lib.AV_OPT_TYPE_VIDEO_RATE,             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_COLOR,
+ *         ):
+*/
     case AV_OPT_TYPE_COLOR:
 
-    /* "av/option.pyx":135
- *                              lib.AV_OPT_TYPE_IMAGE_SIZE, lib.AV_OPT_TYPE_VIDEO_RATE,
- *                              lib.AV_OPT_TYPE_COLOR):
+    /* "av/option.py":158
+ *             lib.AV_OPT_TYPE_COLOR,
+ *         ):
  *             return self.ptr.default_val.str if self.ptr.default_val.str != NULL else ""             # <<<<<<<<<<<<<<
  * 
- *     def _norm_range(self, value):
+ *     @property
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_2 = (__pyx_v_self->__pyx_base.ptr->default_val.str != NULL);
     if (__pyx_t_2) {
-      __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->__pyx_base.ptr->default_val.str); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 135, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->__pyx_base.ptr->default_val.str); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 158, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_1 = __pyx_t_3;
       __pyx_t_3 = 0;
@@ -4254,18 +4239,18 @@ static PyObject *__pyx_pf_2av_6option_6Option_7default___get__(struct __pyx_obj_
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "av/option.pyx":132
- *                              lib.AV_OPT_TYPE_RATIONAL):
+    /* "av/option.py":151
+ *         ):
  *             return self.ptr.default_val.dbl
- *         if self.ptr.type in (lib.AV_OPT_TYPE_STRING, lib.AV_OPT_TYPE_BINARY,             # <<<<<<<<<<<<<<
- *                              lib.AV_OPT_TYPE_IMAGE_SIZE, lib.AV_OPT_TYPE_VIDEO_RATE,
- *                              lib.AV_OPT_TYPE_COLOR):
+ *         if self.ptr.type in (             # <<<<<<<<<<<<<<
+ *             lib.AV_OPT_TYPE_STRING,
+ *             lib.AV_OPT_TYPE_BINARY,
 */
     break;
     default: break;
   }
 
-  /* "av/option.pyx":125
+  /* "av/option.py":141
  *         return self.ptr.offset
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4287,182 +4272,12 @@ static PyObject *__pyx_pf_2av_6option_6Option_7default___get__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/option.pyx":137
+/* "av/option.py":160
  *             return self.ptr.default_val.str if self.ptr.default_val.str != NULL else ""
- * 
- *     def _norm_range(self, value):             # <<<<<<<<<<<<<<
- *         if self.ptr.type in _INT_TYPES:
- *             return int(value)
-*/
-
-/* Python wrapper */
-static PyObject *__pyx_pw_2av_6option_6Option_1_norm_range(PyObject *__pyx_v_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6option_6Option__norm_range, "Option._norm_range(value)");
-static PyObject *__pyx_pw_2av_6option_6Option_1_norm_range(PyObject *__pyx_v_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-) {
-  PyObject *__pyx_v_value = 0;
-  #if !CYTHON_METH_FASTCALL
-  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
-  #endif
-  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_norm_range (wrapper)", 0);
-  #if !CYTHON_METH_FASTCALL
-  #if CYTHON_ASSUME_SAFE_SIZE
-  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
-  #else
-  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
-  #endif
-  #endif
-  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
-  {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
-    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 137, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
-      switch (__pyx_nargs) {
-        case  1:
-        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 137, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_norm_range", 0) < (0)) __PYX_ERR(0, 137, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_norm_range", 1, 1, 1, i); __PYX_ERR(0, 137, __pyx_L3_error) }
-      }
-    } else if (unlikely(__pyx_nargs != 1)) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 137, __pyx_L3_error)
-    }
-    __pyx_v_value = values[0];
-  }
-  goto __pyx_L6_skip;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_norm_range", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 137, __pyx_L3_error)
-  __pyx_L6_skip:;
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L3_error:;
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_AddTraceback("av.option.Option._norm_range", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_6option_6Option__norm_range(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self), __pyx_v_value);
-
-  /* function exit code */
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_2av_6option_6Option__norm_range(struct __pyx_obj_2av_6option_Option *__pyx_v_self, PyObject *__pyx_v_value) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_norm_range", 0);
-
-  /* "av/option.pyx":138
- * 
- *     def _norm_range(self, value):
- *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
- *             return int(value)
- *         return value
-*/
-  __pyx_t_1 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_2av_6option__INT_TYPES, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_2) {
-
-    /* "av/option.pyx":139
- *     def _norm_range(self, value):
- *         if self.ptr.type in _INT_TYPES:
- *             return int(value)             # <<<<<<<<<<<<<<
- *         return value
- * 
-*/
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_r = __pyx_t_1;
-    __pyx_t_1 = 0;
-    goto __pyx_L0;
-
-    /* "av/option.pyx":138
- * 
- *     def _norm_range(self, value):
- *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
- *             return int(value)
- *         return value
-*/
-  }
-
-  /* "av/option.pyx":140
- *         if self.ptr.type in _INT_TYPES:
- *             return int(value)
- *         return value             # <<<<<<<<<<<<<<
- * 
- *     @property
-*/
-  __Pyx_XDECREF(__pyx_r);
-  __Pyx_INCREF(__pyx_v_value);
-  __pyx_r = __pyx_v_value;
-  goto __pyx_L0;
-
-  /* "av/option.pyx":137
- *             return self.ptr.default_val.str if self.ptr.default_val.str != NULL else ""
- * 
- *     def _norm_range(self, value):             # <<<<<<<<<<<<<<
- *         if self.ptr.type in _INT_TYPES:
- *             return int(value)
-*/
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_AddTraceback("av.option.Option._norm_range", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "av/option.pyx":142
- *         return value
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def min(self):
- *         return self._norm_range(self.ptr.min)
+ *         if self.ptr.type in _INT_TYPES:
 */
 
 /* Python wrapper */
@@ -4484,52 +4299,73 @@ static PyObject *__pyx_pf_2av_6option_6Option_3min___get__(struct __pyx_obj_2av_
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  size_t __pyx_t_4;
+  int __pyx_t_2;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":144
+  /* "av/option.py":162
  *     @property
  *     def min(self):
- *         return self._norm_range(self.ptr.min)             # <<<<<<<<<<<<<<
+ *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
+ *             return int(self.ptr.min)
+ *         return self.ptr.min
+*/
+  __pyx_t_1 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_2av_6option__INT_TYPES, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_2) {
+
+    /* "av/option.py":163
+ *     def min(self):
+ *         if self.ptr.type in _INT_TYPES:
+ *             return int(self.ptr.min)             # <<<<<<<<<<<<<<
+ *         return self.ptr.min
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = PyLong_FromDouble(__pyx_v_self->__pyx_base.ptr->min); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "av/option.py":162
+ *     @property
+ *     def min(self):
+ *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
+ *             return int(self.ptr.min)
+ *         return self.ptr.min
+*/
+  }
+
+  /* "av/option.py":164
+ *         if self.ptr.type in _INT_TYPES:
+ *             return int(self.ptr.min)
+ *         return self.ptr.min             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = ((PyObject *)__pyx_v_self);
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->min); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_norm_range, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->min); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":142
- *         return value
+  /* "av/option.py":160
+ *             return self.ptr.default_val.str if self.ptr.default_val.str != NULL else ""
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def min(self):
- *         return self._norm_range(self.ptr.min)
+ *         if self.ptr.type in _INT_TYPES:
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("av.option.Option.min.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -4538,12 +4374,12 @@ static PyObject *__pyx_pf_2av_6option_6Option_3min___get__(struct __pyx_obj_2av_
   return __pyx_r;
 }
 
-/* "av/option.pyx":146
- *         return self._norm_range(self.ptr.min)
+/* "av/option.py":166
+ *         return self.ptr.min
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def max(self):
- *         return self._norm_range(self.ptr.max)
+ *         if self.ptr.type in _INT_TYPES:
 */
 
 /* Python wrapper */
@@ -4565,52 +4401,73 @@ static PyObject *__pyx_pf_2av_6option_6Option_3max___get__(struct __pyx_obj_2av_
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  size_t __pyx_t_4;
+  int __pyx_t_2;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":148
+  /* "av/option.py":168
  *     @property
  *     def max(self):
- *         return self._norm_range(self.ptr.max)             # <<<<<<<<<<<<<<
+ *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
+ *             return int(self.ptr.max)
+ *         return self.ptr.max
+*/
+  __pyx_t_1 = __Pyx_PyLong_From_enum__AVOptionType(__pyx_v_self->__pyx_base.ptr->type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_2av_6option__INT_TYPES, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_2) {
+
+    /* "av/option.py":169
+ *     def max(self):
+ *         if self.ptr.type in _INT_TYPES:
+ *             return int(self.ptr.max)             # <<<<<<<<<<<<<<
+ *         return self.ptr.max
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = PyLong_FromDouble(__pyx_v_self->__pyx_base.ptr->max); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_r = __pyx_t_1;
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "av/option.py":168
+ *     @property
+ *     def max(self):
+ *         if self.ptr.type in _INT_TYPES:             # <<<<<<<<<<<<<<
+ *             return int(self.ptr.max)
+ *         return self.ptr.max
+*/
+  }
+
+  /* "av/option.py":170
+ *         if self.ptr.type in _INT_TYPES:
+ *             return int(self.ptr.max)
+ *         return self.ptr.max             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = ((PyObject *)__pyx_v_self);
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->max); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_norm_range, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->__pyx_base.ptr->max); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":146
- *         return self._norm_range(self.ptr.min)
+  /* "av/option.py":166
+ *         return self.ptr.min
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def max(self):
- *         return self._norm_range(self.ptr.max)
+ *         if self.ptr.type in _INT_TYPES:
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_AddTraceback("av.option.Option.max.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -4619,30 +4476,30 @@ static PyObject *__pyx_pf_2av_6option_6Option_3max___get__(struct __pyx_obj_2av_
   return __pyx_r;
 }
 
-/* "av/option.pyx":150
- *         return self._norm_range(self.ptr.max)
+/* "av/option.py":172
+ *         return self.ptr.max
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
- *         return (
- *             f"<av.{self.__class__.__name__} {self.name}"
+ *         return f"<av.{self.__class__.__name__} {self.name} ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"
+ * 
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_6option_6Option_3__repr__(PyObject *__pyx_v_self); /*proto*/
-static PyObject *__pyx_pw_2av_6option_6Option_3__repr__(PyObject *__pyx_v_self) {
+static PyObject *__pyx_pw_2av_6option_6Option_1__repr__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_2av_6option_6Option_1__repr__(PyObject *__pyx_v_self) {
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__repr__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
-  __pyx_r = __pyx_pf_2av_6option_6Option_2__repr__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_6option_6Option___repr__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6option_Option *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_6option_6Option___repr__(struct __pyx_obj_2av_6option_Option *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4657,56 +4514,40 @@ static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6op
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/option.pyx":151
+  /* "av/option.py":173
  * 
  *     def __repr__(self):
- *         return (             # <<<<<<<<<<<<<<
- *             f"<av.{self.__class__.__name__} {self.name}"
- *             f" ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"
+ *         return f"<av.{self.__class__.__name__} {self.name} ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
+ * 
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
-
-  /* "av/option.pyx":152
- *     def __repr__(self):
- *         return (
- *             f"<av.{self.__class__.__name__} {self.name}"             # <<<<<<<<<<<<<<
- *             f" ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"
- *         )
-*/
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "av/option.pyx":153
- *         return (
- *             f"<av.{self.__class__.__name__} {self.name}"
- *             f" ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
- *         )
- * 
-*/
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_offset); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -4720,16 +4561,8 @@ static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6op
   __pyx_t_7[8] = __pyx_mstate_global->__pyx_kp_u_at_0x_2;
   __pyx_t_7[9] = __pyx_t_6;
   __pyx_t_7[10] = __pyx_mstate_global->__pyx_kp_u__4;
-
-  /* "av/option.pyx":152
- *     def __repr__(self):
- *         return (
- *             f"<av.{self.__class__.__name__} {self.name}"             # <<<<<<<<<<<<<<
- *             f" ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"
- *         )
-*/
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_7, 11, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 7 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4740,12 +4573,12 @@ static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6op
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":150
- *         return self._norm_range(self.ptr.max)
+  /* "av/option.py":172
+ *         return self.ptr.max
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
- *         return (
- *             f"<av.{self.__class__.__name__} {self.name}"
+ *         return f"<av.{self.__class__.__name__} {self.name} ({self.type} at *0x{self.offset:x}) at 0x{id(self):x}>"
+ * 
 */
 
   /* function exit code */
@@ -4764,12 +4597,12 @@ static PyObject *__pyx_pf_2av_6option_6Option_2__repr__(struct __pyx_obj_2av_6op
   return __pyx_r;
 }
 
-/* "av/option.pxd":11
- * cdef class Option(BaseOption):
+/* "av/option.pxd":8
  * 
+ * cdef class Option(BaseOption):
  *     cdef readonly tuple choices             # <<<<<<<<<<<<<<
  * 
- * 
+ * cdef class OptionChoice(BaseOption):
 */
 
 /* Python wrapper */
@@ -4810,15 +4643,15 @@ static PyObject *__pyx_pf_2av_6option_6Option_7choices___get__(struct __pyx_obj_
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_6option_6Option_5__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_6option_6Option_3__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6option_6Option_4__reduce_cython__, "Option.__reduce_cython__()");
-static PyObject *__pyx_pw_2av_6option_6Option_5__reduce_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_6option_6Option_2__reduce_cython__, "Option.__reduce_cython__()");
+static PyObject *__pyx_pw_2av_6option_6Option_3__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4844,14 +4677,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("__reduce_cython__", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_2av_6option_6Option_4__reduce_cython__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self));
+  __pyx_r = __pyx_pf_2av_6option_6Option_2__reduce_cython__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_6option_6Option_4__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self) {
+static PyObject *__pyx_pf_2av_6option_6Option_2__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -4891,15 +4724,15 @@ static PyObject *__pyx_pf_2av_6option_6Option_4__reduce_cython__(CYTHON_UNUSED s
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_2av_6option_6Option_7__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_2av_6option_6Option_5__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6option_6Option_6__setstate_cython__, "Option.__setstate_cython__(__pyx_state)");
-static PyObject *__pyx_pw_2av_6option_6Option_7__setstate_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_2av_6option_6Option_4__setstate_cython__, "Option.__setstate_cython__(__pyx_state)");
+static PyObject *__pyx_pw_2av_6option_6Option_5__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4965,7 +4798,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_6option_6Option_6__setstate_cython__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_2av_6option_6Option_4__setstate_cython__(((struct __pyx_obj_2av_6option_Option *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -4975,7 +4808,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_2av_6option_6Option_6__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_2av_6option_6Option_4__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_6option_Option *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -5007,12 +4840,12 @@ static PyObject *__pyx_pf_2av_6option_6Option_6__setstate_cython__(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "av/option.pyx":157
+/* "av/option.py":176
  * 
  * 
- * cdef OptionChoice wrap_option_choice(const lib.AVOption *ptr, bint is_default):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_option_choice(
+ *     ptr: cython.pointer[cython.const[lib.AVOption]], is_default: bint
 */
 
 static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_option_choice(struct AVOption const *__pyx_v_ptr, int __pyx_v_is_default) {
@@ -5028,9 +4861,9 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_option_choice", 0);
 
-  /* "av/option.pyx":158
- * 
- * cdef OptionChoice wrap_option_choice(const lib.AVOption *ptr, bint is_default):
+  /* "av/option.py":180
+ *     ptr: cython.pointer[cython.const[lib.AVOption]], is_default: bint
+ * ) -> OptionChoice | None:
  *     if ptr == NULL:             # <<<<<<<<<<<<<<
  *         return None
  * 
@@ -5038,30 +4871,30 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
   __pyx_t_1 = (__pyx_v_ptr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/option.pyx":159
- * cdef OptionChoice wrap_option_choice(const lib.AVOption *ptr, bint is_default):
+    /* "av/option.py":181
+ * ) -> OptionChoice | None:
  *     if ptr == NULL:
  *         return None             # <<<<<<<<<<<<<<
  * 
- *     cdef OptionChoice obj = OptionChoice(_cinit_sentinel)
+ *     obj: OptionChoice = OptionChoice(_cinit_sentinel)
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_r = ((struct __pyx_obj_2av_6option_OptionChoice *)Py_None); __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/option.pyx":158
- * 
- * cdef OptionChoice wrap_option_choice(const lib.AVOption *ptr, bint is_default):
+    /* "av/option.py":180
+ *     ptr: cython.pointer[cython.const[lib.AVOption]], is_default: bint
+ * ) -> OptionChoice | None:
  *     if ptr == NULL:             # <<<<<<<<<<<<<<
  *         return None
  * 
 */
   }
 
-  /* "av/option.pyx":161
+  /* "av/option.py":183
  *         return None
  * 
- *     cdef OptionChoice obj = OptionChoice(_cinit_sentinel)             # <<<<<<<<<<<<<<
+ *     obj: OptionChoice = OptionChoice(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     obj.ptr = ptr
  *     obj.is_default = is_default
 */
@@ -5071,23 +4904,23 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_2av_6option__cinit_sentinel};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6option_OptionChoice, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 161, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 183, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_obj = ((struct __pyx_obj_2av_6option_OptionChoice *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/option.pyx":162
+  /* "av/option.py":184
  * 
- *     cdef OptionChoice obj = OptionChoice(_cinit_sentinel)
+ *     obj: OptionChoice = OptionChoice(_cinit_sentinel)
  *     obj.ptr = ptr             # <<<<<<<<<<<<<<
  *     obj.is_default = is_default
  *     return obj
 */
   __pyx_v_obj->__pyx_base.ptr = __pyx_v_ptr;
 
-  /* "av/option.pyx":163
- *     cdef OptionChoice obj = OptionChoice(_cinit_sentinel)
+  /* "av/option.py":185
+ *     obj: OptionChoice = OptionChoice(_cinit_sentinel)
  *     obj.ptr = ptr
  *     obj.is_default = is_default             # <<<<<<<<<<<<<<
  *     return obj
@@ -5095,7 +4928,7 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
 */
   __pyx_v_obj->is_default = __pyx_v_is_default;
 
-  /* "av/option.pyx":164
+  /* "av/option.py":186
  *     obj.ptr = ptr
  *     obj.is_default = is_default
  *     return obj             # <<<<<<<<<<<<<<
@@ -5107,12 +4940,12 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
   __pyx_r = __pyx_v_obj;
   goto __pyx_L0;
 
-  /* "av/option.pyx":157
+  /* "av/option.py":176
  * 
  * 
- * cdef OptionChoice wrap_option_choice(const lib.AVOption *ptr, bint is_default):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_option_choice(
+ *     ptr: cython.pointer[cython.const[lib.AVOption]], is_default: bint
 */
 
   /* function exit code */
@@ -5128,7 +4961,7 @@ static struct __pyx_obj_2av_6option_OptionChoice *__pyx_f_2av_6option_wrap_optio
   return __pyx_r;
 }
 
-/* "av/option.pyx":173
+/* "av/option.py":196
  *     """
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5160,7 +4993,7 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice_5value___get__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/option.pyx":175
+  /* "av/option.py":198
  *     @property
  *     def value(self):
  *         return self.ptr.default_val.i64             # <<<<<<<<<<<<<<
@@ -5168,13 +5001,13 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice_5value___get__(struct __pyx
  *     def __repr__(self):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->__pyx_base.ptr->default_val.i64); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int64_t(__pyx_v_self->__pyx_base.ptr->default_val.i64); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":173
+  /* "av/option.py":196
  *     """
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5193,7 +5026,7 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice_5value___get__(struct __pyx
   return __pyx_r;
 }
 
-/* "av/option.pyx":177
+/* "av/option.py":200
  *         return self.ptr.default_val.i64
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -5228,28 +5061,28 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice___repr__(struct __pyx_obj_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/option.pyx":178
+  /* "av/option.py":201
  * 
  *     def __repr__(self):
  *         return f"<av.{self.__class__.__name__} {self.name} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_5[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -5260,7 +5093,7 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice___repr__(struct __pyx_obj_2
   __pyx_t_5[5] = __pyx_t_4;
   __pyx_t_5[6] = __pyx_mstate_global->__pyx_kp_u__4;
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -5269,7 +5102,7 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice___repr__(struct __pyx_obj_2
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/option.pyx":177
+  /* "av/option.py":200
  *         return self.ptr.default_val.i64
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -5290,12 +5123,12 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice___repr__(struct __pyx_obj_2
   return __pyx_r;
 }
 
-/* "av/option.pxd":16
- * cdef class OptionChoice(BaseOption):
+/* "av/option.pxd":11
  * 
+ * cdef class OptionChoice(BaseOption):
  *     cdef readonly bint is_default             # <<<<<<<<<<<<<<
  * 
- * 
+ * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr)
 */
 
 /* Python wrapper */
@@ -5322,7 +5155,7 @@ static PyObject *__pyx_pf_2av_6option_12OptionChoice_10is_default___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->is_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 16, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_v_self->is_default); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5817,9 +5650,8 @@ static PyObject *__pyx_getprop_2av_6option_6Option_choices(PyObject *o, CYTHON_U
 }
 
 static PyMethodDef __pyx_methods_2av_6option_Option[] = {
-  {"_norm_range", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_6option_6Option_1_norm_range, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_6option_6Option__norm_range},
-  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_6option_6Option_5__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_6option_6Option_4__reduce_cython__},
-  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_6option_6Option_7__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_6option_6Option_6__setstate_cython__},
+  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_6option_6Option_3__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_6option_6Option_2__reduce_cython__},
+  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_2av_6option_6Option_5__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_2av_6option_6Option_4__setstate_cython__},
   {0, 0, 0, 0}
 };
 
@@ -5835,7 +5667,7 @@ static struct PyGetSetDef __pyx_getsets_2av_6option_Option[] = {
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_2av_6option_Option_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_2av_6option_Option},
-  {Py_tp_repr, (void *)__pyx_pw_2av_6option_6Option_3__repr__},
+  {Py_tp_repr, (void *)__pyx_pw_2av_6option_6Option_1__repr__},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_2av_6option_Option},
   {Py_tp_clear, (void *)__pyx_tp_clear_2av_6option_Option},
   {Py_tp_methods, (void *)__pyx_methods_2av_6option_Option},
@@ -5862,7 +5694,7 @@ static PyTypeObject __pyx_type_2av_6option_Option = {
   0, /*tp_getattr*/
   0, /*tp_setattr*/
   0, /*tp_as_async*/
-  __pyx_pw_2av_6option_6Option_3__repr__, /*tp_repr*/
+  __pyx_pw_2av_6option_6Option_1__repr__, /*tp_repr*/
   0, /*tp_as_number*/
   0, /*tp_as_sequence*/
   0, /*tp_as_mapping*/
@@ -6121,15 +5953,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_6option_BaseOption = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6option_BaseOption_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_BaseOption)) __PYX_ERR(0, 68, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_BaseOption_spec, __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_6option_BaseOption = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6option_BaseOption_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_BaseOption)) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_BaseOption_spec, __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6option_BaseOption = &__pyx_type_2av_6option_BaseOption;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6option_BaseOption);
@@ -6139,15 +5971,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6option_BaseOption->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BaseOption, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BaseOption, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_BaseOption) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6option_Option = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6option_Option_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_Option)) __PYX_ERR(0, 112, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_Option_spec, __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_Option)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_Option_spec, __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6option_Option = &__pyx_type_2av_6option_Option;
   #endif
@@ -6155,7 +5987,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_6option_Option->tp_base = __pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6option_Option);
@@ -6165,15 +5997,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6option_Option->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Option, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Option, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_Option) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6option_OptionChoice_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice)) __PYX_ERR(0, 167, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_OptionChoice_spec, __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice)) __PYX_ERR(0, 190, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6option_OptionChoice_spec, __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 190, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice = &__pyx_type_2av_6option_OptionChoice;
   #endif
@@ -6181,7 +6013,7 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_2av_6option_OptionChoice->tp_base = __pyx_mstate_global->__pyx_ptype_2av_6option_BaseOption;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 190, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice);
@@ -6191,8 +6023,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_OptionChoice, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_OptionChoice, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 190, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) < (0)) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -6504,36 +6336,34 @@ __Pyx_RefNannySetupContext("PyInit_option", 0);
   (void)__Pyx_modinit_function_import_code(__pyx_mstate);
   /*--- Execution code ---*/
 
-  /* "av/option.pyx":4
- * from libc.stdint cimport uint64_t
- * 
+  /* "av/option.py":1
  * from enum import Enum, Flag             # <<<<<<<<<<<<<<
  * 
- * 
+ * import cython
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Enum,__pyx_mstate_global->__pyx_n_u_Flag};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_enum, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 4, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_enum, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Enum,__pyx_mstate_global->__pyx_n_u_Flag};
     for (__pyx_t_3=0; __pyx_t_3 < 2; __pyx_t_3++) {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 4, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 4, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/option.pyx":7
+  /* "av/option.py":8
+ * from cython.cimports.libc.stdint import uint64_t
+ * 
+ * _cinit_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
- * cdef object _cinit_sentinel = object()             # <<<<<<<<<<<<<<
- * 
- * cdef Option wrap_option(tuple choices, const lib.AVOption *ptr):
 */
   __pyx_t_4 = NULL;
   __pyx_t_5 = 1;
@@ -6541,7 +6371,7 @@ __Pyx_RefNannySetupContext("PyInit_option", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_6option__cinit_sentinel);
@@ -6549,368 +6379,505 @@ __Pyx_RefNannySetupContext("PyInit_option", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/option.pyx":25
+  /* "av/option.py":28
  * 
  * 
  * class OptionType(Enum):             # <<<<<<<<<<<<<<
  *     FLAGS = lib.AV_OPT_TYPE_FLAGS
  *     INT = lib.AV_OPT_TYPE_INT
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Enum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Enum); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_mstate_global->__pyx_n_u_OptionType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_option, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_mstate_global->__pyx_n_u_OptionType, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_option, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__pyx_t_2 != __pyx_t_4) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 25, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 28, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":26
+  /* "av/option.py":29
  * 
  * class OptionType(Enum):
  *     FLAGS = lib.AV_OPT_TYPE_FLAGS             # <<<<<<<<<<<<<<
  *     INT = lib.AV_OPT_TYPE_INT
  *     INT64 = lib.AV_OPT_TYPE_INT64
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLAGS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLAGS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FLAGS, __pyx_t_4) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FLAGS, __pyx_t_4) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":27
+  /* "av/option.py":30
  * class OptionType(Enum):
  *     FLAGS = lib.AV_OPT_TYPE_FLAGS
  *     INT = lib.AV_OPT_TYPE_INT             # <<<<<<<<<<<<<<
  *     INT64 = lib.AV_OPT_TYPE_INT64
  *     DOUBLE = lib.AV_OPT_TYPE_DOUBLE
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_INT, __pyx_t_4) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_INT, __pyx_t_4) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":28
+  /* "av/option.py":31
  *     FLAGS = lib.AV_OPT_TYPE_FLAGS
  *     INT = lib.AV_OPT_TYPE_INT
  *     INT64 = lib.AV_OPT_TYPE_INT64             # <<<<<<<<<<<<<<
  *     DOUBLE = lib.AV_OPT_TYPE_DOUBLE
  *     FLOAT = lib.AV_OPT_TYPE_FLOAT
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_INT64, __pyx_t_4) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_INT64, __pyx_t_4) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":29
+  /* "av/option.py":32
  *     INT = lib.AV_OPT_TYPE_INT
  *     INT64 = lib.AV_OPT_TYPE_INT64
  *     DOUBLE = lib.AV_OPT_TYPE_DOUBLE             # <<<<<<<<<<<<<<
  *     FLOAT = lib.AV_OPT_TYPE_FLOAT
  *     STRING = lib.AV_OPT_TYPE_STRING
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DOUBLE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DOUBLE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DOUBLE, __pyx_t_4) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DOUBLE, __pyx_t_4) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":30
+  /* "av/option.py":33
  *     INT64 = lib.AV_OPT_TYPE_INT64
  *     DOUBLE = lib.AV_OPT_TYPE_DOUBLE
  *     FLOAT = lib.AV_OPT_TYPE_FLOAT             # <<<<<<<<<<<<<<
  *     STRING = lib.AV_OPT_TYPE_STRING
  *     RATIONAL = lib.AV_OPT_TYPE_RATIONAL
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLOAT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLOAT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FLOAT, __pyx_t_4) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FLOAT, __pyx_t_4) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":31
+  /* "av/option.py":34
  *     DOUBLE = lib.AV_OPT_TYPE_DOUBLE
  *     FLOAT = lib.AV_OPT_TYPE_FLOAT
  *     STRING = lib.AV_OPT_TYPE_STRING             # <<<<<<<<<<<<<<
  *     RATIONAL = lib.AV_OPT_TYPE_RATIONAL
  *     BINARY = lib.AV_OPT_TYPE_BINARY
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_STRING); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_STRING); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_STRING, __pyx_t_4) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_STRING, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":32
+  /* "av/option.py":35
  *     FLOAT = lib.AV_OPT_TYPE_FLOAT
  *     STRING = lib.AV_OPT_TYPE_STRING
  *     RATIONAL = lib.AV_OPT_TYPE_RATIONAL             # <<<<<<<<<<<<<<
  *     BINARY = lib.AV_OPT_TYPE_BINARY
  *     DICT = lib.AV_OPT_TYPE_DICT
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_RATIONAL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_RATIONAL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_RATIONAL, __pyx_t_4) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_RATIONAL, __pyx_t_4) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":33
+  /* "av/option.py":36
  *     STRING = lib.AV_OPT_TYPE_STRING
  *     RATIONAL = lib.AV_OPT_TYPE_RATIONAL
  *     BINARY = lib.AV_OPT_TYPE_BINARY             # <<<<<<<<<<<<<<
  *     DICT = lib.AV_OPT_TYPE_DICT
  *     UINT64 = lib.AV_OPT_TYPE_UINT64
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BINARY); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BINARY); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_BINARY, __pyx_t_4) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_BINARY, __pyx_t_4) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":34
+  /* "av/option.py":37
  *     RATIONAL = lib.AV_OPT_TYPE_RATIONAL
  *     BINARY = lib.AV_OPT_TYPE_BINARY
  *     DICT = lib.AV_OPT_TYPE_DICT             # <<<<<<<<<<<<<<
  *     UINT64 = lib.AV_OPT_TYPE_UINT64
  *     CONST = lib.AV_OPT_TYPE_CONST
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DICT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DICT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DICT, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DICT, __pyx_t_4) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":35
+  /* "av/option.py":38
  *     BINARY = lib.AV_OPT_TYPE_BINARY
  *     DICT = lib.AV_OPT_TYPE_DICT
  *     UINT64 = lib.AV_OPT_TYPE_UINT64             # <<<<<<<<<<<<<<
  *     CONST = lib.AV_OPT_TYPE_CONST
  *     IMAGE_SIZE = lib.AV_OPT_TYPE_IMAGE_SIZE
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_UINT64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_UINT64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_UINT64, __pyx_t_4) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_UINT64, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":36
+  /* "av/option.py":39
  *     DICT = lib.AV_OPT_TYPE_DICT
  *     UINT64 = lib.AV_OPT_TYPE_UINT64
  *     CONST = lib.AV_OPT_TYPE_CONST             # <<<<<<<<<<<<<<
  *     IMAGE_SIZE = lib.AV_OPT_TYPE_IMAGE_SIZE
  *     PIXEL_FMT = lib.AV_OPT_TYPE_PIXEL_FMT
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CONST); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CONST); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CONST, __pyx_t_4) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CONST, __pyx_t_4) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":37
+  /* "av/option.py":40
  *     UINT64 = lib.AV_OPT_TYPE_UINT64
  *     CONST = lib.AV_OPT_TYPE_CONST
  *     IMAGE_SIZE = lib.AV_OPT_TYPE_IMAGE_SIZE             # <<<<<<<<<<<<<<
  *     PIXEL_FMT = lib.AV_OPT_TYPE_PIXEL_FMT
  *     SAMPLE_FMT = lib.AV_OPT_TYPE_SAMPLE_FMT
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_IMAGE_SIZE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_IMAGE_SIZE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_IMAGE_SIZE, __pyx_t_4) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_IMAGE_SIZE, __pyx_t_4) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":38
+  /* "av/option.py":41
  *     CONST = lib.AV_OPT_TYPE_CONST
  *     IMAGE_SIZE = lib.AV_OPT_TYPE_IMAGE_SIZE
  *     PIXEL_FMT = lib.AV_OPT_TYPE_PIXEL_FMT             # <<<<<<<<<<<<<<
  *     SAMPLE_FMT = lib.AV_OPT_TYPE_SAMPLE_FMT
  *     VIDEO_RATE = lib.AV_OPT_TYPE_VIDEO_RATE
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_PIXEL_FMT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_PIXEL_FMT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PIXEL_FMT, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PIXEL_FMT, __pyx_t_4) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":39
+  /* "av/option.py":42
  *     IMAGE_SIZE = lib.AV_OPT_TYPE_IMAGE_SIZE
  *     PIXEL_FMT = lib.AV_OPT_TYPE_PIXEL_FMT
  *     SAMPLE_FMT = lib.AV_OPT_TYPE_SAMPLE_FMT             # <<<<<<<<<<<<<<
  *     VIDEO_RATE = lib.AV_OPT_TYPE_VIDEO_RATE
  *     DURATION = lib.AV_OPT_TYPE_DURATION
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_SAMPLE_FMT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_SAMPLE_FMT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SAMPLE_FMT, __pyx_t_4) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SAMPLE_FMT, __pyx_t_4) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":40
+  /* "av/option.py":43
  *     PIXEL_FMT = lib.AV_OPT_TYPE_PIXEL_FMT
  *     SAMPLE_FMT = lib.AV_OPT_TYPE_SAMPLE_FMT
  *     VIDEO_RATE = lib.AV_OPT_TYPE_VIDEO_RATE             # <<<<<<<<<<<<<<
  *     DURATION = lib.AV_OPT_TYPE_DURATION
  *     COLOR = lib.AV_OPT_TYPE_COLOR
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_VIDEO_RATE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_VIDEO_RATE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VIDEO_RATE, __pyx_t_4) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_VIDEO_RATE, __pyx_t_4) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":41
+  /* "av/option.py":44
  *     SAMPLE_FMT = lib.AV_OPT_TYPE_SAMPLE_FMT
  *     VIDEO_RATE = lib.AV_OPT_TYPE_VIDEO_RATE
  *     DURATION = lib.AV_OPT_TYPE_DURATION             # <<<<<<<<<<<<<<
  *     COLOR = lib.AV_OPT_TYPE_COLOR
  *     CHANNEL_LAYOUT = lib.AV_OPT_TYPE_CHLAYOUT
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DURATION); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DURATION); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DURATION, __pyx_t_4) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_DURATION, __pyx_t_4) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":42
+  /* "av/option.py":45
  *     VIDEO_RATE = lib.AV_OPT_TYPE_VIDEO_RATE
  *     DURATION = lib.AV_OPT_TYPE_DURATION
  *     COLOR = lib.AV_OPT_TYPE_COLOR             # <<<<<<<<<<<<<<
  *     CHANNEL_LAYOUT = lib.AV_OPT_TYPE_CHLAYOUT
  *     BOOL = lib.AV_OPT_TYPE_BOOL
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_COLOR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_COLOR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_COLOR, __pyx_t_4) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_COLOR, __pyx_t_4) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":43
+  /* "av/option.py":46
  *     DURATION = lib.AV_OPT_TYPE_DURATION
  *     COLOR = lib.AV_OPT_TYPE_COLOR
  *     CHANNEL_LAYOUT = lib.AV_OPT_TYPE_CHLAYOUT             # <<<<<<<<<<<<<<
  *     BOOL = lib.AV_OPT_TYPE_BOOL
  * 
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CHLAYOUT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CHLAYOUT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CHANNEL_LAYOUT, __pyx_t_4) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_CHANNEL_LAYOUT, __pyx_t_4) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":44
+  /* "av/option.py":47
  *     COLOR = lib.AV_OPT_TYPE_COLOR
  *     CHANNEL_LAYOUT = lib.AV_OPT_TYPE_CHLAYOUT
  *     BOOL = lib.AV_OPT_TYPE_BOOL             # <<<<<<<<<<<<<<
  * 
- * cdef tuple _INT_TYPES = (
+ * 
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BOOL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BOOL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_BOOL, __pyx_t_4) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_BOOL, __pyx_t_4) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/option.pyx":25
+  /* "av/option.py":28
  * 
  * 
  * class OptionType(Enum):             # <<<<<<<<<<<<<<
  *     FLAGS = lib.AV_OPT_TYPE_FLAGS
  *     INT = lib.AV_OPT_TYPE_INT
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_t_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_OptionType, __pyx_t_4) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/option.pyx":47
+  /* "av/option.py":50
  * 
- * cdef tuple _INT_TYPES = (
- *     lib.AV_OPT_TYPE_FLAGS,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_INT,
- *     lib.AV_OPT_TYPE_INT64,
+ * 
+ * class OptionFlags(Flag):             # <<<<<<<<<<<<<<
+ *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
 */
-  __pyx_t_2 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLAGS); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Flag); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_6 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_mstate_global->__pyx_n_u_OptionFlags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_option, (PyObject *) NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (__pyx_t_2 != __pyx_t_6) {
+    if (unlikely((PyDict_SetItemString(__pyx_t_4, "__orig_bases__", __pyx_t_6) < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
+  }
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":51
+ * 
+ * class OptionFlags(Flag):
+ *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM             # <<<<<<<<<<<<<<
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
+ *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_ENCODING_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ENCODING_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":52
+ * class OptionFlags(Flag):
+ *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM             # <<<<<<<<<<<<<<
+ *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
+ *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_DECODING_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DECODING_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":53
+ *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
+ *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM             # <<<<<<<<<<<<<<
+ *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
+ *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_AUDIO_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_AUDIO_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":54
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
+ *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
+ *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM             # <<<<<<<<<<<<<<
+ *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
+ *     EXPORT = lib.AV_OPT_FLAG_EXPORT
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_VIDEO_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_VIDEO_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":55
+ *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
+ *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
+ *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM             # <<<<<<<<<<<<<<
+ *     EXPORT = lib.AV_OPT_FLAG_EXPORT
+ *     READONLY = lib.AV_OPT_FLAG_READONLY
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_SUBTITLE_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SUBTITLE_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":56
+ *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
+ *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
+ *     EXPORT = lib.AV_OPT_FLAG_EXPORT             # <<<<<<<<<<<<<<
+ *     READONLY = lib.AV_OPT_FLAG_READONLY
+ *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_EXPORT); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EXPORT, __pyx_t_6) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":57
+ *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
+ *     EXPORT = lib.AV_OPT_FLAG_EXPORT
+ *     READONLY = lib.AV_OPT_FLAG_READONLY             # <<<<<<<<<<<<<<
+ *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM
+ * 
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_READONLY); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_READONLY, __pyx_t_6) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":58
+ *     EXPORT = lib.AV_OPT_FLAG_EXPORT
+ *     READONLY = lib.AV_OPT_FLAG_READONLY
+ *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __pyx_t_6 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_FILTERING_PARAM); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FILTERING_PARAM, __pyx_t_6) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "av/option.py":50
+ * 
+ * 
+ * class OptionFlags(Flag):             # <<<<<<<<<<<<<<
+ *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
+ *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
+*/
+  __pyx_t_6 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_t_2, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_t_6) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "av/option.py":64
+ *     tuple,
+ *     (
+ *         lib.AV_OPT_TYPE_FLAGS,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_INT,
+ *         lib.AV_OPT_TYPE_INT64,
+*/
+  __pyx_t_2 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_FLAGS); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "av/option.pyx":48
- * cdef tuple _INT_TYPES = (
- *     lib.AV_OPT_TYPE_FLAGS,
- *     lib.AV_OPT_TYPE_INT,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_INT64,
- *     lib.AV_OPT_TYPE_PIXEL_FMT,
+  /* "av/option.py":65
+ *     (
+ *         lib.AV_OPT_TYPE_FLAGS,
+ *         lib.AV_OPT_TYPE_INT,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_INT64,
+ *         lib.AV_OPT_TYPE_PIXEL_FMT,
 */
-  __pyx_t_6 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 48, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-
-  /* "av/option.pyx":49
- *     lib.AV_OPT_TYPE_FLAGS,
- *     lib.AV_OPT_TYPE_INT,
- *     lib.AV_OPT_TYPE_INT64,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_PIXEL_FMT,
- *     lib.AV_OPT_TYPE_SAMPLE_FMT,
-*/
-  __pyx_t_7 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT64); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "av/option.pyx":50
- *     lib.AV_OPT_TYPE_INT,
- *     lib.AV_OPT_TYPE_INT64,
- *     lib.AV_OPT_TYPE_PIXEL_FMT,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_SAMPLE_FMT,
- *     lib.AV_OPT_TYPE_DURATION,
+  /* "av/option.py":66
+ *         lib.AV_OPT_TYPE_FLAGS,
+ *         lib.AV_OPT_TYPE_INT,
+ *         lib.AV_OPT_TYPE_INT64,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_PIXEL_FMT,
+ *         lib.AV_OPT_TYPE_SAMPLE_FMT,
 */
-  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_PIXEL_FMT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_INT64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "av/option.pyx":51
- *     lib.AV_OPT_TYPE_INT64,
- *     lib.AV_OPT_TYPE_PIXEL_FMT,
- *     lib.AV_OPT_TYPE_SAMPLE_FMT,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_DURATION,
- *     lib.AV_OPT_TYPE_CHLAYOUT,
+  /* "av/option.py":67
+ *         lib.AV_OPT_TYPE_INT,
+ *         lib.AV_OPT_TYPE_INT64,
+ *         lib.AV_OPT_TYPE_PIXEL_FMT,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_SAMPLE_FMT,
+ *         lib.AV_OPT_TYPE_DURATION,
 */
-  __pyx_t_8 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_SAMPLE_FMT); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_PIXEL_FMT); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+
+  /* "av/option.py":68
+ *         lib.AV_OPT_TYPE_INT64,
+ *         lib.AV_OPT_TYPE_PIXEL_FMT,
+ *         lib.AV_OPT_TYPE_SAMPLE_FMT,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_DURATION,
+ *         lib.AV_OPT_TYPE_CHLAYOUT,
+*/
+  __pyx_t_8 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_SAMPLE_FMT); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "av/option.pyx":52
- *     lib.AV_OPT_TYPE_PIXEL_FMT,
- *     lib.AV_OPT_TYPE_SAMPLE_FMT,
- *     lib.AV_OPT_TYPE_DURATION,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_CHLAYOUT,
- *     lib.AV_OPT_TYPE_BOOL,
+  /* "av/option.py":69
+ *         lib.AV_OPT_TYPE_PIXEL_FMT,
+ *         lib.AV_OPT_TYPE_SAMPLE_FMT,
+ *         lib.AV_OPT_TYPE_DURATION,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_CHLAYOUT,
+ *         lib.AV_OPT_TYPE_BOOL,
 */
-  __pyx_t_9 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DURATION); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_DURATION); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
 
-  /* "av/option.pyx":53
- *     lib.AV_OPT_TYPE_SAMPLE_FMT,
- *     lib.AV_OPT_TYPE_DURATION,
- *     lib.AV_OPT_TYPE_CHLAYOUT,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_BOOL,
- * )
+  /* "av/option.py":70
+ *         lib.AV_OPT_TYPE_SAMPLE_FMT,
+ *         lib.AV_OPT_TYPE_DURATION,
+ *         lib.AV_OPT_TYPE_CHLAYOUT,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_BOOL,
+ *     ),
 */
-  __pyx_t_10 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CHLAYOUT); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_CHLAYOUT); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "av/option.pyx":54
- *     lib.AV_OPT_TYPE_DURATION,
- *     lib.AV_OPT_TYPE_CHLAYOUT,
- *     lib.AV_OPT_TYPE_BOOL,             # <<<<<<<<<<<<<<
+  /* "av/option.py":71
+ *         lib.AV_OPT_TYPE_DURATION,
+ *         lib.AV_OPT_TYPE_CHLAYOUT,
+ *         lib.AV_OPT_TYPE_BOOL,             # <<<<<<<<<<<<<<
+ *     ),
  * )
- * 
 */
-  __pyx_t_11 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BOOL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyLong_From_enum__AVOptionType(AV_OPT_TYPE_BOOL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
 
-  /* "av/option.pyx":47
- * 
- * cdef tuple _INT_TYPES = (
- *     lib.AV_OPT_TYPE_FLAGS,             # <<<<<<<<<<<<<<
- *     lib.AV_OPT_TYPE_INT,
- *     lib.AV_OPT_TYPE_INT64,
+  /* "av/option.py":64
+ *     tuple,
+ *     (
+ *         lib.AV_OPT_TYPE_FLAGS,             # <<<<<<<<<<<<<<
+ *         lib.AV_OPT_TYPE_INT,
+ *         lib.AV_OPT_TYPE_INT64,
 */
-  __pyx_t_12 = PyTuple_Pack(8, __pyx_t_2, __pyx_t_6, __pyx_t_7, __pyx_t_4, __pyx_t_8, __pyx_t_9, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_12 = PyTuple_Pack(8, __pyx_t_2, __pyx_t_7, __pyx_t_4, __pyx_t_6, __pyx_t_8, __pyx_t_9, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -6920,147 +6887,10 @@ __Pyx_RefNannySetupContext("PyInit_option", 0);
   __Pyx_GIVEREF(__pyx_t_12);
   __pyx_t_12 = 0;
 
-  /* "av/option.pyx":57
- * )
+  /* "av/option.py":1
+ * from enum import Enum, Flag             # <<<<<<<<<<<<<<
  * 
- * class OptionFlags(Flag):             # <<<<<<<<<<<<<<
- *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
-*/
-  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_Flag); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_11 = PyTuple_Pack(1, __pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-  __pyx_t_12 = __Pyx_PEP560_update_bases(__pyx_t_11); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_10 = __Pyx_CalculateMetaclass(NULL, __pyx_t_12); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_9 = __Pyx_Py3MetaclassPrepare(__pyx_t_10, __pyx_t_12, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_mstate_global->__pyx_n_u_OptionFlags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_option, (PyObject *) NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_9);
-  if (__pyx_t_12 != __pyx_t_11) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_9, "__orig_bases__", __pyx_t_11) < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
-  }
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":58
- * 
- * class OptionFlags(Flag):
- *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM             # <<<<<<<<<<<<<<
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
- *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_ENCODING_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_ENCODING_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":59
- * class OptionFlags(Flag):
- *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM             # <<<<<<<<<<<<<<
- *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
- *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_DECODING_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_DECODING_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":60
- *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
- *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM             # <<<<<<<<<<<<<<
- *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
- *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_AUDIO_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_AUDIO_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":61
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
- *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
- *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM             # <<<<<<<<<<<<<<
- *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
- *     EXPORT = lib.AV_OPT_FLAG_EXPORT
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_VIDEO_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_VIDEO_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":62
- *     AUDIO_PARAM = lib.AV_OPT_FLAG_AUDIO_PARAM
- *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
- *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM             # <<<<<<<<<<<<<<
- *     EXPORT = lib.AV_OPT_FLAG_EXPORT
- *     READONLY = lib.AV_OPT_FLAG_READONLY
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_SUBTITLE_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_SUBTITLE_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":63
- *     VIDEO_PARAM = lib.AV_OPT_FLAG_VIDEO_PARAM
- *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
- *     EXPORT = lib.AV_OPT_FLAG_EXPORT             # <<<<<<<<<<<<<<
- *     READONLY = lib.AV_OPT_FLAG_READONLY
- *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_EXPORT); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_EXPORT, __pyx_t_11) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":64
- *     SUBTITLE_PARAM = lib.AV_OPT_FLAG_SUBTITLE_PARAM
- *     EXPORT = lib.AV_OPT_FLAG_EXPORT
- *     READONLY = lib.AV_OPT_FLAG_READONLY             # <<<<<<<<<<<<<<
- *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM
- * 
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_READONLY); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 64, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_READONLY, __pyx_t_11) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":65
- *     EXPORT = lib.AV_OPT_FLAG_EXPORT
- *     READONLY = lib.AV_OPT_FLAG_READONLY
- *     FILTERING_PARAM = lib.AV_OPT_FLAG_FILTERING_PARAM             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-  __pyx_t_11 = __Pyx_PyLong_From___pyx_anon_enum(AV_OPT_FLAG_FILTERING_PARAM); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 65, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  if (__Pyx_SetNameInClass(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_FILTERING_PARAM, __pyx_t_11) < (0)) __PYX_ERR(0, 65, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-
-  /* "av/option.pyx":57
- * )
- * 
- * class OptionFlags(Flag):             # <<<<<<<<<<<<<<
- *     ENCODING_PARAM = lib.AV_OPT_FLAG_ENCODING_PARAM
- *     DECODING_PARAM = lib.AV_OPT_FLAG_DECODING_PARAM
-*/
-  __pyx_t_11 = __Pyx_Py3ClassCreate(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_t_12, __pyx_t_9, NULL, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_11);
-  #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_OptionFlags, __pyx_t_11) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-
-  /* "av/option.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
- * from libc.stdint cimport uint64_t
- * 
+ * import cython
 */
   __pyx_t_12 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
@@ -7111,8 +6941,8 @@ __Pyx_RefNannySetupContext("PyInit_option", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 7, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 173, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -7139,39 +6969,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{0},{20},{1},{2},{1},{1},{1},{7},{7},{6},{4},{7},{6},{2},{9},{50},{11},{6},{4},{10},{14},{5},{5},{14},{4},{6},{8},{14},{6},{4},{15},{5},{5},{4},{10},{3},{5},{6},{12},{11},{10},{9},{20},{8},{8},{10},{6},{14},{6},{11},{10},{9},{9},{18},{7},{4},{12},{2},{5},{8},{13},{10},{15},{8},{4},{11},{6},{6},{3},{11},{12},{11},{12},{10},{17},{13},{8},{12},{10},{12},{19},{8},{4},{5},{6},{1},{179}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (541 bytes) */
-const char* const cstring = "(\265/\375`\233\002\235\020\000\266^^ \020\225\036\347Flu\t|\\\\d\214\237\312\356\357\357\212\334B\222\226\002\342\021TUU\325\216\005U\000X\000Q\000\257\253C\316\351\260\\\260\242\034\022xA\313'5M\240\373\276\370Z\255^\320\345v\001g\374\362~\337e\317\375m\227=\347\376\266\326\325\314g/\343L_\253\301\377\032\246\352\233-D\007\201\3500x\273\276\206\201\021x\317\000\252o\333\216\333\032g\373v\306\270J\001\356T\362p\031+\224\365\333\210j{\363&\241\240\025\025/\024\346\021\002%\224\246j\017\n\247|`\020(\037W\244\222zx:\034\3515\255J\254b5)\n\257\311\024\245c2'*Q\023\244\242\246)\305\211b\325\224\256)\247D'\323\002\245\313XU0\"\341|\3676\003\033\277g\356\265.\313u\277;\276\325\343\256=\277ov\335\177\327\255\367k\334\337\335\346\314\275c+\346m\345\266\343\353\217\257\326U\263\356\331\000\2521N\024e\022%\245\250c\202Q,JK\0021\213\254\346\004\343%a\346\257-\372\312\267\275\223hd\005oo\336X\367\255r!\200`\343\013\020\014\036\005>\302\340\315\221\025\030<\205\203*\302E\272\323*\350\267\321\326\277\267\366\370n\374\332]\3648o\366\310j\265\373\334\255Z\367\347\352\366\334\346\276\345m\277\316d\362\266\317\301\344\327\340\312\271\207\313\370=\025\377\345\002C( \206@Sv\033\301(g2-\250}\366;\017\200K\014K\000\262\200ra\206J\340\\d2\2000q\375HYW\364\006\\\215\245,x\336 \234b`\223\0265\225\002\303\327\302\031\000#\017\004\205\350uD\242\372j\000\031\002x.\t\222\300\261\0240\001\235_,\204\221S\206B\005\004\2147\007n\214um\373)\3220\037dL\264\343\255\\\274\321`q\213\242\223\234\301\242\304\001\032\231\034\001\020\177\274\265\006&\002\006\270F\007bN)'{.\340\006\215u\273O";
-    PyObject *data = __Pyx_DecompressString(cstring, 541, 3);
+    const struct { const unsigned int length: 8; } index[] = {{0},{20},{1},{2},{1},{1},{1},{7},{7},{6},{4},{7},{6},{2},{9},{50},{11},{6},{4},{10},{14},{5},{5},{14},{4},{6},{8},{14},{6},{4},{15},{5},{5},{4},{10},{3},{5},{6},{12},{11},{10},{9},{20},{8},{8},{10},{6},{14},{6},{11},{10},{9},{9},{18},{7},{4},{12},{2},{5},{8},{13},{10},{15},{8},{4},{6},{6},{3},{11},{12},{11},{12},{10},{17},{13},{8},{12},{10},{12},{19},{8},{4},{6},{1},{179}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (532 bytes) */
+const char* const cstring = "(\265/\375`\213\002U\020\000\006^\\ \020\225\036\347Flu\t|\\\\d\214\237\312\356\357\357\212\334B\222\226\002\342\021TUU\325\216\005S\000V\000O\000\0169\247\303r\301\212rH\340\005-\237\3244\201\356\373\342k\265zA\227\333\005\234\361\313\373}\227=\367\267]\366\234\373\333ZW3\237\275\2143}\255\006\377k\230\252o\266\020\035\004\242\303\340\355\372\032\006F\340=\003\250\276m;nk\234\355\333\031\343*\0052V(\353\267\021\325\366\346MBA+*^(\314#\004J(M\325\036\024N\371\300 P>\256H%\365\360t8\322kZ\225X\305jR\024^\223)J\307dNT\242&HEMS\212\023\305\252)]SN\211N\246\005J\227\261\252`D\302\371\356m\276\256\001Y\256\373\335\361\255\036w\355\371}\263\353\376\273n\275_\343\376\3566g\356\035[1o+\267\035_\177|\265\256\232u\317\006P\215q\242(\223()E\035\023\214bQZ\022\210Yd5'\030/\t3\177m\321W\276\355\235D#\313\235J\036\036oo\336X\367\255r!\200`\343\013\020\014\036\005>\302\340\315\221\025\030<\205\203*\302E\372;\255\202~\033m\375{k\217\357\306\257\335E\217\363f\217\254V\273\317\335\252\335\270\272=\267\271oy\333\2573\231\274\355s0\371=\025\377\3456~\317\334k]B( \2068Sw\033\261(\210.-\250}\366;\017\200;\014!\000\261\200\272aD'p*\262\250 0\270\322\004\214V0\005\034\221*\032d\220 ZE\201Ps\022\000\370\020\234\013U$\200\000\010_\267%\252\257*\301A\003\242\321\375\016~\311\376\3378\265h\t\313\323\211B\017\310\214\267\016\334\214\205o\373)\002\3031\310`i\307[\341\274\241a1\026\245=9\2037\211\004h\0209$@4\343\2550\260\007\030\372\032]\030S\245\334\354\273\3007A\254\233{\002";
+    PyObject *data = __Pyx_DecompressString(cstring, 532, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (595 bytes) */
-const char* const cstring = "BZh91AY&SYO.G\034\000\0009_\200@\000@wU\005\277\347\337p\277\377\377\340@\002\032Ru\332\250j\031\021O\3654\247\246j\237\250\302 \323G\352C4\203\023C@h\210\315\024\315\023M\251\246\211\264C\t\210\301\032hd\006\232&\246\024\236)\232\233Dh\001\352\000\006\201\3522\004\246\243EOM=Q\372\211\350 \032\0004\000\007\250=L\002\010\023\256n\275\370\2005\224\272;Z\240~ib\231\322\304\252L\021\204\266^D PDH0Oey\364\351\357\361\002K\032\244\024e%\207\324'\350\327\350\262\215)ZyZ\340d\022\220\232\232\237\311\256\235\273j\006'{\206\302\034\2174A\331P@6Q\210\307~\353\032\026\221\316\242\007U\263\267E\036\247\205\272wr\005d\016\010v\203\263\000`U'\237(\201\200\255\217k\316\367P.H\013\331\026c\314\302\212\334\013\265p\n_\013\243\013r\024\322\207Z]90&\027\2753\255\313\030]4\006l\204\343\274\355#\023B\202y\326\002\271\t\006L\321\036\220\370)\253\204U\225\020pF\366D\022\324\344\375\220\304\364\230c\365\205P?\221\nl\365j\303Sq \017\231R\tr\256$\030\n\024\r\0254;1\236A+v\336$\004\271\210\313g-\246\333P9\310_\246\363>\203u}\262\323\231\263\003\304\360\201\003\033Y&'\007\037g\316N\344\007\236i\035\363q\315\275\245\253\nJ\251\320\313\310*\250\003\317\372\0262\245\206\321t\362\262\206@\311\206\272\023\321\345~\330\256\014^J\316\001\376\017-iS\225\201\037b\201\024W:\222\340>*\371\021.\223BQ\020\211\322!{YV\033q\002\201W\230\344\322\245^\016&8\\rS3D\216\266^\344\340\020\300\n\006)(\273\240\271M\020\244O\314*fK\215\201\005\321\022u\2018;RD\362A\215Z\250\237-\252\326\342X\334\251e\244\216\316Z\221\255\230E\344`c:X\213\204\255@`\032\001#\253\016\250\021N\364\242^\367\210v|7\203}\205QT\304&6\n\324\301\262:\nC\344\356\321\224\215\301\376.\344\212p\241 \236\\\2168";
-    PyObject *data = __Pyx_DecompressString(cstring, 595, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (578 bytes) */
+const char* const cstring = "BZh91AY&SY\360S\267g\000\0009_\200@\000@wU\005\277\347\337p\277\377\377\340@\002\032t\335\327fCP\312\032z\232S\3235O\325<\nhi\243\364\241\232\200\032\032\002SRbb\232mF\210\321\243M\000\000\000\006\200\323SH\320\206\200h\000\r\000\003@\320\002P\231D\365\032=$\315\004\032\000\000\000=A\244\241\003I\232\027\231\266p\004\305+\273\352\276\017x\243a\206(\321\370\024\"\210>HCZP@D06\312\362\331\263\257\264\010\254m\210Q\224V\035Pl\371\370,\241JV\235\327J\014\202R\023l\211\374\231\323\277}@\303](\334C\201\333\000vT\020\r\324h4\366\361\262@\264\205\314:\357Rt\323\206*\207\246\253q\r$ R$\361)\002\272\262N\354\243\253\230\330\351\034xK@\275\0360d\031\247\023\n+\261.\225\274)~\367\301\367j)\242\375i{I\2011\301\311\222\345X\306\371\236-\324R\236\007q\030\231\364\023\216\260\025\300D2i\0049\003\236\251\031+\230\254D\027]\"\242\010/<O\222\024\234\345\263\370\225\366\237N\0141\363ZAb\242\217\027\202r\022\202\201!\314\016\213\224\326\317\253h]_\335\271\007\024\314\267\360\320\301\256\016a\257\323yv\203Z\375\242\351\316\231\301\344x0\306$\301\010T\316>?8\210P\211\341%\272\263,3\356Y\214rNr\320\265\221\210.?\301\321\266\227\252\230\247\2227\306\t\263.\246\346\212\256\370\024\214\307\225t\211\362\235Qms\261\355KX\024\250\024\030\335`\034\365y\002\034\320\215\022\025K\030/J\350\202jPV(\365\016\225YL\223H\231\261^\333p\217=q\372\223\014\n\003\nZ\227O\334\330\325\344\264\307\3505\225G\022\002\206i\n\257\264\215\217k\240dLk\327r~Y\251\267\002\243\312\222\241\005\243\313\236V\333q\265FA\245a\031Y|-\220\201H\037<\344\360\031\261\322U\206\314L=\237\375\2447\230UU&*\025\322\206\324\265\324,o\223\273FRY\203\374]\311\024\341BC\301N\335\234";
+    PyObject *data = __Pyx_DecompressString(cstring, 578, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (521 bytes) */
-const char* const cstring = "x\332\215SQo\2330\020\356O\361c\023uU5M}\23269\301\311\220\010F\304\251\332\275\234\034\343\244\336\300fpd\311\277\237\301^\233\227ICp|\370\356>\177\347;\226\322Z\207D9\333c7($\362tO\310\355\227\373\257D\"\231?\234g\343\373\341\034\354g\357\255L/\367\265\326v\264Ge\372\200*\353H\245\017r\250\221\000t\272\032\224\006 \325\240\t:b\235\375\200\2359\031Y{\2572\326 \000\335%)\207\202\226t\263HsZ\276,8\317\026\262\327\274E\343\354\362\033\315s\226AF_\370N,y\306\313%\317\267\"aK\236\244\371:d&\351R$|\267\310X\262+\251Hy\316\362k?{.x)\230\035\232U\232\tV\2769V\031]oW\031\247bU\313c\272\241k\006\333\364;Ks\341\357\307OAD\224\362\352\214\212\262\306\350>@qiu\221>{\215\253\215\000(.g\377$F!\344\372\214\245>\004A4+\031Mx\236\275l\351\246\310\330\030\275\025\243\222\355n!R\341W&E\273i\337\2474a\361T\002\364$\314\237\273\233\266\364\207W\313\276\037_\306j0\026\260\223J\357\245\372\tP9\005\240}\251\000G\215=J\364-0\225A\335\370\214F\372h\1775\032e$\361\037\256\032j=\241\316\371\\\337$=9\254lt\264\326u\rt\322\036\265\333\377\320\n\335\341\320kl]\013\320v\272\225\335\224\337\372\352\225l\315_\034\267\3775\310:p\275O\305\033R\027|u\366jA\237\001\374@\241\257\255\036\021F\035\036\305\341\232p\344\276\302\357L\250{\037\204\2765'Y\017\301\364\3478\335A\232/\003>\312\023<\3063\r\335$\363\333\342\302\247\n\311\374\216\304\014\372\024\275\323/B\346\263\233\377\240\n\363\342\t\377ArG\214\305\331\315\357N\266\020\022\2571\250)\375\017.\342P~";
-    PyObject *data = __Pyx_DecompressString(cstring, 521, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (514 bytes) */
+const char* const cstring = "x\332\215SQo\2330\020\356O\361c\023uU5M}\23269\301\311\220\010\216\210S\265{99\346\222z#6\203#K\376\375\014fm^&\r\201\371\360\335}\367\235\357\230k\347<1\343]KMg\210\351\323=c\267_\356\2772Ml\372p\236\364\357\207s\\?\007ki[\275\253\020]\277\036\214m#*\235g%\356uW\021\003h\260\354\014\002\260\262CF\2369\357>PcOVW\301j\254\263\004\300\267I*a\315\013\276\232\2459/^fRf3\335\242\254\311z7\377\306\363\\d\220\361\027\271Us\231\311b.\363\215J\304\\&i\276\214\221I:W\211\334\3162\221l\013\256R\231\213\374\332.\236\327\262P\302u\307E\232)Q\274\031\026\031_n\026\231\344jQ\351C\272\342K\001\233\364\273Hs\025\356\307OQ\304(\345\325[3\312\352\275\333\010\325\245\306u\372\0344.V\n`}9\207'\261\206 \3073\025\270\217\202xV\010\236\310<{\331\360\325:\023\275\367F\365J6\333\231JU\330\031\024m\207\274Oi\"\306S\2110\220\210p\356~H\031\016\257\322m\333\277\254C\260\016\250\321\006w\332\374\004(\275\001\300P*\300\001\251%M\241\005\266\264\204\307\020q\324\301;\\G$=\222\204\017_v\025\016\250\361!64\t\007\203\323G\214\253\337\375@C~\277o\221j_\003\324\r\326\272\031\202\352P\262\321\265\375\213\307\234\277:]E\202\367QxC\346B\257\336]m\340\031 L\021\205\202\252\036\321\230<\240q\242\006<r_\341w&\30268Q\350\307IW\035\266\347q\232\243\252P\001|\324'x\034\3170v\217Mo\327\0279\024\307\246wl\214\340O\243u\370%\330tr\363\037Tq>\002\341?H\356\230u4\271\371\335\350\032b\3405\0063\204\377\001\313\007I\332";
+    PyObject *data = __Pyx_DecompressString(cstring, 514, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (923 bytes) */
-const char* const bytes = "Cannot construct av.  (>.? at *0x) at 0x at 0x<av.disableenablegcisenabledno default __reduce__ due to non-trivial __cinit__AUDIO_PARAMBINARYBOOLBaseOptionCHANNEL_LAYOUTCOLORCONSTDECODING_PARAMDICTDOUBLEDURATIONENCODING_PARAMEXPORTEnumFILTERING_PARAMFLAGSFLOATFlagIMAGE_SIZEINTINT64OptionOptionChoiceOptionFlagsOptionTypePIXEL_FMT__Pyx_PyDict_NextRefRATIONALREADONLYSAMPLE_FMTSTRINGSUBTITLE_PARAMUINT64VIDEO_PARAMVIDEO_RATEav.option__class__cline_in_traceback__doc__enum__getstate__iditems__main____metaclass____module____mro_entries____name__name_norm_rangeobjectoffsetpop__prepare____pyx_capi____pyx_state__qualname____reduce____reduce_cython____reduce_ex__sentinel__set_name__setdefault__setstate____setstate_cython____test__typevaluevaluesxstruct __pyx_obj_2av_6option_Option *(PyObject *, struct AVOption const *)\000struct __pyx_obj_2av_6option_OptionChoice *(struct AVOption const *, int)\000wrap_option\000wrap_option_choice";
+    #else /* compression: none (907 bytes) */
+const char* const bytes = "Cannot construct av.  (>.? at *0x) at 0x at 0x<av.disableenablegcisenabledno default __reduce__ due to non-trivial __cinit__AUDIO_PARAMBINARYBOOLBaseOptionCHANNEL_LAYOUTCOLORCONSTDECODING_PARAMDICTDOUBLEDURATIONENCODING_PARAMEXPORTEnumFILTERING_PARAMFLAGSFLOATFlagIMAGE_SIZEINTINT64OptionOptionChoiceOptionFlagsOptionTypePIXEL_FMT__Pyx_PyDict_NextRefRATIONALREADONLYSAMPLE_FMTSTRINGSUBTITLE_PARAMUINT64VIDEO_PARAMVIDEO_RATEav.option__class__cline_in_traceback__doc__enum__getstate__iditems__main____metaclass____module____mro_entries____name__nameobjectoffsetpop__prepare____pyx_capi____pyx_state__qualname____reduce____reduce_cython____reduce_ex__sentinel__set_name__setdefault__setstate____setstate_cython____test__typevaluesxstruct __pyx_obj_2av_6option_Option *(PyObject *, struct AVOption const *)\000struct __pyx_obj_2av_6option_OptionChoice *(struct AVOption const *, int)\000wrap_option\000wrap_option_choice";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 86; i++) {
+    for (int i = 0; i < 84; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 16) PyUnicode_InternInPlace(&string);
@@ -7182,7 +7012,7 @@ const char* const bytes = "Cannot construct av.  (>.? at *0x) at 0x at 0x<av.dis
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 86; i < 87; i++) {
+    for (int i = 84; i < 85; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -7193,14 +7023,14 @@ const char* const bytes = "Cannot construct av.  (>.? at *0x) at 0x at 0x<av.dis
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 87; i++) {
+    for (Py_ssize_t i = 0; i < 85; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 86;
+      PyObject **table = stringtab + 84;
       for (Py_ssize_t i=0; i<1; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -8649,19 +8479,6 @@ static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
 #endif
     return __Pyx_GetBuiltinName(name);
 }
-
-/* PyObjectFastCallMethod */
-#if !CYTHON_VECTORCALL || PY_VERSION_HEX < 0x03090000
-static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf) {
-    PyObject *result;
-    PyObject *attr = PyObject_GetAttr(args[0], name);
-    if (unlikely(!attr))
-        return NULL;
-    result = __Pyx_PyObject_FastCall(attr, args+1, nargsf - 1);
-    Py_DECREF(attr);
-    return result;
-}
-#endif
 
 /* PyObjectFormat */
 #if CYTHON_USE_UNICODE_WRITER

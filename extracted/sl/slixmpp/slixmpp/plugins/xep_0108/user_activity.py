@@ -6,7 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import Optional
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0108 import stanza, UserActivity
 
@@ -32,8 +31,8 @@ class XEP_0108(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('user_activity', UserActivity)
 
-    def publish_activity(self, general: str, specific: Optional[str] = None,
-                         text: Optional[str] = None, **pubsubkwargs) -> Future:
+    def publish_activity(self, general: str, specific: str | None = None,
+                         text: str | None = None, **pubsubkwargs) -> Future:
         """
         Publish the user's current activity.
 

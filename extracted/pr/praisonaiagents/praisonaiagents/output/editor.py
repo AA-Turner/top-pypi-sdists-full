@@ -485,11 +485,14 @@ def enable_editor_output(
     ):
         if not _editor_output_enabled or _editor_output is None:
             return
-        # Skip if llm_content already displayed this exact text as narrative
-        if response and hasattr(_editor_output, '_last_narrative_text') and _editor_output._last_narrative_text == response.strip():
-            _editor_output._last_narrative_text = None  # Reset for next turn
+        # Dedup: skip if this exact response was already displayed
+        # Covers both llm_content→interaction and interaction→interaction duplicates
+        # (LLM layer and Agent layer both fire execute_sync_callback('interaction'))
+        if response and hasattr(_editor_output, '_last_displayed_response') and _editor_output._last_displayed_response == response.strip():
+            _editor_output._last_displayed_response = None  # Reset for next turn
             return
         if response:
+            _editor_output._last_displayed_response = response.strip()
             _editor_output.output(response, agent_name)
 
     def on_error(message: str = None, **kwargs):
@@ -513,7 +516,10 @@ def enable_editor_output(
         if not _editor_output_enabled or _editor_output is None:
             return
         if content and content.strip():
-            _editor_output._last_narrative_text = content.strip()
+            # Dedup: skip if on_interaction already displayed this exact text
+            if hasattr(_editor_output, '_last_displayed_response') and _editor_output._last_displayed_response == content.strip():
+                return
+            _editor_output._last_displayed_response = content.strip()
             _editor_output.narrative(content.strip(), agent_name=agent_name)
 
     register_display_callback('tool_call', on_tool_call)

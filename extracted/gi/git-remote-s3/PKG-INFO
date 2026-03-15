@@ -1,25 +1,18 @@
 Metadata-Version: 2.4
 Name: git-remote-s3
-Version: 0.3.1
+Version: 0.3.2
 Summary: A git remote helper for Amazon S3
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
 Author: Massimiliano Angelino
 Author-email: angmas@amazon.com
-Requires-Python: >3.9
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >= 3.10
 Classifier: Topic :: Software Development :: Version Control
 Classifier: Topic :: Software Development :: Version Control :: Git
-Requires-Dist: boto3 (>=1.34.155,<2.0.0)
-Requires-Dist: botocore (>=1.39.4,<2.0.0)
-Project-URL: Repository, https://github.com/awslabs/git-remote-s3
+Requires-Dist: boto3 (>=1.42.24,<2.0.0)
+Requires-Dist: botocore (>=1.42.24,<2.0.0)
+Requires-Dist: urllib3 (>=2.6.3,<3.0.0)
 Description-Content-Type: text/markdown
 
 # git-remote-s3

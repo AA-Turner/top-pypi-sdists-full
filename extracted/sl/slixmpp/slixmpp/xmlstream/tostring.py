@@ -8,7 +8,7 @@
 # :license: MIT, see LICENSE for more details
 from __future__ import annotations
 
-from typing import Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from xml.etree.ElementTree import Element
 if TYPE_CHECKING:
     from slixmpp.xmlstream import XMLStream
@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 XML_NS = 'http://www.w3.org/XML/1998/namespace'
 
 
-def tostring(xml: Optional[Element] = None, xmlns: str = '',
-             stream: Optional[XMLStream] = None, outbuffer: str = '',
+def tostring(xml: Element | None = None, xmlns: str = '',
+             stream: XMLStream | None = None, outbuffer: str = '',
              top_level: bool = False, open_only: bool = False,
-             namespaces: Optional[Set[str]] = None) -> str:
+             namespaces: set[str] | None = None) -> str:
     """Serialize an XML object to a Unicode string.
 
     If an outer xmlns is provided using ``xmlns``, then the current element's

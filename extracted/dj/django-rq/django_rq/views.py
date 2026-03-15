@@ -22,8 +22,21 @@ from rq.worker import Worker
 from rq.worker_registration import clean_worker_registry
 
 from .queues import get_queue_by_index, get_scheduler_by_index
-from .settings import QUEUES_MAP
+from .settings import get_queues_map
 from .utils import get_executions, get_jobs, stop_jobs
+
+
+def rq_viewname(request: HttpRequest, viewname: str) -> str:
+    current_app = getattr(request, "current_app", None)
+    if current_app:
+        return f"{current_app}:django_rq_{viewname}"
+    return f"django_rq:{viewname}"
+
+
+def each_context(request: HttpRequest) -> dict[str, Any]:
+    return {
+        **admin.site.each_context(request),
+    }
 
 
 @never_cache
@@ -45,7 +58,7 @@ def jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -86,7 +99,7 @@ def finished_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -127,7 +140,7 @@ def failed_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -168,7 +181,7 @@ def scheduled_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -213,7 +226,7 @@ def started_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -235,7 +248,7 @@ def workers(request: HttpRequest, queue_index: int) -> HttpResponse:
     workers = [worker for worker in all_workers if queue.name in worker.queue_names()]
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'workers': workers,
@@ -255,7 +268,7 @@ def worker_details(request: HttpRequest, queue_index: int, key: str) -> HttpResp
     queue_names = ', '.join(worker.queue_names())
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'worker': worker,
@@ -298,7 +311,7 @@ def deferred_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue': queue,
         'queue_index': queue_index,
         'jobs': jobs,
@@ -351,7 +364,7 @@ def job_detail(request: HttpRequest, queue_index: int, job_id: str) -> HttpRespo
         dependencies.append((dependency_id, dependency))
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'job': job,
         'queue': queue,
@@ -373,10 +386,10 @@ def delete_job(request: HttpRequest, queue_index: int, job_id: str) -> HttpRespo
         queue.connection.lrem(queue.key, 0, job.id)
         job.delete()
         messages.info(request, f'You have successfully deleted {job.id}')
-        return redirect('rq_jobs', queue_index)
+        return redirect(rq_viewname(request, "jobs"), queue_index)
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'job': job,
         'queue': queue,
@@ -393,10 +406,10 @@ def requeue_job_view(request: HttpRequest, queue_index: int, job_id: str) -> Htt
     if request.method == 'POST':
         requeue_job(job_id, connection=queue.connection, serializer=queue.serializer)
         messages.info(request, f'You have successfully requeued {job.id}')
-        return redirect('rq_job_detail', queue_index, job_id)
+        return redirect(rq_viewname(request, "job_detail"), queue_index, job_id)
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'job': job,
         'queue': queue,
@@ -412,10 +425,10 @@ def clear_queue(request: HttpRequest, queue_index: int) -> HttpResponse:
     if request.method == 'POST':
         queue.empty()
         messages.info(request, f'You have successfully cleared the queue {queue.name}')
-        return redirect('rq_jobs', queue_index)
+        return redirect(rq_viewname(request, "jobs"), queue_index)
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'queue': queue,
     }
@@ -440,10 +453,10 @@ def requeue_all(request: HttpRequest, queue_index: int) -> HttpResponse:
                 pass
 
         messages.info(request, 'You have successfully requeued %d jobs!' % count)
-        return redirect('rq_jobs', queue_index)
+        return redirect(rq_viewname(request, "jobs"), queue_index)
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'queue': queue,
         'total_jobs': len(registry),
@@ -468,10 +481,10 @@ def delete_failed_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
                 count += 1
 
         messages.info(request, 'You have successfully deleted %d jobs!' % count)
-        return redirect('rq_home')
+        return redirect(rq_viewname(request, "home"))
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'queue': queue,
         'total_jobs': len(registry),
@@ -484,13 +497,13 @@ def delete_failed_jobs(request: HttpRequest, queue_index: int) -> HttpResponse:
 @staff_member_required
 def confirm_action(request: HttpRequest, queue_index: int) -> HttpResponse:
     queue = get_queue_by_index(queue_index)
-    next_url = request.META.get('HTTP_REFERER') or reverse('rq_jobs', args=[queue_index])
+    next_url = request.META.get('HTTP_REFERER') or reverse(rq_viewname(request, "jobs"), args=[queue_index])
 
     if request.method == 'POST' and request.POST.get('action', False):
         # confirm action
         if request.POST.get('_selected_action', False):
             context_data = {
-                **admin.site.each_context(request),
+                **each_context(request),
                 'queue_index': queue_index,
                 'action': request.POST['action'],
                 'job_ids': request.POST.getlist('_selected_action'),
@@ -506,7 +519,7 @@ def confirm_action(request: HttpRequest, queue_index: int) -> HttpResponse:
 @staff_member_required
 def actions(request: HttpRequest, queue_index: int) -> HttpResponse:
     queue = get_queue_by_index(queue_index)
-    next_url = request.POST.get('next_url') or reverse('rq_jobs', args=[queue_index])
+    next_url = request.POST.get('next_url') or reverse(rq_viewname(request, "jobs"), args=[queue_index])
 
     if request.method == 'POST' and request.POST.get('action', False):
         # do confirmed action
@@ -562,10 +575,10 @@ def enqueue_job(request: HttpRequest, queue_index: int, job_id: str) -> HttpResp
             registry.remove(job)
 
         messages.info(request, f'You have successfully enqueued {job.id}')
-        return redirect('rq_job_detail', queue_index, job_id)
+        return redirect(rq_viewname(request, "job_detail"), queue_index, job_id)
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'queue_index': queue_index,
         'job': job,
         'queue': queue,
@@ -582,10 +595,10 @@ def stop_job(request: HttpRequest, queue_index: int, job_id: str) -> HttpRespons
     stopped, _ = stop_jobs(queue, job_id)
     if len(stopped) == 1:
         messages.info(request, f'You have successfully stopped {job_id}')
-        return redirect('rq_job_detail', queue_index, job_id)
+        return redirect(rq_viewname(request, "job_detail"), queue_index, job_id)
     else:
         messages.error(request, f'Failed to stop {job_id}')
-        return redirect('rq_job_detail', queue_index, job_id)
+        return redirect(rq_viewname(request, "job_detail"), queue_index, job_id)
 
 
 @never_cache
@@ -605,7 +618,7 @@ def scheduler_jobs(request: HttpRequest, scheduler_index: int) -> HttpResponse:
         jobs_times = scheduler.get_jobs(with_times=True, offset=offset, length=items_per_page)
         for job, time in jobs_times:
             job.next_run = time
-            job.queue_index = QUEUES_MAP.get(job.origin, 0)
+            job.queue_index = get_queues_map().get(job.origin, 0)
             if 'cron_string' in job.meta:
                 job.schedule = f"cron: '{job.meta['cron_string']}'"
             elif 'interval' in job.meta:
@@ -619,7 +632,7 @@ def scheduler_jobs(request: HttpRequest, scheduler_index: int) -> HttpResponse:
         page_range = []
 
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         'scheduler': scheduler,
         'jobs': jobs,
         'num_jobs': num_jobs,

@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
+import unittest
+import zoneinfo
 from datetime import datetime, timedelta
 from functools import partial
 from time import sleep
@@ -25,7 +22,7 @@ from croniter.tests import base
 
 
 class CroniterTest(base.TestCase):
-    def testSecondSec(self):
+    def test_second_sec(self):
         base = datetime(2012, 4, 6, 13, 26, 10)
         itr = croniter("* * * * * 15,25", base)
         n = itr.get_next(datetime)
@@ -36,7 +33,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(15, n.second)
         self.assertEqual(27, n.minute)
 
-    def testSecond(self):
+    def test_second(self):
         base = datetime(2012, 4, 6, 13, 26, 10)
         itr = croniter("*/1 * * * * *", base)
         n1 = itr.get_next(datetime)
@@ -47,7 +44,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(base.minute, n1.minute)
         self.assertEqual(base.second + 1, n1.second)
 
-    def testSecondRepeat(self):
+    def test_second_repeat(self):
         base = datetime(2012, 4, 6, 13, 26, 36)
         itr = croniter("* * * * * */15", base)
         n1 = itr.get_next(datetime)
@@ -72,7 +69,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(base.minute + 1, n3.minute)
         self.assertEqual(15, n3.second)
 
-    def testMinute(self):
+    def test_minute(self):
         # minute asterisk
         base = datetime(2010, 1, 23, 12, 18)
         itr = croniter("*/1 * * * *", base)
@@ -101,7 +98,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n6.minute, 0)
         self.assertEqual(n6.hour, 13)
 
-    def testHour(self):
+    def test_hour(self):
         base = datetime(2010, 1, 24, 12, 2)
         itr = croniter("0 */3 * * *", base)
         n1 = itr.get_next(datetime)
@@ -113,7 +110,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n2.hour, 0)
         self.assertEqual(n2.day, 25)
 
-    def testDay(self):
+    def test_day(self):
         base = datetime(2010, 2, 24, 12, 9)
         itr = croniter("0 0 */3 * *", base)
         n1 = itr.get_next(datetime)
@@ -144,7 +141,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n4.day, 29)
         self.assertEqual(n4.month, 2)
 
-    def testDay2(self):
+    def test_day2(self):
         base3 = datetime(2024, 2, 28)
         itr2 = croniter("* * 29 2 *", base3)
         n3 = itr2.get_prev(datetime)
@@ -152,7 +149,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n3.month, 2)
         self.assertEqual(n3.day, 29)
 
-    def testWeekDay(self):
+    def test_weekday(self):
         base = datetime(2010, 2, 25)
         itr = croniter("0 0 * * sat", base)
         n1 = itr.get_next(datetime)
@@ -178,7 +175,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n3.day, 3)
         self.assertEqual(n3.year, 2010)
 
-    def testNthWeekDay(self):
+    def test_nth_weekday(self):
         base = datetime(2010, 2, 25)
         itr = croniter("0 0 * * sat#1", base)
         n1 = itr.get_next(datetime)
@@ -205,7 +202,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n3.day, 29)
         self.assertEqual(n3.year, 2010)
 
-    def testWeekDayDayAnd(self):
+    def test_weekday_day_and(self):
         base = datetime(2010, 1, 25)
         itr = croniter("0 0 1 * mon", base, day_or=False)
         n1 = itr.get_next(datetime)
@@ -221,7 +218,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n3.day, 1)
         self.assertEqual(n3.year, 2010)
 
-    def testDomDowVixieCronBug(self):
+    def test_dom_dow_vixie_cron_bug(self):
         expr = "0 16 */2 * sat"
 
         # UNION OF "every odd-numbered day" and "every Saturday"
@@ -233,17 +230,14 @@ class CroniterTest(base.TestCase):
 
         # INTERSECTION OF "every odd-numbered day" and "every Saturday"
         itr = croniter(
-            expr,
-            start_time=datetime(2023, 5, 2),
-            ret_type=datetime,
-            implement_cron_bug=True,
+            expr, start_time=datetime(2023, 5, 2), ret_type=datetime, implement_cron_bug=True
         )
         self.assertEqual(itr.get_next(), datetime(2023, 5, 13, 16, 0, 0))  # Sat May  13 2023
         self.assertEqual(itr.get_next(), datetime(2023, 5, 27, 16, 0, 0))  # Sat May  27 2023
         self.assertEqual(itr.get_next(), datetime(2023, 6, 3, 16, 0, 0))  # Sat June  3 2023
         self.assertEqual(itr.get_next(), datetime(2023, 6, 17, 16, 0, 0))  # Sun June 17 2023
 
-    def testMonth(self):
+    def test_month(self):
         base = datetime(2010, 1, 25)
         itr = croniter("0 0 1 * *", base)
         n1 = itr.get_next(datetime)
@@ -261,7 +255,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n4.month, 1)
         self.assertEqual(n4.year, 2011)
 
-    def testLastDayOfMonth(self):
+    def test_last_day_of_month(self):
         base = datetime(2015, 9, 4)
         itr = croniter("0 0 l * *", base)
         n1 = itr.get_next(datetime)
@@ -277,7 +271,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n4.month, 12)
         self.assertEqual(n4.day, 31)
 
-    def testRangeWithUppercaseLastDayOfMonth(self):
+    def test_range_with_uppercase_last_day_of_month(self):
         base = datetime(2015, 9, 4)
         itr = croniter("0 0 29-L * *", base)
         n1 = itr.get_next(datetime)
@@ -287,7 +281,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n2.month, 9)
         self.assertEqual(n2.day, 30)
 
-    def testPrevLastDayOfMonth(self):
+    def test_prev_last_day_of_month(self):
         base = datetime(2009, 12, 31, hour=20)
         itr = croniter("0 0 l * *", base)
         n1 = itr.get_prev(datetime)
@@ -330,7 +324,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n1.month, 12)
         self.assertEqual(n1.day, 31)
 
-    def testError(self):
+    def test_error(self):
         itr = croniter("* * * * *")
         self.assertRaises(TypeError, itr.get_next, str)
         self.assertRaises(ValueError, croniter, "* * * *")
@@ -343,7 +337,7 @@ class CroniterTest(base.TestCase):
         self.assertRaises(CroniterBadCronError, croniter, "0-1& * * * *", datetime.now())
         self.assertRaises(ValueError, croniter, "* * 5-100 * *")
 
-    def testSundayToThursdayWithAlphaConversion(self):
+    def test_sunday_to_thursday_with_alpha_conversion(self):
         base = datetime(2010, 8, 25, 15, 56)  # wednesday
         itr = croniter("30 22 * * sun-thu", base)
         next = itr.get_next(datetime)
@@ -354,7 +348,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(22, next.hour)
         self.assertEqual(30, next.minute)
 
-    def testOptimizeCronExpressions(self):
+    def test_optimize_cron_expressions(self):
         """Non-optimal cron expressions that can be simplified."""
         wildcard = ["*"]
         m, h, d, mon, dow, s = range(6)
@@ -375,7 +369,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(croniter("30 1-12,0,10-23 15-21 * fri").expanded[h], wildcard)
         self.assertEqual(croniter("30 1-23,0 15-21 * fri").expanded[h], wildcard)
 
-    def testBlockDupRanges(self):
+    def test_block_dup_ranges(self):
         """Ensure that duplicate/overlapping ranges are squashed"""
         m, h, d, mon, dow, s = range(6)
         self.assertEqual(croniter("* 5,5,1-6 * * *").expanded[h], [1, 2, 3, 4, 5, 6])
@@ -383,9 +377,11 @@ class CroniterTest(base.TestCase):
         self.assertEqual(croniter("* * * * * 1,5,*/20,20,15").expanded[s], [0, 1, 5, 15, 20, 40])
         self.assertEqual(croniter("* 4,1-4,5,4 * * *").expanded[h], [1, 2, 3, 4, 5])
         # Real life example
-        self.assertEqual(croniter("59 23 * 1 wed,fri,mon-thu,tue,tue").expanded[dow], [1, 2, 3, 4, 5])
+        self.assertEqual(
+            croniter("59 23 * 1 wed,fri,mon-thu,tue,tue").expanded[dow], [1, 2, 3, 4, 5]
+        )
 
-    def testPrevMinute(self):
+    def test_prev_minute(self):
         base = datetime(2010, 8, 25, 15, 56)
         itr = croniter("*/1 * * * *", base)
         prev = itr.get_prev(datetime)
@@ -413,7 +409,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(23, prev.hour)
         self.assertEqual(59, prev.minute)
 
-    def testPrevDayOfMonthWithCrossing(self):
+    def test_prev_day_of_month_with_crossing(self):
         """
         Test getting previous occurrence that crosses into previous month.
         """
@@ -426,7 +422,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev.hour, 0)
         self.assertEqual(prev.minute, 0)
 
-    def testPrevWeekDay(self):
+    def test_prev_weekday(self):
         base = datetime(2010, 8, 25, 15, 56)
         itr = croniter("0 0 * * sat,sun", base)
         prev1 = itr.get_prev(datetime)
@@ -450,7 +446,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev3.hour, 0)
         self.assertEqual(prev3.minute, 0)
 
-    def testPrevNthWeekDay(self):
+    def test_prev_nth_weekday(self):
         base = datetime(2010, 8, 25, 15, 56)
         itr = croniter("0 0 * * sat#1,sun#2", base)
         prev1 = itr.get_prev(datetime)
@@ -474,7 +470,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev3.hour, 0)
         self.assertEqual(prev3.minute, 0)
 
-    def testPrevWeekDay2(self):
+    def test_prev_weekday2(self):
         base = datetime(2010, 8, 25, 15, 56)
         itr = croniter("10 0 * * 0", base)
         prev = itr.get_prev(datetime)
@@ -482,7 +478,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev.hour, 0)
         self.assertEqual(prev.minute, 10)
 
-    def testISOWeekday(self):
+    def test_iso_weekday(self):
         base = datetime(2010, 2, 25)
         itr = croniter("0 0 * * 6", base)
         n1 = itr.get_next(datetime)
@@ -493,7 +489,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n2.day, 6)
         self.assertEqual(n2.month, 3)
 
-    def testBug1(self):
+    def test_bug1(self):
         base = datetime(2012, 2, 24)
         itr = croniter("5 0 */2 * *", base)
         n1 = itr.get_prev(datetime)
@@ -504,7 +500,7 @@ class CroniterTest(base.TestCase):
         # so correct is not 22  but 23
         self.assertEqual(n1.day, 23)
 
-    def testBug2(self):
+    def test_bug2(self):
         base = datetime(2012, 1, 1, 0, 0)
         iter = croniter("0 * * 3 *", base)
         n1 = iter.get_next(datetime)
@@ -528,7 +524,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n3.hour, base.hour + 2)
         self.assertEqual(n3.minute, base.minute)
 
-    def testBug3(self):
+    def test_bug3(self):
         base = datetime(2013, 3, 1, 12, 17, 34, 257877)
         c = croniter("00 03 16,30 * *", base)
 
@@ -562,9 +558,9 @@ class CroniterTest(base.TestCase):
         try:
             itr.get_next(datetime)
         except (CroniterBadDateError,) as ex:
-            self.assertEqual("{0}".format(ex), "failed to find next date")
+            self.assertEqual(f"{ex}", "failed to find next date")
 
-    def testBug57(self):
+    def test_bug57(self):
         base = datetime(2012, 2, 24, 0, 0, 0)
         itr = croniter("0 4/6 * * *", base)
         n1 = itr.get_next(datetime)
@@ -661,7 +657,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(p1.day, 1)
         self.assertEqual(p1.year, 2016)
 
-    def test_rangeGenerator(self):
+    def test_range_generator(self):
         base = datetime(2013, 3, 4, 0, 0)
         itr = croniter("1-9/2 0 1 * *", base)
         n1 = itr.get_next(datetime)
@@ -675,7 +671,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(n4.minute, 7)
         self.assertEqual(n5.minute, 9)
 
-    def testPreviousHour(self):
+    def test_previous_hour(self):
         base = datetime(2012, 6, 23, 17, 41)
         itr = croniter("* 10 * * *", base)
         prev1 = itr.get_prev(datetime)
@@ -685,7 +681,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev1.hour, 10)
         self.assertEqual(prev1.minute, 59)
 
-    def testPreviousDay(self):
+    def test_previous_day(self):
         base = datetime(2012, 6, 27, 0, 15)
         itr = croniter("* * 26 * *", base)
         prev1 = itr.get_prev(datetime)
@@ -695,7 +691,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev1.hour, 23)
         self.assertEqual(prev1.minute, 59)
 
-    def testPreviousMonth(self):
+    def test_previous_month(self):
         base = datetime(2012, 6, 18, 0, 15)
         itr = croniter("* * * 5 *", base)
         prev1 = itr.get_prev(datetime)
@@ -705,7 +701,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev1.hour, 23)
         self.assertEqual(prev1.minute, 59)
 
-    def testPreviousDow(self):
+    def test_previous_dow(self):
         base = datetime(2012, 5, 13, 18, 48)
         itr = croniter("* * * * sat", base)
         prev1 = itr.get_prev(datetime)
@@ -715,7 +711,7 @@ class CroniterTest(base.TestCase):
         self.assertEqual(prev1.hour, 23)
         self.assertEqual(prev1.minute, 59)
 
-    def testGetCurrent(self):
+    def test_get_current(self):
         base = datetime(2012, 9, 25, 11, 24)
         itr = croniter("* * * * *", base)
         res = itr.get_current(datetime)
@@ -725,78 +721,175 @@ class CroniterTest(base.TestCase):
         self.assertEqual(base.hour, res.hour)
         self.assertEqual(base.minute, res.minute)
 
-    def testTimezone(self):
+    def test_first_of_march(self):
+        """Test not skipping first of March.
+
+        This fixes https://github.com/pallets-eco/croniter/issues/1
+        """
+        it = croniter("0 0 */10 * *", datetime(2025, 2, 22))
+        self.assertEqual(it.get_next(datetime).isoformat(), "2025-03-01T00:00:00")
+
+    def test_timezone(self):
         base = datetime(2013, 3, 4, 12, 15)
         itr = croniter("* * * * *", base)
         n1 = itr.get_next(datetime)
         self.assertEqual(n1.tzinfo, None)
 
+        tokyo = zoneinfo.ZoneInfo("Asia/Tokyo")
+        start = datetime(2013, 3, 4, 12, 15, tzinfo=tokyo)
+        itr2 = croniter("* * * * *", start)
+        n2 = itr2.get_next(datetime)
+        self.assertEqual(n2.tzinfo.key, "Asia/Tokyo")
+
+    def test_timezone_pytz(self):
         tokyo = pytz.timezone("Asia/Tokyo")
+        base = datetime(2013, 3, 4, 12, 15)
         itr2 = croniter("* * * * *", tokyo.localize(base))
         n2 = itr2.get_next(datetime)
         self.assertEqual(n2.tzinfo.zone, "Asia/Tokyo")
 
-    def testTimezoneDateutil(self):
+    def test_timezone_dateutil(self):
         tokyo = dateutil.tz.gettz("Asia/Tokyo")
         base = datetime(2013, 3, 4, 12, 15, tzinfo=tokyo)
         itr = croniter("* * * * *", base)
         n1 = itr.get_next(datetime)
         self.assertEqual(n1.tzinfo.tzname(n1), "JST")
 
-    def testInitNoStartTime(self):
+    def test_init_no_start_time(self):
         itr = croniter("* * * * *")
         sleep(0.01)
         itr2 = croniter("* * * * *")
         # Greater does not exists in py26
         self.assertTrue(itr2.cur > itr.cur)
 
-    def assertScheduleTimezone(self, callback, expected_schedule):
-        for expected_date, expected_offset in expected_schedule:
-            d = callback()
-            self.assertEqual(expected_date, d.replace(tzinfo=None))
-            self.assertEqual(expected_offset, croniter._timedelta_to_seconds(d.utcoffset()))
+    def test_timezone_winter_time(self):
+        """Test Athens jumps backwards: 2013-10-27 04:00 -> 03:00 (UTC+3 -> UTC+2)."""
+        tz = zoneinfo.ZoneInfo("Europe/Athens")
 
-    def testTimezoneWinterTime(self):
+        expected_schedule = [
+            "2013-10-27T02:30:00+03:00",
+            "2013-10-27T03:00:00+03:00",
+            "2013-10-27T03:30:00+03:00",
+            "2013-10-27T03:00:00+02:00",
+            "2013-10-27T03:30:00+02:00",
+            "2013-10-27T04:00:00+02:00",
+            "2013-10-27T04:30:00+02:00",
+        ]
+
+        start = datetime(2013, 10, 27, 2, 0, 0, tzinfo=tz)
+        ct = croniter("*/30 * * * *", start)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(7)]
+        self.assertEqual(schedule, expected_schedule)
+
+        start = datetime(2013, 10, 27, 5, 0, 0, tzinfo=tz)
+        ct = croniter("*/30 * * * *", start)
+        schedule = [ct.get_prev(datetime).isoformat() for _ in range(7)]
+        self.assertEqual(schedule, list(reversed(expected_schedule)))
+
+    def test_timezone_winter_time_pytz(self):
+        """Test Athens jumps backwards: 2013-10-27 04:00 -> 03:00 (UTC+3 -> UTC+2)."""
         tz = pytz.timezone("Europe/Athens")
 
         expected_schedule = [
-            (datetime(2013, 10, 27, 2, 30, 0), 10800),
-            (datetime(2013, 10, 27, 3, 0, 0), 10800),
-            (datetime(2013, 10, 27, 3, 30, 0), 10800),
-            (datetime(2013, 10, 27, 3, 0, 0), 7200),
-            (datetime(2013, 10, 27, 3, 30, 0), 7200),
-            (datetime(2013, 10, 27, 4, 0, 0), 7200),
-            (datetime(2013, 10, 27, 4, 30, 0), 7200),
+            "2013-10-27T02:30:00+03:00",
+            "2013-10-27T03:00:00+03:00",
+            "2013-10-27T03:30:00+03:00",
+            "2013-10-27T03:00:00+02:00",
+            "2013-10-27T03:30:00+02:00",
+            "2013-10-27T04:00:00+02:00",
+            "2013-10-27T04:30:00+02:00",
         ]
 
         start = datetime(2013, 10, 27, 2, 0, 0)
         ct = croniter("*/30 * * * *", tz.localize(start))
-        self.assertScheduleTimezone(lambda: ct.get_next(datetime), expected_schedule)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(7)]
+        self.assertEqual(schedule, expected_schedule)
 
         start = datetime(2013, 10, 27, 5, 0, 0)
         ct = croniter("*/30 * * * *", tz.localize(start))
-        self.assertScheduleTimezone(lambda: ct.get_prev(datetime), reversed(expected_schedule))
+        schedule = [ct.get_prev(datetime).isoformat() for _ in range(7)]
+        self.assertEqual(schedule, list(reversed(expected_schedule)))
 
-    def testTimezoneSummerTime(self):
+    def test_timezone_summer_time(self):
+        """Test Athens jumps forward: 2013-03-31 03:00 -> 04:00 (UTC+2 -> UTC+3)."""
+        tz = zoneinfo.ZoneInfo("Europe/Athens")
+
+        expected_schedule = [
+            "2013-03-31T01:30:00+02:00",
+            "2013-03-31T02:00:00+02:00",
+            "2013-03-31T02:30:00+02:00",
+            "2013-03-31T04:00:00+03:00",
+            "2013-03-31T04:30:00+03:00",
+        ]
+
+        start = datetime(2013, 3, 31, 1, 0, 0, tzinfo=tz)
+        ct = croniter("*/30 * * * *", start)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(5)]
+        self.assertEqual(schedule, expected_schedule)
+
+        start = datetime(2013, 3, 31, 5, 0, 0, tzinfo=tz)
+        ct = croniter("*/30 * * * *", start)
+        schedule = [ct.get_prev(datetime).isoformat() for _ in range(5)]
+        self.assertEqual(schedule, list(reversed(expected_schedule)))
+
+    def test_timezone_summer_time_pytz(self):
+        """Test Athens jumps forward: 2013-03-31 03:00 -> 04:00 (UTC+2 -> UTC+3)."""
         tz = pytz.timezone("Europe/Athens")
 
         expected_schedule = [
-            (datetime(2013, 3, 31, 1, 30, 0), 7200),
-            (datetime(2013, 3, 31, 2, 0, 0), 7200),
-            (datetime(2013, 3, 31, 2, 30, 0), 7200),
-            (datetime(2013, 3, 31, 4, 0, 0), 10800),
-            (datetime(2013, 3, 31, 4, 30, 0), 10800),
+            "2013-03-31T01:30:00+02:00",
+            "2013-03-31T02:00:00+02:00",
+            "2013-03-31T02:30:00+02:00",
+            "2013-03-31T04:00:00+03:00",
+            "2013-03-31T04:30:00+03:00",
         ]
 
         start = datetime(2013, 3, 31, 1, 0, 0)
         ct = croniter("*/30 * * * *", tz.localize(start))
-        self.assertScheduleTimezone(lambda: ct.get_next(datetime), expected_schedule)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(5)]
+        self.assertEqual(schedule, expected_schedule)
 
         start = datetime(2013, 3, 31, 5, 0, 0)
         ct = croniter("*/30 * * * *", tz.localize(start))
-        self.assertScheduleTimezone(lambda: ct.get_prev(datetime), reversed(expected_schedule))
+        schedule = [ct.get_prev(datetime).isoformat() for _ in range(5)]
+        self.assertEqual(schedule, list(reversed(expected_schedule)))
 
     def test_std_dst(self):
+        """
+        DST tests
+
+        This fixes https://github.com/taichino/croniter/issues/82
+
+        """
+        tz = zoneinfo.ZoneInfo("Europe/Warsaw")
+        # -> 2017-03-26 01:59+1:00 -> 03:00+2:00
+        local_date = datetime(2017, 3, 26, tzinfo=tz)
+        val = croniter("0 0 * * *", local_date).get_next(datetime)
+        self.assertEqual(val.isoformat(), "2017-03-27T00:00:00+02:00")
+        #
+        local_date = datetime(2017, 3, 26, 1, tzinfo=tz)
+        cr = croniter("0 * * * *", local_date)
+        val = cr.get_next(datetime)
+        self.assertEqual(val.isoformat(), "2017-03-26T03:00:00+02:00")
+        val = cr.get_current(datetime)
+        self.assertEqual(val.isoformat(), "2017-03-26T03:00:00+02:00")
+
+        # -> 2017-10-29 02:59+2:00 -> 02:00+1:00
+        local_date = datetime(2017, 10, 29, tzinfo=tz)
+        val = croniter("0 0 * * *", local_date).get_next(datetime)
+        self.assertEqual(val.isoformat(), "2017-10-30T00:00:00+01:00")
+        local_date = datetime(2017, 10, 29, 1, 59, tzinfo=tz)
+        cr = croniter("0 * * * *", local_date)
+        schedule = [cr.get_next(datetime).isoformat() for _ in range(4)]
+        expected_schedule = [
+            "2017-10-29T02:00:00+02:00",
+            "2017-10-29T02:00:00+01:00",
+            "2017-10-29T03:00:00+01:00",
+            "2017-10-29T04:00:00+01:00",
+        ]
+        self.assertEqual(schedule, expected_schedule)
+
+    def test_std_dst_pytz(self):
         """
         DST tests
 
@@ -807,39 +900,64 @@ class CroniterTest(base.TestCase):
         # -> 2017-03-26 01:59+1:00 -> 03:00+2:00
         local_date = tz.localize(datetime(2017, 3, 26))
         val = croniter("0 0 * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 3, 27)))
+        self.assertEqual(val.isoformat(), "2017-03-27T00:00:00+02:00")
         #
         local_date = tz.localize(datetime(2017, 3, 26, 1))
         cr = croniter("0 * * * *", local_date)
         val = cr.get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 3, 26, 3)))
+        self.assertEqual(val.isoformat(), "2017-03-26T03:00:00+02:00")
         val = cr.get_current(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 3, 26, 3)))
+        self.assertEqual(val.isoformat(), "2017-03-26T03:00:00+02:00")
 
         # -> 2017-10-29 02:59+2:00 -> 02:00+1:00
         local_date = tz.localize(datetime(2017, 10, 29))
         val = croniter("0 0 * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 10, 30)))
+        self.assertEqual(val.isoformat(), "2017-10-30T00:00:00+01:00")
         local_date = tz.localize(datetime(2017, 10, 29, 1, 59))
-        val = croniter("0 * * * *", local_date).get_next(datetime)
-        self.assertEqual(
-            val.replace(tzinfo=None),
-            tz.localize(datetime(2017, 10, 29, 2)).replace(tzinfo=None),
-        )
-        local_date = tz.localize(datetime(2017, 10, 29, 2))
-        val = croniter("0 * * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 10, 29, 3)))
-        local_date = tz.localize(datetime(2017, 10, 29, 3))
-        val = croniter("0 * * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 10, 29, 4)))
-        local_date = tz.localize(datetime(2017, 10, 29, 4))
-        val = croniter("0 * * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 10, 29, 5)))
-        local_date = tz.localize(datetime(2017, 10, 29, 5))
-        val = croniter("0 * * * *", local_date).get_next(datetime)
-        self.assertEqual(val, tz.localize(datetime(2017, 10, 29, 6)))
+        cr = croniter("0 * * * *", local_date)
+        schedule = [cr.get_next(datetime).isoformat() for _ in range(4)]
+        expected_schedule = [
+            "2017-10-29T02:00:00+02:00",
+            "2017-10-29T02:00:00+01:00",
+            "2017-10-29T03:00:00+01:00",
+            "2017-10-29T04:00:00+01:00",
+        ]
+        self.assertEqual(schedule, expected_schedule)
 
     def test_std_dst2(self):
+        """
+        DST tests
+
+        This fixes https://github.com/taichino/croniter/issues/87
+
+        São Paulo, Brazil: 18/02/2018 00:00 -> 17/02/2018 23:00
+
+        """
+        tz = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        local_dates = [
+            # 17-22: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 21, 0, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 17-23: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 22, 0, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 17-23: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 23, 0, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 18-00: 00 -> 19-00:00
+            (datetime(2018, 2, 18, 0, 0, 0, tzinfo=tz), "2018-02-19 00:00:00-03:00"),
+            # 17-22: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 21, 5, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 17-23: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 22, 5, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 17-23: 00 -> 18-00:00
+            (datetime(2018, 2, 17, 23, 5, 0, tzinfo=tz), "2018-02-18 00:00:00-03:00"),
+            # 18-00: 00 -> 19-00:00
+            (datetime(2018, 2, 18, 0, 5, 0, tzinfo=tz), "2018-02-19 00:00:00-03:00"),
+        ]
+        ret1 = [croniter("0 0 * * *", d[0]).get_next(datetime) for d in local_dates]
+        sret1 = [str(d) for d in ret1]
+        lret1 = [str(d[1]) for d in local_dates]
+        self.assertEqual(sret1, lret1)
+
+    def test_std_dst2_pytz(self):
         """
         DST tests
 
@@ -868,8 +986,8 @@ class CroniterTest(base.TestCase):
             (tz.localize(datetime(2018, 2, 18, 0, 5, 0)), "2018-02-19 00:00:00-03:00"),
         ]
         ret1 = [croniter("0 0 * * *", d[0]).get_next(datetime) for d in local_dates]
-        sret1 = ["{0}".format(d) for d in ret1]
-        lret1 = ["{0}".format(d[1]) for d in local_dates]
+        sret1 = [str(d) for d in ret1]
+        lret1 = [str(d[1]) for d in local_dates]
         self.assertEqual(sret1, lret1)
 
     def test_std_dst3(self):
@@ -881,17 +999,68 @@ class CroniterTest(base.TestCase):
         Adelaide, Australia: 15/04/2020 00:00 -> 15/03/2020
 
         """
+        tz = zoneinfo.ZoneInfo("Australia/Adelaide")
 
+        schedule = croniter("0 0 24 * *", datetime(2020, 4, 15, tzinfo=tz))
+        val1 = schedule.get_prev(datetime)
+        self.assertEqual(val1.isoformat(), "2020-03-24T00:00:00+10:30")
+
+        val2 = schedule.get_next(datetime)
+        self.assertEqual(val2.isoformat(), "2020-04-24T00:00:00+09:30")
+
+    def test_std_dst3_pytz(self):
+        """
+        DST tests
+
+        This fixes https://github.com/taichino/croniter/issues/90
+
+        Adelaide, Australia: 15/04/2020 00:00 -> 15/03/2020
+
+        """
         tz = pytz.timezone("Australia/Adelaide")
 
         schedule = croniter("0 0 24 * *", tz.localize(datetime(2020, 4, 15)))
         val1 = schedule.get_prev(datetime)
-        dt1 = tz.localize(datetime(2020, 3, 24))
-        self.assertEqual(val1, dt1)
+        self.assertEqual(val1.isoformat(), "2020-03-24T00:00:00+10:30")
 
         val2 = schedule.get_next(datetime)
-        dt2 = tz.localize(datetime(2020, 4, 24))
-        self.assertEqual(val2, dt2)
+        self.assertEqual(val2.isoformat(), "2020-04-24T00:00:00+09:30")
+
+    def test_dst_daily(self) -> None:
+        """
+        DST test for daily schedule
+
+        London jumps forward: 2025-03-30 01:00 -> 02:00 (UTC+0 -> UTC+1).
+        """
+        london = dateutil.tz.gettz("Europe/London")
+        start = datetime(2025, 3, 30, tzinfo=london)
+        ct = croniter("7 0 * * *", start)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(3)]
+        expected_schedule = [
+            "2025-03-30T00:07:00+00:00",
+            "2025-03-31T00:07:00+01:00",
+            "2025-04-01T00:07:00+01:00",
+        ]
+        self.assertEqual(schedule, expected_schedule)
+
+    def test_dst_hourly(self) -> None:
+        """
+        DST test for hourly schedule
+
+        This fixes https://github.com/pallets-eco/croniter/issues/149
+
+        London jumps forward: 2025-03-30 01:00 -> 02:00 (UTC+0 -> UTC+1).
+        """
+        london = dateutil.tz.gettz("Europe/London")
+        start = datetime(2025, 3, 30, tzinfo=london)
+        ct = croniter("7 * * * *", start)
+        schedule = [ct.get_next(datetime).isoformat() for _ in range(3)]
+        expected_schedule = [
+            "2025-03-30T00:07:00+00:00",
+            "2025-03-30T02:07:00+01:00",
+            "2025-03-30T03:07:00+01:00",
+        ]
+        self.assertEqual(schedule, expected_schedule)
 
     def test_error_alpha_cron(self):
         self.assertRaises(CroniterNotAlphaError, croniter.expand, "* * * janu-jun *")
@@ -899,9 +1068,7 @@ class CroniterTest(base.TestCase):
     def test_error_bad_cron(self):
         self.assertRaises(CroniterBadCronError, croniter.expand, "* * * *")
         self.assertRaises(
-            CroniterBadCronError,
-            croniter.expand,
-            ("* " * (max(VALID_LEN_EXPRESSION) + 1)).strip(),
+            CroniterBadCronError, croniter.expand, ("* " * (max(VALID_LEN_EXPRESSION) + 1)).strip()
         )
 
     def test_is_valid(self):
@@ -909,6 +1076,178 @@ class CroniterTest(base.TestCase):
         self.assertFalse(croniter.is_valid("0 * *"))
         self.assertFalse(croniter.is_valid("* * * janu-jun *"))
         self.assertTrue(croniter.is_valid("H 0 * * *", hash_id="abc"))
+
+    def test_is_valid_strict(self):
+        # Feb 31 - never exists
+        self.assertTrue(croniter.is_valid("0 0 31 2 *"))
+        self.assertFalse(croniter.is_valid("0 0 31 2 *", strict=True))
+        # Feb 30 - never exists
+        self.assertFalse(croniter.is_valid("0 0 30 2 *", strict=True))
+        # Apr 31 - never exists
+        self.assertFalse(croniter.is_valid("0 0 31 4 *", strict=True))
+        # Jun 31 - never exists
+        self.assertFalse(croniter.is_valid("0 0 31 6 *", strict=True))
+        # Feb 29 without year - valid (leap years exist)
+        self.assertTrue(croniter.is_valid("0 0 29 2 *", strict=True))
+        # Jan 31 - valid
+        self.assertTrue(croniter.is_valid("0 0 31 1 *", strict=True))
+        # Day 31 in months 1,2 - day 31 is reachable in Jan
+        self.assertTrue(croniter.is_valid("0 0 31 1,2 *", strict=True))
+        # Day 30 in months 2,4 - day 30 is reachable in Apr
+        self.assertTrue(croniter.is_valid("0 0 30 2,4 *", strict=True))
+        # Wildcard month - always valid
+        self.assertTrue(croniter.is_valid("0 0 31 * *", strict=True))
+        # Wildcard day - always valid
+        self.assertTrue(croniter.is_valid("0 0 * 2 *", strict=True))
+        # Last day of month - always valid
+        self.assertTrue(croniter.is_valid("0 0 l * *", strict=True))
+        # Normal expressions remain valid
+        self.assertTrue(croniter.is_valid("0 * * * *", strict=True))
+        self.assertTrue(croniter.is_valid("*/5 * * * *", strict=True))
+        # expand() also supports strict
+        with self.assertRaises(CroniterBadCronError):
+            croniter.expand("0 0 31 2 *", strict=True)
+
+    def test_is_valid_strict_with_year(self):
+        # Feb 29 in a leap year - valid
+        self.assertTrue(croniter.is_valid("0 0 29 2 * 0 2024", strict=True))
+        self.assertTrue(croniter.is_valid("0 0 29 2 * 0 2028", strict=True))
+        # Feb 29 in a non-leap year - invalid
+        self.assertFalse(croniter.is_valid("0 0 29 2 * 0 2023", strict=True))
+        self.assertFalse(croniter.is_valid("0 0 29 2 * 0 2025", strict=True))
+        # Feb 29 with mixed years (some leap, some not) - valid
+        self.assertTrue(croniter.is_valid("0 0 29 2 * 0 2023,2024", strict=True))
+        # Feb 29 with year range including a leap year - valid
+        self.assertTrue(croniter.is_valid("0 0 29 2 * 0 2023-2025", strict=True))
+        # Feb 29 with year range of all non-leap years - invalid
+        self.assertFalse(croniter.is_valid("0 0 29 2 * 0 2025-2027", strict=True))
+        # Feb 31 with any year - always invalid
+        self.assertFalse(croniter.is_valid("0 0 31 2 * 0 2024", strict=True))
+        # Feb 30 with leap year - still invalid (leap year only adds day 29)
+        self.assertFalse(croniter.is_valid("0 0 30 2 * 0 2024", strict=True))
+        # Wildcard year - Feb 29 valid (leap years exist)
+        self.assertTrue(croniter.is_valid("0 0 29 2 * 0 *", strict=True))
+
+    def test_is_valid_strict_year_parameter(self):
+        # 5-field expression with strict_year parameter
+        # Feb 29 with leap year param - valid
+        self.assertTrue(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=2024))
+        self.assertTrue(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=2000))
+        # Feb 29 with non-leap year param - invalid
+        self.assertFalse(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=2023))
+        self.assertFalse(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=1900))
+        # Feb 31 - invalid regardless of year
+        self.assertFalse(croniter.is_valid("0 0 31 2 *", strict=True, strict_year=2024))
+        # strict_year as list of years
+        self.assertTrue(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=[2023, 2024]))
+        self.assertFalse(croniter.is_valid("0 0 29 2 *", strict=True, strict_year=[2023, 2025]))
+        # Non-Feb months ignore strict_year
+        self.assertTrue(croniter.is_valid("0 0 31 1 *", strict=True, strict_year=2023))
+        # strict_year without strict has no effect (backward compatible)
+        self.assertTrue(croniter.is_valid("0 0 31 2 *", strict_year=2024))
+
+    def test_nearest_weekday_basic(self):
+        # 15W: nearest weekday to the 15th
+        # Jan 2024: 15th is Monday -> fires on 15th
+        base = datetime(2024, 1, 1)
+        itr = croniter("0 9 15W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 1, 15, 9, 0))
+
+        # Feb 2024: 15th is Thursday -> fires on 15th
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 2, 15, 9, 0))
+
+        # Mar 2024: 15th is Friday -> fires on 15th
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 3, 15, 9, 0))
+
+    def test_nearest_weekday_saturday(self):
+        # Jun 2024: 15th is Saturday -> fires on Friday 14th
+        base = datetime(2024, 6, 1)
+        itr = croniter("0 9 15W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 6, 14, 9, 0))
+
+    def test_nearest_weekday_sunday(self):
+        # Sep 2024: 15th is Sunday -> fires on Monday 16th
+        base = datetime(2024, 9, 1)
+        itr = croniter("0 9 15W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 9, 16, 9, 0))
+
+    def test_nearest_weekday_first_saturday(self):
+        # 1W: 1st is Saturday -> fires on Monday 3rd (no backward month crossing)
+        # Jun 2024: 1st is Saturday
+        base = datetime(2024, 5, 31)
+        itr = croniter("0 9 1W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 6, 3, 9, 0))
+
+    def test_nearest_weekday_last_day_sunday(self):
+        # 31W in Mar 2025: 31st is Monday -> fires on 31st
+        base = datetime(2025, 3, 1)
+        itr = croniter("0 9 31W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2025, 3, 31, 9, 0))
+
+    def test_nearest_weekday_end_of_month_boundary(self):
+        # 30W in Nov 2024: 30th is Saturday -> fires on Friday 29th
+        base = datetime(2024, 11, 1)
+        itr = croniter("0 9 30W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 11, 29, 9, 0))
+
+        # 31W in a month with only 30 days (Nov): clamps to 30th (Sat) -> Fri 29th
+        base = datetime(2024, 11, 1)
+        itr = croniter("0 9 31W * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 11, 29, 9, 0))
+
+    def test_nearest_weekday_wn_format(self):
+        # W15 format (prefix) should work the same as 15W
+        base = datetime(2024, 1, 1)
+        itr = croniter("0 9 W15 * *", base)
+        n = itr.get_next(datetime)
+        self.assertEqual(n, datetime(2024, 1, 15, 9, 0))
+
+    def test_nearest_weekday_get_prev(self):
+        # Test get_prev with W
+        base = datetime(2024, 6, 30)
+        itr = croniter("0 9 15W * *", base)
+        # Jun 2024: 15th is Saturday -> nearest weekday is Friday 14th
+        n = itr.get_prev(datetime)
+        self.assertEqual(n, datetime(2024, 6, 14, 9, 0))
+
+    def test_nearest_weekday_is_valid(self):
+        self.assertTrue(croniter.is_valid("0 9 15W * *"))
+        self.assertTrue(croniter.is_valid("0 9 W15 * *"))
+        self.assertTrue(croniter.is_valid("0 9 1W * *"))
+        self.assertTrue(croniter.is_valid("0 9 31W * *"))
+        # W cannot be used with list or range
+        self.assertFalse(croniter.is_valid("0 9 15W,16 * *"))
+        self.assertFalse(croniter.is_valid("0 9 1,15W * *"))
+        # Out of range
+        self.assertFalse(croniter.is_valid("0 9 0W * *"))
+        self.assertFalse(croniter.is_valid("0 9 32W * *"))
+
+    def test_nearest_weekday_iteration(self):
+        # Test iteration across multiple months
+        base = datetime(2023, 12, 31)
+        itr = croniter("0 0 1W * *", base)
+        results = [itr.get_next(datetime) for _ in range(6)]
+        # Jan 2024: 1st is Mon -> 1st
+        self.assertEqual(results[0], datetime(2024, 1, 1, 0, 0))
+        # Feb 2024: 1st is Thu -> 1st
+        self.assertEqual(results[1], datetime(2024, 2, 1, 0, 0))
+        # Mar 2024: 1st is Fri -> 1st
+        self.assertEqual(results[2], datetime(2024, 3, 1, 0, 0))
+        # Apr 2024: 1st is Mon -> 1st
+        self.assertEqual(results[3], datetime(2024, 4, 1, 0, 0))
+        # May 2024: 1st is Wed -> 1st
+        self.assertEqual(results[4], datetime(2024, 5, 1, 0, 0))
+        # Jun 2024: 1st is Sat -> Mon 3rd
+        self.assertEqual(results[5], datetime(2024, 6, 3, 0, 0))
 
     def test_exactly_the_same_minute(self):
         base = datetime(2018, 3, 5, 12, 30, 50)
@@ -940,34 +1279,16 @@ class CroniterTest(base.TestCase):
         _croniter = partial(croniter, "0 10 * * *", ret_type=datetime)
 
         dt = datetime(2018, 1, 2, 10, 0, 0, 500)
-        self.assertEqual(
-            _croniter(start_time=dt).get_prev(),
-            datetime(2018, 1, 2, 10, 0),
-        )
-        self.assertEqual(
-            _croniter(start_time=dt).get_next(),
-            datetime(2018, 1, 3, 10, 0),
-        )
+        self.assertEqual(_croniter(start_time=dt).get_prev(), datetime(2018, 1, 2, 10, 0))
+        self.assertEqual(_croniter(start_time=dt).get_next(), datetime(2018, 1, 3, 10, 0))
 
         dt = datetime(2018, 1, 2, 10, 0, 1, 0)
-        self.assertEqual(
-            _croniter(start_time=dt).get_prev(),
-            datetime(2018, 1, 2, 10, 0),
-        )
-        self.assertEqual(
-            _croniter(start_time=dt).get_next(),
-            datetime(2018, 1, 3, 10, 0),
-        )
+        self.assertEqual(_croniter(start_time=dt).get_prev(), datetime(2018, 1, 2, 10, 0))
+        self.assertEqual(_croniter(start_time=dt).get_next(), datetime(2018, 1, 3, 10, 0))
 
         dt = datetime(2018, 1, 2, 9, 59, 59, 999999)
-        self.assertEqual(
-            _croniter(start_time=dt).get_prev(),
-            datetime(2018, 1, 1, 10, 0),
-        )
-        self.assertEqual(
-            _croniter(start_time=dt).get_next(),
-            datetime(2018, 1, 2, 10, 0),
-        )
+        self.assertEqual(_croniter(start_time=dt).get_prev(), datetime(2018, 1, 1, 10, 0))
+        self.assertEqual(_croniter(start_time=dt).get_next(), datetime(2018, 1, 2, 10, 0))
 
     def test_invalid_zerorepeat(self):
         self.assertFalse(croniter.is_valid("*/0 * * * *"))
@@ -981,7 +1302,7 @@ class CroniterTest(base.TestCase):
             dt = datetime.fromtimestamp(c.get_next(), dateutil.tz.tzutc()).replace(tzinfo=None)
             ret.append(dt)
             dt += timedelta(days=1)
-        sret = ["{0}".format(r) for r in ret]
+        sret = [str(r) for r in ret]
         self.assertEqual(
             sret,
             [
@@ -1004,7 +1325,7 @@ class CroniterTest(base.TestCase):
             dt = datetime.fromtimestamp(c.get_next(), dateutil.tz.tzutc()).replace(tzinfo=None)
             ret.append(dt)
             dt += timedelta(days=1)
-        sret = ["{0}".format(r) for r in ret]
+        sret = [str(r) for r in ret]
         self.assertEqual(
             sret,
             [
@@ -1030,7 +1351,7 @@ class CroniterTest(base.TestCase):
             dt = datetime.fromtimestamp(c.get_next(), tz=dateutil.tz.tzutc()).replace(tzinfo=None)
             ret.append(dt)
             dt += timedelta(days=1)
-        sret = ["{0}".format(r) for r in ret]
+        sret = [str(r) for r in ret]
         self.assertEqual(
             sret,
             [
@@ -1060,57 +1381,99 @@ class CroniterTest(base.TestCase):
         self.assertTrue(croniter.match("0 0 * * * 1", datetime(2023, 5, 25, 0, 0, 1, 0)))
         self.assertFalse(croniter.match("0 0 * * * 1", datetime(2023, 5, 25, 0, 0, 2, 0)))
         self.assertTrue(croniter.match("31 * * * *", datetime(2019, 1, 14, 1, 31, 0, 0)))
-        self.assertTrue(croniter.match("0 0 10 * wed", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=True))
-        self.assertTrue(croniter.match("0 0 10 * fri", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=True))
-        self.assertTrue(croniter.match("0 0 10 * fri", datetime(2020, 6, 12, 0, 0, 0, 0), day_or=True))
-        self.assertTrue(croniter.match("0 0 10 * wed", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=False))
-        self.assertFalse(croniter.match("0 0 10 * fri", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=False))
-        self.assertFalse(croniter.match("0 0 10 * fri", datetime(2020, 6, 12, 0, 0, 0, 0), day_or=False))
+        self.assertTrue(
+            croniter.match("0 0 10 * wed", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=True)
+        )
+        self.assertTrue(
+            croniter.match("0 0 10 * fri", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=True)
+        )
+        self.assertTrue(
+            croniter.match("0 0 10 * fri", datetime(2020, 6, 12, 0, 0, 0, 0), day_or=True)
+        )
+        self.assertTrue(
+            croniter.match("0 0 10 * wed", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=False)
+        )
+        self.assertFalse(
+            croniter.match("0 0 10 * fri", datetime(2020, 6, 10, 0, 0, 0, 0), day_or=False)
+        )
+        self.assertFalse(
+            croniter.match("0 0 10 * fri", datetime(2020, 6, 12, 0, 0, 0, 0), day_or=False)
+        )
+
+    def test_match_precision(self):
+        # Default precision for 5-field cron is 60 seconds
+        # so 59 seconds off still matches
+        self.assertTrue(croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 0, 59, 0)))
+        # but 61 seconds off does not
+        self.assertFalse(croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 1, 1, 0)))
+
+        # With explicit precision_in_seconds=1, only exact second matches
+        self.assertTrue(
+            croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 0, 0, 0), precision_in_seconds=1)
+        )
+        self.assertFalse(
+            croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 0, 59, 0), precision_in_seconds=1)
+        )
+
+        # Default precision for 6-field cron is 1 second
+        self.assertTrue(croniter.match("0 0 * * * 0", datetime(2019, 1, 14, 0, 0, 0, 0)))
+        self.assertFalse(croniter.match("0 0 * * * 0", datetime(2019, 1, 14, 0, 0, 1, 0)))
+
+        # With explicit precision_in_seconds=60 on a 6-field cron, 59 seconds off matches
+        self.assertTrue(
+            croniter.match(
+                "0 0 * * * 0", datetime(2019, 1, 14, 0, 0, 59, 0), precision_in_seconds=60
+            )
+        )
+
+    def test_match_range_precision(self):
+        # With precision_in_seconds=1, match_range is strict
+        self.assertFalse(
+            croniter.match_range(
+                "0 0 * * *",
+                datetime(2019, 1, 14, 0, 0, 30, 0),
+                datetime(2019, 1, 14, 0, 0, 40, 0),
+                precision_in_seconds=1,
+            )
+        )
+        # With default precision (60s), same range matches
+        self.assertTrue(
+            croniter.match_range(
+                "0 0 * * *",
+                datetime(2019, 1, 14, 0, 0, 30, 0),
+                datetime(2019, 1, 14, 0, 0, 40, 0),
+            )
+        )
 
     def test_match_handle_bad_cron(self):
         # some cron expression can"t get prev value and should not raise exception
         self.assertFalse(croniter.match("0 0 31 1 1#1", datetime(2020, 1, 31), day_or=False))
-        self.assertFalse(
-            croniter.match(
-                "0 0 31 1 * 0 2024/2",
-                datetime(2020, 1, 31),
-            )
-        )
+        self.assertFalse(croniter.match("0 0 31 1 * 0 2024/2", datetime(2020, 1, 31)))
 
     def test_match_range(self):
         self.assertTrue(
             croniter.match_range(
-                "0 0 * * *",
-                datetime(2019, 1, 13, 0, 59, 0, 0),
-                datetime(2019, 1, 14, 0, 1, 0, 0),
+                "0 0 * * *", datetime(2019, 1, 13, 0, 59, 0, 0), datetime(2019, 1, 14, 0, 1, 0, 0)
             )
         )
         self.assertFalse(
             croniter.match_range(
-                "0 0 * * *",
-                datetime(2019, 1, 13, 0, 1, 0, 0),
-                datetime(2019, 1, 13, 0, 59, 0, 0),
+                "0 0 * * *", datetime(2019, 1, 13, 0, 1, 0, 0), datetime(2019, 1, 13, 0, 59, 0, 0)
             )
         )
         self.assertTrue(
             croniter.match_range(
-                "0 0 * * * 1",
-                datetime(2023, 5, 25, 0, 0, 0, 0),
-                datetime(2023, 5, 25, 0, 0, 2, 0),
+                "0 0 * * * 1", datetime(2023, 5, 25, 0, 0, 0, 0), datetime(2023, 5, 25, 0, 0, 2, 0)
             )
         )
         self.assertFalse(
             croniter.match_range(
-                "0 0 * * * 1",
-                datetime(2023, 5, 25, 0, 0, 2, 0),
-                datetime(2023, 5, 25, 0, 0, 4, 0),
+                "0 0 * * * 1", datetime(2023, 5, 25, 0, 0, 2, 0), datetime(2023, 5, 25, 0, 0, 4, 0)
             )
         )
         self.assertTrue(
             croniter.match_range(
-                "0 0 * * * 1",
-                datetime(2023, 5, 25, 0, 0, 1, 0),
-                datetime(2023, 5, 25, 0, 0, 4, 0),
+                "0 0 * * * 1", datetime(2023, 5, 25, 0, 0, 1, 0), datetime(2023, 5, 25, 0, 0, 4, 0)
             )
         )
         self.assertTrue(
@@ -1178,73 +1541,76 @@ class CroniterTest(base.TestCase):
         )
 
     def test_dst_issue90_st31ny(self):
-        tz = pytz.timezone("Europe/Paris")
+        """Test DST gap with cron job every day at 02:01.
+
+        Paris jumps forward: 2020-03-29 02:00 -> 03:00 (UTC+1 -> UTC+2).
+        So 2020-03-29 02:01 does not exist in local time.
+
+        This fixes https://github.com/taichino/croniter/issues/90#issuecomment-605615205
+        """
+        expected_schedule = [
+            "2020-03-28T02:01:00+01:00",  # only checked for get_prev
+            "2020-03-29T03:00:00+02:00",
+            "2020-03-30T02:01:00+02:00",
+            "2020-03-31T02:01:00+02:00",  # only checked for get_next
+        ]
+
+        tz = zoneinfo.ZoneInfo("Europe/Paris")
         now = datetime(2020, 3, 29, 1, 59, 55, tzinfo=tz)
         it = croniter("1 2 * * *", now)
-        #
-        # Taking around DST @ 29/03/20 01:59
-        #
+        schedule = [it.get_next(datetime).isoformat() for _ in range(3)]
+        self.assertEqual(schedule, expected_schedule[1:])
+
+        schedule = [it.get_prev(datetime).isoformat() for _ in range(3)]
+        self.assertEqual(schedule, list(reversed(expected_schedule[:-1])))
+
+    def test_dst_issue90_st31ny_pytz(self):
+        """Test DST gap with cron job every day at 02:01.
+
+        Paris jumps forward: 2020-03-29 02:00 -> 03:00 (UTC+1 -> UTC+2).
+        So 2020-03-29 02:01 does not exist in local time.
+
+        This fixes https://github.com/taichino/croniter/issues/90#issuecomment-605615205
+        """
+        expected_schedule = [
+            "2020-03-28T02:01:00+01:00",  # only checked for get_prev
+            "2020-03-29T03:00:00+02:00",
+            "2020-03-30T02:01:00+02:00",
+            "2020-03-31T02:01:00+02:00",  # only checked for get_next
+        ]
+
+        tz = pytz.timezone("Europe/Paris")
+        now = tz.localize(datetime(2020, 3, 29, 1, 59, 55))
+        it = croniter("1 2 * * *", now)
+        schedule = [it.get_next(datetime).isoformat() for _ in range(3)]
+        self.assertEqual(schedule, expected_schedule[1:])
+
+        schedule = [it.get_prev(datetime).isoformat() for _ in range(3)]
+        self.assertEqual(schedule, list(reversed(expected_schedule[:-1])))
+
+    def test_dst_iter(self):
+        """Test Hebron jumps one hour forward on 2022-03-27 00:00 (UTC+2 -> UTC+3)."""
+        tz = zoneinfo.ZoneInfo("Asia/Hebron")
+        now = datetime(2022, 3, 25, 0, 0, 0, tzinfo=tz)
+        it = croniter("0 0 * * *", now)
         ret = [
             it.get_next(datetime).isoformat(),
-            it.get_prev(datetime).isoformat(),
-            it.get_prev(datetime).isoformat(),
             it.get_next(datetime).isoformat(),
             it.get_next(datetime).isoformat(),
         ]
         self.assertEqual(
             ret,
             [
-                "2020-03-30T02:01:00+02:00",
-                "2020-03-29T01:01:00+01:00",
-                "2020-03-28T03:01:00+01:00",
-                "2020-03-29T03:01:00+02:00",
-                "2020-03-30T02:01:00+02:00",
-            ],
-        )
-        #
-        nowp = datetime(2020, 3, 28, 1, 58, 55, tzinfo=tz)
-        itp = croniter("1 2 * * *", nowp)
-        retp = [
-            itp.get_next(datetime).isoformat(),
-            itp.get_prev(datetime).isoformat(),
-            itp.get_prev(datetime).isoformat(),
-            itp.get_next(datetime).isoformat(),
-            itp.get_next(datetime).isoformat(),
-        ]
-        self.assertEqual(
-            retp,
-            [
-                "2020-03-29T03:01:00+02:00",
-                "2020-03-29T01:01:00+01:00",
-                "2020-03-28T03:01:00+01:00",
-                "2020-03-29T03:01:00+02:00",
-                "2020-03-30T02:01:00+02:00",
-            ],
-        )
-        #
-        nowt = datetime(2020, 3, 29, 2, 0, 0, tzinfo=tz)
-        itt = croniter("1 2 * * *", nowt)
-        rett = [
-            itt.get_next(datetime).isoformat(),
-            itt.get_prev(datetime).isoformat(),
-            itt.get_prev(datetime).isoformat(),
-            itt.get_next(datetime).isoformat(),
-            itt.get_next(datetime).isoformat(),
-        ]
-        self.assertEqual(
-            rett,
-            [
-                "2020-03-30T02:01:00+02:00",
-                "2020-03-29T01:01:00+01:00",
-                "2020-03-28T03:01:00+01:00",
-                "2020-03-29T03:01:00+02:00",
-                "2020-03-30T02:01:00+02:00",
+                "2022-03-26T00:00:00+02:00",
+                "2022-03-27T01:00:00+03:00",
+                "2022-03-28T00:00:00+03:00",
             ],
         )
 
-    def test_dst_iter(self):
+    def test_dst_iter_pytz(self):
+        """Test Hebron jumps one hour forward on 2022-03-27 00:00 (UTC+2 -> UTC+3)."""
         tz = pytz.timezone("Asia/Hebron")
-        now = datetime(2022, 3, 26, 0, 0, 0, tzinfo=tz)
+        now = tz.localize(datetime(2022, 3, 25, 0, 0, 0))
         it = croniter("0 0 * * *", now)
         ret = [
             it.get_next(datetime).isoformat(),
@@ -1261,7 +1627,9 @@ class CroniterTest(base.TestCase):
         )
 
     def test_nth_wday_simple(self):
-        f = lambda y, m, w: croniter._get_nth_weekday_of_month(y, m, w)
+        def f(y, m, w):
+            return croniter._get_nth_weekday_of_month(y, m, w)
+
         sun, mon, tue, wed, thu, fri, sat = range(7)
 
         self.assertEqual(f(2000, 1, mon), (3, 10, 17, 24, 31))
@@ -1272,7 +1640,9 @@ class CroniterTest(base.TestCase):
         self.assertEqual(f(2000, 2, sat), (5, 12, 19, 26))
 
     def test_nth_as_last_wday_simple(self):
-        f = lambda y, m, w: croniter._get_nth_weekday_of_month(y, m, w)[-1]
+        def f(y, m, w):
+            return croniter._get_nth_weekday_of_month(y, m, w)[-1]
+
         sun, mon, tue, wed, thu, fri, sat = range(7)
         self.assertEqual(f(2000, 2, tue), 29)
         self.assertEqual(f(2000, 2, sun), 27)
@@ -1283,7 +1653,9 @@ class CroniterTest(base.TestCase):
         self.assertEqual(f(2000, 2, sat), 26)
 
     def test_wdom_core_leap_year(self):
-        f = lambda y, m, w: croniter._get_nth_weekday_of_month(y, m, w)[-1]
+        def f(y, m, w):
+            return croniter._get_nth_weekday_of_month(y, m, w)[-1]
+
         sun, mon, tue, wed, thu, fri, sat = range(7)
         self.assertEqual(f(2000, 2, tue), 29)
         self.assertEqual(f(2000, 2, sun), 27)
@@ -1422,7 +1794,8 @@ class CroniterTest(base.TestCase):
             self.assertListEqual(getn(cron_c, 5), expect_c)
 
     def test_lwom_mixup_all_fri_last_sat(self):
-        # Based on the failure of test_hash_mixup_all_fri_3rd_sat, we should expect this to fail too as this implementation simply extends nth_weekday_of_month
+        # Based on the failure of test_hash_mixup_all_fri_3rd_sat, we should expect
+        # this to fail too as this implementation simply extends nth_weekday_of_month
         cron_a = "0 0 * * L6"
         cron_b = "0 0 * * 5"
         cron_c = "0 0 * * 5,L6"
@@ -1451,16 +1824,8 @@ class CroniterTest(base.TestCase):
         cron_a = "0 0 * * 6#1"
         cron_b = "0 0 * * L6"
         cron_c = "0 0 * * L6,6#1"
-        expect_a = [
-            datetime(2021, 3, 6),
-            datetime(2021, 4, 3),
-            datetime(2021, 5, 1),
-        ]
-        expect_b = [
-            datetime(2021, 3, 27),
-            datetime(2021, 4, 24),
-            datetime(2021, 5, 29),
-        ]
+        expect_a = [datetime(2021, 3, 6), datetime(2021, 4, 3), datetime(2021, 5, 1)]
+        expect_b = [datetime(2021, 3, 27), datetime(2021, 4, 24), datetime(2021, 5, 29)]
         expect_c = sorted(expect_a + expect_b)
 
         def getn(expr, n):
@@ -1477,16 +1842,8 @@ class CroniterTest(base.TestCase):
         cron_a = "0 0 * * 1#4"
         cron_b = "0 0 * * L1"
         cron_c = "0 0 * * 1#4,L1"
-        expect_a = [
-            datetime(2021, 11, 22),
-            datetime(2021, 12, 27),
-            datetime(2022, 1, 24),
-        ]
-        expect_b = [
-            datetime(2021, 11, 29),
-            datetime(2021, 12, 27),
-            datetime(2022, 1, 31),
-        ]
+        expect_a = [datetime(2021, 11, 22), datetime(2021, 12, 27), datetime(2022, 1, 24)]
+        expect_b = [datetime(2021, 11, 29), datetime(2021, 12, 27), datetime(2022, 1, 31)]
         expect_c = sorted(set(expect_a) | set(expect_b))
 
         def getn(expr, n):
@@ -1669,10 +2026,7 @@ class CroniterTest(base.TestCase):
         ret = []
         for i in range(1, 31):
             ret.append(
-                (
-                    i,
-                    croniter("35 * 1-l/8 * *", datetime(2020, 1, i), ret_type=datetime).get_next(),
-                )
+                (i, croniter("35 * 1-l/8 * *", datetime(2020, 1, i), ret_type=datetime).get_next())
             )
             i += 1
         self.assertEqual(
@@ -1718,7 +2072,8 @@ class CroniterTest(base.TestCase):
         with self.assertRaises(CroniterBadDateError):
             it = croniter(cron, start, day_or=False, max_years_between_matches=1)
             it.get_next()
-        # New functionality (0.3.35) allowing croniter to find spare matches of cron patterns across multiple years
+        # New functionality (0.3.35) allowing croniter to find spare matches of cron
+        # patterns across multiple years
         it = croniter(cron, start, day_or=False, max_years_between_matches=5)
         self.assertEqual(it.get_next(datetime), datetime(2025, 1, 8, 13))
 
@@ -1726,19 +2081,25 @@ class CroniterTest(base.TestCase):
         start = datetime(2020, 9, 24)
         cron = "0 13 8 1,4,7,10 wed"
 
-        # Expect exception because no explicit range was provided.  Therefore, the caller should be made aware that an implicit limit was hit.
+        # Expect exception because no explicit range was provided.  Therefore, the
+        # caller should be made aware that an implicit limit was hit.
         ccron = croniter(cron, start, day_or=False)
         ccron._max_years_between_matches = 1
         iterable = ccron.all_next()
         with self.assertRaises(CroniterBadDateError):
             next(iterable)
 
-        iterable = croniter(cron, start, day_or=False, max_years_between_matches=5).all_next(datetime)
+        iterable = croniter(cron, start, day_or=False, max_years_between_matches=5).all_next(
+            datetime
+        )
         n = next(iterable)
         self.assertEqual(n, datetime(2025, 1, 8, 13))
 
-        # If the explicitly given lookahead isn't enough to reach the next date, that's fine.  The caller specified the maximum gap, so no just stop iteration
-        iterable = croniter(cron, start, day_or=False, max_years_between_matches=2).all_next(datetime)
+        # If the explicitly given lookahead isn't enough to reach the next date, that's fine.
+        # The caller specified the maximum gap, so no just stop iteration
+        iterable = croniter(cron, start, day_or=False, max_years_between_matches=2).all_next(
+            datetime
+        )
         with self.assertRaises(StopIteration):
             next(iterable)
 
@@ -1770,15 +2131,15 @@ class CroniterTest(base.TestCase):
         self.assertRaises(CroniterBadCronError, croniter, "0 0 0 1 0")
 
     def test_issue_k11(self):
-        now = pytz.timezone("America/New_York").localize(datetime(2019, 1, 14, 11, 0, 59))
+        now = datetime(2019, 1, 14, 11, 0, 59, tzinfo=zoneinfo.ZoneInfo("America/New_York"))
         nextnow = croniter("* * * * * ").next(datetime, start_time=now)
         nextnow2 = croniter("* * * * * ", now).next(datetime)
         for nt in nextnow, nextnow2:
-            self.assertEqual(nt.tzinfo.zone, "America/New_York")
+            self.assertEqual(nt.tzinfo.key, "America/New_York")
             self.assertEqual(int(croniter._datetime_to_timestamp(nt)), 1547481660)
 
     def test_issue_k12(self):
-        tz = pytz.timezone("Europe/Athens")
+        tz = zoneinfo.ZoneInfo("Europe/Athens")
         base = datetime(2010, 1, 23, 12, 18, tzinfo=tz)
         itr = croniter("* * * * *")
         itr.set_current(start_time=base)
@@ -2012,10 +2373,7 @@ class CroniterTest(base.TestCase):
     def test_get_next_fails_with_expand_from_start_time_true(self):
         expanded_croniter = croniter("0 0 */5 * *", expand_from_start_time=True)
         self.assertRaises(
-            ValueError,
-            expanded_croniter.get_next,
-            datetime,
-            start_time=datetime(2024, 7, 12),
+            ValueError, expanded_croniter.get_next, datetime, start_time=datetime(2024, 7, 12)
         )
 
     def test_get_next_update_current(self):
@@ -2075,7 +2433,10 @@ class CroniterTest(base.TestCase):
         self.assertEqual(retn, retans)
 
         cron.set_current(datetime(2024, 7, 12), force=True)
-        uretn = [(cron.get_next(datetime, update_current=False), cron.get_current(datetime)) for a in range(3)]
+        uretn = [
+            (cron.get_next(datetime, update_current=False), cron.get_current(datetime))
+            for a in range(3)
+        ]
         self.assertEqual(
             uretn,
             [
@@ -2086,7 +2447,10 @@ class CroniterTest(base.TestCase):
         )
 
         cron.set_current(datetime(2024, 7, 12), force=True)
-        uretp = [(cron.get_prev(datetime, update_current=False), cron.get_current(datetime)) for a in range(3)]
+        uretp = [
+            (cron.get_prev(datetime, update_current=False), cron.get_current(datetime))
+            for a in range(3)
+        ]
         self.assertEqual(
             uretp,
             [
@@ -2115,228 +2479,635 @@ class CroniterTest(base.TestCase):
         except OverflowError:
             raise Exception("overflow not fixed!")
 
-    def test_revert_issue_90_aka_support_DOW7(self):
+    def test_revert_issue_90_aka_support_dow7(self):
         self.assertTrue(croniter.is_valid("* * * * 1-7"))
         self.assertTrue(croniter.is_valid("* * * * 7"))
 
     def test_sunday_ranges_to(self):
-        self._test_sunday_ranges(
-            "0 0 * * Sun-Sun",
-            # fmt: off
-            [
-                2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-            ],
-            # fmt: on
-        )
-
-        self._test_sunday_ranges(
-            "0 0 * * Mon-Sun",
-            # fmt: off
-            [
-                2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-            ],
-            # fmt: on
-        )
+        self._test_sunday_ranges("0 0 * * Sun-Sun", list(range(2, 32)))
+        self._test_sunday_ranges("0 0 * * Mon-Sun", list(range(2, 32)))
 
         self._test_sunday_ranges(
             "0 0 * * Tue-Sun",
-            # fmt: off
             [
-                2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21,
-                23, 24, 25, 26, 27, 28, 30, 31, 1, 2, 3, 4,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                30,
+                31,
+                1,
+                2,
+                3,
+                4,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Wed-Sun",
-            # fmt: off
             [
-                3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 17, 18, 19, 20, 21, 24, 25,
-                26, 27, 28, 31, 1, 2, 3, 4, 7, 8, 9, 10, 11,
+                3,
+                4,
+                5,
+                6,
+                7,
+                10,
+                11,
+                12,
+                13,
+                14,
+                17,
+                18,
+                19,
+                20,
+                21,
+                24,
+                25,
+                26,
+                27,
+                28,
+                31,
+                1,
+                2,
+                3,
+                4,
+                7,
+                8,
+                9,
+                10,
+                11,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Thu-Sun",
-            # fmt: off
             [
-                4, 5, 6, 7, 11, 12, 13, 14, 18, 19, 20, 21, 25, 26, 27, 28, 1,
-                2, 3, 4, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23,
+                4,
+                5,
+                6,
+                7,
+                11,
+                12,
+                13,
+                14,
+                18,
+                19,
+                20,
+                21,
+                25,
+                26,
+                27,
+                28,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9,
+                10,
+                11,
+                15,
+                16,
+                17,
+                18,
+                22,
+                23,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Fri-Sun",
-            # fmt: off
             [
-                5, 6, 7, 12, 13, 14, 19, 20, 21, 26, 27, 28, 2, 3, 4, 9, 10, 11,
-                16, 17, 18, 23, 24, 25, 1, 2, 3, 8, 9, 10,
+                5,
+                6,
+                7,
+                12,
+                13,
+                14,
+                19,
+                20,
+                21,
+                26,
+                27,
+                28,
+                2,
+                3,
+                4,
+                9,
+                10,
+                11,
+                16,
+                17,
+                18,
+                23,
+                24,
+                25,
+                1,
+                2,
+                3,
+                8,
+                9,
+                10,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sat-Sun",
-            # fmt: off
             [
-                6, 7, 13, 14, 20, 21, 27, 28, 3, 4, 10, 11, 17, 18, 24, 25, 2, 3,
-                9, 10, 16, 17, 23, 24, 30, 31, 6, 7, 13, 14,
+                6,
+                7,
+                13,
+                14,
+                20,
+                21,
+                27,
+                28,
+                3,
+                4,
+                10,
+                11,
+                17,
+                18,
+                24,
+                25,
+                2,
+                3,
+                9,
+                10,
+                16,
+                17,
+                23,
+                24,
+                30,
+                31,
+                6,
+                7,
+                13,
+                14,
             ],
-            # fmt: on
         )
 
     def test_sunday_ranges_from(self):
         self._test_sunday_ranges(
             "0 0 * * Sun-Mon",
-            # fmt: off
             [
-                7, 8, 14, 15, 21, 22, 28, 29, 4, 5, 11, 12, 18, 19, 25, 26, 3, 4,
-                10, 11, 17, 18, 24, 25, 31, 1, 7, 8, 14, 15,
+                7,
+                8,
+                14,
+                15,
+                21,
+                22,
+                28,
+                29,
+                4,
+                5,
+                11,
+                12,
+                18,
+                19,
+                25,
+                26,
+                3,
+                4,
+                10,
+                11,
+                17,
+                18,
+                24,
+                25,
+                31,
+                1,
+                7,
+                8,
+                14,
+                15,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sun-Tue",
-            # fmt: off
             [
-                2, 7, 8, 9, 14, 15, 16, 21, 22, 23, 28, 29, 30, 4, 5, 6, 11, 12,
-                13, 18, 19, 20, 25, 26, 27, 3, 4, 5, 10, 11,
+                2,
+                7,
+                8,
+                9,
+                14,
+                15,
+                16,
+                21,
+                22,
+                23,
+                28,
+                29,
+                30,
+                4,
+                5,
+                6,
+                11,
+                12,
+                13,
+                18,
+                19,
+                20,
+                25,
+                26,
+                27,
+                3,
+                4,
+                5,
+                10,
+                11,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sun-Wed",
-            # fmt: off
             [
-                2, 3, 7, 8, 9, 10, 14, 15, 16, 17, 21, 22, 23, 24, 28, 29, 30, 31,
-                4, 5, 6, 7, 11, 12, 13, 14, 18, 19, 20, 21,
+                2,
+                3,
+                7,
+                8,
+                9,
+                10,
+                14,
+                15,
+                16,
+                17,
+                21,
+                22,
+                23,
+                24,
+                28,
+                29,
+                30,
+                31,
+                4,
+                5,
+                6,
+                7,
+                11,
+                12,
+                13,
+                14,
+                18,
+                19,
+                20,
+                21,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sun-Thu",
-            # fmt: off
             [
-                2, 3, 4, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25,
-                28, 29, 30, 31, 1, 4, 5, 6, 7, 8, 11, 12,
+                2,
+                3,
+                4,
+                7,
+                8,
+                9,
+                10,
+                11,
+                14,
+                15,
+                16,
+                17,
+                18,
+                21,
+                22,
+                23,
+                24,
+                25,
+                28,
+                29,
+                30,
+                31,
+                1,
+                4,
+                5,
+                6,
+                7,
+                8,
+                11,
+                12,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sun-Fri",
-            # fmt: off
             [
-                2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 21, 22,
-                23, 24, 25, 26, 28, 29, 30, 31, 1, 2, 4, 5,
+                2,
+                3,
+                4,
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                28,
+                29,
+                30,
+                31,
+                1,
+                2,
+                4,
+                5,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Sun-Sat",
-            # fmt: off
             [
-                2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Thu-Tue/2",
-            # fmt: off
             [
-                2, 4, 6, 9, 11, 13, 16, 18, 20, 23, 25, 27, 30, 1, 3, 6, 8, 10,
-                13, 15, 17, 20, 22, 24, 27, 29, 2, 5, 7, 9,
+                2,
+                4,
+                6,
+                9,
+                11,
+                13,
+                16,
+                18,
+                20,
+                23,
+                25,
+                27,
+                30,
+                1,
+                3,
+                6,
+                8,
+                10,
+                13,
+                15,
+                17,
+                20,
+                22,
+                24,
+                27,
+                29,
+                2,
+                5,
+                7,
+                9,
             ],
-            # fmt: on
         )
 
         self._test_sunday_ranges(
             "0 0 * * Thu-Tue/3",
-            # fmt: off
             [
-                4, 7, 11, 14, 18, 21, 25, 28, 1, 4, 8, 11, 15, 18, 22, 25, 29, 3,
-                7, 10, 14, 17, 21, 24, 28, 31, 4, 7, 11, 14,
+                4,
+                7,
+                11,
+                14,
+                18,
+                21,
+                25,
+                28,
+                1,
+                4,
+                8,
+                11,
+                15,
+                18,
+                22,
+                25,
+                29,
+                3,
+                7,
+                10,
+                14,
+                17,
+                21,
+                24,
+                28,
+                31,
+                4,
+                7,
+                11,
+                14,
             ],
-            # fmt: on
         )
 
     def test_mth_ranges_from(self):
         self._test_mth_cron_ranges(
             "0 0 1 Jan-Dec *",
-            # fmt: off
             [
-                "24 2", "24 3", "24 4", "24 5", "24 6", "24 7", "24 8", "24 9",
-                "24 10", "24 11", "24 12", "25 1", "25 2", "25 3", "25 4", "25 5",
+                "24 2",
+                "24 3",
+                "24 4",
+                "24 5",
+                "24 6",
+                "24 7",
+                "24 8",
+                "24 9",
+                "24 10",
+                "24 11",
+                "24 12",
+                "25 1",
+                "25 2",
+                "25 3",
+                "25 4",
+                "25 5",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Nov-Mar *",
-            # fmt: off
             [
-                "24 2", "24 3", "24 11", "24 12", "25 1", "25 2", "25 3", "25 11",
-                "25 12", "26 1", "26 2", "26 3", "26 11", "26 12", "27 1", "27 2",
+                "24 2",
+                "24 3",
+                "24 11",
+                "24 12",
+                "25 1",
+                "25 2",
+                "25 3",
+                "25 11",
+                "25 12",
+                "26 1",
+                "26 2",
+                "26 3",
+                "26 11",
+                "26 12",
+                "27 1",
+                "27 2",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Apr-Feb *",
-            # fmt: off
             [
-                "24 2", "24 4", "24 5", "24 6", "24 7", "24 8", "24 9", "24 10",
-                "24 11", "24 12", "25 1", "25 2", "25 4", "25 5", "25 6", "25 7",
+                "24 2",
+                "24 4",
+                "24 5",
+                "24 6",
+                "24 7",
+                "24 8",
+                "24 9",
+                "24 10",
+                "24 11",
+                "24 12",
+                "25 1",
+                "25 2",
+                "25 4",
+                "25 5",
+                "25 6",
+                "25 7",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Apr-Mar/3 *",
-            # fmt: off
             [
-                "24 4", "24 7", "24 10", "25 1", "25 4", "25 7", "25 10", "26 1",
-                "26 4", "26 7", "26 10", "27 1", "27 4", "27 7", "27 10", "28 1",
+                "24 4",
+                "24 7",
+                "24 10",
+                "25 1",
+                "25 4",
+                "25 7",
+                "25 10",
+                "26 1",
+                "26 4",
+                "26 7",
+                "26 10",
+                "27 1",
+                "27 4",
+                "27 7",
+                "27 10",
+                "28 1",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Apr-Mar/2 *",
-            # fmt: off
             [
-                "24 3", "24 4", "24 6", "24 8", "24 10", "24 12", "25 3", "25 4",
-                "25 6", "25 8", "25 10", "25 12", "26 3", "26 4", "26 6", "26 8",
+                "24 3",
+                "24 4",
+                "24 6",
+                "24 8",
+                "24 10",
+                "24 12",
+                "25 3",
+                "25 4",
+                "25 6",
+                "25 8",
+                "25 10",
+                "25 12",
+                "26 3",
+                "26 4",
+                "26 6",
+                "26 8",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Jan-Aug/2 *",
-            # fmt: off
             [
-                "24 3", "24 5", "24 7", "25 1", "25 3", "25 5", "25 7", "26 1",
-                "26 3", "26 5", "26 7", "27 1", "27 3", "27 5", "27 7", "28 1",
+                "24 3",
+                "24 5",
+                "24 7",
+                "25 1",
+                "25 3",
+                "25 5",
+                "25 7",
+                "26 1",
+                "26 3",
+                "26 5",
+                "26 7",
+                "27 1",
+                "27 3",
+                "27 5",
+                "27 7",
+                "28 1",
             ],
-            # fmt: on
         )
         self._test_mth_cron_ranges(
             "0 0 1 Jan-Aug/4 *",
-            # fmt: off
             [
-                "24 5", "25 1", "25 5", "26 1", "26 5", "27 1", "27 5", "28 1",
-                "28 5", "29 1", "29 5", "30 1", "30 5", "31 1", "31 5", "32 1",
+                "24 5",
+                "25 1",
+                "25 5",
+                "26 1",
+                "26 5",
+                "27 1",
+                "27 5",
+                "28 1",
+                "28 5",
+                "29 1",
+                "29 5",
+                "30 1",
+                "30 5",
+                "31 1",
+                "31 5",
+                "32 1",
             ],
-            # fmt: on
         )
 
-    def _test_cron_ranges(self, expr, wanted, generator=None, loops=None, start=None, is_prev=None):
+    def _test_cron_ranges(
+        self, expr, wanted, generator=None, loops=None, start=None, is_prev=None
+    ):
         rets = (generator or gen_x_results)(
             expr, loops=loops or 10, start=start or datetime(2024, 1, 1), is_prev=is_prev
         )
@@ -2368,7 +3139,7 @@ def gen_x_mth_results(expr, loops=None, start=None, is_prev=None):
     start = start or datetime(2024, 1, 1)
     cron = croniter(expr, start_time=start)
     n = cron.get_prev if is_prev else cron.get_next
-    return [["{0} {1}".format(str(a.year)[-2:], a.month) for a in [n(datetime) for i in range(loops or 16)]]]
+    return [[f"{str(a.year)[-2:]} {a.month}" for a in [n(datetime) for i in range(loops or 16)]]]
 
 
 def gen_x_results(expr, loops=None, start=None, is_prev=None):

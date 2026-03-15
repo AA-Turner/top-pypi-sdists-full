@@ -1,6 +1,7 @@
 import numpy as np
 
 from dipy.testing.decorators import warning_for_keywords
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 
 matplotlib, has_mpl, setup_module = optional_package("matplotlib")
@@ -36,7 +37,7 @@ def simple_plot(file_name, title, x, y, xlabel, ylabel):
         y-axis values to be plotted
     xlabel : string
         label for x-axis
-    ylable : string
+    ylabel : string
         label for y-axis
 
     """
@@ -452,7 +453,7 @@ def overlay_slices(
         ll = np.asarray(L[:, :, slice_index]).astype(np.uint8).T
         rr = np.asarray(R[:, :, slice_index]).astype(np.uint8).T
     else:
-        print("Slice type must be 0, 1 or 2.")
+        logger.info("Slice type must be 0, 1 or 2.")
         return
 
     # Draw the intensity images to the appropriate channels of the color image

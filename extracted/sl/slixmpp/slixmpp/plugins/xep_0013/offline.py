@@ -5,7 +5,7 @@
 # See the file LICENSE for copying permissio
 import logging
 from asyncio import Future
-from typing import Iterable, Optional, Callable, List, Set, Union
+from typing import Iterable, Callable
 
 from slixmpp import JID
 from slixmpp.stanza import Message, Iq
@@ -46,9 +46,9 @@ class XEP_0013(BasePlugin):
                 local=False,
                 **kwargs)
 
-    def view(self, nodes: Iterable[str], ifrom: Optional[JID] = None,
-             timeout: Optional[int] = None,
-             callback: Optional[Callable] = None) -> Future:
+    def view(self, nodes: Iterable[str], ifrom: JID | None = None,
+             timeout: int | None = None,
+             callback: Callable | None = None) -> Future:
         if not isinstance(nodes, (list, set)):
             nodes = [nodes]
 
@@ -74,9 +74,9 @@ class XEP_0013(BasePlugin):
             callback(iq)
         return iq.send(timeout=timeout, callback=wrapped_cb)
 
-    def remove(self, nodes: Union[List[str], Set[str], str],
-               ifrom: Optional[JID] = None, timeout: Optional[int] = None,
-               callback: Optional[Callable] = None) -> Future:
+    def remove(self, nodes: list[str] | set[str] | str,
+               ifrom: JID | None = None, timeout: int | None = None,
+               callback: Callable | None = None) -> Future:
         if not isinstance(nodes, (list, set)):
             nodes = [nodes]
 
@@ -92,8 +92,8 @@ class XEP_0013(BasePlugin):
 
         return iq.send(timeout=timeout, callback=callback)
 
-    def fetch(self, ifrom: Optional[JID] = None, timeout: Optional[int] = None,
-              callback: Optional[Callable] = None) -> Future:
+    def fetch(self, ifrom: JID | None = None, timeout: int | None = None,
+              callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['from'] = ifrom
@@ -111,8 +111,8 @@ class XEP_0013(BasePlugin):
             callback(iq)
         return iq.send(timeout=timeout, callback=wrapped_cb)
 
-    def purge(self, ifrom: Optional[JID] = None, timeout: Optional[int] = None,
-              callback: Optional[Callable] = None):
+    def purge(self, ifrom: JID | None = None, timeout: int | None = None,
+              callback: Callable | None = None):
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['from'] = ifrom

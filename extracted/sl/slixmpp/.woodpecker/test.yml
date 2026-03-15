@@ -7,7 +7,7 @@ steps:
     image: codeberg.org/poezio/slixmpp:ci
     commands:
     - uv python pin ${TAG}
-    - uv sync --frozen --all-groups --all-extras
+    - uv sync --frozen --all-extras
   unit_tests:
     image: codeberg.org/poezio/slixmpp:ci
     commands:

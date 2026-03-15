@@ -11,9 +11,6 @@ import asyncio
 import logging
 
 from typing import (
-    Dict,
-    Optional,
-    Union,
     TYPE_CHECKING,
 )
 
@@ -245,7 +242,7 @@ class BaseXMPP(XMLStream):
                     self.plugin[name].post_init()
                 self.plugin[name].post_inited = True
 
-    def register_plugin(self, plugin: str, pconfig: Optional[Dict] = None, module=None):
+    def register_plugin(self, plugin: str, pconfig: dict | None = None, module=None):
         """Register and configure  a plugin for use in this stream.
 
         :param plugin: The name of the plugin class. Plugin names must
@@ -291,7 +288,7 @@ class BaseXMPP(XMLStream):
             log.warning("Plugin '%s' is not loaded.", key)
             return False
 
-    def get(self, key: str, default: Optional[BasePlugin] = None):
+    def get(self, key: str, default: BasePlugin | None = None):
         """Return a plugin given its name, if it has been registered."""
         return self.plugin.get(key, default)
 
@@ -311,9 +308,9 @@ class BaseXMPP(XMLStream):
         pres['lang'] = self.default_lang
         return pres
 
-    def make_iq(self, id: Optional[str] = None, ifrom: OptJidStr = None,
-                ito: OptJidStr = None, itype: Optional[IqTypes] = None,
-                iquery: Optional[str] = None) -> stanza.Iq:
+    def make_iq(self, id: str | None = None, ifrom: OptJidStr = None,
+                ito: OptJidStr = None, itype: IqTypes | None = None,
+                iquery: str | None = None) -> stanza.Iq:
         """Create a new :class:`~.Iq` stanza with a given Id and from JID.
 
         :param id: An ideally unique ID value for this stanza thread.
@@ -335,9 +332,9 @@ class BaseXMPP(XMLStream):
         iq['query'] = iquery
         return iq
 
-    def make_iq_get(self, queryxmlns: Optional[str] =None,
+    def make_iq_get(self, queryxmlns: str | None =None,
                     ito: OptJidStr = None, ifrom: OptJidStr = None,
-                    iq: Optional[stanza.Iq] = None) -> stanza.Iq:
+                    iq: stanza.Iq | None = None) -> stanza.Iq:
         """Create an :class:`~.Iq` stanza of type ``'get'``.
 
         Optionally, a query element may be added.
@@ -360,9 +357,9 @@ class BaseXMPP(XMLStream):
             iq['from'] = ifrom
         return iq
 
-    def make_iq_result(self, id: Optional[str] = None,
+    def make_iq_result(self, id: str | None = None,
                        ito: OptJidStr = None, ifrom: OptJidStr = None,
-                       iq: Optional[stanza.Iq] = None) -> stanza.Iq:
+                       iq: stanza.Iq | None = None) -> stanza.Iq:
         """
         Create an :class:`~.Iq` stanza of type
         ``'result'`` with the given ID value.
@@ -387,9 +384,9 @@ class BaseXMPP(XMLStream):
             iq['from'] = ifrom
         return iq
 
-    def make_iq_set(self, sub: Optional[Union[ElementBase, ET.Element]] = None,
+    def make_iq_set(self, sub: ElementBase | ET.Element | None = None,
                     ito: OptJidStr = None, ifrom: OptJidStr = None,
-                    iq: Optional[stanza.Iq] = None) -> stanza.Iq:
+                    iq: stanza.Iq | None = None) -> stanza.Iq:
         """
         Create an :class:`~.Iq` stanza of type ``'set'``.
 
@@ -450,7 +447,7 @@ class BaseXMPP(XMLStream):
             iq['from'] = ifrom
         return iq
 
-    def make_iq_query(self, iq: Optional[stanza.Iq] = None, xmlns: str = '',
+    def make_iq_query(self, iq: stanza.Iq | None = None, xmlns: str = '',
                       ito: OptJidStr = None,
                       ifrom: OptJidStr = None) -> stanza.Iq:
         """
@@ -474,7 +471,7 @@ class BaseXMPP(XMLStream):
             iq['from'] = ifrom
         return iq
 
-    def make_query_roster(self, iq: Optional[stanza.Iq] = None) -> ET.Element:
+    def make_query_roster(self, iq: stanza.Iq | None = None) -> ET.Element:
         """Create a roster query element.
 
         :param iq: Optionally use an existing stanza instead
@@ -484,11 +481,11 @@ class BaseXMPP(XMLStream):
             iq['query'] = 'jabber:iq:roster'
         return ET.Element("{jabber:iq:roster}query")
 
-    def make_message(self, mto: JidStr, mbody: Optional[str] = None,
-                     msubject: Optional[str] = None,
-                     mtype: Optional[MessageTypes] = None,
-                     mhtml: Optional[str] = None, mfrom: OptJidStr = None,
-                     mnick: Optional[str] = None) -> stanza.Message:
+    def make_message(self, mto: JidStr, mbody: str | None = None,
+                     msubject: str | None = None,
+                     mtype: MessageTypes | None = None,
+                     mhtml: str | None = None, mfrom: OptJidStr = None,
+                     mnick: str | None = None) -> stanza.Message:
         """
         Create and initialize a new
         :class:`~.Message` stanza.
@@ -513,13 +510,13 @@ class BaseXMPP(XMLStream):
             message['html']['body'] = mhtml
         return message
 
-    def make_presence(self, pshow: Optional[str] = None,
-                      pstatus: Optional[str] = None,
-                      ppriority: Optional[int] = None,
+    def make_presence(self, pshow: str | None = None,
+                      pstatus: str | None = None,
+                      ppriority: int | None = None,
                       pto: OptJidStr = None,
-                      ptype: Optional[PresenceTypes] = None,
+                      ptype: PresenceTypes | None = None,
                       pfrom: OptJidStr = None,
-                      pnick: Optional[str] = None) -> stanza.Presence:
+                      pnick: str | None = None) -> stanza.Presence:
         """
         Create and initialize a new
         :class:`~.Presence` stanza.
@@ -542,11 +539,11 @@ class BaseXMPP(XMLStream):
         presence['nick'] = pnick
         return presence
 
-    def send_message(self, mto: JID, mbody: Optional[str] = None,
-                     msubject: Optional[str] = None,
-                     mtype: Optional[MessageTypes] = None,
-                     mhtml: Optional[str] = None, mfrom: OptJidStr = None,
-                     mnick: Optional[str] = None):
+    def send_message(self, mto: JID, mbody: str | None = None,
+                     msubject: str | None = None,
+                     mtype: MessageTypes | None = None,
+                     mhtml: str | None = None, mfrom: OptJidStr = None,
+                     mnick: str | None = None):
         """
         Create, initialize, and send a new
         :class:`~.Message` stanza.
@@ -565,13 +562,13 @@ class BaseXMPP(XMLStream):
         self.make_message(mto, mbody, msubject, mtype,
                           mhtml, mfrom, mnick).send()
 
-    def send_presence(self, pshow: Optional[str] = None,
-                      pstatus: Optional[str] = None,
-                      ppriority: Optional[int] = None,
+    def send_presence(self, pshow: str | None = None,
+                      pstatus: str | None = None,
+                      ppriority: int | None = None,
                       pto: OptJidStr = None,
-                      ptype: Optional[PresenceTypes] = None,
+                      ptype: PresenceTypes | None = None,
                       pfrom: OptJidStr = None,
-                      pnick: Optional[str] = None):
+                      pnick: str | None = None):
         """
         Create, initialize, and send a new
         :class:`~.Presence` stanza.
@@ -589,7 +586,7 @@ class BaseXMPP(XMLStream):
 
     def send_presence_subscription(self, pto: JidStr, pfrom: OptJidStr = None,
                                    ptype: PresenceTypes='subscribe', pnick:
-                                   Optional[str] = None):
+                                   str | None = None):
         """
         Create, initialize, and send a new
         :class:`~.Presence` stanza of
@@ -661,7 +658,7 @@ class BaseXMPP(XMLStream):
         self.boundjid.server = value
 
     @property
-    def auto_authorize(self) -> Optional[bool]:
+    def auto_authorize(self) -> bool | None:
         """Auto accept or deny subscription requests.
 
         If ``True``, auto accept subscription requests.
@@ -671,7 +668,7 @@ class BaseXMPP(XMLStream):
         return self.roster.auto_authorize
 
     @auto_authorize.setter
-    def auto_authorize(self, value: Optional[bool]):
+    def auto_authorize(self, value: bool | None):
         self.roster.auto_authorize = value
 
     @property

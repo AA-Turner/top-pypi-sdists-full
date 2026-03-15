@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'c1d9f604e209f8fb1c314918d41781c525396f8f'
+_SKYPILOT_COMMIT_SHA = 'e23ba2da9b71710bd1bed61ea41e77ee05c88990'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20260312'
+__version__ = '1.0.0.dev20260314'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -117,6 +117,7 @@ from sky.client.sdk import stream_and_get
 from sky.client.sdk import tail_logs
 from sky.dag import Dag
 from sky.dag import DagExecution
+from sky.data import FileMountType
 from sky.data import Storage
 from sky.data import StorageMode
 from sky.data import StoreType
@@ -158,6 +159,7 @@ Mithril = clouds.Mithril
 Shadeform = clouds.Shadeform
 Seeweb = clouds.Seeweb
 Yotta = clouds.Yotta
+Verda = clouds.Verda
 
 __all__ = [
     '__version__',
@@ -190,6 +192,7 @@ __all__ = [
     'backends',
     'list_accelerators',
     '__root_dir__',
+    'FileMountType',
     'Storage',
     'StorageMode',
     'StoreType',

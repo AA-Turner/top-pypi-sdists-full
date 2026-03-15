@@ -14,7 +14,7 @@ from collections import Counter
 from PIL import Image
 import numpy as np
 
-from moviepy.editor import VideoFileClip
+from moviepy import *
 import moviepy.editor as mp
 
 import speech_recognition as sr

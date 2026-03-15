@@ -918,7 +918,7 @@ def lee_perpendicular_distance(start0, end0, start1, end1):
     Examples
     --------
     >>> d = lee_perpendicular_distance([0,0,0],[1,0,0],[3,4,5],[5,4,3])
-    >>> print('%.6f' % d)
+    >>> print(f'{d:.6f}')
     5.787888
     """
 
@@ -1420,7 +1420,7 @@ def track_dist_3pts(tracka,trackb):
     >>> a = np.array([[0,0,0],[1,0,0,],[2,0,0]])
     >>> b = np.array([[3,0,0],[3.5,1,0],[4,2,0]])
     >>> c = track_dist_3pts(a, b)
-    >>> print('%.6f' % c)
+    >>> print(f'{c:.6f}')
     2.721573
     """
 
@@ -1716,7 +1716,7 @@ def local_skeleton_clustering(tracks, d_thr=10):
 
         for j in range(points*3):
             C[k]['hidden'][j]=cluster[k].hidden[j]
-        C[k]['hidden'].shape=(points,3)
+        C[k]['hidden'] = C[k]['hidden'].reshape((points, 3))
 
         C[k]['N']=cluster[k].N
         C[k]['indices']=np.zeros(cluster[k].N,dtype=np.int64)

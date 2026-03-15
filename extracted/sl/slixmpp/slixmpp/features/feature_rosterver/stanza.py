@@ -3,12 +3,12 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.xmlstream import ElementBase
-from typing import Set, ClassVar
+from typing import ClassVar
 
 
 class RosterVer(ElementBase):
 
     name = 'ver'
     namespace = 'urn:xmpp:features:rosterver'
-    interfaces: ClassVar[Set[str]] = set()
+    interfaces: ClassVar[set[str]] = set()
     plugin_attrib = 'rosterver'

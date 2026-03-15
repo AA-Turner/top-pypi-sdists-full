@@ -1,7 +1,8 @@
-from typing import List, Optional
+import os
 
 from galaxy.jobs import JobDestination
 
+from tpv.core.explain import ExplainCollector
 from tpv.rules import gateway
 
 from .test import mock_galaxy
@@ -12,10 +13,10 @@ class TPVDryRunner:
     def __init__(
         self,
         job_conf: str,
-        tpv_confs: Optional[str] = None,
-        user: Optional[mock_galaxy.User] = None,
-        tool: Optional[mock_galaxy.Tool] = None,
-        job: Optional[mock_galaxy.Job] = None,
+        tpv_confs: list[str] | None = None,
+        user: mock_galaxy.User | None = None,
+        tool: mock_galaxy.Tool | None = None,
+        job: mock_galaxy.Job | None = None,
     ):
         self.galaxy_app = mock_galaxy.App(job_conf=job_conf, create_model=True)
         self.user = user
@@ -24,29 +25,50 @@ class TPVDryRunner:
         if tpv_confs:
             self.tpv_config_files = tpv_confs
         else:
-            self.tpv_config_files = self.galaxy_app.job_config.get_destination(  # type: ignore[no-untyped-call]
+            tpv_config_list: list[str] = self.galaxy_app.job_config.get_destination(  # type: ignore[no-untyped-call]
                 "tpv_dispatcher"
             ).params["tpv_config_files"]
+            self.tpv_config_files = self.resolve_relative_config_paths(tpv_config_list, job_conf)
 
-    def run(self) -> JobDestination:
+    @staticmethod
+    def resolve_relative_config_paths(config_files: list[str], job_conf: str) -> list[str]:
+        """Resolve relative tpv_config_files paths relative to the job_conf's directory."""
+        job_conf_dir = os.path.dirname(os.path.abspath(job_conf))
+        resolved: list[str] = []
+        for path in config_files:
+            if not os.path.isabs(path) and "://" not in path:
+                resolved.append(os.path.join(job_conf_dir, path))
+            else:
+                resolved.append(path)
+        return resolved
+
+    def run(self, explain: bool = False) -> tuple[JobDestination | None, ExplainCollector | None]:
         gateway.ACTIVE_DESTINATION_MAPPERS = {}
-        return gateway.map_tool_to_destination(
-            self.galaxy_app,  # type: ignore[arg-type]
-            self.job,  # type: ignore[arg-type]
-            self.tool,  # type: ignore[arg-type]
-            self.user,  # type: ignore[arg-type]
-            tpv_config_files=self.tpv_config_files,
-        )
+        collector = ExplainCollector() if explain else None
+        try:
+            destination = gateway.map_tool_to_destination(
+                self.galaxy_app,  # type: ignore[arg-type]
+                self.job,  # type: ignore[arg-type]
+                self.tool,  # type: ignore[arg-type]
+                self.user,  # type: ignore[arg-type]
+                tpv_config_files=self.tpv_config_files,
+                explain_collector=collector,
+            )
+        except Exception:
+            if not explain:
+                raise
+            return None, collector
+        return destination, collector
 
     @staticmethod
     def from_params(
         job_conf: str,
-        user_email: Optional[str] = None,
-        tool_id: Optional[str] = None,
-        roles: Optional[List[str]] = None,
-        history_tags: Optional[List[str]] = None,
-        tpv_confs: Optional[str] = None,
-        input_size: Optional[int] = None,
+        user_email: str | None = None,
+        tool_id: str | None = None,
+        roles: list[str] | None = None,
+        history_tags: list[str] | None = None,
+        tpv_confs: list[str] | None = None,
+        input_size: int | None = None,
     ) -> "TPVDryRunner":
         if user_email is not None:
             user = mock_galaxy.User(username="gargravarr", email=user_email)

@@ -8,6 +8,12 @@ fn to_exc(err: jid::Error) -> PyErr {
     InvalidJID::new_err(err.to_string())
 }
 
+#[pyfunction]
+fn unescape_node(node: &str) -> PyResult<String> {
+    let node = jid::NodePart::new(node).map_err(to_exc)?;
+    node.unescape().map(Into::into).map_err(to_exc)
+}
+
 /// A representation of a Jabber ID, or JID.
 ///
 /// Each JID may have three components: a user, a domain, and an optional resource. For example:
@@ -61,12 +67,6 @@ impl PyJid {
     fn __bool__(&self) -> bool {
         self.jid.is_some()
     }
-
-    /*
-    // TODO: implement or remove from the API
-    fn unescape() {
-    }
-    */
 
     #[getter]
     fn get_bare(&self) -> String {
@@ -335,8 +335,13 @@ impl PyJid {
 
 #[pymodule]
 #[pyo3(name = "jid")]
-fn py_jid(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyJid>()?;
-    m.add("InvalidJID", py.get_type::<InvalidJID>())?;
-    Ok(())
+mod module {
+    #[pymodule_export]
+    use super::PyJid;
+
+    #[pymodule_export]
+    use super::unescape_node;
+
+    #[pymodule_export]
+    use super::InvalidJID;
 }

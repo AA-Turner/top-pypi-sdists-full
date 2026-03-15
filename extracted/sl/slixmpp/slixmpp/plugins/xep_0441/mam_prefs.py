@@ -5,11 +5,6 @@
 import logging
 
 from asyncio import Future
-from typing import (
-    List,
-    Optional,
-    Tuple,
-)
 
 from slixmpp import JID
 from slixmpp.types import MAMDefault
@@ -37,8 +32,10 @@ class XEP_0441(BasePlugin):
         register_stanza_plugin(Iq, stanza.Preferences)
 
     async def get_preferences(self, **iqkwargs
-                              ) -> Tuple[MAMDefault, List[JID], List[JID]]:
+                              ) -> tuple[MAMDefault, list[JID], list[JID]]:
         """Get the current MAM preferences.
+
+        Takes all parameters from ``iq.send()``.
 
         :returns: A tuple of MAM preferences with (default, always, never)
         """
@@ -55,11 +52,11 @@ class XEP_0441(BasePlugin):
             result['mam_prefs']['never']
         )
 
-    def set_preferences(self, default: Optional[MAMDefault] = 'roster',
-                        always: Optional[List[JID]] = None,
-                        never: Optional[List[JID]] = None, *,
-                        ito: Optional[JID] = None, ifrom: Optional[JID] = None,
-                        **iqkwargs) -> Future:
+    def set_preferences(self, default: MAMDefault | None = 'roster',
+                        always: list[JID] | None = None,
+                        never: list[JID] | None = None, *,
+                        ito: JID | None = None, ifrom: JID | None = None,
+                        **iqkwargs) -> Future[Iq]:
         """Set MAM Preferences.
 
         The server answer MAY contain different items.

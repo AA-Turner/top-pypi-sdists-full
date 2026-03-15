@@ -7,7 +7,10 @@ use tombi_severity_level::SeverityLevelDefaultError;
 
 use crate::{
     comment_directive::get_tombi_key_table_value_rules_and_diagnostics,
-    validate::{handle_deprecated_value, handle_type_mismatch, handle_unused_noqa},
+    validate::{
+        handle_anything_schema, handle_deprecated_value, handle_nothing_schema,
+        handle_type_mismatch, handle_unused_noqa, validate_adjacent_applicators,
+    },
 };
 
 use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
@@ -18,7 +21,7 @@ impl Validate for LocalTime {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<(), crate::Error>> {
+    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
         async move {
             let (lint_rules, lint_rules_diagnostics) =
                 get_tombi_key_table_value_rules_and_diagnostics::<
@@ -30,8 +33,18 @@ impl Validate for LocalTime {
             let result = if let Some(current_schema) = current_schema {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::LocalTime(local_time_schema) => {
-                        validate_local_time(self, accessors, local_time_schema, lint_rules.as_ref())
-                            .await
+                        validate_local_time(
+                            self,
+                            accessors,
+                            local_time_schema,
+                            current_schema,
+                            schema_context,
+                            self.comment_directives()
+                                .map(|directives| directives.cloned().collect_vec())
+                                .as_deref(),
+                            lint_rules.as_ref(),
+                        )
+                        .await
                     }
                     ValueSchema::OneOf(one_of_schema) => {
                         validate_one_of(
@@ -75,7 +88,9 @@ impl Validate for LocalTime {
                         )
                         .await
                     }
-                    ValueSchema::Null => return Ok(()),
+                    ValueSchema::Null => return Ok(crate::EvaluatedLocations::new()),
+                    ValueSchema::Anything(_) => handle_anything_schema(self),
+                    ValueSchema::Nothing(_) => handle_nothing_schema(self),
                     value_schema => handle_type_mismatch(
                         value_schema.value_type().await,
                         self.value_type(),
@@ -84,22 +99,10 @@ impl Validate for LocalTime {
                     ),
                 }
             } else {
-                Ok(())
+                Ok(crate::EvaluatedLocations::new())
             };
 
-            match result {
-                Ok(()) => {
-                    if lint_rules_diagnostics.is_empty() {
-                        Ok(())
-                    } else {
-                        Err(lint_rules_diagnostics.into())
-                    }
-                }
-                Err(mut error) => {
-                    error.prepend_diagnostics(lint_rules_diagnostics);
-                    Err(error)
-                }
-            }
+            crate::validate::with_lint_diagnostics(result, lint_rules_diagnostics)
         }
         .boxed()
     }
@@ -109,8 +112,11 @@ async fn validate_local_time(
     local_time_value: &LocalTime,
     accessors: &[tombi_schema_store::Accessor],
     local_time_schema: &tombi_schema_store::LocalTimeSchema,
+    current_schema: &tombi_schema_store::CurrentSchema<'_>,
+    schema_context: &tombi_schema_store::SchemaContext<'_>,
+    comment_directives: Option<&[tombi_ast::TombiValueCommentDirective]>,
     lint_rules: Option<&LocalTimeCommonLintRules>,
-) -> Result<(), crate::Error> {
+) -> Result<crate::EvaluatedLocations, crate::Error> {
     let mut diagnostics = vec![];
     let value_string = local_time_value.value().to_string();
     let range = local_time_value.range();
@@ -189,9 +195,26 @@ async fn validate_local_time(
         );
     }
 
-    if diagnostics.is_empty() {
-        Ok(())
+    let base_result = if diagnostics.is_empty() {
+        Ok(crate::EvaluatedLocations::new())
     } else {
         Err(diagnostics.into())
-    }
+    };
+
+    crate::validate::merge_validation_results(
+        base_result,
+        validate_adjacent_applicators(
+            local_time_value,
+            accessors,
+            local_time_schema.one_of.as_deref(),
+            local_time_schema.any_of.as_deref(),
+            local_time_schema.all_of.as_deref(),
+            local_time_schema.not.as_deref(),
+            current_schema,
+            schema_context,
+            comment_directives,
+            lint_rules.map(|rules| &rules.common),
+        )
+        .await,
+    )
 }

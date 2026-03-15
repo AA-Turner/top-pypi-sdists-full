@@ -63,6 +63,55 @@ mod diagnostic {
             ) -> Ok([]);
         );
     }
+
+    /// Test for issue #1581: pyproject `tool.tombi.format.rules` false additional-key warnings
+    /// https://github.com/tombi-toml/tombi/issues/1581
+    mod issue_1581_pyproject_format_rules {
+        use tombi_test_lib::project_root_path;
+
+        use super::*;
+        use std::path::PathBuf;
+
+        fn fixture_path() -> PathBuf {
+            project_root_path()
+                .join("crates/tombi-lsp/tests/fixtures/issue-1581-pyproject-format-rules")
+        }
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn pyproject_tombi_format_rules_has_no_false_warnings(
+                SourcePath(fixture_path().join("pyproject.toml")),
+                ConfigPath(fixture_path().join("tombi.toml")),
+            ) -> Ok([]);
+        );
+    }
+
+    /// Test for issue #1580: conditional branches inside `allOf`
+    /// https://github.com/tombi-toml/tombi/issues/1580
+    mod issue_1580_conditional_all_of {
+        use tombi_test_lib::project_root_path;
+
+        use super::*;
+        use std::path::PathBuf;
+
+        fn fixture_path() -> PathBuf {
+            project_root_path()
+                .join("crates/tombi-lsp/tests/fixtures/issue-1580-conditional-all-of")
+        }
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn input_toml_reports_enum_error_for_invalid_conditional_branch(
+                SourcePath(fixture_path().join("input.toml")),
+                ConfigPath(fixture_path().join("tombi.toml")),
+            ) -> Ok([
+                Diagnostic {
+                    message: "The value must be one of [\"x\"], but found \"y\"",
+                    range: ((1, 12), (1, 15)),
+                }
+            ]);
+        );
+    }
 }
 
 // Unified test macro

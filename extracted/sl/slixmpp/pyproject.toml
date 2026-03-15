@@ -58,7 +58,13 @@ namespaces = false
 target = "slixmpp.jid"
 
 [dependency-groups]
-dev = [
+lint = [
     "mypy>=1.14.1",
     "typos>=1.39.2",
+]
+
+docs = [
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "furo"
 ]

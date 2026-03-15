@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 import datetime as dt
-from typing import Union
 
 from slixmpp.xmlstream import ElementBase
 from slixmpp.plugins import xep_0082
@@ -42,7 +41,7 @@ class EntityTime(ElementBase):
     interfaces = {'tzo', 'utc', 'time'}
     sub_interfaces = interfaces
 
-    def set_time(self, value: Union[str, dt.datetime]) -> None:
+    def set_time(self, value: str | dt.datetime) -> None:
         """
         Set both the UTC and TZO fields given a time object.
 
@@ -78,7 +77,7 @@ class EntityTime(ElementBase):
         time = xep_0082.parse('00:00:00%s' % tzo)
         return time.tzinfo
 
-    def set_tzo(self, value: Union[int, dt.tzinfo]) -> None:
+    def set_tzo(self, value: int | dt.tzinfo) -> None:
         """
         Set the timezone offset from UTC.
 
@@ -100,7 +99,7 @@ class EntityTime(ElementBase):
             return xep_0082.parse(xep_0082.datetime())
         return xep_0082.parse('%sZ' % value)
 
-    def set_utc(self, value: Union[str, dt.datetime]) -> None:
+    def set_utc(self, value: str | dt.datetime) -> None:
         """
         Set the time in UTC.
 

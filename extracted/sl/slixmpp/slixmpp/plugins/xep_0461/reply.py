@@ -1,5 +1,3 @@
-from typing import Optional
-
 from slixmpp.plugins import BasePlugin
 from slixmpp.types import JidStr
 from slixmpp.xmlstream import StanzaBase
@@ -39,8 +37,8 @@ class XEP_0461(BasePlugin):
         self.xmpp.event("message_reply", msg)
 
     def make_reply(self, reply_to: JidStr, reply_id: str,
-                   fallback: Optional[str] = None,
-                   quoted_nick: Optional[str] = None, **msg_kwargs):
+                   fallback: str | None = None,
+                   quoted_nick: str | None = None, **msg_kwargs):
         """Create a replies message stanza
 
         :param reply_to: Full JID of the quoted author
@@ -59,8 +57,8 @@ class XEP_0461(BasePlugin):
         return msg
 
     def send_reply(self, reply_to: JidStr, reply_id: str,
-                   fallback: Optional[str] = None,
-                   quoted_nick: Optional[str] = None, **msg_kwargs):
+                   fallback: str | None = None,
+                   quoted_nick: str | None = None, **msg_kwargs):
         """
 
         :param reply_to: Full JID of the quoted author

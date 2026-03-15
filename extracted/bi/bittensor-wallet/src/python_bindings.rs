@@ -836,13 +836,10 @@ except argparse.ArgumentError:
     pass"#,
         );
 
-        let code_cstr = CString::new(code).map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))?;
+        let code_cstr =
+            CString::new(code).map_err(|e| PyErr::new::<PyValueError, _>(e.to_string()))?;
         let dict = [("parser", parser.as_any())].into_py_dict(py)?;
-        py.run(
-            &code_cstr,
-            Some(&dict),
-            None,
-        )?;
+        py.run(&code_cstr, Some(&dict), None)?;
         Ok(parser.clone().unbind())
     }
 

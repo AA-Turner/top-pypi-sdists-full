@@ -6,11 +6,6 @@
 import asyncio
 import os
 from unittest import IsolatedAsyncioTestCase
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
 
 from slixmpp import JID
 from slixmpp.clientxmpp import ClientXMPP
@@ -23,7 +18,7 @@ class SlixIntegration(IsolatedAsyncioTestCase):
         self.clients = []
         self.addAsyncCleanup(self._destroy)
 
-    def envjid(self, name: str, *, default: Optional[str] = None) -> JID:
+    def envjid(self, name: str, *, default: str | None = None) -> JID:
         """Get a JID from an env var"""
         value = os.getenv(name, default=default)
         return JID(value)
@@ -32,7 +27,7 @@ class SlixIntegration(IsolatedAsyncioTestCase):
         """get a str from an env var"""
         return os.getenv(name)
 
-    def register_plugins(self, plugins: List[str], configs: Optional[List[Dict]] = None):
+    def register_plugins(self, plugins: list[str], configs: list[dict] | None = None):
         """Register plugins on all known clients"""
         for index, plugin in enumerate(plugins):
             for client in self.clients:

@@ -16,15 +16,8 @@ from typing import (
     Callable,
     ClassVar,
     Coroutine,
-    Dict,
-    List,
     Iterable,
-    Optional,
-    Set,
-    Tuple,
-    Type,
     TYPE_CHECKING,
-    Union,
 )
 from weakref import ReferenceType
 from xml.etree import ElementTree as ET
@@ -51,13 +44,23 @@ XML_NS = 'http://www.w3.org/XML/1998/namespace'
 STRICT_INTERFACE = False
 
 
-def register_stanza_plugin(stanza: Type[ElementBase], plugin: Type[ElementBase],
+def register_stanza_plugin(stanza: type[ElementBase], plugin: type[ElementBase],
                            iterable: bool = False, overrides: bool = False) -> None:
     """
     Associate a stanza object as a plugin for another stanza.
 
-    >>> from slixmpp.xmlstream import register_stanza_plugin
-    >>> register_stanza_plugin(Iq, CustomStanza)
+        >>> from slixmpp import Iq
+        >>> from slixmpp.xmlstream import register_stanza_plugin
+        >>> class IqPlugin(ElementBase):
+        ...     name = 'plugin'
+        ...     namespace = 'sleek:xmpp'
+        ...     interfaces = {'plugin'}
+        ...     plugin_attrib = 'plugin'
+        >>> register_stanza_plugin(Iq, IqPlugin)
+        >>> iq = Iq()
+        >>> iq['plugin'] = 'value'
+        >>> iq
+        <iq xmlns="jabber:client" id="0"><plugin xmlns="sleek:xmpp" plugin="value" /></iq>
 
     Plugin stanzas marked as iterable will be included in the list of
     substanzas for the parent, using ``parent['substanzas']``. If the
@@ -109,7 +112,7 @@ def register_stanza_plugin(stanza: Type[ElementBase], plugin: Type[ElementBase],
             stanza.plugin_overrides[interface] = plugin.plugin_attrib
 
 
-def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementBase]:
+def multifactory(stanza: type[ElementBase], plugin_attrib: str) -> type[ElementBase]:
     """
     Returns a ElementBase class for handling reoccurring child stanzas
     """
@@ -117,7 +120,7 @@ def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementB
     def plugin_filter(self: Multi) -> Callable[..., bool]:
         return lambda x: isinstance(x, self._multistanza)
 
-    def plugin_lang_filter(self: Multi, lang: Optional[str]) -> Callable[..., bool]:
+    def plugin_lang_filter(self: Multi, lang: str | None) -> Callable[..., bool]:
         return lambda x: isinstance(x, self._multistanza) and \
                          x['lang'] == lang
 
@@ -125,13 +128,13 @@ def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementB
         """
         Template class for multifactory
         """
-        _multistanza: Type[ElementBase]
+        _multistanza: type[ElementBase]
 
-        def setup(self, xml: Optional[ET.Element] = None) -> bool:
+        def setup(self, xml: ET.Element | None = None) -> bool:
             self.xml = ET.Element('')
             return False
 
-    def get_multi(self: Multi, lang: Optional[str] = None) -> List[ElementBase]:
+    def get_multi(self: Multi, lang: str | None = None) -> list[ElementBase]:
         parent = fail_without_parent(self)
         if not lang or lang == '*':
             res = filter(plugin_filter(self), parent)
@@ -139,7 +142,7 @@ def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementB
             res = filter(plugin_lang_filter(self, lang), parent)
         return list(res)
 
-    def set_multi(self: Multi, val: Iterable[ElementBase], lang: Optional[str] = None) -> None:
+    def set_multi(self: Multi, val: Iterable[ElementBase], lang: str | None = None) -> None:
         parent = fail_without_parent(self)
         del_multi = getattr(self, 'del_%s' % plugin_attrib)
         del_multi(lang)
@@ -154,7 +157,7 @@ def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementB
             raise ValueError('No stanza parent for multifactory')
         return parent
 
-    def del_multi(self: Multi, lang: Optional[str] = None) -> None:
+    def del_multi(self: Multi, lang: str | None = None) -> None:
         parent = fail_without_parent(self)
         if not lang or lang == '*':
             res = list(filter(plugin_filter(self), parent))
@@ -184,7 +187,7 @@ def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementB
 
 
 def fix_ns(xpath: str, split: bool = False, propagate_ns: bool = True,
-           default_ns: str = '') -> Union[str, List[str]]:
+           default_ns: str = '') -> str | list[str]:
     """Apply the stanza's namespace to elements in an XPath expression.
 
     :param string xpath: The XPath expression to fix with namespaces.
@@ -247,13 +250,14 @@ class ElementBase(object):
 
     The resulting Message stanza's contents may be accessed as so::
 
+        >>> message = Message()
         >>> message['to'] = "user@example.com"
         >>> message['body'] = "Hi!"
         >>> message['body']
-        "Hi!"
+        'Hi!'
         >>> del message['body']
         >>> message['body']
-        ""
+        ''
 
     The interface values map to either custom access methods, stanza
     XML attributes, or (if the interface is also in sub_interfaces) the
@@ -297,6 +301,9 @@ class ElementBase(object):
     and getting an interface value that is the same as the plugin's
     plugin_attrib value will work, as so::
 
+        >>> MessagePlugin.is_extension = True
+        >>> register_stanza_plugin(Message, MessagePlugin)
+        >>> message = Message()
         >>> message['custom'] = 'bar'  # Using is_extension=True
         >>> message['custom']
         'bar'
@@ -341,23 +348,23 @@ class ElementBase(object):
     #: manipulating the underlying XML object. This set may be augmented
     #: with the :attr:`plugin_attrib` value of any registered
     #: stanza plugins.
-    interfaces: ClassVar[Set[str]] = {'type', 'to', 'from', 'id', 'payload'}
+    interfaces: ClassVar[set[str]] = {'type', 'to', 'from', 'id', 'payload'}
 
     #: A subset of :attr:`interfaces` which maps interfaces to direct
     #: subelements of the underlying XML object. Using this set, the text
     #: of these subelements may be set, retrieved, or removed without
     #: needing to define custom methods.
-    sub_interfaces: ClassVar[Set[str]] = set()
+    sub_interfaces: ClassVar[set[str]] = set()
 
     #: A subset of :attr:`interfaces` which maps the presence of
     #: subelements to boolean values. Using this set allows for quickly
     #: checking for the existence of empty subelements like ``<required />``.
     #:
     #: .. versionadded:: 1.1
-    bool_interfaces: ClassVar[Set[str]] = set()
+    bool_interfaces: ClassVar[set[str]] = set()
 
     #: .. versionadded:: 1.1.2
-    lang_interfaces: ClassVar[Set[str]] = set()
+    lang_interfaces: ClassVar[set[str]] = set()
 
     #: In some cases you may wish to override the behaviour of one of the
     #: parent stanza's interfaces. The ``overrides`` list specifies the
@@ -371,7 +378,7 @@ class ElementBase(object):
     #: be affected.
     #:
     #: .. versionadded:: 1.0-Beta5
-    overrides: ClassVar[List[str]] = []
+    overrides: ClassVar[list[str]] = []
 
     #: If you need to add a new interface to an existing stanza, you
     #: can create a plugin and set ``is_extension = True``. Be sure
@@ -390,15 +397,15 @@ class ElementBase(object):
     #:     {'set_body': <some function>}
     #:
     #: .. versionadded: 1.0-Beta5
-    plugin_overrides: ClassVar[Dict[str, str]] = {}
+    plugin_overrides: ClassVar[dict[str, str]] = {}
 
     #: A mapping of the :attr:`plugin_attrib` values of registered
     #: plugins to their respective classes.
-    plugin_attrib_map: ClassVar[Dict[str, Type[ElementBase]]] = {}
+    plugin_attrib_map: ClassVar[dict[str, type[ElementBase]]] = {}
 
     #: A mapping of root element tag names (in ``'{namespace}elementname'``
     #: format) to the plugin classes responsible for them.
-    plugin_tag_map: ClassVar[Dict[str, Type[ElementBase]]] = {}
+    plugin_tag_map: ClassVar[dict[str, type[ElementBase]]] = {}
 
     #: The set of stanza classes that can be iterated over using
     #: the 'substanzas' interface. Classes are added to this set
@@ -407,22 +414,22 @@ class ElementBase(object):
     #:     register_stanza_plugin(DiscoInfo, DiscoItem, iterable=True)
     #:
     #: .. versionadded:: 1.0-Beta5
-    plugin_iterables: ClassVar[Set[Type[ElementBase]]] = set()
+    plugin_iterables: ClassVar[set[type[ElementBase]]] = set()
 
     #: The default XML namespace: ``http://www.w3.org/XML/1998/namespace``.
     xml_ns: ClassVar[str] = XML_NS
 
-    plugins: Dict[Tuple[str, Optional[str]], ElementBase]
+    plugins: dict[tuple[str, str | None], ElementBase]
     #: The underlying XML object for the stanza. It is a standard
     #: :class:`xml.etree.ElementTree` object.
     xml: ET.Element
     _index: int
-    loaded_plugins: Set[str]
-    iterables: List[ElementBase]
+    loaded_plugins: set[str]
+    iterables: list[ElementBase]
     tag: str
-    parent: Optional[ReferenceType[ElementBase]]
+    parent: ReferenceType[ElementBase] | None
 
-    def __init__(self, xml: Optional[ET.Element] = None, parent: Union[Optional[ElementBase], ReferenceType[ElementBase]] = None):
+    def __init__(self, xml: ET.Element | None = None, parent: ElementBase | ReferenceType[ElementBase] | None = None):
         self._index = 0
 
         if xml is not None:
@@ -463,7 +470,7 @@ class ElementBase(object):
                                  existing_xml=child,
                                  reuse=False)
 
-    def setup(self, xml: Optional[ET.Element] = None) -> bool:
+    def setup(self, xml: ET.Element | None = None) -> bool:
         """Initialize the stanza's XML contents.
 
         Will return ``True`` if XML was generated according to the stanza's
@@ -497,7 +504,7 @@ class ElementBase(object):
         # We had to generate XML
         return True
 
-    def enable(self, attrib: str, lang: Optional[str] = None) -> ElementBase:
+    def enable(self, attrib: str, lang: str | None = None) -> ElementBase:
         """Enable and initialize a stanza plugin.
 
         Alias for :meth:`init_plugin`.
@@ -519,7 +526,7 @@ class ElementBase(object):
             name, lang, *_ = name.split('|')
         return self.get_plugin(name, lang=lang, check=True) is not None
 
-    def get_plugin(self, name: str, lang: Optional[str] = None, check: bool = False) -> Optional[ElementBase]:
+    def get_plugin(self, name: str, lang: str | None = None, check: bool = False) -> ElementBase | None:
         """Retrieve a stanza plugin.
 
         :param check: Return None instead of creating the object if True.
@@ -545,10 +552,10 @@ class ElementBase(object):
             else:
                 return None if check else self.init_plugin(name, lang)
 
-    def init_plugin(self, attrib: str, lang: Optional[str] = None,
-                    existing_xml: Optional[ET.Element] = None,
+    def init_plugin(self, attrib: str, lang: str | None = None,
+                    existing_xml: ET.Element | None = None,
                     reuse: bool = True,
-                    element: Optional[ElementBase] = None) -> ElementBase:
+                    element: ElementBase | None = None) -> ElementBase:
         """Enable and initialize a stanza plugin.
 
         :param string attrib: The :attr:`plugin_attrib` value of the
@@ -586,14 +593,19 @@ class ElementBase(object):
 
         return plugin
 
-    def _get_stanza_values(self) -> Dict[str, Any]:
+    def _get_stanza_values(self) -> dict[str, Any]:
         """Return A JSON/dictionary version of the XML content
         exposed through the stanza's interfaces::
 
+            >>> class Message(ElementBase):
+            ...     name = "message"
+            ...     namespace = "jabber:client"
+            ...     interfaces = {'to', 'from', 'type', 'body'}
+            ...     sub_interfaces = {'body'}
             >>> msg = Message()
-            >>> msg.values
-            {'body': '', 'from': , 'mucnick': '', 'mucroom': '',
-            'to': , 'type': 'normal', 'id': '', 'subject': ''}
+            >>> from pprint import pprint
+            >>> pprint(msg.values)
+            {'body': '', 'from': '', 'lang': '', 'to': '', 'type': ''}
 
         Likewise, assigning to :attr:`values` will change the XML
         content::
@@ -601,7 +613,7 @@ class ElementBase(object):
             >>> msg = Message()
             >>> msg.values = {'body': 'Hi!', 'to': 'user@example.com'}
             >>> msg
-            '<message to="user@example.com"><body>Hi!</body></message>'
+            <message xmlns="jabber:client" to="user@example.com"><body>Hi!</body></message>
 
         .. versionadded:: 1.0-Beta1
         """
@@ -628,7 +640,7 @@ class ElementBase(object):
             values['substanzas'] = iterables
         return values
 
-    def _set_stanza_values(self, values: Dict[str, Any]) -> ElementBase:
+    def _set_stanza_values(self, values: dict[str, Any]) -> ElementBase:
         """Set multiple stanza interface values using a dictionary.
 
         Stanza plugin values may be set using nested dictionaries.
@@ -689,6 +701,9 @@ class ElementBase(object):
 
         Example::
 
+            >>> from slixmpp import Message
+            >>> msg = Message()
+            >>> msg['body'] = 'Message contents'
             >>> msg['body']
             'Message contents'
 
@@ -759,6 +774,8 @@ class ElementBase(object):
 
         Example::
 
+            >>> from slixmpp import Message
+            >>> msg = Message()
             >>> msg['body'] = "Hi!"
             >>> msg['body']
             'Hi!'
@@ -844,6 +861,8 @@ class ElementBase(object):
 
         Example::
 
+            >>> from slixmpp import Message
+            >>> msg = Message()
             >>> msg['body'] = "Hi!"
             >>> msg['body']
             'Hi!'
@@ -917,7 +936,7 @@ class ElementBase(object):
                 pass
         return self
 
-    def _set_attr(self, name: str, value: Optional[JidStr]) -> None:
+    def _set_attr(self, name: str, value: JidStr | None) -> None:
         """Set the value of a top level attribute of the XML object.
 
         If the new value is None or an empty string, then the attribute will
@@ -956,7 +975,7 @@ class ElementBase(object):
         return self.xml.attrib.get(name, default)
 
     def _get_sub_text(self, name: str, default: str = '',
-                      lang: Optional[str] = None) -> Union[str, Dict[str, str]]:
+                      lang: str | None = None) -> str | dict[str, str]:
         """Return the text contents of a sub element.
 
         In case the element does not exist, or it has no textual content,
@@ -992,7 +1011,7 @@ class ElementBase(object):
         return default
 
     def _get_all_sub_text(self, name: str, default: str = '',
-                          lang: Optional[str] = None) -> Dict[str, str]:
+                          lang: str | None = None) -> dict[str, str]:
         name = cast(str, self._fix_ns(name))
 
         default_lang = self.get_lang()
@@ -1010,9 +1029,9 @@ class ElementBase(object):
                     results[stanza_lang] = text
         return results
 
-    def _set_sub_text(self, name: str, text: Optional[str] = None,
+    def _set_sub_text(self, name: str, text: str | None = None,
                       keep: bool = False,
-                      lang: Optional[str] = None) -> Optional[ET.Element]:
+                      lang: str | None = None) -> ET.Element | None:
         """Set the text contents of a sub element.
 
         In case the element does not exist, a element will be created,
@@ -1036,13 +1055,13 @@ class ElementBase(object):
             self._del_sub(name, lang=lang)
             return None
 
-        path = cast(List[str], self._fix_ns(name, split=True))
+        path = cast(list[str], self._fix_ns(name, split=True))
         name = path[-1]
-        parent: Optional[ET.Element] = self.xml
+        parent: ET.Element | None = self.xml
 
         # The first goal is to find the parent of the subelement, or, if
         # we can't find that, the closest grandparent element.
-        missing_path: List[str] = []
+        missing_path: list[str] = []
         search_order = path[:-1]
         while search_order:
             parent = self.xml.find('/'.join(search_order))
@@ -1083,9 +1102,9 @@ class ElementBase(object):
         parent.append(element)
         return element
 
-    def _set_all_sub_text(self, name: str, values: Dict[str, str],
+    def _set_all_sub_text(self, name: str, values: dict[str, str],
                           keep: bool = False,
-                          lang: Optional[str] = None) -> None:
+                          lang: str | None = None) -> None:
         self._del_sub(name, lang=lang)
         for value_lang, value in values.items():
             if not lang or lang == '*' or value_lang == lang:
@@ -1093,7 +1112,7 @@ class ElementBase(object):
                                          keep=keep,
                                          lang=value_lang)
 
-    def _del_sub(self, name: str, all: bool = False, lang: Optional[str] = None) -> None:
+    def _del_sub(self, name: str, all: bool = False, lang: str | None = None) -> None:
         """Remove sub elements that match the given name or XPath.
 
         If the element is in a path, then any parent elements that become
@@ -1111,11 +1130,11 @@ class ElementBase(object):
         if not lang:
             lang = default_lang
 
-        parent: Optional[ET.Element] = self.xml
+        parent: ET.Element | None = self.xml
         for level, _ in enumerate(path):
             # Generate the paths to the target elements and their parent.
             element_path = "/".join(path[:len(path) - level])
-            parent_path: Optional[str] = "/".join(path[:len(path) - level - 1])
+            parent_path: str | None = "/".join(path[:len(path) - level - 1])
 
             elements = self.xml.findall(element_path)
             if parent_path == '':
@@ -1138,7 +1157,7 @@ class ElementBase(object):
                 # after deleting the first level of elements.
                 return
 
-    def match(self, xpath: Union[str, List[str]]) -> bool:
+    def match(self, xpath: str | list[str]) -> bool:
         """Compare a stanza object with an XPath-like expression.
 
         If the XPath matches the contents of the stanza object, the match
@@ -1204,7 +1223,7 @@ class ElementBase(object):
         # Everything matched.
         return True
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
+    def get(self, key: str, default: Any | None = None) -> Any:
         """Return the value of a stanza interface.
 
         If the found value is None or an empty string, return the supplied
@@ -1221,7 +1240,7 @@ class ElementBase(object):
             return default
         return value
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Return the names of all stanza interfaces provided by the
         stanza object.
 
@@ -1235,7 +1254,7 @@ class ElementBase(object):
             out.append('substanzas')
         return out
 
-    def append(self, item: Union[ET.Element, ElementBase]) -> ElementBase:
+    def append(self, item: ET.Element | ElementBase) -> ElementBase:
         """Append either an XML object or a substanza to this stanza object.
 
         If a substanza object is appended, it will be added to the list
@@ -1318,7 +1337,7 @@ class ElementBase(object):
         """
         return "{%s}%s" % (cls.namespace, cls.name)
 
-    def get_lang(self, lang: Optional[str] = None) -> str:
+    def get_lang(self, lang: str | None = None) -> str:
         result = self.xml.attrib.get('{%s}lang' % XML_NS, '')
         if not result and self.parent:
             parent = self.parent()
@@ -1326,7 +1345,7 @@ class ElementBase(object):
                 return cast(str, parent['lang'])
         return result
 
-    def set_lang(self, lang: Optional[str]) -> None:
+    def set_lang(self, lang: str | None) -> None:
         self.del_lang()
         attr = '{%s}lang' % XML_NS
         if lang:
@@ -1338,7 +1357,7 @@ class ElementBase(object):
             del self.xml.attrib[attr]
 
     def _fix_ns(self, xpath: str, split: bool = False,
-                propagate_ns: bool = True) -> Union[str, List[str]]:
+                propagate_ns: bool = True) -> str | list[str]:
         return fix_ns(xpath, split=split,
                              propagate_ns=propagate_ns,
                              default_ns=self.namespace)
@@ -1492,14 +1511,14 @@ class StanzaBase(ElementBase):
 
     #: The default XMPP client namespace
     namespace = 'jabber:client'
-    types: ClassVar[Set[str]] = set()
+    types: ClassVar[set[str]] = set()
 
-    def __init__(self, stream: Optional[XMLStream] = None,
-                 xml: Optional[ET.Element] = None,
-                 stype: Optional[str] = None,
-                 sto: Optional[JidStr] = None, sfrom: Optional[JidStr] = None,
-                 sid: Optional[str] = None,
-                 parent: Optional[ElementBase] = None, recv: bool = False):
+    def __init__(self, stream: XMLStream | None = None,
+                 xml: ET.Element | None = None,
+                 stype: str | None = None,
+                 sto: JidStr | None = None, sfrom: JidStr | None = None,
+                 sid: str | None = None,
+                 parent: ElementBase | None = None, recv: bool = False):
         self.stream = stream
         if stream is not None:
             self.namespace = stream.default_ns
@@ -1549,11 +1568,11 @@ class StanzaBase(ElementBase):
         """
         return self._set_attr('from', str(value))
 
-    def get_payload(self) -> List[ET.Element]:
+    def get_payload(self) -> list[ET.Element]:
         """Return a list of XML objects contained in the stanza."""
         return list(self.xml)
 
-    def set_payload(self, value: Union[List[ElementBase], ElementBase]) -> StanzaBase:
+    def set_payload(self, value: list[ElementBase] | ElementBase) -> StanzaBase:
         """Add XML content to the stanza.
 
         :param value: Either an XML or a stanza object, or a list
@@ -1639,3 +1658,11 @@ class StanzaBase(ElementBase):
         return tostring(self.xml, xmlns=xmlns,
                         stream=self.stream,
                         top_level=(self.stream is None))
+
+    def pretty_print(self) -> None:
+        """
+        Print an indented version of the XML content of this stanza.
+        """
+        xml = copy.deepcopy(self.xml)
+        ET.indent(xml)
+        print(tostring(xml))

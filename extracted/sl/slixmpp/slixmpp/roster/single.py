@@ -3,12 +3,13 @@
 # Copyright (C) 2010  Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from slixmpp import JID
+from asyncio import Future
+from slixmpp import JID, Iq
 from slixmpp.stanza import Presence
 from slixmpp.roster import RosterItem
 from slixmpp.types import RosterState, RosterDBProtocol, JidStr, ResourceDict
 
-from typing import TYPE_CHECKING, Optional, Dict, List, Union, Iterator
+from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
     from slixmpp import BaseXMPP
@@ -51,10 +52,10 @@ class RosterNode:
     auto_authorize: bool
     auto_subscribe: bool
     _jids: dict[str, RosterItem]
-    db: Optional[RosterDBProtocol]
-    last_status: Optional[Presence]
+    db: RosterDBProtocol | None
+    last_status: Presence | None
 
-    def __init__(self, xmpp: "BaseXMPP", jid: JidStr, db: Optional[RosterDBProtocol] = None) -> None:
+    def __init__(self, xmpp: "BaseXMPP", jid: JidStr, db: RosterDBProtocol | None = None) -> None:
         """
         Create a roster node for a JID.
 
@@ -125,7 +126,7 @@ class RosterNode:
         """Return the number of JIDs referenced by the roster."""
         return len(self._jids)
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Return a list of all subscribed JIDs."""
         return list(self._jids.keys())
 
@@ -133,9 +134,9 @@ class RosterNode:
         """Returns whether the roster has a JID."""
         return jid in self._jids
 
-    def groups(self) -> Dict[str, List[str]]:
+    def groups(self) -> dict[str, list[str]]:
         """Return a dictionary mapping group names to JIDs."""
-        result: Dict[str, List[str]] = {}
+        result: dict[str, list[str]] = {}
         for jid in self._jids:
             groups = self._jids[jid]['groups']
             if not groups:
@@ -152,7 +153,7 @@ class RosterNode:
         """Iterate over the roster items."""
         return self._jids.__iter__()
 
-    def set_backend(self, db: Optional[RosterDBProtocol] = None, save: bool = True) -> None:
+    def set_backend(self, db: RosterDBProtocol | None = None, save: bool = True) -> None:
         """
         Set the datastore interface object for the roster node.
 
@@ -170,7 +171,7 @@ class RosterNode:
             for jid in new_entries - existing_entries:
                 self.add(jid)
 
-    def add(self, jid: JidStr, name: str = '', groups: Optional[List[str]] = None,
+    def add(self, jid: JidStr, name: str = '', groups: list[str] | None = None,
             afrom: bool = False, ato: bool = False, pending_in: bool = False,
             pending_out: bool = False, whitelisted: bool = False,
             save: bool = False) -> None:
@@ -236,18 +237,19 @@ class RosterNode:
         """
         self[jid].unsubscribe()
 
-    def remove(self, jid: JidStr) -> None:
+    def remove(self, jid: JidStr) -> Future[Iq] | None:
         """
         Remove a JID from the roster.
 
         :param jid: The JID to remove.
         """
         self[jid].remove()
-        if not self.xmpp.is_component:
-            return self.update(jid, subscription='remove')
+        if self.xmpp.is_component:
+            return None
+        return self.update(jid, subscription='remove')
 
-    def update(self, jid: JidStr, name: Optional[str] = None, subscription=None, groups: Optional[List[str]] = None,
-               timeout: Optional[int] = None, callback=None):
+    def update(self, jid: JidStr, name: str | None = None, subscription=None, groups: list[str] | None = None,
+               timeout: int | None = None, callback=None) -> Future[Iq] | None:
         """
         Update a JID's subscription information.
 
@@ -270,16 +272,18 @@ class RosterNode:
         self[jid]['groups'] = groups
         self[jid].save()
 
-        if not self.xmpp.is_component:
-            iq = self.xmpp.Iq()
-            iq['type'] = 'set'
-            iq['roster']['items'] = {jid: {'name': name,
-                                           'subscription': subscription,
-                                           'groups': groups}}
+        if self.xmpp.is_component:
+            return None
 
-            return iq.send(timeout=timeout, callback=callback)
+        iq = self.xmpp.Iq()
+        iq['type'] = 'set'
+        iq['roster']['items'] = {jid: {'name': name,
+                                       'subscription': subscription,
+                                       'groups': groups}}
 
-    def presence(self, jid: JID, resource: Optional[str] = None) -> Union[ResourceDict, Dict[str, ResourceDict]]:
+        return iq.send(timeout=timeout, callback=callback)
+
+    def presence(self, jid: JID, resource: str | None = None) -> ResourceDict | dict[str, ResourceDict]:
         """
         Retrieve the presence information of a JID.
 

@@ -1,10 +1,10 @@
-from typing import Any, Optional, Callable
+from typing import Any, Callable
 from asyncio import Future
 from inspect import iscoroutinefunction
 from slixmpp.xmlstream import JID
 
 APIHandler = Callable[
-    [Optional[JID], Optional[str], Optional[JID], Any],
+    [JID | None, str | None, JID | None, Any],
     Any
 ]
 
@@ -16,36 +16,64 @@ class APIWrapper(object):
     :class:`~.APIRegistry`.
     """
 
-    def __init__(self, api, name):
+    def __init__(self, api: "APIRegistry", name: str) -> None:
         self.api = api
         self.name = name
         if name not in self.api.settings:
             self.api.settings[name] = {}
 
-    def __getattr__(self, attr: str):
-        """Curry API management commands with the API name."""
-        if attr == 'name':
-            return self.name
-        elif attr == 'settings':
-            return self.api.settings[self.name]
-        elif attr == 'register':
-            def partial(handler, op, jid=None, node=None, default=False):
-                register = getattr(self.api, attr)
-                return register(handler, self.name, op, jid, node, default)
-            return partial
-        elif attr == 'register_default':
-            def partial1(handler, op, jid=None, node=None):
-                return getattr(self.api, attr)(handler, self.name, op)
-            return partial1
-        elif attr in ('run', 'restore_default', 'unregister'):
-            def partial2(*args, **kwargs):
-                return getattr(self.api, attr)(self.name, *args, **kwargs)
-            return partial2
-        return None
+    @property
+    def settings(self) -> dict:
+        return self.api.settings[self.name]
 
-    def __getitem__(self, attr):
-        def partial(jid=None, node=None, ifrom=None, args=None):
-            return self.api.run(self.name, attr, jid, node, ifrom, args)
+    def register(
+        self,
+        handler: APIHandler | None,
+        op: str,
+        jid: JID | None = None,
+        node: str | None = None,
+        default: bool = False,
+    ) -> None:
+        return self.api.register(handler, self.name, op, jid, node, default)
+
+    def register_default(
+        self,
+        handler: APIHandler | None,
+        op: str,
+        jid: JID | None = None,
+        node: str | None = None,
+    ) -> None:
+        return self.api.register_default(handler, self.name, op)
+
+    def run(
+        self,
+        op: str,
+        jid: JID | None = None,
+        node: str | None = None,
+        ifrom: JID | None = None,
+        args: Any = None,
+    ) -> Future:
+        return self.api.run(self.name, op, jid, node, ifrom, args)
+
+    def restore_default(
+        self,
+        op: str,
+        jid: JID | None = None,
+        node: str | None = None,
+    ) -> None:
+        return self.api.restore_default(self.name, op, jid, node)
+
+    def unregister(
+        self,
+        op: str,
+        jid: JID | None = None,
+        node: str | None = None,
+    ) -> None:
+        return self.api.unregister(self.name, op, jid, node)
+
+    def __getitem__(self, op: str) -> APIHandler:
+        def partial(jid=None, node=None, ifrom=None, args=None) -> Future:
+            return self.api.run(self.name, op, jid, node, ifrom, args)
         return partial
 
 
@@ -89,8 +117,8 @@ class APIRegistry(object):
         del self._handler_defaults[ctype]
         del self._handlers[ctype]
 
-    def run(self, ctype: str, op: str, jid: Optional[JID] = None,
-            node: Optional[str] = None, ifrom: Optional[JID] = None,
+    def run(self, ctype: str, op: str, jid: JID | None = None,
+            node: str | None = None, ifrom: JID | None = None,
             args: Any = None) -> Future:
         """Execute an API callback, based on specificity.
 
@@ -173,8 +201,8 @@ class APIRegistry(object):
         future.set_result(None)
         return future
 
-    def register(self, handler: Optional[APIHandler], ctype: str, op: str,
-                 jid: Optional[JID] = None, node: Optional[str] = None,
+    def register(self, handler: APIHandler | None, ctype: str, op: str,
+                 jid: JID | None = None, node: str | None = None,
                  default: bool = False):
         """Register an API callback, with JID+node specificity.
 
@@ -211,8 +239,8 @@ class APIRegistry(object):
         self._setup(ctype, op)
         self._handler_defaults[ctype][op] = handler
 
-    def unregister(self, ctype: str, op: str, jid: Optional[JID] = None,
-                   node: Optional[str] = None):
+    def unregister(self, ctype: str, op: str, jid: JID | None = None,
+                   node: str | None = None):
         """Remove an API callback.
 
         The API callback chosen for removal is based on the
@@ -228,8 +256,8 @@ class APIRegistry(object):
         self._setup(ctype, op)
         self.register(None, ctype, op, jid, node)
 
-    def restore_default(self, ctype: str, op: str, jid: Optional[JID] = None,
-                        node: Optional[str] = None):
+    def restore_default(self, ctype: str, op: str, jid: JID | None = None,
+                        node: str | None = None):
         """Reset an API callback to use a default handler.
 
         :param ctype: The name of the API to use.

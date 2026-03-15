@@ -4,7 +4,7 @@
 # Part of Slixmpp: The Slick XMPP Library
 # :copyright: (c) 2011 Nathanael C. Fritz
 # :license: MIT, see LICENSE for more details
-from typing import cast, List
+from typing import cast
 from slixmpp.xmlstream.matcher.base import MatcherBase
 from slixmpp.xmlstream.stanzabase import fix_ns, StanzaBase
 
@@ -18,12 +18,12 @@ class StanzaPath(MatcherBase):
 
     :param criteria: Object to compare some aspect of a stanza against.
     """
-    _criteria: List[str]
+    _criteria: list[str]
     _raw_criteria: str
 
     def __init__(self, criteria: str):
         self._criteria = cast(
-            List[str],
+            list[str],
             fix_ns(
                 criteria, split=True, propagate_ns=False,
                 default_ns='jabber:client'

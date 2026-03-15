@@ -6,7 +6,7 @@ import av
 from av import Packet
 from av.bitstream import BitStreamFilterContext, bitstream_filters_available
 
-from .common import TestCase, fate_suite
+from .common import fate_suite
 
 
 def is_annexb(packet: Packet | bytes | None) -> bool:
@@ -97,7 +97,7 @@ def test_filter_flush() -> None:
 
         container.seek(0)
         # Without flushing, we expect to get an error: "A non-NULL packet sent after an EOF."
-        with pytest.raises(ValueError):
+        with pytest.raises(av.ArgumentError):
             for p in container.demux(stream):
                 ctx.filter(p)
 

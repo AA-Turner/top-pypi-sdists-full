@@ -79,7 +79,9 @@ def measure_interactions(
 
     y = clean_dimensions(y, "y")
     if y.ndim != 1:
-        msg = "y must be 1 dimensional"
+        msg = (
+            f"y must be 1 dimensional, but got {y.ndim} dimensions with shape {y.shape}"
+        )
         _log.error(msg)
         raise ValueError(msg)
     if len(y) == 0:
@@ -161,7 +163,7 @@ def measure_interactions(
         # type_of_target does not seem to like np.object_, so convert it to something that works
         try:
             y_discard = y.astype(dtype=np.float64, copy=False)
-        except (TypeError, ValueError):
+        except:  # object can throw anything in their __float__ function
             y_discard = y.astype(dtype=np.str_, copy=False)
 
         target_type = type_of_target(y_discard)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import weakref
 from weakref import ReferenceType
-from typing import Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 from slixmpp.xmlstream.matcher.base import MatcherBase
 from xml.etree.ElementTree import Element
 
@@ -36,12 +36,12 @@ class BaseHandler:
                     instance that the handle will respond to.
     """
     name: str
-    stream: Optional[ReferenceType[XMLStream]]
+    stream: ReferenceType[XMLStream] | None
     _destroy: bool
     _matcher: MatcherBase
-    _payload: Optional[StanzaBase]
+    _payload: StanzaBase | None
 
-    def __init__(self, name: str, matcher: MatcherBase, stream: Optional[XMLStream] = None):
+    def __init__(self, name: str, matcher: MatcherBase, stream: XMLStream | None = None):
         #: The name of the handler
         self.name = name
 

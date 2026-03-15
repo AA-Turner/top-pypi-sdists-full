@@ -4,16 +4,10 @@
 # See the file LICENSE for copying permission.
 from typing import (
     Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    Dict,
 )
 from slixmpp.xmlstream import ElementBase, ET
 
-IdentityType = Tuple[str, str, Optional[str], Optional[str]]
+IdentityType = tuple[str, str, str | None, str | None]
 
 
 class DiscoInfo(ElementBase):
@@ -74,10 +68,10 @@ class DiscoInfo(ElementBase):
     lang_interfaces = {'identities'}
 
     # Cache identities and features
-    _identities: Set[Tuple[str, str, Optional[str]]]
-    _features: Set[str]
+    _identities: set[tuple[str, str, str | None]]
+    _features: set[str]
 
-    def setup(self, xml: Optional[ET.ElementTree] = None):
+    def setup(self, xml: ET.ElementTree | None = None):
         """
         Populate the stanza object using an optional XML object.
 
@@ -93,7 +87,7 @@ class DiscoInfo(ElementBase):
         self._features = self['features']
 
     def add_identity(self, category: str, itype: str,
-                     name: Optional[str] = None, lang: Optional[str] = None
+                     name: str | None = None, lang: str | None = None
                      ) -> bool:
         """
         Add a new identity element. Each identity must be unique
@@ -124,7 +118,7 @@ class DiscoInfo(ElementBase):
         return False
 
     def del_identity(self, category: str, itype: str, name=None,
-                     lang: Optional[str] = None) -> bool:
+                     lang: str | None = None) -> bool:
         """
         Remove a given identity.
 
@@ -145,7 +139,7 @@ class DiscoInfo(ElementBase):
                     return True
         return False
 
-    def dict_identities(self, lang: Optional[str] = None) -> List[Dict[str, str]]:
+    def dict_identities(self, lang: str | None = None) -> list[dict[str, str]]:
         """
         Return the list of all identities, each one as a dict with
         category, type, xml_lang, and name keys.
@@ -163,7 +157,7 @@ class DiscoInfo(ElementBase):
             })
         return dict_ids
 
-    def get_identities(self, lang: Optional[str] = None, dedupe: bool = True
+    def get_identities(self, lang: str | None = None, dedupe: bool = True
                        ) -> Iterable[IdentityType]:
         """
         Return a set of all identities in tuple form as so:
@@ -177,7 +171,7 @@ class DiscoInfo(ElementBase):
         :param dedupe: If True, de-duplicate identities, otherwise
                        return a list of all identities.
         """
-        identities: Union[List[IdentityType], Set[IdentityType]]
+        identities: list[IdentityType] | set[IdentityType]
         if dedupe:
             identities = set()
         else:
@@ -196,7 +190,7 @@ class DiscoInfo(ElementBase):
         return identities
 
     def set_identities(self, identities: Iterable[IdentityType],
-                       lang: Optional[str] = None):
+                       lang: str | None = None):
         """
         Add or replace all identities. The identities must be a in set
         where each identity is a tuple of the form:
@@ -219,7 +213,7 @@ class DiscoInfo(ElementBase):
             category, itype, lang, name = identity
             self.add_identity(category, itype, name, lang)
 
-    def del_identities(self, lang: Optional[str] = None):
+    def del_identities(self, lang: str | None = None):
         """
         Remove all identities. If a language was specified, only
         remove identities using that language.
@@ -266,7 +260,7 @@ class DiscoInfo(ElementBase):
 
     def get_features(self, dedupe: bool = True) -> Iterable[str]:
         """Return the set of all supported features."""
-        features: Union[List[str], Set[str]]
+        features: list[str] | set[str]
         if dedupe:
             features = set()
         else:

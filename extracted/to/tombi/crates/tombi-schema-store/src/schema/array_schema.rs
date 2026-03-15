@@ -7,13 +7,11 @@ use tombi_x_keyword::{
 };
 
 use super::{
-    AnchorCollector, CurrentSchema, DynamicAnchorCollector, FindSchemaCandidates,
-    SchemaDefinitions, SchemaItem, SchemaUri, ValueSchema, schema_item_from_schema_value,
+    AllOfSchema, AnchorCollector, AnyOfSchema, CurrentSchema, DynamicAnchorCollector,
+    FindSchemaCandidates, NotSchema, OneOfSchema, SchemaDefinitions, SchemaItem, SchemaUri,
+    ValueSchema, schema_item_from_schema_value,
 };
-use crate::{
-    Accessor, SchemaStore,
-    schema::{if_then_else_schema::IfThenElseSchema, not_schema::NotSchema},
-};
+use crate::{Accessor, SchemaStore, schema::if_then_else_schema::IfThenElseSchema};
 
 #[derive(Debug, Default, Clone)]
 pub struct ArraySchema {
@@ -24,6 +22,8 @@ pub struct ArraySchema {
     pub prefix_items: Option<Vec<SchemaItem>>,
     pub additional_items: Option<bool>,
     pub additional_items_schema: Option<SchemaItem>,
+    pub unevaluated_items: Option<bool>,
+    pub unevaluated_items_schema: Option<SchemaItem>,
     pub contains: Option<SchemaItem>,
     pub min_contains: Option<usize>,
     pub max_contains: Option<usize>,
@@ -36,7 +36,10 @@ pub struct ArraySchema {
     pub examples: Option<Vec<tombi_json::Value>>,
     pub values_order: Option<XTombiArrayValuesOrder>,
     pub deprecated: Option<bool>,
-    pub not: Option<NotSchema>,
+    pub one_of: Option<Box<OneOfSchema>>,
+    pub any_of: Option<Box<AnyOfSchema>>,
+    pub all_of: Option<Box<AllOfSchema>>,
+    pub not: Option<Box<NotSchema>>,
     pub if_then_else: Option<Box<IfThenElseSchema>>,
 }
 
@@ -56,6 +59,15 @@ impl ArraySchema {
             || object
                 .get("items")
                 .is_some_and(|value| value.as_array().is_some());
+        let supports_unevaluated =
+            dialect.is_some_and(|dialect| crate::supports_keyword(dialect, "unevaluatedItems"));
+        let (one_of, any_of, all_of, not) = crate::adjacent_applicators(
+            object,
+            string_formats,
+            dialect,
+            anchor_collector.as_deref_mut(),
+            dynamic_anchor_collector.as_deref_mut(),
+        );
         Self {
             title: object
                 .get("title")
@@ -124,6 +136,31 @@ impl ArraySchema {
                     _ => None,
                 }
             },
+            unevaluated_items: if supports_unevaluated {
+                match object.get("unevaluatedItems") {
+                    Some(tombi_json::ValueNode::Bool(b)) => Some(b.value),
+                    Some(tombi_json::ValueNode::Object(_)) => Some(true),
+                    _ => None,
+                }
+            } else {
+                None
+            },
+            unevaluated_items_schema: if supports_unevaluated {
+                match object.get("unevaluatedItems") {
+                    Some(value @ tombi_json::ValueNode::Object(_)) => {
+                        schema_item_from_schema_value(
+                            value,
+                            string_formats,
+                            dialect,
+                            anchor_collector.as_deref_mut(),
+                            dynamic_anchor_collector.as_deref_mut(),
+                        )
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            },
             contains: object.get("contains").and_then(|value| {
                 schema_item_from_schema_value(
                     value,
@@ -166,14 +203,11 @@ impl ArraySchema {
                 .get(X_TOMBI_ARRAY_VALUES_ORDER)
                 .and_then(XTombiArrayValuesOrder::new),
             deprecated: object.get("deprecated").and_then(|v| v.as_bool()),
+            one_of,
+            any_of,
+            all_of,
             range: object.range,
-            not: NotSchema::new(
-                object,
-                string_formats,
-                dialect,
-                anchor_collector.as_deref_mut(),
-                dynamic_anchor_collector.as_deref_mut(),
-            ),
+            not,
             if_then_else: IfThenElseSchema::new(
                 object,
                 string_formats,

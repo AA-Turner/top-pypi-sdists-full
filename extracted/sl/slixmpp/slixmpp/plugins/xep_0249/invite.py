@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 import logging
-from typing import Optional
 
 import slixmpp
 from slixmpp import Message, JID
@@ -54,9 +53,9 @@ class XEP_0249(BasePlugin):
         self.xmpp.event('groupchat_direct_invite', msg)
 
     def send_invitation(self, jid: JID, roomjid: JID,
-                        password: Optional[str] = None,
-                        reason: Optional[str] = None, *,
-                        mfrom: Optional[JID] = None):
+                        password: str | None = None,
+                        reason: str | None = None, *,
+                        mfrom: JID | None = None):
         """
         Send a direct MUC invitation to an XMPP entity.
 

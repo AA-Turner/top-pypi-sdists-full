@@ -104,6 +104,10 @@ pub(crate) enum Error<'src> {
   ExpectedSubmoduleButFoundRecipe {
     path: String,
   },
+  FilesystemIo {
+    io_error: io::Error,
+    path: PathBuf,
+  },
   FlagWithValue {
     recipe: &'src str,
     option: Switch,
@@ -115,6 +119,11 @@ pub(crate) enum Error<'src> {
   },
   GetConfirmation {
     io_error: io::Error,
+  },
+  GuardCode {
+    recipe: &'src str,
+    line_number: usize,
+    code: i32,
   },
   Homedir,
   InitExists {
@@ -221,6 +230,9 @@ pub(crate) enum Error<'src> {
     recipe: &'src str,
     line_number: Option<usize>,
   },
+  UnknownGroup {
+    group: String,
+  },
   UnknownOption {
     recipe: &'src str,
     option: Switch,
@@ -325,8 +337,8 @@ impl<'src> From<ConstError<'src>> for Error<'src> {
   }
 }
 
-impl<'src> From<dotenvy::Error> for Error<'src> {
-  fn from(dotenv_error: dotenvy::Error) -> Error<'src> {
+impl From<dotenvy::Error> for Error<'_> {
+  fn from(dotenv_error: dotenvy::Error) -> Self {
     Self::Dotenv { dotenv_error }
   }
 }
@@ -346,10 +358,6 @@ impl ColorDisplay for Error<'_> {
     write!(f, "{error}: {message}")?;
 
     match self {
-      Const { const_error } => write!(
-        f,
-        "{const_error}",
-      )?,
       AmbiguousModuleFile { module, found } => write!(
         f,
         "Found multiple source files for module `{module}`: {}",
@@ -462,6 +470,7 @@ impl ColorDisplay for Error<'_> {
       }
       Compile { compile_error } => Display::fmt(compile_error, f)?,
       Config { config_error } => Display::fmt(config_error, f)?,
+      Const { const_error } => write!(f, "{const_error}")?,
       Cygpath {
         recipe,
         output_error,
@@ -551,6 +560,9 @@ impl ColorDisplay for Error<'_> {
       ExpectedSubmoduleButFoundRecipe { path } => {
         write!(f, "Expected submodule at `{path}` but found recipe.")?;
       }
+      FilesystemIo { io_error, path } => {
+        write!(f, "I/O error at `{}`: {io_error}", path.display())?;
+      }
       FlagWithValue { recipe, option } => {
         write!(f, "Recipe `{recipe}` flag `{option}` does not take value",)?;
       }
@@ -563,6 +575,16 @@ impl ColorDisplay for Error<'_> {
       }
       GetConfirmation { io_error } => {
         write!(f, "Failed to read confirmation from stdin: {io_error}")?;
+      }
+      GuardCode {
+        recipe,
+        line_number,
+        code,
+      } => {
+        write!(
+          f,
+          "Guard line in recipe `{recipe}` on line {line_number} returned reserved exit code {code}",
+        )?;
       }
       Homedir => {
         write!(f, "Failed to get homedir")?;
@@ -712,7 +734,10 @@ impl ColorDisplay for Error<'_> {
       }
       #[cfg(unix)]
       SignalHandlerPipeCloexec { io_error } => {
-        write!(f, "I/O error setting O_CLOEXEC on signal handler pipe: {io_error}")?;
+        write!(
+          f,
+          "I/O error setting O_CLOEXEC on signal handler pipe: {io_error}",
+        )?;
       }
       #[cfg(unix)]
       SignalHandlerPipeOpen { io_error } => {
@@ -762,6 +787,9 @@ impl ColorDisplay for Error<'_> {
           f,
           "{count} {overrides} overridden on the command line but not present in justfile",
         )?;
+      }
+      UnknownGroup { group } => {
+        write!(f, "Justfile does not contain group `{group}`")?;
       }
       UnknownRecipe { recipe, suggestion } => {
         write!(f, "Justfile does not contain recipe `{recipe}`")?;

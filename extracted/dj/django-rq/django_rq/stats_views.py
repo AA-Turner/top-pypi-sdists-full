@@ -1,13 +1,15 @@
 from secrets import compare_digest
 
-from django.contrib import admin
+from typing import Optional
+
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 
-from .settings import API_TOKEN
+from . import settings as django_rq_settings
 from .utils import get_cron_schedulers, get_scheduler_statistics, get_statistics
+from .views import each_context
 
 try:
     import prometheus_client
@@ -19,14 +21,16 @@ except ImportError:
 registry = None
 
 
-def is_authorized(request):
+def is_authorized(request: HttpRequest) -> bool:
+    api_token = django_rq_settings.get_api_token()
     auth_header = request.headers.get("Authorization", "")
     token = None
 
     if auth_header.startswith("Bearer "):
         token = auth_header.removeprefix("Bearer ").strip()
 
-    return request.user.is_staff or (API_TOKEN and token and compare_digest(API_TOKEN, token))
+    is_staff = getattr(request.user, 'is_staff', False)
+    return bool(is_staff or (api_token and token and compare_digest(api_token, token)))
 
 
 @never_cache
@@ -36,7 +40,8 @@ def prometheus_metrics(request):
             {
                 "error": True,
                 "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py",
-            }
+            },
+            status=401,
         )
 
     global registry
@@ -57,9 +62,9 @@ def prometheus_metrics(request):
 
 @never_cache
 @staff_member_required
-def stats(request):
+def stats(request: HttpRequest) -> HttpResponse:
     context_data = {
-        **admin.site.each_context(request),
+        **each_context(request),
         **get_statistics(run_maintenance_tasks=True),
         **get_scheduler_statistics(),
         "view_metrics": RQCollector is not None,
@@ -69,16 +74,18 @@ def stats(request):
 
 
 @never_cache
-def stats_json(request, token=None):
+def stats_json(request: HttpRequest, token: Optional[str] = None) -> JsonResponse:
     if not is_authorized(request):
-        if token and token == API_TOKEN:
+        api_token = django_rq_settings.get_api_token()
+        if token and token == api_token:
             return JsonResponse(get_statistics())
         else:
             return JsonResponse(
                 {
                     "error": True,
                     "description": "Missing bearer token. Set token in headers and configure RQ_API_TOKEN in settings.py",
-                }
+                },
+                status=401,
             )
 
     return JsonResponse(get_statistics())

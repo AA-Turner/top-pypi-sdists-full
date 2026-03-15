@@ -3,6 +3,7 @@ use super::*;
 pub(crate) struct Evaluator<'src: 'run, 'run> {
   assignments: Option<&'run Table<'src, Assignment<'src>>>,
   context: Option<ExecutionContext<'src, 'run>>,
+  env: BTreeMap<String, String>,
   is_dependency: bool,
   non_const_assignments: Table<'src, Name<'src>>,
   scope: Scope<'src, 'run>,
@@ -34,6 +35,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
             export: assignment.export,
             file_depth: 0,
             name: assignment.name,
+            number: assignment.number,
             prelude: false,
             private: assignment.private,
             value: value.clone(),
@@ -53,6 +55,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     let mut evaluator = Self {
       assignments: Some(assignments),
       context: None,
+      env: BTreeMap::new(),
       is_dependency: false,
       non_const_assignments: Table::new(),
       scope,
@@ -101,8 +104,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         Setting::Fallback(value) => {
           settings.fallback = value;
         }
+        Setting::Guards(guards) => {
+          settings.guards = guards;
+        }
         Setting::IgnoreComments(value) => {
           settings.ignore_comments = value;
+        }
+        Setting::Lazy(value) => {
+          settings.lazy = value;
         }
         Setting::NoExitMessage(value) => {
           settings.no_exit_message = value;
@@ -114,10 +123,10 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           settings.quiet = value;
         }
         Setting::ScriptInterpreter(value) => {
-          settings.script_interpreter = Some(self.evaluate_intepreter(&value)?);
+          settings.script_interpreter = Some(self.evaluate_interpreter(&value)?);
         }
         Setting::Shell(value) => {
-          settings.shell = Some(self.evaluate_intepreter(&value)?);
+          settings.shell = Some(self.evaluate_interpreter(&value)?);
         }
         Setting::Unstable(value) => {
           settings.unstable = value;
@@ -126,7 +135,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           settings.windows_powershell = value;
         }
         Setting::WindowsShell(value) => {
-          settings.windows_shell = Some(self.evaluate_intepreter(&value)?);
+          settings.windows_shell = Some(self.evaluate_interpreter(&value)?);
         }
         Setting::Tempdir(value) => {
           settings.tempdir = Some(self.evaluate_expression(&value)?);
@@ -140,7 +149,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     Ok(settings)
   }
 
-  pub(crate) fn evaluate_intepreter(
+  pub(crate) fn evaluate_interpreter(
     &mut self,
     interpreter: &Interpreter<Expression<'src>>,
   ) -> RunResult<'src, Interpreter<String>> {
@@ -160,6 +169,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     module: &'run Justfile<'src>,
     parent: &'run Scope<'src, 'run>,
     search: &'run Search,
+    variable_references: Option<&HashSet<Number>>,
   ) -> RunResult<'src, Scope<'src, 'run>>
   where
     'src: 'run,
@@ -174,26 +184,16 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     let mut scope = parent.child();
 
     if !module.is_submodule() {
-      let mut unknown_overrides = Vec::new();
-
       for (name, value) in &config.overrides {
-        if let Some(assignment) = module.assignments.get(name) {
-          scope.bind(Binding {
-            export: assignment.export,
-            file_depth: 0,
-            name: assignment.name,
-            prelude: false,
-            private: assignment.private,
-            value: value.clone(),
-          });
-        } else {
-          unknown_overrides.push(name.clone());
-        }
-      }
-
-      if !unknown_overrides.is_empty() {
-        return Err(Error::UnknownOverrides {
-          overrides: unknown_overrides,
+        let assignment = module.assignments.get(name).unwrap();
+        scope.bind(Binding {
+          export: assignment.export,
+          file_depth: 0,
+          name: assignment.name,
+          number: assignment.number,
+          prelude: false,
+          private: assignment.private,
+          value: value.clone(),
         });
       }
     }
@@ -201,13 +201,20 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     let mut evaluator = Self {
       assignments: Some(&module.assignments),
       context: Some(context),
+      env: BTreeMap::new(),
       is_dependency: false,
       non_const_assignments: Table::new(),
       scope,
     };
 
     for assignment in module.assignments.values() {
-      evaluator.evaluate_assignment(assignment)?;
+      if module.settings.export
+        || assignment.export
+        || variable_references
+          .is_none_or(|variable_references| variable_references.contains(&assignment.number))
+      {
+        evaluator.evaluate_assignment(assignment)?;
+      }
     }
 
     Ok(evaluator.scope)
@@ -219,9 +226,13 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     if !self.scope.bound(name) {
       let value = self.evaluate_expression(&assignment.value)?;
       self.scope.bind(Binding {
-        export: assignment.export,
+        export: assignment.export
+          || self
+            .context
+            .is_some_and(|context| context.module.settings.export),
         file_depth: 0,
         name: assignment.name,
+        number: assignment.number,
         prelude: false,
         private: assignment.private,
         value,
@@ -273,7 +284,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           return Ok(format!("`{contents}`"));
         }
 
-        Self::run_command(context, &self.scope, contents, &[]).map_err(|output_error| {
+        Self::run_command(context, &self.env, &self.scope, contents, &[]).map_err(|output_error| {
           Error::Backtick {
             token: *token,
             output_error,
@@ -436,6 +447,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
 
   pub(crate) fn run_command(
     context: &ExecutionContext,
+    env: &BTreeMap<String, String>,
     scope: &Scope,
     command: &str,
     args: &[&str],
@@ -459,6 +471,10 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         Stdio::inherit()
       })
       .stdout(Stdio::piped());
+
+    for (key, value) in env {
+      cmd.env(key, value);
+    }
 
     cmd.output_guard_stdout()
   }
@@ -498,7 +514,19 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     recipe: &Recipe<'src>,
     scope: &'run Scope<'src, 'run>,
   ) -> RunResult<'src, (Scope<'src, 'run>, Vec<String>)> {
-    let mut evaluator = Self::new(context, is_dependency, scope);
+    let env = recipe
+      .attributes
+      .iter()
+      .filter_map(|attribute| {
+        if let Attribute::Env(key, value) = attribute {
+          Some((key.cooked.clone(), value.cooked.clone()))
+        } else {
+          None
+        }
+      })
+      .collect();
+
+    let mut evaluator = Self::new(context, env, is_dependency, scope);
 
     let mut positional = Vec::new();
 
@@ -539,6 +567,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         export: parameter.export,
         file_depth: 0,
         name: parameter.name,
+        number: parameter.number,
         prelude: false,
         private: false,
         value: values.join(" "),
@@ -550,12 +579,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
 
   pub(crate) fn new(
     context: &ExecutionContext<'src, 'run>,
+    env: BTreeMap<String, String>,
     is_dependency: bool,
     scope: &'run Scope<'src, 'run>,
   ) -> Self {
     Self {
       assignments: None,
       context: Some(*context),
+      env,
       is_dependency,
       non_const_assignments: Table::new(),
       scope: scope.child(),

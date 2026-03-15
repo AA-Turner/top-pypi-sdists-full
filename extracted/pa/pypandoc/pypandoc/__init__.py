@@ -15,38 +15,7 @@ from .handler import _check_log_handler, logger
 from .pandoc_download import DEFAULT_TARGET_FOLDER, download_pandoc
 
 __author__ = "Juho Vepsäläinen; Maintained by Jessica Tegner"
-__author_email__ = "jessica@jessicategner.com"
-__maintainer__ = "Jessica Tegner"
-__url__ = "https://github.com/JessicaTegner/pypandoc"
-__version__ = "1.16.2"
-__license__ = "MIT"
-__description__ = "Thin wrapper for pandoc."
-__python_requires__ = ">=3.7"
-__setup_requires__ = ["setuptools", "pip>=8.1.0", "wheel>=0.25.0"]
-__classifiers__ = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: POSIX",
-    "Programming Language :: Python",
-    "Topic :: Text Processing",
-    "Topic :: Text Processing :: Filters",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: 3.15",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-]
-
+__version__ = "1.17"
 __all__ = [
     "convert_file",
     "convert_text",
@@ -55,6 +24,8 @@ __all__ = [
     "get_pandoc_path",
     "download_pandoc",
 ]
+
+_MAX_TINYTEX_INSTALL_ATTEMPTS = 3
 
 
 def convert_text(
@@ -112,8 +83,12 @@ def convert_text(
         and is available at path.
     """
 
-    if isinstance(source, bytes):
-        source = source.decode(encoding, errors="ignore")
+    # Binary container formats must not be decoded — they are ZIP archives
+    # where a decode/encode round-trip silently corrupts data.
+    _binary_input_formats = {"docx", "odt", "epub", "epub3", "pdf", "pptx"}
+    base_format = _get_base_format(format) if format else ""
+    if isinstance(source, bytes) and base_format not in _binary_input_formats:
+        source = source.decode(encoding, errors="replace")
 
     return _convert_input(
         source,
@@ -400,6 +375,45 @@ def _validate_formats(format, to, outputfile):
     return format, to
 
 
+def _try_setup_tinytex():
+    """If pytinytex is installed, ensure TinyTeX bin is on PATH."""
+    try:
+        import pytinytex
+
+        pytinytex.ensure_tinytex_installed()
+    except (ImportError, RuntimeError):
+        pass
+
+
+def _is_tinytex_available():
+    """Check if pytinytex is installed and TinyTeX is set up."""
+    try:
+        import pytinytex
+
+        pytinytex.ensure_tinytex_installed()
+        return True
+    except (ImportError, RuntimeError):
+        return False
+
+
+def _try_auto_install_packages(stderr):
+    """Parse stderr for missing LaTeX packages, install them via pytinytex."""
+    try:
+        from pytinytex import install, parse_log
+
+        parsed = parse_log(stderr)
+        installed = []
+        for pkg in parsed.missing_packages:
+            try:
+                install(pkg)
+                installed.append(pkg)
+            except RuntimeError:
+                pass
+        return installed
+    except ImportError:
+        return []
+
+
 def _convert_input(
     source: str,
     format,
@@ -471,6 +485,12 @@ def _convert_input(
         ]
         args.extend(f)
 
+    # If converting to PDF or LaTeX, try to set up TinyTeX on PATH
+    # so pandoc finds LaTeX engines automatically.
+    needs_latex = _get_base_format(to) in ("pdf", "latex")
+    if needs_latex:
+        _try_setup_tinytex()
+
     # To get access to pandoc-citeproc when we use a included copy of pandoc,
     # we need to add the pypandoc/files dir to the PATH
     new_env = os.environ.copy()
@@ -480,53 +500,86 @@ def _convert_input(
         0x08000000 if sys.platform == "win32" else 0
     )  # set creation flag to not open pandoc in new console on windows
 
-    old_wd = os.getcwd()
-    if cworkdir and old_wd != cworkdir:
-        os.chdir(cworkdir)
+    # When converting to PDF with pytinytex available, retry on missing
+    # LaTeX packages (auto-install via tlmgr and re-run pandoc).
+    if needs_latex and _is_tinytex_available():
+        max_attempts = _MAX_TINYTEX_INSTALL_ATTEMPTS
+    else:
+        max_attempts = 1
 
-    logger.debug("Running pandoc...")
-    p = subprocess.Popen(
-        args,
-        stdin=subprocess.PIPE if string_input else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=new_env,
-        creationflags=creation_flag,
-    )
+    for attempt in range(max_attempts):
+        old_wd = os.getcwd()
+        if cworkdir and old_wd != cworkdir:
+            os.chdir(cworkdir)
 
-    if cworkdir is not None:
-        os.chdir(old_wd)
-
-    # something else than 'None' indicates that the process already terminated
-    if not (p.returncode is None):
-        raise RuntimeError(
-            'Pandoc died with exitcode "{}" before receiving input: {}'.format(
-                p.returncode, p.stderr.read()
-            )
+        logger.debug("Running pandoc...")
+        p = subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE if string_input else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=new_env,
+            creationflags=creation_flag,
         )
 
-    if string_input:
-        if isinstance(source, str):
-            source = source.encode("utf-8")
-    stdout, stderr = p.communicate(source if string_input else None)
+        if cworkdir is not None:
+            os.chdir(old_wd)
 
-    try:
+        # something else than 'None' indicates that the process already terminated
+        if not (p.returncode is None):
+            raise RuntimeError(
+                'Pandoc died with exitcode "{}" before receiving input: {}'.format(
+                    p.returncode,
+                    p.stderr.read().decode("utf-8", errors="replace"),
+                )
+            )
+
+        if string_input:
+            if isinstance(source, str):
+                source = source.encode("utf-8")
+        stdout, stderr = p.communicate(source if string_input else None)
+
         if not (to in ["odt", "docx", "epub", "epub3", "pdf"] and outputfile == "-"):
-            stdout = stdout.decode("utf-8")
-    except UnicodeDecodeError:
-        # this shouldn't happen: pandoc basically guarantees that the output is utf-8!
-        raise RuntimeError("Pandoc output was not utf-8.")
+            stdout = stdout.decode("utf-8", errors="replace")
 
-    try:
-        stderr = stderr.decode("utf-8")
-    except UnicodeDecodeError:
-        # this shouldn't happen: pandoc basically guarantees that the output is utf-8!
-        raise RuntimeError("Pandoc output was not utf-8.")
+        stderr = stderr.decode("utf-8", errors="replace")
+
+        # If pandoc failed and we have retries left, try auto-installing
+        # missing LaTeX packages.
+        if p.returncode != 0 and attempt < max_attempts - 1:
+            installed = _try_auto_install_packages(stderr)
+            if installed:
+                logger.info(
+                    "Auto-installed LaTeX packages: %s, retrying pandoc...",
+                    installed,
+                )
+                continue  # retry with newly installed packages
+            # Nothing could be installed, no point retrying
+            break
+
+        break  # success or single-attempt mode
 
     # check that pandoc returned successfully
     if p.returncode != 0:
+        hint = ""
+        if needs_latex:
+            try:
+                import pytinytex  # noqa: F401
+
+                hint = (
+                    "\nHint: pytinytex is installed but could not resolve "
+                    "the missing LaTeX packages. You may need to install "
+                    "them manually with pytinytex.install('<package>')."
+                )
+            except ImportError:
+                hint = (
+                    "\nHint: Install pypandoc[tinytex] for automatic "
+                    "LaTeX package management: pip install pypandoc[tinytex]"
+                )
         raise RuntimeError(
-            f'Pandoc died with exitcode "{p.returncode}" during conversion: {stderr}'
+            "Pandoc died with exitcode "
+            f'"{p.returncode}" during conversion: '
+            f"{stderr}{hint}"
         )
 
     # if there is output on stderr, process it and send to logger

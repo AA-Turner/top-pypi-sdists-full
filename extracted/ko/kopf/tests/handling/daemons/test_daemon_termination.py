@@ -21,7 +21,7 @@ async def test_daemon_exits_gracefully_and_instantly_on_resource_deletion(
 
     # 0th cycle: trigger spawning and wait until ready. Assume the finalizers are already added.
     finalizer = settings.persistence.finalizer
-    event_object = {'metadata': {'finalizers': [finalizer]}}
+    event_object = {'metadata': {'finalizers': [finalizer], 'resourceVersion': '1234567890'}}
     await simulate_cycle(event_object)
     async with called:
         await called.wait()
@@ -37,7 +37,10 @@ async def test_daemon_exits_gracefully_and_instantly_on_resource_deletion(
 
     assert looptime == 0
     assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['metadata']['finalizers'] == []
+    assert k8s_mocked.patch.call_args_list[0].kwargs['payload'] == [
+        {'op': 'test', 'path': '/metadata/resourceVersion', 'value': '1234567890'},
+        {'op': 'remove', 'path': '/metadata/finalizers'},
+    ]
 
 
 async def test_daemon_exits_gracefully_and_instantly_on_operator_exiting(
@@ -126,7 +129,7 @@ async def test_daemon_exits_instantly_on_cancellation_with_backoff(
 
     # Trigger spawning and wait until ready. Assume the finalizers are already added.
     finalizer = settings.persistence.finalizer
-    event_object = {'metadata': {'finalizers': [finalizer]}}
+    event_object = {'metadata': {'finalizers': [finalizer], 'resourceVersion': '1234567890'}}
     await simulate_cycle(event_object)
     async with called:
         await called.wait()
@@ -139,15 +142,18 @@ async def test_daemon_exits_instantly_on_cancellation_with_backoff(
 
     assert looptime == 1.23  # i.e. the slept through the whole backoff time
     assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['status']['kopf']['dummy']
+    assert k8s_mocked.patch.call_args_list[0].kwargs['payload']['metadata']['annotations']['kopf.zalando.org/touch-dummy']
 
     # 2nd cycle: cancelling after the backoff is reached. Wait for cancellation timeout.
     mocker.resetall()
     await simulate_cycle(event_object)
 
     assert looptime == 1.23  # i.e. no additional sleeps happened
-    assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['metadata']['finalizers'] == []
+    assert k8s_mocked.patch.call_count == 2  # the 1st merge-patch is the dummy removal, ignore
+    assert k8s_mocked.patch.call_args_list[1].kwargs['payload'] == [
+        {'op': 'test', 'path': '/metadata/resourceVersion', 'value': '1234567890'},
+        {'op': 'remove', 'path': '/metadata/finalizers'},
+    ]
 
     # Cleanup.
     await dummy.wait_for_daemon_done()
@@ -173,7 +179,7 @@ async def test_daemon_exits_slowly_on_cancellation_with_backoff(
 
     # Trigger spawning and wait until ready. Assume the finalizers are already added.
     finalizer = settings.persistence.finalizer
-    event_object = {'metadata': {'finalizers': [finalizer]}}
+    event_object = {'metadata': {'finalizers': [finalizer], 'resourceVersion': '1234567890'}}
     await simulate_cycle(event_object)
     async with called:
         await called.wait()
@@ -186,7 +192,7 @@ async def test_daemon_exits_slowly_on_cancellation_with_backoff(
 
     assert looptime == 1.23
     assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['status']['kopf']['dummy']
+    assert k8s_mocked.patch.call_args_list[0].kwargs['payload']['metadata']['annotations']['kopf.zalando.org/touch-dummy']
 
     # 2nd cycle: cancelling after the backoff is reached. Wait for cancellation timeout.
     mocker.resetall()
@@ -194,7 +200,7 @@ async def test_daemon_exits_slowly_on_cancellation_with_backoff(
 
     assert looptime == 1.23 + 4.56  # i.e. it really spent all the timeout
     assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['status']['kopf']['dummy']
+    assert k8s_mocked.patch.call_args_list[0].kwargs['payload']['metadata']['annotations']['kopf.zalando.org/touch-dummy']
 
     # 3rd cycle: the daemon has exited, the resource should be unblocked from actual deletion.
     mocker.resetall()
@@ -205,8 +211,11 @@ async def test_daemon_exits_slowly_on_cancellation_with_backoff(
     await dummy.wait_for_daemon_done()
 
     assert looptime == 1.23 + 4.56  # i.e. not additional sleeps happened
-    assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['metadata']['finalizers'] == []
+    assert k8s_mocked.patch.call_count == 2  # the 1st merge-patch is the dummy removal, ignore
+    assert k8s_mocked.patch.call_args_list[1].kwargs['payload'] == [
+        {'op': 'test', 'path': '/metadata/resourceVersion', 'value': '1234567890'},
+        {'op': 'remove', 'path': '/metadata/finalizers'},
+    ]
 
 
 async def test_daemon_is_abandoned_due_to_cancellation_timeout_reached(
@@ -230,7 +239,7 @@ async def test_daemon_is_abandoned_due_to_cancellation_timeout_reached(
 
     # 0th cycle:tTrigger spawning and wait until ready. Assume the finalizers are already added.
     finalizer = settings.persistence.finalizer
-    event_object = {'metadata': {'finalizers': [finalizer]}}
+    event_object = {'metadata': {'finalizers': [finalizer], 'resourceVersion': '1234567890'}}
     await simulate_cycle(event_object)
     async with called:
         await called.wait()
@@ -243,7 +252,7 @@ async def test_daemon_is_abandoned_due_to_cancellation_timeout_reached(
 
     assert looptime == 4.56
     assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['status']['kopf']['dummy']
+    assert k8s_mocked.patch.call_args_list[0].kwargs['payload']['metadata']['annotations']['kopf.zalando.org/touch-dummy']
 
     # 2rd cycle: the daemon has exited, the resource should be unblocked from actual deletion.
     mocker.resetall()
@@ -252,8 +261,11 @@ async def test_daemon_is_abandoned_due_to_cancellation_timeout_reached(
         await simulate_cycle(event_object)
 
     assert looptime == 1000 + 4.56
-    assert k8s_mocked.patch.call_count == 1
-    assert k8s_mocked.patch.call_args_list[0][1]['payload']['metadata']['finalizers'] == []
+    assert k8s_mocked.patch.call_count == 2  # the 1st merge-patch is the dummy removal, ignore
+    assert k8s_mocked.patch.call_args_list[1].kwargs['payload'] == [
+        {'op': 'test', 'path': '/metadata/resourceVersion', 'value': '1234567890'},
+        {'op': 'remove', 'path': '/metadata/finalizers'},
+    ]
     assert_logs(["Daemon 'fn' did not exit in time. Leaving it orphaned."])
 
     # Cleanup.

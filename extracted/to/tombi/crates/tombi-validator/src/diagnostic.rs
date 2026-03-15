@@ -35,6 +35,9 @@ pub enum DiagnosticKind {
     #[error("\"{key}\" is not allowed")]
     KeyNotAllowed { key: String },
 
+    #[error("Unevaluated property \"{key}\" is not allowed")]
+    UnevaluatedPropertyNotAllowed { key: String },
+
     #[error("Key must match the pattern `{patterns}`")]
     KeyPattern { patterns: Patterns },
 
@@ -123,6 +126,9 @@ pub enum DiagnosticKind {
     #[error("Additional items are not allowed (tuple schema has {max_items} items)")]
     ArrayAdditionalItems { max_items: usize },
 
+    #[error("Unevaluated array item at index {index} is not allowed")]
+    ArrayUnevaluatedItemNotAllowed { index: usize },
+
     #[error("Table must contain at most {max_keys} keys, but found {actual}")]
     TableMaxKeys { max_keys: usize, actual: usize },
 
@@ -140,6 +146,9 @@ pub enum DiagnosticKind {
 
     #[error("1 of {total_count} schemas must be matched, but no schema candidates were available")]
     OneOfNoMatch { total_count: usize },
+
+    #[error("The schema matches no values")]
+    Nothing,
 
     #[error("\"not\" schema is matched")]
     NotSchemaMatch,
@@ -166,6 +175,9 @@ impl DiagnosticKind {
             }
             DiagnosticKind::TableStrictAdditionalKeys { .. } => "table-strict-additional-keys",
             DiagnosticKind::KeyNotAllowed { .. } => "key-not-allowed",
+            DiagnosticKind::UnevaluatedPropertyNotAllowed { .. } => {
+                "unevaluated-property-not-allowed"
+            }
             DiagnosticKind::KeyPattern { .. } => "key-pattern",
             DiagnosticKind::TypeMismatch { .. } => "type-mismatch",
             DiagnosticKind::Const { .. } => "const",
@@ -191,11 +203,15 @@ impl DiagnosticKind {
             DiagnosticKind::ArrayMaxContains { .. } => "array-max-contains",
             DiagnosticKind::ArrayUniqueValues => "array-unique-values",
             DiagnosticKind::ArrayAdditionalItems { .. } => "array-additional-items",
+            DiagnosticKind::ArrayUnevaluatedItemNotAllowed { .. } => {
+                "array-unevaluated-item-not-allowed"
+            }
             DiagnosticKind::TableMaxKeys { .. } => "table-max-keys",
             DiagnosticKind::TableMinKeys { .. } => "table-min-keys",
             DiagnosticKind::TableKeyRequired { .. } => "table-key-required",
             DiagnosticKind::OneOfMultipleMatch { .. } => "one-of-multiple-match",
             DiagnosticKind::OneOfNoMatch { .. } => "one-of-no-match",
+            DiagnosticKind::Nothing => "nothing",
             DiagnosticKind::NotSchemaMatch => "not-schema-match",
             DiagnosticKind::KeyEmpty => "key-empty",
             DiagnosticKind::TableDependencyRequired { .. } => "table-dependency-required",
@@ -204,6 +220,13 @@ impl DiagnosticKind {
 }
 
 impl Diagnostic {
+    pub fn new(kind: DiagnosticKind, range: impl Into<tombi_text::Range>) -> Self {
+        Self {
+            kind: Box::new(kind),
+            range: range.into(),
+        }
+    }
+
     #[inline]
     pub fn code(&self) -> &'static str {
         self.kind.code()

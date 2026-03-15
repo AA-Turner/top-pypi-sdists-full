@@ -10,7 +10,7 @@
     XEP-0454: OMEMO Media Sharing
 """
 
-from typing import IO, Optional, Tuple
+from typing import IO
 
 from os import urandom
 from pathlib import Path
@@ -41,7 +41,7 @@ class XEP_0454(BasePlugin):
     dependencies = {'xep_0363'}
 
     @staticmethod
-    def encrypt(input_file: Optional[IO[bytes]] = None, filename: Optional[Path] = None) -> Tuple[bytes, str]:
+    def encrypt(input_file: IO[bytes] | None = None, filename: Path | None = None) -> tuple[bytes, str]:
         """
             Encrypts file as specified in XEP-0454 for use in file sharing
 
@@ -134,8 +134,8 @@ class XEP_0454(BasePlugin):
     async def upload_file(
         self,
         filename: Path,
-        _size: Optional[int] = None,
-        content_type: Optional[str] = None,
+        _size: int | None = None,
+        content_type: str | None = None,
         **kwargs,
     ) -> str:
         """

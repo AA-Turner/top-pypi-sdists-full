@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from functools import partial
-import typing
 
 from slixmpp import Message, Iq, Presence, JID
 from slixmpp.xmlstream.handler import Callback
@@ -232,10 +231,10 @@ class XEP_0100(BasePlugin):
 
     def transform_legacy_message(
         self,
-        jabber_user_jid: typing.Union[JID, str],
+        jabber_user_jid: JID | str,
         legacy_contact_id: str,
         body: str,
-        mtype: typing.Optional[str] = None,
+        mtype: str | None = None,
     ):
         """
         Transform a legacy message to an XMPP message

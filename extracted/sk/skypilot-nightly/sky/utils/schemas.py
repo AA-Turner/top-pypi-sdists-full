@@ -572,6 +572,12 @@ def get_storage_schema():
                     mode.value for mode in storage.StorageMode
                 ]
             },
+            'type': {
+                'type': 'string',
+                'case_insensitive_enum': [
+                    t.value for t in storage.FileMountType
+                ]
+            },
             'config': {
                 'type': 'object',
                 'properties': {
@@ -1790,7 +1796,7 @@ def get_config_schema():
         'items': {
             'type': 'string',
             'case_insensitive_enum':
-                (list(constants.ALL_CLOUDS) + ['cloudflare'])
+                (list(constants.ALL_CLOUDS) + constants.STORAGE_ONLY_CLOUDS)
         }
     }
 
@@ -1898,7 +1904,8 @@ def get_config_schema():
 
     workspace_schema = {'type': 'string'}
 
-    allowed_workspace_cloud_names = list(constants.ALL_CLOUDS) + ['cloudflare']
+    allowed_workspace_cloud_names = list(
+        constants.ALL_CLOUDS) + constants.STORAGE_ONLY_CLOUDS
     # Create pattern for not supported clouds, i.e.
     # all clouds except aws, gcp, kubernetes, ssh, nebius
     not_supported_clouds = [

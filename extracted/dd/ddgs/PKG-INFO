@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.11.3
+Version: 9.11.4
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License-Expression: MIT

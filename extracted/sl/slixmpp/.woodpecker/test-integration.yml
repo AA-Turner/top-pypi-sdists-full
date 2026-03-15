@@ -7,7 +7,7 @@ variables:
     image: codeberg.org/poezio/slixmpp:ci
     depends_on: []
     commands:
-      - uv sync --frozen --all-extras --all-groups
+      - uv sync --frozen --all-extras
       - ./run_integration_tests.py
 
 steps:

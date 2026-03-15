@@ -8,7 +8,7 @@ from slixmpp.stanza import StreamFeatures
 from slixmpp.features.feature_rosterver import stanza
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins.base import BasePlugin
-from typing import ClassVar, Set
+from typing import ClassVar
 
 
 log = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class FeatureRosterVer(BasePlugin):
 
     name = 'feature_rosterver'
     description = 'RFC 6121: Stream Feature: Roster Versioning'
-    dependences: ClassVar[Set[str]] = set()
+    dependences: ClassVar[set[str]] = set()
     stanza = stanza
 
     def plugin_init(self):

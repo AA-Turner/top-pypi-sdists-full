@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,7 +23,6 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
@@ -58,7 +49,7 @@
         ],
         "name": "av._core",
         "sources": [
-            "av/_core.pyx"
+            "av/_core.py"
         ]
     },
     "module_name": "av._core"
@@ -1182,40 +1173,35 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE__av___core
 #define __PYX_HAVE_API__av___core
 /* Early includes */
+#include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1417,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/_core.pyx",
+  "av/_core.py",
 };
 /* #### Code section: utility_code_proto_before_types ### */
 /* Atomics.proto (used by CodeObjectCache) */
@@ -2035,9 +2021,9 @@ static int __Pyx_State_RemoveModule(void*);
 #define __PYX_TYPE_MODULE_PREFIX __PYX_ABI_MODULE_NAME "."
 
 
-/* Module declarations from "libc.stdint" */
+/* Module declarations from "cython" */
 
-/* Module declarations from "libc.stddef" */
+/* Module declarations from "libc.stdint" */
 
 /* Module declarations from "libav" */
 
@@ -2178,12 +2164,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/_core.pyx":11
+/* "av/_core.py":10
  * 
  * 
- * cdef decode_version(v):             # <<<<<<<<<<<<<<
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def decode_version(v):
  *     if v < 0:
- *         return (-1, -1, -1)
 */
 
 static PyObject *__pyx_f_2av_5_core_decode_version(PyObject *__pyx_v_v) {
@@ -2203,9 +2189,9 @@ static PyObject *__pyx_f_2av_5_core_decode_version(PyObject *__pyx_v_v) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decode_version", 0);
 
-  /* "av/_core.pyx":12
- * 
- * cdef decode_version(v):
+  /* "av/_core.py":12
+ * @cython.cfunc
+ * def decode_version(v):
  *     if v < 0:             # <<<<<<<<<<<<<<
  *         return (-1, -1, -1)
  * 
@@ -2215,94 +2201,94 @@ static PyObject *__pyx_f_2av_5_core_decode_version(PyObject *__pyx_v_v) {
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/_core.pyx":13
- * cdef decode_version(v):
+    /* "av/_core.py":13
+ * def decode_version(v):
  *     if v < 0:
  *         return (-1, -1, -1)             # <<<<<<<<<<<<<<
  * 
- *     cdef int major = (v >> 16) & 0xff
+ *     major: cython.int = (v >> 16) & 0xFF
 */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_tuple[0]);
     __pyx_r = __pyx_mstate_global->__pyx_tuple[0];
     goto __pyx_L0;
 
-    /* "av/_core.pyx":12
- * 
- * cdef decode_version(v):
+    /* "av/_core.py":12
+ * @cython.cfunc
+ * def decode_version(v):
  *     if v < 0:             # <<<<<<<<<<<<<<
  *         return (-1, -1, -1)
  * 
 */
   }
 
-  /* "av/_core.pyx":15
+  /* "av/_core.py":15
  *         return (-1, -1, -1)
  * 
- *     cdef int major = (v >> 16) & 0xff             # <<<<<<<<<<<<<<
- *     cdef int minor = (v >> 8) & 0xff
- *     cdef int micro = (v) & 0xff
+ *     major: cython.int = (v >> 16) & 0xFF             # <<<<<<<<<<<<<<
+ *     minor: cython.int = (v >> 8) & 0xFF
+ *     micro: cython.int = (v) & 0xFF
 */
   __pyx_t_1 = __Pyx_PyLong_RshiftObjC(__pyx_v_v, __pyx_mstate_global->__pyx_int_16, 16, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_AndObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_255, 0xff, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_AndObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_255, 0xFF, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_4 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_major = __pyx_t_4;
 
-  /* "av/_core.pyx":16
+  /* "av/_core.py":16
  * 
- *     cdef int major = (v >> 16) & 0xff
- *     cdef int minor = (v >> 8) & 0xff             # <<<<<<<<<<<<<<
- *     cdef int micro = (v) & 0xff
- * 
+ *     major: cython.int = (v >> 16) & 0xFF
+ *     minor: cython.int = (v >> 8) & 0xFF             # <<<<<<<<<<<<<<
+ *     micro: cython.int = (v) & 0xFF
+ *     return (major, minor, micro)
 */
   __pyx_t_3 = __Pyx_PyLong_RshiftObjC(__pyx_v_v, __pyx_mstate_global->__pyx_int_8, 8, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyLong_AndObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_255, 0xff, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_AndObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_255, 0xFF, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_4 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_minor = __pyx_t_4;
 
-  /* "av/_core.pyx":17
- *     cdef int major = (v >> 16) & 0xff
- *     cdef int minor = (v >> 8) & 0xff
- *     cdef int micro = (v) & 0xff             # <<<<<<<<<<<<<<
- * 
+  /* "av/_core.py":17
+ *     major: cython.int = (v >> 16) & 0xFF
+ *     minor: cython.int = (v >> 8) & 0xFF
+ *     micro: cython.int = (v) & 0xFF             # <<<<<<<<<<<<<<
  *     return (major, minor, micro)
+ * 
 */
-  __pyx_t_1 = __Pyx_PyLong_AndObjC(__pyx_v_v, __pyx_mstate_global->__pyx_int_255, 0xff, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_AndObjC(__pyx_v_v, __pyx_mstate_global->__pyx_int_255, 0xFF, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_4 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_micro = __pyx_t_4;
 
-  /* "av/_core.pyx":19
- *     cdef int micro = (v) & 0xff
- * 
+  /* "av/_core.py":18
+ *     minor: cython.int = (v >> 8) & 0xFF
+ *     micro: cython.int = (v) & 0xFF
  *     return (major, minor, micro)             # <<<<<<<<<<<<<<
  * 
- * # Return an informative version string.
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_major); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_major); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_minor); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_minor); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_micro); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_micro); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 19, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 18, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 19, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 18, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_5) != (0)) __PYX_ERR(0, 19, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_t_5) != (0)) __PYX_ERR(0, 18, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_3 = 0;
   __pyx_t_5 = 0;
@@ -2310,12 +2296,12 @@ static PyObject *__pyx_f_2av_5_core_decode_version(PyObject *__pyx_v_v) {
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "av/_core.pyx":11
+  /* "av/_core.py":10
  * 
  * 
- * cdef decode_version(v):             # <<<<<<<<<<<<<<
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def decode_version(v):
  *     if v < 0:
- *         return (-1, -1, -1)
 */
 
   /* function exit code */
@@ -2689,37 +2675,28 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   (void)__Pyx_modinit_function_import_code(__pyx_mstate);
   /*--- Execution code ---*/
 
-  /* "av/_core.pyx":4
+  /* "av/_core.py":4
+ * import cython.cimports.libav as lib
  * 
- * # Initialise libraries.
- * lib.avformat_network_init()             # <<<<<<<<<<<<<<
- * lib.avdevice_register_all()
- * 
-*/
-  avformat_network_init();
-
-  /* "av/_core.pyx":5
- * # Initialise libraries.
- * lib.avformat_network_init()
  * lib.avdevice_register_all()             # <<<<<<<<<<<<<<
  * 
  * # Exports.
 */
   avdevice_register_all();
 
-  /* "av/_core.pyx":8
+  /* "av/_core.py":7
  * 
  * # Exports.
  * time_base = lib.AV_TIME_BASE             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_2 = __Pyx_PyLong_From_int(AV_TIME_BASE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_int(AV_TIME_BASE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_2) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_2) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/_core.pyx":25
+  /* "av/_core.py":25
  * # description. This string has no fixed format and can change any time. It
  * # should never be parsed by code.
  * ffmpeg_version_info = lib.av_version_info()             # <<<<<<<<<<<<<<
@@ -2731,7 +2708,7 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ffmpeg_version_info, __pyx_t_2) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/_core.pyx":28
+  /* "av/_core.py":28
  * 
  * library_meta = {
  *     "libavutil": dict(             # <<<<<<<<<<<<<<
@@ -2741,12 +2718,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   __pyx_t_2 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "av/_core.pyx":29
+  /* "av/_core.py":29
  * library_meta = {
  *     "libavutil": dict(
  *         version=decode_version(lib.avutil_version()),             # <<<<<<<<<<<<<<
  *         configuration=lib.avutil_configuration(),
- *         license=lib.avutil_license()
+ *         license=lib.avutil_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2758,11 +2735,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_5) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":30
+  /* "av/_core.py":30
  *     "libavutil": dict(
  *         version=decode_version(lib.avutil_version()),
  *         configuration=lib.avutil_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.avutil_license()
+ *         license=lib.avutil_license(),
  *     ),
 */
   __pyx_t_5 = __Pyx_PyUnicode_FromString(avutil_configuration()); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 30, __pyx_L1_error)
@@ -2770,10 +2747,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_5) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":31
+  /* "av/_core.py":31
  *         version=decode_version(lib.avutil_version()),
  *         configuration=lib.avutil_configuration(),
- *         license=lib.avutil_license()             # <<<<<<<<<<<<<<
+ *         license=lib.avutil_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libavcodec": dict(
 */
@@ -2784,12 +2761,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libavutil, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":34
+  /* "av/_core.py":34
  *     ),
  *     "libavcodec": dict(
  *         version=decode_version(lib.avcodec_version()),             # <<<<<<<<<<<<<<
  *         configuration=lib.avcodec_configuration(),
- *         license=lib.avcodec_license()
+ *         license=lib.avcodec_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2801,11 +2778,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":35
+  /* "av/_core.py":35
  *     "libavcodec": dict(
  *         version=decode_version(lib.avcodec_version()),
  *         configuration=lib.avcodec_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.avcodec_license()
+ *         license=lib.avcodec_license(),
  *     ),
 */
   __pyx_t_4 = __Pyx_PyUnicode_FromString(avcodec_configuration()); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
@@ -2813,10 +2790,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":36
+  /* "av/_core.py":36
  *         version=decode_version(lib.avcodec_version()),
  *         configuration=lib.avcodec_configuration(),
- *         license=lib.avcodec_license()             # <<<<<<<<<<<<<<
+ *         license=lib.avcodec_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libavformat": dict(
 */
@@ -2827,12 +2804,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libavcodec, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":39
+  /* "av/_core.py":39
  *     ),
  *     "libavformat": dict(
  *         version=decode_version(lib.avformat_version()),             # <<<<<<<<<<<<<<
  *         configuration=lib.avformat_configuration(),
- *         license=lib.avformat_license()
+ *         license=lib.avformat_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2844,11 +2821,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_5) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":40
+  /* "av/_core.py":40
  *     "libavformat": dict(
  *         version=decode_version(lib.avformat_version()),
  *         configuration=lib.avformat_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.avformat_license()
+ *         license=lib.avformat_license(),
  *     ),
 */
   __pyx_t_5 = __Pyx_PyUnicode_FromString(avformat_configuration()); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 40, __pyx_L1_error)
@@ -2856,10 +2833,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_5) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":41
+  /* "av/_core.py":41
  *         version=decode_version(lib.avformat_version()),
  *         configuration=lib.avformat_configuration(),
- *         license=lib.avformat_license()             # <<<<<<<<<<<<<<
+ *         license=lib.avformat_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libavdevice": dict(
 */
@@ -2870,12 +2847,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libavformat, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":44
+  /* "av/_core.py":44
  *     ),
  *     "libavdevice": dict(
  *         version=decode_version(lib.avdevice_version()),             # <<<<<<<<<<<<<<
  *         configuration=lib.avdevice_configuration(),
- *         license=lib.avdevice_license()
+ *         license=lib.avdevice_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2887,11 +2864,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_4) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":45
+  /* "av/_core.py":45
  *     "libavdevice": dict(
  *         version=decode_version(lib.avdevice_version()),
  *         configuration=lib.avdevice_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.avdevice_license()
+ *         license=lib.avdevice_license(),
  *     ),
 */
   __pyx_t_4 = __Pyx_PyUnicode_FromString(avdevice_configuration()); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L1_error)
@@ -2899,10 +2876,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_4) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":46
+  /* "av/_core.py":46
  *         version=decode_version(lib.avdevice_version()),
  *         configuration=lib.avdevice_configuration(),
- *         license=lib.avdevice_license()             # <<<<<<<<<<<<<<
+ *         license=lib.avdevice_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libavfilter": dict(
 */
@@ -2913,12 +2890,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libavdevice, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":49
+  /* "av/_core.py":49
  *     ),
  *     "libavfilter": dict(
  *         version=decode_version(lib.avfilter_version()),             # <<<<<<<<<<<<<<
  *         configuration=lib.avfilter_configuration(),
- *         license=lib.avfilter_license()
+ *         license=lib.avfilter_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2930,11 +2907,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_5) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":50
+  /* "av/_core.py":50
  *     "libavfilter": dict(
  *         version=decode_version(lib.avfilter_version()),
  *         configuration=lib.avfilter_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.avfilter_license()
+ *         license=lib.avfilter_license(),
  *     ),
 */
   __pyx_t_5 = __Pyx_PyUnicode_FromString(avfilter_configuration()); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 50, __pyx_L1_error)
@@ -2942,10 +2919,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_5) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":51
+  /* "av/_core.py":51
  *         version=decode_version(lib.avfilter_version()),
  *         configuration=lib.avfilter_configuration(),
- *         license=lib.avfilter_license()             # <<<<<<<<<<<<<<
+ *         license=lib.avfilter_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libswscale": dict(
 */
@@ -2956,12 +2933,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libavfilter, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":54
+  /* "av/_core.py":54
  *     ),
  *     "libswscale": dict(
- *         version=decode_version(lib.swscale_version()),             # <<<<<<<<<<<<<<
- *         configuration=lib.swscale_configuration(),
- *         license=lib.swscale_license()
+ *         version=decode_version(swscale_version()),             # <<<<<<<<<<<<<<
+ *         configuration=swscale_configuration(),
+ *         license=swscale_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -2973,11 +2950,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_4) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":55
+  /* "av/_core.py":55
  *     "libswscale": dict(
- *         version=decode_version(lib.swscale_version()),
- *         configuration=lib.swscale_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.swscale_license()
+ *         version=decode_version(swscale_version()),
+ *         configuration=swscale_configuration(),             # <<<<<<<<<<<<<<
+ *         license=swscale_license(),
  *     ),
 */
   __pyx_t_4 = __Pyx_PyUnicode_FromString(swscale_configuration()); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
@@ -2985,10 +2962,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_4) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/_core.pyx":56
- *         version=decode_version(lib.swscale_version()),
- *         configuration=lib.swscale_configuration(),
- *         license=lib.swscale_license()             # <<<<<<<<<<<<<<
+  /* "av/_core.py":56
+ *         version=decode_version(swscale_version()),
+ *         configuration=swscale_configuration(),
+ *         license=swscale_license(),             # <<<<<<<<<<<<<<
  *     ),
  *     "libswresample": dict(
 */
@@ -2999,12 +2976,12 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_libswscale, __pyx_t_3) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/_core.pyx":59
+  /* "av/_core.py":59
  *     ),
  *     "libswresample": dict(
- *         version=decode_version(lib.swresample_version()),             # <<<<<<<<<<<<<<
- *         configuration=lib.swresample_configuration(),
- *         license=lib.swresample_license()
+ *         version=decode_version(swresample_version()),             # <<<<<<<<<<<<<<
+ *         configuration=swresample_configuration(),
+ *         license=swresample_license(),
 */
   __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
@@ -3016,11 +2993,11 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_5) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":60
+  /* "av/_core.py":60
  *     "libswresample": dict(
- *         version=decode_version(lib.swresample_version()),
- *         configuration=lib.swresample_configuration(),             # <<<<<<<<<<<<<<
- *         license=lib.swresample_license()
+ *         version=decode_version(swresample_version()),
+ *         configuration=swresample_configuration(),             # <<<<<<<<<<<<<<
+ *         license=swresample_license(),
  *     ),
 */
   __pyx_t_5 = __Pyx_PyUnicode_FromString(swresample_configuration()); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 60, __pyx_L1_error)
@@ -3028,10 +3005,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_configuration, __pyx_t_5) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "av/_core.pyx":61
- *         version=decode_version(lib.swresample_version()),
- *         configuration=lib.swresample_configuration(),
- *         license=lib.swresample_license()             # <<<<<<<<<<<<<<
+  /* "av/_core.py":61
+ *         version=decode_version(swresample_version()),
+ *         configuration=swresample_configuration(),
+ *         license=swresample_license(),             # <<<<<<<<<<<<<<
  *     ),
  * }
 */
@@ -3044,7 +3021,7 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_library_meta, __pyx_t_2) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/_core.pyx":65
+  /* "av/_core.py":65
  * }
  * 
  * library_versions = {name: meta["version"] for name, meta in library_meta.items()}             # <<<<<<<<<<<<<<
@@ -3101,10 +3078,10 @@ __Pyx_RefNannySetupContext("PyInit__core", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_library_versions, __pyx_t_2) < (0)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/_core.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
+  /* "av/_core.py":1
+ * import cython             # <<<<<<<<<<<<<<
+ * import cython.cimports.libav as lib
  * 
- * # Initialise libraries.
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -3159,12 +3136,12 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/_core.pyx":13
- * cdef decode_version(v):
+  /* "av/_core.py":13
+ * def decode_version(v):
  *     if v < 0:
  *         return (-1, -1, -1)             # <<<<<<<<<<<<<<
  * 
- *     cdef int major = (v >> 16) & 0xff
+ *     major: cython.int = (v >> 16) & 0xFF
 */
   __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_neg_1, __pyx_mstate_global->__pyx_int_neg_1, __pyx_mstate_global->__pyx_int_neg_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);

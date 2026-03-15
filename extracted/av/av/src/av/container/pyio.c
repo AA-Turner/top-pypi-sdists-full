@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.container.pyio",
         "sources": [
-            "av/container/pyio.pyx"
+            "av/container/pyio.py"
         ]
     },
     "module_name": "av.container.pyio"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__container__pyio
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #include <string.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -1432,7 +1414,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/container/pyio.pyx",
+  "av/container/pyio.py",
   "<stringsource>",
 };
 /* #### Code section: utility_code_proto_before_types ### */
@@ -1626,8 +1608,7 @@ struct __pyx_obj_2av_9container_4pyio_PyIOFile;
 struct __pyx_opt_args_2av_5error_stash_exception;
 struct __pyx_opt_args_2av_5error_err_check;
 
-/* "av/error.pxd":2
- * 
+/* "av/error.pxd":1
  * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
  * cpdef int err_check(int res, filename=*) except -1
 */
@@ -1636,8 +1617,7 @@ struct __pyx_opt_args_2av_5error_stash_exception {
   PyObject *exc_info;
 };
 
-/* "av/error.pxd":3
- * 
+/* "av/error.pxd":2
  * cdef int stash_exception(exc_info=*)
  * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
 */
@@ -1646,12 +1626,30 @@ struct __pyx_opt_args_2av_5error_err_check {
   PyObject *filename;
 };
 
-/* "av/container/pyio.pyx":6
- * from av.error cimport stash_exception
+/* "av/container/pyio.py":9
+ * from cython.cimports.libc.string import memcpy
  * 
- * ctypedef int64_t (*seek_func_t)(void *opaque, int64_t offset, int whence) noexcept nogil             # <<<<<<<<<<<<<<
+ * Buf = cython.typedef(cython.pointer[uint8_t])             # <<<<<<<<<<<<<<
+ * BufC = cython.typedef(cython.pointer[cython.const[uint8_t]])
  * 
+*/
+typedef uint8_t *__pyx_t_2av_9container_4pyio_Buf;
+
+/* "av/container/pyio.py":10
  * 
+ * Buf = cython.typedef(cython.pointer[uint8_t])
+ * BufC = cython.typedef(cython.pointer[cython.const[uint8_t]])             # <<<<<<<<<<<<<<
+ * 
+ * seek_func_t = cython.typedef(
+*/
+typedef uint8_t const *__pyx_t_2av_9container_4pyio_BufC;
+
+/* "av/container/pyio.py":12
+ * BufC = cython.typedef(cython.pointer[cython.const[uint8_t]])
+ * 
+ * seek_func_t = cython.typedef(             # <<<<<<<<<<<<<<
+ *     "int64_t (*seek_func_t)(void *opaque, int64_t offset, int whence) noexcept nogil"
+ * )
 */
 typedef int64_t (*__pyx_t_2av_9container_4pyio_seek_func_t)(void *, int64_t, int);
 
@@ -2330,21 +2328,25 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
-/* Module declarations from "libc.string" */
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.error" */
 static int (*__pyx_f_2av_5error_stash_exception)(struct __pyx_opt_args_2av_5error_stash_exception *__pyx_optional_args); /*proto*/
+
+/* Module declarations from "libc.string" */
 
 /* Module declarations from "av.container.pyio" */
 static int __pyx_f_2av_9container_4pyio_pyio_read(void *, uint8_t *, int); /*proto*/
 static int __pyx_f_2av_9container_4pyio_pyio_write(void *, uint8_t const *, int); /*proto*/
 static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *, int64_t, int); /*proto*/
-static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *, uint8_t *, int); /*proto*/
-static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *, uint8_t const *, int); /*proto*/
+static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *, __pyx_t_2av_9container_4pyio_Buf, int); /*proto*/
+static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *, __pyx_t_2av_9container_4pyio_BufC, int); /*proto*/
 static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *, int64_t, int); /*proto*/
 /* #### Code section: typeinfo ### */
 /* #### Code section: before_global_var ### */
@@ -2502,9 +2504,9 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/container/pyio.pyx":10
- * 
- * cdef class PyIOFile:
+/* "av/container/pyio.py":19
+ * @cython.cclass
+ * class PyIOFile:
  *     def __cinit__(self, file, buffer_size, writeable=None):             # <<<<<<<<<<<<<<
  *         self.file = file
  * 
@@ -2534,41 +2536,41 @@ static int __pyx_pw_2av_9container_4pyio_8PyIOFile_1__cinit__(PyObject *__pyx_v_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_file,&__pyx_mstate_global->__pyx_n_u_buffer_size,&__pyx_mstate_global->__pyx_n_u_writeable,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 10, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 19, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 19, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 19, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 19, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 10, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 19, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 2, 3, i); __PYX_ERR(0, 10, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 2, 3, i); __PYX_ERR(0, 19, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 19, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 19, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 10, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 19, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -2580,7 +2582,7 @@ static int __pyx_pw_2av_9container_4pyio_8PyIOFile_1__cinit__(PyObject *__pyx_v_
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 10, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 19, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2623,12 +2625,12 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __Pyx_RefNannySetupContext("__cinit__", 0);
   __Pyx_INCREF(__pyx_v_writeable);
 
-  /* "av/container/pyio.pyx":11
- * cdef class PyIOFile:
+  /* "av/container/pyio.py":20
+ * class PyIOFile:
  *     def __cinit__(self, file, buffer_size, writeable=None):
  *         self.file = file             # <<<<<<<<<<<<<<
  * 
- *         cdef seek_func_t seek_func = NULL
+ *         seek_func: seek_func_t = NULL
 */
   __Pyx_INCREF(__pyx_v_file);
   __Pyx_GIVEREF(__pyx_v_file);
@@ -2636,17 +2638,17 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __Pyx_DECREF(__pyx_v_self->file);
   __pyx_v_self->file = __pyx_v_file;
 
-  /* "av/container/pyio.pyx":13
+  /* "av/container/pyio.py":22
  *         self.file = file
  * 
- *         cdef seek_func_t seek_func = NULL             # <<<<<<<<<<<<<<
+ *         seek_func: seek_func_t = NULL             # <<<<<<<<<<<<<<
  * 
  *         readable = getattr(self.file, "readable", None)
 */
   __pyx_v_seek_func = NULL;
 
-  /* "av/container/pyio.pyx":15
- *         cdef seek_func_t seek_func = NULL
+  /* "av/container/pyio.py":24
+ *         seek_func: seek_func_t = NULL
  * 
  *         readable = getattr(self.file, "readable", None)             # <<<<<<<<<<<<<<
  *         writable = getattr(self.file, "writable", None)
@@ -2654,13 +2656,13 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_1 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_readable, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_readable, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_readable = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/container/pyio.pyx":16
+  /* "av/container/pyio.py":25
  * 
  *         readable = getattr(self.file, "readable", None)
  *         writable = getattr(self.file, "writable", None)             # <<<<<<<<<<<<<<
@@ -2669,13 +2671,13 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_2 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_writable, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_writable, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_writable = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/container/pyio.pyx":17
+  /* "av/container/pyio.py":26
  *         readable = getattr(self.file, "readable", None)
  *         writable = getattr(self.file, "writable", None)
  *         seekable = getattr(self.file, "seekable", None)             # <<<<<<<<<<<<<<
@@ -2684,13 +2686,13 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_1 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_seekable, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_seekable, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_seekable = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/container/pyio.pyx":18
+  /* "av/container/pyio.py":27
  *         writable = getattr(self.file, "writable", None)
  *         seekable = getattr(self.file, "seekable", None)
  *         self.fread = getattr(self.file, "read", None)             # <<<<<<<<<<<<<<
@@ -2699,7 +2701,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_2 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_read, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_read, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_GIVEREF(__pyx_t_1);
@@ -2708,7 +2710,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_v_self->fread = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/container/pyio.pyx":19
+  /* "av/container/pyio.py":28
  *         seekable = getattr(self.file, "seekable", None)
  *         self.fread = getattr(self.file, "read", None)
  *         self.fwrite = getattr(self.file, "write", None)             # <<<<<<<<<<<<<<
@@ -2717,7 +2719,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_1 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_write, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_write, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_GIVEREF(__pyx_t_2);
@@ -2726,7 +2728,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_v_self->fwrite = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/container/pyio.pyx":20
+  /* "av/container/pyio.py":29
  *         self.fread = getattr(self.file, "read", None)
  *         self.fwrite = getattr(self.file, "write", None)
  *         self.fseek = getattr(self.file, "seek", None)             # <<<<<<<<<<<<<<
@@ -2735,7 +2737,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_2 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_seek, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_seek, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_GIVEREF(__pyx_t_1);
@@ -2744,7 +2746,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_v_self->fseek = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/container/pyio.pyx":21
+  /* "av/container/pyio.py":30
  *         self.fwrite = getattr(self.file, "write", None)
  *         self.fseek = getattr(self.file, "seek", None)
  *         self.ftell = getattr(self.file, "tell", None)             # <<<<<<<<<<<<<<
@@ -2753,7 +2755,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_t_1 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_tell, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetAttr3(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_tell, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_GIVEREF(__pyx_t_2);
@@ -2762,16 +2764,16 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_v_self->ftell = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/container/pyio.pyx":22
+  /* "av/container/pyio.py":31
  *         self.fseek = getattr(self.file, "seek", None)
  *         self.ftell = getattr(self.file, "tell", None)
  *         self.fclose = getattr(self.file, "close", None)             # <<<<<<<<<<<<<<
  * 
- *         # To be seekable the file object must have `seek` and `tell` methods.
+ *         # To be seekable, the file object must have `seek` and `tell` methods.
 */
   __pyx_t_2 = __pyx_v_self->file;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_close, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetAttr3(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_close, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_GIVEREF(__pyx_t_1);
@@ -2780,7 +2782,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_v_self->fclose = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/container/pyio.pyx":27
+  /* "av/container/pyio.py":36
  *         # If it also has a `seekable` method, it must return True.
  *         if (
  *             self.fseek is not None             # <<<<<<<<<<<<<<
@@ -2794,7 +2796,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "av/container/pyio.pyx":28
+  /* "av/container/pyio.py":37
  *         if (
  *             self.fseek is not None
  *             and self.ftell is not None             # <<<<<<<<<<<<<<
@@ -2808,12 +2810,12 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
     goto __pyx_L4_bool_binop_done;
   }
 
-  /* "av/container/pyio.pyx":29
+  /* "av/container/pyio.py":38
  *             self.fseek is not None
  *             and self.ftell is not None
  *             and (seekable is None or seekable())             # <<<<<<<<<<<<<<
  *         ):
- *             seek_func = pyio_seek
+ *             seek_func: seek_func_t = pyio_seek
 */
   __pyx_t_4 = (__pyx_v_seekable == Py_None);
   if (!__pyx_t_4) {
@@ -2841,16 +2843,16 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 29, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_4;
   __pyx_L4_bool_binop_done:;
 
-  /* "av/container/pyio.pyx":26
- *         # To be seekable the file object must have `seek` and `tell` methods.
+  /* "av/container/pyio.py":35
+ *         # To be seekable, the file object must have `seek` and `tell` methods.
  *         # If it also has a `seekable` method, it must return True.
  *         if (             # <<<<<<<<<<<<<<
  *             self.fseek is not None
@@ -2858,17 +2860,17 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   if (__pyx_t_3) {
 
-    /* "av/container/pyio.pyx":31
+    /* "av/container/pyio.py":40
  *             and (seekable is None or seekable())
  *         ):
- *             seek_func = pyio_seek             # <<<<<<<<<<<<<<
+ *             seek_func: seek_func_t = pyio_seek             # <<<<<<<<<<<<<<
  * 
  *         if writeable is None:
 */
     __pyx_v_seek_func = __pyx_f_2av_9container_4pyio_pyio_seek;
 
-    /* "av/container/pyio.pyx":26
- *         # To be seekable the file object must have `seek` and `tell` methods.
+    /* "av/container/pyio.py":35
+ *         # To be seekable, the file object must have `seek` and `tell` methods.
  *         # If it also has a `seekable` method, it must return True.
  *         if (             # <<<<<<<<<<<<<<
  *             self.fseek is not None
@@ -2876,8 +2878,8 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   }
 
-  /* "av/container/pyio.pyx":33
- *             seek_func = pyio_seek
+  /* "av/container/pyio.py":42
+ *             seek_func: seek_func_t = pyio_seek
  * 
  *         if writeable is None:             # <<<<<<<<<<<<<<
  *             writeable = self.fwrite is not None
@@ -2886,7 +2888,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_t_3 = (__pyx_v_writeable == Py_None);
   if (__pyx_t_3) {
 
-    /* "av/container/pyio.pyx":34
+    /* "av/container/pyio.py":43
  * 
  *         if writeable is None:
  *             writeable = self.fwrite is not None             # <<<<<<<<<<<<<<
@@ -2894,13 +2896,13 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
  *         if writeable:
 */
     __pyx_t_3 = (__pyx_v_self->fwrite != Py_None);
-    __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyBool_FromLong(__pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_writeable, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/container/pyio.pyx":33
- *             seek_func = pyio_seek
+    /* "av/container/pyio.py":42
+ *             seek_func: seek_func_t = pyio_seek
  * 
  *         if writeable is None:             # <<<<<<<<<<<<<<
  *             writeable = self.fwrite is not None
@@ -2908,22 +2910,22 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   }
 
-  /* "av/container/pyio.pyx":36
+  /* "av/container/pyio.py":45
  *             writeable = self.fwrite is not None
  * 
  *         if writeable:             # <<<<<<<<<<<<<<
  *             if self.fwrite is None or (writable is not None and not writable()):
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
+ *                 raise ValueError(
 */
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_writeable); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_writeable); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 45, __pyx_L1_error)
   if (__pyx_t_3) {
 
-    /* "av/container/pyio.pyx":37
+    /* "av/container/pyio.py":46
  * 
  *         if writeable:
  *             if self.fwrite is None or (writable is not None and not writable()):             # <<<<<<<<<<<<<<
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
- *         else:
+ *                 raise ValueError(
+ *                     "File object has no write() method, or writable() returned False."
 */
     __pyx_t_4 = (__pyx_v_self->fwrite == Py_None);
     if (!__pyx_t_4) {
@@ -2957,22 +2959,22 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 37, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_7 = (!__pyx_t_4);
     __pyx_t_3 = __pyx_t_7;
     __pyx_L11_bool_binop_done:;
     if (unlikely(__pyx_t_3)) {
 
-      /* "av/container/pyio.pyx":38
+      /* "av/container/pyio.py":47
  *         if writeable:
  *             if self.fwrite is None or (writable is not None and not writable()):
- *                 raise ValueError("File object has no write() method, or writable() returned False.")             # <<<<<<<<<<<<<<
- *         else:
- *             if self.fread is None or (readable is not None and not readable()):
+ *                 raise ValueError(             # <<<<<<<<<<<<<<
+ *                     "File object has no write() method, or writable() returned False."
+ *                 )
 */
       __pyx_t_2 = NULL;
       __pyx_t_6 = 1;
@@ -2980,38 +2982,38 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
         PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_File_object_has_no_write_method};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 38, __pyx_L1_error)
+      __PYX_ERR(0, 47, __pyx_L1_error)
 
-      /* "av/container/pyio.pyx":37
+      /* "av/container/pyio.py":46
  * 
  *         if writeable:
  *             if self.fwrite is None or (writable is not None and not writable()):             # <<<<<<<<<<<<<<
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
- *         else:
+ *                 raise ValueError(
+ *                     "File object has no write() method, or writable() returned False."
 */
     }
 
-    /* "av/container/pyio.pyx":36
+    /* "av/container/pyio.py":45
  *             writeable = self.fwrite is not None
  * 
  *         if writeable:             # <<<<<<<<<<<<<<
  *             if self.fwrite is None or (writable is not None and not writable()):
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
+ *                 raise ValueError(
 */
     goto __pyx_L9;
   }
 
-  /* "av/container/pyio.pyx":40
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
+  /* "av/container/pyio.py":51
+ *                 )
  *         else:
  *             if self.fread is None or (readable is not None and not readable()):             # <<<<<<<<<<<<<<
- *                 raise ValueError("File object has no read() method, or readable() returned False.")
- * 
+ *                 raise ValueError(
+ *                     "File object has no read() method, or readable() returned False."
 */
   /*else*/ {
     __pyx_t_7 = (__pyx_v_self->fread == Py_None);
@@ -3046,22 +3048,22 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 40, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_4 = (!__pyx_t_7);
     __pyx_t_3 = __pyx_t_4;
     __pyx_L15_bool_binop_done:;
     if (unlikely(__pyx_t_3)) {
 
-      /* "av/container/pyio.pyx":41
+      /* "av/container/pyio.py":52
  *         else:
  *             if self.fread is None or (readable is not None and not readable()):
- *                 raise ValueError("File object has no read() method, or readable() returned False.")             # <<<<<<<<<<<<<<
- * 
- *         self.pos = 0
+ *                 raise ValueError(             # <<<<<<<<<<<<<<
+ *                     "File object has no read() method, or readable() returned False."
+ *                 )
 */
       __pyx_t_5 = NULL;
       __pyx_t_6 = 1;
@@ -3069,26 +3071,26 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_File_object_has_no_read_method_o};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 41, __pyx_L1_error)
+      __PYX_ERR(0, 52, __pyx_L1_error)
 
-      /* "av/container/pyio.pyx":40
- *                 raise ValueError("File object has no write() method, or writable() returned False.")
+      /* "av/container/pyio.py":51
+ *                 )
  *         else:
  *             if self.fread is None or (readable is not None and not readable()):             # <<<<<<<<<<<<<<
- *                 raise ValueError("File object has no read() method, or readable() returned False.")
- * 
+ *                 raise ValueError(
+ *                     "File object has no read() method, or readable() returned False."
 */
     }
   }
   __pyx_L9:;
 
-  /* "av/container/pyio.pyx":43
- *                 raise ValueError("File object has no read() method, or readable() returned False.")
+  /* "av/container/pyio.py":56
+ *                 )
  * 
  *         self.pos = 0             # <<<<<<<<<<<<<<
  *         self.pos_is_valid = True
@@ -3096,7 +3098,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_v_self->pos = 0;
 
-  /* "av/container/pyio.pyx":44
+  /* "av/container/pyio.py":57
  * 
  *         self.pos = 0
  *         self.pos_is_valid = True             # <<<<<<<<<<<<<<
@@ -3105,36 +3107,36 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_v_self->pos_is_valid = 1;
 
-  /* "av/container/pyio.pyx":47
+  /* "av/container/pyio.py":60
  * 
  *         # This is effectively the maximum size of reads.
- *         self.buffer = <unsigned char*>lib.av_malloc(buffer_size)             # <<<<<<<<<<<<<<
+ *         self.buffer = cython.cast(cython.p_uchar, lib.av_malloc(buffer_size))             # <<<<<<<<<<<<<<
  * 
  *         self.iocontext = lib.avio_alloc_context(
 */
-  __pyx_t_6 = __Pyx_PyLong_As_size_t(__pyx_v_buffer_size); if (unlikely((__pyx_t_6 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_As_size_t(__pyx_v_buffer_size); if (unlikely((__pyx_t_6 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 60, __pyx_L1_error)
   __pyx_v_self->buffer = ((unsigned char *)av_malloc(__pyx_t_6));
 
-  /* "av/container/pyio.pyx":51
+  /* "av/container/pyio.py":64
  *         self.iocontext = lib.avio_alloc_context(
  *             self.buffer,
  *             buffer_size,             # <<<<<<<<<<<<<<
  *             writeable,
- *             <void*>self,  # User data.
+ *             cython.cast(cython.p_void, self),  # User data.
 */
-  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_buffer_size); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_buffer_size); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L1_error)
 
-  /* "av/container/pyio.pyx":52
+  /* "av/container/pyio.py":65
  *             self.buffer,
  *             buffer_size,
  *             writeable,             # <<<<<<<<<<<<<<
- *             <void*>self,  # User data.
+ *             cython.cast(cython.p_void, self),  # User data.
  *             pyio_read,
 */
-  __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_writeable); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_writeable); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L1_error)
 
-  /* "av/container/pyio.pyx":49
- *         self.buffer = <unsigned char*>lib.av_malloc(buffer_size)
+  /* "av/container/pyio.py":62
+ *         self.buffer = cython.cast(cython.p_uchar, lib.av_malloc(buffer_size))
  * 
  *         self.iocontext = lib.avio_alloc_context(             # <<<<<<<<<<<<<<
  *             self.buffer,
@@ -3142,7 +3144,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   __pyx_v_self->iocontext = avio_alloc_context(__pyx_v_self->buffer, __pyx_t_8, __pyx_t_9, ((void *)__pyx_v_self), __pyx_f_2av_9container_4pyio_pyio_read, __pyx_f_2av_9container_4pyio_pyio_write, __pyx_v_seek_func);
 
-  /* "av/container/pyio.pyx":59
+  /* "av/container/pyio.py":72
  *         )
  * 
  *         if seek_func:             # <<<<<<<<<<<<<<
@@ -3152,7 +3154,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   __pyx_t_3 = (__pyx_v_seek_func != 0);
   if (__pyx_t_3) {
 
-    /* "av/container/pyio.pyx":60
+    /* "av/container/pyio.py":73
  * 
  *         if seek_func:
  *             self.iocontext.seekable = lib.AVIO_SEEKABLE_NORMAL             # <<<<<<<<<<<<<<
@@ -3161,7 +3163,7 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
     __pyx_v_self->iocontext->seekable = AVIO_SEEKABLE_NORMAL;
 
-    /* "av/container/pyio.pyx":59
+    /* "av/container/pyio.py":72
  *         )
  * 
  *         if seek_func:             # <<<<<<<<<<<<<<
@@ -3170,19 +3172,19 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
 */
   }
 
-  /* "av/container/pyio.pyx":61
+  /* "av/container/pyio.py":74
  *         if seek_func:
  *             self.iocontext.seekable = lib.AVIO_SEEKABLE_NORMAL
  *         self.iocontext.max_packet_size = buffer_size             # <<<<<<<<<<<<<<
  * 
  *     def __dealloc__(self):
 */
-  __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_buffer_size); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_v_buffer_size); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 74, __pyx_L1_error)
   __pyx_v_self->iocontext->max_packet_size = __pyx_t_9;
 
-  /* "av/container/pyio.pyx":10
- * 
- * cdef class PyIOFile:
+  /* "av/container/pyio.py":19
+ * @cython.cclass
+ * class PyIOFile:
  *     def __cinit__(self, file, buffer_size, writeable=None):             # <<<<<<<<<<<<<<
  *         self.file = file
  * 
@@ -3206,11 +3208,11 @@ static int __pyx_pf_2av_9container_4pyio_8PyIOFile___cinit__(struct __pyx_obj_2a
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":63
+/* "av/container/pyio.py":76
  *         self.iocontext.max_packet_size = buffer_size
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
- *         with nogil:
+ *         with cython.nogil:
  *             # FFmpeg will not release custom input, so it's up to us to free it.
 */
 
@@ -3230,10 +3232,10 @@ static void __pyx_pw_2av_9container_4pyio_8PyIOFile_3__dealloc__(PyObject *__pyx
 static void __pyx_pf_2av_9container_4pyio_8PyIOFile_2__dealloc__(struct __pyx_obj_2av_9container_4pyio_PyIOFile *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "av/container/pyio.pyx":64
+  /* "av/container/pyio.py":77
  * 
  *     def __dealloc__(self):
- *         with nogil:             # <<<<<<<<<<<<<<
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             # FFmpeg will not release custom input, so it's up to us to free it.
  *             # Do not touch our original buffer as it may have been freed and replaced.
 */
@@ -3243,48 +3245,48 @@ static void __pyx_pf_2av_9container_4pyio_8PyIOFile_2__dealloc__(struct __pyx_ob
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/container/pyio.pyx":67
+        /* "av/container/pyio.py":80
  *             # FFmpeg will not release custom input, so it's up to us to free it.
  *             # Do not touch our original buffer as it may have been freed and replaced.
  *             if self.iocontext:             # <<<<<<<<<<<<<<
- *                 lib.av_freep(&self.iocontext.buffer)
- *                 lib.av_freep(&self.iocontext)
+ *                 lib.av_freep(cython.address(self.iocontext.buffer))
+ *                 lib.av_freep(cython.address(self.iocontext))
 */
         __pyx_t_1 = (__pyx_v_self->iocontext != 0);
         if (__pyx_t_1) {
 
-          /* "av/container/pyio.pyx":68
+          /* "av/container/pyio.py":81
  *             # Do not touch our original buffer as it may have been freed and replaced.
  *             if self.iocontext:
- *                 lib.av_freep(&self.iocontext.buffer)             # <<<<<<<<<<<<<<
- *                 lib.av_freep(&self.iocontext)
+ *                 lib.av_freep(cython.address(self.iocontext.buffer))             # <<<<<<<<<<<<<<
+ *                 lib.av_freep(cython.address(self.iocontext))
  * 
 */
           av_freep((&__pyx_v_self->iocontext->buffer));
 
-          /* "av/container/pyio.pyx":69
+          /* "av/container/pyio.py":82
  *             if self.iocontext:
- *                 lib.av_freep(&self.iocontext.buffer)
- *                 lib.av_freep(&self.iocontext)             # <<<<<<<<<<<<<<
+ *                 lib.av_freep(cython.address(self.iocontext.buffer))
+ *                 lib.av_freep(cython.address(self.iocontext))             # <<<<<<<<<<<<<<
  * 
- *             # We likely errored badly if we got here, and so are still
+ *             # We likely errored badly if we got here, and so we are still responsible.
 */
           av_freep((&__pyx_v_self->iocontext));
 
-          /* "av/container/pyio.pyx":67
+          /* "av/container/pyio.py":80
  *             # FFmpeg will not release custom input, so it's up to us to free it.
  *             # Do not touch our original buffer as it may have been freed and replaced.
  *             if self.iocontext:             # <<<<<<<<<<<<<<
- *                 lib.av_freep(&self.iocontext.buffer)
- *                 lib.av_freep(&self.iocontext)
+ *                 lib.av_freep(cython.address(self.iocontext.buffer))
+ *                 lib.av_freep(cython.address(self.iocontext))
 */
           goto __pyx_L6;
         }
 
-        /* "av/container/pyio.pyx":74
- *             # responsible for our buffer.
+        /* "av/container/pyio.py":86
+ *             # We likely errored badly if we got here, and so we are still responsible.
  *             else:
- *                 lib.av_freep(&self.buffer)             # <<<<<<<<<<<<<<
+ *                 lib.av_freep(cython.address(self.buffer))             # <<<<<<<<<<<<<<
  * 
  * 
 */
@@ -3294,10 +3296,10 @@ static void __pyx_pf_2av_9container_4pyio_8PyIOFile_2__dealloc__(struct __pyx_ob
         __pyx_L6:;
       }
 
-      /* "av/container/pyio.pyx":64
+      /* "av/container/pyio.py":77
  * 
  *     def __dealloc__(self):
- *         with nogil:             # <<<<<<<<<<<<<<
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             # FFmpeg will not release custom input, so it's up to us to free it.
  *             # Do not touch our original buffer as it may have been freed and replaced.
 */
@@ -3311,11 +3313,11 @@ static void __pyx_pf_2av_9container_4pyio_8PyIOFile_2__dealloc__(struct __pyx_ob
       }
   }
 
-  /* "av/container/pyio.pyx":63
+  /* "av/container/pyio.py":76
  *         self.iocontext.max_packet_size = buffer_size
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
- *         with nogil:
+ *         with cython.nogil:
  *             # FFmpeg will not release custom input, so it's up to us to free it.
 */
 
@@ -3565,21 +3567,21 @@ static PyObject *__pyx_pf_2av_9container_4pyio_8PyIOFile_6__setstate_cython__(CY
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":77
+/* "av/container/pyio.py":89
  * 
  * 
- * cdef int pyio_read(void *opaque, uint8_t *buf, int buf_size) noexcept nogil:             # <<<<<<<<<<<<<<
- *     with gil:
- *         return pyio_read_gil(opaque, buf, buf_size)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
-static int __pyx_f_2av_9container_4pyio_pyio_read(void *__pyx_v_opaque, uint8_t *__pyx_v_buf, int __pyx_v_buf_size) {
+static int __pyx_f_2av_9container_4pyio_pyio_read(void *__pyx_v_opaque, __pyx_t_2av_9container_4pyio_Buf __pyx_v_buf, int __pyx_v_buf_size) {
   int __pyx_r;
 
-  /* "av/container/pyio.pyx":78
- * 
- * cdef int pyio_read(void *opaque, uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:             # <<<<<<<<<<<<<<
+  /* "av/container/pyio.py":93
+ * @cython.exceptval(check=False)
+ * def pyio_read(opaque: cython.p_void, buf: Buf, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_read_gil(opaque, buf, buf_size)
  * 
 */
@@ -3587,21 +3589,21 @@ static int __pyx_f_2av_9container_4pyio_pyio_read(void *__pyx_v_opaque, uint8_t 
       PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
       /*try:*/ {
 
-        /* "av/container/pyio.pyx":79
- * cdef int pyio_read(void *opaque, uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:
+        /* "av/container/pyio.py":94
+ * def pyio_read(opaque: cython.p_void, buf: Buf, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:
  *         return pyio_read_gil(opaque, buf, buf_size)             # <<<<<<<<<<<<<<
  * 
- * cdef int pyio_read_gil(void *opaque, uint8_t *buf, int buf_size) noexcept:
+ * 
 */
         __pyx_r = __pyx_f_2av_9container_4pyio_pyio_read_gil(__pyx_v_opaque, __pyx_v_buf, __pyx_v_buf_size);
         goto __pyx_L3_return;
       }
 
-      /* "av/container/pyio.pyx":78
- * 
- * cdef int pyio_read(void *opaque, uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:             # <<<<<<<<<<<<<<
+      /* "av/container/pyio.py":93
+ * @cython.exceptval(check=False)
+ * def pyio_read(opaque: cython.p_void, buf: Buf, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_read_gil(opaque, buf, buf_size)
  * 
 */
@@ -3613,12 +3615,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_read(void *__pyx_v_opaque, uint8_t 
       }
   }
 
-  /* "av/container/pyio.pyx":77
+  /* "av/container/pyio.py":89
  * 
  * 
- * cdef int pyio_read(void *opaque, uint8_t *buf, int buf_size) noexcept nogil:             # <<<<<<<<<<<<<<
- *     with gil:
- *         return pyio_read_gil(opaque, buf, buf_size)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
   /* function exit code */
@@ -3626,15 +3628,15 @@ static int __pyx_f_2av_9container_4pyio_pyio_read(void *__pyx_v_opaque, uint8_t 
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":81
- *         return pyio_read_gil(opaque, buf, buf_size)
+/* "av/container/pyio.py":97
  * 
- * cdef int pyio_read_gil(void *opaque, uint8_t *buf, int buf_size) noexcept:             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     cdef bytes res
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.exceptval(check=False)
+ * def pyio_read_gil(opaque: cython.p_void, buf: Buf, buf_size: cython.int) -> cython.int:
 */
 
-static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint8_t *__pyx_v_buf, int __pyx_v_buf_size) {
+static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, __pyx_t_2av_9container_4pyio_Buf __pyx_v_buf, int __pyx_v_buf_size) {
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *__pyx_v_self = 0;
   PyObject *__pyx_v_res = 0;
   int __pyx_r;
@@ -3657,11 +3659,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pyio_read_gil", 0);
 
-  /* "av/container/pyio.pyx":84
- *     cdef PyIOFile self
- *     cdef bytes res
+  /* "av/container/pyio.py":102
+ *     self: PyIOFile
+ *     res: bytes
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fread(buf_size)
 */
   {
@@ -3673,29 +3675,29 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/container/pyio.pyx":85
- *     cdef bytes res
+      /* "av/container/pyio.py":103
+ *     res: bytes
  *     try:
- *         self = <PyIOFile>opaque             # <<<<<<<<<<<<<<
+ *         self = cython.cast(PyIOFile, opaque)             # <<<<<<<<<<<<<<
  *         res = self.fread(buf_size)
- *         memcpy(buf, <void*><char*>res, len(res))
+ *         memcpy(
 */
       __pyx_t_4 = ((PyObject *)__pyx_v_opaque);
       __Pyx_INCREF(__pyx_t_4);
       __pyx_v_self = ((struct __pyx_obj_2av_9container_4pyio_PyIOFile *)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":86
+      /* "av/container/pyio.py":104
  *     try:
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fread(buf_size)             # <<<<<<<<<<<<<<
- *         memcpy(buf, <void*><char*>res, len(res))
- *         self.pos += len(res)
+ *         memcpy(
+ *             buf, cython.cast(cython.p_void, cython.cast(cython.p_char, res)), len(res)
 */
       __pyx_t_5 = NULL;
       __Pyx_INCREF(__pyx_v_self->fread);
       __pyx_t_6 = __pyx_v_self->fread; 
-      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_buf_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 86, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_buf_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 104, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -3715,48 +3717,56 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 86, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 104, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      if (!(likely(PyBytes_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_4))) __PYX_ERR(0, 86, __pyx_L3_error)
+      if (!(likely(PyBytes_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_4))) __PYX_ERR(0, 104, __pyx_L3_error)
       __pyx_v_res = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":87
- *         self = <PyIOFile>opaque
+      /* "av/container/pyio.py":106
  *         res = self.fread(buf_size)
- *         memcpy(buf, <void*><char*>res, len(res))             # <<<<<<<<<<<<<<
+ *         memcpy(
+ *             buf, cython.cast(cython.p_void, cython.cast(cython.p_char, res)), len(res)             # <<<<<<<<<<<<<<
+ *         )
  *         self.pos += len(res)
- *         if not res:
 */
       if (unlikely(__pyx_v_res == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "expected bytes, NoneType found");
-        __PYX_ERR(0, 87, __pyx_L3_error)
+        __PYX_ERR(0, 106, __pyx_L3_error)
       }
-      __pyx_t_9 = __Pyx_PyBytes_AsWritableString(__pyx_v_res); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyBytes_AsWritableString(__pyx_v_res); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 106, __pyx_L3_error)
       if (unlikely(__pyx_v_res == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-        __PYX_ERR(0, 87, __pyx_L3_error)
+        __PYX_ERR(0, 106, __pyx_L3_error)
       }
-      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 87, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 106, __pyx_L3_error)
+
+      /* "av/container/pyio.py":105
+ *         self = cython.cast(PyIOFile, opaque)
+ *         res = self.fread(buf_size)
+ *         memcpy(             # <<<<<<<<<<<<<<
+ *             buf, cython.cast(cython.p_void, cython.cast(cython.p_char, res)), len(res)
+ *         )
+*/
       (void)(memcpy(__pyx_v_buf, ((void *)((char *)__pyx_t_9)), __pyx_t_10));
 
-      /* "av/container/pyio.pyx":88
- *         res = self.fread(buf_size)
- *         memcpy(buf, <void*><char*>res, len(res))
+      /* "av/container/pyio.py":108
+ *             buf, cython.cast(cython.p_void, cython.cast(cython.p_char, res)), len(res)
+ *         )
  *         self.pos += len(res)             # <<<<<<<<<<<<<<
  *         if not res:
  *             return lib.AVERROR_EOF
 */
       if (unlikely(__pyx_v_res == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-        __PYX_ERR(0, 88, __pyx_L3_error)
+        __PYX_ERR(0, 108, __pyx_L3_error)
       }
-      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 88, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 108, __pyx_L3_error)
       __pyx_v_self->pos = (__pyx_v_self->pos + __pyx_t_10);
 
-      /* "av/container/pyio.pyx":89
- *         memcpy(buf, <void*><char*>res, len(res))
+      /* "av/container/pyio.py":109
+ *         )
  *         self.pos += len(res)
  *         if not res:             # <<<<<<<<<<<<<<
  *             return lib.AVERROR_EOF
@@ -3766,14 +3776,14 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
       else
       {
         Py_ssize_t __pyx_temp = __Pyx_PyBytes_GET_SIZE(__pyx_v_res);
-        if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 89, __pyx_L3_error)
+        if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 109, __pyx_L3_error)
         __pyx_t_11 = (__pyx_temp != 0);
       }
 
       __pyx_t_12 = (!__pyx_t_11);
       if (__pyx_t_12) {
 
-        /* "av/container/pyio.pyx":90
+        /* "av/container/pyio.py":110
  *         self.pos += len(res)
  *         if not res:
  *             return lib.AVERROR_EOF             # <<<<<<<<<<<<<<
@@ -3783,8 +3793,8 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
         __pyx_r = AVERROR_EOF;
         goto __pyx_L7_try_return;
 
-        /* "av/container/pyio.pyx":89
- *         memcpy(buf, <void*><char*>res, len(res))
+        /* "av/container/pyio.py":109
+ *         )
  *         self.pos += len(res)
  *         if not res:             # <<<<<<<<<<<<<<
  *             return lib.AVERROR_EOF
@@ -3792,7 +3802,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
 */
       }
 
-      /* "av/container/pyio.pyx":91
+      /* "av/container/pyio.py":111
  *         if not res:
  *             return lib.AVERROR_EOF
  *         return len(res)             # <<<<<<<<<<<<<<
@@ -3801,17 +3811,17 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
 */
       if (unlikely(__pyx_v_res == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-        __PYX_ERR(0, 91, __pyx_L3_error)
+        __PYX_ERR(0, 111, __pyx_L3_error)
       }
-      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 91, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyBytes_GET_SIZE(__pyx_v_res); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 111, __pyx_L3_error)
       __pyx_r = __pyx_t_10;
       goto __pyx_L7_try_return;
 
-      /* "av/container/pyio.pyx":84
- *     cdef PyIOFile self
- *     cdef bytes res
+      /* "av/container/pyio.py":102
+ *     self: PyIOFile
+ *     res: bytes
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fread(buf_size)
 */
     }
@@ -3821,7 +3831,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "av/container/pyio.pyx":92
+    /* "av/container/pyio.py":112
  *             return lib.AVERROR_EOF
  *         return len(res)
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -3831,19 +3841,19 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
     __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_13) {
       __Pyx_AddTraceback("av.container.pyio.pyio_read_gil", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 92, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 112, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "av/container/pyio.pyx":93
+      /* "av/container/pyio.py":113
  *         return len(res)
  *     except Exception:
  *         return stash_exception()             # <<<<<<<<<<<<<<
  * 
  * 
 */
-      __pyx_t_13 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 93, __pyx_L5_except_error)
+      __pyx_t_13 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 113, __pyx_L5_except_error)
       __pyx_r = __pyx_t_13;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -3852,11 +3862,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
     }
     goto __pyx_L5_except_error;
 
-    /* "av/container/pyio.pyx":84
- *     cdef PyIOFile self
- *     cdef bytes res
+    /* "av/container/pyio.py":102
+ *     self: PyIOFile
+ *     res: bytes
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fread(buf_size)
 */
     __pyx_L5_except_error:;
@@ -3879,12 +3889,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
     goto __pyx_L0;
   }
 
-  /* "av/container/pyio.pyx":81
- *         return pyio_read_gil(opaque, buf, buf_size)
+  /* "av/container/pyio.py":97
  * 
- * cdef int pyio_read_gil(void *opaque, uint8_t *buf, int buf_size) noexcept:             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     cdef bytes res
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.exceptval(check=False)
+ * def pyio_read_gil(opaque: cython.p_void, buf: Buf, buf_size: cython.int) -> cython.int:
 */
 
   /* function exit code */
@@ -3902,21 +3912,21 @@ static int __pyx_f_2av_9container_4pyio_pyio_read_gil(void *__pyx_v_opaque, uint
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":96
+/* "av/container/pyio.py":116
  * 
  * 
- * cdef int pyio_write(void *opaque, const uint8_t *buf, int buf_size) noexcept nogil:             # <<<<<<<<<<<<<<
- *     with gil:
- *         return pyio_write_gil(opaque, buf, buf_size)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
-static int __pyx_f_2av_9container_4pyio_pyio_write(void *__pyx_v_opaque, uint8_t const *__pyx_v_buf, int __pyx_v_buf_size) {
+static int __pyx_f_2av_9container_4pyio_pyio_write(void *__pyx_v_opaque, __pyx_t_2av_9container_4pyio_BufC __pyx_v_buf, int __pyx_v_buf_size) {
   int __pyx_r;
 
-  /* "av/container/pyio.pyx":97
- * 
- * cdef int pyio_write(void *opaque, const uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:             # <<<<<<<<<<<<<<
+  /* "av/container/pyio.py":120
+ * @cython.exceptval(check=False)
+ * def pyio_write(opaque: cython.p_void, buf: BufC, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_write_gil(opaque, buf, buf_size)
  * 
 */
@@ -3924,21 +3934,21 @@ static int __pyx_f_2av_9container_4pyio_pyio_write(void *__pyx_v_opaque, uint8_t
       PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
       /*try:*/ {
 
-        /* "av/container/pyio.pyx":98
- * cdef int pyio_write(void *opaque, const uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:
+        /* "av/container/pyio.py":121
+ * def pyio_write(opaque: cython.p_void, buf: BufC, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:
  *         return pyio_write_gil(opaque, buf, buf_size)             # <<<<<<<<<<<<<<
  * 
- * cdef int pyio_write_gil(void *opaque, const uint8_t *buf, int buf_size) noexcept:
+ * 
 */
         __pyx_r = __pyx_f_2av_9container_4pyio_pyio_write_gil(__pyx_v_opaque, __pyx_v_buf, __pyx_v_buf_size);
         goto __pyx_L3_return;
       }
 
-      /* "av/container/pyio.pyx":97
- * 
- * cdef int pyio_write(void *opaque, const uint8_t *buf, int buf_size) noexcept nogil:
- *     with gil:             # <<<<<<<<<<<<<<
+      /* "av/container/pyio.py":120
+ * @cython.exceptval(check=False)
+ * def pyio_write(opaque: cython.p_void, buf: BufC, buf_size: cython.int) -> cython.int:
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_write_gil(opaque, buf, buf_size)
  * 
 */
@@ -3950,12 +3960,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_write(void *__pyx_v_opaque, uint8_t
       }
   }
 
-  /* "av/container/pyio.pyx":96
+  /* "av/container/pyio.py":116
  * 
  * 
- * cdef int pyio_write(void *opaque, const uint8_t *buf, int buf_size) noexcept nogil:             # <<<<<<<<<<<<<<
- *     with gil:
- *         return pyio_write_gil(opaque, buf, buf_size)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
   /* function exit code */
@@ -3963,15 +3973,15 @@ static int __pyx_f_2av_9container_4pyio_pyio_write(void *__pyx_v_opaque, uint8_t
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":100
- *         return pyio_write_gil(opaque, buf, buf_size)
+/* "av/container/pyio.py":124
  * 
- * cdef int pyio_write_gil(void *opaque, const uint8_t *buf, int buf_size) noexcept:             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     cdef bytes bytes_to_write
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.exceptval(check=False)
+ * def pyio_write_gil(
 */
 
-static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uint8_t const *__pyx_v_buf, int __pyx_v_buf_size) {
+static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, __pyx_t_2av_9container_4pyio_BufC __pyx_v_buf, int __pyx_v_buf_size) {
   struct __pyx_obj_2av_9container_4pyio_PyIOFile *__pyx_v_self = 0;
   PyObject *__pyx_v_bytes_to_write = 0;
   int __pyx_v_bytes_written;
@@ -3993,11 +4003,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pyio_write_gil", 0);
 
-  /* "av/container/pyio.pyx":104
- *     cdef bytes bytes_to_write
- *     cdef int bytes_written
+  /* "av/container/pyio.py":132
+ *     bytes_to_write: bytes
+ *     bytes_written: cython.int
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         bytes_to_write = buf[:buf_size]
 */
   {
@@ -4009,10 +4019,10 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/container/pyio.pyx":105
- *     cdef int bytes_written
+      /* "av/container/pyio.py":133
+ *     bytes_written: cython.int
  *     try:
- *         self = <PyIOFile>opaque             # <<<<<<<<<<<<<<
+ *         self = cython.cast(PyIOFile, opaque)             # <<<<<<<<<<<<<<
  *         bytes_to_write = buf[:buf_size]
  *         ret_value = self.fwrite(bytes_to_write)
 */
@@ -4021,20 +4031,20 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
       __pyx_v_self = ((struct __pyx_obj_2av_9container_4pyio_PyIOFile *)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":106
+      /* "av/container/pyio.py":134
  *     try:
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         bytes_to_write = buf[:buf_size]             # <<<<<<<<<<<<<<
  *         ret_value = self.fwrite(bytes_to_write)
  *         bytes_written = ret_value if isinstance(ret_value, int) else buf_size
 */
-      __pyx_t_4 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_buf) + 0, __pyx_v_buf_size - 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_buf) + 0, __pyx_v_buf_size - 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_v_bytes_to_write = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":107
- *         self = <PyIOFile>opaque
+      /* "av/container/pyio.py":135
+ *         self = cython.cast(PyIOFile, opaque)
  *         bytes_to_write = buf[:buf_size]
  *         ret_value = self.fwrite(bytes_to_write)             # <<<<<<<<<<<<<<
  *         bytes_written = ret_value if isinstance(ret_value, int) else buf_size
@@ -4060,13 +4070,13 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
         __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 135, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_ret_value = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":108
+      /* "av/container/pyio.py":136
  *         bytes_to_write = buf[:buf_size]
  *         ret_value = self.fwrite(bytes_to_write)
  *         bytes_written = ret_value if isinstance(ret_value, int) else buf_size             # <<<<<<<<<<<<<<
@@ -4075,14 +4085,14 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
 */
       __pyx_t_9 = PyLong_Check(__pyx_v_ret_value); 
       if (__pyx_t_9) {
-        __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_v_ret_value); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 108, __pyx_L3_error)
+        __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_v_ret_value); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L3_error)
         __pyx_t_8 = __pyx_t_10;
       } else {
         __pyx_t_8 = __pyx_v_buf_size;
       }
       __pyx_v_bytes_written = __pyx_t_8;
 
-      /* "av/container/pyio.pyx":109
+      /* "av/container/pyio.py":137
  *         ret_value = self.fwrite(bytes_to_write)
  *         bytes_written = ret_value if isinstance(ret_value, int) else buf_size
  *         self.pos += bytes_written             # <<<<<<<<<<<<<<
@@ -4091,7 +4101,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
 */
       __pyx_v_self->pos = (__pyx_v_self->pos + __pyx_v_bytes_written);
 
-      /* "av/container/pyio.pyx":110
+      /* "av/container/pyio.py":138
  *         bytes_written = ret_value if isinstance(ret_value, int) else buf_size
  *         self.pos += bytes_written
  *         return bytes_written             # <<<<<<<<<<<<<<
@@ -4101,11 +4111,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
       __pyx_r = __pyx_v_bytes_written;
       goto __pyx_L7_try_return;
 
-      /* "av/container/pyio.pyx":104
- *     cdef bytes bytes_to_write
- *     cdef int bytes_written
+      /* "av/container/pyio.py":132
+ *     bytes_to_write: bytes
+ *     bytes_written: cython.int
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         bytes_to_write = buf[:buf_size]
 */
     }
@@ -4114,7 +4124,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "av/container/pyio.pyx":111
+    /* "av/container/pyio.py":139
  *         self.pos += bytes_written
  *         return bytes_written
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -4124,19 +4134,19 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("av.container.pyio.pyio_write_gil", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 111, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_5) < 0) __PYX_ERR(0, 139, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "av/container/pyio.pyx":112
+      /* "av/container/pyio.py":140
  *         return bytes_written
  *     except Exception:
  *         return stash_exception()             # <<<<<<<<<<<<<<
  * 
  * 
 */
-      __pyx_t_8 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L5_except_error)
+      __pyx_t_8 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 140, __pyx_L5_except_error)
       __pyx_r = __pyx_t_8;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -4145,11 +4155,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
     }
     goto __pyx_L5_except_error;
 
-    /* "av/container/pyio.pyx":104
- *     cdef bytes bytes_to_write
- *     cdef int bytes_written
+    /* "av/container/pyio.py":132
+ *     bytes_to_write: bytes
+ *     bytes_written: cython.int
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         bytes_to_write = buf[:buf_size]
 */
     __pyx_L5_except_error:;
@@ -4172,12 +4182,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
     goto __pyx_L0;
   }
 
-  /* "av/container/pyio.pyx":100
- *         return pyio_write_gil(opaque, buf, buf_size)
+  /* "av/container/pyio.py":124
  * 
- * cdef int pyio_write_gil(void *opaque, const uint8_t *buf, int buf_size) noexcept:             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     cdef bytes bytes_to_write
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.exceptval(check=False)
+ * def pyio_write_gil(
 */
 
   /* function exit code */
@@ -4195,12 +4205,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_write_gil(void *__pyx_v_opaque, uin
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":115
+/* "av/container/pyio.py":143
  * 
  * 
- * cdef int64_t pyio_seek(void *opaque, int64_t offset, int whence) noexcept nogil:             # <<<<<<<<<<<<<<
- *     # Seek takes the standard flags, but also a ad-hoc one which means that
- *     # the library wants to know how large the file is. We are generally
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
 static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *__pyx_v_opaque, int64_t __pyx_v_offset, int __pyx_v_whence) {
@@ -4212,39 +4222,39 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *__pyx_v_opaque, int6
   int __pyx_clineno = 0;
   PyGILState_STATE __pyx_gilstate_save;
 
-  /* "av/container/pyio.pyx":119
- *     # the library wants to know how large the file is. We are generally
- *     # allowed to ignore this.
+  /* "av/container/pyio.py":149
+ *     # Seek takes the standard flags, but also a ad-hoc one which means that the library
+ *     # wants to know how large the file is. We are generally allowed to ignore this.
  *     if whence == lib.AVSEEK_SIZE:             # <<<<<<<<<<<<<<
  *         return -1
- *     with gil:
+ *     with cython.gil:
 */
   __pyx_t_1 = (__pyx_v_whence == AVSEEK_SIZE);
   if (__pyx_t_1) {
 
-    /* "av/container/pyio.pyx":120
- *     # allowed to ignore this.
+    /* "av/container/pyio.py":150
+ *     # wants to know how large the file is. We are generally allowed to ignore this.
  *     if whence == lib.AVSEEK_SIZE:
  *         return -1             # <<<<<<<<<<<<<<
- *     with gil:
+ *     with cython.gil:
  *         return pyio_seek_gil(opaque, offset, whence)
 */
     __pyx_r = -1L;
     goto __pyx_L0;
 
-    /* "av/container/pyio.pyx":119
- *     # the library wants to know how large the file is. We are generally
- *     # allowed to ignore this.
+    /* "av/container/pyio.py":149
+ *     # Seek takes the standard flags, but also a ad-hoc one which means that the library
+ *     # wants to know how large the file is. We are generally allowed to ignore this.
  *     if whence == lib.AVSEEK_SIZE:             # <<<<<<<<<<<<<<
  *         return -1
- *     with gil:
+ *     with cython.gil:
 */
   }
 
-  /* "av/container/pyio.pyx":121
+  /* "av/container/pyio.py":151
  *     if whence == lib.AVSEEK_SIZE:
  *         return -1
- *     with gil:             # <<<<<<<<<<<<<<
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_seek_gil(opaque, offset, whence)
  * 
 */
@@ -4252,22 +4262,22 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *__pyx_v_opaque, int6
       PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
       /*try:*/ {
 
-        /* "av/container/pyio.pyx":122
+        /* "av/container/pyio.py":152
  *         return -1
- *     with gil:
+ *     with cython.gil:
  *         return pyio_seek_gil(opaque, offset, whence)             # <<<<<<<<<<<<<<
  * 
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):
+ * 
 */
-        __pyx_t_2 = __pyx_f_2av_9container_4pyio_pyio_seek_gil(__pyx_v_opaque, __pyx_v_offset, __pyx_v_whence); if (unlikely(__pyx_t_2 == ((int64_t)-1L) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L5_error)
+        __pyx_t_2 = __pyx_f_2av_9container_4pyio_pyio_seek_gil(__pyx_v_opaque, __pyx_v_offset, __pyx_v_whence); if (unlikely(__pyx_t_2 == ((int64_t)-1L) && PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L5_error)
         __pyx_r = __pyx_t_2;
         goto __pyx_L4_return;
       }
 
-      /* "av/container/pyio.pyx":121
+      /* "av/container/pyio.py":151
  *     if whence == lib.AVSEEK_SIZE:
  *         return -1
- *     with gil:             # <<<<<<<<<<<<<<
+ *     with cython.gil:             # <<<<<<<<<<<<<<
  *         return pyio_seek_gil(opaque, offset, whence)
  * 
 */
@@ -4283,12 +4293,12 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *__pyx_v_opaque, int6
       }
   }
 
-  /* "av/container/pyio.pyx":115
+  /* "av/container/pyio.py":143
  * 
  * 
- * cdef int64_t pyio_seek(void *opaque, int64_t offset, int whence) noexcept nogil:             # <<<<<<<<<<<<<<
- *     # Seek takes the standard flags, but also a ad-hoc one which means that
- *     # the library wants to know how large the file is. We are generally
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * @cython.nogil
+ * @cython.exceptval(check=False)
 */
 
   /* function exit code */
@@ -4301,12 +4311,12 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek(void *__pyx_v_opaque, int6
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":124
- *         return pyio_seek_gil(opaque, offset, whence)
+/* "av/container/pyio.py":155
  * 
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     try:
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_seek_gil(
+ *     opaque: cython.p_void, offset: int64_t, whence: cython.int
 */
 
 static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, int64_t __pyx_v_offset, int __pyx_v_whence) {
@@ -4331,11 +4341,11 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pyio_seek_gil", 0);
 
-  /* "av/container/pyio.pyx":126
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):
- *     cdef PyIOFile self
+  /* "av/container/pyio.py":160
+ * ) -> int64_t:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fseek(offset, whence)
 */
   {
@@ -4347,10 +4357,10 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/container/pyio.pyx":127
- *     cdef PyIOFile self
+      /* "av/container/pyio.py":161
+ *     self: PyIOFile
  *     try:
- *         self = <PyIOFile>opaque             # <<<<<<<<<<<<<<
+ *         self = cython.cast(PyIOFile, opaque)             # <<<<<<<<<<<<<<
  *         res = self.fseek(offset, whence)
  * 
 */
@@ -4359,9 +4369,9 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
       __pyx_v_self = ((struct __pyx_obj_2av_9container_4pyio_PyIOFile *)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":128
+      /* "av/container/pyio.py":162
  *     try:
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fseek(offset, whence)             # <<<<<<<<<<<<<<
  * 
  *         # Track the position for the user.
@@ -4369,9 +4379,9 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
       __pyx_t_5 = NULL;
       __Pyx_INCREF(__pyx_v_self->fseek);
       __pyx_t_6 = __pyx_v_self->fseek; 
-      __pyx_t_7 = __Pyx_PyLong_From_int64_t(__pyx_v_offset); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 128, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyLong_From_int64_t(__pyx_v_offset); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 162, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_whence); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 128, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_v_whence); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 162, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_9 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -4392,13 +4402,13 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_res = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":131
+      /* "av/container/pyio.py":165
  * 
  *         # Track the position for the user.
  *         if whence == 0:             # <<<<<<<<<<<<<<
@@ -4408,7 +4418,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
       switch (__pyx_v_whence) {
         case 0:
 
-        /* "av/container/pyio.pyx":132
+        /* "av/container/pyio.py":166
  *         # Track the position for the user.
  *         if whence == 0:
  *             self.pos = offset             # <<<<<<<<<<<<<<
@@ -4417,7 +4427,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
 */
         __pyx_v_self->pos = __pyx_v_offset;
 
-        /* "av/container/pyio.pyx":131
+        /* "av/container/pyio.py":165
  * 
  *         # Track the position for the user.
  *         if whence == 0:             # <<<<<<<<<<<<<<
@@ -4427,7 +4437,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
         break;
         case 1:
 
-        /* "av/container/pyio.pyx":134
+        /* "av/container/pyio.py":168
  *             self.pos = offset
  *         elif whence == 1:
  *             self.pos += offset             # <<<<<<<<<<<<<<
@@ -4436,7 +4446,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
 */
         __pyx_v_self->pos = (__pyx_v_self->pos + __pyx_v_offset);
 
-        /* "av/container/pyio.pyx":133
+        /* "av/container/pyio.py":167
  *         if whence == 0:
  *             self.pos = offset
  *         elif whence == 1:             # <<<<<<<<<<<<<<
@@ -4446,7 +4456,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
         break;
         default:
 
-        /* "av/container/pyio.pyx":136
+        /* "av/container/pyio.py":170
  *             self.pos += offset
  *         else:
  *             self.pos_is_valid = False             # <<<<<<<<<<<<<<
@@ -4457,7 +4467,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
         break;
       }
 
-      /* "av/container/pyio.pyx":137
+      /* "av/container/pyio.py":171
  *         else:
  *             self.pos_is_valid = False
  *         if res is None:             # <<<<<<<<<<<<<<
@@ -4467,7 +4477,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
       __pyx_t_10 = (__pyx_v_res == Py_None);
       if (__pyx_t_10) {
 
-        /* "av/container/pyio.pyx":138
+        /* "av/container/pyio.py":172
  *             self.pos_is_valid = False
  *         if res is None:
  *             if self.pos_is_valid:             # <<<<<<<<<<<<<<
@@ -4476,19 +4486,19 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
 */
         if (__pyx_v_self->pos_is_valid) {
 
-          /* "av/container/pyio.pyx":139
+          /* "av/container/pyio.py":173
  *         if res is None:
  *             if self.pos_is_valid:
  *                 res = self.pos             # <<<<<<<<<<<<<<
  *             else:
  *                 res = self.ftell()
 */
-          __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_v_self->pos); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L3_error)
+          __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_v_self->pos); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF_SET(__pyx_v_res, __pyx_t_4);
           __pyx_t_4 = 0;
 
-          /* "av/container/pyio.pyx":138
+          /* "av/container/pyio.py":172
  *             self.pos_is_valid = False
  *         if res is None:
  *             if self.pos_is_valid:             # <<<<<<<<<<<<<<
@@ -4498,7 +4508,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
           goto __pyx_L10;
         }
 
-        /* "av/container/pyio.pyx":141
+        /* "av/container/pyio.py":175
  *                 res = self.pos
  *             else:
  *                 res = self.ftell()             # <<<<<<<<<<<<<<
@@ -4526,7 +4536,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
             __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L3_error)
+            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L3_error)
             __Pyx_GOTREF(__pyx_t_4);
           }
           __Pyx_DECREF_SET(__pyx_v_res, __pyx_t_4);
@@ -4534,7 +4544,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
         }
         __pyx_L10:;
 
-        /* "av/container/pyio.pyx":137
+        /* "av/container/pyio.py":171
  *         else:
  *             self.pos_is_valid = False
  *         if res is None:             # <<<<<<<<<<<<<<
@@ -4543,22 +4553,22 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
 */
       }
 
-      /* "av/container/pyio.pyx":142
+      /* "av/container/pyio.py":176
  *             else:
  *                 res = self.ftell()
  *         return res             # <<<<<<<<<<<<<<
  *     except Exception:
  *         return stash_exception()
 */
-      __pyx_t_11 = __Pyx_PyLong_As_int64_t(__pyx_v_res); if (unlikely((__pyx_t_11 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
+      __pyx_t_11 = __Pyx_PyLong_As_int64_t(__pyx_v_res); if (unlikely((__pyx_t_11 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 176, __pyx_L3_error)
       __pyx_r = __pyx_t_11;
       goto __pyx_L7_try_return;
 
-      /* "av/container/pyio.pyx":126
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):
- *     cdef PyIOFile self
+      /* "av/container/pyio.py":160
+ * ) -> int64_t:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fseek(offset, whence)
 */
     }
@@ -4569,7 +4579,7 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "av/container/pyio.pyx":143
+    /* "av/container/pyio.py":177
  *                 res = self.ftell()
  *         return res
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -4579,19 +4589,19 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
     __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_12) {
       __Pyx_AddTraceback("av.container.pyio.pyio_seek_gil", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_8, &__pyx_t_6) < 0) __PYX_ERR(0, 143, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_8, &__pyx_t_6) < 0) __PYX_ERR(0, 177, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_8);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "av/container/pyio.pyx":144
+      /* "av/container/pyio.py":178
  *         return res
  *     except Exception:
  *         return stash_exception()             # <<<<<<<<<<<<<<
  * 
  * 
 */
-      __pyx_t_12 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 144, __pyx_L5_except_error)
+      __pyx_t_12 = __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 178, __pyx_L5_except_error)
       __pyx_r = __pyx_t_12;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -4600,11 +4610,11 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
     }
     goto __pyx_L5_except_error;
 
-    /* "av/container/pyio.pyx":126
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):
- *     cdef PyIOFile self
+    /* "av/container/pyio.py":160
+ * ) -> int64_t:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>opaque
+ *         self = cython.cast(PyIOFile, opaque)
  *         res = self.fseek(offset, whence)
 */
     __pyx_L5_except_error:;
@@ -4627,12 +4637,12 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
     goto __pyx_L0;
   }
 
-  /* "av/container/pyio.pyx":124
- *         return pyio_seek_gil(opaque, offset, whence)
+  /* "av/container/pyio.py":155
  * 
- * cdef int64_t pyio_seek_gil(void *opaque, int64_t offset, int whence):             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     try:
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_seek_gil(
+ *     opaque: cython.p_void, offset: int64_t, whence: cython.int
 */
 
   /* function exit code */
@@ -4651,12 +4661,12 @@ static int64_t __pyx_f_2av_9container_4pyio_pyio_seek_gil(void *__pyx_v_opaque, 
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":147
+/* "av/container/pyio.py":181
  * 
  * 
- * cdef int pyio_close_gil(lib.AVIOContext *pb):             # <<<<<<<<<<<<<<
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_close_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
  *     try:
- *         return lib.avio_close(pb)
 */
 
 static int __pyx_f_2av_9container_4pyio_pyio_close_gil(struct AVIOContext *__pyx_v_pb) {
@@ -4665,59 +4675,58 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_gil(struct AVIOContext *__pyx
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
 
-  /* "av/container/pyio.pyx":148
- * 
- * cdef int pyio_close_gil(lib.AVIOContext *pb):
+  /* "av/container/pyio.py":183
+ * @cython.cfunc
+ * def pyio_close_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
  *     try:             # <<<<<<<<<<<<<<
  *         return lib.avio_close(pb)
- * 
+ *     except Exception:
 */
   {
     (void)__pyx_t_1; (void)__pyx_t_2; (void)__pyx_t_3; /* mark used */
     /*try:*/ {
 
-      /* "av/container/pyio.pyx":149
- * cdef int pyio_close_gil(lib.AVIOContext *pb):
+      /* "av/container/pyio.py":184
+ * def pyio_close_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
  *     try:
  *         return lib.avio_close(pb)             # <<<<<<<<<<<<<<
- * 
  *     except Exception:
+ *         return stash_exception()
 */
       __pyx_r = avio_close(__pyx_v_pb);
       goto __pyx_L7_try_return;
 
-      /* "av/container/pyio.pyx":148
- * 
- * cdef int pyio_close_gil(lib.AVIOContext *pb):
+      /* "av/container/pyio.py":183
+ * @cython.cfunc
+ * def pyio_close_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
  *     try:             # <<<<<<<<<<<<<<
  *         return lib.avio_close(pb)
- * 
+ *     except Exception:
 */
     }
     __pyx_L7_try_return:;
     goto __pyx_L0;
   }
 
-  /* "av/container/pyio.pyx":147
+  /* "av/container/pyio.py":181
  * 
  * 
- * cdef int pyio_close_gil(lib.AVIOContext *pb):             # <<<<<<<<<<<<<<
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_close_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
  *     try:
- *         return lib.avio_close(pb)
 */
 
   /* function exit code */
-  __pyx_r = 0;
   __pyx_L0:;
   return __pyx_r;
 }
 
-/* "av/container/pyio.pyx":155
+/* "av/container/pyio.py":189
  * 
  * 
- * cdef int pyio_close_custom_gil(lib.AVIOContext *pb):             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     try:
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_close_custom_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
+ *     self: PyIOFile
 */
 
 static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext *__pyx_v_pb) {
@@ -4738,11 +4747,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pyio_close_custom_gil", 0);
 
-  /* "av/container/pyio.pyx":157
- * cdef int pyio_close_custom_gil(lib.AVIOContext *pb):
- *     cdef PyIOFile self
+  /* "av/container/pyio.py":192
+ * def pyio_close_custom_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>pb.opaque
+ *         self = cython.cast(PyIOFile, pb.opaque)
  * 
 */
   {
@@ -4754,10 +4763,10 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/container/pyio.pyx":158
- *     cdef PyIOFile self
+      /* "av/container/pyio.py":193
+ *     self: PyIOFile
  *     try:
- *         self = <PyIOFile>pb.opaque             # <<<<<<<<<<<<<<
+ *         self = cython.cast(PyIOFile, pb.opaque)             # <<<<<<<<<<<<<<
  * 
  *         # Flush bytes in the AVIOContext buffers to the custom I/O
 */
@@ -4766,7 +4775,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
       __pyx_v_self = ((struct __pyx_obj_2av_9container_4pyio_PyIOFile *)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "av/container/pyio.pyx":161
+      /* "av/container/pyio.py":196
  * 
  *         # Flush bytes in the AVIOContext buffers to the custom I/O
  *         lib.avio_flush(pb)             # <<<<<<<<<<<<<<
@@ -4775,7 +4784,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
 */
       avio_flush(__pyx_v_pb);
 
-      /* "av/container/pyio.pyx":163
+      /* "av/container/pyio.py":198
  *         lib.avio_flush(pb)
  * 
  *         if self.fclose is not None:             # <<<<<<<<<<<<<<
@@ -4785,7 +4794,7 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
       __pyx_t_5 = (__pyx_v_self->fclose != Py_None);
       if (__pyx_t_5) {
 
-        /* "av/container/pyio.pyx":164
+        /* "av/container/pyio.py":199
  * 
  *         if self.fclose is not None:
  *             self.fclose()             # <<<<<<<<<<<<<<
@@ -4812,12 +4821,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
           __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L3_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 199, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-        /* "av/container/pyio.pyx":163
+        /* "av/container/pyio.py":198
  *         lib.avio_flush(pb)
  * 
  *         if self.fclose is not None:             # <<<<<<<<<<<<<<
@@ -4826,21 +4835,21 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
 */
       }
 
-      /* "av/container/pyio.pyx":166
+      /* "av/container/pyio.py":201
  *             self.fclose()
  * 
  *         return 0             # <<<<<<<<<<<<<<
- * 
  *     except Exception:
+ *         stash_exception()
 */
       __pyx_r = 0;
       goto __pyx_L7_try_return;
 
-      /* "av/container/pyio.pyx":157
- * cdef int pyio_close_custom_gil(lib.AVIOContext *pb):
- *     cdef PyIOFile self
+      /* "av/container/pyio.py":192
+ * def pyio_close_custom_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>pb.opaque
+ *         self = cython.cast(PyIOFile, pb.opaque)
  * 
 */
     }
@@ -4849,26 +4858,26 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "av/container/pyio.pyx":168
- *         return 0
+    /* "av/container/pyio.py":202
  * 
+ *         return 0
  *     except Exception:             # <<<<<<<<<<<<<<
  *         stash_exception()
 */
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("av.container.pyio.pyio_close_custom_gil", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_6) < 0) __PYX_ERR(0, 168, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_6) < 0) __PYX_ERR(0, 202, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "av/container/pyio.pyx":169
- * 
+      /* "av/container/pyio.py":203
+ *         return 0
  *     except Exception:
  *         stash_exception()             # <<<<<<<<<<<<<<
 */
-      __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L5_except_error)
+      __pyx_f_2av_5error_stash_exception(NULL); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 203, __pyx_L5_except_error)
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -4876,11 +4885,11 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
     }
     goto __pyx_L5_except_error;
 
-    /* "av/container/pyio.pyx":157
- * cdef int pyio_close_custom_gil(lib.AVIOContext *pb):
- *     cdef PyIOFile self
+    /* "av/container/pyio.py":192
+ * def pyio_close_custom_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
+ *     self: PyIOFile
  *     try:             # <<<<<<<<<<<<<<
- *         self = <PyIOFile>pb.opaque
+ *         self = cython.cast(PyIOFile, pb.opaque)
  * 
 */
     __pyx_L5_except_error:;
@@ -4902,12 +4911,12 @@ static int __pyx_f_2av_9container_4pyio_pyio_close_custom_gil(struct AVIOContext
     __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
   }
 
-  /* "av/container/pyio.pyx":155
+  /* "av/container/pyio.py":189
  * 
  * 
- * cdef int pyio_close_custom_gil(lib.AVIOContext *pb):             # <<<<<<<<<<<<<<
- *     cdef PyIOFile self
- *     try:
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def pyio_close_custom_gil(pb: cython.pointer[lib.AVIOContext]) -> cython.int:
+ *     self: PyIOFile
 */
 
   /* function exit code */
@@ -5223,15 +5232,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9container_4pyio_PyIOFile_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile)) __PYX_ERR(0, 9, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9container_4pyio_PyIOFile_spec, __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_9container_4pyio_PyIOFile_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_9container_4pyio_PyIOFile_spec, __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = &__pyx_type_2av_9container_4pyio_PyIOFile;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile);
@@ -5241,8 +5250,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_PyIOFile, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_PyIOFile, (PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5571,10 +5580,10 @@ __Pyx_RefNannySetupContext("PyInit_pyio", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/container/pyio.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
- * from libc.string cimport memcpy
- * 
+  /* "av/container/pyio.py":1
+ * # type: ignore             # <<<<<<<<<<<<<<
+ * import cython
+ * from cython import NULL
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);

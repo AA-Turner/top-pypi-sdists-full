@@ -6,7 +6,7 @@
 import asyncio
 import logging
 
-from typing import Optional, Callable
+from typing import Callable
 from slixmpp import JID
 from slixmpp.xmlstream import register_stanza_plugin, ElementBase
 from slixmpp.plugins.base import BasePlugin, register_plugin
@@ -45,7 +45,7 @@ class XEP_0163(BasePlugin):
         self.xmpp['xep_0030'].add_feature(stanza.namespace)
         self.xmpp['xep_0060'].map_node_event(stanza.namespace, name)
 
-    def add_interest(self, namespace: str, jid: Optional[JID] = None):
+    def add_interest(self, namespace: str, jid: JID | None = None):
         """
         Mark an interest in a PEP subscription by including a disco
         feature with the '+notify' extension.
@@ -66,7 +66,7 @@ class XEP_0163(BasePlugin):
             loop=self.xmpp.loop,
         )
 
-    def remove_interest(self, namespace: str, jid: Optional[JID] = None):
+    def remove_interest(self, namespace: str, jid: JID | None = None):
         """
         Mark an interest in a PEP subscription by including a disco
         feature with the '+notify' extension.
@@ -87,12 +87,12 @@ class XEP_0163(BasePlugin):
             loop=self.xmpp.loop,
         )
 
-    def publish(self, stanza: ElementBase, node: Optional[str] = None,
-                id: Optional[str] = None,
-                options: Optional[Form] = None,
-                ifrom: Optional[JID] = None,
-                callback: Optional[Callable] = None,
-                timeout: Optional[int] = None):
+    def publish(self, stanza: ElementBase, node: str | None = None,
+                id: str | None = None,
+                options: Form | None = None,
+                ifrom: JID | None = None,
+                callback: Callable | None = None,
+                timeout: int | None = None):
         """
         Publish a PEP update.
 

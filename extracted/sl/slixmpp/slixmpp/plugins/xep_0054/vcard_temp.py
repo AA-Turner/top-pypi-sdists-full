@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 import logging
-from typing import Optional
 
 from slixmpp import JID
 from slixmpp.stanza import Iq
@@ -59,9 +58,9 @@ class XEP_0054(BasePlugin):
         """Return an empty vcard element."""
         return VCardTemp()
 
-    async def get_vcard(self, jid: Optional[JID] = None, *,
-                        local: Optional[bool] = None, cached: bool = False,
-                        ifrom: Optional[JID] = None,
+    async def get_vcard(self, jid: JID | None = None, *,
+                        local: bool | None = None, cached: bool = False,
+                        ifrom: JID | None = None,
                         **iqkwargs) -> Iq:
         """Retrieve a VCard.
 
@@ -109,9 +108,9 @@ class XEP_0054(BasePlugin):
         iq.enable('vcard_temp')
         return await iq.send(**iqkwargs)
 
-    async def publish_vcard(self, vcard: Optional[VCardTemp] = None,
-                            jid: Optional[JID] = None,
-                            ifrom: Optional[JID] = None, **iqkwargs):
+    async def publish_vcard(self, vcard: VCardTemp | None = None,
+                            jid: JID | None = None,
+                            ifrom: JID | None = None, **iqkwargs):
         """Publish a vcard.
 
         .. versionchanged:: 1.8.0

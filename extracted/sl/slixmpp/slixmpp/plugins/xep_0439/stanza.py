@@ -14,6 +14,13 @@ NS = 'urn:xmpp:tmp:quick-response'
 
 
 class Response(ElementBase):
+    """
+    Response element.
+
+    .. code-block:: xml
+
+        <response xmlns="urn:xmpp:tmp:quick-response" xml:lang="en" value="yes" label="Sure!" />
+    """
     namespace = NS
     name = 'response'
     plugin_attrib = 'response'
@@ -21,6 +28,13 @@ class Response(ElementBase):
 
 
 class Action(ElementBase):
+    """
+    Action element.
+
+    .. code-block:: xml
+
+        <action xmlns="urn:xmpp:tmp:quick-response" id="merge-32643" label="Merge Now" />
+    """
     namespace = NS
     name = 'action'
     plugin_attrib = 'action'
@@ -28,6 +42,13 @@ class Action(ElementBase):
 
 
 class ActionSelected(ElementBase):
+    """
+    Selected Action element.
+
+    .. code-block:: xml
+
+        <action-selected xmlns="urn:xmpp:tmp:quick-response" id="merge-32643" />
+    """
     namespace = NS
     name = 'action-selected'
     plugin_attrib = 'action_selected'

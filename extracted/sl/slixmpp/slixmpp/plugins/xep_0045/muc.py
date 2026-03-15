@@ -10,10 +10,6 @@ from collections import defaultdict
 from datetime import datetime
 from typing import (
     Any,
-    Dict,
-    List,
-    Tuple,
-    Optional,
 )
 
 from slixmpp import (
@@ -57,7 +53,7 @@ from slixmpp.types import (
     PresenceShows,
 )
 
-JoinResult = Tuple[Presence, Message, List[Presence], List[Message]]
+JoinResult = tuple[Presence, Message, list[Presence], list[Message]]
 
 log = logging.getLogger(__name__)
 
@@ -89,8 +85,8 @@ class XEP_0045(BasePlugin):
         'multi_from': False,
     }
 
-    rooms: Dict[Optional[JID], Dict[JID, Dict[str, MucRoomItem]]]
-    our_nicks: Dict[Optional[JID], Dict[JID, str]]
+    rooms: dict[JID | None, dict[JID, dict[str, MucRoomItem]]]
+    our_nicks: dict[JID | None, dict[JID, str]]
 
     def plugin_init(self):
         self.rooms = defaultdict(lambda: defaultdict())
@@ -295,12 +291,12 @@ class XEP_0045(BasePlugin):
         self.xmpp.event('muc::%s::groupchat_subject' % msg['from'].bare, msg)
 
     def make_join_stanza(self, room: JID, nick: str, *,
-                         password: Optional[str] = None,
-                         maxchars: Optional[int] = None,
-                         maxstanzas: Optional[int] = None,
-                         seconds: Optional[int] = None,
-                         since: Optional[datetime] = None,
-                         presence_options: Optional[PresenceArgs] = None) -> Presence:
+                         password: str | None = None,
+                         maxchars: int | None = None,
+                         maxstanzas: int | None = None,
+                         seconds: int | None = None,
+                         since: datetime | None = None,
+                         presence_options: PresenceArgs | None = None) -> Presence:
         """
         Build the stanza for the MUC join, without sending it.
 
@@ -343,12 +339,12 @@ class XEP_0045(BasePlugin):
         return stanza
 
     async def join_muc_wait(self, room: JID, nick: str, *,
-                            password: Optional[str] = None,
-                            maxchars: Optional[int] = None,
-                            maxstanzas: Optional[int] = None,
-                            seconds: Optional[int] = None,
-                            since: Optional[datetime] = None,
-                            presence_options: Optional[PresenceArgs] = None,
+                            password: str | None = None,
+                            maxchars: int | None = None,
+                            maxstanzas: int | None = None,
+                            seconds: int | None = None,
+                            since: datetime | None = None,
+                            presence_options: PresenceArgs | None = None,
                             timeout: int = 300) -> JoinResult:
         """
         Try to join a MUC and block until we are joined or get an error.
@@ -403,8 +399,8 @@ class XEP_0045(BasePlugin):
         """
         presence_done: asyncio.Future = asyncio.Future(loop=self.xmpp.loop)
         topic_received: asyncio.Future = asyncio.Future(loop=self.xmpp.loop)
-        history_buffer: List[Message] = []
-        occupant_buffer: List[Presence] = []
+        history_buffer: list[Message] = []
+        occupant_buffer: list[Presence] = []
 
         pfrom = stanza['from'] or None
 
@@ -511,7 +507,7 @@ class XEP_0045(BasePlugin):
             loop=self.xmpp.loop,
         )
 
-    def leave_muc(self, room: JID, nick: str, msg: str = '', pfrom: Optional[JID] = None):
+    def leave_muc(self, room: JID, nick: str, msg: str = '', pfrom: JID | None = None):
         """ Leave the specified room.
 
         :param room: Room to leave.
@@ -541,7 +537,7 @@ class XEP_0045(BasePlugin):
                 + (f' for {pfrom}' if pfrom else '')
             )
 
-    def set_subject(self, room: JidStr, subject: str, *, mfrom: Optional[JID] = None):
+    def set_subject(self, room: JidStr, subject: str, *, mfrom: JID | None = None):
         """Set a room’s subject.
 
         :param room: JID of the room.
@@ -552,7 +548,7 @@ class XEP_0045(BasePlugin):
         msg['subject'] = subject
         msg.send()
 
-    async def get_room_config(self, room: JidStr, ifrom: Optional[JID] = None,
+    async def get_room_config(self, room: JidStr, ifrom: JID | None = None,
                               **iqkwargs) -> Form:
         """Get the room config form in 0004 plugin format.
 
@@ -568,7 +564,7 @@ class XEP_0045(BasePlugin):
         return form
 
     async def set_room_config(self, room: JidStr, config: Form, *,
-                              ifrom: Optional[JID] = None, **iqkwargs):
+                              ifrom: JID | None = None, **iqkwargs):
         """Send a room config form.
 
         :param room: Room to send the form to.
@@ -581,7 +577,7 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     async def cancel_config(self, room: JidStr, *,
-                            ifrom: Optional[JidStr] = None, **iqkwargs):
+                            ifrom: JidStr | None = None, **iqkwargs):
         """Cancel a requested config form.
 
         :param room: Room to cancel the form for.
@@ -591,8 +587,8 @@ class XEP_0045(BasePlugin):
         iq = self.xmpp.make_iq_set(query, ito=room, ifrom=ifrom)
         await iq.send(**iqkwargs)
 
-    async def destroy(self, room: JidStr, reason: str = '', altroom: Optional[JidStr] = None, *,
-                      ifrom: Optional[JidStr] = None, **iqkwargs):
+    async def destroy(self, room: JidStr, reason: str = '', altroom: JidStr | None = None, *,
+                      ifrom: JidStr | None = None, **iqkwargs):
         """Destroy a room.
 
         :param room: Room JID to destroy.
@@ -609,9 +605,9 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     async def set_affiliation(self, room: JidStr, affiliation: MucAffiliation, *,
-                              jid: Optional[JidStr] = None,
-                              nick: Optional[str] = None, reason: str = '',
-                              ifrom: Optional[JidStr] = None, **iqkwargs):
+                              jid: JidStr | None = None,
+                              nick: str | None = None, reason: str = '',
+                              ifrom: JidStr | None = None, **iqkwargs):
         """ Change room affiliation for a JID or nickname.
 
         :param room: Room to modify.
@@ -636,7 +632,7 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     async def get_affiliation_list(self, room: JidStr, affiliation: MucAffiliation, *,
-                                   ifrom: Optional[JidStr] = None, **iqkwargs) -> List[JID]:
+                                   ifrom: JidStr | None = None, **iqkwargs) -> list[JID]:
         """Get a list of JIDs with the specified affiliation
 
         :param room: Room to get affiliations from.
@@ -648,8 +644,8 @@ class XEP_0045(BasePlugin):
         return [item['jid'] for item in result['mucadmin_query']]
 
     async def send_affiliation_list(self, room: JidStr,
-                                    affiliations: List[Tuple[JidStr, MucAffiliation]], *,
-                                    ifrom: Optional[JidStr] = None, **iqkwargs):
+                                    affiliations: list[tuple[JidStr, MucAffiliation]], *,
+                                    ifrom: JidStr | None = None, **iqkwargs):
         """Send an affiliation delta list.
 
         :param room: Room to send the affiliations to.
@@ -664,7 +660,7 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     async def set_role(self, room: JidStr, nick: str, role: MucRole, *,
-                       reason: str = '', ifrom: Optional[JidStr] = None, **iqkwargs):
+                       reason: str = '', ifrom: JidStr | None = None, **iqkwargs):
         """
         Change role property of a nick in a room.
         Typically, roles are temporary (they last only as long as you are in
@@ -686,7 +682,7 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     async def get_roles_list(self, room: JidStr, role: MucRole, *,
-                             ifrom: Optional[JidStr] = None, **iqkwargs) -> List[str]:
+                             ifrom: JidStr | None = None, **iqkwargs) -> list[str]:
         """"Get a list of JIDs with the specified role
 
         :param room: Room to get roles from.
@@ -697,8 +693,8 @@ class XEP_0045(BasePlugin):
         result = await iq.send(**iqkwargs)
         return [item['nick'] for item in result['mucadmin_query']]
 
-    async def send_role_list(self, room: JidStr, roles: List[Tuple[str, MucRole]], *,
-                             ifrom: Optional[JidStr] = None, **iqkwargs):
+    async def send_role_list(self, room: JidStr, roles: list[tuple[str, MucRole]], *,
+                             ifrom: JidStr | None = None, **iqkwargs):
         """Send a role delta list.
 
         :param room: Room to send the roles to.
@@ -713,7 +709,7 @@ class XEP_0045(BasePlugin):
         await iq.send(**iqkwargs)
 
     def invite(self, room: JidStr, jid: JidStr, reason: str = '', *,
-               mfrom: Optional[JidStr] = None):
+               mfrom: JidStr | None = None):
         """ Invite a jid to a room (mediated invitation).
 
         :param room: Room to invite the user in.
@@ -746,7 +742,7 @@ class XEP_0045(BasePlugin):
         msg.send()
 
     def decline(self, room: JidStr, jid: JidStr, reason: str = '', *,
-                mfrom: Optional[JidStr] = None):
+                mfrom: JidStr | None = None):
         """Decline a mediated invitation.
 
         :param room: Room the invitation came from.
@@ -759,7 +755,7 @@ class XEP_0045(BasePlugin):
             msg['muc']['decline']['reason'] = reason
         self.xmpp.send(msg)
 
-    def request_voice(self, room: JidStr, role: str, *, mfrom: Optional[JidStr] = None):
+    def request_voice(self, room: JidStr, role: str, *, mfrom: JidStr | None = None):
         """Request voice in a moderated room.
 
         :param room: Room to request voice from.
@@ -778,7 +774,7 @@ class XEP_0045(BasePlugin):
 
     async def set_self_nick(self, room: JID, new_nick: str,
                             timeout: int = 60,
-                            presence_options: Optional[PresenceArgs] = None) -> str:
+                            presence_options: PresenceArgs | None = None) -> str:
         """
         Set your nickname in a room.
         The room can arbitrarily decide on another nickname, so this function
@@ -816,7 +812,7 @@ class XEP_0045(BasePlugin):
         new_nick = presence['muc']['item_nick']
         return new_nick
 
-    def jid_in_room(self, room: JID, jid: JID, pfrom: Optional[JID] = None) -> bool:
+    def jid_in_room(self, room: JID, jid: JID, pfrom: JID | None = None) -> bool:
         """Check if a JID is present in a room.
 
         :param room: Room to check.
@@ -842,7 +838,7 @@ class XEP_0045(BasePlugin):
             )
         return bare_match
 
-    def get_nick(self, room: JID, jid: JID, pfrom: Optional[JID] = None) -> Optional[str]:
+    def get_nick(self, room: JID, jid: JID, pfrom: JID | None = None) -> str | None:
         """Get the nickname of a specific JID in a room.
 
         :param room: Room to inspect.
@@ -868,20 +864,20 @@ class XEP_0045(BasePlugin):
             )
         return bare_match
 
-    def get_joined_rooms(self, pfrom: Optional[JID] = None) -> List[JID]:
+    def get_joined_rooms(self, pfrom: JID | None = None) -> list[JID]:
         """Get the list of rooms we sent a join presence to
         and did not explicitly leave.
         """
         return list(self.rooms.get(pfrom, {}).keys())
 
-    def get_our_jid_in_room(self, room_jid: JID, pfrom: Optional[JID] = None) -> str:
+    def get_our_jid_in_room(self, room_jid: JID, pfrom: JID | None = None) -> str:
         """ Return the jid we're using in a room.
         """
         return "%s/%s" % (room_jid, self.our_nicks[pfrom][room_jid])
 
     def get_jid_property(self, room: JID, nick: str,
                          jid_property: MucRoomItemKeys,
-                         pfrom: Optional[JID] = None) -> Any:
+                         pfrom: JID | None = None) -> Any:
         """ Get the property of a nick in a room, such as its 'jid' or 'affiliation'
             If not found, return None.
 
@@ -895,7 +891,7 @@ class XEP_0045(BasePlugin):
         prop = nick_dict.get(jid_property)
         return prop or None
 
-    def get_roster(self, room: JID, pfrom: Optional[JID] = None) -> List[str]:
+    def get_roster(self, room: JID, pfrom: JID | None = None) -> list[str]:
         """ Get the list of nicks in a room.
 
         :param room: Room to list nicks from.
@@ -905,7 +901,7 @@ class XEP_0045(BasePlugin):
             raise ValueError("Room %s is not joined" % room)
         return list(rooms[room].keys())
 
-    def get_users_by_affiliation(self, room: JidStr, affiliation='member', *, ifrom: Optional[JidStr] = None):
+    def get_users_by_affiliation(self, room: JidStr, affiliation='member', *, ifrom: JidStr | None = None):
         # Preserve old API
         if affiliation not in AFFILIATIONS:
             raise ValueError("Affiliation %s does not exist" % affiliation)

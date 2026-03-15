@@ -10,7 +10,6 @@ from aiohttp import ClientSession
 from asyncio import Future
 from mimetypes import guess_type
 from typing import (
-    Optional,
     IO,
 )
 
@@ -125,7 +124,7 @@ class XEP_0363(BasePlugin):
     def _handle_request(self, iq):
         self.xmpp.event('http_upload_request', iq)
 
-    async def find_upload_service(self, domain: Optional[JID] = None, **iqkwargs) -> Optional[Iq]:
+    async def find_upload_service(self, domain: JID | None = None, **iqkwargs) -> Iq | None:
         """Find an upload service on a domain (our own by default).
 
         :param domain: Domain to disco to find a service.
@@ -150,8 +149,8 @@ class XEP_0363(BasePlugin):
                     return info
 
     def request_slot(self, jid: JID, filename: Path, size: int,
-                    content_type: Optional[str] = None, *,
-                    ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+                    content_type: str | None = None, *,
+                    ifrom: JID | None = None, **iqkwargs) -> Future:
         """Request an HTTP upload slot from a service.
 
         :param jid: Service to request the slot from.
@@ -166,10 +165,10 @@ class XEP_0363(BasePlugin):
         request['content-type'] = content_type or self.default_content_type
         return iq.send(**iqkwargs)
 
-    async def upload_file(self, filename: Path, size: Optional[int] = None,
-                          content_type: Optional[str] = None, *,
-                          input_file: Optional[IO[bytes]]=None,
-                          domain: Optional[JID] = None,
+    async def upload_file(self, filename: Path, size: int | None = None,
+                          content_type: str | None = None, *,
+                          input_file: IO[bytes] | None=None,
+                          domain: JID | None = None,
                           **iqkwargs) -> str:
         '''Helper function which does all of the uploading discovery and
         process.

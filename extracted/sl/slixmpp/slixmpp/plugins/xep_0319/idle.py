@@ -5,8 +5,6 @@
 # See the file LICENSE for copying permission.
 from datetime import datetime, timezone
 
-from typing import Optional
-
 from slixmpp import JID
 from slixmpp.stanza import Presence
 from slixmpp.plugins import BasePlugin
@@ -46,8 +44,8 @@ class XEP_0319(BasePlugin):
         self.xmpp.del_filter('out', self._stamp_idle_presence)
         self.xmpp.remove_handler('Idle Presence')
 
-    async def idle(self, jid: Optional[JID] = None,
-                   since: Optional[datetime] = None):
+    async def idle(self, jid: JID | None = None,
+                   since: datetime | None = None):
         """Set an idle duration for a JID
 
         .. versionchanged:: 1.8.0
@@ -62,7 +60,7 @@ class XEP_0319(BasePlugin):
         await self.api['set_idle'](jid, None, None, since)
         await self.xmpp['xep_0012'].set_last_activity(jid=jid, seconds=seconds)
 
-    async def active(self, jid: Optional[JID] = None):
+    async def active(self, jid: JID | None = None):
         """Reset the idle timer.
 
         .. versionchanged:: 1.8.0

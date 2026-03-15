@@ -6,9 +6,7 @@ import socket
 import logging
 
 from typing import (
-    Optional,
     IO,
-    Union,
 )
 
 from slixmpp import JID
@@ -46,7 +44,7 @@ class IBBytestream(object):
 
         self.recv_queue = asyncio.Queue()
 
-    async def send(self, data: bytes, timeout: Optional[int] = None) -> int:
+    async def send(self, data: bytes, timeout: int | None = None) -> int:
         """Send a single block of data.
 
         :param data: Data to send (will be truncated if above block size).
@@ -78,7 +76,7 @@ class IBBytestream(object):
             await iq.send(timeout=timeout)
         return len(data)
 
-    async def sendall(self, data: bytes, timeout: Optional[int] = None):
+    async def sendall(self, data: bytes, timeout: int | None = None):
         """Send all the contents of ``data`` in chunks.
 
         :param data: Raw data to send.
@@ -87,7 +85,7 @@ class IBBytestream(object):
         while sent_len < len(data):
             sent_len += await self.send(data[sent_len:sent_len+self.block_size], timeout=timeout)
 
-    async def gather(self, max_data: Optional[int] = None, timeout: int = 3600) -> bytes:
+    async def gather(self, max_data: int | None = None, timeout: int = 3600) -> bytes:
         """Gather all data sent on a stream until it is closed, and return it.
 
         .. versionadded:: 1.8.0
@@ -130,7 +128,7 @@ class IBBytestream(object):
             self.xmpp.del_event_handler('ibb_stream_data', on_data)
         return result
 
-    async def sendfile(self, file: IO[bytes], timeout: Optional[int] = None):
+    async def sendfile(self, file: IO[bytes], timeout: int | None = None):
         """Send the contents of a file over the wire, in chunks.
 
         :param file: The opened file (or file-like) object, in bytes mode."""
@@ -140,7 +138,7 @@ class IBBytestream(object):
                 break
             await self.send(data, timeout=timeout)
 
-    def _recv_data(self, stanza: Union[Message, Iq]):
+    def _recv_data(self, stanza: Message | Iq):
         new_seq = stanza['ibb_data']['seq']
         if new_seq != (self.recv_seq + 1) % 65536:
             self.close()
@@ -166,7 +164,7 @@ class IBBytestream(object):
             raise socket.error
         return self.recv_queue.get_nowait()
 
-    def close(self, timeout: Optional[int] = None) -> asyncio.Future:
+    def close(self, timeout: int | None = None) -> asyncio.Future:
         """Close the stream."""
         iq = self.xmpp.Iq()
         iq['type'] = 'set'

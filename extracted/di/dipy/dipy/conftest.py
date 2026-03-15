@@ -68,10 +68,11 @@ def pytest_collect_file(parent, file_path):
 class PyxFile(pytest.File):
     def collect(self):
         try:
-            match = re.search(r"(dipy/[^\/]+/tests/test_\w+)", str(self.path))
+            path_str = self.path.as_posix()
+            match = re.search(r"(dipy/[^\/]+/tests/test_\w+)", path_str)
             mod_name = match.group(1) if match else None
             if mod_name is None:
-                raise PyxException("Could not find test module for " f"{self.path}.")
+                raise PyxException(f"Could not find test module for {self.path}.")
             mod_name = mod_name.replace("/", ".")
             mod = importlib.import_module(mod_name)
             for name in dir(mod):

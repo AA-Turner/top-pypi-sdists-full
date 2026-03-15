@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.filter.filter",
         "sources": [
-            "av/filter/filter.pyx"
+            "av/filter/filter.py"
         ]
     },
     "module_name": "av.filter.filter"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__filter__filter
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1413,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/filter/filter.pyx",
+  "av/filter/filter.py",
   "<stringsource>",
   "av/descriptor.pxd",
   "av/filter/graph.pxd",
@@ -1749,8 +1731,8 @@ struct __pyx_obj_2av_6filter_4link_FilterContextPad {
  * 
  * 
  * cdef class Filter:             # <<<<<<<<<<<<<<
- * 
  *     cdef const lib.AVFilter *ptr
+ *     cdef object _inputs
 */
 struct __pyx_obj_2av_6filter_6filter_Filter {
   PyObject_HEAD
@@ -2429,12 +2411,16 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
 /* Module declarations from "av.descriptor" */
 static struct __pyx_obj_2av_10descriptor_Descriptor *(*__pyx_f_2av_10descriptor_wrap_avclass)(struct AVClass const *); /*proto*/
+
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.filter.graph" */
 
@@ -2623,12 +2609,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/filter/filter.pyx":10
+/* "av/filter/filter.py":9
  * 
  * 
- * cdef Filter wrap_filter(const lib.AVFilter *ptr):             # <<<<<<<<<<<<<<
- *     cdef Filter filter_ = Filter(_cinit_sentinel)
- *     filter_.ptr = ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_filter(ptr: cython.pointer[cython.const[lib.AVFilter]]) -> Filter:
+ *     filter_: Filter = Filter(_cinit_sentinel)
 */
 
 static struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_f_2av_6filter_6filter_wrap_filter(struct AVFilter const *__pyx_v_ptr) {
@@ -2643,10 +2629,10 @@ static struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_f_2av_6filter_6filter_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_filter", 0);
 
-  /* "av/filter/filter.pyx":11
- * 
- * cdef Filter wrap_filter(const lib.AVFilter *ptr):
- *     cdef Filter filter_ = Filter(_cinit_sentinel)             # <<<<<<<<<<<<<<
+  /* "av/filter/filter.py":11
+ * @cython.cfunc
+ * def wrap_filter(ptr: cython.pointer[cython.const[lib.AVFilter]]) -> Filter:
+ *     filter_: Filter = Filter(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     filter_.ptr = ptr
  *     return filter_
 */
@@ -2662,17 +2648,17 @@ static struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_f_2av_6filter_6filter_
   __pyx_v_filter_ = ((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/filter/filter.pyx":12
- * cdef Filter wrap_filter(const lib.AVFilter *ptr):
- *     cdef Filter filter_ = Filter(_cinit_sentinel)
+  /* "av/filter/filter.py":12
+ * def wrap_filter(ptr: cython.pointer[cython.const[lib.AVFilter]]) -> Filter:
+ *     filter_: Filter = Filter(_cinit_sentinel)
  *     filter_.ptr = ptr             # <<<<<<<<<<<<<<
  *     return filter_
  * 
 */
   __pyx_v_filter_->ptr = __pyx_v_ptr;
 
-  /* "av/filter/filter.pyx":13
- *     cdef Filter filter_ = Filter(_cinit_sentinel)
+  /* "av/filter/filter.py":13
+ *     filter_: Filter = Filter(_cinit_sentinel)
  *     filter_.ptr = ptr
  *     return filter_             # <<<<<<<<<<<<<<
  * 
@@ -2683,12 +2669,12 @@ static struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_f_2av_6filter_6filter_
   __pyx_r = __pyx_v_filter_;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":10
+  /* "av/filter/filter.py":9
  * 
  * 
- * cdef Filter wrap_filter(const lib.AVFilter *ptr):             # <<<<<<<<<<<<<<
- *     cdef Filter filter_ = Filter(_cinit_sentinel)
- *     filter_.ptr = ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_filter(ptr: cython.pointer[cython.const[lib.AVFilter]]) -> Filter:
+ *     filter_: Filter = Filter(_cinit_sentinel)
 */
 
   /* function exit code */
@@ -2704,9 +2690,9 @@ static struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_f_2av_6filter_6filter_
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":17
- * 
- * cdef class Filter:
+/* "av/filter/filter.py":18
+ * @cython.cclass
+ * class Filter:
  *     def __cinit__(self, name):             # <<<<<<<<<<<<<<
  *         if name is _cinit_sentinel:
  *             return
@@ -2734,32 +2720,32 @@ static int __pyx_pw_2av_6filter_6filter_6Filter_1__cinit__(PyObject *__pyx_v_sel
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_name,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 17, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 18, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 17, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 18, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 17, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 18, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 17, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 18, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 17, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 18, __pyx_L3_error)
     }
     __pyx_v_name = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 17, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 18, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2796,8 +2782,8 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/filter/filter.pyx":18
- * cdef class Filter:
+  /* "av/filter/filter.py":19
+ * class Filter:
  *     def __cinit__(self, name):
  *         if name is _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             return
@@ -2806,7 +2792,7 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
   __pyx_t_1 = (__pyx_v_name == __pyx_v_2av_6filter_6filter__cinit_sentinel);
   if (__pyx_t_1) {
 
-    /* "av/filter/filter.pyx":19
+    /* "av/filter/filter.py":20
  *     def __cinit__(self, name):
  *         if name is _cinit_sentinel:
  *             return             # <<<<<<<<<<<<<<
@@ -2816,8 +2802,8 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "av/filter/filter.pyx":18
- * cdef class Filter:
+    /* "av/filter/filter.py":19
+ * class Filter:
  *     def __cinit__(self, name):
  *         if name is _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             return
@@ -2825,23 +2811,23 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
 */
   }
 
-  /* "av/filter/filter.pyx":20
+  /* "av/filter/filter.py":21
  *         if name is _cinit_sentinel:
  *             return
  *         if not isinstance(name, str):             # <<<<<<<<<<<<<<
  *             raise TypeError("takes a filter name as a string")
- *         self.ptr = lib.avfilter_get_by_name(name)
+ * 
 */
   __pyx_t_1 = PyUnicode_Check(__pyx_v_name); 
   __pyx_t_2 = (!__pyx_t_1);
   if (unlikely(__pyx_t_2)) {
 
-    /* "av/filter/filter.pyx":21
+    /* "av/filter/filter.py":22
  *             return
  *         if not isinstance(name, str):
  *             raise TypeError("takes a filter name as a string")             # <<<<<<<<<<<<<<
+ * 
  *         self.ptr = lib.avfilter_get_by_name(name)
- *         if not self.ptr:
 */
     __pyx_t_4 = NULL;
     __pyx_t_5 = 1;
@@ -2849,34 +2835,34 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_takes_a_filter_name_as_a_string};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 21, __pyx_L1_error)
+    __PYX_ERR(0, 22, __pyx_L1_error)
 
-    /* "av/filter/filter.pyx":20
+    /* "av/filter/filter.py":21
  *         if name is _cinit_sentinel:
  *             return
  *         if not isinstance(name, str):             # <<<<<<<<<<<<<<
  *             raise TypeError("takes a filter name as a string")
- *         self.ptr = lib.avfilter_get_by_name(name)
+ * 
 */
   }
 
-  /* "av/filter/filter.pyx":22
- *         if not isinstance(name, str):
+  /* "av/filter/filter.py":24
  *             raise TypeError("takes a filter name as a string")
+ * 
  *         self.ptr = lib.avfilter_get_by_name(name)             # <<<<<<<<<<<<<<
  *         if not self.ptr:
  *             raise ValueError(f"no filter {name}")
 */
-  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 24, __pyx_L1_error)
   __pyx_v_self->ptr = avfilter_get_by_name(__pyx_t_6);
 
-  /* "av/filter/filter.pyx":23
- *             raise TypeError("takes a filter name as a string")
+  /* "av/filter/filter.py":25
+ * 
  *         self.ptr = lib.avfilter_get_by_name(name)
  *         if not self.ptr:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"no filter {name}")
@@ -2885,7 +2871,7 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
   __pyx_t_2 = (!(__pyx_v_self->ptr != 0));
   if (unlikely(__pyx_t_2)) {
 
-    /* "av/filter/filter.pyx":24
+    /* "av/filter/filter.py":26
  *         self.ptr = lib.avfilter_get_by_name(name)
  *         if not self.ptr:
  *             raise ValueError(f"no filter {name}")             # <<<<<<<<<<<<<<
@@ -2893,9 +2879,9 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
  *     @property
 */
     __pyx_t_4 = NULL;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 24, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 26, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_no_filter, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 24, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_no_filter, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 26, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_5 = 1;
@@ -2904,15 +2890,15 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 26, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 24, __pyx_L1_error)
+    __PYX_ERR(0, 26, __pyx_L1_error)
 
-    /* "av/filter/filter.pyx":23
- *             raise TypeError("takes a filter name as a string")
+    /* "av/filter/filter.py":25
+ * 
  *         self.ptr = lib.avfilter_get_by_name(name)
  *         if not self.ptr:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"no filter {name}")
@@ -2920,9 +2906,9 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
 */
   }
 
-  /* "av/filter/filter.pyx":17
- * 
- * cdef class Filter:
+  /* "av/filter/filter.py":18
+ * @cython.cclass
+ * class Filter:
  *     def __cinit__(self, name):             # <<<<<<<<<<<<<<
  *         if name is _cinit_sentinel:
  *             return
@@ -2943,7 +2929,7 @@ static int __pyx_pf_2av_6filter_6filter_6Filter___cinit__(struct __pyx_obj_2av_6
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":26
+/* "av/filter/filter.py":28
  *             raise ValueError(f"no filter {name}")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -2976,7 +2962,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":28
+  /* "av/filter/filter.py":30
  *     @property
  *     def descriptor(self):
  *         if self._descriptor is None:             # <<<<<<<<<<<<<<
@@ -2986,14 +2972,14 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
   __pyx_t_1 = (((PyObject *)__pyx_v_self->_descriptor) == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/filter.pyx":29
+    /* "av/filter/filter.py":31
  *     def descriptor(self):
  *         if self._descriptor is None:
  *             self._descriptor = wrap_avclass(self.ptr.priv_class)             # <<<<<<<<<<<<<<
  *         return self._descriptor
  * 
 */
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->ptr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->ptr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF((PyObject *)__pyx_v_self->_descriptor);
@@ -3001,7 +2987,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
     __pyx_v_self->_descriptor = ((struct __pyx_obj_2av_10descriptor_Descriptor *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/filter/filter.pyx":28
+    /* "av/filter/filter.py":30
  *     @property
  *     def descriptor(self):
  *         if self._descriptor is None:             # <<<<<<<<<<<<<<
@@ -3010,7 +2996,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
 */
   }
 
-  /* "av/filter/filter.pyx":30
+  /* "av/filter/filter.py":32
  *         if self._descriptor is None:
  *             self._descriptor = wrap_avclass(self.ptr.priv_class)
  *         return self._descriptor             # <<<<<<<<<<<<<<
@@ -3022,7 +3008,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
   __pyx_r = ((PyObject *)__pyx_v_self->_descriptor);
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":26
+  /* "av/filter/filter.py":28
  *             raise ValueError(f"no filter {name}")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3041,7 +3027,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_10descriptor___get__(struc
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":32
+/* "av/filter/filter.py":34
  *         return self._descriptor
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3075,20 +3061,20 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7options___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":34
+  /* "av/filter/filter.py":36
  *     @property
  *     def options(self):
  *         if self.descriptor is None:             # <<<<<<<<<<<<<<
  *             return
  *         return self.descriptor.options
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/filter/filter.pyx":35
+    /* "av/filter/filter.py":37
  *     def options(self):
  *         if self.descriptor is None:
  *             return             # <<<<<<<<<<<<<<
@@ -3099,7 +3085,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7options___get__(struct __
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/filter/filter.pyx":34
+    /* "av/filter/filter.py":36
  *     @property
  *     def options(self):
  *         if self.descriptor is None:             # <<<<<<<<<<<<<<
@@ -3108,7 +3094,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7options___get__(struct __
 */
   }
 
-  /* "av/filter/filter.pyx":36
+  /* "av/filter/filter.py":38
  *         if self.descriptor is None:
  *             return
  *         return self.descriptor.options             # <<<<<<<<<<<<<<
@@ -3116,16 +3102,16 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7options___get__(struct __
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":32
+  /* "av/filter/filter.py":34
  *         return self._descriptor
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3145,7 +3131,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7options___get__(struct __
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":38
+/* "av/filter/filter.py":40
  *         return self.descriptor.options
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3177,7 +3163,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_4name___get__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":40
+  /* "av/filter/filter.py":42
  *     @property
  *     def name(self):
  *         return self.ptr.name             # <<<<<<<<<<<<<<
@@ -3185,13 +3171,13 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_4name___get__(struct __pyx
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":38
+  /* "av/filter/filter.py":40
  *         return self.descriptor.options
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3210,7 +3196,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_4name___get__(struct __pyx
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":42
+/* "av/filter/filter.py":44
  *         return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3242,7 +3228,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_11description___get__(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":44
+  /* "av/filter/filter.py":46
  *     @property
  *     def description(self):
  *         return self.ptr.description             # <<<<<<<<<<<<<<
@@ -3250,13 +3236,13 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_11description___get__(stru
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->description); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->description); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":42
+  /* "av/filter/filter.py":44
  *         return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3275,7 +3261,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_11description___get__(stru
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":46
+/* "av/filter/filter.py":48
  *         return self.ptr.description
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3307,7 +3293,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_5flags___get__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":48
+  /* "av/filter/filter.py":50
  *     @property
  *     def flags(self):
  *         return self.ptr.flags             # <<<<<<<<<<<<<<
@@ -3315,13 +3301,13 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_5flags___get__(struct __py
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->ptr->flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":46
+  /* "av/filter/filter.py":48
  *         return self.ptr.description
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3340,7 +3326,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_5flags___get__(struct __py
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":50
+/* "av/filter/filter.py":52
  *         return self.ptr.flags
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3373,7 +3359,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":52
+  /* "av/filter/filter.py":54
  *     @property
  *     def inputs(self):
  *         if self._inputs is None:             # <<<<<<<<<<<<<<
@@ -3383,14 +3369,14 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   __pyx_t_1 = (__pyx_v_self->_inputs == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/filter.pyx":53
+    /* "av/filter/filter.py":55
  *     def inputs(self):
  *         if self._inputs is None:
  *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)             # <<<<<<<<<<<<<<
  *         return self._inputs
  * 
 */
-    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->inputs, 1, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->inputs, 1, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->_inputs);
@@ -3398,7 +3384,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
     __pyx_v_self->_inputs = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "av/filter/filter.pyx":52
+    /* "av/filter/filter.py":54
  *     @property
  *     def inputs(self):
  *         if self._inputs is None:             # <<<<<<<<<<<<<<
@@ -3407,7 +3393,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
 */
   }
 
-  /* "av/filter/filter.pyx":54
+  /* "av/filter/filter.py":56
  *         if self._inputs is None:
  *             self._inputs = alloc_filter_pads(self, self.ptr.inputs, True)
  *         return self._inputs             # <<<<<<<<<<<<<<
@@ -3419,7 +3405,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   __pyx_r = __pyx_v_self->_inputs;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":50
+  /* "av/filter/filter.py":52
  *         return self.ptr.flags
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3438,7 +3424,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_6inputs___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":56
+/* "av/filter/filter.py":58
  *         return self._inputs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3471,7 +3457,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/filter.pyx":58
+  /* "av/filter/filter.py":60
  *     @property
  *     def outputs(self):
  *         if self._outputs is None:             # <<<<<<<<<<<<<<
@@ -3481,14 +3467,14 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __
   __pyx_t_1 = (__pyx_v_self->_outputs == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/filter.pyx":59
+    /* "av/filter/filter.py":61
  *     def outputs(self):
  *         if self._outputs is None:
  *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)             # <<<<<<<<<<<<<<
  *         return self._outputs
  * 
 */
-    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->outputs, 0, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_6filter_4link_alloc_filter_pads(__pyx_v_self, __pyx_v_self->ptr->outputs, 0, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_v_self->_outputs);
@@ -3496,7 +3482,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __
     __pyx_v_self->_outputs = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "av/filter/filter.pyx":58
+    /* "av/filter/filter.py":60
  *     @property
  *     def outputs(self):
  *         if self._outputs is None:             # <<<<<<<<<<<<<<
@@ -3505,7 +3491,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __
 */
   }
 
-  /* "av/filter/filter.pyx":60
+  /* "av/filter/filter.py":62
  *         if self._outputs is None:
  *             self._outputs = alloc_filter_pads(self, self.ptr.outputs, False)
  *         return self._outputs             # <<<<<<<<<<<<<<
@@ -3517,7 +3503,7 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_7outputs___get__(struct __
   __pyx_r = __pyx_v_self->_outputs;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":56
+  /* "av/filter/filter.py":58
  *         return self._inputs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3740,16 +3726,16 @@ static PyObject *__pyx_pf_2av_6filter_6filter_6Filter_4__setstate_cython__(CYTHO
   return __pyx_r;
 }
 
-/* "av/filter/filter.pyx":63
+/* "av/filter/filter.py":65
  * 
  * 
- * cdef get_filter_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVFilter *ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_filter_names() -> set:
+ *     names: set = set()
 */
 
 static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
-  PyObject *__pyx_v_names = NULL;
+  PyObject *__pyx_v_names = 0;
   struct AVFilter const *__pyx_v_ptr;
   void *__pyx_v_opaque;
   PyObject *__pyx_r = NULL;
@@ -3762,48 +3748,48 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_filter_names", 0);
 
-  /* "av/filter/filter.pyx":64
- * 
- * cdef get_filter_names():
- *     names = set()             # <<<<<<<<<<<<<<
- *     cdef const lib.AVFilter *ptr
- *     cdef void *opaque = NULL
+  /* "av/filter/filter.py":67
+ * @cython.cfunc
+ * def get_filter_names() -> set:
+ *     names: set = set()             # <<<<<<<<<<<<<<
+ *     ptr: cython.pointer[cython.const[lib.AVFilter]]
+ *     opaque: cython.p_void = cython.NULL
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_names = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/filter/filter.pyx":66
- *     names = set()
- *     cdef const lib.AVFilter *ptr
- *     cdef void *opaque = NULL             # <<<<<<<<<<<<<<
+  /* "av/filter/filter.py":69
+ *     names: set = set()
+ *     ptr: cython.pointer[cython.const[lib.AVFilter]]
+ *     opaque: cython.p_void = cython.NULL             # <<<<<<<<<<<<<<
  *     while True:
- *         ptr = lib.av_filter_iterate(&opaque)
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))
 */
   __pyx_v_opaque = NULL;
 
-  /* "av/filter/filter.pyx":67
- *     cdef const lib.AVFilter *ptr
- *     cdef void *opaque = NULL
+  /* "av/filter/filter.py":70
+ *     ptr: cython.pointer[cython.const[lib.AVFilter]]
+ *     opaque: cython.p_void = cython.NULL
  *     while True:             # <<<<<<<<<<<<<<
- *         ptr = lib.av_filter_iterate(&opaque)
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:
 */
   while (1) {
 
-    /* "av/filter/filter.pyx":68
- *     cdef void *opaque = NULL
+    /* "av/filter/filter.py":71
+ *     opaque: cython.p_void = cython.NULL
  *     while True:
- *         ptr = lib.av_filter_iterate(&opaque)             # <<<<<<<<<<<<<<
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))             # <<<<<<<<<<<<<<
  *         if ptr:
  *             names.add(ptr.name)
 */
     __pyx_v_ptr = av_filter_iterate((&__pyx_v_opaque));
 
-    /* "av/filter/filter.pyx":69
+    /* "av/filter/filter.py":72
  *     while True:
- *         ptr = lib.av_filter_iterate(&opaque)
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -3811,21 +3797,21 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
     __pyx_t_2 = (__pyx_v_ptr != 0);
     if (__pyx_t_2) {
 
-      /* "av/filter/filter.pyx":70
- *         ptr = lib.av_filter_iterate(&opaque)
+      /* "av/filter/filter.py":73
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:
  *             names.add(ptr.name)             # <<<<<<<<<<<<<<
  *         else:
  *             break
 */
-      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 70, __pyx_L1_error)
+      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 73, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "av/filter/filter.pyx":69
+      /* "av/filter/filter.py":72
  *     while True:
- *         ptr = lib.av_filter_iterate(&opaque)
+ *         ptr = lib.av_filter_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -3833,7 +3819,7 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
       goto __pyx_L5;
     }
 
-    /* "av/filter/filter.pyx":72
+    /* "av/filter/filter.py":75
  *             names.add(ptr.name)
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -3847,24 +3833,24 @@ static PyObject *__pyx_f_2av_6filter_6filter_get_filter_names(void) {
   }
   __pyx_L4_break:;
 
-  /* "av/filter/filter.pyx":73
+  /* "av/filter/filter.py":76
  *         else:
  *             break
  *     return names             # <<<<<<<<<<<<<<
  * 
- * filters_available = get_filter_names()
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_names);
   __pyx_r = __pyx_v_names;
   goto __pyx_L0;
 
-  /* "av/filter/filter.pyx":63
+  /* "av/filter/filter.py":65
  * 
  * 
- * cdef get_filter_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVFilter *ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_filter_names() -> set:
+ *     names: set = set()
 */
 
   /* function exit code */
@@ -4176,15 +4162,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6filter_6filter_Filter_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter)) __PYX_ERR(0, 16, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6filter_6filter_Filter_spec, __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6filter_6filter_Filter_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6filter_6filter_Filter_spec, __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter = &__pyx_type_2av_6filter_6filter_Filter;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter);
@@ -4194,8 +4180,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Filter, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Filter, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_6filter_Filter) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -4621,10 +4607,10 @@ __Pyx_RefNannySetupContext("PyInit_filter", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/filter/filter.pyx":7
+  /* "av/filter/filter.py":6
+ * from cython.cimports.av.filter.link import alloc_filter_pads
  * 
- * 
- * cdef object _cinit_sentinel = object()             # <<<<<<<<<<<<<<
+ * _cinit_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
 */
@@ -4634,7 +4620,7 @@ __Pyx_RefNannySetupContext("PyInit_filter", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 6, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_6filter_6filter__cinit_sentinel);
@@ -4642,32 +4628,31 @@ __Pyx_RefNannySetupContext("PyInit_filter", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/filter/filter.pyx":75
- *     return names
+  /* "av/filter/filter.py":79
+ * 
  * 
  * filters_available = get_filter_names()             # <<<<<<<<<<<<<<
- * 
- * 
+ * filter_descriptor = wrap_avclass(lib.avfilter_get_class())
 */
-  __pyx_t_2 = __pyx_f_2av_6filter_6filter_get_filter_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_2av_6filter_6filter_get_filter_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filters_available, __pyx_t_2) < (0)) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filters_available, __pyx_t_2) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/filter/filter.pyx":78
+  /* "av/filter/filter.py":80
  * 
- * 
+ * filters_available = get_filter_names()
  * filter_descriptor = wrap_avclass(lib.avfilter_get_class())             # <<<<<<<<<<<<<<
 */
-  __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(avfilter_get_class())); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(avfilter_get_class())); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filter_descriptor, __pyx_t_2) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_filter_descriptor, __pyx_t_2) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/filter/filter.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
- * 
- * from av.descriptor cimport wrap_avclass
+  /* "av/filter/filter.py":1
+ * import cython             # <<<<<<<<<<<<<<
+ * from cython.cimports import libav as lib
+ * from cython.cimports.av.descriptor import wrap_avclass
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -4711,7 +4696,7 @@ __Pyx_RefNannySetupContext("PyInit_filter", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 7, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 6, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;

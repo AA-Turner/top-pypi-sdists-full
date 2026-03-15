@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.audio.fifo",
         "sources": [
-            "av/audio/fifo.pyx"
+            "av/audio/fifo.py"
         ]
     },
     "module_name": "av.audio.fifo"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__audio__fifo
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,13 +1413,12 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/audio/fifo.pyx",
+  "av/audio/fifo.py",
   "av/audio/fifo.pxd",
   "<stringsource>",
   "av/audio/format.pxd",
   "av/audio/layout.pxd",
   "av/buffer.pxd",
-  "av/bytesource.pxd",
   "av/codec/codec.pxd",
   "av/codec/hwaccel.pxd",
   "av/codec/context.pxd",
@@ -1446,6 +1427,7 @@ static const char* const __pyx_f[] = {
   "av/dictionary.pxd",
   "av/format.pxd",
   "av/container/core.pxd",
+  "av/index.pxd",
   "av/stream.pxd",
   "av/packet.pxd",
   "av/sidedata/sidedata.pxd",
@@ -1629,17 +1611,19 @@ static const char* const __pyx_f[] = {
 /*--- Type declarations ---*/
 struct __pyx_obj_2av_5audio_6format_AudioFormat;
 struct __pyx_obj_2av_5audio_6layout_AudioLayout;
+struct __pyx_obj_2av_6buffer_ByteSource;
 struct __pyx_obj_2av_6buffer_Buffer;
-struct __pyx_obj_2av_10bytesource_ByteSource;
 struct __pyx_obj_2av_5codec_5codec_Codec;
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig;
 struct __pyx_obj_2av_5codec_7hwaccel_HWAccel;
 struct __pyx_obj_2av_5codec_7context_CodecContext;
 struct __pyx_obj_2av_9container_4pyio_PyIOFile;
 struct __pyx_obj_2av_9container_7streams_StreamContainer;
-struct __pyx_obj_2av_10dictionary__Dictionary;
+struct __pyx_obj_2av_10dictionary_Dictionary;
 struct __pyx_obj_2av_6format_ContainerFormat;
 struct __pyx_obj_2av_9container_4core_Container;
+struct __pyx_obj_2av_5index_IndexEntry;
+struct __pyx_obj_2av_5index_IndexEntries;
 struct __pyx_obj_2av_6stream_Stream;
 struct __pyx_obj_2av_6stream_DataStream;
 struct __pyx_obj_2av_6stream_AttachmentStream;
@@ -1650,14 +1634,16 @@ struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer;
 struct __pyx_obj_2av_5frame_Frame;
 struct __pyx_obj_2av_5audio_5frame_AudioFrame;
 struct __pyx_obj_2av_5audio_4fifo_AudioFifo;
-struct __pyx_opt_args_2av_10bytesource_bytesource;
+struct __pyx_opt_args_2av_6buffer_bytesource;
 
-/* "av/bytesource.pxd":14
+/* "av/buffer.pxd":11
  *     cdef size_t length
  * 
  * cdef ByteSource bytesource(object, bint allow_none=*)             # <<<<<<<<<<<<<<
+ * 
+ * cdef class Buffer:
 */
-struct __pyx_opt_args_2av_10bytesource_bytesource {
+struct __pyx_opt_args_2av_6buffer_bytesource {
   int __pyx_n;
   int allow_none;
 };
@@ -1678,7 +1664,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":29
+/* "av/codec/context.pxd":33
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1690,7 +1676,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":32
+/* "av/codec/context.pxd":36
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1702,7 +1688,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":37
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1742,8 +1728,7 @@ struct __pyx_opt_args_2av_5frame_5Frame__copy_internal_attributes {
 struct __pyx_opt_args_2av_5error_stash_exception;
 struct __pyx_opt_args_2av_5error_err_check;
 
-/* "av/error.pxd":2
- * 
+/* "av/error.pxd":1
  * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
  * cpdef int err_check(int res, filename=*) except -1
 */
@@ -1752,8 +1737,7 @@ struct __pyx_opt_args_2av_5error_stash_exception {
   PyObject *exc_info;
 };
 
-/* "av/error.pxd":3
- * 
+/* "av/error.pxd":2
  * cdef int stash_exception(exc_info=*)
  * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
 */
@@ -1804,41 +1788,41 @@ struct __pyx_obj_2av_5audio_6format_AudioFormat {
  * 
  * cdef class AudioLayout:             # <<<<<<<<<<<<<<
  *     cdef lib.AVChannelLayout layout
- *     cdef _init(self, lib.AVChannelLayout layout)
+ * 
 */
 struct __pyx_obj_2av_5audio_6layout_AudioLayout {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtab;
   AVChannelLayout layout;
 };
 
 
-/* "av/buffer.pxd":2
- * 
- * cdef class Buffer:             # <<<<<<<<<<<<<<
- * 
- *     cdef size_t _buffer_size(self)
-*/
-struct __pyx_obj_2av_6buffer_Buffer {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_6buffer_Buffer *__pyx_vtab;
-};
-
-
-/* "av/bytesource.pxd":4
+/* "av/buffer.pxd":4
  * 
  * 
  * cdef class ByteSource:             # <<<<<<<<<<<<<<
- * 
  *     cdef object owner
+ *     cdef bint has_view
 */
-struct __pyx_obj_2av_10bytesource_ByteSource {
+struct __pyx_obj_2av_6buffer_ByteSource {
   PyObject_HEAD
   PyObject *owner;
   int has_view;
   Py_buffer view;
   unsigned char *ptr;
   size_t length;
+};
+
+
+/* "av/buffer.pxd":13
+ * cdef ByteSource bytesource(object, bint allow_none=*)
+ * 
+ * cdef class Buffer:             # <<<<<<<<<<<<<<
+ *     cdef size_t _buffer_size(self)
+ *     cdef void* _buffer_ptr(self)
+*/
+struct __pyx_obj_2av_6buffer_Buffer {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_6buffer_Buffer *__pyx_vtab;
 };
 
 
@@ -1864,18 +1848,18 @@ struct __pyx_obj_2av_5codec_5codec_Codec {
  * 
  * cdef class HWConfig:             # <<<<<<<<<<<<<<
  *     cdef object __weakref__
- *     cdef lib.AVCodecHWConfig *ptr
+ *     cdef const lib.AVCodecHWConfig *ptr
 */
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtab;
   PyObject *__weakref__;
-  struct AVCodecHWConfig *ptr;
+  struct AVCodecHWConfig const *ptr;
 };
 
 
 /* "av/codec/hwaccel.pxd":13
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr)
+ * cdef HWConfig wrap_hwconfig(const lib.AVCodecHWConfig *ptr)
  * 
  * cdef class HWAccel:             # <<<<<<<<<<<<<<
  *     cdef int _device_type
@@ -1888,6 +1872,8 @@ struct __pyx_obj_2av_5codec_7hwaccel_HWAccel {
   struct __pyx_obj_2av_5codec_5codec_Codec *codec;
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *config;
   struct AVBufferRef *ptr;
+  int device_id;
+  int is_hw_owned;
   int allow_software_fallback;
   PyObject *options;
   int flags;
@@ -1906,6 +1892,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
   int extradata_set;
+  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -1939,36 +1926,30 @@ struct __pyx_obj_2av_9container_4pyio_PyIOFile {
 };
 
 
-/* "av/container/streams.pxd":8
+/* "av/container/streams.pxd":6
  * 
  * 
  * cdef class StreamContainer:             # <<<<<<<<<<<<<<
  *     cdef list _streams
- * 
+ *     cdef void add_stream(self, Stream stream)
 */
 struct __pyx_obj_2av_9container_7streams_StreamContainer {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtab;
   PyObject *_streams;
-  PyObject *video;
-  PyObject *audio;
-  PyObject *subtitles;
-  PyObject *attachments;
-  PyObject *data;
-  PyObject *other;
 };
 
 
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
-struct __pyx_obj_2av_10dictionary__Dictionary {
+struct __pyx_obj_2av_10dictionary_Dictionary {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtab;
+  struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtab;
   AVDictionary *ptr;
 };
 
@@ -1983,8 +1964,8 @@ struct __pyx_obj_2av_10dictionary__Dictionary {
 struct __pyx_obj_2av_6format_ContainerFormat {
   PyObject_HEAD
   PyObject *name;
-  struct AVInputFormat *iptr;
-  struct AVOutputFormat *optr;
+  struct AVInputFormat const *iptr;
+  struct AVOutputFormat const *optr;
 };
 
 
@@ -1992,8 +1973,8 @@ struct __pyx_obj_2av_6format_ContainerFormat {
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint writeable
+ *     cdef lib.AVFormatContext *ptr
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
@@ -2021,7 +2002,35 @@ struct __pyx_obj_2av_9container_4core_Container {
 };
 
 
-/* "av/stream.pxd":9
+/* "av/index.pxd":4
+ * 
+ * 
+ * cdef class IndexEntry:             # <<<<<<<<<<<<<<
+ *     cdef const lib.AVIndexEntry *ptr
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+*/
+struct __pyx_obj_2av_5index_IndexEntry {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtab;
+  struct AVIndexEntry const *ptr;
+};
+
+
+/* "av/index.pxd":8
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+ * 
+ * cdef class IndexEntries:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVStream *stream_ptr
+ *     cdef _init(self, lib.AVStream *ptr)
+*/
+struct __pyx_obj_2av_5index_IndexEntries {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtab;
+  struct AVStream *stream_ptr;
+};
+
+
+/* "av/stream.pxd":10
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
@@ -2035,10 +2044,11 @@ struct __pyx_obj_2av_6stream_Stream {
   struct __pyx_obj_2av_9container_4core_Container *container;
   PyObject *metadata;
   struct __pyx_obj_2av_5codec_7context_CodecContext *codec_context;
+  struct __pyx_obj_2av_5index_IndexEntries *index_entries;
 };
 
 
-/* "av/stream.pxd":28
+/* "av/stream.pxd":31
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2050,7 +2060,7 @@ struct __pyx_obj_2av_6stream_DataStream {
 };
 
 
-/* "av/stream.pxd":31
+/* "av/stream.pxd":34
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2061,7 +2071,7 @@ struct __pyx_obj_2av_6stream_AttachmentStream {
 };
 
 
-/* "av/packet.pxd":10
+/* "av/packet.pxd":9
  * 
  * 
  * cdef class PacketSideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2076,7 +2086,7 @@ struct __pyx_obj_2av_6packet_PacketSideData {
 };
 
 
-/* "av/packet.pxd":19
+/* "av/packet.pxd":18
  *     cdef bint _buffer_writable(self)
  * 
  * cdef class Packet(Buffer):             # <<<<<<<<<<<<<<
@@ -2087,11 +2097,11 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_10bytesource_ByteSource *source;
+  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
-/* "av/sidedata/sidedata.pxd":9
+/* "av/sidedata/sidedata.pxd":8
  * 
  * 
  * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2102,16 +2112,16 @@ struct __pyx_obj_2av_8sidedata_8sidedata_SideData {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct __pyx_obj_2av_5frame_Frame *frame;
   struct AVFrameSideData *ptr;
-  struct __pyx_obj_2av_10dictionary__Dictionary *metadata;
+  struct __pyx_obj_2av_10dictionary_Dictionary *metadata;
 };
 
 
-/* "av/sidedata/sidedata.pxd":19
+/* "av/sidedata/sidedata.pxd":16
  * cdef int get_display_rotation(Frame frame)
  * 
  * cdef class _SideDataContainer:             # <<<<<<<<<<<<<<
  *     cdef Frame frame
- * 
+ *     cdef list _by_index
 */
 struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer {
   PyObject_HEAD
@@ -2172,25 +2182,12 @@ struct __pyx_obj_2av_5audio_4fifo_AudioFifo {
 
 
 
-/* "av/audio/layout.pxd":4
- * 
- * 
- * cdef class AudioLayout:             # <<<<<<<<<<<<<<
- *     cdef lib.AVChannelLayout layout
- *     cdef _init(self, lib.AVChannelLayout layout)
-*/
-
-struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout {
-  PyObject *(*_init)(struct __pyx_obj_2av_5audio_6layout_AudioLayout *, AVChannelLayout);
-};
-static struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtabptr_2av_5audio_6layout_AudioLayout;
-
-
-/* "av/buffer.pxd":2
+/* "av/buffer.pxd":13
+ * cdef ByteSource bytesource(object, bint allow_none=*)
  * 
  * cdef class Buffer:             # <<<<<<<<<<<<<<
- * 
  *     cdef size_t _buffer_size(self)
+ *     cdef void* _buffer_ptr(self)
 */
 
 struct __pyx_vtabstruct_2av_6buffer_Buffer {
@@ -2220,11 +2217,11 @@ static struct __pyx_vtabstruct_2av_5codec_5codec_Codec *__pyx_vtabptr_2av_5codec
  * 
  * cdef class HWConfig:             # <<<<<<<<<<<<<<
  *     cdef object __weakref__
- *     cdef lib.AVCodecHWConfig *ptr
+ *     cdef const lib.AVCodecHWConfig *ptr
 */
 
 struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig {
-  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig *);
+  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig const *);
 };
 static struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig;
 
@@ -2256,17 +2253,16 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
 static struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtabptr_2av_5codec_7context_CodecContext;
 
 
-/* "av/container/streams.pxd":8
+/* "av/container/streams.pxd":6
  * 
  * 
  * cdef class StreamContainer:             # <<<<<<<<<<<<<<
  *     cdef list _streams
- * 
+ *     cdef void add_stream(self, Stream stream)
 */
 
 struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer {
-  PyObject *(*add_stream)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_6stream_Stream *);
-  int (*_get_best_stream_index)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_9container_4core_Container *, enum AVMediaType, struct __pyx_obj_2av_6stream_Stream *);
+  void (*add_stream)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_6stream_Stream *);
 };
 static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtabptr_2av_9container_7streams_StreamContainer;
 
@@ -2274,23 +2270,23 @@ static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vt
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
 
-struct __pyx_vtabstruct_2av_10dictionary__Dictionary {
-  struct __pyx_obj_2av_10dictionary__Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary__Dictionary *, int __pyx_skip_dispatch);
+struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
+  struct __pyx_obj_2av_10dictionary_Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary_Dictionary *, int __pyx_skip_dispatch);
 };
-static struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtabptr_2av_10dictionary__Dictionary;
+static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
 /* "av/container/core.pxd":16
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint writeable
+ *     cdef lib.AVFormatContext *ptr
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2302,7 +2298,35 @@ struct __pyx_vtabstruct_2av_9container_4core_Container {
 static struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtabptr_2av_9container_4core_Container;
 
 
-/* "av/stream.pxd":9
+/* "av/index.pxd":4
+ * 
+ * 
+ * cdef class IndexEntry:             # <<<<<<<<<<<<<<
+ *     cdef const lib.AVIndexEntry *ptr
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+*/
+
+struct __pyx_vtabstruct_2av_5index_IndexEntry {
+  PyObject *(*_init)(struct __pyx_obj_2av_5index_IndexEntry *, struct AVIndexEntry const *);
+};
+static struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtabptr_2av_5index_IndexEntry;
+
+
+/* "av/index.pxd":8
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+ * 
+ * cdef class IndexEntries:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVStream *stream_ptr
+ *     cdef _init(self, lib.AVStream *ptr)
+*/
+
+struct __pyx_vtabstruct_2av_5index_IndexEntries {
+  PyObject *(*_init)(struct __pyx_obj_2av_5index_IndexEntries *, struct AVStream *);
+};
+static struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtabptr_2av_5index_IndexEntries;
+
+
+/* "av/stream.pxd":10
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
@@ -2318,7 +2342,7 @@ struct __pyx_vtabstruct_2av_6stream_Stream {
 static struct __pyx_vtabstruct_2av_6stream_Stream *__pyx_vtabptr_2av_6stream_Stream;
 
 
-/* "av/stream.pxd":28
+/* "av/stream.pxd":31
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2332,7 +2356,7 @@ struct __pyx_vtabstruct_2av_6stream_DataStream {
 static struct __pyx_vtabstruct_2av_6stream_DataStream *__pyx_vtabptr_2av_6stream_DataStream;
 
 
-/* "av/stream.pxd":31
+/* "av/stream.pxd":34
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2345,7 +2369,7 @@ struct __pyx_vtabstruct_2av_6stream_AttachmentStream {
 static struct __pyx_vtabstruct_2av_6stream_AttachmentStream *__pyx_vtabptr_2av_6stream_AttachmentStream;
 
 
-/* "av/packet.pxd":10
+/* "av/packet.pxd":9
  * 
  * 
  * cdef class PacketSideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2359,7 +2383,7 @@ struct __pyx_vtabstruct_2av_6packet_PacketSideData {
 static struct __pyx_vtabstruct_2av_6packet_PacketSideData *__pyx_vtabptr_2av_6packet_PacketSideData;
 
 
-/* "av/packet.pxd":19
+/* "av/packet.pxd":18
  *     cdef bint _buffer_writable(self)
  * 
  * cdef class Packet(Buffer):             # <<<<<<<<<<<<<<
@@ -2374,7 +2398,7 @@ struct __pyx_vtabstruct_2av_6packet_Packet {
 static struct __pyx_vtabstruct_2av_6packet_Packet *__pyx_vtabptr_2av_6packet_Packet;
 
 
-/* "av/sidedata/sidedata.pxd":9
+/* "av/sidedata/sidedata.pxd":8
  * 
  * 
  * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2419,10 +2443,10 @@ struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame {
 static struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *__pyx_vtabptr_2av_5audio_5frame_AudioFrame;
 
 
-/* "av/audio/fifo.pyx":5
+/* "av/audio/fifo.py":7
  * 
- * 
- * cdef class AudioFifo:             # <<<<<<<<<<<<<<
+ * @cython.cclass
+ * class AudioFifo:             # <<<<<<<<<<<<<<
  *     """A simple audio sample FIFO (First In First Out) buffer."""
  * 
 */
@@ -3205,19 +3229,15 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
 /* Module declarations from "av.audio.format" */
 
 /* Module declarations from "av.audio.layout" */
 
-/* Module declarations from "av.buffer" */
-
 /* Module declarations from "cpython.buffer" */
 
-/* Module declarations from "av.bytesource" */
+/* Module declarations from "av.buffer" */
 
 /* Module declarations from "av.codec.codec" */
 
@@ -3230,11 +3250,13 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
 /* Module declarations from "av.container.streams" */
 
 /* Module declarations from "av.dictionary" */
-static struct __pyx_obj_2av_10dictionary__Dictionary *(*__pyx_f_2av_10dictionary_wrap_dictionary)(AVDictionary *); /*proto*/
+static struct __pyx_obj_2av_10dictionary_Dictionary *(*__pyx_f_2av_10dictionary_wrap_dictionary)(AVDictionary *); /*proto*/
 
 /* Module declarations from "av.format" */
 
 /* Module declarations from "av.container.core" */
+
+/* Module declarations from "av.index" */
 
 /* Module declarations from "av.stream" */
 
@@ -3246,6 +3268,8 @@ static struct __pyx_obj_2av_10dictionary__Dictionary *(*__pyx_f_2av_10dictionary
 
 /* Module declarations from "av.audio.frame" */
 static struct __pyx_obj_2av_5audio_5frame_AudioFrame *(*__pyx_f_2av_5audio_5frame_alloc_audio_frame)(void); /*proto*/
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.error" */
 static int (*__pyx_f_2av_5error_err_check)(int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args); /*proto*/
@@ -3299,17 +3323,19 @@ typedef struct {
   PyObject *__pyx_empty_unicode;
   PyTypeObject *__pyx_ptype_2av_5audio_6format_AudioFormat;
   PyTypeObject *__pyx_ptype_2av_5audio_6layout_AudioLayout;
+  PyTypeObject *__pyx_ptype_2av_6buffer_ByteSource;
   PyTypeObject *__pyx_ptype_2av_6buffer_Buffer;
-  PyTypeObject *__pyx_ptype_2av_10bytesource_ByteSource;
   PyTypeObject *__pyx_ptype_2av_5codec_5codec_Codec;
   PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWConfig;
   PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWAccel;
   PyTypeObject *__pyx_ptype_2av_5codec_7context_CodecContext;
   PyTypeObject *__pyx_ptype_2av_9container_4pyio_PyIOFile;
   PyTypeObject *__pyx_ptype_2av_9container_7streams_StreamContainer;
-  PyTypeObject *__pyx_ptype_2av_10dictionary__Dictionary;
+  PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
   PyTypeObject *__pyx_ptype_2av_6format_ContainerFormat;
   PyTypeObject *__pyx_ptype_2av_9container_4core_Container;
+  PyTypeObject *__pyx_ptype_2av_5index_IndexEntry;
+  PyTypeObject *__pyx_ptype_2av_5index_IndexEntries;
   PyTypeObject *__pyx_ptype_2av_6stream_Stream;
   PyTypeObject *__pyx_ptype_2av_6stream_DataStream;
   PyTypeObject *__pyx_ptype_2av_6stream_AttachmentStream;
@@ -3435,17 +3461,19 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5audio_6format_AudioFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5audio_6layout_AudioLayout);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_6buffer_ByteSource);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6buffer_Buffer);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10bytesource_ByteSource);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4core_Container);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntry);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -3477,17 +3505,19 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5audio_6format_AudioFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5audio_6layout_AudioLayout);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_6buffer_ByteSource);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6buffer_Buffer);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10bytesource_ByteSource);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4core_Container);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntry);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -3508,7 +3538,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/audio/fifo.pyx":8
+/* "av/audio/fifo.py":10
  *     """A simple audio sample FIFO (First In First Out) buffer."""
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3553,7 +3583,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/audio/fifo.pyx":9
+  /* "av/audio/fifo.py":11
  * 
  *     def __repr__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -3569,52 +3599,52 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "av/audio/fifo.pyx":11
+      /* "av/audio/fifo.py":13
  *         try:
  *             result = (
  *                 f"<av.{self.__class__.__name__} {self.samples} samples of "             # <<<<<<<<<<<<<<
  *                 f"{self.sample_rate}hz {self.layout} {self.format} at 0x{id(self):x}>"
  *             )
 */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 11, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 11, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 11, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "av/audio/fifo.pyx":12
+      /* "av/audio/fifo.py":14
  *             result = (
  *                 f"<av.{self.__class__.__name__} {self.samples} samples of "
  *                 f"{self.sample_rate}hz {self.layout} {self.format} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  *             )
  *         except AttributeError:
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_10 = __Pyx_PyObject_Format(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 12, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyObject_Format(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 14, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_11[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -3631,7 +3661,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
       __pyx_t_11[11] = __pyx_t_10;
       __pyx_t_11[12] = __pyx_mstate_global->__pyx_kp_u__2;
 
-      /* "av/audio/fifo.pyx":11
+      /* "av/audio/fifo.py":13
  *         try:
  *             result = (
  *                 f"<av.{self.__class__.__name__} {self.samples} samples of "             # <<<<<<<<<<<<<<
@@ -3639,7 +3669,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
  *             )
 */
       __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_11, 13, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 1 * 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 12 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10));
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 11, __pyx_L3_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 13, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -3650,7 +3680,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
       __pyx_v_result = ((PyObject*)__pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "av/audio/fifo.pyx":9
+      /* "av/audio/fifo.py":11
  * 
  *     def __repr__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -3671,7 +3701,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "av/audio/fifo.pyx":14
+    /* "av/audio/fifo.py":16
  *                 f"{self.sample_rate}hz {self.layout} {self.format} at 0x{id(self):x}>"
  *             )
  *         except AttributeError:             # <<<<<<<<<<<<<<
@@ -3681,37 +3711,37 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
     __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_AttributeError))));
     if (__pyx_t_12) {
       __Pyx_AddTraceback("av.audio.fifo.AudioFifo.__repr__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(0, 14, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_10, &__pyx_t_9) < 0) __PYX_ERR(0, 16, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_10);
       __Pyx_XGOTREF(__pyx_t_9);
 
-      /* "av/audio/fifo.pyx":16
+      /* "av/audio/fifo.py":18
  *         except AttributeError:
  *             result = (
  *                 f"<av.{self.__class__.__name__} uninitialized, use fifo.write(frame),"             # <<<<<<<<<<<<<<
  *                 f" at 0x{id(self):x}>"
  *             )
 */
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 16, __pyx_L5_except_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 18, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 16, __pyx_L5_except_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 18, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 16, __pyx_L5_except_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 18, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "av/audio/fifo.pyx":17
+      /* "av/audio/fifo.py":19
  *             result = (
  *                 f"<av.{self.__class__.__name__} uninitialized, use fifo.write(frame),"
  *                 f" at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  *             )
  *         return result
 */
-      __pyx_t_7 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 17, __pyx_L5_except_error)
+      __pyx_t_7 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 19, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 17, __pyx_L5_except_error)
+      __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 19, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -3720,7 +3750,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
       __pyx_t_13[3] = __pyx_t_6;
       __pyx_t_13[4] = __pyx_mstate_global->__pyx_kp_u__2;
 
-      /* "av/audio/fifo.pyx":16
+      /* "av/audio/fifo.py":18
  *         except AttributeError:
  *             result = (
  *                 f"<av.{self.__class__.__name__} uninitialized, use fifo.write(frame),"             # <<<<<<<<<<<<<<
@@ -3728,7 +3758,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
  *             )
 */
       __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_13, 5, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 44 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 16, __pyx_L5_except_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 18, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -3741,7 +3771,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
     }
     goto __pyx_L5_except_error;
 
-    /* "av/audio/fifo.pyx":9
+    /* "av/audio/fifo.py":11
  * 
  *     def __repr__(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -3762,7 +3792,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
     __pyx_L8_try_end:;
   }
 
-  /* "av/audio/fifo.pyx":19
+  /* "av/audio/fifo.py":21
  *                 f" at 0x{id(self):x}>"
  *             )
  *         return result             # <<<<<<<<<<<<<<
@@ -3774,7 +3804,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":8
+  /* "av/audio/fifo.py":10
  *     """A simple audio sample FIFO (First In First Out) buffer."""
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3800,7 +3830,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo___repr__(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":21
+/* "av/audio/fifo.py":23
  *         return result
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -3824,7 +3854,7 @@ static void __pyx_pw_2av_5audio_4fifo_9AudioFifo_3__dealloc__(PyObject *__pyx_v_
 static void __pyx_pf_2av_5audio_4fifo_9AudioFifo_2__dealloc__(struct __pyx_obj_2av_5audio_4fifo_AudioFifo *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "av/audio/fifo.pyx":22
+  /* "av/audio/fifo.py":24
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
@@ -3834,16 +3864,16 @@ static void __pyx_pf_2av_5audio_4fifo_9AudioFifo_2__dealloc__(struct __pyx_obj_2
   __pyx_t_1 = (__pyx_v_self->ptr != 0);
   if (__pyx_t_1) {
 
-    /* "av/audio/fifo.pyx":23
+    /* "av/audio/fifo.py":25
  *     def __dealloc__(self):
  *         if self.ptr:
  *             lib.av_audio_fifo_free(self.ptr)             # <<<<<<<<<<<<<<
  * 
- *     cpdef write(self, AudioFrame frame):
+ *     @cython.ccall
 */
     av_audio_fifo_free(__pyx_v_self->ptr);
 
-    /* "av/audio/fifo.pyx":22
+    /* "av/audio/fifo.py":24
  * 
  *     def __dealloc__(self):
  *         if self.ptr:             # <<<<<<<<<<<<<<
@@ -3852,7 +3882,7 @@ static void __pyx_pf_2av_5audio_4fifo_9AudioFifo_2__dealloc__(struct __pyx_obj_2
 */
   }
 
-  /* "av/audio/fifo.pyx":21
+  /* "av/audio/fifo.py":23
  *         return result
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -3863,12 +3893,12 @@ static void __pyx_pf_2av_5audio_4fifo_9AudioFifo_2__dealloc__(struct __pyx_obj_2
   /* function exit code */
 }
 
-/* "av/audio/fifo.pyx":25
+/* "av/audio/fifo.py":27
  *             lib.av_audio_fifo_free(self.ptr)
  * 
- *     cpdef write(self, AudioFrame frame):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def write(self, frame: AudioFrame | None):
  *         """write(frame)
- * 
 */
 
 static PyObject *__pyx_pw_2av_5audio_4fifo_9AudioFifo_5write(PyObject *__pyx_v_self, 
@@ -3912,7 +3942,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_write); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 25, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_write); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 27, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_5audio_4fifo_9AudioFifo_5write)) {
         __Pyx_XDECREF(__pyx_r);
@@ -3936,7 +3966,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 27, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -3957,7 +3987,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     #endif
   }
 
-  /* "av/audio/fifo.pyx":41
+  /* "av/audio/fifo.py":44
  *         """
  * 
  *         if frame is None:             # <<<<<<<<<<<<<<
@@ -3967,7 +3997,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
   __pyx_t_6 = (((PyObject *)__pyx_v_frame) == Py_None);
   if (unlikely(__pyx_t_6)) {
 
-    /* "av/audio/fifo.pyx":42
+    /* "av/audio/fifo.py":45
  * 
  *         if frame is None:
  *             raise TypeError("AudioFifo must be given an AudioFrame.")             # <<<<<<<<<<<<<<
@@ -3980,14 +4010,14 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_AudioFifo_must_be_given_an_Audio};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 42, __pyx_L1_error)
+    __PYX_ERR(0, 45, __pyx_L1_error)
 
-    /* "av/audio/fifo.pyx":41
+    /* "av/audio/fifo.py":44
  *         """
  * 
  *         if frame is None:             # <<<<<<<<<<<<<<
@@ -3996,7 +4026,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
 */
   }
 
-  /* "av/audio/fifo.pyx":44
+  /* "av/audio/fifo.py":47
  *             raise TypeError("AudioFifo must be given an AudioFrame.")
  * 
  *         if not frame.ptr.nb_samples:             # <<<<<<<<<<<<<<
@@ -4006,7 +4036,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
   __pyx_t_6 = (!(__pyx_v_frame->__pyx_base.ptr->nb_samples != 0));
   if (__pyx_t_6) {
 
-    /* "av/audio/fifo.pyx":45
+    /* "av/audio/fifo.py":48
  * 
  *         if not frame.ptr.nb_samples:
  *             return             # <<<<<<<<<<<<<<
@@ -4017,7 +4047,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/audio/fifo.pyx":44
+    /* "av/audio/fifo.py":47
  *             raise TypeError("AudioFifo must be given an AudioFrame.")
  * 
  *         if not frame.ptr.nb_samples:             # <<<<<<<<<<<<<<
@@ -4026,24 +4056,24 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
 */
   }
 
-  /* "av/audio/fifo.pyx":47
+  /* "av/audio/fifo.py":50
  *             return
  * 
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- * 
  *             # Hold onto a copy of the attributes of the first frame to populate
+ *             # output frames with.
 */
   __pyx_t_6 = (!(__pyx_v_self->ptr != 0));
   if (__pyx_t_6) {
 
-    /* "av/audio/fifo.pyx":51
+    /* "av/audio/fifo.py":53
  *             # Hold onto a copy of the attributes of the first frame to populate
  *             # output frames with.
  *             self.template = alloc_audio_frame()             # <<<<<<<<<<<<<<
  *             self.template._copy_internal_attributes(frame)
  *             self.template._init_user_attributes()
 */
-    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __Pyx_GOTREF((PyObject *)__pyx_v_self->__pyx_template);
@@ -4051,29 +4081,29 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     __pyx_v_self->__pyx_template = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/audio/fifo.pyx":52
+    /* "av/audio/fifo.py":54
  *             # output frames with.
  *             self.template = alloc_audio_frame()
  *             self.template._copy_internal_attributes(frame)             # <<<<<<<<<<<<<<
  *             self.template._init_user_attributes()
  * 
 */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_self->__pyx_template->__pyx_base.__pyx_vtab)->__pyx_base._copy_internal_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_self->__pyx_template), ((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_frame), NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_self->__pyx_template->__pyx_base.__pyx_vtab)->__pyx_base._copy_internal_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_self->__pyx_template), ((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_frame), NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/audio/fifo.pyx":53
+    /* "av/audio/fifo.py":55
  *             self.template = alloc_audio_frame()
  *             self.template._copy_internal_attributes(frame)
  *             self.template._init_user_attributes()             # <<<<<<<<<<<<<<
  * 
  *             # Figure out our "time_base".
 */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_self->__pyx_template->__pyx_base.__pyx_vtab)->__pyx_base._init_user_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_self->__pyx_template)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_self->__pyx_template->__pyx_base.__pyx_vtab)->__pyx_base._init_user_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_self->__pyx_template)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/audio/fifo.pyx":56
+    /* "av/audio/fifo.py":58
  * 
  *             # Figure out our "time_base".
  *             if frame._time_base.num and frame.ptr.sample_rate:             # <<<<<<<<<<<<<<
@@ -4091,7 +4121,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_6) {
 
-      /* "av/audio/fifo.pyx":57
+      /* "av/audio/fifo.py":59
  *             # Figure out our "time_base".
  *             if frame._time_base.num and frame.ptr.sample_rate:
  *                 self.pts_per_sample = frame._time_base.den / float(frame._time_base.num)             # <<<<<<<<<<<<<<
@@ -4100,11 +4130,11 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
 */
       if (unlikely(((double)__pyx_v_frame->__pyx_base._time_base.num) == 0)) {
         PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-        __PYX_ERR(0, 57, __pyx_L1_error)
+        __PYX_ERR(0, 59, __pyx_L1_error)
       }
       __pyx_v_self->pts_per_sample = (((double)__pyx_v_frame->__pyx_base._time_base.den) / ((double)__pyx_v_frame->__pyx_base._time_base.num));
 
-      /* "av/audio/fifo.pyx":58
+      /* "av/audio/fifo.py":60
  *             if frame._time_base.num and frame.ptr.sample_rate:
  *                 self.pts_per_sample = frame._time_base.den / float(frame._time_base.num)
  *                 self.pts_per_sample /= frame.ptr.sample_rate             # <<<<<<<<<<<<<<
@@ -4113,11 +4143,11 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
 */
       if (unlikely(__pyx_v_frame->__pyx_base.ptr->sample_rate == 0)) {
         PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-        __PYX_ERR(0, 58, __pyx_L1_error)
+        __PYX_ERR(0, 60, __pyx_L1_error)
       }
       __pyx_v_self->pts_per_sample = (__pyx_v_self->pts_per_sample / __pyx_v_frame->__pyx_base.ptr->sample_rate);
 
-      /* "av/audio/fifo.pyx":56
+      /* "av/audio/fifo.py":58
  * 
  *             # Figure out our "time_base".
  *             if frame._time_base.num and frame.ptr.sample_rate:             # <<<<<<<<<<<<<<
@@ -4127,7 +4157,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
       goto __pyx_L6;
     }
 
-    /* "av/audio/fifo.pyx":60
+    /* "av/audio/fifo.py":62
  *                 self.pts_per_sample /= frame.ptr.sample_rate
  *             else:
  *                 self.pts_per_sample = 0             # <<<<<<<<<<<<<<
@@ -4139,28 +4169,28 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     }
     __pyx_L6:;
 
-    /* "av/audio/fifo.pyx":64
+    /* "av/audio/fifo.py":66
  *             self.ptr = lib.av_audio_fifo_alloc(
- *                 <lib.AVSampleFormat>frame.ptr.format,
+ *                 cython.cast(lib.AVSampleFormat, frame.ptr.format),
  *                 frame.layout.nb_channels,             # <<<<<<<<<<<<<<
- *                 frame.ptr.nb_samples * 2,  # Just a default number of samples; it will adjust.
- *             )
+ *                 frame.ptr.nb_samples
+ *                 * 2,  # Just a default number of samples; it will adjust.
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/audio/fifo.pyx":62
+    /* "av/audio/fifo.py":64
  *                 self.pts_per_sample = 0
  * 
  *             self.ptr = lib.av_audio_fifo_alloc(             # <<<<<<<<<<<<<<
- *                 <lib.AVSampleFormat>frame.ptr.format,
+ *                 cython.cast(lib.AVSampleFormat, frame.ptr.format),
  *                 frame.layout.nb_channels,
 */
     __pyx_v_self->ptr = av_audio_fifo_alloc(((enum AVSampleFormat)__pyx_v_frame->__pyx_base.ptr->format), __pyx_t_8, (__pyx_v_frame->__pyx_base.ptr->nb_samples * 2));
 
-    /* "av/audio/fifo.pyx":68
+    /* "av/audio/fifo.py":71
  *             )
  * 
  *             if not self.ptr:             # <<<<<<<<<<<<<<
@@ -4170,7 +4200,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     __pyx_t_6 = (!(__pyx_v_self->ptr != 0));
     if (unlikely(__pyx_t_6)) {
 
-      /* "av/audio/fifo.pyx":69
+      /* "av/audio/fifo.py":72
  * 
  *             if not self.ptr:
  *                 raise RuntimeError("Could not allocate AVAudioFifo.")             # <<<<<<<<<<<<<<
@@ -4183,14 +4213,14 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
         PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Could_not_allocate_AVAudioFifo};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 69, __pyx_L1_error)
+      __PYX_ERR(0, 72, __pyx_L1_error)
 
-      /* "av/audio/fifo.pyx":68
+      /* "av/audio/fifo.py":71
  *             )
  * 
  *             if not self.ptr:             # <<<<<<<<<<<<<<
@@ -4199,22 +4229,22 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
 */
     }
 
-    /* "av/audio/fifo.pyx":47
+    /* "av/audio/fifo.py":50
  *             return
  * 
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- * 
  *             # Hold onto a copy of the attributes of the first frame to populate
+ *             # output frames with.
 */
     goto __pyx_L5;
   }
 
-  /* "av/audio/fifo.pyx":73
+  /* "av/audio/fifo.py":76
  *         # Make sure nothing changed.
  *         elif (
- *             frame.ptr.format != self.template.ptr.format or             # <<<<<<<<<<<<<<
- *             # TODO: frame.ptr.ch_layout != self.template.ptr.ch_layout or
- *             frame.ptr.sample_rate != self.template.ptr.sample_rate or
+ *             frame.ptr.format != self.template.ptr.format             # <<<<<<<<<<<<<<
+ *             or frame.ptr.sample_rate != self.template.ptr.sample_rate
+ *             or (
 */
   __pyx_t_7 = (__pyx_v_frame->__pyx_base.ptr->format != __pyx_v_self->__pyx_template->__pyx_base.ptr->format);
   if (!__pyx_t_7) {
@@ -4223,12 +4253,12 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     goto __pyx_L10_bool_binop_done;
   }
 
-  /* "av/audio/fifo.pyx":75
- *             frame.ptr.format != self.template.ptr.format or
- *             # TODO: frame.ptr.ch_layout != self.template.ptr.ch_layout or
- *             frame.ptr.sample_rate != self.template.ptr.sample_rate or             # <<<<<<<<<<<<<<
- *             (frame._time_base.num and self.template._time_base.num and (
- *                 frame._time_base.num != self.template._time_base.num or
+  /* "av/audio/fifo.py":77
+ *         elif (
+ *             frame.ptr.format != self.template.ptr.format
+ *             or frame.ptr.sample_rate != self.template.ptr.sample_rate             # <<<<<<<<<<<<<<
+ *             or (
+ *                 frame._time_base.num
 */
   __pyx_t_7 = (__pyx_v_frame->__pyx_base.ptr->sample_rate != __pyx_v_self->__pyx_template->__pyx_base.ptr->sample_rate);
   if (!__pyx_t_7) {
@@ -4237,12 +4267,12 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     goto __pyx_L10_bool_binop_done;
   }
 
-  /* "av/audio/fifo.pyx":76
- *             # TODO: frame.ptr.ch_layout != self.template.ptr.ch_layout or
- *             frame.ptr.sample_rate != self.template.ptr.sample_rate or
- *             (frame._time_base.num and self.template._time_base.num and (             # <<<<<<<<<<<<<<
- *                 frame._time_base.num != self.template._time_base.num or
- *                 frame._time_base.den != self.template._time_base.den
+  /* "av/audio/fifo.py":79
+ *             or frame.ptr.sample_rate != self.template.ptr.sample_rate
+ *             or (
+ *                 frame._time_base.num             # <<<<<<<<<<<<<<
+ *                 and self.template._time_base.num
+ *                 and (
 */
   __pyx_t_7 = (__pyx_v_frame->__pyx_base._time_base.num != 0);
   if (__pyx_t_7) {
@@ -4250,6 +4280,14 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L10_bool_binop_done;
   }
+
+  /* "av/audio/fifo.py":80
+ *             or (
+ *                 frame._time_base.num
+ *                 and self.template._time_base.num             # <<<<<<<<<<<<<<
+ *                 and (
+ *                     frame._time_base.num != self.template._time_base.num
+*/
   __pyx_t_7 = (__pyx_v_self->__pyx_template->__pyx_base._time_base.num != 0);
   if (__pyx_t_7) {
   } else {
@@ -4257,12 +4295,12 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     goto __pyx_L10_bool_binop_done;
   }
 
-  /* "av/audio/fifo.pyx":77
- *             frame.ptr.sample_rate != self.template.ptr.sample_rate or
- *             (frame._time_base.num and self.template._time_base.num and (
- *                 frame._time_base.num != self.template._time_base.num or             # <<<<<<<<<<<<<<
- *                 frame._time_base.den != self.template._time_base.den
- *             ))
+  /* "av/audio/fifo.py":82
+ *                 and self.template._time_base.num
+ *                 and (
+ *                     frame._time_base.num != self.template._time_base.num             # <<<<<<<<<<<<<<
+ *                     or frame._time_base.den != self.template._time_base.den
+ *                 )
 */
   __pyx_t_7 = (__pyx_v_frame->__pyx_base._time_base.num != __pyx_v_self->__pyx_template->__pyx_base._time_base.num);
   if (!__pyx_t_7) {
@@ -4271,28 +4309,28 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
     goto __pyx_L10_bool_binop_done;
   }
 
-  /* "av/audio/fifo.pyx":78
- *             (frame._time_base.num and self.template._time_base.num and (
- *                 frame._time_base.num != self.template._time_base.num or
- *                 frame._time_base.den != self.template._time_base.den             # <<<<<<<<<<<<<<
- *             ))
- *         ):
+  /* "av/audio/fifo.py":83
+ *                 and (
+ *                     frame._time_base.num != self.template._time_base.num
+ *                     or frame._time_base.den != self.template._time_base.den             # <<<<<<<<<<<<<<
+ *                 )
+ *             )
 */
   __pyx_t_7 = (__pyx_v_frame->__pyx_base._time_base.den != __pyx_v_self->__pyx_template->__pyx_base._time_base.den);
   __pyx_t_6 = __pyx_t_7;
   __pyx_L10_bool_binop_done:;
 
-  /* "av/audio/fifo.pyx":72
+  /* "av/audio/fifo.py":75
  * 
  *         # Make sure nothing changed.
  *         elif (             # <<<<<<<<<<<<<<
- *             frame.ptr.format != self.template.ptr.format or
- *             # TODO: frame.ptr.ch_layout != self.template.ptr.ch_layout or
+ *             frame.ptr.format != self.template.ptr.format
+ *             or frame.ptr.sample_rate != self.template.ptr.sample_rate
 */
   if (unlikely(__pyx_t_6)) {
 
-    /* "av/audio/fifo.pyx":81
- *             ))
+    /* "av/audio/fifo.py":87
+ *             )
  *         ):
  *             raise ValueError("Frame does not match AudioFifo parameters.")             # <<<<<<<<<<<<<<
  * 
@@ -4304,29 +4342,29 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Frame_does_not_match_AudioFifo_p};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 81, __pyx_L1_error)
+    __PYX_ERR(0, 87, __pyx_L1_error)
 
-    /* "av/audio/fifo.pyx":72
+    /* "av/audio/fifo.py":75
  * 
  *         # Make sure nothing changed.
  *         elif (             # <<<<<<<<<<<<<<
- *             frame.ptr.format != self.template.ptr.format or
- *             # TODO: frame.ptr.ch_layout != self.template.ptr.ch_layout or
+ *             frame.ptr.format != self.template.ptr.format
+ *             or frame.ptr.sample_rate != self.template.ptr.sample_rate
 */
   }
   __pyx_L5:;
 
-  /* "av/audio/fifo.pyx":85
+  /* "av/audio/fifo.py":91
  *         # Assert that the PTS are what we expect.
- *         cdef int64_t expected_pts
+ *         expected_pts = cython.declare(int64_t)
  *         if self.pts_per_sample and frame.ptr.pts != lib.AV_NOPTS_VALUE:             # <<<<<<<<<<<<<<
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)
- *             if frame.ptr.pts != expected_pts:
+ *             expected_pts = cython.cast(
+ *                 int64_t, self.pts_per_sample * self.samples_written
 */
   __pyx_t_7 = (__pyx_v_self->pts_per_sample != 0);
   if (__pyx_t_7) {
@@ -4339,52 +4377,60 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
   __pyx_L17_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "av/audio/fifo.pyx":86
- *         cdef int64_t expected_pts
+    /* "av/audio/fifo.py":92
+ *         expected_pts = cython.declare(int64_t)
  *         if self.pts_per_sample and frame.ptr.pts != lib.AV_NOPTS_VALUE:
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)             # <<<<<<<<<<<<<<
- *             if frame.ptr.pts != expected_pts:
- *                 raise ValueError(
+ *             expected_pts = cython.cast(             # <<<<<<<<<<<<<<
+ *                 int64_t, self.pts_per_sample * self.samples_written
+ *             )
 */
     __pyx_v_expected_pts = ((int64_t)(__pyx_v_self->pts_per_sample * __pyx_v_self->samples_written));
 
-    /* "av/audio/fifo.pyx":87
- *         if self.pts_per_sample and frame.ptr.pts != lib.AV_NOPTS_VALUE:
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)
+    /* "av/audio/fifo.py":95
+ *                 int64_t, self.pts_per_sample * self.samples_written
+ *             )
  *             if frame.ptr.pts != expected_pts:             # <<<<<<<<<<<<<<
  *                 raise ValueError(
- *                     "Frame.pts (%d) != expected (%d); fix or set to None." % (frame.ptr.pts, expected_pts)
+ *                     "Frame.pts (%d) != expected (%d); fix or set to None."
 */
     __pyx_t_6 = (__pyx_v_frame->__pyx_base.ptr->pts != __pyx_v_expected_pts);
     if (unlikely(__pyx_t_6)) {
 
-      /* "av/audio/fifo.pyx":88
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)
+      /* "av/audio/fifo.py":96
+ *             )
  *             if frame.ptr.pts != expected_pts:
  *                 raise ValueError(             # <<<<<<<<<<<<<<
- *                     "Frame.pts (%d) != expected (%d); fix or set to None." % (frame.ptr.pts, expected_pts)
- *                 )
+ *                     "Frame.pts (%d) != expected (%d); fix or set to None."
+ *                     % (frame.ptr.pts, expected_pts)
 */
       __pyx_t_2 = NULL;
 
-      /* "av/audio/fifo.pyx":89
- *             if frame.ptr.pts != expected_pts:
+      /* "av/audio/fifo.py":98
  *                 raise ValueError(
- *                     "Frame.pts (%d) != expected (%d); fix or set to None." % (frame.ptr.pts, expected_pts)             # <<<<<<<<<<<<<<
+ *                     "Frame.pts (%d) != expected (%d); fix or set to None."
+ *                     % (frame.ptr.pts, expected_pts)             # <<<<<<<<<<<<<<
  *                 )
  * 
 */
-      __pyx_t_4 = __Pyx_PyUnicode_From_int64_t(__pyx_v_frame->__pyx_base.ptr->pts, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyUnicode_From_int64_t(__pyx_v_frame->__pyx_base.ptr->pts, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyUnicode_From_int64_t(__pyx_v_expected_pts, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyUnicode_From_int64_t(__pyx_v_expected_pts, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_Frame_pts;
       __pyx_t_9[1] = __pyx_t_4;
       __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u_expected;
       __pyx_t_9[3] = __pyx_t_3;
       __pyx_t_9[4] = __pyx_mstate_global->__pyx_kp_u_fix_or_set_to_None;
+
+      /* "av/audio/fifo.py":97
+ *             if frame.ptr.pts != expected_pts:
+ *                 raise ValueError(
+ *                     "Frame.pts (%d) != expected (%d); fix or set to None."             # <<<<<<<<<<<<<<
+ *                     % (frame.ptr.pts, expected_pts)
+ *                 )
+*/
       __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_9, 5, 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 15 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 22, 127);
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 89, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 97, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4394,55 +4440,55 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_write(struct __pyx_obj_2av_
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 88, __pyx_L1_error)
+      __PYX_ERR(0, 96, __pyx_L1_error)
 
-      /* "av/audio/fifo.pyx":87
- *         if self.pts_per_sample and frame.ptr.pts != lib.AV_NOPTS_VALUE:
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)
+      /* "av/audio/fifo.py":95
+ *                 int64_t, self.pts_per_sample * self.samples_written
+ *             )
  *             if frame.ptr.pts != expected_pts:             # <<<<<<<<<<<<<<
  *                 raise ValueError(
- *                     "Frame.pts (%d) != expected (%d); fix or set to None." % (frame.ptr.pts, expected_pts)
+ *                     "Frame.pts (%d) != expected (%d); fix or set to None."
 */
     }
 
-    /* "av/audio/fifo.pyx":85
+    /* "av/audio/fifo.py":91
  *         # Assert that the PTS are what we expect.
- *         cdef int64_t expected_pts
+ *         expected_pts = cython.declare(int64_t)
  *         if self.pts_per_sample and frame.ptr.pts != lib.AV_NOPTS_VALUE:             # <<<<<<<<<<<<<<
- *             expected_pts = <int64_t>(self.pts_per_sample * self.samples_written)
- *             if frame.ptr.pts != expected_pts:
+ *             expected_pts = cython.cast(
+ *                 int64_t, self.pts_per_sample * self.samples_written
 */
   }
 
-  /* "av/audio/fifo.pyx":92
+  /* "av/audio/fifo.py":101
  *                 )
  * 
- *         err_check(lib.av_audio_fifo_write(             # <<<<<<<<<<<<<<
- *             self.ptr,
- *             <void **>frame.ptr.extended_data,
+ *         err_check(             # <<<<<<<<<<<<<<
+ *             lib.av_audio_fifo_write(
+ *                 self.ptr,
 */
-  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_audio_fifo_write(__pyx_v_self->ptr, ((void **)__pyx_v_frame->__pyx_base.ptr->extended_data), __pyx_v_frame->__pyx_base.ptr->nb_samples), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_8 = __pyx_f_2av_5error_err_check(av_audio_fifo_write(__pyx_v_self->ptr, ((void **)__pyx_v_frame->__pyx_base.ptr->extended_data), __pyx_v_frame->__pyx_base.ptr->nb_samples), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "av/audio/fifo.pyx":98
- *         ))
+  /* "av/audio/fifo.py":109
+ *         )
  * 
  *         self.samples_written += frame.ptr.nb_samples             # <<<<<<<<<<<<<<
  * 
- *     cpdef read(self, int samples=0, bint partial=False):
+ *     @cython.ccall
 */
   __pyx_v_self->samples_written = (__pyx_v_self->samples_written + __pyx_v_frame->__pyx_base.ptr->nb_samples);
 
-  /* "av/audio/fifo.pyx":25
+  /* "av/audio/fifo.py":27
  *             lib.av_audio_fifo_free(self.ptr)
  * 
- *     cpdef write(self, AudioFrame frame):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def write(self, frame: AudioFrame | None):
  *         """write(frame)
- * 
 */
 
   /* function exit code */
@@ -4501,32 +4547,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 25, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 27, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 27, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "write", 0) < (0)) __PYX_ERR(0, 25, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "write", 0) < (0)) __PYX_ERR(0, 27, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("write", 1, 1, 1, i); __PYX_ERR(0, 25, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("write", 1, 1, 1, i); __PYX_ERR(0, 27, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 27, __pyx_L3_error)
     }
     __pyx_v_frame = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("write", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 25, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("write", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 27, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4537,7 +4583,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, 1, "frame", 0))) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, 1, "frame", 0))) __PYX_ERR(0, 28, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_5audio_4fifo_9AudioFifo_4write(((struct __pyx_obj_2av_5audio_4fifo_AudioFifo *)__pyx_v_self), __pyx_v_frame);
 
   /* function exit code */
@@ -4566,7 +4612,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_4write(struct __pyx_obj_2a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("write", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_2av_5audio_4fifo_9AudioFifo_write(__pyx_v_self, __pyx_v_frame, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5audio_4fifo_9AudioFifo_write(__pyx_v_self, __pyx_v_frame, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4583,12 +4629,12 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_4write(struct __pyx_obj_2a
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":100
+/* "av/audio/fifo.py":111
  *         self.samples_written += frame.ptr.nb_samples
  * 
- *     cpdef read(self, int samples=0, bint partial=False):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):
  *         """read(samples=0, partial=False)
- * 
 */
 
 static PyObject *__pyx_pw_2av_5audio_4fifo_9AudioFifo_7read(PyObject *__pyx_v_self, 
@@ -4600,6 +4646,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 ); /*proto*/
 static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5audio_4fifo_AudioFifo *__pyx_v_self, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5audio_4fifo_9AudioFifo_read *__pyx_optional_args) {
   int __pyx_v_samples = ((int)0);
+
+  /* "av/audio/fifo.py":112
+ * 
+ *     @cython.ccall
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):             # <<<<<<<<<<<<<<
+ *         """read(samples=0, partial=False)
+ * 
+*/
   int __pyx_v_partial = ((int)0);
   int __pyx_v_buffered_samples;
   struct __pyx_obj_2av_5audio_5frame_AudioFrame *__pyx_v_frame = 0;
@@ -4626,6 +4680,14 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
       }
     }
   }
+
+  /* "av/audio/fifo.py":111
+ *         self.samples_written += frame.ptr.nb_samples
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):
+ *         """read(samples=0, partial=False)
+*/
   /* Check if called by wrapper */
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
@@ -4642,16 +4704,16 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_5audio_4fifo_9AudioFifo_7read)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 100, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 111, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_partial); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_partial); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 111, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_7 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -4672,7 +4734,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -4693,7 +4755,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
     #endif
   }
 
-  /* "av/audio/fifo.pyx":115
+  /* "av/audio/fifo.py":127
  *         """
  * 
  *         if not self.ptr:             # <<<<<<<<<<<<<<
@@ -4703,18 +4765,18 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
   __pyx_t_8 = (!(__pyx_v_self->ptr != 0));
   if (__pyx_t_8) {
 
-    /* "av/audio/fifo.pyx":116
+    /* "av/audio/fifo.py":128
  * 
  *         if not self.ptr:
  *             return             # <<<<<<<<<<<<<<
  * 
- *         cdef int buffered_samples = lib.av_audio_fifo_size(self.ptr)
+ *         buffered_samples: cython.int = lib.av_audio_fifo_size(self.ptr)
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/audio/fifo.pyx":115
+    /* "av/audio/fifo.py":127
  *         """
  * 
  *         if not self.ptr:             # <<<<<<<<<<<<<<
@@ -4723,18 +4785,18 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
 */
   }
 
-  /* "av/audio/fifo.pyx":118
+  /* "av/audio/fifo.py":130
  *             return
  * 
- *         cdef int buffered_samples = lib.av_audio_fifo_size(self.ptr)             # <<<<<<<<<<<<<<
+ *         buffered_samples: cython.int = lib.av_audio_fifo_size(self.ptr)             # <<<<<<<<<<<<<<
  *         if buffered_samples < 1:
  *             return
 */
   __pyx_v_buffered_samples = av_audio_fifo_size(__pyx_v_self->ptr);
 
-  /* "av/audio/fifo.pyx":119
+  /* "av/audio/fifo.py":131
  * 
- *         cdef int buffered_samples = lib.av_audio_fifo_size(self.ptr)
+ *         buffered_samples: cython.int = lib.av_audio_fifo_size(self.ptr)
  *         if buffered_samples < 1:             # <<<<<<<<<<<<<<
  *             return
  * 
@@ -4742,8 +4804,8 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
   __pyx_t_8 = (__pyx_v_buffered_samples < 1);
   if (__pyx_t_8) {
 
-    /* "av/audio/fifo.pyx":120
- *         cdef int buffered_samples = lib.av_audio_fifo_size(self.ptr)
+    /* "av/audio/fifo.py":132
+ *         buffered_samples: cython.int = lib.av_audio_fifo_size(self.ptr)
  *         if buffered_samples < 1:
  *             return             # <<<<<<<<<<<<<<
  * 
@@ -4753,16 +4815,16 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/audio/fifo.pyx":119
+    /* "av/audio/fifo.py":131
  * 
- *         cdef int buffered_samples = lib.av_audio_fifo_size(self.ptr)
+ *         buffered_samples: cython.int = lib.av_audio_fifo_size(self.ptr)
  *         if buffered_samples < 1:             # <<<<<<<<<<<<<<
  *             return
  * 
 */
   }
 
-  /* "av/audio/fifo.pyx":122
+  /* "av/audio/fifo.py":134
  *             return
  * 
  *         samples = samples or buffered_samples             # <<<<<<<<<<<<<<
@@ -4778,7 +4840,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
   __pyx_L5_bool_binop_done:;
   __pyx_v_samples = __pyx_t_9;
 
-  /* "av/audio/fifo.pyx":124
+  /* "av/audio/fifo.py":136
  *         samples = samples or buffered_samples
  * 
  *         if buffered_samples < samples:             # <<<<<<<<<<<<<<
@@ -4788,7 +4850,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
   __pyx_t_8 = (__pyx_v_buffered_samples < __pyx_v_samples);
   if (__pyx_t_8) {
 
-    /* "av/audio/fifo.pyx":125
+    /* "av/audio/fifo.py":137
  * 
  *         if buffered_samples < samples:
  *             if partial:             # <<<<<<<<<<<<<<
@@ -4797,7 +4859,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
 */
     if (__pyx_v_partial) {
 
-      /* "av/audio/fifo.pyx":126
+      /* "av/audio/fifo.py":138
  *         if buffered_samples < samples:
  *             if partial:
  *                 samples = buffered_samples             # <<<<<<<<<<<<<<
@@ -4806,7 +4868,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
 */
       __pyx_v_samples = __pyx_v_buffered_samples;
 
-      /* "av/audio/fifo.pyx":125
+      /* "av/audio/fifo.py":137
  * 
  *         if buffered_samples < samples:
  *             if partial:             # <<<<<<<<<<<<<<
@@ -4816,12 +4878,12 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
       goto __pyx_L8;
     }
 
-    /* "av/audio/fifo.pyx":128
+    /* "av/audio/fifo.py":140
  *                 samples = buffered_samples
  *             else:
  *                 return             # <<<<<<<<<<<<<<
  * 
- *         cdef AudioFrame frame = alloc_audio_frame()
+ *         frame: AudioFrame = alloc_audio_frame()
 */
     /*else*/ {
       __Pyx_XDECREF(__pyx_r);
@@ -4830,7 +4892,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
     }
     __pyx_L8:;
 
-    /* "av/audio/fifo.pyx":124
+    /* "av/audio/fifo.py":136
  *         samples = samples or buffered_samples
  * 
  *         if buffered_samples < samples:             # <<<<<<<<<<<<<<
@@ -4839,83 +4901,83 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
 */
   }
 
-  /* "av/audio/fifo.pyx":130
+  /* "av/audio/fifo.py":142
  *                 return
  * 
- *         cdef AudioFrame frame = alloc_audio_frame()             # <<<<<<<<<<<<<<
+ *         frame: AudioFrame = alloc_audio_frame()             # <<<<<<<<<<<<<<
  *         frame._copy_internal_attributes(self.template)
  *         frame._init(
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_frame = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/fifo.pyx":131
+  /* "av/audio/fifo.py":143
  * 
- *         cdef AudioFrame frame = alloc_audio_frame()
+ *         frame: AudioFrame = alloc_audio_frame()
  *         frame._copy_internal_attributes(self.template)             # <<<<<<<<<<<<<<
  *         frame._init(
- *             <lib.AVSampleFormat>self.template.ptr.format,
+ *             cython.cast(lib.AVSampleFormat, self.template.ptr.format),
 */
   __pyx_t_1 = ((PyObject *)__pyx_v_self->__pyx_template);
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_frame->__pyx_base.__pyx_vtab)->__pyx_base._copy_internal_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_frame), ((struct __pyx_obj_2av_5frame_Frame *)__pyx_t_1), NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_frame->__pyx_base.__pyx_vtab)->__pyx_base._copy_internal_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_frame), ((struct __pyx_obj_2av_5frame_Frame *)__pyx_t_1), NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/fifo.pyx":132
- *         cdef AudioFrame frame = alloc_audio_frame()
+  /* "av/audio/fifo.py":144
+ *         frame: AudioFrame = alloc_audio_frame()
  *         frame._copy_internal_attributes(self.template)
  *         frame._init(             # <<<<<<<<<<<<<<
- *             <lib.AVSampleFormat>self.template.ptr.format,
- *             <lib.AVChannelLayout>self.template.ptr.ch_layout,
+ *             cython.cast(lib.AVSampleFormat, self.template.ptr.format),
+ *             cython.cast(lib.AVChannelLayout, self.template.ptr.ch_layout),
 */
-  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_frame->__pyx_base.__pyx_vtab)->_init(__pyx_v_frame, ((enum AVSampleFormat)__pyx_v_self->__pyx_template->__pyx_base.ptr->format), __pyx_v_self->__pyx_template->__pyx_base.ptr->ch_layout, __pyx_v_samples, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_frame->__pyx_base.__pyx_vtab)->_init(__pyx_v_frame, ((enum AVSampleFormat)__pyx_v_self->__pyx_template->__pyx_base.ptr->format), __pyx_v_self->__pyx_template->__pyx_base.ptr->ch_layout, __pyx_v_samples, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/fifo.pyx":139
+  /* "av/audio/fifo.py":151
  *         )
  * 
- *         err_check(lib.av_audio_fifo_read(             # <<<<<<<<<<<<<<
- *             self.ptr,
- *             <void **>frame.ptr.extended_data,
+ *         err_check(             # <<<<<<<<<<<<<<
+ *             lib.av_audio_fifo_read(
+ *                 self.ptr,
 */
-  __pyx_t_9 = __pyx_f_2av_5error_err_check(av_audio_fifo_read(__pyx_v_self->ptr, ((void **)__pyx_v_frame->__pyx_base.ptr->extended_data), __pyx_v_samples), 0, NULL); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_9 = __pyx_f_2av_5error_err_check(av_audio_fifo_read(__pyx_v_self->ptr, ((void **)__pyx_v_frame->__pyx_base.ptr->extended_data), __pyx_v_samples), 0, NULL); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 151, __pyx_L1_error)
 
-  /* "av/audio/fifo.pyx":145
- *         ))
+  /* "av/audio/fifo.py":159
+ *         )
  * 
  *         if self.pts_per_sample:             # <<<<<<<<<<<<<<
- *             frame.ptr.pts = <uint64_t>(self.pts_per_sample * self.samples_read)
- *         else:
+ *             frame.ptr.pts = cython.cast(
+ *                 uint64_t, self.pts_per_sample * self.samples_read
 */
   __pyx_t_8 = (__pyx_v_self->pts_per_sample != 0);
   if (__pyx_t_8) {
 
-    /* "av/audio/fifo.pyx":146
+    /* "av/audio/fifo.py":160
  * 
  *         if self.pts_per_sample:
- *             frame.ptr.pts = <uint64_t>(self.pts_per_sample * self.samples_read)             # <<<<<<<<<<<<<<
- *         else:
- *             frame.ptr.pts = lib.AV_NOPTS_VALUE
+ *             frame.ptr.pts = cython.cast(             # <<<<<<<<<<<<<<
+ *                 uint64_t, self.pts_per_sample * self.samples_read
+ *             )
 */
     __pyx_v_frame->__pyx_base.ptr->pts = ((uint64_t)(__pyx_v_self->pts_per_sample * __pyx_v_self->samples_read));
 
-    /* "av/audio/fifo.pyx":145
- *         ))
+    /* "av/audio/fifo.py":159
+ *         )
  * 
  *         if self.pts_per_sample:             # <<<<<<<<<<<<<<
- *             frame.ptr.pts = <uint64_t>(self.pts_per_sample * self.samples_read)
- *         else:
+ *             frame.ptr.pts = cython.cast(
+ *                 uint64_t, self.pts_per_sample * self.samples_read
 */
     goto __pyx_L9;
   }
 
-  /* "av/audio/fifo.pyx":148
- *             frame.ptr.pts = <uint64_t>(self.pts_per_sample * self.samples_read)
+  /* "av/audio/fifo.py":164
+ *             )
  *         else:
  *             frame.ptr.pts = lib.AV_NOPTS_VALUE             # <<<<<<<<<<<<<<
  * 
@@ -4926,33 +4988,33 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read(struct __pyx_obj_2av_5
   }
   __pyx_L9:;
 
-  /* "av/audio/fifo.pyx":150
+  /* "av/audio/fifo.py":166
  *             frame.ptr.pts = lib.AV_NOPTS_VALUE
  * 
  *         self.samples_read += samples             # <<<<<<<<<<<<<<
- * 
  *         return frame
+ * 
 */
   __pyx_v_self->samples_read = (__pyx_v_self->samples_read + __pyx_v_samples);
 
-  /* "av/audio/fifo.pyx":152
- *         self.samples_read += samples
+  /* "av/audio/fifo.py":167
  * 
+ *         self.samples_read += samples
  *         return frame             # <<<<<<<<<<<<<<
  * 
- *     cpdef read_many(self, int samples, bint partial=False):
+ *     @cython.ccall
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_frame);
   __pyx_r = ((PyObject *)__pyx_v_frame);
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":100
+  /* "av/audio/fifo.py":111
  *         self.samples_written += frame.ptr.nb_samples
  * 
- *     cpdef read(self, int samples=0, bint partial=False):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):
  *         """read(samples=0, partial=False)
- * 
 */
 
   /* function exit code */
@@ -5012,50 +5074,58 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_samples,&__pyx_mstate_global->__pyx_n_u_partial,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 100, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 111, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 111, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 111, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read", 0) < (0)) __PYX_ERR(0, 100, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read", 0) < (0)) __PYX_ERR(0, 111, __pyx_L3_error)
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 111, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 111, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     if (values[0]) {
-      __pyx_v_samples = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_samples == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+      __pyx_v_samples = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_samples == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L3_error)
     } else {
       __pyx_v_samples = ((int)0);
     }
     if (values[1]) {
-      __pyx_v_partial = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_partial == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 100, __pyx_L3_error)
+      __pyx_v_partial = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_partial == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 112, __pyx_L3_error)
     } else {
+
+      /* "av/audio/fifo.py":112
+ * 
+ *     @cython.ccall
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):             # <<<<<<<<<<<<<<
+ *         """read(samples=0, partial=False)
+ * 
+*/
       __pyx_v_partial = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 100, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 111, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5067,6 +5137,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_5audio_4fifo_9AudioFifo_6read(((struct __pyx_obj_2av_5audio_4fifo_AudioFifo *)__pyx_v_self), __pyx_v_samples, __pyx_v_partial);
+
+  /* "av/audio/fifo.py":111
+ *         self.samples_written += frame.ptr.nb_samples
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read(self, samples: cython.int = 0, partial: cython.bint = False):
+ *         """read(samples=0, partial=False)
+*/
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5089,7 +5167,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6read(struct __pyx_obj_2av
   __pyx_t_2.__pyx_n = 2;
   __pyx_t_2.samples = __pyx_v_samples;
   __pyx_t_2.partial = __pyx_v_partial;
-  __pyx_t_1 = __pyx_vtabptr_2av_5audio_4fifo_AudioFifo->read(__pyx_v_self, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_2av_5audio_4fifo_AudioFifo->read(__pyx_v_self, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5106,12 +5184,12 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6read(struct __pyx_obj_2av
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":154
+/* "av/audio/fifo.py":169
  *         return frame
  * 
- *     cpdef read_many(self, int samples, bint partial=False):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):
  *         """read_many(samples, partial=False)
- * 
 */
 
 static PyObject *__pyx_pw_2av_5audio_4fifo_9AudioFifo_9read_many(PyObject *__pyx_v_self, 
@@ -5122,9 +5200,17 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
 static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_2av_5audio_4fifo_AudioFifo *__pyx_v_self, int __pyx_v_samples, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5audio_4fifo_9AudioFifo_read_many *__pyx_optional_args) {
+
+  /* "av/audio/fifo.py":170
+ * 
+ *     @cython.ccall
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):             # <<<<<<<<<<<<<<
+ *         """read_many(samples, partial=False)
+ * 
+*/
   int __pyx_v_partial = ((int)0);
   struct __pyx_obj_2av_5audio_5frame_AudioFrame *__pyx_v_frame = 0;
-  PyObject *__pyx_v_frames = NULL;
+  PyObject *__pyx_v_frames = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -5146,6 +5232,14 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
       __pyx_v_partial = __pyx_optional_args->partial;
     }
   }
+
+  /* "av/audio/fifo.py":169
+ *         return frame
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):
+ *         """read_many(samples, partial=False)
+*/
   /* Check if called by wrapper */
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
@@ -5162,16 +5256,16 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_many); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_many); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_2av_5audio_4fifo_9AudioFifo_9read_many)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 169, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_partial); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 154, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_v_partial); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 169, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_7 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -5192,7 +5286,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -5213,29 +5307,29 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
     #endif
   }
 
-  /* "av/audio/fifo.pyx":166
+  /* "av/audio/fifo.py":182
  * 
- *         cdef AudioFrame frame
- *         frames = []             # <<<<<<<<<<<<<<
+ *         frame: AudioFrame
+ *         frames: list = []             # <<<<<<<<<<<<<<
  *         while True:
  *             frame = self.read(samples, partial=partial)
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_frames = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/fifo.pyx":167
- *         cdef AudioFrame frame
- *         frames = []
+  /* "av/audio/fifo.py":183
+ *         frame: AudioFrame
+ *         frames: list = []
  *         while True:             # <<<<<<<<<<<<<<
  *             frame = self.read(samples, partial=partial)
  *             if frame is not None:
 */
   while (1) {
 
-    /* "av/audio/fifo.pyx":168
- *         frames = []
+    /* "av/audio/fifo.py":184
+ *         frames: list = []
  *         while True:
  *             frame = self.read(samples, partial=partial)             # <<<<<<<<<<<<<<
  *             if frame is not None:
@@ -5244,13 +5338,13 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
     __pyx_t_8.__pyx_n = 2;
     __pyx_t_8.samples = __pyx_v_samples;
     __pyx_t_8.partial = __pyx_v_partial;
-    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_4fifo_AudioFifo *)__pyx_v_self->__pyx_vtab)->read(__pyx_v_self, 0, &__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_4fifo_AudioFifo *)__pyx_v_self->__pyx_vtab)->read(__pyx_v_self, 0, &__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame))))) __PYX_ERR(0, 168, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame))))) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v_frame, ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "av/audio/fifo.pyx":169
+    /* "av/audio/fifo.py":185
  *         while True:
  *             frame = self.read(samples, partial=partial)
  *             if frame is not None:             # <<<<<<<<<<<<<<
@@ -5260,16 +5354,16 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
     __pyx_t_9 = (((PyObject *)__pyx_v_frame) != Py_None);
     if (__pyx_t_9) {
 
-      /* "av/audio/fifo.pyx":170
+      /* "av/audio/fifo.py":186
  *             frame = self.read(samples, partial=partial)
  *             if frame is not None:
  *                 frames.append(frame)             # <<<<<<<<<<<<<<
  *             else:
  *                 break
 */
-      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_frames, ((PyObject *)__pyx_v_frame)); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 170, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_frames, ((PyObject *)__pyx_v_frame)); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 186, __pyx_L1_error)
 
-      /* "av/audio/fifo.pyx":169
+      /* "av/audio/fifo.py":185
  *         while True:
  *             frame = self.read(samples, partial=partial)
  *             if frame is not None:             # <<<<<<<<<<<<<<
@@ -5279,7 +5373,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "av/audio/fifo.pyx":172
+    /* "av/audio/fifo.py":188
  *                 frames.append(frame)
  *             else:
  *                 break             # <<<<<<<<<<<<<<
@@ -5293,7 +5387,7 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
   }
   __pyx_L4_break:;
 
-  /* "av/audio/fifo.pyx":174
+  /* "av/audio/fifo.py":190
  *                 break
  * 
  *         return frames             # <<<<<<<<<<<<<<
@@ -5305,12 +5399,12 @@ static PyObject *__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many(struct __pyx_obj_
   __pyx_r = __pyx_v_frames;
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":154
+  /* "av/audio/fifo.py":169
  *         return frame
  * 
- *     cpdef read_many(self, int samples, bint partial=False):             # <<<<<<<<<<<<<<
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):
  *         """read_many(samples, partial=False)
- * 
 */
 
   /* function exit code */
@@ -5371,48 +5465,56 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_samples,&__pyx_mstate_global->__pyx_n_u_partial,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 154, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 169, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 154, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 169, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 154, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_many", 0) < (0)) __PYX_ERR(0, 154, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_many", 0) < (0)) __PYX_ERR(0, 169, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_many", 0, 1, 2, i); __PYX_ERR(0, 154, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_many", 0, 1, 2, i); __PYX_ERR(0, 169, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 154, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 169, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 154, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
-    __pyx_v_samples = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_samples == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L3_error)
+    __pyx_v_samples = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_samples == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
     if (values[1]) {
-      __pyx_v_partial = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_partial == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L3_error)
+      __pyx_v_partial = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_partial == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
     } else {
+
+      /* "av/audio/fifo.py":170
+ * 
+ *     @cython.ccall
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):             # <<<<<<<<<<<<<<
+ *         """read_many(samples, partial=False)
+ * 
+*/
       __pyx_v_partial = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_many", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 154, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_many", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 169, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5424,6 +5526,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return NULL;
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_5audio_4fifo_9AudioFifo_8read_many(((struct __pyx_obj_2av_5audio_4fifo_AudioFifo *)__pyx_v_self), __pyx_v_samples, __pyx_v_partial);
+
+  /* "av/audio/fifo.py":169
+ *         return frame
+ * 
+ *     @cython.ccall             # <<<<<<<<<<<<<<
+ *     def read_many(self, samples: cython.int, partial: cython.bint = False):
+ *         """read_many(samples, partial=False)
+*/
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5445,7 +5555,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_8read_many(struct __pyx_ob
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2.__pyx_n = 1;
   __pyx_t_2.partial = __pyx_v_partial;
-  __pyx_t_1 = __pyx_vtabptr_2av_5audio_4fifo_AudioFifo->read_many(__pyx_v_self, __pyx_v_samples, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_2av_5audio_4fifo_AudioFifo->read_many(__pyx_v_self, __pyx_v_samples, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5462,7 +5572,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_8read_many(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":176
+/* "av/audio/fifo.py":192
  *         return frames
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5500,34 +5610,42 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6format___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/fifo.pyx":179
+  /* "av/audio/fifo.py":195
  *     def format(self):
  *         """The :class:`.AudioFormat` of this FIFO."""
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")
- *         return self.template.format
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'format'"
 */
   __pyx_t_1 = (!(__pyx_v_self->ptr != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/audio/fifo.pyx":180
+    /* "av/audio/fifo.py":196
  *         """The :class:`.AudioFormat` of this FIFO."""
  *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")             # <<<<<<<<<<<<<<
- *         return self.template.format
- *     @property
+ *             raise AttributeError(             # <<<<<<<<<<<<<<
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'format'"
+ *             )
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+
+    /* "av/audio/fifo.py":197
+ *         if not self.ptr:
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'format'"             # <<<<<<<<<<<<<<
+ *             )
+ *         return self.template.format
+*/
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 180, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6[0] = __pyx_mstate_global->__pyx_kp_u__3;
     __pyx_t_6[1] = __pyx_t_5;
     __pyx_t_6[2] = __pyx_mstate_global->__pyx_kp_u_AudioFifo_object_has_no_attribu;
     __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 44, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
@@ -5536,35 +5654,35 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6format___get__(struct __p
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_AttributeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 196, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 180, __pyx_L1_error)
+    __PYX_ERR(0, 196, __pyx_L1_error)
 
-    /* "av/audio/fifo.pyx":179
+    /* "av/audio/fifo.py":195
  *     def format(self):
  *         """The :class:`.AudioFormat` of this FIFO."""
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")
- *         return self.template.format
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'format'"
 */
   }
 
-  /* "av/audio/fifo.pyx":181
- *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")
+  /* "av/audio/fifo.py":199
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'format'"
+ *             )
  *         return self.template.format             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def layout(self):
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_self->__pyx_template->format);
   __pyx_r = ((PyObject *)__pyx_v_self->__pyx_template->format);
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":176
+  /* "av/audio/fifo.py":192
  *         return frames
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5586,9 +5704,9 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6format___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":182
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")
+/* "av/audio/fifo.py":201
  *         return self.template.format
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def layout(self):
  *         """The :class:`.AudioLayout` of this FIFO."""
@@ -5624,34 +5742,42 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6layout___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/fifo.pyx":185
+  /* "av/audio/fifo.py":204
  *     def layout(self):
  *         """The :class:`.AudioLayout` of this FIFO."""
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")
- *         return self.template.layout
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'layout'"
 */
   __pyx_t_1 = (!(__pyx_v_self->ptr != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/audio/fifo.pyx":186
+    /* "av/audio/fifo.py":205
  *         """The :class:`.AudioLayout` of this FIFO."""
  *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")             # <<<<<<<<<<<<<<
- *         return self.template.layout
- *     @property
+ *             raise AttributeError(             # <<<<<<<<<<<<<<
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'layout'"
+ *             )
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 186, __pyx_L1_error)
+
+    /* "av/audio/fifo.py":206
+ *         if not self.ptr:
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'layout'"             # <<<<<<<<<<<<<<
+ *             )
+ *         return self.template.layout
+*/
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 186, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6[0] = __pyx_mstate_global->__pyx_kp_u__3;
     __pyx_t_6[1] = __pyx_t_5;
     __pyx_t_6[2] = __pyx_mstate_global->__pyx_kp_u_AudioFifo_object_has_no_attribu_2;
     __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 44, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 186, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
@@ -5660,37 +5786,37 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6layout___get__(struct __p
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_AttributeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 205, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 186, __pyx_L1_error)
+    __PYX_ERR(0, 205, __pyx_L1_error)
 
-    /* "av/audio/fifo.pyx":185
+    /* "av/audio/fifo.py":204
  *     def layout(self):
  *         """The :class:`.AudioLayout` of this FIFO."""
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")
- *         return self.template.layout
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'layout'"
 */
   }
 
-  /* "av/audio/fifo.pyx":187
- *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")
+  /* "av/audio/fifo.py":208
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'layout'"
+ *             )
  *         return self.template.layout             # <<<<<<<<<<<<<<
+ * 
  *     @property
- *     def sample_rate(self):
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_self->__pyx_template->layout);
   __pyx_r = ((PyObject *)__pyx_v_self->__pyx_template->layout);
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":182
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'format'")
+  /* "av/audio/fifo.py":201
  *         return self.template.format
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def layout(self):
  *         """The :class:`.AudioLayout` of this FIFO."""
@@ -5710,9 +5836,9 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_6layout___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":188
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")
+/* "av/audio/fifo.py":210
  *         return self.template.layout
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def sample_rate(self):
  *         if not self.ptr:
@@ -5748,34 +5874,42 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_11sample_rate___get__(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/fifo.pyx":190
+  /* "av/audio/fifo.py":212
  *     @property
  *     def sample_rate(self):
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'")
- *         return self.template.sample_rate
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'"
 */
   __pyx_t_1 = (!(__pyx_v_self->ptr != 0));
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/audio/fifo.pyx":191
+    /* "av/audio/fifo.py":213
  *     def sample_rate(self):
  *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'")             # <<<<<<<<<<<<<<
- *         return self.template.sample_rate
- * 
+ *             raise AttributeError(             # <<<<<<<<<<<<<<
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'"
+ *             )
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 191, __pyx_L1_error)
+
+    /* "av/audio/fifo.py":214
+ *         if not self.ptr:
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'"             # <<<<<<<<<<<<<<
+ *             )
+ *         return self.template.sample_rate
+*/
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6[0] = __pyx_mstate_global->__pyx_kp_u__3;
     __pyx_t_6[1] = __pyx_t_5;
     __pyx_t_6[2] = __pyx_mstate_global->__pyx_kp_u_AudioFifo_object_has_no_attribu_3;
     __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_6, 3, 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 49, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 191, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
@@ -5784,39 +5918,39 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_11sample_rate___get__(stru
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_AttributeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 191, __pyx_L1_error)
+    __PYX_ERR(0, 213, __pyx_L1_error)
 
-    /* "av/audio/fifo.pyx":190
+    /* "av/audio/fifo.py":212
  *     @property
  *     def sample_rate(self):
  *         if not self.ptr:             # <<<<<<<<<<<<<<
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'")
- *         return self.template.sample_rate
+ *             raise AttributeError(
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'"
 */
   }
 
-  /* "av/audio/fifo.pyx":192
- *         if not self.ptr:
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'")
+  /* "av/audio/fifo.py":216
+ *                 f"'{__name__}.AudioFifo' object has no attribute 'sample_rate'"
+ *             )
  *         return self.template.sample_rate             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->__pyx_template), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->__pyx_template), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":188
- *             raise AttributeError(f"'{__name__}.AudioFifo' object has no attribute 'layout'")
+  /* "av/audio/fifo.py":210
  *         return self.template.layout
+ * 
  *     @property             # <<<<<<<<<<<<<<
  *     def sample_rate(self):
  *         if not self.ptr:
@@ -5836,7 +5970,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_11sample_rate___get__(stru
   return __pyx_r;
 }
 
-/* "av/audio/fifo.pyx":194
+/* "av/audio/fifo.py":218
  *         return self.template.sample_rate
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5870,7 +6004,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_7samples___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/fifo.pyx":197
+  /* "av/audio/fifo.py":221
  *     def samples(self):
  *         """Number of audio samples (per channel) in the buffer."""
  *         return lib.av_audio_fifo_size(self.ptr) if self.ptr else 0             # <<<<<<<<<<<<<<
@@ -5878,7 +6012,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_7samples___get__(struct __
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->ptr != 0);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyLong_From_int(av_audio_fifo_size(__pyx_v_self->ptr)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(av_audio_fifo_size(__pyx_v_self->ptr)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -5890,7 +6024,7 @@ static PyObject *__pyx_pf_2av_5audio_4fifo_9AudioFifo_7samples___get__(struct __
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/fifo.pyx":194
+  /* "av/audio/fifo.py":218
  *         return self.template.sample_rate
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6528,15 +6662,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_2av_5audio_4fifo_AudioFifo.read = (PyObject *(*)(struct __pyx_obj_2av_5audio_4fifo_AudioFifo *, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5audio_4fifo_9AudioFifo_read *__pyx_optional_args))__pyx_f_2av_5audio_4fifo_9AudioFifo_read;
   __pyx_vtable_2av_5audio_4fifo_AudioFifo.read_many = (PyObject *(*)(struct __pyx_obj_2av_5audio_4fifo_AudioFifo *, int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5audio_4fifo_9AudioFifo_read_many *__pyx_optional_args))__pyx_f_2av_5audio_4fifo_9AudioFifo_read_many;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5audio_4fifo_AudioFifo_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo)) __PYX_ERR(0, 5, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5audio_4fifo_AudioFifo_spec, __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5audio_4fifo_AudioFifo_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5audio_4fifo_AudioFifo_spec, __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo = &__pyx_type_2av_5audio_4fifo_AudioFifo;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo);
@@ -6546,10 +6680,10 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo, __pyx_vtabptr_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioFifo, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo, __pyx_vtabptr_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioFifo, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_4fifo_AudioFifo) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -6589,10 +6723,18 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   sizeof(struct __pyx_obj_2av_5audio_6layout_AudioLayout), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5audio_6layout_AudioLayout),
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) __PYX_ERR(4, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_5audio_6layout_AudioLayout = (struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout); if (unlikely(!__pyx_vtabptr_2av_5audio_6layout_AudioLayout)) __PYX_ERR(4, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.buffer"); if (unlikely(!__pyx_t_1)) __PYX_ERR(5, 2, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.buffer"); if (unlikely(!__pyx_t_1)) __PYX_ERR(5, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_6buffer_ByteSource = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.buffer", "ByteSource",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #else
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_ByteSource) __PYX_ERR(5, 4, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6buffer_Buffer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.buffer", "Buffer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6buffer_Buffer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_Buffer),
@@ -6601,22 +6743,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6buffer_Buffer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_Buffer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer) __PYX_ERR(5, 2, __pyx_L1_error)
-  __pyx_vtabptr_2av_6buffer_Buffer = (struct __pyx_vtabstruct_2av_6buffer_Buffer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer); if (unlikely(!__pyx_vtabptr_2av_6buffer_Buffer)) __PYX_ERR(5, 2, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer) __PYX_ERR(5, 13, __pyx_L1_error)
+  __pyx_vtabptr_2av_6buffer_Buffer = (struct __pyx_vtabstruct_2av_6buffer_Buffer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer); if (unlikely(!__pyx_vtabptr_2av_6buffer_Buffer)) __PYX_ERR(5, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.bytesource"); if (unlikely(!__pyx_t_1)) __PYX_ERR(6, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10bytesource_ByteSource = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.bytesource", "ByteSource",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #else
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10bytesource_ByteSource) __PYX_ERR(6, 4, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.codec"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.codec"); if (unlikely(!__pyx_t_1)) __PYX_ERR(6, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.codec", "Codec",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6626,10 +6756,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_5codec_Codec), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_5codec_Codec),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec) __PYX_ERR(7, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_5codec_Codec = (struct __pyx_vtabstruct_2av_5codec_5codec_Codec*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec); if (unlikely(!__pyx_vtabptr_2av_5codec_5codec_Codec)) __PYX_ERR(7, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec) __PYX_ERR(6, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_5codec_Codec = (struct __pyx_vtabstruct_2av_5codec_5codec_Codec*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec); if (unlikely(!__pyx_vtabptr_2av_5codec_5codec_Codec)) __PYX_ERR(6, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.hwaccel"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 6, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.hwaccel"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.hwaccel", "HWConfig",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6639,8 +6769,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) __PYX_ERR(8, 6, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig = (struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig); if (unlikely(!__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(8, 6, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) __PYX_ERR(7, 6, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig = (struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig); if (unlikely(!__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(7, 6, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.hwaccel", "HWAccel",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel),
@@ -6649,9 +6779,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) __PYX_ERR(8, 13, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) __PYX_ERR(7, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.context", "CodecContext",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6661,10 +6791,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7context_CodecContext), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7context_CodecContext),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(9, 11, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_7context_CodecContext = (struct __pyx_vtabstruct_2av_5codec_7context_CodecContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_vtabptr_2av_5codec_7context_CodecContext)) __PYX_ERR(9, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(8, 11, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_7context_CodecContext = (struct __pyx_vtabstruct_2av_5codec_7context_CodecContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_vtabptr_2av_5codec_7context_CodecContext)) __PYX_ERR(8, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.pyio", "PyIOFile",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6674,9 +6804,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4pyio_PyIOFile), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4pyio_PyIOFile),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(10, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(9, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 8, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.streams", "StreamContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6686,23 +6816,23 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_7streams_StreamContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_7streams_StreamContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(11, 8, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_7streams_StreamContainer = (struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer); if (unlikely(!__pyx_vtabptr_2av_9container_7streams_StreamContainer)) __PYX_ERR(11, 8, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(10, 6, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_7streams_StreamContainer = (struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer); if (unlikely(!__pyx_vtabptr_2av_9container_7streams_StreamContainer)) __PYX_ERR(10, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "_Dictionary",
+  __pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "Dictionary",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #else
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary) __PYX_ERR(12, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_10dictionary__Dictionary = (struct __pyx_vtabstruct_2av_10dictionary__Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary__Dictionary)) __PYX_ERR(12, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary) __PYX_ERR(11, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_10dictionary_Dictionary = (struct __pyx_vtabstruct_2av_10dictionary_Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary_Dictionary)) __PYX_ERR(11, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.format", "ContainerFormat",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6712,9 +6842,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6format_ContainerFormat), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6format_ContainerFormat),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(13, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(12, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6724,10 +6854,33 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(14, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(14, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(13, 16, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(13, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntry = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.index", "IndexEntry",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #else
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry) __PYX_ERR(14, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_5index_IndexEntry = (struct __pyx_vtabstruct_2av_5index_IndexEntry*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry); if (unlikely(!__pyx_vtabptr_2av_5index_IndexEntry)) __PYX_ERR(14, 4, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntries = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.index", "IndexEntries",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #else
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries) __PYX_ERR(14, 8, __pyx_L1_error)
+  __pyx_vtabptr_2av_5index_IndexEntries = (struct __pyx_vtabstruct_2av_5index_IndexEntries*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries); if (unlikely(!__pyx_vtabptr_2av_5index_IndexEntries)) __PYX_ERR(14, 8, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 10, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6stream_Stream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "Stream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6737,8 +6890,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_Stream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_Stream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(15, 9, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_Stream = (struct __pyx_vtabstruct_2av_6stream_Stream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream); if (unlikely(!__pyx_vtabptr_2av_6stream_Stream)) __PYX_ERR(15, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(15, 10, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_Stream = (struct __pyx_vtabstruct_2av_6stream_Stream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream); if (unlikely(!__pyx_vtabptr_2av_6stream_Stream)) __PYX_ERR(15, 10, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_DataStream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "DataStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_DataStream),
@@ -6747,8 +6900,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_DataStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(15, 28, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_DataStream = (struct __pyx_vtabstruct_2av_6stream_DataStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream); if (unlikely(!__pyx_vtabptr_2av_6stream_DataStream)) __PYX_ERR(15, 28, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(15, 31, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_DataStream = (struct __pyx_vtabstruct_2av_6stream_DataStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream); if (unlikely(!__pyx_vtabptr_2av_6stream_DataStream)) __PYX_ERR(15, 31, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "AttachmentStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_AttachmentStream),
@@ -6757,10 +6910,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_AttachmentStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(15, 31, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_AttachmentStream = (struct __pyx_vtabstruct_2av_6stream_AttachmentStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream); if (unlikely(!__pyx_vtabptr_2av_6stream_AttachmentStream)) __PYX_ERR(15, 31, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(15, 34, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_AttachmentStream = (struct __pyx_vtabstruct_2av_6stream_AttachmentStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream); if (unlikely(!__pyx_vtabptr_2av_6stream_AttachmentStream)) __PYX_ERR(15, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 10, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.packet", "PacketSideData",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6770,8 +6923,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_PacketSideData), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_PacketSideData),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(16, 10, __pyx_L1_error)
-  __pyx_vtabptr_2av_6packet_PacketSideData = (struct __pyx_vtabstruct_2av_6packet_PacketSideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData); if (unlikely(!__pyx_vtabptr_2av_6packet_PacketSideData)) __PYX_ERR(16, 10, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(16, 9, __pyx_L1_error)
+  __pyx_vtabptr_2av_6packet_PacketSideData = (struct __pyx_vtabstruct_2av_6packet_PacketSideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData); if (unlikely(!__pyx_vtabptr_2av_6packet_PacketSideData)) __PYX_ERR(16, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6packet_Packet = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.packet", "Packet",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_Packet),
@@ -6780,10 +6933,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_Packet),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(16, 19, __pyx_L1_error)
-  __pyx_vtabptr_2av_6packet_Packet = (struct __pyx_vtabstruct_2av_6packet_Packet*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet); if (unlikely(!__pyx_vtabptr_2av_6packet_Packet)) __PYX_ERR(16, 19, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(16, 18, __pyx_L1_error)
+  __pyx_vtabptr_2av_6packet_Packet = (struct __pyx_vtabstruct_2av_6packet_Packet*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet); if (unlikely(!__pyx_vtabptr_2av_6packet_Packet)) __PYX_ERR(16, 18, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.sidedata.sidedata", "SideData",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -6793,8 +6946,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata_SideData), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata_SideData),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData) __PYX_ERR(17, 9, __pyx_L1_error)
-  __pyx_vtabptr_2av_8sidedata_8sidedata_SideData = (struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData); if (unlikely(!__pyx_vtabptr_2av_8sidedata_8sidedata_SideData)) __PYX_ERR(17, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData) __PYX_ERR(17, 8, __pyx_L1_error)
+  __pyx_vtabptr_2av_8sidedata_8sidedata_SideData = (struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData); if (unlikely(!__pyx_vtabptr_2av_8sidedata_8sidedata_SideData)) __PYX_ERR(17, 8, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.sidedata.sidedata", "_SideDataContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
@@ -6803,7 +6956,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(17, 19, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(17, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(18, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -6864,7 +7017,7 @@ static int __Pyx_modinit_function_import_code(__pyx_mstatetype *__pyx_mstate) {
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (unlikely(!__pyx_import_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
     #endif
-    const char * __pyx_import_name = __pyx_import_signature + 64;
+    const char * __pyx_import_name = __pyx_import_signature + 63;
     void (**const __pyx_import_pointers[])(void) = {(void (**)(void))&__pyx_f_2av_10dictionary_wrap_dictionary, (void (**)(void)) NULL};
     void (**const *__pyx_import_pointer)(void) = __pyx_import_pointers;
     const char *__pyx_import_current_signature = __pyx_import_signature;
@@ -7191,10 +7344,10 @@ __Pyx_RefNannySetupContext("PyInit_fifo", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/audio/fifo.pyx":1
- * from av.audio.frame cimport alloc_audio_frame             # <<<<<<<<<<<<<<
- * from av.error cimport err_check
- * 
+  /* "av/audio/fifo.py":1
+ * import cython             # <<<<<<<<<<<<<<
+ * from cython.cimports.av.audio.frame import alloc_audio_frame
+ * from cython.cimports.av.error import err_check
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -7237,7 +7390,7 @@ __Pyx_RefNannySetupContext("PyInit_fifo", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 14, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -7264,33 +7417,33 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{38},{44},{44},{49},{31},{42},{11},{179},{1},{1},{1},{8},{6},{4},{7},{6},{15},{22},{2},{3},{9},{12},{60},{44},{9},{20},{9},{18},{1},{6},{5},{12},{2},{5},{6},{8},{10},{8},{11},{7},{3},{11},{14},{12},{4},{9},{10},{17},{13},{11},{7},{12},{10},{12},{19},{8},{6},{5},{1},{109},{79},{71}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (648 bytes) */
-const char* const cstring = "(\265/\375`\304\003\365\023\000F\350m\" q\333a\365\246\244\264i<\013~\013mAQ\034\304\005\335RdpX\330\313\240\331(\000$ \035\001b\000c\000b\000\030\255}u\333\360Z\205\316\330l\362\021\004\276N\036\367Y\205\003\375\033\343n_\333$\275>\276L!s\361\200\373\232\330Z\212\317\032\325z\014b\331W\227\273\332\243\376X\244ky}\034s\026\334\177\r\273\177E\326\350:\301O\213\3210\\\030f\037u\255\330\013\261\004\267\301\367\367 sx\202\261z\017\030\250\360p\240\332O\333*\213\014\001\370\350\335\325\250\263b ]\250\020\340k\247R\352\26040\353K'\220=.\304\237\326\261\302E\322\334\242\317f\374\372\254[\027\374u\354\235\274?\252\335\306\307\"t(\220\361m\321c\363/~\r:\014}\335u\245\3469\372:T\255x\220p0\020\221\210`\273\375\304\356=)\233\356]O\261\314f}2\375\331g\305\231\373\372\376+\311T\224\244\315&u\237\315\271\315\231\316Z|e+\362\023GT\242H&\344\3418\366\331i8\270\376\020\242v\203\227\362ss?\2244/J\342\206\2169\021\324w\0135K\270\r&t\337\030g\255\243r\306\215I\2220\333\254\002\231cXa'\373\250s\022\340\241\230A\010\251\010\331\324i\000<.\036\034\002\030\221\031\271\304\212\240\000\243\001x,m\306\002HI\233\2169\267\010\t\251A\272\304i~c\351\271w\2044g\225\215)\010q\3407W|\337R(\363}\377\327Sg\325\257gzfeS\346\246\247\242V\272n\351\313h\364\241\226\331Xs\332|m\267N\002R( \002\302\314\251\353\006\362\340\\\230\031\217\214\266\354\372o\003I\022\374\305\2222\t\207\004\340\335`\013\002QJ\030\242\021#E\177\324Sh\34446c\030\217[\257\221K%@\020\306\330cF\340\226\215Ph\306 %\352\\^\236\000\240I\203\027+\001\020\244\\\003\212I'\002@\343\272u\212\244\350\235\204\017\351\206\344M\256\200\371\300\020\013\327P\272o\203\036\223\027\263\343\361\331p\366\312\001'\215\324\217~\372\260[p\0375\te\371\\\002^\300@\006Oyh\344\200\255a\265+Z?\304[\350\311M\305H\233 \002\212[\005F^o\361\215\332f\306w\310\027\333E\220c<hZ\336|\212Z\331]x\014";
-    PyObject *data = __Pyx_DecompressString(cstring, 648, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{38},{44},{44},{49},{31},{42},{11},{179},{1},{1},{1},{8},{6},{4},{7},{6},{15},{22},{2},{3},{9},{12},{60},{44},{9},{20},{9},{18},{1},{6},{5},{12},{2},{5},{6},{8},{10},{8},{11},{7},{3},{11},{14},{12},{4},{9},{10},{17},{13},{11},{7},{12},{10},{12},{19},{8},{6},{5},{1},{109},{78},{71}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (647 bytes) */
+const char* const cstring = "(\265/\375`\303\003\355\023\0006\250m\" q\333a\365\246\244\264i<\013~\013mAQ\034\304\005\335RdpX\330\313\240\331(\000$ \035\001b\000c\000b\000\030\255}u\333\360Z\205\316\330l\362\021\004\276N\036\367Y\205\003\375\033\343n_\333$\275>\276L!s\361\200\373\232\330Z\212\317\032\325z\014b\331W\227\273\332\243\376X\244ky}\034s\026\334\177\r\273\177E\326\350:\301O\213\3210\\\030f\037u\255\330\013\261\004\267\301\367\367 sx\202\261z\017\030\250\360p\240\332O\333*\213\014\001\370\350\335\325\250\263b ]\250\020\340k\247R\352\26040\353K'\220=.\304\237\326\261\302E\322\334\242\317f\374\372\254[\027\374u\354\235\274?\252\335\306\307\"t(\220\361m\321c\363/~\r:\014}\335u\245\3469\372:T\255x\220p0\020\221\210`\273\375\304\356=)\233\356]O\261\314f}2\375\331g\305\231\373\372\376+\311T\224\244\315&u\237\315\271\315\231\316Z|e+\362\023GT\242H&\344\3418\366\331i8\270\376\020\242v\203\227\362ss?\2244/J\342\206\2169\021\324w\0135K\270\r&t\337\030g\255\243r\306\215I\2220\333\254\002\231cXa'\373\250s\022\340\241\230A\010\251\010\331\324i\000<.\036\034\002\030\221\221K\254\010\n0\032\200\307\322f,\200\224\264\351\230s\213\220\220\032\244K\234\3467\226\236{GHsV\331\230\202\020\007~s\305\367-\2052\337\367\177=uV\375z\246gV6enz*j\245\353\226\276\214F\037j\231\2155\247\315\327v\353$R( \002\302\314\251\353\006\362\340\\\230\031\217\214\266\354\372o\003I\022\373\305\2222\t\206\004\320\335\340\n\0021J\030\240\021#E{$Sh\34446c\030\217[\257\221K%@\020\306\330cF\340\226\215Ph\306 %\352\\^\236\000\240I\203\027+\001\020\244\\\003\212I'\002@\343\272u\212\244\350\235\204\017\351\206\344M\256\200\371\300\020\013\327P\272o\203\036\223\027\263\343\361\331p\366\312\001'\215\324\217~\372\260[p\0375\te\371\\\002^\300@\006Oyh\344\200\255a\265+Z?\304[\350\311M\305H\233 \002\212[\005F^o\361\215\332f\306w\310\027\333E\220c<hZ\336|\212Z\331]x\014";
+    PyObject *data = __Pyx_DecompressString(cstring, 647, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (718 bytes) */
-const char* const cstring = "BZh91AY&SY[\325\333\333\000\000\014\337\200@\000`\367vO\257!Q\000\277\377\377\360@\002\252v\223aX\302Q\004\230FL\312b\236\246e2h4dhh\320\032\010\320&I=&\233)\350\200\000\006\201\246\206\000\000\000\000h4\001\240\032\001)\244\002\022mO\022=M#\365\0011\006\203F\2323\314\221\024\336\033\376~\277\\\274\2324\365\346\337\210+x8\032\255\2774^\2178\364~\210\263%\346\202\031J\234\026\237\263-&\324$\034\030U\205\240\274wD-nTH\210n\204\262Z\024\r\363=\r\212\305d\3641\306\307\206\022\366K\312iL\"hw\353\364\253\267h1\017\r\314Lk\303uUM\025\032\234\344\231\322.\266\276\016\250\tUX\365\233\213\032\253w\240\304M]\013\230O\315*b\340o\223\263m6Ikh\025X7J\366\201u\364\205\017\352\365\365\3569\t\227\n\227\270!\363\305\022\200!\023\201\202A\240\"YX\353*G\334\367\266\377Y\370/\336\272\000Q\226\001O\004\264\353\302|3\025\202\214\374\315b\024#j\346\010\213\315\277Wq\364\364l\r\3344,i\304o\310B\r\007Qh\3560o\265cW\217\021Z\255\020\222L!\300\351D'\034v\035%\273\346t\"\016\355Y\254fW\343B\324fz\023\225\0273\030<?\004\n2z\231\231\204Cs\206Ad:\200\315\311\006:\374<\244\375\370\272\250\370\213]6uQ\356\305\322\3035+[\036^\340\212\366\255\017\273\254\347Y\364\2170\001v\352\237\205\231\3556>\272\237\002j\014\343\211\204\215\321n\036\316\214\016[w\215\336\265\273\256W\227\357\360\337\226\346b\303w<RX\245Iq\337~\303k\241\322\216T\332\3039\245\220\204P\2365\013\010\215:!\r\014rQ\006\331\004\242\343\363\212\203\2118\245j\300\024\336t\315\313\224\232!\024\247\026\234\263i6C\246$0\224\312\005\217\217\010\033u\005\004\312\021\234\242X0\245\014\336]T\262\314\363^\253\256F\255\201\tL\212\221.\265\305\366\014n\331\244\204c\377\265WB\311^cB\340\251y\205\314JL\201Y\332\r\014\237d\310\252\334\327Q\3330V\200@\305c\322\315P#*\210\034\266\352B~Q,\3110\027\250\010\360\3726,\266\216q\332\240Na\320$Pz\014\tjEV].K\001x\013\n\276\262!\000\023\014\n\300+\356(\024!^\021\030\225\305\350@DW\242,\351\215n\017'\005\032Kv\2668\325'\231l\025\021R\302\277fg\256\222\341\333d\270[\321;\351\377\027rE8P\220[\325\333\333";
-    PyObject *data = __Pyx_DecompressString(cstring, 718, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (723 bytes) */
+const char* const cstring = "BZh91AY&SY)\317\335\373\000\000\014\337\200@\000`\367vO\257!Q\000\277\377\377\360@\002\252wv\235\205c\tD\022z\021\223\032\230\247\251\231L\232\r\031\032\0324\006\202\032\002H\362#i\2414\000\001\220\032\rL\211\246\243\324\320\000`@\321\220\3024m@Jj\000\211\251\265=\010\364#\324\r\000\000\032\0172DSxo\371\372\375r\362h\323\327\233~,V\360p5[~h\275\036q\350\375\021fK\265\220\312T\342\264\374\231`p\241 \343\001h\013\231s\326!mUD\210m\355,V\204\306\371^\206\305b\262i\330\343c\303\010vC\224\2600\211\241\337\257\322\256\335\240\304<711\253\r\324\323,Tjs\222WH\272\332\373\035H\020Uc\326^,j\255\336\203\0215t.a7\027\005/\240\021L\331I\222X\325\344\326f\332\267\274\266\331\276g\342\373\373\3528\t\026\017<\212\006S0\315\240\032\020\240A\0062\203<iYA\201\254\260\234\267U\206\204\373\330\320\003\021\324\006\3563\317\272\260\321\2009\000\304\234\305 \254\035(\340\001\207$\013|\365p\340U.\325\244\251\247`\336\300\367\263\334\240\320\270\314\336T\205\035\r\202\255\032\001\024\230D\001\322\210N8\353:K\177\t\320\210;\265f\261\231f\323B\320f|\211\251\027#\027\274>\364\n1z\231\231\204Cs\206!d:\200\311\310\320;|<\244\377\335.\262>\"\352\316\016\246=\330\272\026f\241jc\313\334\021^\325\235\367u\230\3536\221\346\000.\335Sp\257=\246\307\303\023\220\222{8p\230H\272\r\253{\221\230\341\256\341\267,l\347\215\245\271\3733\341s1Q\272\235\004\225\351N;3\333\220\330\3516\243\2056/\321$\260\020\211\222\276\201Q\020\236\267\277I~\n\000\331 \214\034;\214S\034$\341F\264x):S\320\342\305\026\200A)A\245\035\r\026\300rb#\tH\230T\345\324\363.`\230\331Y\031\211\341c\n\020\315\345\325J\353\317-\352\272\344j\326\026@\310\245\022\353\\_X\306\343\241$\"\377\352\321kX+K\346X\024-3X\304b\310\025\\\317g\340\354\224\221V\033kGk\275`\301\004\n\343\302\020\260\021\225\203\034\266hB~1,\211/\031\224\004x}!\246\013tr\216\305\002s\016bE\007\310`KB*\301pr\\\006`\025\254\373H\203\000\227\336W\000\257\25113[\214F\222\251z\020\021\026\335\030:c\235\301\344\340\237In\326\307\032d\363-\261Q\025+*\366fz\250.\035\266K\205\275\023""\276\217\361w$S\205\t\002\234\375\337\260";
+    PyObject *data = __Pyx_DecompressString(cstring, 723, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (628 bytes) */
-const char* const cstring = "x\332\215TMo\3330\014\355O\341NI\212\314\350\206\026\030\260/\024\355\n\354R\004;\364*\320\022\235\250\221%O\242\322\244\277~\224\354\246)\260C\rX\246\245G\362\361\2216\\gc\303\235\355\002\36491\264\004k\273#\017\350a<\212\330S\323\034a3\010\355#i\206\r&\360\001\2209\33263\301\254\013\261G\236\275\013\353\360\020\362;\261\t\373\301\221\212\3104\273\t\331\0319g@\347\202\226-\270~8\006i*[0\201R\305\010\035\275\201\327\022\007,\347L1\215\310f\340\004\363\373 Qx\203\0147\007\336\004\0176\201!g[*)\335\001\222P\321\342U@\036V\277V\037/\277\\\212B\006\"\025\316\tRn\265\303\224$o\350\240\315\326\261\365\300\207\201R\003\277;\220b\301\023\031\340B\"\275q\340\215\310\235\210\213\0013\364B\034\331\006\257\304\335\372\365\014\214\215\222D\272R\274\357\320%j~\314~\2421\312\027\346\302\373b\377\rw\215\261\t[G\344\313\272\200\017\337\201\366\203xJ\332\371\342+tv\017!\216\231\002\334\007O\315Zo\236\245\332\321\303\300(t-!\221\353D\235\010\272\022*s\241\203\337Q\344\261\010\204\325\250\325\3245\351=\014Vo\2350\206\354\255\267l\321\331g2K\310\211$\271t\347)Z\246yW\224_,G\336\307\336(\265:\354\345\276\025\245\325=\355\371\017uJU\215\312\303zRV$\211\250\251E\2755\343\260\325XJ\255\211\223\210&\2265\222\242O\343x)\325\2438\311\325\007\223e\204\344\362\325\301\267JK/=\271$3Q\250\016aPj\020\nS\240b\356\270\350R\274\376ft\243g$4\345\226\320\376P^M\326\0252Y\272\312r\262A{\245N&x\322X\366\210'2b\031\3520;\256\366D\340\304~\215)\376\002\332\241\313\224\252\232{\353\031\346\262,\241XS\t[;(\231\206\241\214\377\262\214o\326/ga`\205q\235\324g\334\251+\2121D%\253\310Az\013\347G\220\014 \272\212\\\234\035\317\337Fj\037k\220O\027FzV\360Q\004\271=\332p>\277~8}]\234=E,\304^\266\376\033\356\n\313H\250\253\261\265\257\377 \t\267\013\326,\316\352\207\257FT\005\375\003\310,\311\224";
+const char* const cstring = "x\332\215TMo\3330\014\355O\341NI\212\314\350\206\026\030\260/\024\355\n\354R\004;\364*\320\022\235\250\221%O\242\322\244\277~\224\354\246)\260C\rX\246\245G\362\361\2216\\gc\303\235\355\002\36491\264\004k\273#\017\350a<\212\330S\323\034a3\010\355#i\206\r&\360\001\2209\33263\301\254\013\261G\236\275\013\353\360\020\362;\261\t\373\301\221\212\3104\273\t\331\0319g@\347\202\226-\270~8\006i*[0\201R\305\010\035\275\201\327\022\007,\347L1\215\310f\340\004\363\373 Qx\203\0147\007\336\004\0176\201!g[*)\335\001\222P\321\342U@\036V\277V\037/\277\\\212B\006\"\025\316\tRn\265\303\224$o\350\240\315\326\261\365\300\207\201R\003\277;\220b\301\023\031\340B\"\275q\340\215\310\235\210\213\0013\364B\034\331\006\257\304\335\372\365\014\214\215\222D\272R\274\357\320%j~\314~\2421\312\027\346\302\373b\377\rw\215\261\t[G\344\313\272\200\017\337\201\366\203xJ\332\371\342+tv\017!\216\231\002\334\007O\315Zo\236\245\332\321\303\300(t-!\221\353D\235\010\272\022*s\241\203\337Q\344\261\010\204\325\250\325\3245\351=\014Vo\2350\206\354\255\267l\321\331g2K\310\211$\271t\347)Z\246yW\224_,G\336\307\336(\265:\354\345\276\025\245\325=\355\371\017uJU\215\312\303zRV$\211\250\251E\2755\343\260\325XJ\255\211\223\210&\2265\222\242O\343x)\325\2438\311\325\007\223e\204\344\362\325\301\267JK/=\271$3Q\250\016aPj\020\nS\240b\356\270\350R\274\376ft\243g$4\345\226\320\376P^M\326\0252Y\272\312r\262A{\245N&x\322X\366\210'2b\031\3520;\256\366D\340\304~\215)\376\002\332\241\313\224\252\232{\353\031\346\262,\241XS\t[;(\231\206\241\214\377\262\214o\326/ga`\205q\235\324g\334\251+\2121D%\253\310Az\013\347G\220\014 \272\212\\\234\035\317\337Fj\037k\220O\027FzV\360\361\240n\217&\234\317\257\037N_\027gO\021\013\257\227\255\377F\273\3022\021\352j\354\354\353/H\302\355\2025\213\263\372\335\253\021UA\377\000\376m\3115";
     PyObject *data = __Pyx_DecompressString(cstring, 628, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1220 bytes) */
-const char* const bytes = " AudioFifo must be given an AudioFrame..AudioFifo' object has no attribute 'format'.AudioFifo' object has no attribute 'layout'.AudioFifo' object has no attribute 'sample_rate'Could not allocate AVAudioFifo.Frame does not match AudioFifo parameters.Frame.pts (Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.>'?add_note at 0x<av.disableenable) != expected (); fix or set to None.gchz isenabled samples of self.ptr cannot be converted to a Python object for pickling uninitialized, use fifo.write(frame), at 0xAudioFifo__Pyx_PyDict_NextRef__class__cline_in_tracebackdformatframe__getstate__iditemslayout__main____module____name__nb_channelspartialpop__pyx_state__pyx_vtable____qualname__readread_many__reduce____reduce_cython____reduce_ex__sample_ratesamples__set_name__setdefault__setstate____setstate_cython____test__valueswritexint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary__Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_frame";
+    #else /* compression: none (1219 bytes) */
+const char* const bytes = " AudioFifo must be given an AudioFrame..AudioFifo' object has no attribute 'format'.AudioFifo' object has no attribute 'layout'.AudioFifo' object has no attribute 'sample_rate'Could not allocate AVAudioFifo.Frame does not match AudioFifo parameters.Frame.pts (Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.>'?add_note at 0x<av.disableenable) != expected (); fix or set to None.gchz isenabled samples of self.ptr cannot be converted to a Python object for pickling uninitialized, use fifo.write(frame), at 0xAudioFifo__Pyx_PyDict_NextRef__class__cline_in_tracebackdformatframe__getstate__iditemslayout__main____module____name__nb_channelspartialpop__pyx_state__pyx_vtable____qualname__readread_many__reduce____reduce_cython____reduce_ex__sample_ratesamples__set_name__setdefault__setstate____setstate_cython____test__valueswritexint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_frame";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif

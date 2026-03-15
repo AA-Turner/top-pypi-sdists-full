@@ -5,8 +5,6 @@
 # See the file LICENSE for copying permission.
 import logging
 
-from typing import Optional
-
 from slixmpp import JID
 from slixmpp.stanza.iq import Iq
 from slixmpp.xmlstream import register_stanza_plugin
@@ -75,7 +73,7 @@ class XEP_0202(BasePlugin):
         iq['entity_time']['time'] = self.local_time(iq['to'])
         iq.send()
 
-    def get_entity_time(self, to: JID, ifrom: Optional[JID] = None, **iqargs):
+    def get_entity_time(self, to: JID, ifrom: JID | None = None, **iqargs):
         """
         Request the time from another entity.
 

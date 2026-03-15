@@ -532,7 +532,7 @@ class AgentTemplateBuilder:
         has_core_tools = len(agent_tools.intersection(core_tools)) >= 5
 
         # Include tools field only if agent is clearly restricted (missing core tools or very few tools)
-        not has_core_tools or len(agent_tools) < 6
+        _include_tools = not has_core_tools or len(agent_tools) < 6
 
         # Build YAML frontmatter with all relevant metadata from JSON template
         # Include all fields that are useful for agent management and functionality
@@ -565,7 +565,7 @@ class AgentTemplateBuilder:
 
         # Add type field (important for agent categorization)
         if agent_type and agent_type != "general":
-            frontmatter_lines.append(f"type: {agent_type}")
+            frontmatter_lines.append(f"agent_type: {agent_type}")
 
         # Add optional metadata fields
         if metadata.get("color"):

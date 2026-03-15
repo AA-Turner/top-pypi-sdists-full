@@ -1,5 +1,4 @@
 import datetime
-from typing import Optional
 
 from slixmpp import ElementBase, Iq, register_stanza_plugin
 
@@ -38,7 +37,7 @@ class VCard4(_VCardElementBase):
     def get_birthday(self):
         return self["bday"]["date"]
 
-    def add_tel(self, number: str, name: Optional[str] = None):
+    def add_tel(self, number: str, name: str | None = None):
         tel = Tel()
         if name:
             tel["parameters"]["type_"]["text"] = name
@@ -46,7 +45,7 @@ class VCard4(_VCardElementBase):
         self.append(tel)
 
     def add_address(
-        self, country: Optional[str] = None, locality: Optional[str] = None
+        self, country: str | None = None, locality: str | None = None
     ):
         adr = Adr()
         if locality:

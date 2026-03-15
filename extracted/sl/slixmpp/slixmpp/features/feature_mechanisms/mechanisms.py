@@ -14,7 +14,7 @@ from slixmpp.xmlstream.matcher import MatchXPath
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.features.feature_mechanisms import stanza
 
-from typing import ClassVar, Set
+from typing import ClassVar
 
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class FeatureMechanisms(BasePlugin):
 
     name = 'feature_mechanisms'
     description = 'RFC 6120: Stream Feature: SASL'
-    dependencies: ClassVar[Set[str]] = set()
+    dependencies: ClassVar[set[str]] = set()
     stanza = stanza
     default_config = {
         'use_mech': None,

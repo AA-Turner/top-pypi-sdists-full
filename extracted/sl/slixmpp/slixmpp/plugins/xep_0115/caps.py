@@ -9,7 +9,6 @@ import base64
 
 from asyncio import Future, Lock
 from collections import defaultdict
-from typing import Optional
 
 from slixmpp import __version__
 from slixmpp.stanza import StreamFeatures, Presence, Iq
@@ -295,7 +294,7 @@ class XEP_0115(BasePlugin):
         return base64.b64encode(binary).decode('utf-8')
 
     async def update_caps(self, jid: OptJidStr = None,
-                          node: Optional[str] = None,
+                          node: str | None = None,
                           preserve: bool = False,
                           broadcast: bool = True):
         """Update caps for a local JID based on current data.

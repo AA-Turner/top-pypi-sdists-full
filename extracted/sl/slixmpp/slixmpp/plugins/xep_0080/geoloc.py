@@ -5,7 +5,7 @@
 # See the file LICENSE for copying permission.
 import logging
 from asyncio import Future
-from typing import Optional, Callable
+from typing import Callable
 
 from slixmpp import JID
 from slixmpp.plugins.base import BasePlugin
@@ -91,9 +91,9 @@ class XEP_0080(BasePlugin):
             timeout=timeout,
         )
 
-    def stop(self, ifrom: Optional[JID] = None,
-             callback: Optional[Callable] = None,
-             timeout: Optional[int] = None) -> Future:
+    def stop(self, ifrom: JID | None = None,
+             callback: Callable | None = None,
+             timeout: int | None = None) -> Future:
         """
         Clear existing user location information to stop notifications.
         """

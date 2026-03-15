@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 from slixmpp.plugins import BasePlugin
 from slixmpp.stanza import Message
@@ -41,8 +41,8 @@ class XEP_0385(BasePlugin):
         self,
         path: Path,
         uris: Iterable[str],
-        media_type: Optional[str],
-        desc: Optional[str],
+        media_type: str | None,
+        desc: str | None,
     ):
         sims = stanza.Sims()
         for uri in uris:

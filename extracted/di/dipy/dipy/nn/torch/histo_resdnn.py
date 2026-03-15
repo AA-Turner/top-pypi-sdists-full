@@ -1,8 +1,6 @@
 #!/usr/bin/python
 """Class and helper functions for fitting the Histological ResDNN model."""
 
-import logging
-
 import numpy as np
 
 from dipy.core.gradients import get_bval_indices, unique_bvals_magnitude
@@ -11,6 +9,7 @@ from dipy.data import get_fnames, get_sphere
 from dipy.nn.utils import set_logger_level
 from dipy.reconst.shm import sf_to_sh, sh_to_sf, sph_harm_ind_list
 from dipy.testing.decorators import doctest_skip_parser
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 
 torch, have_torch, _ = optional_package("torch", min_version="2.2.0")
@@ -21,17 +20,24 @@ else:
     class Module:
         pass
 
-    logging.warning(
+    logger.warning(
         "This model requires Pytorch.\
                     Please install these packages using \
                     pip."
     )
 
-logging.basicConfig()
-logger = logging.getLogger("histo_resdnn")
-
 
 class DenseModel(Module):
+    """Deep Neural Network model with several linear layers.
+
+    Parameters
+    ----------
+    sh_size : int
+        Size of the input spherical harmonics.
+    num_hidden : int
+        Number of units in the hidden layers.
+    """
+
     def __init__(self, sh_size, num_hidden):
         super(DenseModel, self).__init__()
         self.fc1 = Linear(sh_size, 400)
@@ -42,6 +48,18 @@ class DenseModel(Module):
         self.fc6 = Linear(200, num_hidden)
 
     def forward(self, x):
+        """Forward pass of the model.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        torch.Tensor
+            Output tensor.
+        """
         x1 = torch.relu(self.fc1(x))
         x2 = torch.relu(self.fc2(x1))
         x3 = torch.relu(self.fc3(x2))

@@ -22,7 +22,6 @@
     SOFTWARE.
 
 """
-import datetime
 import math
 import os
 import sys
@@ -166,7 +165,7 @@ class tools:
         dealsFileSize = os.stat(dealsFile).st_size if os.path.exists(dealsFile) else 0
         if dealsFileSize > 0:
             modifiedDateTime = Archiver.get_last_modified_datetime(dealsFile)
-            curr = datetime.datetime.now(pytz.timezone("Asia/Kolkata"))
+            curr = datetime.now(pytz.timezone("Asia/Kolkata"))
             shouldFetch = modifiedDateTime.date() < curr.date()
         else:
             shouldFetch = True

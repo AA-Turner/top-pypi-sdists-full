@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 3.1.0
+Version: 3.1.1
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -46,7 +46,7 @@ Requires-Dist: prefab-ui>=0.6.0; extra == 'apps'
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.16.0; extra == 'azure'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty>=0.0.7; extra == 'code-mode'
+Requires-Dist: pydantic-monty<0.0.8,>=0.0.7; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Provides-Extra: openai

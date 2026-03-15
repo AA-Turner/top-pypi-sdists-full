@@ -14,7 +14,9 @@ from dipy.viz.horizon.tab import (
     build_switcher,
 )
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if has_fury:
     from fury import colormap
@@ -415,6 +417,21 @@ class SlicesTab(HorizonTab):
 
         if not self._volume.obj.value == volume:
             self._volume.obj.value = volume
+
+    def _toggle_actors(self, checkbox):
+        """Toggle the opacity of the slice actor and slider.
+
+        Parameters
+        ----------
+        checkbox : CheckBox2D
+            FURY checkbox UI element.
+        """
+        if "" in checkbox.checked_labels:
+            self.show(self._slice_opacity.obj)
+        else:
+            self.hide(self._slice_opacity.obj)
+
+        super()._toggle_actors(checkbox)
 
     def build(self, tab_id):
         """Build all the elements under the tab.

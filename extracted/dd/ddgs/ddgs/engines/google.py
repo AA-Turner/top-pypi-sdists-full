@@ -12,34 +12,26 @@ random = SystemRandom()
 
 def get_ua() -> str:
     """Return one random User-Agent string."""
-    patterns = [
-        "Opera/9.80 (J2ME/MIDP; Opera Mini/{v}/{b}; U; {l}) Presto/{p} Version/{f}",
-        "Opera/9.80 (Android; Linux; Opera Mobi/{b}; U; {l}) Presto/{p} Version/{f}",
-        "Opera/9.80 (iPhone; Opera Mini/{v}/{b}; U; {l}) Presto/{p} Version/{f}",
-        "Opera/9.80 (iPad; Opera Mini/{v}/{b}; U; {l}) Presto/{p} Version/{f}",
-    ]
-    mini_versions = ["4.0", "5.0.17381", "7.1.32444", "9.80"]
-    mobi_builds = ["27", "447", "ADR-1011151731"]
-    builds = ["18.678", "24.743", "503"]
-    prestos = ["2.6.35", "2.7.60", "2.8.119"]
-    finals = ["10.00", "11.10", "12.16"]
-    langs = ["en-US", "en-GB", "de-DE", "fr-FR", "es-ES", "ru-RU", "zh-CN"]
-    fallback = "Opera/9.80 (iPad; Opera Mini/5.0.17381/503; U; eu) Presto/2.6.35 Version/11.10"
-
-    try:
-        p = random.choice(patterns)
-        vals = {
-            "l": random.choice(langs),
-            "p": random.choice(prestos),
-            "f": random.choice(finals),
-        }
-        if "{v}" in p:
-            vals["v"] = random.choice(mini_versions)
-        if "{b}" in p:
-            vals["b"] = random.choice(mobi_builds) if "Opera Mobi" in p else random.choice(builds)
-        return p.format(**vals)
-    except Exception:  # noqa: BLE001
-        return fallback
+    # iOS version to GSA version mapping based on the provided user agents
+    os_gsa_map = {
+        "17_4": ["315.0.630091404", "317.0.634488990"],
+        "17_6_1": ["411.0.879111500"],
+        "18_1_1": ["411.0.879111500"],
+        "18_2": ["173.0.391310503"],
+        "18_6_2": ["397.0.836500703", "399.2.845414227", "410.0.875971614", "411.0.879111500"],
+        "18_7_2": ["411.0.879111500"],
+        "18_7_5": ["411.0.879111500"],
+        "18_7_6": ["411.0.879111500"],
+        "26_1_0": ["411.0.879111500"],
+        "26_2_0": ["396.0.833910942", "409.0.872648028", "411.0.879111500"],
+        "26_2_1": ["409.0.872648028", "411.0.879111500"],
+        "26_3_0": ["406.0.862495628", "410.0.875971614", "411.0.879111500"],
+        "26_3_1": ["370.0.762543316", "404.0.856692123", "408.0.868297084", "410.0.875971614", "411.0.879111500"],
+        "26_4_0": ["411.0.879111500"],
+    }
+    os_version = random.choice(list(os_gsa_map.keys()))
+    gsa_version = random.choice(os_gsa_map[os_version])
+    return f"Mozilla/5.0 (iPhone; CPU iPhone OS {os_version} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/{gsa_version} Mobile/15E148 Safari/604.1"  # noqa: E501
 
 
 class Google(BaseSearchEngine[TextResult]):
@@ -53,11 +45,11 @@ class Google(BaseSearchEngine[TextResult]):
     search_method = "GET"
     headers_update: ClassVar[dict[str, str]] = {"User-Agent": get_ua()}
 
-    items_xpath = "//div[div[@data-hveid]//div[h3]]"
+    items_xpath = "//div[@data-snc]"
     elements_xpath: ClassVar[Mapping[str, str]] = {
-        "title": ".//h3//text()",
+        "title": ".//div[@role='link']//text()",
         "href": ".//a/@href",
-        "body": "./div/div/div[2]//text()",
+        "body": "./div[@data-sncf]//text()",
     }
 
     def build_payload(
@@ -91,5 +83,6 @@ class Google(BaseSearchEngine[TextResult]):
         for result in results:
             if result.href.startswith("/url?q="):
                 result.href = result.href.split("?q=")[1].split("&")[0]
-            post_results.append(result)
+            if result.title and result.href.startswith("http"):
+                post_results.append(result)
         return post_results

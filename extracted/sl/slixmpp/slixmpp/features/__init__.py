@@ -9,5 +9,6 @@ __all__ = [
     'feature_bind',
     'feature_session',
     'feature_rosterver',
-    'feature_preapproval'
+    'feature_preapproval',
+    'feature_limits',
 ]

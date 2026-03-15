@@ -129,7 +129,6 @@ endif
 inc_np = include_directories(incdir_numpy)
 np_dep = declare_dependency(include_directories: inc_np)
 
-
 # npymath_path = _incdir_numpy_abs / '..' / 'lib'
 # npyrandom_path = _incdir_numpy_abs / '..' / '..' / 'random' / 'lib'
 # npymath_lib = cc.find_library('npymath', dirs: npymath_path)
@@ -140,19 +139,56 @@ np_dep = declare_dependency(include_directories: inc_np)
 # ------------------------------------------------------------------------
 omp = dependency('openmp', required: false)
 if not omp.found() and meson.get_compiler('c').get_id() == 'clang'
-  # Check for libomp (OpenMP) using Homebrew
-  brew = find_program('brew', required : false)
-  if brew.found()
-    output = run_command(brew, 'list', 'libomp', check: true)
-    output = output.stdout().strip()
-    if output.contains('/libomp/')
-      omp_prefix = fs.parent(output.split('\n')[0])
-      message('OpenMP Found: YES (Manual search) - ', omp_prefix)
-      omp = declare_dependency(compile_args : ['-Xpreprocessor', '-fopenmp'],
-                               link_args : ['-L' + omp_prefix + '/lib', '-lomp'],
-                               include_directories : include_directories(omp_prefix / 'include')
-                              )
+  # Check for libomp (OpenMP) - prioritize conda environment to avoid conflicts
+  conda_prefix = run_command('sh', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
+
+  # First, try conda environment if available
+  if conda_prefix != '' and fs.is_dir(conda_prefix / 'lib')
+    omp_lib = conda_prefix / 'lib'
+    omp_inc = conda_prefix / 'include'
+    if fs.exists(omp_lib / 'libomp.dylib') or fs.exists(omp_lib / 'libomp.a')
+      message('OpenMP Found: YES (conda environment) - ', conda_prefix)
+      omp = declare_dependency(
+        compile_args : ['-Xpreprocessor', '-fopenmp'],
+        link_args : ['-L' + omp_lib, '-lomp'],
+        include_directories : include_directories(omp_inc)
+      )
     endif
+  endif
+
+  # Fallback to Homebrew if conda not found or doesn't have libomp
+  if not omp.found()
+    brew = find_program('brew', required : false)
+    if brew.found()
+      prefix_result = run_command(brew, '--prefix', 'libomp', check: false)
+      if prefix_result.returncode() == 0
+        omp_prefix = prefix_result.stdout().strip()
+        if fs.exists(omp_prefix / 'lib' / 'libomp.dylib')
+          message('OpenMP Found: YES (Homebrew) - ', omp_prefix)
+          omp = declare_dependency(
+            compile_args : ['-Xpreprocessor', '-fopenmp'],
+            link_args : ['-L' + omp_prefix + '/lib', '-lomp'],
+            include_directories : include_directories(omp_prefix / 'include')
+          )
+        endif
+      endif
+    endif
+  endif
+
+  # Final fallback: check standard system paths (e.g. pre-built tarballs from
+  # https://mac.r-project.org/openmp/ install libomp.dylib to /usr/local/lib)
+  if not omp.found()
+    foreach omp_prefix : ['/usr/local', '/opt/local']
+      if fs.exists(omp_prefix / 'lib' / 'libomp.dylib')
+        message('OpenMP Found: YES (system path) - ', omp_prefix)
+        omp = declare_dependency(
+          compile_args : ['-Xpreprocessor', '-fopenmp'],
+          link_args : ['-L' + omp_prefix + '/lib', '-lomp'],
+          include_directories : include_directories(omp_prefix / 'include')
+        )
+        break
+      endif
+    endforeach
   endif
 endif
 
@@ -198,9 +234,9 @@ if host_cpu_family in ['x86', 'x86_64']
   x86_intrinsics = []
   if cc.get_id() == 'msvc'
     x86_intrinsics = [
-      [ 'AVX', 'immintrin.h', '__m256', '_mm256_setzero_ps()', ['/ARCH:AVX'] ],
-      [ 'AVX2', 'immintrin.h', '__m256i', '_mm256_setzero_si256()', ['/ARCH:AVX2'] ],
-      [ 'AVX512', 'immintrin.h', '__m512', '_mm512_setzero_si512()', ['/ARCH:AVX512'] ],
+      [ 'AVX', 'immintrin.h', '__m256', '_mm256_setzero_ps()', ['/arch:AVX'] ],
+      [ 'AVX2', 'immintrin.h', '__m256i', '_mm256_setzero_si256()', ['/arch:AVX2'] ],
+      [ 'AVX512', 'immintrin.h', '__m512', '_mm512_setzero_si512()', ['/arch:AVX512'] ],
     ]
   else
     x86_intrinsics = [

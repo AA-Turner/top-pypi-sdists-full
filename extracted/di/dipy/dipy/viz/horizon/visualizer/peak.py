@@ -1,12 +1,15 @@
-from os.path import join as pjoin
+from pathlib import Path
 import warnings
 
 import numpy as np
 
 from dipy.testing.decorators import warning_for_keywords
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.9.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 if has_fury:
     from fury.colormap import colormap_lookup_table
     from fury.lib import (
@@ -170,11 +173,11 @@ class PeakActor(Actor):
             uniform vec3 lowRanges;
             uniform vec3 highRanges;
             """
-        orient_to_rgb = import_fury_shader(pjoin("utils", "orient_to_rgb.glsl"))
+        orient_to_rgb = import_fury_shader(Path("utils") / "orient_to_rgb.glsl")
         visible_cross_section = import_fury_shader(
-            pjoin("interaction", "visible_cross_section.glsl")
+            Path("interaction") / "visible_cross_section.glsl"
         )
-        visible_range = import_fury_shader(pjoin("interaction", "visible_range.glsl"))
+        visible_range = import_fury_shader(Path("interaction") / "visible_range.glsl")
 
         vs_dec = compose_shader([vs_var_dec, orient_to_rgb])
         fs_dec = compose_shader([fs_var_dec, visible_cross_section, visible_range])
@@ -517,11 +520,27 @@ def _points_to_vtk_cells(points, *, points_per_line=2):
 
 
 class PeaksVisualizer:
-    def __init__(self, pam, world_coords):
+    def __init__(self, pam, world_coords, fname):
         self._peak_dirs, self._affine = pam
         if world_coords:
+            np.set_printoptions(3, suppress=True)
+            fname = Path(fname).name if fname is not None else ""
+            logger.info(f"-------------------{len(fname) * '-'}")
+            logger.info(f"Applying affine to {fname}")
+            logger.info(f"-------------------{len(fname) * '-'}")
+            logger.info(f"Affine Native to RAS matrix \n{self._affine}")
+            self._data_shape = self._peak_dirs.shape[:3]
+            logger.info(f"Original shape: {self._data_shape}")
             self._peak_actor = peak(self._peak_dirs, affine=self._affine)
+            self._data_shape = tuple(self._peak_actor.max_centers)
+            logger.info(f"Resized to RAS shape: {self._data_shape} \n")
+            np.set_printoptions()
         else:
+            logger.info(f"------------{len(fname) * '-'}")
+            logger.info(f"Visualizing {fname}")
+            logger.info(f"------------{len(fname) * '-'}")
+            self._data_shape = self._peak_dirs.shape[:3]
+            logger.info(f"Original shape: {self._data_shape}")
             self._peak_actor = peak(self._peak_dirs)
 
     @property

@@ -1,1 +1,0 @@
-import{J as o}from"./index.xBaIe2Cx.js";const i={[o.ButtonLikeIconPosition.LEFT]:"left",[o.ButtonLikeIconPosition.RIGHT]:"right"};function r(t){return i[t??o.ButtonLikeIconPosition.LEFT]}export{r as m};

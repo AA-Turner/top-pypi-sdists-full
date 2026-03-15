@@ -13,13 +13,9 @@ import logging
 
 from asyncio import Future
 from typing import (
-    Dict,
     Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
     TYPE_CHECKING,
+    TypedDict
 )
 
 from slixmpp.stanza import Iq
@@ -30,11 +26,6 @@ from slixmpp.xmlstream import register_stanza_plugin, JID
 from slixmpp.plugins.xep_0084.stanza import Data, MetaData, Pointer
 from slixmpp.plugins.xep_0084 import stanza
 
-try:
-    from typing import TypedDict
-except ImportError:
-    from typing_extensions import TypedDict
-
 
 class AvatarMetadataItem(TypedDict, total=False):
     bytes: int
@@ -44,11 +35,11 @@ class AvatarMetadataItem(TypedDict, total=False):
     width: int
     url: str
 
-MetadataItems = Union[
-    AvatarMetadataItem,
-    List[AvatarMetadataItem],
-    Set[AvatarMetadataItem]
-]
+MetadataItems = (
+    AvatarMetadataItem |
+    list[AvatarMetadataItem] |
+    set[AvatarMetadataItem]
+)
 
 
 log = logging.getLogger(__name__)
@@ -104,8 +95,8 @@ class XEP_0084(BasePlugin):
             **pubsubkwargs
         )
 
-    def publish_avatar_metadata(self, items: Optional[MetadataItems] = None,
-                                pointers: Optional[Iterable[Pointer]] = None,
+    def publish_avatar_metadata(self, items: MetadataItems | None = None,
+                                pointers: Iterable[Pointer] | None = None,
                                 **pubsubkwargs) -> Future:
         """Publish avatar metadata.
 

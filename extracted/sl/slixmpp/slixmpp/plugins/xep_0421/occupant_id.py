@@ -25,5 +25,13 @@ class XEP_0421(BasePlugin):
         register_stanza_plugin(Presence, OccupantId)
 
     async def has_feature(self, jid: JID, **discokwargs) -> bool:
+        """
+        Check if the remote JID supports Occupant-Id
+        This method can take all the additional kwargs that can be
+        provided to XEP-0030’s get_info.
+
+        :param jid: JID of the remote entity.
+        :returns: ``True`` if the server supports occupant-id.
+        """
         info = await self.xmpp['xep_0030'].get_info(jid, **discokwargs)
         return self.namespace in info.get_features()

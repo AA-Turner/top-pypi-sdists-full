@@ -1,5 +1,3 @@
-from typing import Optional
-
 from slixmpp.stanza import Message
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin
 from slixmpp.plugins.xep_0428.stanza import Fallback
@@ -13,7 +11,7 @@ class Reply(ElementBase):
     plugin_attrib = "reply"
     interfaces = {"id", "to"}
 
-    def add_quoted_fallback(self, fallback: str, nickname: Optional[str] = None):
+    def add_quoted_fallback(self, fallback: str, nickname: str | None = None):
         r"""
         Add plain text fallback for clients not implementing XEP-0461.
 
@@ -38,6 +36,9 @@ class Reply(ElementBase):
         msg.append(fallback_elem)
 
     def get_fallback_body(self) -> str:
+        """
+        Get the string containing the fallback body from the parent.
+        """
         msg = self.parent()
         for fallback in msg["fallbacks"]:
             if fallback["for"] == NS:
@@ -51,9 +52,12 @@ class Reply(ElementBase):
             return body[start:end]
         else:
             return ""
-        
+
     def strip_fallback_content(self) -> str:
-        msg = self.parent() 
+        """
+        Remove the fallback contents from the parent body.
+        """
+        msg = self.parent()
         for fallback in msg["fallbacks"]:
             if fallback["for"] == NS:
                 break

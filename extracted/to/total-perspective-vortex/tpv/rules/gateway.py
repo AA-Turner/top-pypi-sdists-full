@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 
 from galaxy.app import UniverseApplication
 from galaxy.jobs import JobDestination, JobWrapper
@@ -12,12 +12,13 @@ from galaxy.tools import Tool as GalaxyTool
 from galaxy.util import listify
 from galaxy.util.watcher import get_watcher
 
+from tpv.core.explain import ExplainCollector, ExplainPhase
 from tpv.core.loader import TPVConfigLoader
 from tpv.core.mapper import EntityToDestinationMapper
 
 log = logging.getLogger(__name__)
 
-JOB_YAML_CONFIG_TYPE = Union[List[Union[str, Dict[str, Any]]], str, Dict[str, Any]]
+JOB_YAML_CONFIG_TYPE = list[str] | list[str | dict[str, Any]] | str | dict[str, Any]
 
 ACTIVE_DESTINATION_MAPPERS: dict[str, EntityToDestinationMapper] = {}
 DESTINATION_MAPPER_LOCK = threading.Lock()
@@ -26,7 +27,7 @@ REFERRERS_BY_CONFIG_FILE: dict[str, dict[str, JOB_YAML_CONFIG_TYPE]] = defaultdi
 
 
 def load_destination_mapper(tpv_configs: JOB_YAML_CONFIG_TYPE, reload: bool = False) -> EntityToDestinationMapper:
-    tpv_config_list: List[Any] = listify(tpv_configs)
+    tpv_config_list: list[Any] = listify(tpv_configs)
     log.info(f"{'re' if reload else ''}loading tpv rules from: {tpv_configs}")
     loader = None
     for tpv_config in tpv_config_list:
@@ -56,11 +57,20 @@ def setup_destination_mapper(
                     app.config, "watch_job_rules", monitor_what_str="job rules"
                 )  # type: ignore[no-untyped-call]
 
-            def reload_destination_mapper(path: Optional[str]) -> None:
+            def reload_destination_mapper(path: str | None) -> None:
                 # reload all config files when one file changes to preserve order of loading the files
                 # watchdog on darwin notifies only once per file, so reload all mappers that refer to this file
                 for referrer, config_files in REFERRERS_BY_CONFIG_FILE[tpv_config_real_path].items():
-                    ACTIVE_DESTINATION_MAPPERS[referrer] = load_destination_mapper(config_files, reload=True)
+                    try:
+                        ACTIVE_DESTINATION_MAPPERS[referrer] = load_destination_mapper(config_files, reload=True)
+                    except Exception:
+                        log.warning(
+                            "Failed to reload mapper for referrer '%s' after file change at '%s' (event path: '%s')",
+                            referrer,
+                            tpv_config_real_path,
+                            path,
+                            exc_info=True,
+                        )
 
             WATCHERS_BY_CONFIG_FILE[tpv_config_real_path] = watcher
             REFERRERS_BY_CONFIG_FILE[tpv_config_real_path][referrer] = tpv_configs
@@ -90,14 +100,15 @@ def map_tool_to_destination(
     app: UniverseApplication,
     job: Job,
     tool: GalaxyTool,
-    user: Optional[GalaxyUser],
+    user: GalaxyUser | None,
     # the destination referring to the TPV dynamic destination, usually named "tpv_dispatcher"
-    referrer: Optional[JobDestination] = None,
-    tpv_config_files: Optional[JOB_YAML_CONFIG_TYPE] = None,
-    tpv_configs: Optional[JOB_YAML_CONFIG_TYPE] = None,
-    job_wrapper: Optional[JobWrapper] = None,
-    resource_params: Optional[Dict[str, Any]] = None,
-    workflow_invocation_uuid: Optional[str] = None,
+    referrer: JobDestination | None = None,
+    tpv_config_files: JOB_YAML_CONFIG_TYPE | None = None,
+    tpv_configs: JOB_YAML_CONFIG_TYPE | None = None,
+    job_wrapper: JobWrapper | None = None,
+    resource_params: dict[str, Any] | None = None,
+    workflow_invocation_uuid: str | None = None,
+    explain_collector: ExplainCollector | None = None,
 ) -> JobDestination:
     if tpv_configs and tpv_config_files:
         raise ValueError("Only one of tpv_configs or tpv_config_files can be specified in execution environment.")
@@ -106,6 +117,18 @@ def map_tool_to_destination(
         raise ValueError("One of tpv_configs or tpv_config_files must be specified in execution environment.")
     referrer_id = referrer.id if referrer else None
     destination_mapper = lock_and_load_mapper(app, referrer_id or "tpv_dispatcher", resolved_tpv_configs)
+    if explain_collector:
+        configs_list = listify(resolved_tpv_configs)
+        for config_source in configs_list:
+            source_name = config_source if isinstance(config_source, str) else "<inline config>"
+            explain_collector.add_step(ExplainPhase.CONFIG_LOADING, f"Loaded config: {source_name}")
     return destination_mapper.map_to_destination(
-        app, tool, user, job, job_wrapper, resource_params, workflow_invocation_uuid
+        app,
+        tool,
+        user,
+        job,
+        job_wrapper,
+        resource_params,
+        workflow_invocation_uuid,
+        explain_collector=explain_collector,
     )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-audio
-Version: 0.4.0
+Version: 0.4.1
 Summary: MLX-Audio is a package for inference of text-to-speech (TTS) and speech-to-speech (STS) models locally on your Mac using MLX
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License-Expression: MIT
@@ -13,9 +13,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlx>=0.25.2
 Requires-Dist: numpy>=1.26.4
-Requires-Dist: huggingface_hub>=0.27.0
-Requires-Dist: transformers==5.0.0rc3
-Requires-Dist: mlx-lm==0.30.5
+Requires-Dist: huggingface_hub>=1.0
+Requires-Dist: transformers>=5.0.0
+Requires-Dist: mlx-lm==0.31.1
 Requires-Dist: tqdm>=4.67.1
 Requires-Dist: sounddevice==0.5.3
 Requires-Dist: miniaudio>=1.61
@@ -169,6 +169,10 @@ for result in model.generate("Hello from MLX-Audio!", voice="af_heart"):
 | **Voxtral** | Mistral's speech model | Multiple | [mlx-community/Voxtral-Mini-3B-2507-bf16](https://huggingface.co/mlx-community/Voxtral-Mini-3B-2507-bf16) |
 | **Voxtral Realtime** | Mistral's 4B streaming STT | Multiple | [4bit](https://huggingface.co/mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit), [fp16](https://huggingface.co/mlx-community/Voxtral-Mini-4B-Realtime-2602-fp16) |
 | **VibeVoice-ASR** | Microsoft's 9B ASR with diarization & timestamps | Multiple | [mlx-community/VibeVoice-ASR-bf16](https://huggingface.co/mlx-community/VibeVoice-ASR-bf16) |
+| **Canary** | NVIDIA's multilingual ASR with translation | 25 EU + RU, UK | [README](mlx_audio/stt/models/canary/README.md) |
+| **Moonshine** | Useful Sensors' lightweight ASR | EN | [README](mlx_audio/stt/models/moonshine/README.md) |
+| **MMS** | Meta's massively multilingual ASR with adapters | 1000+ | [README](mlx_audio/stt/models/mms/README.md) |
+| **Granite Speech** | IBM's ASR + speech translation | EN, FR, DE, ES, PT, JA | [README](mlx_audio/stt/models/granite_speech/README.md) |
 
 
 ### Voice Activity Detection / Speaker Diarization (VAD)
@@ -185,8 +189,9 @@ See the [Sortformer README](mlx_audio/vad/models/sortformer/README.md) for API d
 | Model | Description | Use Case | Repo |
 |-------|-------------|----------|------|
 | **SAM-Audio** | Text-guided source separation | Extract specific sounds | [mlx-community/sam-audio-large](https://huggingface.co/mlx-community/sam-audio-large) |
-| **Liquid2.5-Audio*** | Speech-to-Speech, Text-to-Speech and Speech-to-Text | Speech interactions | [mlx-community/LFM2.5-Audio-1.5B-8bit](https://huggingface.co/mlx-community/LFM2.5-Audio-1.5B-8bit)
+| **Liquid2.5-Audio*** | Speech-to-Speech, Text-to-Speech and Speech-to-Text | Speech interactions | [mlx-community/LFM2.5-Audio-1.5B-8bit](https://huggingface.co/mlx-community/LFM2.5-Audio-1.5B-8bit) |
 | **MossFormer2 SE** | Speech enhancement | Noise removal | [starkdmi/MossFormer2_SE_48K_MLX](https://huggingface.co/starkdmi/MossFormer2_SE_48K_MLX) |
+| **DeepFilterNet (1/2/3)** | Speech enhancement | Noise suppression | [mlx-community/DeepFilterNet-mlx](https://huggingface.co/mlx-community/DeepFilterNet-mlx) |
 
 ## Model Examples
 
@@ -569,11 +574,11 @@ Looking for Swift/iOS support? Check out [mlx-audio-swift](https://github.com/Bl
 - Python 3.10+
 - Apple Silicon Mac (M1/M2/M3/M4)
 - MLX framework
-- **ffmpeg** (required for MP3/FLAC audio encoding)
+- **ffmpeg** (required for MP3/FLAC/OGG/Opus/Vorbis audio encoding)
 
 ### Installing ffmpeg
 
-ffmpeg is required for saving audio in MP3 or FLAC format. Install it using:
+ffmpeg is required for saving audio in MP3, FLAC, OGG, Opus, or Vorbis format. Install it using:
 
 ```bash
 # macOS (using Homebrew)

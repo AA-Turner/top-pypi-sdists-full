@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pykka
-Version: 4.4.1
+Version: 4.4.2
 Summary: Pykka is a Python implementation of the actor model
 Project-URL: Source code, https://github.com/jodal/pykka
 Project-URL: Documentation, https://pykka.readthedocs.io/

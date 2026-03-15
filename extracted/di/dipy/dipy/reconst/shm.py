@@ -1158,7 +1158,7 @@ def lcr_matrix(H):
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("H should be a square matrix")
 
-    leverages = np.sqrt(1 - H.diagonal(), where=H.diagonal() < 1)
+    leverages = np.sqrt(1 - H.diagonal(), where=H.diagonal() < 1, out=None)
     leverages = leverages[:, None]
     R = (np.eye(len(H)) - H) / leverages
     return R - R.mean(0)
@@ -1582,13 +1582,8 @@ def anisotropic_power(sh_coeffs, *, norm_factor=0.00001, power=2, non_negative=T
 
     # Deal with residual negative values:
     if non_negative:
-        if isinstance(log_ap, np.ndarray):
-            # zero all values < 0
-            log_ap[log_ap < 0] = 0
-        else:
-            # assume this is a singleton float (input was 1D):
-            if log_ap < 0:
-                return 0
+        log_ap = np.maximum(log_ap, 0)
+
     return log_ap
 
 

@@ -5,6 +5,7 @@
 from base64 import b64encode
 import hashlib
 import logging
+from pathlib import Path
 
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0300 import stanza, Hash
@@ -68,7 +69,17 @@ class XEP_0300(BasePlugin):
 
         self.xmpp['xep_0030'].del_feature(feature=Hash.namespace)
 
-    def compute_hash(self, filename, function=None):
+    def compute_hash(self, filename: str | Path,
+                     function: str | None = None) -> Hash:
+        """
+        Compute the hash of a file, and return the relevant hash XML element.
+
+        :param filename: Path of the file to hash.
+        :param function: Name of the hash function to use. If left empty,
+                         the preferred function set in ``self.preferred``
+                         will be used.
+        :returns: A Hash element.
+        """
         if function is None:
             function = self.preferred
         h = self._hashlib_function[function]()

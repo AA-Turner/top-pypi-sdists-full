@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dipy
-Version: 1.11.0
+Version: 1.12.0
 Summary: Diffusion MRI Imaging in Python
 Keywords: dipy,diffusionimaging,dti,tracking,tractography,diffusionmri,mri,tractometry,connectomics,brain,dipymri,microstructure,deeplearning,registration,segmentations,simulation,medical,imaging,brain,machinelearning,signalprocessing
 Author-Email: DIPY developers <dipy@python.org>
@@ -8,7 +8,7 @@ Maintainer-Email: Eleftherios Garyfallidis <neuroimaging@python.org>, Ariel Roke
 License: Unless otherwise specified by LICENSE.txt files in individual
          directories, or within individual files or functions, all code is:
          
-         Copyright (c) 2008-2025, dipy developers
+         Copyright (c) 2008-2026, dipy developers
          All rights reserved.
          
          Redistribution and use in source and binary forms, with or without
@@ -69,50 +69,57 @@ Requires-Dist: nibabel>=3.0.0
 Requires-Dist: h5py>=3.1.0
 Requires-Dist: packaging>=21
 Requires-Dist: tqdm>=4.30.0
-Requires-Dist: trx-python>=0.3.0
+Requires-Dist: trx-python>=0.4.0
+Provides-Extra: build
+Requires-Dist: meson-python>=0.13; extra == "build"
+Requires-Dist: wheel; extra == "build"
+Requires-Dist: setuptools<83.0,>=69.5; extra == "build"
+Requires-Dist: packaging>=21; extra == "build"
+Requires-Dist: ninja; extra == "build"
+Requires-Dist: Cython>=0.29.35; extra == "build"
+Requires-Dist: numpy>=1.22.4; extra == "build"
+Requires-Dist: spin>=0.5; extra == "build"
+Requires-Dist: build; extra == "build"
 Provides-Extra: all
-Requires-Dist: dipy[benchmark,dev,doc,extra,ml,style,test,viz]; extra == "all"
+Requires-Dist: dipy[benchmark,build,dev,doc,optional,style,viz]; extra == "all"
 Provides-Extra: style
 Requires-Dist: ruff; extra == "style"
 Requires-Dist: pre-commit; extra == "style"
 Provides-Extra: viz
-Requires-Dist: fury>=0.10.0; extra == "viz"
+Requires-Dist: fury>=0.12.0; extra == "viz"
 Requires-Dist: matplotlib; extra == "viz"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: coveralls; extra == "test"
 Requires-Dist: codecov; extra == "test"
+Requires-Dist: asv; extra == "test"
 Provides-Extra: ml
 Requires-Dist: scikit_learn; extra == "ml"
 Requires-Dist: pandas; extra == "ml"
 Requires-Dist: statsmodels>=0.14.0; extra == "ml"
 Requires-Dist: tables; extra == "ml"
-Requires-Dist: tensorflow>=2.18.0; extra == "ml"
 Requires-Dist: torch; extra == "ml"
 Provides-Extra: dev
-Requires-Dist: meson-python>=0.13; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: setuptools~=69.5; extra == "dev"
-Requires-Dist: packaging>=21; extra == "dev"
-Requires-Dist: ninja; extra == "dev"
-Requires-Dist: Cython>=0.29.35; extra == "dev"
-Requires-Dist: numpy>=1.22.4; extra == "dev"
-Requires-Dist: spin>=0.5; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Provides-Extra: extra
-Requires-Dist: dipy[ml,viz]; extra == "extra"
-Requires-Dist: cvxpy; extra == "extra"
-Requires-Dist: scikit-image; extra == "extra"
-Requires-Dist: boto3; extra == "extra"
-Requires-Dist: numexpr; extra == "extra"
+Requires-Dist: dipy[build,style]; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: coveralls; extra == "dev"
+Requires-Dist: codecov; extra == "dev"
+Requires-Dist: asv; extra == "dev"
+Provides-Extra: optional
+Requires-Dist: dipy[ml,viz]; extra == "optional"
+Requires-Dist: cvxpy; extra == "optional"
+Requires-Dist: scikit-image; extra == "optional"
+Requires-Dist: boto3; extra == "optional"
+Requires-Dist: numexpr; extra == "optional"
 Provides-Extra: doc
 Requires-Dist: numpydoc; extra == "doc"
 Requires-Dist: sphinx>=7.2.6; extra == "doc"
 Requires-Dist: texext; extra == "doc"
 Requires-Dist: tomli; python_version < "3.11" and extra == "doc"
-Requires-Dist: sphinxcontrib-bibtex; extra == "doc"
-Requires-Dist: sphinx_design; extra == "doc"
+Requires-Dist: sphinxcontrib-bibtex>=2.5.0; extra == "doc"
+Requires-Dist: sphinx_design>=0.5.0; extra == "doc"
 Requires-Dist: sphinx-gallery>=0.10.0; extra == "doc"
 Requires-Dist: tomli>=2.0.1; extra == "doc"
 Requires-Dist: grg-sphinx-theme>=0.4.0; extra == "doc"
@@ -125,7 +132,7 @@ Description-Content-Type: text/x-rst
 
 .. image:: doc/_static/images/logos/dipy-logo.png
   :height: 180px
-  :target: http://dipy.org
+  :target: https://dipy.org
   :alt: DIPY - Diffusion Imaging in Python
 
 |
@@ -160,7 +167,7 @@ in clinical settings.
 Website
 =======
 
-Current information can always be found from the DIPY website - http://dipy.org
+Current information can always be found from the DIPY website - https://dipy.org
 
 Mailing Lists
 =============
@@ -171,20 +178,18 @@ https://mail.python.org/mailman3/lists/dipy.python.org/
 Please see the users' forum at
 https://github.com/dipy/dipy/discussions
 
-Please join the gitter chatroom `here <https://gitter.im/dipy/dipy>`_.
-
 Code
 ====
 
 You can find our sources and single-click downloads:
 
 * `Main repository`_ on Github.
-* Documentation_ for all releases and current development tree.
+* Documentation_ for all releases and the current development tree.
 * Download as a tar/zip file the `current trunk`_.
 
-.. _main repository: http://github.com/dipy/dipy
-.. _Documentation: http://dipy.org
-.. _current trunk: http://github.com/dipy/dipy/archives/master
+.. _main repository: https://github.com/dipy/dipy
+.. _Documentation: https://dipy.org
+.. _current trunk: https://github.com/dipy/dipy/archives/master
 
 
 Installing DIPY

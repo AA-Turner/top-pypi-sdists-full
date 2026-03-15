@@ -6,7 +6,7 @@
 import logging
 
 from asyncio import Future
-from typing import Optional, Callable
+from typing import Callable
 from slixmpp import JID
 from slixmpp.stanza.message import Message
 from slixmpp.stanza.presence import Presence
@@ -43,7 +43,7 @@ class XEP_0172(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('user_nick', UserNick)
 
-    def publish_nick(self, nick: Optional[str] = None, **pubsubkwargs) -> Future:
+    def publish_nick(self, nick: str | None = None, **pubsubkwargs) -> Future:
         """
         Publish the user's current nick.
 

@@ -1,12 +1,12 @@
 use {
   super::*,
+  Function::*,
   heck::{
     ToKebabCase, ToLowerCamelCase, ToShoutyKebabCase, ToShoutySnakeCase, ToSnakeCase, ToTitleCase,
     ToUpperCamelCase,
   },
   semver::{Version, VersionReq},
   std::collections::HashSet,
-  Function::*,
 };
 
 #[allow(clippy::arbitrary_source_item_ordering)]
@@ -544,8 +544,14 @@ fn shell(context: Context, command: &str, args: &[String]) -> FunctionResult {
     .chain(args.iter().map(String::as_str))
     .collect::<Vec<&str>>();
 
-  Evaluator::run_command(context.execution_context, context.scope, command, &args)
-    .map_err(|output_error| output_error.to_string())
+  Evaluator::run_command(
+    context.execution_context,
+    &BTreeMap::new(),
+    context.scope,
+    command,
+    &args,
+  )
+  .map_err(|output_error| output_error.to_string())
 }
 
 fn shoutykebabcase(_context: Context, s: &str) -> FunctionResult {

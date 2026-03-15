@@ -4,16 +4,14 @@
 # See the file LICENSE for copying permission.
 from typing import (
     Iterable,
-    Optional,
-    Tuple,
 )
 
 from slixmpp import JID, Message
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0439 import stanza
+from slixmpp.types import MessageTypes
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.handler import Callback
-
 
 
 class XEP_0439(BasePlugin):
@@ -58,15 +56,16 @@ class XEP_0439(BasePlugin):
         self.xmpp.event('action_selected', msg)
 
     def ask_for_response(self, mto: JID, body: str,
-                         responses: Iterable[Tuple[str, str]],
-                         mtype: str = 'chat', lang: Optional[str] = None, *,
-                         mfrom: Optional[JID] = None):
+                         responses: Iterable[tuple[str, str]],
+                         mtype: MessageTypes = 'chat',
+                         lang: str | None = None, *,
+                         mfrom: JID | None = None):
         """
         Send a message with a set of responses.
 
         :param JID mto: The JID of the entity which will receive the message
         :param str body: The message body of the question
-        :param Iterable[Tuple[str, str]] responses: A set of tuples containing
+        :param Iterable[tuple[str, str]] responses: A set of tuples containing
             (value, label) for each response
         :param str mtype: The message type
         :param str lang: The lang of the message (if not use, the default
@@ -89,15 +88,16 @@ class XEP_0439(BasePlugin):
         msg.send()
 
     def ask_for_actions(self, mto: JID, body: str,
-                        actions: Iterable[Tuple[str, str]],
-                        mtype: str = 'chat', lang: Optional[str] = None, *,
-                        mfrom: Optional[JID] = None):
+                        actions: Iterable[tuple[str, str]],
+                        mtype: MessageTypes = 'chat',
+                        lang: str | None = None, *,
+                        mfrom: JID | None = None):
         """
         Send a message with a set of actions.
 
         :param JID mto: The JID of the entity which will receive the message
         :param str body: The message body of the question
-        :param Iterable[Tuple[str, str]] actions: A set of tuples containing
+        :param Iterable[tuple[str, str]] actions: A set of tuples containing
             (action, label) for each action
         :param str mtype: The message type
         :param str lang: The lang of the message (if not use, the default

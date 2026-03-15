@@ -139,6 +139,7 @@ class OrsoTypes(str, Enum):
     VARCHAR = "VARCHAR"
     NULL = "NULL"
     JSONB = "JSONB"
+    VECTOR = "VECTOR"
     _MISSING_TYPE = 0
 
     def __init__(self, *args, **kwargs):
@@ -163,7 +164,7 @@ class OrsoTypes(str, Enum):
         return self in (self.VARCHAR, self.BLOB)
 
     def is_complex(self):
-        return self in (self.ARRAY, self.STRUCT, self.JSONB, self.INTERVAL)
+        return self in (self.ARRAY, self.STRUCT, self.JSONB, self.INTERVAL, self.VECTOR)
 
     def __str__(self):
         if self.value == self.ARRAY and self._element_type is not None:
@@ -174,6 +175,8 @@ class OrsoTypes(str, Enum):
             return f"VARCHAR[{self._length}]"
         if self.value == self.BLOB and self._length is not None:
             return f"BLOB[{self._length}]"
+        if self.value == self.VECTOR and self._length is not None:
+            return f"VECTOR[{self._length}]"
         return self.value
 
     def parse(self, value: Any, **kwargs) -> Any:
@@ -208,8 +211,56 @@ class OrsoTypes(str, Enum):
             OrsoTypes.TIME: numpy.dtype("O"),
             OrsoTypes.VARCHAR: numpy.dtype("U"),
             OrsoTypes.NULL: numpy.dtype("O"),
+            OrsoTypes.JSONB: numpy.dtype("O"),
+            OrsoTypes.VECTOR: numpy.dtype("O"),
         }
         return MAP.get(self)
+
+    @property
+    def metadata(self) -> dict:
+        """Return metadata used for generating documentation.
+
+        Metadata keys:
+            - description: short text explaining the type
+            - min: minimum representable value (or constraint)
+            - max: maximum representable value (or constraint)
+            - example: example literal for the type
+            - notes: additional documentation notes (Markdown)
+        """
+
+        # Base metadata for each type (static per type)
+        base = _ORSO_TYPE_METADATA.get(self, {}).copy()
+
+        # Add parameterized details when available
+        if self == OrsoTypes.DECIMAL:
+            precision = self._precision or 38
+            scale = self._scale or 21
+            place = max(precision - scale, 0)
+            max_int_part = 10**place - 1 if place > 0 else 0
+            max_fraction = 10**scale - 1
+            base["min"] = f"-{max_int_part}.{str(max_fraction).zfill(scale)}"
+            base["max"] = f"{max_int_part}.{str(max_fraction).zfill(scale)}"
+            base.setdefault("example", "123.45")
+            base.setdefault(
+                "notes",
+                "Precision and scale are configurable. If not specified, defaults to precision=38, scale=21.",
+            )
+        elif self in (OrsoTypes.VARCHAR, OrsoTypes.BLOB, OrsoTypes.VECTOR):
+            length = self._length
+            if length is not None:
+                base["min"] = 0
+                base["max"] = length
+                base["notes"] = f"Maximum length is {length} when specified."
+            else:
+                base.setdefault("notes", "Length is unbounded unless specified.")
+        elif self == OrsoTypes.ARRAY:
+            element = self._element_type
+            base.setdefault(
+                "notes",
+                f"Array containing elements of type {element.value if element is not None else 'UNKNOWN'}.",
+            )
+
+        return base
 
     @staticmethod
     def from_name(name: str) -> tuple:
@@ -241,6 +292,8 @@ class OrsoTypes(str, Enum):
             elif parsed_types == "BSON":
                 warn("Column type BSON will be deprecated in a future version, use JSONB instead.")
                 _type = OrsoTypes.JSONB
+            elif parsed_types == "VECTOR":
+                _type = OrsoTypes.VECTOR
             elif parsed_types == "STRING":
                 raise ValueError(f"Unknown type '{_type}'. Did you mean 'VARCHAR'?")
             elif (
@@ -255,7 +308,9 @@ class OrsoTypes(str, Enum):
         elif parsed_types[0] == "ARRAY":
             _type = OrsoTypes.ARRAY
             _element_type = parsed_types[1][0]
-            if _element_type.startswith(("ARRAY", "LIST", "NUMERIC", "BSON", "STRING", "DECIMAL")):
+            if _element_type.startswith(
+                ("ARRAY", "LIST", "NUMERIC", "BSON", "STRING", "DECIMAL", "VECTOR")
+            ):
                 raise ValueError(f"Invalid element type '{_element_type}' for ARRAY type.")
             if _element_type in OrsoTypes.__members__:
                 _type = OrsoTypes.ARRAY
@@ -276,8 +331,11 @@ class OrsoTypes(str, Enum):
         elif parsed_types[0] == "VARCHAR":
             _type = OrsoTypes.VARCHAR
             _length = parsed_types[1][0]
-        elif parsed_types[0] == "BLOB":
+        elif parsed_types[0] in ("BLOB", "VARBINARY"):
             _type = OrsoTypes.BLOB
+            _length = parsed_types[1][0]
+        elif parsed_types[0] == "VECTOR":
+            _type = OrsoTypes.VECTOR
             _length = parsed_types[1][0]
         else:
             raise ValueError(f"Unknown column type '{_type}'.")
@@ -331,6 +389,100 @@ def parse_decimal(value, *, precision=None, scale=None, **kwargs):
     return factory(value)
 
 
+_ORSO_TYPE_METADATA = {
+    OrsoTypes.BOOLEAN: {
+        "description": "Boolean value representing true or false.",
+        "min": False,
+        "max": True,
+        "example": "TRUE",
+        "notes": "Accepted values include TRUE/FALSE, 1/0, YES/NO, ON/OFF (case-insensitive).",
+    },
+    OrsoTypes.INTEGER: {
+        "description": "Signed 64-bit integer.",
+        "min": -9223372036854775808,
+        "max": 9223372036854775807,
+        "example": "42",
+        "notes": "Parsed from strings, floats, and booleans.",
+    },
+    OrsoTypes.DOUBLE: {
+        "description": "Double-precision floating point number.",
+        "min": -1.7976931348623157e308,
+        "max": 1.7976931348623157e308,
+        "example": "123.45",
+        "notes": "Supports scientific notation (e.g. 1.23e5).",
+    },
+    OrsoTypes.DECIMAL: {
+        "description": "Fixed-point decimal number with configurable precision and scale.",
+        "example": "123.45",
+        "notes": "If precision/scale are not defined, defaults to precision=38 and scale=21.",
+    },
+    OrsoTypes.VARCHAR: {
+        "description": "Variable-length string.",
+        "min": 0,
+        "max": None,
+        "example": "hello",
+        "notes": "By default, length is unbounded unless specified (e.g. VARCHAR[255]).",
+    },
+    OrsoTypes.BLOB: {
+        "description": "Binary large object (bytes).",
+        "min": 0,
+        "max": None,
+        "example": "b'\\x01\\x02'",
+        "notes": "By default, length is unbounded unless specified (e.g. BLOB[1024]).",
+    },
+    OrsoTypes.DATE: {
+        "description": "Calendar date (YYYY-MM-DD).",
+        "min": str(datetime.date.min),
+        "max": str(datetime.date.max),
+        "example": "2023-04-18",
+        "notes": "Parsed from ISO date strings and timestamps.",
+    },
+    OrsoTypes.TIMESTAMP: {
+        "description": "Timestamp including date and time.",
+        "min": str(datetime.datetime.min),
+        "max": str(datetime.datetime.max),
+        "example": "2023-04-18T12:34:56",
+        "notes": "Parsed from ISO 8601 strings and unix timestamps.",
+    },
+    OrsoTypes.TIME: {
+        "description": "Time of day (HH:MM:SS).",
+        "min": str(datetime.time.min),
+        "max": str(datetime.time.max),
+        "example": "12:34:56",
+        "notes": "Parsed from ISO time strings.",
+    },
+    OrsoTypes.INTERVAL: {
+        "description": "Time interval/duration.",
+        "example": "1 day 02:03:04",
+        "notes": "Represented as a Python timedelta.",
+    },
+    OrsoTypes.STRUCT: {
+        "description": "Structured record (mapping of field names to values).",
+        "example": "{'id': 1, 'name': 'Alice'}",
+        "notes": "Serialized as JSON internally.",
+    },
+    OrsoTypes.JSONB: {
+        "description": "JSON binary data.",
+        "example": "{'key': 'value'}",
+        "notes": "Stored as a binary JSON blob.",
+    },
+    OrsoTypes.ARRAY: {
+        "description": "Array of values of a single type.",
+        "example": "[1, 2, 3]",
+        "notes": "Element type is specified as ARRAY<INTEGER>, ARRAY<VARCHAR>, etc.",
+    },
+    OrsoTypes.VECTOR: {
+        "description": "Fixed-length numeric vector.",
+        "example": "[0.1, 0.2, 0.3]",
+        "notes": "Length can be specified as VECTOR[<size>].",
+    },
+    OrsoTypes.NULL: {
+        "description": "Null value.",
+        "example": "NULL",
+        "notes": "Represents absence of a value.",
+    },
+}
+
 ORSO_TO_PYTHON_MAP: dict = {
     OrsoTypes.BOOLEAN: bool,
     OrsoTypes.BLOB: bytes,
@@ -346,6 +498,7 @@ ORSO_TO_PYTHON_MAP: dict = {
     OrsoTypes.VARCHAR: str,
     OrsoTypes.JSONB: bytes,
     OrsoTypes.NULL: None,
+    OrsoTypes.VECTOR: list,
 }
 
 PYTHON_TO_ORSO_MAP: dict = {
@@ -400,6 +553,12 @@ def parse_array(x, **kwargs):
     return [parser(v) for v in x]
 
 
+def parse_vector(x, **kwargs):
+    if not isinstance(x, (list, tuple, set)):
+        x = json_loads(x)
+    return [float(v) for v in x]
+
+
 def parse_double(x, **kwargs):
     return float(x)
 
@@ -438,6 +597,7 @@ ORSO_TO_PYTHON_PARSER: dict = {
     OrsoTypes.VARCHAR: parse_varchar,
     OrsoTypes.JSONB: parse_bytes,
     OrsoTypes.NULL: parse_null,
+    OrsoTypes.VECTOR: parse_vector,
 }
 
 
@@ -465,6 +625,7 @@ def find_compatible_type(types: Iterable[OrsoTypes], default=OrsoTypes.VARCHAR) 
         return types[0]
 
     # Define type promotion hierarchy
+    # Types move towards greater numbers
     type_hierarchy = {
         # Numeric promotion
         OrsoTypes.BOOLEAN: 1,
@@ -477,6 +638,9 @@ def find_compatible_type(types: Iterable[OrsoTypes], default=OrsoTypes.VARCHAR) 
         # String/binary promotion
         OrsoTypes.BLOB: 1,
         OrsoTypes.VARCHAR: 2,
+        # Vectors are a special array
+        OrsoTypes.VECTOR: 1,
+        OrsoTypes.ARRAY: 2,
     }
 
     # First check if all types are in the same category
@@ -485,6 +649,8 @@ def find_compatible_type(types: Iterable[OrsoTypes], default=OrsoTypes.VARCHAR) 
     if all(t.is_temporal() for t in types):
         return max(types, key=lambda t: type_hierarchy.get(t, 0))
     if all(t.is_large_object() for t in types):
+        return max(types, key=lambda t: type_hierarchy.get(t, 0))
+    if all(t.is_complex() for t in types):
         return max(types, key=lambda t: type_hierarchy.get(t, 0))
     if all(
         t in (OrsoTypes.BLOB, OrsoTypes.STRUCT, OrsoTypes.JSONB, OrsoTypes.VARCHAR) for t in types

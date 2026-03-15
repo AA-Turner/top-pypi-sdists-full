@@ -5,7 +5,7 @@
 import os
 import logging
 
-from typing import Callable, Optional, Any
+from typing import Callable, Any
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class MemoryPerJidCache(PerJidCache):
 
 
 class FileSystemStorage:
-    def __init__(self, encode: Optional[Callable[[Any], str]], decode: Optional[Callable[[str], Any]], binary: bool):
+    def __init__(self, encode: Callable[[Any], str] | None, decode: Callable[[str], Any] | None, binary: bool):
         self.encode = encode if encode is not None else lambda x: x
         self.decode = decode if decode is not None else lambda x: x
         self.read = 'rb' if binary else 'r'

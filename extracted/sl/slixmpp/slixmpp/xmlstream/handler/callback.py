@@ -5,7 +5,7 @@
 # :license: MIT, see LICENSE for more details
 from __future__ import annotations
 
-from typing import Optional, Callable, Any, TYPE_CHECKING
+from typing import Callable, Any, TYPE_CHECKING
 from slixmpp.xmlstream.handler.base import BaseHandler
 from slixmpp.xmlstream.matcher.base import MatcherBase
 
@@ -49,7 +49,7 @@ class Callback(BaseHandler):
     def __init__(self, name: str, matcher: MatcherBase,
                  pointer: Callable[[StanzaBase], Any],
                  once: bool = False, instream: bool = False,
-                 stream: Optional[XMLStream] = None):
+                 stream: XMLStream | None = None):
         BaseHandler.__init__(self, name, matcher, stream)
         self._pointer: Callable[[StanzaBase], Any] = pointer
         self._pointer = pointer

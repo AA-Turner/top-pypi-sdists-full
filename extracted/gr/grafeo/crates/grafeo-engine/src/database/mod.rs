@@ -18,6 +18,8 @@ mod embed;
 mod index;
 mod persistence;
 mod query;
+#[cfg(feature = "rdf")]
+mod rdf_ops;
 mod search;
 #[cfg(feature = "wal")]
 pub(crate) mod wal_store;
@@ -111,6 +113,9 @@ pub struct GrafeoDB {
     /// External graph store (when using with_store()).
     /// When set, sessions route queries through this store instead of the built-in LpgStore.
     pub(super) external_store: Option<Arc<dyn GraphStoreMut>>,
+    /// Metrics registry shared across all sessions.
+    #[cfg(feature = "metrics")]
+    pub(crate) metrics: Option<Arc<crate::metrics::MetricsRegistry>>,
     /// Persistent graph context for one-shot `execute()` calls.
     /// When set, each call to `session()` pre-configures the session to this graph.
     /// Updated after every one-shot `execute()` to reflect `USE GRAPH` / `SESSION RESET`.
@@ -362,6 +367,8 @@ impl GrafeoDB {
             #[cfg(feature = "grafeo-file")]
             file_manager,
             external_store: None,
+            #[cfg(feature = "metrics")]
+            metrics: Some(Arc::new(crate::metrics::MetricsRegistry::new())),
             current_graph: RwLock::new(None),
         })
     }
@@ -431,6 +438,8 @@ impl GrafeoDB {
             #[cfg(feature = "grafeo-file")]
             file_manager: None,
             external_store: Some(store),
+            #[cfg(feature = "metrics")]
+            metrics: Some(Arc::new(crate::metrics::MetricsRegistry::new())),
             current_graph: RwLock::new(None),
         })
     }
@@ -703,63 +712,13 @@ impl GrafeoDB {
 
                 // --- RDF triple replay ---
                 #[cfg(feature = "rdf")]
-                WalRecord::InsertRdfTriple {
-                    subject,
-                    predicate,
-                    object,
-                    graph,
-                } => {
-                    use grafeo_core::graph::rdf::Term;
-                    if let (Some(s), Some(p), Some(o)) = (
-                        Term::from_ntriples(subject),
-                        Term::from_ntriples(predicate),
-                        Term::from_ntriples(object),
-                    ) {
-                        let triple = grafeo_core::graph::rdf::Triple::new(s, p, o);
-                        let target = match graph {
-                            Some(name) => rdf_store.graph_or_create(name),
-                            None => Arc::clone(rdf_store),
-                        };
-                        target.insert(triple);
-                    }
+                WalRecord::InsertRdfTriple { .. }
+                | WalRecord::DeleteRdfTriple { .. }
+                | WalRecord::ClearRdfGraph { .. }
+                | WalRecord::CreateRdfGraph { .. }
+                | WalRecord::DropRdfGraph { .. } => {
+                    rdf_ops::replay_rdf_wal_record(rdf_store, record);
                 }
-                #[cfg(feature = "rdf")]
-                WalRecord::DeleteRdfTriple {
-                    subject,
-                    predicate,
-                    object,
-                    graph,
-                } => {
-                    use grafeo_core::graph::rdf::Term;
-                    if let (Some(s), Some(p), Some(o)) = (
-                        Term::from_ntriples(subject),
-                        Term::from_ntriples(predicate),
-                        Term::from_ntriples(object),
-                    ) {
-                        let triple = grafeo_core::graph::rdf::Triple::new(s, p, o);
-                        let target = match graph {
-                            Some(name) => rdf_store.graph_or_create(name),
-                            None => Arc::clone(rdf_store),
-                        };
-                        target.remove(&triple);
-                    }
-                }
-                #[cfg(feature = "rdf")]
-                WalRecord::ClearRdfGraph { graph } => {
-                    rdf_store.clear_graph(graph.as_deref());
-                }
-                #[cfg(feature = "rdf")]
-                WalRecord::CreateRdfGraph { name } => {
-                    let _ = rdf_store.create_graph(name);
-                }
-                #[cfg(feature = "rdf")]
-                WalRecord::DropRdfGraph { name } => match name {
-                    None => rdf_store.clear(),
-                    Some(graph_name) => {
-                        rdf_store.drop_graph(graph_name);
-                    }
-                },
-                // Skip RDF records when rdf feature is disabled
                 #[cfg(not(feature = "rdf"))]
                 WalRecord::InsertRdfTriple { .. }
                 | WalRecord::DeleteRdfTriple { .. }
@@ -896,6 +855,17 @@ impl GrafeoDB {
         #[cfg(feature = "cdc")]
         session.set_cdc_log(Arc::clone(&self.cdc_log));
 
+        #[cfg(feature = "metrics")]
+        {
+            if let Some(ref m) = self.metrics {
+                session.set_metrics(Arc::clone(m));
+                m.session_created
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                m.session_active
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
         // Propagate persistent graph context to the new session
         if let Some(ref graph) = *self.current_graph.read() {
             session.use_graph(graph);
@@ -947,6 +917,37 @@ impl GrafeoDB {
     #[must_use]
     pub fn memory_limit(&self) -> Option<usize> {
         self.config.memory_limit
+    }
+
+    /// Returns a point-in-time snapshot of all metrics.
+    ///
+    /// If the `metrics` feature is disabled or the registry is not
+    /// initialized, returns a default (all-zero) snapshot.
+    #[cfg(feature = "metrics")]
+    #[must_use]
+    pub fn metrics(&self) -> crate::metrics::MetricsSnapshot {
+        let mut snapshot = self
+            .metrics
+            .as_ref()
+            .map_or_else(crate::metrics::MetricsSnapshot::default, |m| m.snapshot());
+
+        // Augment with cache stats from the query cache (not tracked in the registry)
+        let cache_stats = self.query_cache.stats();
+        snapshot.cache_hits = cache_stats.parsed_hits + cache_stats.optimized_hits;
+        snapshot.cache_misses = cache_stats.parsed_misses + cache_stats.optimized_misses;
+        snapshot.cache_size = cache_stats.parsed_size + cache_stats.optimized_size;
+        snapshot.cache_invalidations = cache_stats.invalidations;
+
+        snapshot
+    }
+
+    /// Resets all metrics counters and histograms to zero.
+    #[cfg(feature = "metrics")]
+    pub fn reset_metrics(&self) {
+        if let Some(ref m) = self.metrics {
+            m.reset();
+        }
+        self.query_cache.reset_stats();
     }
 
     /// Returns the underlying (default) store.
@@ -1383,6 +1384,18 @@ impl QueryResult {
     }
 }
 
+impl std::fmt::Display for QueryResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let table = grafeo_common::fmt::format_result_table(
+            &self.columns,
+            &self.rows,
+            self.execution_time_ms,
+            self.status_message.as_deref(),
+        );
+        f.write_str(&table)
+    }
+}
+
 /// Converts a [`grafeo_common::types::Value`] to a concrete Rust type.
 ///
 /// Implemented for common types like `i64`, `f64`, `String`, and `bool`.
@@ -1636,6 +1649,56 @@ mod tests {
 
         // Second close should also succeed (idempotent)
         assert!(db.close().is_ok());
+    }
+
+    #[test]
+    fn test_with_store_external_backend() {
+        use grafeo_core::graph::lpg::LpgStore;
+
+        let external = Arc::new(LpgStore::new().unwrap());
+
+        // Seed data on the external store directly
+        let n1 = external.create_node(&["Person"]);
+        external.set_node_property(n1, "name", grafeo_common::types::Value::from("Alix"));
+
+        let db = GrafeoDB::with_store(
+            Arc::clone(&external) as Arc<dyn GraphStoreMut>,
+            Config::in_memory(),
+        )
+        .unwrap();
+
+        let session = db.session();
+
+        // Session should see data from the external store via execute
+        #[cfg(feature = "gql")]
+        {
+            let result = session.execute("MATCH (p:Person) RETURN p.name").unwrap();
+            assert_eq!(result.rows.len(), 1);
+        }
+    }
+
+    #[test]
+    fn test_with_config_custom_memory_limit() {
+        let config = Config::in_memory().with_memory_limit(64 * 1024 * 1024); // 64 MB
+
+        let db = GrafeoDB::with_config(config).unwrap();
+        assert_eq!(db.config().memory_limit, Some(64 * 1024 * 1024));
+        assert_eq!(db.node_count(), 0);
+    }
+
+    #[cfg(feature = "metrics")]
+    #[test]
+    fn test_database_metrics_registry() {
+        let db = GrafeoDB::new_in_memory();
+
+        // Perform some operations
+        db.create_node(&["Person"]);
+        db.create_node(&["Person"]);
+
+        // Check that metrics snapshot returns data
+        let snap = db.metrics();
+        // Session created counter should reflect at least 0 (metrics is initialized)
+        assert_eq!(snap.query_count, 0); // No queries executed yet
     }
 
     #[test]

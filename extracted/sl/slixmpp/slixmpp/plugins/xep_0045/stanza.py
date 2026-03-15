@@ -6,9 +6,6 @@
 # See the file LICENSE for copying permission.
 from typing import (
     Iterable,
-    Set,
-    Optional,
-    Union,
 )
 import logging
 from slixmpp.xmlstream import ElementBase, ET, JID
@@ -31,7 +28,7 @@ class MUCBase(ElementBase):
         'item_nick',
     }
 
-    def get_status_codes(self) -> Set[int]:
+    def get_status_codes(self) -> set[int]:
         status = self.xml.findall(f'{{{NS_USER}}}status')
         return {int(status.attrib['code']) for status in status}
 
@@ -84,7 +81,7 @@ class MUCBase(ElementBase):
     def get_jid(self) -> JID:
         return JID(self.get_item_attr('jid', ''))
 
-    def set_jid(self, value: Union[JID, str]):
+    def set_jid(self, value: JID | str):
         if not isinstance(value, str):
             value = str(value)
         self.set_item_attr('jid', value)
@@ -192,7 +189,7 @@ class MUCInvite(ElementBase):
     def get_to(self) -> JID:
         return JID(self._get_attr('to'))
 
-    def set_to(self, value: Union[JID, str]):
+    def set_to(self, value: JID | str):
         if not isinstance(value, JID):
             value = JID(value)
         self._set_attr('to', value)
@@ -200,7 +197,7 @@ class MUCInvite(ElementBase):
     def get_from(self) -> JID:
         return JID(self._get_attr('from'))
 
-    def set_from(self, value: Union[JID, str]):
+    def set_from(self, value: JID | str):
         if not isinstance(value, JID):
             value = JID(value)
         self._set_attr('from', value)
@@ -216,7 +213,7 @@ class MUCDecline(ElementBase):
     def get_to(self) -> JID:
         return JID(self._get_attr('to'))
 
-    def set_to(self, value: Union[JID, str]):
+    def set_to(self, value: JID | str):
         if not isinstance(value, JID):
             value = JID(value)
         self._set_attr('to', value)
@@ -224,7 +221,7 @@ class MUCDecline(ElementBase):
     def get_from(self) -> JID:
         return JID(self._get_attr('from'))
 
-    def set_from(self, value: Union[JID, str]):
+    def set_from(self, value: JID | str):
         if not isinstance(value, JID):
             value = JID(value)
         self._set_attr('from', value)
@@ -282,7 +279,7 @@ class MUCUserItem(ElementBase):
     interfaces = {'role', 'affiliation', 'jid', 'reason', 'nick'}
     sub_interfaces = {'reason'}
 
-    def get_jid(self) -> Optional[JID]:
+    def get_jid(self) -> JID | None:
         jid = self.xml.attrib.get('jid', None)
         if jid:
             return JID(jid)
@@ -296,7 +293,7 @@ class MUCActor(ElementBase):
     plugin_attrib = 'actor'
     interfaces = {'jid', 'nick'}
 
-    def get_jid(self) -> Optional[JID]:
+    def get_jid(self) -> JID | None:
         jid = self.xml.attrib.get('jid', None)
         if jid:
             return JID(jid)

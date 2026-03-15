@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,14 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
             "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
             "/tmp/vendor/include/libswscale/swscale.h"
         ],
         "include_dirs": [
@@ -58,7 +48,7 @@
         ],
         "name": "av.filter.context",
         "sources": [
-            "av/filter/context.pyx"
+            "av/filter/context.py"
         ]
     },
     "module_name": "av.filter.context"
@@ -1183,39 +1173,33 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__filter__context
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
+#include "libswscale/swscale.h"
 #include "pythread.h"
 #include <string.h>
 #include <stdlib.h>
@@ -1434,7 +1418,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/filter/context.pyx",
+  "av/filter/context.py",
   "<stringsource>",
   "av/descriptor.pxd",
   "av/filter/filter.pxd",
@@ -1442,7 +1426,6 @@ static const char* const __pyx_f[] = {
   "av/audio/format.pxd",
   "av/audio/layout.pxd",
   "av/buffer.pxd",
-  "av/bytesource.pxd",
   "av/codec/codec.pxd",
   "av/codec/hwaccel.pxd",
   "av/codec/context.pxd",
@@ -1451,6 +1434,7 @@ static const char* const __pyx_f[] = {
   "av/dictionary.pxd",
   "av/format.pxd",
   "av/container/core.pxd",
+  "av/index.pxd",
   "av/stream.pxd",
   "av/packet.pxd",
   "av/sidedata/sidedata.pxd",
@@ -1719,17 +1703,19 @@ struct __pyx_obj_2av_6filter_6filter_Filter;
 struct __pyx_obj_2av_6filter_5graph_Graph;
 struct __pyx_obj_2av_5audio_6format_AudioFormat;
 struct __pyx_obj_2av_5audio_6layout_AudioLayout;
+struct __pyx_obj_2av_6buffer_ByteSource;
 struct __pyx_obj_2av_6buffer_Buffer;
-struct __pyx_obj_2av_10bytesource_ByteSource;
 struct __pyx_obj_2av_5codec_5codec_Codec;
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig;
 struct __pyx_obj_2av_5codec_7hwaccel_HWAccel;
 struct __pyx_obj_2av_5codec_7context_CodecContext;
 struct __pyx_obj_2av_9container_4pyio_PyIOFile;
 struct __pyx_obj_2av_9container_7streams_StreamContainer;
-struct __pyx_obj_2av_10dictionary__Dictionary;
+struct __pyx_obj_2av_10dictionary_Dictionary;
 struct __pyx_obj_2av_6format_ContainerFormat;
 struct __pyx_obj_2av_9container_4core_Container;
+struct __pyx_obj_2av_5index_IndexEntry;
+struct __pyx_obj_2av_5index_IndexEntries;
 struct __pyx_obj_2av_6stream_Stream;
 struct __pyx_obj_2av_6stream_DataStream;
 struct __pyx_obj_2av_6stream_AttachmentStream;
@@ -1745,6 +1731,7 @@ struct __pyx_obj_2av_6filter_4link_FilterContextPad;
 struct __pyx_obj_2av_5video_6format_VideoFormat;
 struct __pyx_obj_2av_5video_6format_VideoFormatComponent;
 struct __pyx_obj_2av_5video_11reformatter_VideoReformatter;
+struct __pyx_obj_2av_5video_5frame_CudaContext;
 struct __pyx_obj_2av_5video_5frame_VideoFrame;
 struct __pyx_obj_2av_6filter_7context_FilterContext;
 struct __pyx_array_obj;
@@ -1765,14 +1752,16 @@ struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure {
   int auto_buffer;
   int force;
 };
-struct __pyx_opt_args_2av_10bytesource_bytesource;
+struct __pyx_opt_args_2av_6buffer_bytesource;
 
-/* "av/bytesource.pxd":14
+/* "av/buffer.pxd":11
  *     cdef size_t length
  * 
  * cdef ByteSource bytesource(object, bint allow_none=*)             # <<<<<<<<<<<<<<
+ * 
+ * cdef class Buffer:
 */
-struct __pyx_opt_args_2av_10bytesource_bytesource {
+struct __pyx_opt_args_2av_6buffer_bytesource {
   int __pyx_n;
   int allow_none;
 };
@@ -1793,7 +1782,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode;
 struct __pyx_opt_args_2av_5codec_7context_12CodecContext_decode;
 
-/* "av/codec/context.pxd":29
+/* "av/codec/context.pxd":33
  *     cdef readonly HWAccel hwaccel
  *     cdef public dict options
  *     cpdef open(self, bint strict=?)             # <<<<<<<<<<<<<<
@@ -1805,7 +1794,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_open {
   int strict;
 };
 
-/* "av/codec/context.pxd":32
+/* "av/codec/context.pxd":36
  * 
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)             # <<<<<<<<<<<<<<
@@ -1817,7 +1806,7 @@ struct __pyx_opt_args_2av_5codec_7context_12CodecContext_encode {
   struct __pyx_obj_2av_5frame_Frame *frame;
 };
 
-/* "av/codec/context.pxd":33
+/* "av/codec/context.pxd":37
  *     # Wraps both versions of the transcode API, returning lists.
  *     cpdef encode(self, Frame frame=?)
  *     cpdef decode(self, Packet packet=?)             # <<<<<<<<<<<<<<
@@ -1857,8 +1846,7 @@ struct __pyx_opt_args_2av_5frame_5Frame__copy_internal_attributes {
 struct __pyx_opt_args_2av_5error_stash_exception;
 struct __pyx_opt_args_2av_5error_err_check;
 
-/* "av/error.pxd":2
- * 
+/* "av/error.pxd":1
  * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
  * cpdef int err_check(int res, filename=*) except -1
 */
@@ -1867,8 +1855,7 @@ struct __pyx_opt_args_2av_5error_stash_exception {
   PyObject *exc_info;
 };
 
-/* "av/error.pxd":3
- * 
+/* "av/error.pxd":2
  * cdef int stash_exception(exc_info=*)
  * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
 */
@@ -1890,9 +1877,9 @@ struct __pyx_opt_args_2av_6filter_4link_alloc_filter_pads {
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width;
 struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_height;
 
-/* "av/video/format.pxd":14
+/* "av/video/format.pxd":10
+ *     cdef readonly tuple components
  *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
- * 
  *     cpdef chroma_width(self, int luma_width=?)             # <<<<<<<<<<<<<<
  *     cpdef chroma_height(self, int luma_height=?)
  * 
@@ -1902,8 +1889,8 @@ struct __pyx_opt_args_2av_5video_6format_11VideoFormat_chroma_width {
   int luma_width;
 };
 
-/* "av/video/format.pxd":15
- * 
+/* "av/video/format.pxd":11
+ *     cdef _init(self, lib.AVPixelFormat pix_fmt, unsigned int width, unsigned int height)
  *     cpdef chroma_width(self, int luma_width=?)
  *     cpdef chroma_height(self, int luma_height=?)             # <<<<<<<<<<<<<<
  * 
@@ -1932,8 +1919,8 @@ struct __pyx_obj_2av_10descriptor_Descriptor {
  * 
  * 
  * cdef class Filter:             # <<<<<<<<<<<<<<
- * 
  *     cdef const lib.AVFilter *ptr
+ *     cdef object _inputs
 */
 struct __pyx_obj_2av_6filter_6filter_Filter {
   PyObject_HEAD
@@ -1983,41 +1970,41 @@ struct __pyx_obj_2av_5audio_6format_AudioFormat {
  * 
  * cdef class AudioLayout:             # <<<<<<<<<<<<<<
  *     cdef lib.AVChannelLayout layout
- *     cdef _init(self, lib.AVChannelLayout layout)
+ * 
 */
 struct __pyx_obj_2av_5audio_6layout_AudioLayout {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtab;
   AVChannelLayout layout;
 };
 
 
-/* "av/buffer.pxd":2
- * 
- * cdef class Buffer:             # <<<<<<<<<<<<<<
- * 
- *     cdef size_t _buffer_size(self)
-*/
-struct __pyx_obj_2av_6buffer_Buffer {
-  PyObject_HEAD
-  struct __pyx_vtabstruct_2av_6buffer_Buffer *__pyx_vtab;
-};
-
-
-/* "av/bytesource.pxd":4
+/* "av/buffer.pxd":4
  * 
  * 
  * cdef class ByteSource:             # <<<<<<<<<<<<<<
- * 
  *     cdef object owner
+ *     cdef bint has_view
 */
-struct __pyx_obj_2av_10bytesource_ByteSource {
+struct __pyx_obj_2av_6buffer_ByteSource {
   PyObject_HEAD
   PyObject *owner;
   int has_view;
   Py_buffer view;
   unsigned char *ptr;
   size_t length;
+};
+
+
+/* "av/buffer.pxd":13
+ * cdef ByteSource bytesource(object, bint allow_none=*)
+ * 
+ * cdef class Buffer:             # <<<<<<<<<<<<<<
+ *     cdef size_t _buffer_size(self)
+ *     cdef void* _buffer_ptr(self)
+*/
+struct __pyx_obj_2av_6buffer_Buffer {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_6buffer_Buffer *__pyx_vtab;
 };
 
 
@@ -2043,18 +2030,18 @@ struct __pyx_obj_2av_5codec_5codec_Codec {
  * 
  * cdef class HWConfig:             # <<<<<<<<<<<<<<
  *     cdef object __weakref__
- *     cdef lib.AVCodecHWConfig *ptr
+ *     cdef const lib.AVCodecHWConfig *ptr
 */
 struct __pyx_obj_2av_5codec_7hwaccel_HWConfig {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtab;
   PyObject *__weakref__;
-  struct AVCodecHWConfig *ptr;
+  struct AVCodecHWConfig const *ptr;
 };
 
 
 /* "av/codec/hwaccel.pxd":13
- * cdef HWConfig wrap_hwconfig(lib.AVCodecHWConfig *ptr)
+ * cdef HWConfig wrap_hwconfig(const lib.AVCodecHWConfig *ptr)
  * 
  * cdef class HWAccel:             # <<<<<<<<<<<<<<
  *     cdef int _device_type
@@ -2067,6 +2054,8 @@ struct __pyx_obj_2av_5codec_7hwaccel_HWAccel {
   struct __pyx_obj_2av_5codec_5codec_Codec *codec;
   struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *config;
   struct AVBufferRef *ptr;
+  int device_id;
+  int is_hw_owned;
   int allow_software_fallback;
   PyObject *options;
   int flags;
@@ -2085,6 +2074,7 @@ struct __pyx_obj_2av_5codec_7context_CodecContext {
   struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtab;
   struct AVCodecContext *ptr;
   int extradata_set;
+  int _template_initialized;
   int stream_index;
   struct AVCodecParserContext *parser;
   int is_open;
@@ -2118,36 +2108,30 @@ struct __pyx_obj_2av_9container_4pyio_PyIOFile {
 };
 
 
-/* "av/container/streams.pxd":8
+/* "av/container/streams.pxd":6
  * 
  * 
  * cdef class StreamContainer:             # <<<<<<<<<<<<<<
  *     cdef list _streams
- * 
+ *     cdef void add_stream(self, Stream stream)
 */
 struct __pyx_obj_2av_9container_7streams_StreamContainer {
   PyObject_HEAD
   struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtab;
   PyObject *_streams;
-  PyObject *video;
-  PyObject *audio;
-  PyObject *subtitles;
-  PyObject *attachments;
-  PyObject *data;
-  PyObject *other;
 };
 
 
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
-struct __pyx_obj_2av_10dictionary__Dictionary {
+struct __pyx_obj_2av_10dictionary_Dictionary {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtab;
+  struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtab;
   AVDictionary *ptr;
 };
 
@@ -2162,8 +2146,8 @@ struct __pyx_obj_2av_10dictionary__Dictionary {
 struct __pyx_obj_2av_6format_ContainerFormat {
   PyObject_HEAD
   PyObject *name;
-  struct AVInputFormat *iptr;
-  struct AVOutputFormat *optr;
+  struct AVInputFormat const *iptr;
+  struct AVOutputFormat const *optr;
 };
 
 
@@ -2171,8 +2155,8 @@ struct __pyx_obj_2av_6format_ContainerFormat {
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint writeable
+ *     cdef lib.AVFormatContext *ptr
 */
 struct __pyx_obj_2av_9container_4core_Container {
   PyObject_HEAD
@@ -2200,7 +2184,35 @@ struct __pyx_obj_2av_9container_4core_Container {
 };
 
 
-/* "av/stream.pxd":9
+/* "av/index.pxd":4
+ * 
+ * 
+ * cdef class IndexEntry:             # <<<<<<<<<<<<<<
+ *     cdef const lib.AVIndexEntry *ptr
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+*/
+struct __pyx_obj_2av_5index_IndexEntry {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtab;
+  struct AVIndexEntry const *ptr;
+};
+
+
+/* "av/index.pxd":8
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+ * 
+ * cdef class IndexEntries:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVStream *stream_ptr
+ *     cdef _init(self, lib.AVStream *ptr)
+*/
+struct __pyx_obj_2av_5index_IndexEntries {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtab;
+  struct AVStream *stream_ptr;
+};
+
+
+/* "av/stream.pxd":10
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
@@ -2214,10 +2226,11 @@ struct __pyx_obj_2av_6stream_Stream {
   struct __pyx_obj_2av_9container_4core_Container *container;
   PyObject *metadata;
   struct __pyx_obj_2av_5codec_7context_CodecContext *codec_context;
+  struct __pyx_obj_2av_5index_IndexEntries *index_entries;
 };
 
 
-/* "av/stream.pxd":28
+/* "av/stream.pxd":31
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2229,7 +2242,7 @@ struct __pyx_obj_2av_6stream_DataStream {
 };
 
 
-/* "av/stream.pxd":31
+/* "av/stream.pxd":34
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2240,7 +2253,7 @@ struct __pyx_obj_2av_6stream_AttachmentStream {
 };
 
 
-/* "av/packet.pxd":10
+/* "av/packet.pxd":9
  * 
  * 
  * cdef class PacketSideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2255,7 +2268,7 @@ struct __pyx_obj_2av_6packet_PacketSideData {
 };
 
 
-/* "av/packet.pxd":19
+/* "av/packet.pxd":18
  *     cdef bint _buffer_writable(self)
  * 
  * cdef class Packet(Buffer):             # <<<<<<<<<<<<<<
@@ -2266,11 +2279,11 @@ struct __pyx_obj_2av_6packet_Packet {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct AVPacket *ptr;
   struct __pyx_obj_2av_6stream_Stream *_stream;
-  struct __pyx_obj_2av_10bytesource_ByteSource *source;
+  struct __pyx_obj_2av_6buffer_ByteSource *source;
 };
 
 
-/* "av/sidedata/sidedata.pxd":9
+/* "av/sidedata/sidedata.pxd":8
  * 
  * 
  * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2281,16 +2294,16 @@ struct __pyx_obj_2av_8sidedata_8sidedata_SideData {
   struct __pyx_obj_2av_6buffer_Buffer __pyx_base;
   struct __pyx_obj_2av_5frame_Frame *frame;
   struct AVFrameSideData *ptr;
-  struct __pyx_obj_2av_10dictionary__Dictionary *metadata;
+  struct __pyx_obj_2av_10dictionary_Dictionary *metadata;
 };
 
 
-/* "av/sidedata/sidedata.pxd":19
+/* "av/sidedata/sidedata.pxd":16
  * cdef int get_display_rotation(Frame frame)
  * 
  * cdef class _SideDataContainer:             # <<<<<<<<<<<<<<
  *     cdef Frame frame
- * 
+ *     cdef list _by_index
 */
 struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer {
   PyObject_HEAD
@@ -2382,8 +2395,8 @@ struct __pyx_obj_2av_6filter_4link_FilterContextPad {
  * 
  * 
  * cdef class VideoFormat:             # <<<<<<<<<<<<<<
- * 
  *     cdef lib.AVPixelFormat pix_fmt
+ *     cdef const lib.AVPixFmtDescriptor *ptr
 */
 struct __pyx_obj_2av_5video_6format_VideoFormat {
   PyObject_HEAD
@@ -2396,12 +2409,12 @@ struct __pyx_obj_2av_5video_6format_VideoFormat {
 };
 
 
-/* "av/video/format.pxd":18
+/* "av/video/format.pxd":14
  * 
  * 
  * cdef class VideoFormatComponent:             # <<<<<<<<<<<<<<
- * 
  *     cdef VideoFormat format
+ *     cdef readonly unsigned int index
 */
 struct __pyx_obj_2av_5video_6format_VideoFormatComponent {
   PyObject_HEAD
@@ -2411,12 +2424,12 @@ struct __pyx_obj_2av_5video_6format_VideoFormatComponent {
 };
 
 
-/* "av/video/reformatter.pxd":6
- * 
+/* "av/video/reformatter.pxd":34
+ *     cdef int sws_scale_frame(SwsContext *c, lib.AVFrame *dst, const lib.AVFrame *src)
  * 
  * cdef class VideoReformatter:             # <<<<<<<<<<<<<<
- * 
- *     cdef lib.SwsContext *ptr
+ *     cdef SwsContext *ptr
+ *     cdef _reformat(self, VideoFrame frame, int width, int height,
 */
 struct __pyx_obj_2av_5video_11reformatter_VideoReformatter {
   PyObject_HEAD
@@ -2428,16 +2441,33 @@ struct __pyx_obj_2av_5video_11reformatter_VideoReformatter {
 /* "av/video/frame.pxd":9
  * 
  * 
+ * cdef class CudaContext:             # <<<<<<<<<<<<<<
+ *     cdef readonly int device_id
+ *     cdef readonly bint primary_ctx
+*/
+struct __pyx_obj_2av_5video_5frame_CudaContext {
+  PyObject_HEAD
+  struct __pyx_vtabstruct_2av_5video_5frame_CudaContext *__pyx_vtab;
+  int device_id;
+  int primary_ctx;
+  struct AVBufferRef *_device_ref;
+  PyObject *_frames_cache;
+};
+
+
+/* "av/video/frame.pxd":19
+ *     )
+ * 
  * cdef class VideoFrame(Frame):             # <<<<<<<<<<<<<<
- *     # This is the buffer that is used to back everything in the AVFrame.
- *     # We don't ever actually access it directly.
+ *     cdef CudaContext _cuda_ctx
+ *     cdef VideoReformatter reformatter
 */
 struct __pyx_obj_2av_5video_5frame_VideoFrame {
   struct __pyx_obj_2av_5frame_Frame __pyx_base;
-  uint8_t *_buffer;
-  PyObject *_np_buffer;
+  struct __pyx_obj_2av_5video_5frame_CudaContext *_cuda_ctx;
   struct __pyx_obj_2av_5video_11reformatter_VideoReformatter *reformatter;
   struct __pyx_obj_2av_5video_6format_VideoFormat *format;
+  int _device_id;
 };
 
 
@@ -2553,25 +2583,12 @@ struct __pyx_vtabstruct_2av_6filter_5graph_Graph {
 static struct __pyx_vtabstruct_2av_6filter_5graph_Graph *__pyx_vtabptr_2av_6filter_5graph_Graph;
 
 
-/* "av/audio/layout.pxd":4
- * 
- * 
- * cdef class AudioLayout:             # <<<<<<<<<<<<<<
- *     cdef lib.AVChannelLayout layout
- *     cdef _init(self, lib.AVChannelLayout layout)
-*/
-
-struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout {
-  PyObject *(*_init)(struct __pyx_obj_2av_5audio_6layout_AudioLayout *, AVChannelLayout);
-};
-static struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtabptr_2av_5audio_6layout_AudioLayout;
-
-
-/* "av/buffer.pxd":2
+/* "av/buffer.pxd":13
+ * cdef ByteSource bytesource(object, bint allow_none=*)
  * 
  * cdef class Buffer:             # <<<<<<<<<<<<<<
- * 
  *     cdef size_t _buffer_size(self)
+ *     cdef void* _buffer_ptr(self)
 */
 
 struct __pyx_vtabstruct_2av_6buffer_Buffer {
@@ -2601,11 +2618,11 @@ static struct __pyx_vtabstruct_2av_5codec_5codec_Codec *__pyx_vtabptr_2av_5codec
  * 
  * cdef class HWConfig:             # <<<<<<<<<<<<<<
  *     cdef object __weakref__
- *     cdef lib.AVCodecHWConfig *ptr
+ *     cdef const lib.AVCodecHWConfig *ptr
 */
 
 struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig {
-  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig *);
+  void (*_init)(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig *, struct AVCodecHWConfig const *);
 };
 static struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig *__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig;
 
@@ -2637,17 +2654,16 @@ struct __pyx_vtabstruct_2av_5codec_7context_CodecContext {
 static struct __pyx_vtabstruct_2av_5codec_7context_CodecContext *__pyx_vtabptr_2av_5codec_7context_CodecContext;
 
 
-/* "av/container/streams.pxd":8
+/* "av/container/streams.pxd":6
  * 
  * 
  * cdef class StreamContainer:             # <<<<<<<<<<<<<<
  *     cdef list _streams
- * 
+ *     cdef void add_stream(self, Stream stream)
 */
 
 struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer {
-  PyObject *(*add_stream)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_6stream_Stream *);
-  int (*_get_best_stream_index)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_9container_4core_Container *, enum AVMediaType, struct __pyx_obj_2av_6stream_Stream *);
+  void (*add_stream)(struct __pyx_obj_2av_9container_7streams_StreamContainer *, struct __pyx_obj_2av_6stream_Stream *);
 };
 static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vtabptr_2av_9container_7streams_StreamContainer;
 
@@ -2655,23 +2671,23 @@ static struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer *__pyx_vt
 /* "av/dictionary.pxd":4
  * 
  * 
- * cdef class _Dictionary:             # <<<<<<<<<<<<<<
- * 
+ * cdef class Dictionary:             # <<<<<<<<<<<<<<
  *     cdef lib.AVDictionary *ptr
+ *     cpdef Dictionary copy(self)
 */
 
-struct __pyx_vtabstruct_2av_10dictionary__Dictionary {
-  struct __pyx_obj_2av_10dictionary__Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary__Dictionary *, int __pyx_skip_dispatch);
+struct __pyx_vtabstruct_2av_10dictionary_Dictionary {
+  struct __pyx_obj_2av_10dictionary_Dictionary *(*copy)(struct __pyx_obj_2av_10dictionary_Dictionary *, int __pyx_skip_dispatch);
 };
-static struct __pyx_vtabstruct_2av_10dictionary__Dictionary *__pyx_vtabptr_2av_10dictionary__Dictionary;
+static struct __pyx_vtabstruct_2av_10dictionary_Dictionary *__pyx_vtabptr_2av_10dictionary_Dictionary;
 
 
 /* "av/container/core.pxd":16
  * 
  * 
  * cdef class Container:             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint writeable
+ *     cdef lib.AVFormatContext *ptr
 */
 
 struct __pyx_vtabstruct_2av_9container_4core_Container {
@@ -2683,7 +2699,35 @@ struct __pyx_vtabstruct_2av_9container_4core_Container {
 static struct __pyx_vtabstruct_2av_9container_4core_Container *__pyx_vtabptr_2av_9container_4core_Container;
 
 
-/* "av/stream.pxd":9
+/* "av/index.pxd":4
+ * 
+ * 
+ * cdef class IndexEntry:             # <<<<<<<<<<<<<<
+ *     cdef const lib.AVIndexEntry *ptr
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+*/
+
+struct __pyx_vtabstruct_2av_5index_IndexEntry {
+  PyObject *(*_init)(struct __pyx_obj_2av_5index_IndexEntry *, struct AVIndexEntry const *);
+};
+static struct __pyx_vtabstruct_2av_5index_IndexEntry *__pyx_vtabptr_2av_5index_IndexEntry;
+
+
+/* "av/index.pxd":8
+ *     cdef _init(self, const lib.AVIndexEntry *ptr)
+ * 
+ * cdef class IndexEntries:             # <<<<<<<<<<<<<<
+ *     cdef lib.AVStream *stream_ptr
+ *     cdef _init(self, lib.AVStream *ptr)
+*/
+
+struct __pyx_vtabstruct_2av_5index_IndexEntries {
+  PyObject *(*_init)(struct __pyx_obj_2av_5index_IndexEntries *, struct AVStream *);
+};
+static struct __pyx_vtabstruct_2av_5index_IndexEntries *__pyx_vtabptr_2av_5index_IndexEntries;
+
+
+/* "av/stream.pxd":10
  * 
  * 
  * cdef class Stream:             # <<<<<<<<<<<<<<
@@ -2699,7 +2743,7 @@ struct __pyx_vtabstruct_2av_6stream_Stream {
 static struct __pyx_vtabstruct_2av_6stream_Stream *__pyx_vtabptr_2av_6stream_Stream;
 
 
-/* "av/stream.pxd":28
+/* "av/stream.pxd":31
  * 
  * 
  * cdef class DataStream(Stream):             # <<<<<<<<<<<<<<
@@ -2713,7 +2757,7 @@ struct __pyx_vtabstruct_2av_6stream_DataStream {
 static struct __pyx_vtabstruct_2av_6stream_DataStream *__pyx_vtabptr_2av_6stream_DataStream;
 
 
-/* "av/stream.pxd":31
+/* "av/stream.pxd":34
  *     pass
  * 
  * cdef class AttachmentStream(Stream):             # <<<<<<<<<<<<<<
@@ -2726,7 +2770,7 @@ struct __pyx_vtabstruct_2av_6stream_AttachmentStream {
 static struct __pyx_vtabstruct_2av_6stream_AttachmentStream *__pyx_vtabptr_2av_6stream_AttachmentStream;
 
 
-/* "av/packet.pxd":10
+/* "av/packet.pxd":9
  * 
  * 
  * cdef class PacketSideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2740,7 +2784,7 @@ struct __pyx_vtabstruct_2av_6packet_PacketSideData {
 static struct __pyx_vtabstruct_2av_6packet_PacketSideData *__pyx_vtabptr_2av_6packet_PacketSideData;
 
 
-/* "av/packet.pxd":19
+/* "av/packet.pxd":18
  *     cdef bint _buffer_writable(self)
  * 
  * cdef class Packet(Buffer):             # <<<<<<<<<<<<<<
@@ -2755,7 +2799,7 @@ struct __pyx_vtabstruct_2av_6packet_Packet {
 static struct __pyx_vtabstruct_2av_6packet_Packet *__pyx_vtabptr_2av_6packet_Packet;
 
 
-/* "av/sidedata/sidedata.pxd":9
+/* "av/sidedata/sidedata.pxd":8
  * 
  * 
  * cdef class SideData(Buffer):             # <<<<<<<<<<<<<<
@@ -2804,8 +2848,8 @@ static struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *__pyx_vtabptr_2av_5
  * 
  * 
  * cdef class VideoFormat:             # <<<<<<<<<<<<<<
- * 
  *     cdef lib.AVPixelFormat pix_fmt
+ *     cdef const lib.AVPixFmtDescriptor *ptr
 */
 
 struct __pyx_vtabstruct_2av_5video_6format_VideoFormat {
@@ -2816,16 +2860,16 @@ struct __pyx_vtabstruct_2av_5video_6format_VideoFormat {
 static struct __pyx_vtabstruct_2av_5video_6format_VideoFormat *__pyx_vtabptr_2av_5video_6format_VideoFormat;
 
 
-/* "av/video/reformatter.pxd":6
- * 
+/* "av/video/reformatter.pxd":34
+ *     cdef int sws_scale_frame(SwsContext *c, lib.AVFrame *dst, const lib.AVFrame *src)
  * 
  * cdef class VideoReformatter:             # <<<<<<<<<<<<<<
- * 
- *     cdef lib.SwsContext *ptr
+ *     cdef SwsContext *ptr
+ *     cdef _reformat(self, VideoFrame frame, int width, int height,
 */
 
 struct __pyx_vtabstruct_2av_5video_11reformatter_VideoReformatter {
-  PyObject *(*_reformat)(struct __pyx_obj_2av_5video_11reformatter_VideoReformatter *, struct __pyx_obj_2av_5video_5frame_VideoFrame *, int, int, enum AVPixelFormat, int, int, int, int, int);
+  PyObject *(*_reformat)(struct __pyx_obj_2av_5video_11reformatter_VideoReformatter *, struct __pyx_obj_2av_5video_5frame_VideoFrame *, int, int, enum AVPixelFormat, int, int, int, int, int, int, int, int, int, int);
 };
 static struct __pyx_vtabstruct_2av_5video_11reformatter_VideoReformatter *__pyx_vtabptr_2av_5video_11reformatter_VideoReformatter;
 
@@ -2833,9 +2877,24 @@ static struct __pyx_vtabstruct_2av_5video_11reformatter_VideoReformatter *__pyx_
 /* "av/video/frame.pxd":9
  * 
  * 
+ * cdef class CudaContext:             # <<<<<<<<<<<<<<
+ *     cdef readonly int device_id
+ *     cdef readonly bint primary_ctx
+*/
+
+struct __pyx_vtabstruct_2av_5video_5frame_CudaContext {
+  struct AVBufferRef *(*_get_device_ref)(struct __pyx_obj_2av_5video_5frame_CudaContext *);
+  struct AVBufferRef *(*get_frames_ctx)(struct __pyx_obj_2av_5video_5frame_CudaContext *, enum AVPixelFormat, int, int);
+};
+static struct __pyx_vtabstruct_2av_5video_5frame_CudaContext *__pyx_vtabptr_2av_5video_5frame_CudaContext;
+
+
+/* "av/video/frame.pxd":19
+ *     )
+ * 
  * cdef class VideoFrame(Frame):             # <<<<<<<<<<<<<<
- *     # This is the buffer that is used to back everything in the AVFrame.
- *     # We don't ever actually access it directly.
+ *     cdef CudaContext _cuda_ctx
+ *     cdef VideoReformatter reformatter
 */
 
 struct __pyx_vtabstruct_2av_5video_5frame_VideoFrame {
@@ -3742,9 +3801,6 @@ static PyTypeObject *__Pyx_ImportType_3_2_4(PyObject* module, const char *module
 /* FunctionImport.proto */
 static int __Pyx_ImportFunction_3_2_4(PyObject *module, const char *funcname, void (**f)(void), const char *sig);
 
-/* ImportFrom.proto */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
-
 /* dict_setdefault.proto (used by CLineInTraceback) */
 static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value);
 
@@ -3998,8 +4054,6 @@ static PyObject *__pyx_memoryviewslice__get_base(struct __pyx_memoryviewslice_ob
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
 /* Module declarations from "av.descriptor" */
@@ -4008,15 +4062,19 @@ static PyObject *__pyx_memoryviewslice__get_base(struct __pyx_memoryviewslice_ob
 
 /* Module declarations from "av.filter.graph" */
 
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
+
 /* Module declarations from "av.audio.format" */
 
 /* Module declarations from "av.audio.layout" */
 
-/* Module declarations from "av.buffer" */
-
 /* Module declarations from "cpython.buffer" */
 
-/* Module declarations from "av.bytesource" */
+/* Module declarations from "av.buffer" */
 
 /* Module declarations from "av.codec.codec" */
 
@@ -4029,11 +4087,13 @@ static PyObject *__pyx_memoryviewslice__get_base(struct __pyx_memoryviewslice_ob
 /* Module declarations from "av.container.streams" */
 
 /* Module declarations from "av.dictionary" */
-static struct __pyx_obj_2av_10dictionary__Dictionary *(*__pyx_f_2av_10dictionary_wrap_dictionary)(AVDictionary *); /*proto*/
+static struct __pyx_obj_2av_10dictionary_Dictionary *(*__pyx_f_2av_10dictionary_wrap_dictionary)(AVDictionary *); /*proto*/
 
 /* Module declarations from "av.format" */
 
 /* Module declarations from "av.container.core" */
+
+/* Module declarations from "av.index" */
 
 /* Module declarations from "av.stream" */
 
@@ -4211,17 +4271,19 @@ typedef struct {
   PyTypeObject *__pyx_ptype_2av_6filter_5graph_Graph;
   PyTypeObject *__pyx_ptype_2av_5audio_6format_AudioFormat;
   PyTypeObject *__pyx_ptype_2av_5audio_6layout_AudioLayout;
+  PyTypeObject *__pyx_ptype_2av_6buffer_ByteSource;
   PyTypeObject *__pyx_ptype_2av_6buffer_Buffer;
-  PyTypeObject *__pyx_ptype_2av_10bytesource_ByteSource;
   PyTypeObject *__pyx_ptype_2av_5codec_5codec_Codec;
   PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWConfig;
   PyTypeObject *__pyx_ptype_2av_5codec_7hwaccel_HWAccel;
   PyTypeObject *__pyx_ptype_2av_5codec_7context_CodecContext;
   PyTypeObject *__pyx_ptype_2av_9container_4pyio_PyIOFile;
   PyTypeObject *__pyx_ptype_2av_9container_7streams_StreamContainer;
-  PyTypeObject *__pyx_ptype_2av_10dictionary__Dictionary;
+  PyTypeObject *__pyx_ptype_2av_10dictionary_Dictionary;
   PyTypeObject *__pyx_ptype_2av_6format_ContainerFormat;
   PyTypeObject *__pyx_ptype_2av_9container_4core_Container;
+  PyTypeObject *__pyx_ptype_2av_5index_IndexEntry;
+  PyTypeObject *__pyx_ptype_2av_5index_IndexEntries;
   PyTypeObject *__pyx_ptype_2av_6stream_Stream;
   PyTypeObject *__pyx_ptype_2av_6stream_DataStream;
   PyTypeObject *__pyx_ptype_2av_6stream_AttachmentStream;
@@ -4237,6 +4299,7 @@ typedef struct {
   PyTypeObject *__pyx_ptype_2av_5video_6format_VideoFormat;
   PyTypeObject *__pyx_ptype_2av_5video_6format_VideoFormatComponent;
   PyTypeObject *__pyx_ptype_2av_5video_11reformatter_VideoReformatter;
+  PyTypeObject *__pyx_ptype_2av_5video_5frame_CudaContext;
   PyTypeObject *__pyx_ptype_2av_5video_5frame_VideoFrame;
   PyObject *__pyx_type_2av_6filter_7context_FilterContext;
   PyObject *__pyx_type___pyx_array;
@@ -4254,7 +4317,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyBytes_Type__find;
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[1];
-  PyObject *__pyx_string_tab[163];
+  PyObject *__pyx_string_tab[161];
   PyObject *__pyx_number_tab[4];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
@@ -4345,109 +4408,107 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[57]
 #define __pyx_kp_u_unused_config __pyx_string_tab[58]
 #define __pyx_n_u_ASCII __pyx_string_tab[59]
-#define __pyx_n_u_Dictionary __pyx_string_tab[60]
-#define __pyx_n_u_Ellipsis __pyx_string_tab[61]
-#define __pyx_n_u_FilterContext __pyx_string_tab[62]
-#define __pyx_n_u_None __pyx_string_tab[63]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[64]
-#define __pyx_n_u_Sequence __pyx_string_tab[65]
-#define __pyx_n_u_View_MemoryView __pyx_string_tab[66]
-#define __pyx_n_u_abc __pyx_string_tab[67]
-#define __pyx_n_u_abuffer __pyx_string_tab[68]
-#define __pyx_n_u_abuffersink __pyx_string_tab[69]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[70]
-#define __pyx_n_u_arg __pyx_string_tab[71]
-#define __pyx_n_u_args __pyx_string_tab[72]
-#define __pyx_n_u_av_dictionary __pyx_string_tab[73]
-#define __pyx_n_u_base __pyx_string_tab[74]
-#define __pyx_n_u_buffer __pyx_string_tab[75]
-#define __pyx_n_u_buffersink __pyx_string_tab[76]
-#define __pyx_n_u_c __pyx_string_tab[77]
-#define __pyx_n_u_class __pyx_string_tab[78]
-#define __pyx_n_u_class_getitem __pyx_string_tab[79]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[80]
-#define __pyx_n_u_cmd __pyx_string_tab[81]
-#define __pyx_n_u_configure __pyx_string_tab[82]
-#define __pyx_n_u_context __pyx_string_tab[83]
-#define __pyx_n_u_count __pyx_string_tab[84]
-#define __pyx_n_u_dict __pyx_string_tab[85]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[86]
-#define __pyx_n_u_encode __pyx_string_tab[87]
-#define __pyx_n_u_enumerate __pyx_string_tab[88]
-#define __pyx_n_u_error __pyx_string_tab[89]
-#define __pyx_n_u_find __pyx_string_tab[90]
-#define __pyx_n_u_flags __pyx_string_tab[91]
-#define __pyx_n_u_format __pyx_string_tab[92]
-#define __pyx_n_u_fortran __pyx_string_tab[93]
-#define __pyx_n_u_frame __pyx_string_tab[94]
-#define __pyx_n_u_getstate __pyx_string_tab[95]
-#define __pyx_n_u_graph __pyx_string_tab[96]
-#define __pyx_n_u_id __pyx_string_tab[97]
-#define __pyx_n_u_import __pyx_string_tab[98]
-#define __pyx_n_u_index __pyx_string_tab[99]
-#define __pyx_n_u_input __pyx_string_tab[100]
-#define __pyx_n_u_input_idx __pyx_string_tab[101]
-#define __pyx_n_u_inputs __pyx_string_tab[102]
-#define __pyx_n_u_items __pyx_string_tab[103]
-#define __pyx_n_u_itemsize __pyx_string_tab[104]
-#define __pyx_n_u_link __pyx_string_tab[105]
-#define __pyx_n_u_linked __pyx_string_tab[106]
-#define __pyx_n_u_main __pyx_string_tab[107]
-#define __pyx_n_u_memview __pyx_string_tab[108]
-#define __pyx_n_u_mode __pyx_string_tab[109]
-#define __pyx_n_u_module __pyx_string_tab[110]
-#define __pyx_n_u_name __pyx_string_tab[111]
-#define __pyx_n_u_name_2 __pyx_string_tab[112]
-#define __pyx_n_u_ndim __pyx_string_tab[113]
-#define __pyx_n_u_new __pyx_string_tab[114]
-#define __pyx_n_u_obj __pyx_string_tab[115]
-#define __pyx_n_u_object __pyx_string_tab[116]
-#define __pyx_n_u_output_idx __pyx_string_tab[117]
-#define __pyx_n_u_outputs __pyx_string_tab[118]
-#define __pyx_n_u_pack __pyx_string_tab[119]
-#define __pyx_n_u_pop __pyx_string_tab[120]
-#define __pyx_n_u_pull __pyx_string_tab[121]
-#define __pyx_n_u_push __pyx_string_tab[122]
-#define __pyx_n_u_pyx_capi __pyx_string_tab[123]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[124]
-#define __pyx_n_u_pyx_state __pyx_string_tab[125]
-#define __pyx_n_u_pyx_type __pyx_string_tab[126]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[127]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[128]
-#define __pyx_n_u_qualname __pyx_string_tab[129]
-#define __pyx_n_u_reduce __pyx_string_tab[130]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[131]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[132]
-#define __pyx_n_u_ref __pyx_string_tab[133]
-#define __pyx_n_u_register __pyx_string_tab[134]
-#define __pyx_n_u_res_len __pyx_string_tab[135]
-#define __pyx_n_u_sentinel __pyx_string_tab[136]
-#define __pyx_n_u_set_name __pyx_string_tab[137]
-#define __pyx_n_u_setdefault __pyx_string_tab[138]
-#define __pyx_n_u_setstate __pyx_string_tab[139]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[140]
-#define __pyx_n_u_shape __pyx_string_tab[141]
-#define __pyx_n_u_size __pyx_string_tab[142]
-#define __pyx_n_u_start __pyx_string_tab[143]
-#define __pyx_n_u_step __pyx_string_tab[144]
-#define __pyx_n_u_stop __pyx_string_tab[145]
-#define __pyx_n_u_struct __pyx_string_tab[146]
-#define __pyx_n_u_test __pyx_string_tab[147]
-#define __pyx_n_u_time_base __pyx_string_tab[148]
-#define __pyx_n_u_unpack __pyx_string_tab[149]
-#define __pyx_n_u_update __pyx_string_tab[150]
-#define __pyx_n_u_values __pyx_string_tab[151]
-#define __pyx_n_u_weakref __pyx_string_tab[152]
-#define __pyx_n_u_x __pyx_string_tab[153]
-#define __pyx_kp_b_PyObject_AVRational_const_avrati __pyx_string_tab[154]
-#define __pyx_kp_b_PyObject_struct___pyx_obj_2av_6f __pyx_string_tab[155]
-#define __pyx_kp_b__7 __pyx_string_tab[156]
-#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[157]
-#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[158]
-#define __pyx_kp_b_struct___pyx_obj_2av_5audio_5fra __pyx_string_tab[159]
-#define __pyx_kp_b_struct___pyx_obj_2av_5video_5fra __pyx_string_tab[160]
-#define __pyx_kp_b_struct___pyx_obj_2av_6filter_7co __pyx_string_tab[161]
-#define __pyx_n_b_O __pyx_string_tab[162]
+#define __pyx_n_u_Ellipsis __pyx_string_tab[60]
+#define __pyx_n_u_FilterContext __pyx_string_tab[61]
+#define __pyx_n_u_None __pyx_string_tab[62]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[63]
+#define __pyx_n_u_Sequence __pyx_string_tab[64]
+#define __pyx_n_u_View_MemoryView __pyx_string_tab[65]
+#define __pyx_n_u_abc __pyx_string_tab[66]
+#define __pyx_n_u_abuffer __pyx_string_tab[67]
+#define __pyx_n_u_abuffersink __pyx_string_tab[68]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[69]
+#define __pyx_n_u_arg __pyx_string_tab[70]
+#define __pyx_n_u_args __pyx_string_tab[71]
+#define __pyx_n_u_base __pyx_string_tab[72]
+#define __pyx_n_u_buffer __pyx_string_tab[73]
+#define __pyx_n_u_buffersink __pyx_string_tab[74]
+#define __pyx_n_u_c __pyx_string_tab[75]
+#define __pyx_n_u_class __pyx_string_tab[76]
+#define __pyx_n_u_class_getitem __pyx_string_tab[77]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[78]
+#define __pyx_n_u_cmd __pyx_string_tab[79]
+#define __pyx_n_u_configure __pyx_string_tab[80]
+#define __pyx_n_u_context __pyx_string_tab[81]
+#define __pyx_n_u_count __pyx_string_tab[82]
+#define __pyx_n_u_dict __pyx_string_tab[83]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[84]
+#define __pyx_n_u_encode __pyx_string_tab[85]
+#define __pyx_n_u_enumerate __pyx_string_tab[86]
+#define __pyx_n_u_error __pyx_string_tab[87]
+#define __pyx_n_u_find __pyx_string_tab[88]
+#define __pyx_n_u_flags __pyx_string_tab[89]
+#define __pyx_n_u_format __pyx_string_tab[90]
+#define __pyx_n_u_fortran __pyx_string_tab[91]
+#define __pyx_n_u_frame __pyx_string_tab[92]
+#define __pyx_n_u_getstate __pyx_string_tab[93]
+#define __pyx_n_u_graph __pyx_string_tab[94]
+#define __pyx_n_u_id __pyx_string_tab[95]
+#define __pyx_n_u_import __pyx_string_tab[96]
+#define __pyx_n_u_index __pyx_string_tab[97]
+#define __pyx_n_u_input __pyx_string_tab[98]
+#define __pyx_n_u_input_idx __pyx_string_tab[99]
+#define __pyx_n_u_inputs __pyx_string_tab[100]
+#define __pyx_n_u_items __pyx_string_tab[101]
+#define __pyx_n_u_itemsize __pyx_string_tab[102]
+#define __pyx_n_u_link __pyx_string_tab[103]
+#define __pyx_n_u_linked __pyx_string_tab[104]
+#define __pyx_n_u_main __pyx_string_tab[105]
+#define __pyx_n_u_memview __pyx_string_tab[106]
+#define __pyx_n_u_mode __pyx_string_tab[107]
+#define __pyx_n_u_module __pyx_string_tab[108]
+#define __pyx_n_u_name __pyx_string_tab[109]
+#define __pyx_n_u_name_2 __pyx_string_tab[110]
+#define __pyx_n_u_ndim __pyx_string_tab[111]
+#define __pyx_n_u_new __pyx_string_tab[112]
+#define __pyx_n_u_obj __pyx_string_tab[113]
+#define __pyx_n_u_object __pyx_string_tab[114]
+#define __pyx_n_u_output_idx __pyx_string_tab[115]
+#define __pyx_n_u_outputs __pyx_string_tab[116]
+#define __pyx_n_u_pack __pyx_string_tab[117]
+#define __pyx_n_u_pop __pyx_string_tab[118]
+#define __pyx_n_u_pull __pyx_string_tab[119]
+#define __pyx_n_u_push __pyx_string_tab[120]
+#define __pyx_n_u_pyx_capi __pyx_string_tab[121]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[122]
+#define __pyx_n_u_pyx_state __pyx_string_tab[123]
+#define __pyx_n_u_pyx_type __pyx_string_tab[124]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[125]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[126]
+#define __pyx_n_u_qualname __pyx_string_tab[127]
+#define __pyx_n_u_reduce __pyx_string_tab[128]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[129]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[130]
+#define __pyx_n_u_ref __pyx_string_tab[131]
+#define __pyx_n_u_register __pyx_string_tab[132]
+#define __pyx_n_u_res_len __pyx_string_tab[133]
+#define __pyx_n_u_sentinel __pyx_string_tab[134]
+#define __pyx_n_u_set_name __pyx_string_tab[135]
+#define __pyx_n_u_setdefault __pyx_string_tab[136]
+#define __pyx_n_u_setstate __pyx_string_tab[137]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[138]
+#define __pyx_n_u_shape __pyx_string_tab[139]
+#define __pyx_n_u_size __pyx_string_tab[140]
+#define __pyx_n_u_start __pyx_string_tab[141]
+#define __pyx_n_u_step __pyx_string_tab[142]
+#define __pyx_n_u_stop __pyx_string_tab[143]
+#define __pyx_n_u_struct __pyx_string_tab[144]
+#define __pyx_n_u_test __pyx_string_tab[145]
+#define __pyx_n_u_time_base __pyx_string_tab[146]
+#define __pyx_n_u_unpack __pyx_string_tab[147]
+#define __pyx_n_u_update __pyx_string_tab[148]
+#define __pyx_n_u_values __pyx_string_tab[149]
+#define __pyx_n_u_weakref __pyx_string_tab[150]
+#define __pyx_n_u_x __pyx_string_tab[151]
+#define __pyx_kp_b_PyObject_AVRational_const_avrati __pyx_string_tab[152]
+#define __pyx_kp_b_PyObject_struct___pyx_obj_2av_6f __pyx_string_tab[153]
+#define __pyx_kp_b__7 __pyx_string_tab[154]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[155]
+#define __pyx_kp_b_struct___pyx_obj_2av_10dictionar __pyx_string_tab[156]
+#define __pyx_kp_b_struct___pyx_obj_2av_5audio_5fra __pyx_string_tab[157]
+#define __pyx_kp_b_struct___pyx_obj_2av_5video_5fra __pyx_string_tab[158]
+#define __pyx_kp_b_struct___pyx_obj_2av_6filter_7co __pyx_string_tab[159]
+#define __pyx_n_b_O __pyx_string_tab[160]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
@@ -4471,17 +4532,19 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6filter_5graph_Graph);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5audio_6format_AudioFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5audio_6layout_AudioLayout);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_6buffer_ByteSource);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6buffer_Buffer);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10bytesource_ByteSource);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
-  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_9container_4core_Container);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntry);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -4497,6 +4560,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_6format_VideoFormat);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_6format_VideoFormatComponent);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_11reformatter_VideoReformatter);
+  Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_5frame_CudaContext);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5video_5frame_VideoFrame);
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_6filter_7context_FilterContext);
   Py_CLEAR(clear_module_state->__pyx_type_2av_6filter_7context_FilterContext);
@@ -4510,7 +4574,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<163; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<161; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
@@ -4533,17 +4597,19 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6filter_5graph_Graph);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5audio_6format_AudioFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5audio_6layout_AudioLayout);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_6buffer_ByteSource);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6buffer_Buffer);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10bytesource_ByteSource);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_5codec_Codec);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWConfig);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7hwaccel_HWAccel);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5codec_7context_CodecContext);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4pyio_PyIOFile);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_7streams_StreamContainer);
-  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary__Dictionary);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_10dictionary_Dictionary);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6format_ContainerFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_9container_4core_Container);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntry);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5index_IndexEntries);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_Stream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_DataStream);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6stream_AttachmentStream);
@@ -4559,6 +4625,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_6format_VideoFormat);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_6format_VideoFormatComponent);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_11reformatter_VideoReformatter);
+  Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_5frame_CudaContext);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5video_5frame_VideoFrame);
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_6filter_7context_FilterContext);
   Py_VISIT(traverse_module_state->__pyx_type_2av_6filter_7context_FilterContext);
@@ -4572,7 +4639,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<163; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<161; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
@@ -17848,12 +17915,12 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":18
+/* "av/filter/context.py":16
  * 
  * 
- * cdef FilterContext wrap_filter_context(Graph graph, Filter filter, lib.AVFilterContext *ptr):             # <<<<<<<<<<<<<<
- *     cdef FilterContext self = FilterContext(_cinit_sentinel)
- *     self._graph = weakref.ref(graph)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_filter_context(
+ *     graph: Graph, filter: Filter, ptr: cython.pointer[lib.AVFilterContext]
 */
 
 static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_7context_wrap_filter_context(struct __pyx_obj_2av_6filter_5graph_Graph *__pyx_v_graph, struct __pyx_obj_2av_6filter_6filter_Filter *__pyx_v_filter, struct AVFilterContext *__pyx_v_ptr) {
@@ -17870,10 +17937,10 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_filter_context", 0);
 
-  /* "av/filter/context.pyx":19
- * 
- * cdef FilterContext wrap_filter_context(Graph graph, Filter filter, lib.AVFilterContext *ptr):
- *     cdef FilterContext self = FilterContext(_cinit_sentinel)             # <<<<<<<<<<<<<<
+  /* "av/filter/context.py":20
+ *     graph: Graph, filter: Filter, ptr: cython.pointer[lib.AVFilterContext]
+ * ) -> FilterContext:
+ *     self: FilterContext = FilterContext(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     self._graph = weakref.ref(graph)
  *     self.filter = filter
 */
@@ -17883,23 +17950,23 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_2av_6filter_7context__cinit_sentinel};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6filter_7context_FilterContext, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_self = ((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/filter/context.pyx":20
- * cdef FilterContext wrap_filter_context(Graph graph, Filter filter, lib.AVFilterContext *ptr):
- *     cdef FilterContext self = FilterContext(_cinit_sentinel)
+  /* "av/filter/context.py":21
+ * ) -> FilterContext:
+ *     self: FilterContext = FilterContext(_cinit_sentinel)
  *     self._graph = weakref.ref(graph)             # <<<<<<<<<<<<<<
  *     self.filter = filter
  *     self.ptr = ptr
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ref); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ref); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_3 = 1;
@@ -17919,7 +17986,7 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 21, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_GIVEREF(__pyx_t_1);
@@ -17928,8 +17995,8 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
   __pyx_v_self->_graph = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/filter/context.pyx":21
- *     cdef FilterContext self = FilterContext(_cinit_sentinel)
+  /* "av/filter/context.py":22
+ *     self: FilterContext = FilterContext(_cinit_sentinel)
  *     self._graph = weakref.ref(graph)
  *     self.filter = filter             # <<<<<<<<<<<<<<
  *     self.ptr = ptr
@@ -17941,7 +18008,7 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
   __Pyx_DECREF((PyObject *)__pyx_v_self->filter);
   __pyx_v_self->filter = __pyx_v_filter;
 
-  /* "av/filter/context.pyx":22
+  /* "av/filter/context.py":23
  *     self._graph = weakref.ref(graph)
  *     self.filter = filter
  *     self.ptr = ptr             # <<<<<<<<<<<<<<
@@ -17950,7 +18017,7 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
 */
   __pyx_v_self->ptr = __pyx_v_ptr;
 
-  /* "av/filter/context.pyx":23
+  /* "av/filter/context.py":24
  *     self.filter = filter
  *     self.ptr = ptr
  *     return self             # <<<<<<<<<<<<<<
@@ -17962,12 +18029,12 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
   __pyx_r = __pyx_v_self;
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":18
+  /* "av/filter/context.py":16
  * 
  * 
- * cdef FilterContext wrap_filter_context(Graph graph, Filter filter, lib.AVFilterContext *ptr):             # <<<<<<<<<<<<<<
- *     cdef FilterContext self = FilterContext(_cinit_sentinel)
- *     self._graph = weakref.ref(graph)
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_filter_context(
+ *     graph: Graph, filter: Filter, ptr: cython.pointer[lib.AVFilterContext]
 */
 
   /* function exit code */
@@ -17985,9 +18052,9 @@ static struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_f_2av_6filter_
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":27
- * 
- * cdef class FilterContext:
+/* "av/filter/context.py":29
+ * @cython.cclass
+ * class FilterContext:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("cannot construct FilterContext")
@@ -18015,32 +18082,32 @@ static int __pyx_pw_2av_6filter_7context_13FilterContext_1__cinit__(PyObject *__
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sentinel,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 27, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 29, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 27, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 27, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 29, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 27, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 29, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 27, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
     }
     __pyx_v_sentinel = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 27, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 29, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18073,8 +18140,8 @@ static int __pyx_pf_2av_6filter_7context_13FilterContext___cinit__(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/filter/context.pyx":28
- * cdef class FilterContext:
+  /* "av/filter/context.py":30
+ * class FilterContext:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("cannot construct FilterContext")
@@ -18083,7 +18150,7 @@ static int __pyx_pf_2av_6filter_7context_13FilterContext___cinit__(CYTHON_UNUSED
   __pyx_t_1 = (__pyx_v_sentinel != __pyx_v_2av_6filter_7context__cinit_sentinel);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/context.pyx":29
+    /* "av/filter/context.py":31
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("cannot construct FilterContext")             # <<<<<<<<<<<<<<
@@ -18096,15 +18163,15 @@ static int __pyx_pf_2av_6filter_7context_13FilterContext___cinit__(CYTHON_UNUSED
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_cannot_construct_FilterContext};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 29, __pyx_L1_error)
+    __PYX_ERR(0, 31, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":28
- * cdef class FilterContext:
+    /* "av/filter/context.py":30
+ * class FilterContext:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("cannot construct FilterContext")
@@ -18112,9 +18179,9 @@ static int __pyx_pf_2av_6filter_7context_13FilterContext___cinit__(CYTHON_UNUSED
 */
   }
 
-  /* "av/filter/context.pyx":27
- * 
- * cdef class FilterContext:
+  /* "av/filter/context.py":29
+ * @cython.cclass
+ * class FilterContext:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("cannot construct FilterContext")
@@ -18133,12 +18200,12 @@ static int __pyx_pf_2av_6filter_7context_13FilterContext___cinit__(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":31
+/* "av/filter/context.py":33
  *             raise RuntimeError("cannot construct FilterContext")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
- *         if self.ptr != NULL:
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"
+ *         if self.ptr != cython.NULL:
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"
 */
 
 /* Python wrapper */
@@ -18173,28 +18240,28 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/filter/context.pyx":32
+  /* "av/filter/context.py":34
  * 
  *     def __repr__(self):
- *         if self.ptr != NULL:             # <<<<<<<<<<<<<<
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"
+ *         if self.ptr != cython.NULL:             # <<<<<<<<<<<<<<
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"
  *         else:
 */
   __pyx_t_1 = (__pyx_v_self->ptr != NULL);
   if (__pyx_t_1) {
 
-    /* "av/filter/context.pyx":33
+    /* "av/filter/context.py":35
  *     def __repr__(self):
- *         if self.ptr != NULL:
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"             # <<<<<<<<<<<<<<
+ *         if self.ptr != cython.NULL:
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"             # <<<<<<<<<<<<<<
  *         else:
  *             name = "None"
 */
     __pyx_t_1 = (__pyx_v_self->ptr->name != NULL);
     if (__pyx_t_1) {
-      __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 35, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = PyObject_Repr(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
+      __pyx_t_4 = PyObject_Repr(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_2 = __pyx_t_4;
@@ -18206,22 +18273,22 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
     __pyx_v_name = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/filter/context.pyx":32
+    /* "av/filter/context.py":34
  * 
  *     def __repr__(self):
- *         if self.ptr != NULL:             # <<<<<<<<<<<<<<
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"
+ *         if self.ptr != cython.NULL:             # <<<<<<<<<<<<<<
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"
  *         else:
 */
     goto __pyx_L3;
   }
 
-  /* "av/filter/context.pyx":35
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"
+  /* "av/filter/context.py":37
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"
  *         else:
  *             name = "None"             # <<<<<<<<<<<<<<
  * 
- *         parent = self.filter.ptr.name if self.filter and self.filter.ptr != NULL else None
+ *         parent = (
 */
   /*else*/ {
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_None);
@@ -18229,14 +18296,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   }
   __pyx_L3:;
 
-  /* "av/filter/context.pyx":37
- *             name = "None"
- * 
- *         parent = self.filter.ptr.name if self.filter and self.filter.ptr != NULL else None             # <<<<<<<<<<<<<<
- *         return f"<av.FilterContext {name} of {parent!r} at 0x{id(self):x}>"
- * 
+  /* "av/filter/context.py":41
+ *         parent = (
+ *             self.filter.ptr.name
+ *             if self.filter and self.filter.ptr != cython.NULL             # <<<<<<<<<<<<<<
+ *             else None
+ *         )
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->filter)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->filter)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 41, __pyx_L1_error)
   if (__pyx_t_5) {
   } else {
     __pyx_t_1 = __pyx_t_5;
@@ -18246,32 +18313,48 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   __pyx_t_1 = __pyx_t_5;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
-    __pyx_t_4 = __Pyx_PyUnicode_FromString(__pyx_v_self->filter->ptr->name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
+
+    /* "av/filter/context.py":40
+ * 
+ *         parent = (
+ *             self.filter.ptr.name             # <<<<<<<<<<<<<<
+ *             if self.filter and self.filter.ptr != cython.NULL
+ *             else None
+*/
+    __pyx_t_4 = __Pyx_PyUnicode_FromString(__pyx_v_self->filter->ptr->name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_2 = __pyx_t_4;
     __pyx_t_4 = 0;
   } else {
+
+    /* "av/filter/context.py":42
+ *             self.filter.ptr.name
+ *             if self.filter and self.filter.ptr != cython.NULL
+ *             else None             # <<<<<<<<<<<<<<
+ *         )
+ *         return f"<av.FilterContext {name} of {parent!r} at 0x{id(self):x}>"
+*/
     __Pyx_INCREF(Py_None);
     __pyx_t_2 = Py_None;
   }
   __pyx_v_parent = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "av/filter/context.pyx":38
- * 
- *         parent = self.filter.ptr.name if self.filter and self.filter.ptr != NULL else None
+  /* "av/filter/context.py":44
+ *             else None
+ *         )
  *         return f"<av.FilterContext {name} of {parent!r} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyUnicode_Unicode(__pyx_v_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Unicode(__pyx_v_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_parent), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_parent), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Format(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_av_FilterContext;
@@ -18282,7 +18365,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   __pyx_t_7[5] = __pyx_t_6;
   __pyx_t_7[6] = __pyx_mstate_global->__pyx_kp_u__3;
   __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_7, 7, 18 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -18291,12 +18374,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":31
+  /* "av/filter/context.py":33
  *             raise RuntimeError("cannot construct FilterContext")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
- *         if self.ptr != NULL:
- *             name = repr(self.ptr.name) if self.ptr.name != NULL else "<NULL>"
+ *         if self.ptr != cython.NULL:
+ *             name = repr(self.ptr.name) if self.ptr.name != cython.NULL else "<NULL>"
 */
 
   /* function exit code */
@@ -18315,12 +18398,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_2__repr__(struct 
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":40
+/* "av/filter/context.py":46
  *         return f"<av.FilterContext {name} of {parent!r} at 0x{id(self):x}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def name(self):
- *         if self.ptr.name != NULL:
+ *         if self.ptr.name != cython.NULL:
 */
 
 /* Python wrapper */
@@ -18348,45 +18431,45 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4name___get__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/context.pyx":42
+  /* "av/filter/context.py":48
  *     @property
  *     def name(self):
- *         if self.ptr.name != NULL:             # <<<<<<<<<<<<<<
+ *         if self.ptr.name != cython.NULL:             # <<<<<<<<<<<<<<
  *             return self.ptr.name
  * 
 */
   __pyx_t_1 = (__pyx_v_self->ptr->name != NULL);
   if (__pyx_t_1) {
 
-    /* "av/filter/context.pyx":43
+    /* "av/filter/context.py":49
  *     def name(self):
- *         if self.ptr.name != NULL:
+ *         if self.ptr.name != cython.NULL:
  *             return self.ptr.name             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/filter/context.pyx":42
+    /* "av/filter/context.py":48
  *     @property
  *     def name(self):
- *         if self.ptr.name != NULL:             # <<<<<<<<<<<<<<
+ *         if self.ptr.name != cython.NULL:             # <<<<<<<<<<<<<<
  *             return self.ptr.name
  * 
 */
   }
 
-  /* "av/filter/context.pyx":40
+  /* "av/filter/context.py":46
  *         return f"<av.FilterContext {name} of {parent!r} at 0x{id(self):x}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def name(self):
- *         if self.ptr.name != NULL:
+ *         if self.ptr.name != cython.NULL:
 */
 
   /* function exit code */
@@ -18402,7 +18485,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4name___get__(str
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":45
+/* "av/filter/context.py":51
  *             return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18437,28 +18520,36 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6inputs___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/context.pyx":47
+  /* "av/filter/context.py":53
  *     @property
  *     def inputs(self):
  *         if self._inputs is None:             # <<<<<<<<<<<<<<
- *             self._inputs = alloc_filter_pads(self.filter, self.ptr.input_pads, True, self)
- *         return self._inputs
+ *             self._inputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.input_pads, True, self
 */
   __pyx_t_1 = (__pyx_v_self->_inputs == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/context.pyx":48
- *     def inputs(self):
+    /* "av/filter/context.py":55
  *         if self._inputs is None:
- *             self._inputs = alloc_filter_pads(self.filter, self.ptr.input_pads, True, self)             # <<<<<<<<<<<<<<
+ *             self._inputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.input_pads, True, self             # <<<<<<<<<<<<<<
+ *             )
  *         return self._inputs
- * 
 */
     __pyx_t_2 = ((PyObject *)__pyx_v_self->filter);
     __Pyx_INCREF(__pyx_t_2);
+
+    /* "av/filter/context.py":54
+ *     def inputs(self):
+ *         if self._inputs is None:
+ *             self._inputs = alloc_filter_pads(             # <<<<<<<<<<<<<<
+ *                 self.filter, self.ptr.input_pads, True, self
+ *             )
+*/
     __pyx_t_4.__pyx_n = 1;
     __pyx_t_4.context = __pyx_v_self;
-    __pyx_t_3 = __pyx_f_2av_6filter_4link_alloc_filter_pads(((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2), __pyx_v_self->ptr->input_pads, 1, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_2av_6filter_4link_alloc_filter_pads(((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2), __pyx_v_self->ptr->input_pads, 1, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_GIVEREF(__pyx_t_3);
@@ -18467,18 +18558,18 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6inputs___get__(s
     __pyx_v_self->_inputs = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "av/filter/context.pyx":47
+    /* "av/filter/context.py":53
  *     @property
  *     def inputs(self):
  *         if self._inputs is None:             # <<<<<<<<<<<<<<
- *             self._inputs = alloc_filter_pads(self.filter, self.ptr.input_pads, True, self)
- *         return self._inputs
+ *             self._inputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.input_pads, True, self
 */
   }
 
-  /* "av/filter/context.pyx":49
- *         if self._inputs is None:
- *             self._inputs = alloc_filter_pads(self.filter, self.ptr.input_pads, True, self)
+  /* "av/filter/context.py":57
+ *                 self.filter, self.ptr.input_pads, True, self
+ *             )
  *         return self._inputs             # <<<<<<<<<<<<<<
  * 
  *     @property
@@ -18488,7 +18579,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6inputs___get__(s
   __pyx_r = __pyx_v_self->_inputs;
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":45
+  /* "av/filter/context.py":51
  *             return self.ptr.name
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18508,7 +18599,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6inputs___get__(s
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":51
+/* "av/filter/context.py":59
  *         return self._inputs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18543,28 +18634,36 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_7outputs___get__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/context.pyx":53
+  /* "av/filter/context.py":61
  *     @property
  *     def outputs(self):
  *         if self._outputs is None:             # <<<<<<<<<<<<<<
- *             self._outputs = alloc_filter_pads(self.filter, self.ptr.output_pads, False, self)
- *         return self._outputs
+ *             self._outputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.output_pads, False, self
 */
   __pyx_t_1 = (__pyx_v_self->_outputs == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/context.pyx":54
- *     def outputs(self):
+    /* "av/filter/context.py":63
  *         if self._outputs is None:
- *             self._outputs = alloc_filter_pads(self.filter, self.ptr.output_pads, False, self)             # <<<<<<<<<<<<<<
+ *             self._outputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.output_pads, False, self             # <<<<<<<<<<<<<<
+ *             )
  *         return self._outputs
- * 
 */
     __pyx_t_2 = ((PyObject *)__pyx_v_self->filter);
     __Pyx_INCREF(__pyx_t_2);
+
+    /* "av/filter/context.py":62
+ *     def outputs(self):
+ *         if self._outputs is None:
+ *             self._outputs = alloc_filter_pads(             # <<<<<<<<<<<<<<
+ *                 self.filter, self.ptr.output_pads, False, self
+ *             )
+*/
     __pyx_t_4.__pyx_n = 1;
     __pyx_t_4.context = __pyx_v_self;
-    __pyx_t_3 = __pyx_f_2av_6filter_4link_alloc_filter_pads(((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2), __pyx_v_self->ptr->output_pads, 0, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_2av_6filter_4link_alloc_filter_pads(((struct __pyx_obj_2av_6filter_6filter_Filter *)__pyx_t_2), __pyx_v_self->ptr->output_pads, 0, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_GIVEREF(__pyx_t_3);
@@ -18573,18 +18672,18 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_7outputs___get__(
     __pyx_v_self->_outputs = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "av/filter/context.pyx":53
+    /* "av/filter/context.py":61
  *     @property
  *     def outputs(self):
  *         if self._outputs is None:             # <<<<<<<<<<<<<<
- *             self._outputs = alloc_filter_pads(self.filter, self.ptr.output_pads, False, self)
- *         return self._outputs
+ *             self._outputs = alloc_filter_pads(
+ *                 self.filter, self.ptr.output_pads, False, self
 */
   }
 
-  /* "av/filter/context.pyx":55
- *         if self._outputs is None:
- *             self._outputs = alloc_filter_pads(self.filter, self.ptr.output_pads, False, self)
+  /* "av/filter/context.py":65
+ *                 self.filter, self.ptr.output_pads, False, self
+ *             )
  *         return self._outputs             # <<<<<<<<<<<<<<
  * 
  *     def init(self, args=None, **kwargs):
@@ -18594,7 +18693,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_7outputs___get__(
   __pyx_r = __pyx_v_self->_outputs;
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":51
+  /* "av/filter/context.py":59
  *         return self._inputs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -18614,7 +18713,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_7outputs___get__(
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":57
+/* "av/filter/context.py":67
  *         return self._outputs
  * 
  *     def init(self, args=None, **kwargs):             # <<<<<<<<<<<<<<
@@ -18664,24 +18763,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_args,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 57, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 67, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 57, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 67, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "init", 1) < (0)) __PYX_ERR(0, 57, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "init", 1) < (0)) __PYX_ERR(0, 67, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 57, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 67, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -18692,7 +18791,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("init", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 57, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("init", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 67, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18716,7 +18815,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_v_self, PyObject *__pyx_v_args, PyObject *__pyx_v_kwargs) {
-  struct __pyx_obj_2av_10dictionary__Dictionary *__pyx_v_dict_ = 0;
+  struct __pyx_obj_2av_10dictionary_Dictionary *__pyx_v_dict_ = 0;
   char *__pyx_v_c_args;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -18735,7 +18834,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("init", 0);
 
-  /* "av/filter/context.pyx":58
+  /* "av/filter/context.py":68
  * 
  *     def init(self, args=None, **kwargs):
  *         if self.inited:             # <<<<<<<<<<<<<<
@@ -18744,7 +18843,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
   if (unlikely(__pyx_v_self->inited)) {
 
-    /* "av/filter/context.pyx":59
+    /* "av/filter/context.py":69
  *     def init(self, args=None, **kwargs):
  *         if self.inited:
  *             raise ValueError("already inited")             # <<<<<<<<<<<<<<
@@ -18757,14 +18856,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_already_inited};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 59, __pyx_L1_error)
+    __PYX_ERR(0, 69, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":58
+    /* "av/filter/context.py":68
  * 
  *     def init(self, args=None, **kwargs):
  *         if self.inited:             # <<<<<<<<<<<<<<
@@ -18773,30 +18872,30 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
   }
 
-  /* "av/filter/context.pyx":60
+  /* "av/filter/context.py":70
  *         if self.inited:
  *             raise ValueError("already inited")
  *         if args and kwargs:             # <<<<<<<<<<<<<<
  *             raise ValueError("cannot init from args and kwargs")
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 70, __pyx_L1_error)
   if (__pyx_t_5) {
   } else {
     __pyx_t_4 = __pyx_t_5;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 70, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_5;
   __pyx_L5_bool_binop_done:;
   if (unlikely(__pyx_t_4)) {
 
-    /* "av/filter/context.pyx":61
+    /* "av/filter/context.py":71
  *             raise ValueError("already inited")
  *         if args and kwargs:
  *             raise ValueError("cannot init from args and kwargs")             # <<<<<<<<<<<<<<
  * 
- *         cdef _Dictionary dict_ = None
+ *         dict_: Dictionary = None
 */
     __pyx_t_2 = NULL;
     __pyx_t_3 = 1;
@@ -18804,14 +18903,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_cannot_init_from_args_and_kwargs};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 61, __pyx_L1_error)
+    __PYX_ERR(0, 71, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":60
+    /* "av/filter/context.py":70
  *         if self.inited:
  *             raise ValueError("already inited")
  *         if args and kwargs:             # <<<<<<<<<<<<<<
@@ -18820,66 +18919,66 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
   }
 
-  /* "av/filter/context.pyx":63
+  /* "av/filter/context.py":73
  *             raise ValueError("cannot init from args and kwargs")
  * 
- *         cdef _Dictionary dict_ = None             # <<<<<<<<<<<<<<
- *         cdef char *c_args = NULL
+ *         dict_: Dictionary = None             # <<<<<<<<<<<<<<
+ *         c_args: cython.p_char = cython.NULL
  *         if args or not kwargs:
 */
   __Pyx_INCREF(Py_None);
-  __pyx_v_dict_ = ((struct __pyx_obj_2av_10dictionary__Dictionary *)Py_None);
+  __pyx_v_dict_ = ((struct __pyx_obj_2av_10dictionary_Dictionary *)Py_None);
 
-  /* "av/filter/context.pyx":64
+  /* "av/filter/context.py":74
  * 
- *         cdef _Dictionary dict_ = None
- *         cdef char *c_args = NULL             # <<<<<<<<<<<<<<
+ *         dict_: Dictionary = None
+ *         c_args: cython.p_char = cython.NULL             # <<<<<<<<<<<<<<
  *         if args or not kwargs:
  *             if args:
 */
   __pyx_v_c_args = NULL;
 
-  /* "av/filter/context.pyx":65
- *         cdef _Dictionary dict_ = None
- *         cdef char *c_args = NULL
+  /* "av/filter/context.py":75
+ *         dict_: Dictionary = None
+ *         c_args: cython.p_char = cython.NULL
  *         if args or not kwargs:             # <<<<<<<<<<<<<<
  *             if args:
  *                 c_args = args
 */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_4 = __pyx_t_5;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_kwargs); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
   __pyx_t_6 = (!__pyx_t_5);
   __pyx_t_4 = __pyx_t_6;
   __pyx_L8_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "av/filter/context.pyx":66
- *         cdef char *c_args = NULL
+    /* "av/filter/context.py":76
+ *         c_args: cython.p_char = cython.NULL
  *         if args or not kwargs:
  *             if args:             # <<<<<<<<<<<<<<
  *                 c_args = args
  *             err_check(lib.avfilter_init_str(self.ptr, c_args))
 */
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_args); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 76, __pyx_L1_error)
     if (__pyx_t_4) {
 
-      /* "av/filter/context.pyx":67
+      /* "av/filter/context.py":77
  *         if args or not kwargs:
  *             if args:
  *                 c_args = args             # <<<<<<<<<<<<<<
  *             err_check(lib.avfilter_init_str(self.ptr, c_args))
  *         else:
 */
-      __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_args); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_args); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L1_error)
       __pyx_v_c_args = __pyx_t_7;
 
-      /* "av/filter/context.pyx":66
- *         cdef char *c_args = NULL
+      /* "av/filter/context.py":76
+ *         c_args: cython.p_char = cython.NULL
  *         if args or not kwargs:
  *             if args:             # <<<<<<<<<<<<<<
  *                 c_args = args
@@ -18887,18 +18986,18 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
     }
 
-    /* "av/filter/context.pyx":68
+    /* "av/filter/context.py":78
  *             if args:
  *                 c_args = args
  *             err_check(lib.avfilter_init_str(self.ptr, c_args))             # <<<<<<<<<<<<<<
  *         else:
  *             dict_ = Dictionary(kwargs)
 */
-    __pyx_t_8 = __pyx_f_2av_5error_err_check(avfilter_init_str(__pyx_v_self->ptr, __pyx_v_c_args), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
+    __pyx_t_8 = __pyx_f_2av_5error_err_check(avfilter_init_str(__pyx_v_self->ptr, __pyx_v_c_args), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 78, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":65
- *         cdef _Dictionary dict_ = None
- *         cdef char *c_args = NULL
+    /* "av/filter/context.py":75
+ *         dict_: Dictionary = None
+ *         c_args: cython.p_char = cython.NULL
  *         if args or not kwargs:             # <<<<<<<<<<<<<<
  *             if args:
  *                 c_args = args
@@ -18906,54 +19005,39 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
     goto __pyx_L7;
   }
 
-  /* "av/filter/context.pyx":70
+  /* "av/filter/context.py":80
  *             err_check(lib.avfilter_init_str(self.ptr, c_args))
  *         else:
  *             dict_ = Dictionary(kwargs)             # <<<<<<<<<<<<<<
- *             err_check(lib.avfilter_init_dict(self.ptr, &dict_.ptr))
+ *             err_check(lib.avfilter_init_dict(self.ptr, cython.address(dict_.ptr)))
  * 
 */
   /*else*/ {
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_Dictionary); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 70, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_3 = 1;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_9))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_9);
-      assert(__pyx_t_2);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_9);
-      __Pyx_INCREF(__pyx_t_2);
-      __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_9, __pyx__function);
-      __pyx_t_3 = 0;
-    }
-    #endif
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_kwargs};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10dictionary_Dictionary, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+      __Pyx_GOTREF((PyObject *)__pyx_t_1);
     }
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_10dictionary__Dictionary))))) __PYX_ERR(0, 70, __pyx_L1_error)
-    __Pyx_DECREF_SET(__pyx_v_dict_, ((struct __pyx_obj_2av_10dictionary__Dictionary *)__pyx_t_1));
+    __Pyx_DECREF_SET(__pyx_v_dict_, ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "av/filter/context.pyx":71
+    /* "av/filter/context.py":81
  *         else:
  *             dict_ = Dictionary(kwargs)
- *             err_check(lib.avfilter_init_dict(self.ptr, &dict_.ptr))             # <<<<<<<<<<<<<<
+ *             err_check(lib.avfilter_init_dict(self.ptr, cython.address(dict_.ptr)))             # <<<<<<<<<<<<<<
  * 
  *         self.inited = True
 */
-    __pyx_t_8 = __pyx_f_2av_5error_err_check(avfilter_init_dict(__pyx_v_self->ptr, (&__pyx_v_dict_->ptr)), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_8 = __pyx_f_2av_5error_err_check(avfilter_init_dict(__pyx_v_self->ptr, (&__pyx_v_dict_->ptr)), 0, NULL); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 81, __pyx_L1_error)
   }
   __pyx_L7:;
 
-  /* "av/filter/context.pyx":73
- *             err_check(lib.avfilter_init_dict(self.ptr, &dict_.ptr))
+  /* "av/filter/context.py":83
+ *             err_check(lib.avfilter_init_dict(self.ptr, cython.address(dict_.ptr)))
  * 
  *         self.inited = True             # <<<<<<<<<<<<<<
  *         if dict_:
@@ -18961,47 +19045,47 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
   __pyx_v_self->inited = 1;
 
-  /* "av/filter/context.pyx":74
+  /* "av/filter/context.py":84
  * 
  *         self.inited = True
  *         if dict_:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"unused config: {', '.join(sorted(dict_))}")
  * 
 */
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_dict_)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_dict_)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
   if (unlikely(__pyx_t_4)) {
 
-    /* "av/filter/context.pyx":75
+    /* "av/filter/context.py":85
  *         self.inited = True
  *         if dict_:
  *             raise ValueError(f"unused config: {', '.join(sorted(dict_))}")             # <<<<<<<<<<<<<<
  * 
- *     def link_to(self, FilterContext input_, int output_idx=0, int input_idx=0):
+ *     def link_to(
 */
-    __pyx_t_9 = NULL;
-    __pyx_t_2 = PySequence_List(((PyObject *)__pyx_v_dict_)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (unlikely((PyList_Sort(__pyx_t_2) < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
-    __pyx_t_10 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__6, __pyx_t_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_2 = NULL;
+    __pyx_t_9 = PySequence_List(((PyObject *)__pyx_v_dict_)); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (unlikely((PyList_Sort(__pyx_t_9) < 0))) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_10 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__6, __pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_unused_config, __pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_unused_config, __pyx_t_10); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_3 = 1;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_t_2};
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_9};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 75, __pyx_L1_error)
+    __PYX_ERR(0, 85, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":74
+    /* "av/filter/context.py":84
  * 
  *         self.inited = True
  *         if dict_:             # <<<<<<<<<<<<<<
@@ -19010,7 +19094,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
 */
   }
 
-  /* "av/filter/context.pyx":57
+  /* "av/filter/context.py":67
  *         return self._outputs
  * 
  *     def init(self, args=None, **kwargs):             # <<<<<<<<<<<<<<
@@ -19035,12 +19119,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_4init(struct __py
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":77
+/* "av/filter/context.py":87
  *             raise ValueError(f"unused config: {', '.join(sorted(dict_))}")
  * 
- *     def link_to(self, FilterContext input_, int output_idx=0, int input_idx=0):             # <<<<<<<<<<<<<<
- *         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))
- * 
+ *     def link_to(             # <<<<<<<<<<<<<<
+ *         self,
+ *         input_: FilterContext,
 */
 
 /* Python wrapper */
@@ -19051,7 +19135,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_6link_to, "FilterContext.link_to(FilterContext input_, int output_idx=0, int input_idx=0)");
+PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_6link_to, "FilterContext.link_to(FilterContext input_: FilterContext, int output_idx: cython.int = 0, int input_idx: cython.int = 0)");
 static PyObject *__pyx_pw_2av_6filter_7context_13FilterContext_7link_to(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
@@ -19084,61 +19168,61 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_input,&__pyx_mstate_global->__pyx_n_u_output_idx,&__pyx_mstate_global->__pyx_n_u_input_idx,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 77, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 87, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 87, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 87, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 87, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "link_to", 0) < (0)) __PYX_ERR(0, 77, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "link_to", 0) < (0)) __PYX_ERR(0, 87, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("link_to", 0, 1, 3, i); __PYX_ERR(0, 77, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("link_to", 0, 1, 3, i); __PYX_ERR(0, 87, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 87, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 87, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 77, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 87, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     __pyx_v_input_ = ((struct __pyx_obj_2av_6filter_7context_FilterContext *)values[0]);
     if (values[1]) {
-      __pyx_v_output_idx = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_output_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
+      __pyx_v_output_idx = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_output_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L3_error)
     } else {
       __pyx_v_output_idx = ((int)0);
     }
     if (values[2]) {
-      __pyx_v_input_idx = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_input_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
+      __pyx_v_input_idx = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_input_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 91, __pyx_L3_error)
     } else {
       __pyx_v_input_idx = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("link_to", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 77, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("link_to", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 87, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19149,7 +19233,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_), __pyx_mstate_global->__pyx_ptype_2av_6filter_7context_FilterContext, 1, "input_", 0))) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_input_), __pyx_mstate_global->__pyx_ptype_2av_6filter_7context_FilterContext, 0, "input_", 0))) __PYX_ERR(0, 89, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_6filter_7context_13FilterContext_6link_to(((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_v_self), __pyx_v_input_, __pyx_v_output_idx, __pyx_v_input_idx);
 
   /* function exit code */
@@ -19178,21 +19262,21 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6link_to(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("link_to", 0);
 
-  /* "av/filter/context.pyx":78
- * 
- *     def link_to(self, FilterContext input_, int output_idx=0, int input_idx=0):
+  /* "av/filter/context.py":93
+ *         input_idx: cython.int = 0,
+ *     ):
  *         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __pyx_f_2av_5error_err_check(avfilter_link(__pyx_v_self->ptr, __pyx_v_output_idx, __pyx_v_input_->ptr, __pyx_v_input_idx), 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5error_err_check(avfilter_link(__pyx_v_self->ptr, __pyx_v_output_idx, __pyx_v_input_->ptr, __pyx_v_input_idx), 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 93, __pyx_L1_error)
 
-  /* "av/filter/context.pyx":77
+  /* "av/filter/context.py":87
  *             raise ValueError(f"unused config: {', '.join(sorted(dict_))}")
  * 
- *     def link_to(self, FilterContext input_, int output_idx=0, int input_idx=0):             # <<<<<<<<<<<<<<
- *         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))
- * 
+ *     def link_to(             # <<<<<<<<<<<<<<
+ *         self,
+ *         input_: FilterContext,
 */
 
   /* function exit code */
@@ -19207,12 +19291,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_6link_to(struct _
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":80
+/* "av/filter/context.py":95
  *         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def graph(self):
- *         if (graph := self._graph()):
+ *         if graph := self._graph():
 */
 
 /* Python wrapper */
@@ -19244,10 +19328,10 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_5graph___get__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/filter/context.pyx":82
+  /* "av/filter/context.py":97
  *     @property
  *     def graph(self):
- *         if (graph := self._graph()):             # <<<<<<<<<<<<<<
+ *         if graph := self._graph():             # <<<<<<<<<<<<<<
  *             return graph
  *         else:
 */
@@ -19271,18 +19355,18 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_5graph___get__(st
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_INCREF(__pyx_t_1);
   __pyx_v_graph = __pyx_t_1;
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_5)) {
 
-    /* "av/filter/context.pyx":83
+    /* "av/filter/context.py":98
  *     def graph(self):
- *         if (graph := self._graph()):
+ *         if graph := self._graph():
  *             return graph             # <<<<<<<<<<<<<<
  *         else:
  *             raise RuntimeError("graph is unallocated")
@@ -19292,21 +19376,21 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_5graph___get__(st
     __pyx_r = __pyx_v_graph;
     goto __pyx_L0;
 
-    /* "av/filter/context.pyx":82
+    /* "av/filter/context.py":97
  *     @property
  *     def graph(self):
- *         if (graph := self._graph()):             # <<<<<<<<<<<<<<
+ *         if graph := self._graph():             # <<<<<<<<<<<<<<
  *             return graph
  *         else:
 */
   }
 
-  /* "av/filter/context.pyx":85
+  /* "av/filter/context.py":100
  *             return graph
  *         else:
  *             raise RuntimeError("graph is unallocated")             # <<<<<<<<<<<<<<
  * 
- *     def push(self, Frame frame):
+ *     def push(self, frame: Frame | None):
 */
   /*else*/ {
     __pyx_t_3 = NULL;
@@ -19315,20 +19399,20 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_5graph___get__(st
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_graph_is_unallocated};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 85, __pyx_L1_error)
+    __PYX_ERR(0, 100, __pyx_L1_error)
   }
 
-  /* "av/filter/context.pyx":80
+  /* "av/filter/context.py":95
  *         err_check(lib.avfilter_link(self.ptr, output_idx, input_.ptr, input_idx))
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def graph(self):
- *         if (graph := self._graph()):
+ *         if graph := self._graph():
 */
 
   /* function exit code */
@@ -19345,11 +19429,11 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_5graph___get__(st
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":87
+/* "av/filter/context.py":102
  *             raise RuntimeError("graph is unallocated")
  * 
- *     def push(self, Frame frame):             # <<<<<<<<<<<<<<
- *         cdef int res
+ *     def push(self, frame: Frame | None):             # <<<<<<<<<<<<<<
+ *         res: cython.int
  * 
 */
 
@@ -19361,7 +19445,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_8push, "FilterContext.push(Frame frame)");
+PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_8push, "FilterContext.push(Frame frame: Frame | None)");
 static PyObject *__pyx_pw_2av_6filter_7context_13FilterContext_9push(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
@@ -19392,32 +19476,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 87, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 102, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 87, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "push", 0) < (0)) __PYX_ERR(0, 87, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "push", 0) < (0)) __PYX_ERR(0, 102, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, i); __PYX_ERR(0, 87, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, i); __PYX_ERR(0, 102, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 87, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
     }
     __pyx_v_frame = ((struct __pyx_obj_2av_5frame_Frame *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 87, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("push", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 102, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19428,7 +19512,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5frame_Frame, 1, "frame", 0))) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5frame_Frame, 1, "frame", 0))) __PYX_ERR(0, 102, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_6filter_7context_13FilterContext_8push(((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_v_self), __pyx_v_frame);
 
   /* function exit code */
@@ -19466,21 +19550,21 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("push", 0);
 
-  /* "av/filter/context.pyx":90
- *         cdef int res
+  /* "av/filter/context.py":105
+ *         res: cython.int
  * 
  *         if frame is None:             # <<<<<<<<<<<<<<
- *             with nogil:
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+ *             with cython.nogil:
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
 */
   __pyx_t_1 = (((PyObject *)__pyx_v_frame) == Py_None);
   if (__pyx_t_1) {
 
-    /* "av/filter/context.pyx":91
+    /* "av/filter/context.py":106
  * 
  *         if frame is None:
- *             with nogil:             # <<<<<<<<<<<<<<
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+ *             with cython.nogil:             # <<<<<<<<<<<<<<
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
  *             err_check(res)
 */
     {
@@ -19489,21 +19573,21 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
         __Pyx_FastGIL_Remember();
         /*try:*/ {
 
-          /* "av/filter/context.pyx":92
+          /* "av/filter/context.py":107
  *         if frame is None:
- *             with nogil:
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)             # <<<<<<<<<<<<<<
+ *             with cython.nogil:
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)             # <<<<<<<<<<<<<<
  *             err_check(res)
  *             return
 */
           __pyx_v_res = av_buffersrc_write_frame(__pyx_v_self->ptr, NULL);
         }
 
-        /* "av/filter/context.pyx":91
+        /* "av/filter/context.py":106
  * 
  *         if frame is None:
- *             with nogil:             # <<<<<<<<<<<<<<
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+ *             with cython.nogil:             # <<<<<<<<<<<<<<
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
  *             err_check(res)
 */
         /*finally:*/ {
@@ -19516,61 +19600,61 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
         }
     }
 
-    /* "av/filter/context.pyx":93
- *             with nogil:
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+    /* "av/filter/context.py":108
+ *             with cython.nogil:
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
  *             err_check(res)             # <<<<<<<<<<<<<<
  *             return
  *         elif self.filter.name in ("abuffer", "buffer"):
 */
-    __pyx_t_2 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 93, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 108, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":94
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+    /* "av/filter/context.py":109
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
  *             err_check(res)
  *             return             # <<<<<<<<<<<<<<
  *         elif self.filter.name in ("abuffer", "buffer"):
- *             with nogil:
+ *             with cython.nogil:
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/filter/context.pyx":90
- *         cdef int res
+    /* "av/filter/context.py":105
+ *         res: cython.int
  * 
  *         if frame is None:             # <<<<<<<<<<<<<<
- *             with nogil:
- *                 res = lib.av_buffersrc_write_frame(self.ptr, NULL)
+ *             with cython.nogil:
+ *                 res = lib.av_buffersrc_write_frame(self.ptr, cython.NULL)
 */
   }
 
-  /* "av/filter/context.pyx":95
+  /* "av/filter/context.py":110
  *             err_check(res)
  *             return
  *         elif self.filter.name in ("abuffer", "buffer"):             # <<<<<<<<<<<<<<
- *             with nogil:
+ *             with cython.nogil:
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_abuffer, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_abuffer, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
   if (!__pyx_t_4) {
   } else {
     __pyx_t_1 = __pyx_t_4;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_buffer, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_buffer, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_4;
   __pyx_L7_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_4 = __pyx_t_1;
   if (__pyx_t_4) {
 
-    /* "av/filter/context.pyx":96
+    /* "av/filter/context.py":111
  *             return
  *         elif self.filter.name in ("abuffer", "buffer"):
- *             with nogil:             # <<<<<<<<<<<<<<
+ *             with cython.nogil:             # <<<<<<<<<<<<<<
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
  *             err_check(res)
 */
@@ -19580,9 +19664,9 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
         __Pyx_FastGIL_Remember();
         /*try:*/ {
 
-          /* "av/filter/context.pyx":97
+          /* "av/filter/context.py":112
  *         elif self.filter.name in ("abuffer", "buffer"):
- *             with nogil:
+ *             with cython.nogil:
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)             # <<<<<<<<<<<<<<
  *             err_check(res)
  *             return
@@ -19590,10 +19674,10 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
           __pyx_v_res = av_buffersrc_write_frame(__pyx_v_self->ptr, __pyx_v_frame->ptr);
         }
 
-        /* "av/filter/context.pyx":96
+        /* "av/filter/context.py":111
  *             return
  *         elif self.filter.name in ("abuffer", "buffer"):
- *             with nogil:             # <<<<<<<<<<<<<<
+ *             with cython.nogil:             # <<<<<<<<<<<<<<
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
  *             err_check(res)
 */
@@ -19607,16 +19691,16 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
         }
     }
 
-    /* "av/filter/context.pyx":98
- *             with nogil:
+    /* "av/filter/context.py":113
+ *             with cython.nogil:
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
  *             err_check(res)             # <<<<<<<<<<<<<<
  *             return
  * 
 */
-    __pyx_t_2 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 113, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":99
+    /* "av/filter/context.py":114
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
  *             err_check(res)
  *             return             # <<<<<<<<<<<<<<
@@ -19627,30 +19711,30 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/filter/context.pyx":95
+    /* "av/filter/context.py":110
  *             err_check(res)
  *             return
  *         elif self.filter.name in ("abuffer", "buffer"):             # <<<<<<<<<<<<<<
- *             with nogil:
+ *             with cython.nogil:
  *                 res = lib.av_buffersrc_write_frame(self.ptr, frame.ptr)
 */
   }
 
-  /* "av/filter/context.pyx":102
+  /* "av/filter/context.py":117
  * 
  *         # Delegate to the input.
  *         if len(self.inputs) != 1:             # <<<<<<<<<<<<<<
  *             raise ValueError(
  *                 f"cannot delegate push without single input; found {len(self.inputs)}"
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_5 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_4 = (__pyx_t_5 != 1);
   if (unlikely(__pyx_t_4)) {
 
-    /* "av/filter/context.pyx":103
+    /* "av/filter/context.py":118
  *         # Delegate to the input.
  *         if len(self.inputs) != 1:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -19659,20 +19743,20 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
 */
     __pyx_t_6 = NULL;
 
-    /* "av/filter/context.pyx":104
+    /* "av/filter/context.py":119
  *         if len(self.inputs) != 1:
  *             raise ValueError(
  *                 f"cannot delegate push without single input; found {len(self.inputs)}"             # <<<<<<<<<<<<<<
  *             )
  *         if not self.inputs[0].link:
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_5 = PyObject_Length(__pyx_t_7); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_5 = PyObject_Length(__pyx_t_7); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_5, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_5, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_cannot_delegate_push_without_sin, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 104, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_cannot_delegate_push_without_sin, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9 = 1;
@@ -19681,14 +19765,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 103, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 118, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 103, __pyx_L1_error)
+    __PYX_ERR(0, 118, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":102
+    /* "av/filter/context.py":117
  * 
  *         # Delegate to the input.
  *         if len(self.inputs) != 1:             # <<<<<<<<<<<<<<
@@ -19697,27 +19781,27 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
 */
   }
 
-  /* "av/filter/context.pyx":106
+  /* "av/filter/context.py":121
  *                 f"cannot delegate push without single input; found {len(self.inputs)}"
  *             )
  *         if not self.inputs[0].link:             # <<<<<<<<<<<<<<
  *             raise ValueError("cannot delegate push without linked input")
  *         self.inputs[0].linked.context.push(frame)
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_3, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_link); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_link); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_1 = (!__pyx_t_4);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/filter/context.pyx":107
+    /* "av/filter/context.py":122
  *             )
  *         if not self.inputs[0].link:
  *             raise ValueError("cannot delegate push without linked input")             # <<<<<<<<<<<<<<
@@ -19730,14 +19814,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
       PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_mstate_global->__pyx_kp_u_cannot_delegate_push_without_lin};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 107, __pyx_L1_error)
+    __PYX_ERR(0, 122, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":106
+    /* "av/filter/context.py":121
  *                 f"cannot delegate push without single input; found {len(self.inputs)}"
  *             )
  *         if not self.inputs[0].link:             # <<<<<<<<<<<<<<
@@ -19746,22 +19830,22 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
 */
   }
 
-  /* "av/filter/context.pyx":108
+  /* "av/filter/context.py":123
  *         if not self.inputs[0].link:
  *             raise ValueError("cannot delegate push without linked input")
  *         self.inputs[0].linked.context.push(frame)             # <<<<<<<<<<<<<<
  * 
  *     def pull(self):
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_inputs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_6, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_GetItemInt(__pyx_t_6, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_linked); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_linked); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_8 = __pyx_t_7;
@@ -19772,16 +19856,16 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_push, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 108, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/filter/context.pyx":87
+  /* "av/filter/context.py":102
  *             raise RuntimeError("graph is unallocated")
  * 
- *     def push(self, Frame frame):             # <<<<<<<<<<<<<<
- *         cdef int res
+ *     def push(self, frame: Frame | None):             # <<<<<<<<<<<<<<
+ *         res: cython.int
  * 
 */
 
@@ -19801,12 +19885,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_8push(struct __py
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":110
+/* "av/filter/context.py":125
  *         self.inputs[0].linked.context.push(frame)
  * 
  *     def pull(self):             # <<<<<<<<<<<<<<
- *         cdef Frame frame
- *         cdef int res
+ *         frame: Frame
+ *         res: cython.int
 */
 
 /* Python wrapper */
@@ -19870,34 +19954,34 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pull", 0);
 
-  /* "av/filter/context.pyx":114
- *         cdef int res
- * 
+  /* "av/filter/context.py":128
+ *         frame: Frame
+ *         res: cython.int
  *         if self.filter.name == "buffersink":             # <<<<<<<<<<<<<<
  *             frame = alloc_video_frame()
  *         elif self.filter.name == "abuffersink":
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_buffersink, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_buffersink, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/filter/context.pyx":115
- * 
+    /* "av/filter/context.py":129
+ *         res: cython.int
  *         if self.filter.name == "buffersink":
  *             frame = alloc_video_frame()             # <<<<<<<<<<<<<<
  *         elif self.filter.name == "abuffersink":
  *             frame = alloc_audio_frame()
 */
-    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5video_5frame_alloc_video_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5video_5frame_alloc_video_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_frame = ((struct __pyx_obj_2av_5frame_Frame *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/filter/context.pyx":114
- *         cdef int res
- * 
+    /* "av/filter/context.py":128
+ *         frame: Frame
+ *         res: cython.int
  *         if self.filter.name == "buffersink":             # <<<<<<<<<<<<<<
  *             frame = alloc_video_frame()
  *         elif self.filter.name == "abuffersink":
@@ -19905,32 +19989,32 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
     goto __pyx_L3;
   }
 
-  /* "av/filter/context.pyx":116
+  /* "av/filter/context.py":130
  *         if self.filter.name == "buffersink":
  *             frame = alloc_video_frame()
  *         elif self.filter.name == "abuffersink":             # <<<<<<<<<<<<<<
  *             frame = alloc_audio_frame()
  *         else:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->filter), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_abuffersink, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_abuffersink, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "av/filter/context.pyx":117
+    /* "av/filter/context.py":131
  *             frame = alloc_video_frame()
  *         elif self.filter.name == "abuffersink":
  *             frame = alloc_audio_frame()             # <<<<<<<<<<<<<<
  *         else:
  *             # Delegate to the output.
 */
-    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_frame = ((struct __pyx_obj_2av_5frame_Frame *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/filter/context.pyx":116
+    /* "av/filter/context.py":130
  *         if self.filter.name == "buffersink":
  *             frame = alloc_video_frame()
  *         elif self.filter.name == "abuffersink":             # <<<<<<<<<<<<<<
@@ -19940,7 +20024,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
     goto __pyx_L3;
   }
 
-  /* "av/filter/context.pyx":120
+  /* "av/filter/context.py":134
  *         else:
  *             # Delegate to the output.
  *             if len(self.outputs) != 1:             # <<<<<<<<<<<<<<
@@ -19948,14 +20032,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
  *                     f"cannot delegate pull without single output; found {len(self.outputs)}"
 */
   /*else*/ {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 120, __pyx_L1_error)
+    __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_2 = (__pyx_t_3 != 1);
     if (unlikely(__pyx_t_2)) {
 
-      /* "av/filter/context.pyx":121
+      /* "av/filter/context.py":135
  *             # Delegate to the output.
  *             if len(self.outputs) != 1:
  *                 raise ValueError(             # <<<<<<<<<<<<<<
@@ -19964,20 +20048,20 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
 */
       __pyx_t_4 = NULL;
 
-      /* "av/filter/context.pyx":122
+      /* "av/filter/context.py":136
  *             if len(self.outputs) != 1:
  *                 raise ValueError(
  *                     f"cannot delegate pull without single output; found {len(self.outputs)}"             # <<<<<<<<<<<<<<
  *                 )
  *             if not self.outputs[0].link:
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = PyObject_Length(__pyx_t_5); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_3 = PyObject_Length(__pyx_t_5); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_3, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_cannot_delegate_pull_without_sin, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 122, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_cannot_delegate_pull_without_sin, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_7 = 1;
@@ -19986,14 +20070,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 121, __pyx_L1_error)
+      __PYX_ERR(0, 135, __pyx_L1_error)
 
-      /* "av/filter/context.pyx":120
+      /* "av/filter/context.py":134
  *         else:
  *             # Delegate to the output.
  *             if len(self.outputs) != 1:             # <<<<<<<<<<<<<<
@@ -20002,27 +20086,27 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
 */
     }
 
-    /* "av/filter/context.pyx":124
+    /* "av/filter/context.py":138
  *                     f"cannot delegate pull without single output; found {len(self.outputs)}"
  *                 )
  *             if not self.outputs[0].link:             # <<<<<<<<<<<<<<
  *                 raise ValueError("cannot delegate pull without linked output")
  *             return self.outputs[0].linked.context.pull()
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_link); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_link); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_8 = (!__pyx_t_2);
     if (unlikely(__pyx_t_8)) {
 
-      /* "av/filter/context.pyx":125
+      /* "av/filter/context.py":139
  *                 )
  *             if not self.outputs[0].link:
  *                 raise ValueError("cannot delegate pull without linked output")             # <<<<<<<<<<<<<<
@@ -20035,14 +20119,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_cannot_delegate_pull_without_lin};
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 125, __pyx_L1_error)
+      __PYX_ERR(0, 139, __pyx_L1_error)
 
-      /* "av/filter/context.pyx":124
+      /* "av/filter/context.py":138
  *                     f"cannot delegate pull without single output; found {len(self.outputs)}"
  *                 )
  *             if not self.outputs[0].link:             # <<<<<<<<<<<<<<
@@ -20051,7 +20135,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
 */
     }
 
-    /* "av/filter/context.pyx":126
+    /* "av/filter/context.py":140
  *             if not self.outputs[0].link:
  *                 raise ValueError("cannot delegate pull without linked output")
  *             return self.outputs[0].linked.context.pull()             # <<<<<<<<<<<<<<
@@ -20059,15 +20143,15 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
  *         self.graph.configure()
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_outputs); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_linked); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_linked); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = __pyx_t_5;
@@ -20078,7 +20162,7 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_pull, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
@@ -20087,14 +20171,14 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
   }
   __pyx_L3:;
 
-  /* "av/filter/context.pyx":128
+  /* "av/filter/context.py":142
  *             return self.outputs[0].linked.context.pull()
  * 
  *         self.graph.configure()             # <<<<<<<<<<<<<<
  * 
- *         with nogil:
+ *         with cython.nogil:
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_graph); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_graph); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_5 = __pyx_t_6;
   __Pyx_INCREF(__pyx_t_5);
@@ -20104,15 +20188,15 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_configure, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/context.pyx":130
+  /* "av/filter/context.py":144
  *         self.graph.configure()
  * 
- *         with nogil:             # <<<<<<<<<<<<<<
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             res = lib.av_buffersink_get_frame(self.ptr, frame.ptr)
  *         err_check(res)
 */
@@ -20122,9 +20206,9 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/filter/context.pyx":131
+        /* "av/filter/context.py":145
  * 
- *         with nogil:
+ *         with cython.nogil:
  *             res = lib.av_buffersink_get_frame(self.ptr, frame.ptr)             # <<<<<<<<<<<<<<
  *         err_check(res)
  * 
@@ -20132,10 +20216,10 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
         __pyx_v_res = av_buffersink_get_frame(__pyx_v_self->ptr, __pyx_v_frame->ptr);
       }
 
-      /* "av/filter/context.pyx":130
+      /* "av/filter/context.py":144
  *         self.graph.configure()
  * 
- *         with nogil:             # <<<<<<<<<<<<<<
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
  *             res = lib.av_buffersink_get_frame(self.ptr, frame.ptr)
  *         err_check(res)
 */
@@ -20149,56 +20233,56 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
       }
   }
 
-  /* "av/filter/context.pyx":132
- *         with nogil:
+  /* "av/filter/context.py":146
+ *         with cython.nogil:
  *             res = lib.av_buffersink_get_frame(self.ptr, frame.ptr)
  *         err_check(res)             # <<<<<<<<<<<<<<
  * 
  *         frame._init_user_attributes()
 */
-  __pyx_t_9 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_9 = __pyx_f_2av_5error_err_check(__pyx_v_res, 0, NULL); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 146, __pyx_L1_error)
 
-  /* "av/filter/context.pyx":134
+  /* "av/filter/context.py":148
  *         err_check(res)
  * 
  *         frame._init_user_attributes()             # <<<<<<<<<<<<<<
- *         frame.time_base = avrational_to_fraction(&self.ptr.inputs[0].time_base)
- *         return frame
+ *         frame.time_base = avrational_to_fraction(
+ *             cython.address(self.ptr.inputs[0].time_base)
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5frame_Frame *)__pyx_v_frame->__pyx_vtab)->_init_user_attributes(__pyx_v_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5frame_Frame *)__pyx_v_frame->__pyx_vtab)->_init_user_attributes(__pyx_v_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/context.pyx":135
+  /* "av/filter/context.py":149
  * 
  *         frame._init_user_attributes()
- *         frame.time_base = avrational_to_fraction(&self.ptr.inputs[0].time_base)             # <<<<<<<<<<<<<<
- *         return frame
- * 
+ *         frame.time_base = avrational_to_fraction(             # <<<<<<<<<<<<<<
+ *             cython.address(self.ptr.inputs[0].time_base)
+ *         )
 */
-  __pyx_t_1 = __pyx_f_2av_5utils_avrational_to_fraction((&(__pyx_v_self->ptr->inputs[0])->time_base)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5utils_avrational_to_fraction((&(__pyx_v_self->ptr->inputs[0])->time_base)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_1) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_1) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/filter/context.pyx":136
- *         frame._init_user_attributes()
- *         frame.time_base = avrational_to_fraction(&self.ptr.inputs[0].time_base)
+  /* "av/filter/context.py":152
+ *             cython.address(self.ptr.inputs[0].time_base)
+ *         )
  *         return frame             # <<<<<<<<<<<<<<
  * 
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):
+ *     def process_command(
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_frame);
   __pyx_r = ((PyObject *)__pyx_v_frame);
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":110
+  /* "av/filter/context.py":125
  *         self.inputs[0].linked.context.push(frame)
  * 
  *     def pull(self):             # <<<<<<<<<<<<<<
- *         cdef Frame frame
- *         cdef int res
+ *         frame: Frame
+ *         res: cython.int
 */
 
   /* function exit code */
@@ -20216,12 +20300,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_10pull(struct __p
   return __pyx_r;
 }
 
-/* "av/filter/context.pyx":138
+/* "av/filter/context.py":154
  *         return frame
  * 
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):             # <<<<<<<<<<<<<<
- *         if not cmd:
- *             raise ValueError("Invalid cmd")
+ *     def process_command(             # <<<<<<<<<<<<<<
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0
+ *     ):
 */
 
 /* Python wrapper */
@@ -20232,7 +20316,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_12process_command, "FilterContext.process_command(cmd, arg=None, int res_len=1024, int flags=0)");
+PyDoc_STRVAR(__pyx_doc_2av_6filter_7context_13FilterContext_12process_command, "FilterContext.process_command(cmd, arg=None, int res_len: cython.int = 1024, int flags: cython.int = 0)");
 static PyObject *__pyx_pw_2av_6filter_7context_13FilterContext_13process_command(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
@@ -20266,51 +20350,59 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_cmd,&__pyx_mstate_global->__pyx_n_u_arg,&__pyx_mstate_global->__pyx_n_u_res_len,&__pyx_mstate_global->__pyx_n_u_flags,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 138, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 154, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "process_command", 0) < (0)) __PYX_ERR(0, 138, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "process_command", 0) < (0)) __PYX_ERR(0, 154, __pyx_L3_error)
+
+      /* "av/filter/context.py":155
+ * 
+ *     def process_command(
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0             # <<<<<<<<<<<<<<
+ *     ):
+ *         if not cmd:
+*/
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("process_command", 0, 1, 4, i); __PYX_ERR(0, 138, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("process_command", 0, 1, 4, i); __PYX_ERR(0, 154, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 154, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 154, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -20319,19 +20411,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
     __pyx_v_cmd = values[0];
     __pyx_v_arg = values[1];
     if (values[2]) {
-      __pyx_v_res_len = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_res_len == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L3_error)
+      __pyx_v_res_len = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_res_len == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L3_error)
     } else {
       __pyx_v_res_len = ((int)0x400);
     }
     if (values[3]) {
-      __pyx_v_flags = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_flags == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L3_error)
+      __pyx_v_flags = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_flags == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L3_error)
     } else {
       __pyx_v_flags = ((int)0);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("process_command", 0, 1, 4, __pyx_nargs); __PYX_ERR(0, 138, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("process_command", 0, 1, 4, __pyx_nargs); __PYX_ERR(0, 154, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20344,6 +20436,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_2av_6filter_7context_13FilterContext_12process_command(((struct __pyx_obj_2av_6filter_7context_FilterContext *)__pyx_v_self), __pyx_v_cmd, __pyx_v_arg, __pyx_v_res_len, __pyx_v_flags);
 
+  /* "av/filter/context.py":154
+ *         return frame
+ * 
+ *     def process_command(             # <<<<<<<<<<<<<<
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0
+ *     ):
+*/
+
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
@@ -20353,8 +20453,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command(struct __pyx_obj_2av_6filter_7context_FilterContext *__pyx_v_self, PyObject *__pyx_v_cmd, PyObject *__pyx_v_arg, int __pyx_v_res_len, int __pyx_v_flags) {
-  char *__pyx_v_c_cmd;
   char *__pyx_v_c_arg;
+  char *__pyx_v_c_cmd;
   char *__pyx_v_c_res;
   int __pyx_v_ret;
   PyObject *__pyx_v_res_buf = 0;
@@ -20378,23 +20478,23 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("process_command", 0);
 
-  /* "av/filter/context.pyx":139
- * 
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):
+  /* "av/filter/context.py":157
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0
+ *     ):
  *         if not cmd:             # <<<<<<<<<<<<<<
  *             raise ValueError("Invalid cmd")
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_cmd); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_cmd); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 157, __pyx_L1_error)
   __pyx_t_2 = (!__pyx_t_1);
   if (unlikely(__pyx_t_2)) {
 
-    /* "av/filter/context.pyx":140
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):
+    /* "av/filter/context.py":158
+ *     ):
  *         if not cmd:
  *             raise ValueError("Invalid cmd")             # <<<<<<<<<<<<<<
  * 
- *         cdef char *c_cmd = NULL
+ *         c_arg: cython.p_char = cython.NULL
 */
     __pyx_t_4 = NULL;
     __pyx_t_5 = 1;
@@ -20402,53 +20502,44 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Invalid_cmd};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 140, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 158, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 140, __pyx_L1_error)
+    __PYX_ERR(0, 158, __pyx_L1_error)
 
-    /* "av/filter/context.pyx":139
- * 
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):
+    /* "av/filter/context.py":157
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0
+ *     ):
  *         if not cmd:             # <<<<<<<<<<<<<<
  *             raise ValueError("Invalid cmd")
  * 
 */
   }
 
-  /* "av/filter/context.pyx":142
+  /* "av/filter/context.py":160
  *             raise ValueError("Invalid cmd")
  * 
- *         cdef char *c_cmd = NULL             # <<<<<<<<<<<<<<
- *         cdef char *c_arg = NULL
- * 
-*/
-  __pyx_v_c_cmd = NULL;
-
-  /* "av/filter/context.pyx":143
- * 
- *         cdef char *c_cmd = NULL
- *         cdef char *c_arg = NULL             # <<<<<<<<<<<<<<
- * 
- *         c_cmd = cmd
+ *         c_arg: cython.p_char = cython.NULL             # <<<<<<<<<<<<<<
+ *         c_cmd: cython.p_char = cmd
+ *         if arg is not None:
 */
   __pyx_v_c_arg = NULL;
 
-  /* "av/filter/context.pyx":145
- *         cdef char *c_arg = NULL
+  /* "av/filter/context.py":161
  * 
- *         c_cmd = cmd             # <<<<<<<<<<<<<<
+ *         c_arg: cython.p_char = cython.NULL
+ *         c_cmd: cython.p_char = cmd             # <<<<<<<<<<<<<<
  *         if arg is not None:
  *             c_arg = arg
 */
-  __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_cmd); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_cmd); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 161, __pyx_L1_error)
   __pyx_v_c_cmd = __pyx_t_6;
 
-  /* "av/filter/context.pyx":146
- * 
- *         c_cmd = cmd
+  /* "av/filter/context.py":162
+ *         c_arg: cython.p_char = cython.NULL
+ *         c_cmd: cython.p_char = cmd
  *         if arg is not None:             # <<<<<<<<<<<<<<
  *             c_arg = arg
  * 
@@ -20456,46 +20547,46 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
   __pyx_t_2 = (__pyx_v_arg != Py_None);
   if (__pyx_t_2) {
 
-    /* "av/filter/context.pyx":147
- *         c_cmd = cmd
+    /* "av/filter/context.py":163
+ *         c_cmd: cython.p_char = cmd
  *         if arg is not None:
  *             c_arg = arg             # <<<<<<<<<<<<<<
  * 
- *         cdef char *c_res = NULL
+ *         c_res: cython.p_char = cython.NULL
 */
-    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_arg); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 147, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_arg); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 163, __pyx_L1_error)
     __pyx_v_c_arg = __pyx_t_6;
 
-    /* "av/filter/context.pyx":146
- * 
- *         c_cmd = cmd
+    /* "av/filter/context.py":162
+ *         c_arg: cython.p_char = cython.NULL
+ *         c_cmd: cython.p_char = cmd
  *         if arg is not None:             # <<<<<<<<<<<<<<
  *             c_arg = arg
  * 
 */
   }
 
-  /* "av/filter/context.pyx":149
+  /* "av/filter/context.py":165
  *             c_arg = arg
  * 
- *         cdef char *c_res = NULL             # <<<<<<<<<<<<<<
- *         cdef int ret
- *         cdef bytearray res_buf = None
+ *         c_res: cython.p_char = cython.NULL             # <<<<<<<<<<<<<<
+ *         ret: cython.int
+ *         res_buf: bytearray = None
 */
   __pyx_v_c_res = NULL;
 
-  /* "av/filter/context.pyx":151
- *         cdef char *c_res = NULL
- *         cdef int ret
- *         cdef bytearray res_buf = None             # <<<<<<<<<<<<<<
- *         cdef unsigned char[:] view
- *         cdef bytes b
+  /* "av/filter/context.py":167
+ *         c_res: cython.p_char = cython.NULL
+ *         ret: cython.int
+ *         res_buf: bytearray = None             # <<<<<<<<<<<<<<
+ *         view: cython.uchar[:]
+ *         b: bytes
 */
   __Pyx_INCREF(Py_None);
   __pyx_v_res_buf = ((PyObject*)Py_None);
 
-  /* "av/filter/context.pyx":156
- *         cdef int nul
+  /* "av/filter/context.py":172
+ *         nul: cython.int
  * 
  *         if res_len > 0:             # <<<<<<<<<<<<<<
  *             res_buf = bytearray(res_len)
@@ -20504,15 +20595,15 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
   __pyx_t_2 = (__pyx_v_res_len > 0);
   if (__pyx_t_2) {
 
-    /* "av/filter/context.pyx":157
+    /* "av/filter/context.py":173
  * 
  *         if res_len > 0:
  *             res_buf = bytearray(res_len)             # <<<<<<<<<<<<<<
  *             view = res_buf
- *             c_res = <char*>&view[0]
+ *             c_res = cython.cast(cython.p_char, cython.address(view[0]))
 */
     __pyx_t_4 = NULL;
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_res_len); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 157, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_res_len); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_5 = 1;
     {
@@ -20520,30 +20611,30 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 157, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF_SET(__pyx_v_res_buf, ((PyObject*)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "av/filter/context.pyx":158
+    /* "av/filter/context.py":174
  *         if res_len > 0:
  *             res_buf = bytearray(res_len)
  *             view = res_buf             # <<<<<<<<<<<<<<
- *             c_res = <char*>&view[0]
- *         else:
+ *             c_res = cython.cast(cython.p_char, cython.address(view[0]))
+ * 
 */
-    __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_unsigned_char(__pyx_v_res_buf, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_to_MemoryviewSlice_ds_unsigned_char(__pyx_v_res_buf, PyBUF_WRITABLE); if (unlikely(!__pyx_t_8.memview)) __PYX_ERR(0, 174, __pyx_L1_error)
     __pyx_v_view = __pyx_t_8;
     __pyx_t_8.memview = NULL;
     __pyx_t_8.data = NULL;
 
-    /* "av/filter/context.pyx":159
+    /* "av/filter/context.py":175
  *             res_buf = bytearray(res_len)
  *             view = res_buf
- *             c_res = <char*>&view[0]             # <<<<<<<<<<<<<<
- *         else:
- *             c_res = NULL
+ *             c_res = cython.cast(cython.p_char, cython.address(view[0]))             # <<<<<<<<<<<<<<
+ * 
+ *         with cython.nogil:
 */
     __pyx_t_9 = 0;
     __pyx_t_10 = -1;
@@ -20553,38 +20644,25 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
     } else if (unlikely(__pyx_t_9 >= __pyx_v_view.shape[0])) __pyx_t_10 = 0;
     if (unlikely(__pyx_t_10 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_10);
-      __PYX_ERR(0, 159, __pyx_L1_error)
+      __PYX_ERR(0, 175, __pyx_L1_error)
     }
     __pyx_v_c_res = ((char *)(&(*((unsigned char *) ( /* dim=0 */ (__pyx_v_view.data + __pyx_t_9 * __pyx_v_view.strides[0]) )))));
 
-    /* "av/filter/context.pyx":156
- *         cdef int nul
+    /* "av/filter/context.py":172
+ *         nul: cython.int
  * 
  *         if res_len > 0:             # <<<<<<<<<<<<<<
  *             res_buf = bytearray(res_len)
  *             view = res_buf
 */
-    goto __pyx_L5;
   }
 
-  /* "av/filter/context.pyx":161
- *             c_res = <char*>&view[0]
- *         else:
- *             c_res = NULL             # <<<<<<<<<<<<<<
+  /* "av/filter/context.py":177
+ *             c_res = cython.cast(cython.p_char, cython.address(view[0]))
  * 
- *         with nogil:
-*/
-  /*else*/ {
-    __pyx_v_c_res = NULL;
-  }
-  __pyx_L5:;
-
-  /* "av/filter/context.pyx":163
- *             c_res = NULL
- * 
- *         with nogil:             # <<<<<<<<<<<<<<
- *             ret = lib.avfilter_process_command(self.ptr, c_cmd, c_arg, c_res, res_len, flags)
- *         err_check(ret)
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
+ *             ret = lib.avfilter_process_command(
+ *                 self.ptr, c_cmd, c_arg, c_res, res_len, flags
 */
   {
       PyThreadState * _save;
@@ -20592,22 +20670,22 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "av/filter/context.pyx":164
+        /* "av/filter/context.py":178
  * 
- *         with nogil:
- *             ret = lib.avfilter_process_command(self.ptr, c_cmd, c_arg, c_res, res_len, flags)             # <<<<<<<<<<<<<<
- *         err_check(ret)
- * 
+ *         with cython.nogil:
+ *             ret = lib.avfilter_process_command(             # <<<<<<<<<<<<<<
+ *                 self.ptr, c_cmd, c_arg, c_res, res_len, flags
+ *             )
 */
         __pyx_v_ret = avfilter_process_command(__pyx_v_self->ptr, __pyx_v_c_cmd, __pyx_v_c_arg, __pyx_v_c_res, __pyx_v_res_len, __pyx_v_flags);
       }
 
-      /* "av/filter/context.pyx":163
- *             c_res = NULL
+      /* "av/filter/context.py":177
+ *             c_res = cython.cast(cython.p_char, cython.address(view[0]))
  * 
- *         with nogil:             # <<<<<<<<<<<<<<
- *             ret = lib.avfilter_process_command(self.ptr, c_cmd, c_arg, c_res, res_len, flags)
- *         err_check(ret)
+ *         with cython.nogil:             # <<<<<<<<<<<<<<
+ *             ret = lib.avfilter_process_command(
+ *                 self.ptr, c_cmd, c_arg, c_res, res_len, flags
 */
       /*finally:*/ {
         /*normal exit:*/{
@@ -20619,30 +20697,30 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
       }
   }
 
-  /* "av/filter/context.pyx":165
- *         with nogil:
- *             ret = lib.avfilter_process_command(self.ptr, c_cmd, c_arg, c_res, res_len, flags)
+  /* "av/filter/context.py":181
+ *                 self.ptr, c_cmd, c_arg, c_res, res_len, flags
+ *             )
  *         err_check(ret)             # <<<<<<<<<<<<<<
  * 
  *         if res_buf is not None:
 */
-  __pyx_t_10 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_10 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 181, __pyx_L1_error)
 
-  /* "av/filter/context.pyx":167
+  /* "av/filter/context.py":183
  *         err_check(ret)
  * 
  *         if res_buf is not None:             # <<<<<<<<<<<<<<
  *             b = bytes(res_buf)
- *             nul = b.find(b'\x00')
+ *             nul = b.find(b"\x00")
 */
   __pyx_t_2 = (__pyx_v_res_buf != ((PyObject*)Py_None));
   if (__pyx_t_2) {
 
-    /* "av/filter/context.pyx":168
+    /* "av/filter/context.py":184
  * 
  *         if res_buf is not None:
  *             b = bytes(res_buf)             # <<<<<<<<<<<<<<
- *             nul = b.find(b'\x00')
+ *             nul = b.find(b"\x00")
  *             if nul >= 0:
 */
     __pyx_t_7 = NULL;
@@ -20651,28 +20729,28 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_res_buf};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(&PyBytes_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_v_b = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/filter/context.pyx":169
+    /* "av/filter/context.py":185
  *         if res_buf is not None:
  *             b = bytes(res_buf)
- *             nul = b.find(b'\x00')             # <<<<<<<<<<<<<<
+ *             nul = b.find(b"\x00")             # <<<<<<<<<<<<<<
  *             if nul >= 0:
  *                 b = b[:nul]
 */
-    __pyx_t_3 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyBytes_Type__find, __pyx_v_b, __pyx_mstate_global->__pyx_kp_b__7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 169, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyBytes_Type__find, __pyx_v_b, __pyx_mstate_global->__pyx_kp_b__7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_nul = __pyx_t_10;
 
-    /* "av/filter/context.pyx":170
+    /* "av/filter/context.py":186
  *             b = bytes(res_buf)
- *             nul = b.find(b'\x00')
+ *             nul = b.find(b"\x00")
  *             if nul >= 0:             # <<<<<<<<<<<<<<
  *                 b = b[:nul]
  *             if b:
@@ -20680,28 +20758,28 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
     __pyx_t_2 = (__pyx_v_nul >= 0);
     if (__pyx_t_2) {
 
-      /* "av/filter/context.pyx":171
- *             nul = b.find(b'\x00')
+      /* "av/filter/context.py":187
+ *             nul = b.find(b"\x00")
  *             if nul >= 0:
  *                 b = b[:nul]             # <<<<<<<<<<<<<<
  *             if b:
  *                 return b.decode("utf-8", "strict")
 */
-      __pyx_t_3 = PySequence_GetSlice(__pyx_v_b, 0, __pyx_v_nul); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 171, __pyx_L1_error)
+      __pyx_t_3 = PySequence_GetSlice(__pyx_v_b, 0, __pyx_v_nul); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 187, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF_SET(__pyx_v_b, ((PyObject*)__pyx_t_3));
       __pyx_t_3 = 0;
 
-      /* "av/filter/context.pyx":170
+      /* "av/filter/context.py":186
  *             b = bytes(res_buf)
- *             nul = b.find(b'\x00')
+ *             nul = b.find(b"\x00")
  *             if nul >= 0:             # <<<<<<<<<<<<<<
  *                 b = b[:nul]
  *             if b:
 */
     }
 
-    /* "av/filter/context.pyx":172
+    /* "av/filter/context.py":188
  *             if nul >= 0:
  *                 b = b[:nul]
  *             if b:             # <<<<<<<<<<<<<<
@@ -20710,26 +20788,26 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
 */
     {
       Py_ssize_t __pyx_temp = __Pyx_PyBytes_GET_SIZE(__pyx_v_b);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 172, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 188, __pyx_L1_error)
       __pyx_t_2 = (__pyx_temp != 0);
     }
 
     if (__pyx_t_2) {
 
-      /* "av/filter/context.pyx":173
+      /* "av/filter/context.py":189
  *                 b = b[:nul]
  *             if b:
  *                 return b.decode("utf-8", "strict")             # <<<<<<<<<<<<<<
  *         return None
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_3 = __Pyx_decode_bytes(__pyx_v_b, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_decode_bytes(__pyx_v_b, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_r = __pyx_t_3;
       __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "av/filter/context.pyx":172
+      /* "av/filter/context.py":188
  *             if nul >= 0:
  *                 b = b[:nul]
  *             if b:             # <<<<<<<<<<<<<<
@@ -20738,16 +20816,16 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
 */
     }
 
-    /* "av/filter/context.pyx":167
+    /* "av/filter/context.py":183
  *         err_check(ret)
  * 
  *         if res_buf is not None:             # <<<<<<<<<<<<<<
  *             b = bytes(res_buf)
- *             nul = b.find(b'\x00')
+ *             nul = b.find(b"\x00")
 */
   }
 
-  /* "av/filter/context.pyx":174
+  /* "av/filter/context.py":190
  *             if b:
  *                 return b.decode("utf-8", "strict")
  *         return None             # <<<<<<<<<<<<<<
@@ -20756,12 +20834,12 @@ static PyObject *__pyx_pf_2av_6filter_7context_13FilterContext_12process_command
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "av/filter/context.pyx":138
+  /* "av/filter/context.py":154
  *         return frame
  * 
- *     def process_command(self, cmd, arg=None, int res_len=1024, int flags=0):             # <<<<<<<<<<<<<<
- *         if not cmd:
- *             raise ValueError("Invalid cmd")
+ *     def process_command(             # <<<<<<<<<<<<<<
+ *         self, cmd, arg=None, res_len: cython.int = 1024, flags: cython.int = 0
+ *     ):
 */
 
   /* function exit code */
@@ -22223,15 +22301,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6filter_7context_FilterContext_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext)) __PYX_ERR(0, 26, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6filter_7context_FilterContext_spec, __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6filter_7context_FilterContext_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6filter_7context_FilterContext_spec, __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext = &__pyx_type_2av_6filter_7context_FilterContext;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext);
@@ -22241,8 +22319,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_FilterContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_FilterContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6filter_7context_FilterContext) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __pyx_vtabptr_array = &__pyx_vtable_array;
   __pyx_vtable_array.get_memview = (PyObject *(*)(struct __pyx_array_obj *))__pyx_array_get_memview;
   #if CYTHON_USE_TYPE_SPECS
@@ -22446,10 +22524,18 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   sizeof(struct __pyx_obj_2av_5audio_6layout_AudioLayout), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5audio_6layout_AudioLayout),
   #endif
   __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) __PYX_ERR(6, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_5audio_6layout_AudioLayout = (struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout); if (unlikely(!__pyx_vtabptr_2av_5audio_6layout_AudioLayout)) __PYX_ERR(6, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.buffer"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 2, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.buffer"); if (unlikely(!__pyx_t_1)) __PYX_ERR(7, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_6buffer_ByteSource = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.buffer", "ByteSource",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #else
+  sizeof(struct __pyx_obj_2av_6buffer_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_ByteSource),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_ByteSource) __PYX_ERR(7, 4, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6buffer_Buffer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.buffer", "Buffer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6buffer_Buffer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_Buffer),
@@ -22458,22 +22544,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6buffer_Buffer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6buffer_Buffer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer) __PYX_ERR(7, 2, __pyx_L1_error)
-  __pyx_vtabptr_2av_6buffer_Buffer = (struct __pyx_vtabstruct_2av_6buffer_Buffer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer); if (unlikely(!__pyx_vtabptr_2av_6buffer_Buffer)) __PYX_ERR(7, 2, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer) __PYX_ERR(7, 13, __pyx_L1_error)
+  __pyx_vtabptr_2av_6buffer_Buffer = (struct __pyx_vtabstruct_2av_6buffer_Buffer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6buffer_Buffer); if (unlikely(!__pyx_vtabptr_2av_6buffer_Buffer)) __PYX_ERR(7, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.bytesource"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 4, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10bytesource_ByteSource = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.bytesource", "ByteSource",
-  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #else
-  sizeof(struct __pyx_obj_2av_10bytesource_ByteSource), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10bytesource_ByteSource),
-  #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10bytesource_ByteSource) __PYX_ERR(8, 4, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.codec"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.codec"); if (unlikely(!__pyx_t_1)) __PYX_ERR(8, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.codec", "Codec",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22483,10 +22557,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_5codec_Codec), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_5codec_Codec),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec) __PYX_ERR(9, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_5codec_Codec = (struct __pyx_vtabstruct_2av_5codec_5codec_Codec*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec); if (unlikely(!__pyx_vtabptr_2av_5codec_5codec_Codec)) __PYX_ERR(9, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec) __PYX_ERR(8, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_5codec_Codec = (struct __pyx_vtabstruct_2av_5codec_5codec_Codec*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_5codec_Codec); if (unlikely(!__pyx_vtabptr_2av_5codec_5codec_Codec)) __PYX_ERR(8, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.hwaccel"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 6, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.hwaccel"); if (unlikely(!__pyx_t_1)) __PYX_ERR(9, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.hwaccel", "HWConfig",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22496,8 +22570,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWConfig),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) __PYX_ERR(10, 6, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig = (struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig); if (unlikely(!__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(10, 6, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig) __PYX_ERR(9, 6, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_7hwaccel_HWConfig = (struct __pyx_vtabstruct_2av_5codec_7hwaccel_HWConfig*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWConfig); if (unlikely(!__pyx_vtabptr_2av_5codec_7hwaccel_HWConfig)) __PYX_ERR(9, 6, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.hwaccel", "HWAccel",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel),
@@ -22506,9 +22580,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7hwaccel_HWAccel),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) __PYX_ERR(10, 13, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7hwaccel_HWAccel) __PYX_ERR(9, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.codec.context"); if (unlikely(!__pyx_t_1)) __PYX_ERR(10, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.codec.context", "CodecContext",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22518,10 +22592,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5codec_7context_CodecContext), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5codec_7context_CodecContext),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(11, 11, __pyx_L1_error)
-  __pyx_vtabptr_2av_5codec_7context_CodecContext = (struct __pyx_vtabstruct_2av_5codec_7context_CodecContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_vtabptr_2av_5codec_7context_CodecContext)) __PYX_ERR(11, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext) __PYX_ERR(10, 11, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_7context_CodecContext = (struct __pyx_vtabstruct_2av_5codec_7context_CodecContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_vtabptr_2av_5codec_7context_CodecContext)) __PYX_ERR(10, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 11, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.pyio"); if (unlikely(!__pyx_t_1)) __PYX_ERR(11, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.pyio", "PyIOFile",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22531,9 +22605,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4pyio_PyIOFile), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4pyio_PyIOFile),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(12, 11, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4pyio_PyIOFile) __PYX_ERR(11, 11, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 8, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.streams"); if (unlikely(!__pyx_t_1)) __PYX_ERR(12, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.streams", "StreamContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22543,23 +22617,23 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_7streams_StreamContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_7streams_StreamContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(13, 8, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_7streams_StreamContainer = (struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer); if (unlikely(!__pyx_vtabptr_2av_9container_7streams_StreamContainer)) __PYX_ERR(13, 8, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer) __PYX_ERR(12, 6, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_7streams_StreamContainer = (struct __pyx_vtabstruct_2av_9container_7streams_StreamContainer*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_7streams_StreamContainer); if (unlikely(!__pyx_vtabptr_2av_9container_7streams_StreamContainer)) __PYX_ERR(12, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.dictionary"); if (unlikely(!__pyx_t_1)) __PYX_ERR(13, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "_Dictionary",
+  __pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.dictionary", "Dictionary",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #elif CYTHON_COMPILING_IN_LIMITED_API
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #else
-  sizeof(struct __pyx_obj_2av_10dictionary__Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary__Dictionary),
+  sizeof(struct __pyx_obj_2av_10dictionary_Dictionary), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_10dictionary_Dictionary),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary) __PYX_ERR(14, 4, __pyx_L1_error)
-  __pyx_vtabptr_2av_10dictionary__Dictionary = (struct __pyx_vtabstruct_2av_10dictionary__Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary__Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary__Dictionary)) __PYX_ERR(14, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary) __PYX_ERR(13, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_10dictionary_Dictionary = (struct __pyx_vtabstruct_2av_10dictionary_Dictionary*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_10dictionary_Dictionary); if (unlikely(!__pyx_vtabptr_2av_10dictionary_Dictionary)) __PYX_ERR(13, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 4, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.format"); if (unlikely(!__pyx_t_1)) __PYX_ERR(14, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.format", "ContainerFormat",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22569,9 +22643,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6format_ContainerFormat), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6format_ContainerFormat),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(15, 4, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) __PYX_ERR(14, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 16, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.container.core"); if (unlikely(!__pyx_t_1)) __PYX_ERR(15, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_9container_4core_Container = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.container.core", "Container",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22581,10 +22655,33 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_9container_4core_Container), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_9container_4core_Container),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(16, 16, __pyx_L1_error)
-  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(16, 16, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_9container_4core_Container) __PYX_ERR(15, 16, __pyx_L1_error)
+  __pyx_vtabptr_2av_9container_4core_Container = (struct __pyx_vtabstruct_2av_9container_4core_Container*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_9container_4core_Container); if (unlikely(!__pyx_vtabptr_2av_9container_4core_Container)) __PYX_ERR(15, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.index"); if (unlikely(!__pyx_t_1)) __PYX_ERR(16, 4, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntry = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.index", "IndexEntry",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #else
+  sizeof(struct __pyx_obj_2av_5index_IndexEntry), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntry),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry) __PYX_ERR(16, 4, __pyx_L1_error)
+  __pyx_vtabptr_2av_5index_IndexEntry = (struct __pyx_vtabstruct_2av_5index_IndexEntry*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntry); if (unlikely(!__pyx_vtabptr_2av_5index_IndexEntry)) __PYX_ERR(16, 4, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5index_IndexEntries = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.index", "IndexEntries",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #else
+  sizeof(struct __pyx_obj_2av_5index_IndexEntries), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5index_IndexEntries),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries) __PYX_ERR(16, 8, __pyx_L1_error)
+  __pyx_vtabptr_2av_5index_IndexEntries = (struct __pyx_vtabstruct_2av_5index_IndexEntries*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5index_IndexEntries); if (unlikely(!__pyx_vtabptr_2av_5index_IndexEntries)) __PYX_ERR(16, 8, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PyImport_ImportModule("av.stream"); if (unlikely(!__pyx_t_1)) __PYX_ERR(17, 10, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6stream_Stream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "Stream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22594,8 +22691,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_Stream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_Stream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(17, 9, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_Stream = (struct __pyx_vtabstruct_2av_6stream_Stream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream); if (unlikely(!__pyx_vtabptr_2av_6stream_Stream)) __PYX_ERR(17, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_Stream) __PYX_ERR(17, 10, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_Stream = (struct __pyx_vtabstruct_2av_6stream_Stream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_Stream); if (unlikely(!__pyx_vtabptr_2av_6stream_Stream)) __PYX_ERR(17, 10, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_DataStream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "DataStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_DataStream),
@@ -22604,8 +22701,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_DataStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_DataStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(17, 28, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_DataStream = (struct __pyx_vtabstruct_2av_6stream_DataStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream); if (unlikely(!__pyx_vtabptr_2av_6stream_DataStream)) __PYX_ERR(17, 28, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_DataStream) __PYX_ERR(17, 31, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_DataStream = (struct __pyx_vtabstruct_2av_6stream_DataStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_DataStream); if (unlikely(!__pyx_vtabptr_2av_6stream_DataStream)) __PYX_ERR(17, 31, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.stream", "AttachmentStream",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_AttachmentStream),
@@ -22614,10 +22711,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6stream_AttachmentStream), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6stream_AttachmentStream),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(17, 31, __pyx_L1_error)
-  __pyx_vtabptr_2av_6stream_AttachmentStream = (struct __pyx_vtabstruct_2av_6stream_AttachmentStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream); if (unlikely(!__pyx_vtabptr_2av_6stream_AttachmentStream)) __PYX_ERR(17, 31, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream) __PYX_ERR(17, 34, __pyx_L1_error)
+  __pyx_vtabptr_2av_6stream_AttachmentStream = (struct __pyx_vtabstruct_2av_6stream_AttachmentStream*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6stream_AttachmentStream); if (unlikely(!__pyx_vtabptr_2av_6stream_AttachmentStream)) __PYX_ERR(17, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(18, 10, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.packet"); if (unlikely(!__pyx_t_1)) __PYX_ERR(18, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.packet", "PacketSideData",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22627,8 +22724,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_PacketSideData), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_PacketSideData),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(18, 10, __pyx_L1_error)
-  __pyx_vtabptr_2av_6packet_PacketSideData = (struct __pyx_vtabstruct_2av_6packet_PacketSideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData); if (unlikely(!__pyx_vtabptr_2av_6packet_PacketSideData)) __PYX_ERR(18, 10, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData) __PYX_ERR(18, 9, __pyx_L1_error)
+  __pyx_vtabptr_2av_6packet_PacketSideData = (struct __pyx_vtabstruct_2av_6packet_PacketSideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_PacketSideData); if (unlikely(!__pyx_vtabptr_2av_6packet_PacketSideData)) __PYX_ERR(18, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6packet_Packet = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.packet", "Packet",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_Packet),
@@ -22637,10 +22734,10 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6packet_Packet), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6packet_Packet),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(18, 19, __pyx_L1_error)
-  __pyx_vtabptr_2av_6packet_Packet = (struct __pyx_vtabstruct_2av_6packet_Packet*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet); if (unlikely(!__pyx_vtabptr_2av_6packet_Packet)) __PYX_ERR(18, 19, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6packet_Packet) __PYX_ERR(18, 18, __pyx_L1_error)
+  __pyx_vtabptr_2av_6packet_Packet = (struct __pyx_vtabstruct_2av_6packet_Packet*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_6packet_Packet); if (unlikely(!__pyx_vtabptr_2av_6packet_Packet)) __PYX_ERR(18, 18, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(19, 9, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.sidedata.sidedata"); if (unlikely(!__pyx_t_1)) __PYX_ERR(19, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.sidedata.sidedata", "SideData",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22650,8 +22747,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata_SideData), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata_SideData),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData) __PYX_ERR(19, 9, __pyx_L1_error)
-  __pyx_vtabptr_2av_8sidedata_8sidedata_SideData = (struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData); if (unlikely(!__pyx_vtabptr_2av_8sidedata_8sidedata_SideData)) __PYX_ERR(19, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData) __PYX_ERR(19, 8, __pyx_L1_error)
+  __pyx_vtabptr_2av_8sidedata_8sidedata_SideData = (struct __pyx_vtabstruct_2av_8sidedata_8sidedata_SideData*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata_SideData); if (unlikely(!__pyx_vtabptr_2av_8sidedata_8sidedata_SideData)) __PYX_ERR(19, 8, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.sidedata.sidedata", "_SideDataContainer",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
@@ -22660,7 +22757,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_8sidedata_8sidedata__SideDataContainer),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(19, 19, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_8sidedata_8sidedata__SideDataContainer) __PYX_ERR(19, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(20, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
@@ -22738,9 +22835,9 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_6format_VideoFormatComponent), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_6format_VideoFormatComponent),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(23, 18, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_6format_VideoFormatComponent) __PYX_ERR(23, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyImport_ImportModule("av.video.reformatter"); if (unlikely(!__pyx_t_1)) __PYX_ERR(24, 6, __pyx_L1_error)
+  __pyx_t_1 = PyImport_ImportModule("av.video.reformatter"); if (unlikely(!__pyx_t_1)) __PYX_ERR(24, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5video_11reformatter_VideoReformatter = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.video.reformatter", "VideoReformatter",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
@@ -22750,11 +22847,21 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_11reformatter_VideoReformatter), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_11reformatter_VideoReformatter),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_11reformatter_VideoReformatter) __PYX_ERR(24, 6, __pyx_L1_error)
-  __pyx_vtabptr_2av_5video_11reformatter_VideoReformatter = (struct __pyx_vtabstruct_2av_5video_11reformatter_VideoReformatter*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5video_11reformatter_VideoReformatter); if (unlikely(!__pyx_vtabptr_2av_5video_11reformatter_VideoReformatter)) __PYX_ERR(24, 6, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_11reformatter_VideoReformatter) __PYX_ERR(24, 34, __pyx_L1_error)
+  __pyx_vtabptr_2av_5video_11reformatter_VideoReformatter = (struct __pyx_vtabstruct_2av_5video_11reformatter_VideoReformatter*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5video_11reformatter_VideoReformatter); if (unlikely(!__pyx_vtabptr_2av_5video_11reformatter_VideoReformatter)) __PYX_ERR(24, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = PyImport_ImportModule("av.video.frame"); if (unlikely(!__pyx_t_1)) __PYX_ERR(25, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
+  __pyx_mstate->__pyx_ptype_2av_5video_5frame_CudaContext = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.video.frame", "CudaContext",
+  #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
+  sizeof(struct __pyx_obj_2av_5video_5frame_CudaContext), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_5frame_CudaContext),
+  #elif CYTHON_COMPILING_IN_LIMITED_API
+  sizeof(struct __pyx_obj_2av_5video_5frame_CudaContext), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_5frame_CudaContext),
+  #else
+  sizeof(struct __pyx_obj_2av_5video_5frame_CudaContext), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_5frame_CudaContext),
+  #endif
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_5frame_CudaContext) __PYX_ERR(25, 9, __pyx_L1_error)
+  __pyx_vtabptr_2av_5video_5frame_CudaContext = (struct __pyx_vtabstruct_2av_5video_5frame_CudaContext*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5video_5frame_CudaContext); if (unlikely(!__pyx_vtabptr_2av_5video_5frame_CudaContext)) __PYX_ERR(25, 9, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_5video_5frame_VideoFrame = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.video.frame", "VideoFrame",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_5video_5frame_VideoFrame), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_5frame_VideoFrame),
@@ -22763,8 +22870,8 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_5video_5frame_VideoFrame), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_5video_5frame_VideoFrame),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_5frame_VideoFrame) __PYX_ERR(25, 9, __pyx_L1_error)
-  __pyx_vtabptr_2av_5video_5frame_VideoFrame = (struct __pyx_vtabstruct_2av_5video_5frame_VideoFrame*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5video_5frame_VideoFrame); if (unlikely(!__pyx_vtabptr_2av_5video_5frame_VideoFrame)) __PYX_ERR(25, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_5video_5frame_VideoFrame) __PYX_ERR(25, 19, __pyx_L1_error)
+  __pyx_vtabptr_2av_5video_5frame_VideoFrame = (struct __pyx_vtabstruct_2av_5video_5frame_VideoFrame*)__Pyx_GetVtable(__pyx_mstate->__pyx_ptype_2av_5video_5frame_VideoFrame); if (unlikely(!__pyx_vtabptr_2av_5video_5frame_VideoFrame)) __PYX_ERR(25, 19, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -22799,7 +22906,7 @@ static int __Pyx_modinit_function_import_code(__pyx_mstatetype *__pyx_mstate) {
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (unlikely(!__pyx_import_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
     #endif
-    const char * __pyx_import_name = __pyx_import_signature + 64;
+    const char * __pyx_import_name = __pyx_import_signature + 63;
     void (**const __pyx_import_pointers[])(void) = {(void (**)(void))&__pyx_f_2av_10dictionary_wrap_dictionary, (void (**)(void)) NULL};
     void (**const *__pyx_import_pointer)(void) = __pyx_import_pointers;
     const char *__pyx_import_current_signature = __pyx_import_signature;
@@ -23106,7 +23213,6 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec_context(PyObject *__pyx_pyinit_mod
   size_t __pyx_t_6;
   static PyThread_type_lock __pyx_t_7[8];
   int __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -23684,47 +23790,21 @@ __Pyx_RefNannySetupContext("PyInit_context", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle_Enum, __pyx_t_4) < (0)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/filter/context.pyx":3
- * cimport libav as lib
- * 
+  /* "av/filter/context.py":1
  * import weakref             # <<<<<<<<<<<<<<
  * 
- * from av.audio.frame cimport alloc_audio_frame
+ * import cython
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_weakref, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 3, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_weakref, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_weakref, __pyx_t_4) < (0)) __PYX_ERR(0, 3, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_weakref, __pyx_t_4) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/filter/context.pyx":7
- * from av.audio.frame cimport alloc_audio_frame
- * from av.dictionary cimport _Dictionary
- * from av.dictionary import Dictionary             # <<<<<<<<<<<<<<
- * from av.error cimport err_check
- * from av.filter.link cimport alloc_filter_pads
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Dictionary};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_av_dictionary, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
-  }
-  __pyx_t_4 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_4);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Dictionary};
-    __pyx_t_9 = 0; {
-      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_9]); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 7, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_9], __pyx_t_5) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    }
-  }
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "av/filter/context.pyx":15
+  /* "av/filter/context.py":13
+ * from cython.cimports.av.video.frame import alloc_video_frame
  * 
- * 
- * cdef object _cinit_sentinel = object()             # <<<<<<<<<<<<<<
+ * _cinit_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
 */
@@ -23734,7 +23814,7 @@ __Pyx_RefNannySetupContext("PyInit_context", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
     __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __Pyx_XGOTREF(__pyx_v_2av_6filter_7context__cinit_sentinel);
@@ -23742,10 +23822,10 @@ __Pyx_RefNannySetupContext("PyInit_context", 0);
   __Pyx_GIVEREF(__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/filter/context.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
+  /* "av/filter/context.py":1
+ * import weakref             # <<<<<<<<<<<<<<
  * 
- * import weakref
+ * import cython
 */
   __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -23789,8 +23869,8 @@ __Pyx_RefNannySetupContext("PyInit_context", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 15, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 44, __pyx_L1_error)
   __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_import); if (!__pyx_builtin___import__) __PYX_ERR(1, 101, __pyx_L1_error)
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(1, 157, __pyx_L1_error)
   __pyx_builtin_Ellipsis = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_Ellipsis); if (!__pyx_builtin_Ellipsis) __PYX_ERR(1, 409, __pyx_L1_error)
@@ -23888,39 +23968,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{11},{45},{22},{15},{6},{4},{179},{37},{30},{32},{1},{1},{1},{1},{2},{1},{8},{14},{5},{6},{18},{30},{42},{50},{41},{49},{32},{15},{23},{25},{7},{6},{2},{6},{35},{20},{9},{30},{50},{8},{4},{20},{32},{22},{30},{37},{15},{5},{10},{8},{13},{4},{20},{8},{15},{3},{7},{11},{15},{3},{4},{13},{4},{6},{10},{1},{9},{17},{18},{3},{9},{7},{5},{8},{15},{6},{9},{5},{4},{5},{6},{7},{5},{12},{5},{2},{10},{5},{6},{9},{6},{5},{8},{4},{6},{8},{7},{4},{10},{4},{8},{4},{7},{3},{6},{10},{7},{4},{3},{4},{4},{12},{14},{11},{10},{19},{14},{12},{10},{17},{13},{3},{8},{7},{8},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{9},{6},{6},{6},{7},{1},{53},{188},{1},{109},{79},{71},{71},{191},{1}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (1315 bytes) */
-const char* const cstring = "(\265/\375`\350\n\315(\000F\177\251!\000w\332\331=I;K\2447\220\277;\211\244\360\177\230:A\254@]8_2\005\271\377\377\377\377F\232\000\245\000\235\000j\337\261\326\036\307\200\363F\005\320U?vA\207\341?\306\021\251sji\206\371(\241c\016\356j\357q\233b\034\243oP\006c|Z\307\336\352\276\202\333\242G\3143\nB\3149\273.\372\354P\014\224\256C\366\330\017\273\253%r\014Z\010\233\321\037{\017\177\263\204\316\370\212\371\013*\356\353\272\204\321j\206\255\027\276\212\335;\256\263\266Y_\246\020eY\203n\035\347Y\250M\274\034\2375\252VT\273Y\325\214{\301\367\007\241\n\300\247YmZ\327\320\233\261\367B\254p\255\n|\010\257\251\3154\257\265^{\026?=\367\336,\341o\366\233]\270\375\305\032\026\215Fl\016\360\025\237\2331Z\272\317:\225R\n,\030\250LX.\014\332g|\267\032\366M\302\334\246\260\306H!l\373#\276)i3\020\313\372R\215\325p%\233\361k\005\177\035{1\357\332\324n\343c\021:\034h\361\346_\374|\335u\245\313s\364Ok\262N\301A\301 $#\004\373S\264\366\325\355\205\327\252\213}\366\261\315>&::H>\"J<\"\360\331\203\005\025\307\234\n:\206\225TA\265\005\253\030\004%T\274T\323\034\001\257\220c\216?\272\034\325\3548\346\334B\257w\025K\275\351\234\211U\346\367ci\335SP\312$\275lR\367\331\234\333\374\373df\246u\275\250\307e\246\331\325\262\251\367\235\354\210\263\"\037\271\211B2\235\275\361Z\031\221S\306\340\340\270\030y\330Q\353\317\242\257\n\3615\253\211\314\224\211KY\303\356\r\232\365S\230\271\351\251u\231\370\353\251\263\nY\037\240D\004n\n\273Jl-\355\207i\352\236\357e%\200\351Yg\325<\021\221.j\371\264k\261\204\222\361\307i3\306\321A\210]O\263\007 \033\271\220\r%\253X\243\230i4*\026\222\261z\272\220M\035J\346\001B.`\322ksV\3318#\200\337\014@\200\256\264e*\344\267oV\032RR\201\005\004\3500\244F\023R\235\223\354\323i\024``\251HI\205\000\001\202D!\033g]F\027\305\367-\325\354\253j\257_.\304\276\237\331\330{[\367\353\231k\233\277\327{W\372:\267\357\374\254s6\273\364\235h:#we\022\267~\320\363LZL&7M-\263\261\326<Q\026\322^/\023\332f\2052]e&\304\231\212_\337s!uN\201\037\250a!D\312\320\210\210(H\222$\215\0011\010\202a""\3229J\037\322\000UT#\005\211P42\222\244(\205a\357\035\305\3642!\305++1\365\302\254\350\304\204\2205R[O\251\241\243\333\377\215\243S)\200\004\316\343f*\310\354\245\375=@,\345\271\003\200\0043\206KB8b\203\323\013:D\2657Z;\037\t\021\243\006\314\345y\221\200\306\201\361\373\004\001\037p\352\317\257l\027\014\342\316\035g\007q\225i/B\3773t\302\224e\\0\345\216\030\357t/\246\375^\242@\315\337\3331\211\311\034\221\210\250\225\n\217\376\004\005o`\356\007\326\263\017S.\n\241hKr\342\\\363M\004\377\241Z\214$f\227\177HF\340<\335\317\365mK+,\336\315BPK0\352z\340S\023\350\001\235\364\271y\005(\310\302t\333\244\036\342\007\377j\330\022\332\035\376\211\001\335\3558a\346\341\036\255\272\265\341\211=\000L\231P\325\340\032Y*I6\272\327Y\253\024\346\215\313`d{\030\204z\002\231\331\300\252\023\342{\207/}\270\224\364\177)\342\263{\306?\004\031\321\342X\253\312\213\257\262\220\343\375S\326\363\202\256\376G\211\357\006]t(\251\024\020\204\331F\353\310\242\241FR\2402N\256\300v\264\177\203%\022xd\361\376}\320q\215\342\017K~\360\354\3615\374:z_Lo\021\3173\013\017\005t-\217\357\302/\007b\005E\301\001\377\364\322c\2418\345yy\272Rqtf\202\207\263\262\030\223xI\364|\232\273|o\333\276Z\331\271K*#)\362\247W\2541\002\205[\377\270c\035\214A\2029\257\030\320\361\316\033\\`\263\"\257:}\033UA6\214\206Q\337\370i\250)\010\377\264\270\365\310l\337\n \226\031/\226X\216~\315\002\226\260'm\252\226\024\210\006j\203\356*7\013d\236\353\252*\204\00088$-a\t\342I\247\217O\233^\346\035\313\235Y\307>\323\213h\354\276~\347\243a\364\td\226\213\200\217\375om\355\323\363u@-\266\274\362l\020\017G\344|\007\354\032\257\251|\206\323\010\213H\212\0008h|M?C\235+1\253.e9\337hm\207\364!1\033\2278s=H\264W\013 Xb\216\225\225\265?X\243\212\357*1\346R\001";
-    PyObject *data = __Pyx_DecompressString(cstring, 1315, 3);
+    const struct { const unsigned int length: 8; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{11},{45},{22},{15},{6},{4},{179},{37},{30},{32},{1},{1},{1},{1},{2},{1},{8},{14},{5},{6},{18},{30},{42},{50},{41},{49},{32},{15},{23},{25},{7},{6},{2},{6},{35},{20},{9},{30},{50},{8},{4},{20},{32},{22},{30},{37},{15},{5},{8},{13},{4},{20},{8},{15},{3},{7},{11},{15},{3},{4},{4},{6},{10},{1},{9},{17},{18},{3},{9},{7},{5},{8},{15},{6},{9},{5},{4},{5},{6},{7},{5},{12},{5},{2},{10},{5},{6},{9},{6},{5},{8},{4},{6},{8},{7},{4},{10},{4},{8},{4},{7},{3},{6},{10},{7},{4},{3},{4},{4},{12},{14},{11},{10},{19},{14},{12},{10},{17},{13},{3},{8},{7},{8},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{9},{6},{6},{6},{7},{1},{53},{188},{1},{109},{78},{71},{71},{191},{1}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (1308 bytes) */
+const char* const cstring = "(\265/\375`\320\n\225(\000\226\377\251!\000w\332\331=I;K\2447\220\277;\211\244\360\177\230:A\254@]8_2\005\271\377\377\377\377F\233\000\245\000\236\000\315\241\366\035k\355q\0148oT\000]\365c\027t\030\376c\034\221:\247\226f\230\217\022:\346\340\256\366\036\267)\3061\372\006e0\306\247u\354\255\356+\270-z\304<\243 \304\234\263\353\242\317\016\305@\351:d\217\375\260\273Z\"\307\240\205\260\031\375\261\367\3607K\350\214\257\230\277\240\342\276\256K\030\255f\330z\341\253\330\275\343:k\233\365e\nQ\2265\350\326q\236\205\332\304\313\361Y\243jE\265\233U\315\270\027|\177\020\252\000|\232\325\246u\r\275\031{/\304\n\327\252\300\207\376\232\332L\363Z\353\265g\361\323s\357\315\022\376f\277\331\205\333_\254a\321h\304\346\000_\361\271\031\243\245\373\254S)\245\300\202\201\312\204\345\302\240}\306w\253a\337$\314m\nk\214\024\302\266?\342\233\2226\003\261\254/\325X\rW\236\346l\306\257\025\374u\354\305\274kS\273\215\217E\350p\240\305\233\177\361\363u\327\225.\317\321?\255\311:\005\007\005\203\220\214\020\354O\321\332W\267\027^\253.\366\331\3076\373\230\350\350 \371\210(\361\210\300g\017\026T\034s*\350\030VR\005\325\026\254b\020\224P\361RM\236\013\251s^!\177t9\252\331q\314\271\205^\357*\226z\3239\023\253\314\357\307\322\272\247\240\224Iz\331\244\356\2639\267\371\367\311\314L\353zy\\f\232]-\233z\337\311\2168+\362\221\237\030c\023\205d:{\343\265288.F\036v\324\372\263\350\253B|\315j\"3e\342R\326\260{\203f\375\024fnzj]&\376z\352\254B\326\007(\021\201\233\302\256\022[K\373a\232\272\347{Y\t`zz\235U\363DD\272\250\305\323\256\305\022J\306\037\247\315\030G\007!v=\315\001 \033\271\220\r%\253X\243\230i4*\026\222\261z\272\220M\035\nFF\356\000!\0270\351\2659\253l\234\021\300o\006 @W\3322\025\362\3337+\r)\251\300\002\002t\030R\243\t\231\222}:\215\002\014,\025)\251\020 @\220(d\343\254\313\350\242\370\276\245\232}U\355\365\313\205\330\3673\033{o\373\376\356\3273\3276\177\257\367\256\364un\337\371Y\347lv\351;\321tF\356\312$n\375\240\347\231\264\230Ln\232Zfc\255y\242,\304\n\322^/\023\332f\2052]e&\304\231""\212_?\201\033\250a!T\312\224\210\210\024$)H\032\0031\010\302q\3209\353\035\302\010Q\324S\310\021\241hd$IQ\n\303\336\001\035\305\334e\252\305\305\2510\252\005\2400i\211 i\234\266\227J3\007y\375\031\207\246S\000\t2E\374*\335\354HdkP,\331\271\003\200\344\262\260F\203\010T\004/H\300\360\202x\234k\301r+B\364\261\214\234Z\344\220``\304P\202\220\006\354\312\261\027\250\265A4\345.\263#\275\000XmM\367\014\243b \014'M\263\023\347\307\363\222h\335\313i\246\372\343\006I\367\344\204\2103\262\267\210M\"F\375\266\235\026\373S\255rO$\237E\024\212hI0\016/\007\251B}F}\255%~i\305\345\234\237-\352\357\242\025>\357.!\310\242\314\312g\347\251\311|\370,3\337\274\350[XD\261\220|\266\370\354M\035\305\025\263\013\217&\200\252\310'U\373\260\007\206N\215\201\305,\216\235\267\271\214|\2174\204u\324\032\312P\242T\204\001)\223;\336\315\024kS\013\274qc\265\373\375\177\021\301\270\223=*?#\316@\321\260\220h\351w\016\207\242\022\263-\004u\036y\223\034\245\007how\276\220\211\235+r\346\000\253Pu\037\020\016]\224\253\370!\330\037\223\370WA\347<\n?,\371\201g\237\246\201\304\310D\305\201\026\215IK8\244\240\037|z\0216\031\250\031\2644\034\200\242\257(\026VS\236[\246\275\024\217Cs\333=\2535c\262\230D)\037r\227\277\355q\356S\226\035\376\221\2610\335\322\254q\031\035K?|\335\350\266O\200\3622\007\214\255C\017\024\014\330\221\327y\037\215\257\342\r\3271W\233.\032k\212\304?\334\334\300d\0144\260\t\024\305K$\226\000]c\016+\301\321\230\302\220R\253\300\213\243\0339f\267\314\263F\251\0327 \007\207\214B()\242p\235\321\025\337\237\276\023tl\351\277\230\203\315\300\367\004z\205\017<f]\021 \331\373-\251\315z\255\016\030\215\331\257em\317\207\347I\376\002R\227\027\244?\236?\202]$\213p\006htM?\206:)\030X+\224'r\037Z\265\343/`\014\030\361\344\252\020\200\035\225u[h\234`Q\036\376`H\025\357\250DIF\005";
+    PyObject *data = __Pyx_DecompressString(cstring, 1308, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1451 bytes) */
-const char* const cstring = "BZh91AY&SY\300\242\300\215\000\000\264_\200@\000B\367w\337\277\247\333\000\277\377\377\360P\006\036\263\267[\254ws\255\226V\330\356\303\252k\202SJbM\243D5\030#)\264\214\020\006\207\244\323\324h\323A(L\2014T\375L\246\031F\232\r\003j\000\000\320d\t\021\002!\240\3242\023(\365=OD\003@2\032\r\003\230\000&L\000&\023\004\302\030\0020\000\224\322\231\004#F\215\242i\246\236S \006\200\3652z\231\000\210u\255\2163\232u\220<I6Ij\363\333\372\232a:%5Kmq\232\032\2145DJ\345\251a_\032\231\213)Y\224\222I-\261\375*\364M\313\307\374=Y\002\344\363\267\032\2504\244\016\277\213\265V\250\273\3737w^\272\364y\207\244\333)\340\223n\3271\365\211Tz\312\222e?s\205\241\007\367d\262\035e\256}Y\020_d\273q{\322@\334\317WlU\025\245\301\030+\306\216&Q\213b\264\3436\276Zm\267[x\354}\003\237\216\273\250\036cC\014\270'trTA\231\272'\014\362\013\337\307!9\303?\373\033c\"\033j\277\261l\030\367\366\2733WM\267\311\233&<d\213Lt&\326\210\235\250J\366-\230'\304e\251\211\362Q\363m\034\221\276U\246\256\332\341WQ\0338F\316\234\245Y\374\271(\247\313\206\365i/\031\343\223_K\343g\207^O\3360\013\356\321\302\017O\211\332\333\r\362v\221\002j\366pn\366>5\253I\316q)_\262I\261u\361p\260\347y\226r\007\360\347T\016\241^\005m8=\354\247\305\3061\005\270\217\202\211#\3329\231\251\324\271X\300\354\342&Q,\343\222T\230\014\210L\303\210\235\325%5K9\363\274\231)\252\347Z\363\300\177f\007\030\017~/\242\320\324\334\014U\r\021\357\311\345\223\000\212L\215\235\217`\302|R\004\227uM\020A\005\032\007\303UZ\315v\215\250\321\240$\\sC=\367\002y\263\245y-0\363\207\034\335Gv\356,\031|\014\n\213\310\277\242\355\206br\255\014\336Bb @\024\263\275\020\2477\0375\000\361\312*\255\334-\317\2406\231\357\265BQ\n\302\313nCe\214\270\345\275R?W\346\034\334\3117\202i\032\021\004h\305\001C\006\311\023)\025\224G\302)\021.\\A%\t9\3226\343\302\266\324\272u\332\321(\315\033?\177(\255\0326\350\244\226L\217\234\"\252\266)B\001\013fJ\233\357=0\202\365\276\2274(0\353\256\246\315(K\252\374{\266d\342ff\360\355I'\020E[\265<\027\245`\256Q\242\177`\323\030\250\327\223\0242""N\025\34792\234\231\255`\315\254\376v t\024\211!\266i\251\332+;,\264\2461\266CF\250\330\316pGjB\000D\271\\\273\233\246]\323\221\257\236\206\273\316G\321:`g\310\335I\";Y\264\242\323:7\021c\350\231\360c\206-\213\005\004\272\231\037\304L&\334\3624\364i\"|\205\230\315\305\222b\362B\005q\340\340\264\235\322\363\260s\315\275\2479\211`\324\247-\003\351\352#\343\3078P\250\273\017\032\257\323\004\032\020Kln\374\367mQ\367\200\304t\2557B2\325S\224\310\357\001\276'\236\270'\304\264\220\240\326\351e\350nE\272Q2\004QW\246\316!P\230E\250\274{M\035\263\275\237\254Si_2\027\251\360\3116\251\020\365k84W\205\255C\033\346\223f\\\2669`,\317KZ~4'+>\366\234\376\023\002\245\026\0049\271\230\033bV\202\217\006\233q\241d\t\311\010a&\343\361\305Q'\206H[\224\206lq<\246h\210m\344{\354HN\231\251\025\013\324h<\360\026\210\n\026#7Y-)(P\221\370\327\203bc\030\313\\\272.\031%\210R\024\204\212\033\234\346\251\303\240f\303\027n\"3K`\376\267\240\036\303W\337dVB\361p\202\317\270\207Bf:IH\332@$k\001\t1\313\277|&\250W\017\021\03039\262\360\022\022\032\213\\\216\202\355M\230\271\n\365\277O6+}5/9\351d\314\234\n\361O\227]q\212\367\347\267t\243\0240\316\355\373\206\333\036\3776\000\362\311\246\230\0071\303U\353\364\032!y\037\357r\262\360\311F\206\235\247\ru\021\307\212}\2342\331\313\240\034\205\247(\244\334\261\005\223\025\002*\204\310\033\032k\307h\372845\202\363\030\354v\212\336\225\271\025c\231(RI0k\235\342\2654\3258\251z\244$M\215\n\211\263NT\356V\217\235#\0021\224\210(\244\355\217\3110\307Wv^\272\270\202\354\253\233s\357|a\357\221\276\266\202\275sWf\225E4T\246\335\201\n9u\270\356*%Aj\355K\265\363*\227\312\333\246\2061B\321xJ\214O,l\242\204M\276\334\266\224`\021\325}\000x7\243\222 (\253x\305\316\003\204\264y\001|\347xN\205j/&\205\235\356a^\371\274\265\273\346\364\264\210V\303v^U\0347\236\210h\\\322,\312w\375p\2742\345xnm\233gUV{W\214\257s%&\014\321\"\253ol?n\233\316\365\263\3442\256H8o\300\246\261\334\263=\331\020\300\212n\002pl\246HA\307\245\340Z\240\343\203\334\213\022vT\016\322\3220a&_\342\356H\247\n\022""\030\024X\021\240";
-    PyObject *data = __Pyx_DecompressString(cstring, 1451, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1449 bytes) */
+const char* const cstring = "BZh91AY&SY\257q\323\272\000\000\263\337\200@\000B\367w\337\277\247\333\000\277\377\377\360P\006\004F\326=\335+\226uf\341Y\245\256\204\246\220C@\223\312=L!<\243G\252z\2324m\014OD\324d\t@Bi\242\247\350\3256\215I\350\023\324\365\r\2220\010\310bh\022\"\232jzS=Bi\251\351\241\006\206@\036\240i\240\006\201\314\000\023&\000\023\t\202a\014\001\030\000JiM56Jhz\206\365CL\020\320\000\006\200\320\004\203\271z8\316|\274\210\237\331\017Hr]\377\217\322j\204\350\231\343>\\%T|N\215\362\022\271kX\325\347\006b\313\3525\023I%\327/EV\224s\001\374\236\025\205\311\351np\274gp\205\371\335\254\266E\361\177\274\3741m\274\277\231\025\243gL\016\334\366\320\215\245\354E\236\256\312})+RO\267\027\314\205}\264\356\314\222\374_\357\213\336\256\r\325\026\206\305\221Y\366B\304\360\205gt-KLpzW-qN\205[r^\240\351\362o\244\007`\250(j\305;\243\236\004Y\233}#\224\303\007\373\326R\221\313\365\235\262\231\326\370q[F?\217\331\331\233\206\234\261*m\272\365\220_)v\246\362D\217\212\022\273\247\323*\364:\267\261^\333=k\352\345\204\252M;j\214=\344\252\360\225=\272\210e\353\317z\247F;\325\244\376\364\316\275\234\037;<~\025\3763\210U\242\356\020uw\033\333a\246M\344@\232\255\\\032<\317^Ti9p\226]\322\234Wo?}\210?\006Z8G\233\026@\356\026$V\323\276/\222\236\350\030\304\224\330z\224I\034\007349\027\036&a\342\342&Q,\327d\260\230\013\020\222\034E.\202TW\331\325\223\315\222\242\252\225/\316#\366\342y\304|3}-\rm\340f\2574\227}~\265\342\022I\221\267\213\3300\2374\201%\335\006\220 \212\225\341\374\353\206\303e\241\254\323@\231q\2729ap'\243:X\023\351\217\346>|\336\363\273\315\203w\364\\\254\265\032\271\247\240\306Xe\341f\356\023\025\201\000Q\261\345\014\030\360\357\310\036\272\tV\360\031u\352\r\256\234\362\260<\312\260\257\276cg\214\370?5I\377/\322A\242\216i\004\322.D\021v\020\030\031\216)\0230\212J#\361\030DK\227\0209\003\234\241\261n\271\246\345Qg\n\203\241t3\371\254:\241\236\210\343\242\242\236\270\225{\312\254@E\362)\217.\207\375\254/\235\2711\320\260\203/k\247\nE7\257\016y\331\304\314\315a\343\204\223\232\010\243x\341\320""\274\264\202\226\213\247\353\032c\025c)\202\246i\335n\263\226tvl\262\r\033(\355bHAIt7\242l}\305FE\332\373\363\225\263\032P\225\214\347\202>\t\010\001\023\350r\355\334'\306\2236u^l\300\347})~&U\267jH\227[7J-2Ga&>i\237\026<3l\330/\032\210\314\372\242a7\3233_\323W)\310\311\215 WL]\320\221`\211=\013ZU\023\262\201\273&\363\233\246%\203R\234\264\017\227\240\216\355yA\006\013\274x(\2733\020\\\202[cu\335\243:\216\0001\034\264\303D\"\333\026\034s#\254\006\232c\243Vr7+\325\010\036Y\335ez)\265\346\264a\tg\224\006,\010\205r\203d\335.\361\312\270\276\261N2\274h]\017U\223k\010\207\261\254\240\272\254-\224\r\227\311\266\271`\223\222\005s\337\265\247\353|\234e\242\323\027\234\300\251V\300\20723\003\3545\252)\022k\27652@\243\241,% \216\211\262%0\311+r\262\312\242\263\361w\204\031Ur?\232\016\017\255\321\302\n\310\250\035\226\n3\004\024\032\356\222c)(P\221\333MM\211\214c1\251TT,\226hR\030C1\022\365\n4uk\n \256\244\235\336\214\326\213\342\260\003\211\232\33568\021\270\241\025\356\275\016\204\301\304\231.DB\r\366\004$\307\263\233\020\253x\256\036B1fsn\000$$5\353d\315\345\332\333\230\271\013\005\303\247vk\205\371\225B\230M\221bq\252x\357\317:\353\226\352]|\030\256%h\333\215\342I\013\037r\000V\263M0\r\303\206\251\267\250h\205\322\177y\226+\277e\027/\274\325\263`\215z\331i\252\313r\326\006Ca\223\306\025\023\034\233!\242\017&\031\016\010M\331p\275J\306\246\354U\332\334\226\2155\211\250\322\242\273\220C\216X\336\367\233X\327d\341[\331%&\214jXN:\364\247\202\325\215+8\021\214\334\222\252S+{QB\334\234\326\353\243\210*\3129\307w;\327\017L\215\355h)\266h\361iPe\332\256\316!*Au\271\020*%\201m\r[\265\364,\227\317.tC\030\251F\253\"B\210\271[8FA\351\373e\202\024\001\2745\324\005\261\340C\212\014\020\223V\265MC\204]\330\n\345:BnR\202\351hYV\246eZ\344\355\276#_\373\210\220T\303q\300\204\261\340\177\310h\334\323,\324w\371c\200j\324\361\354m\275t\204\232\2277d\027k%&\014\270\212,\373\341\360\276\223\235qxKR\3105i\314)\351\"\016\317%\265!\201\024\230'\006\304a\204\034z<\017h!\331\347[\025s\346\007h\320A""\264\253\377\213\271\"\234(HW\270\351\335\000";
+    PyObject *data = __Pyx_DecompressString(cstring, 1449, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1315 bytes) */
-const char* const cstring = "x\332\225U\331n\0347\020\364\247\360%XI\220\027N`%\201\243(Pd9\020\340\310\202\r\353\225\340\016{f\231\235!\307<\366\360\327\247\232\344\036:\354 \017;\313!\233}TW\365\274\021\227}/\264\031\310\006\343l\020\243\247\206\264\261\335~S\374\240\305\220B\0243\022\306jZ\223\026\312ja]\024\24170\3773\265-y\2614\264\022\332Q\310G\264\036] \021\2427\232\302\225\262\302\331~#\032O*\222PbV.\305\271\212\302\004\3218\033M\227\\\n\010\"\006\032\234\337Lq\213]\251\020LgEt\002\227\365\313\354\247Xp\310jT\035\257\274\211j\326S5(I\265\336\r\337\273\233\313\022+\023\347\"nF\022\223\272\037\275\262!\227\261\277R\314p\303\000\252x\200\335\333C\300L\001\241\030]\017c\334\2100Wp\035\323\210\344Z\347E\263\211sg\247\312{\265\271\311\t\270\024\205k\305\314%\253\2038Rkx\371A\037\337<\215U\300O\343\350|$}c\227\2527Z4\303n98M\247\334\003\334C\277&\315D \344\004q\271\246\311\251\350\340`k\\2\003\3549\342\371\337\271\326{\256\025\331\234\337~~\377\376\342\326Y\272u\3007\367\353*\247\316Ej\352\315\214<\220\007\256\334k\204\313M\265\342\356\372\356\345\353__g\256x\372\007\211\004\244<kz\264\023\034\341B\223\351#\3022\346a*nZ\261qIXB\302\350\365\010\273\303\013qNV\004\212\274\020\223\334 \025\001\206\304u\020vR\3016K\342\333\357T\037h\372\341\001\242H\271\262N5\r\205-\304\237\"\215bP\233\014*H\376\225\274\333\243\377\331f:\301%(\272$\017\266D\032\370\335\315\270\250\351\305\344\370T\374\241\264\226\270O\252g\236m\200\246\211U(\002\210\275Z\237\253\345\364\035\352%\177\005\252\323\032\214\255\304E?\243O\350\357\203\343z\n\200\251cb\217\tJe\3561Kzc\027\360\216\345\230\276o\031\000\r\322/\226\277\201x@B<\275\021\346\217}\033\373\254\353\003\303\352:\033>\362\314\325\027\325)\337\205\214\302b\305\313\306\365=7\t5O\325\2549?\220=\033\225\026^<\336\336\252\355B\233\300\335\240\334\223\256\021GL\343.\013\215\373\312s\013\320\221\215y\212\354GX\347\3258g\276&\253\372\3365\250\005\256\212\033\315\375\014\346+\211\363\337\305\253'\322\264\016\345\267*\365QH\351I\247\206\244\024:eJXg_\202\364K\243z\2346\\6""\016\0131.\262z\312\374\323\017\252{\272\307\342\334\025\371\340|\267\233v<\334V r~B\253\250\246\317\234\026U\263\217:\203a\224\002\334\002\334\326to\304\345\247\253\233\233\267&wC\371\315u\337\2331\230\360\200\205\254{)\3576k\374\330T\336b\363#\265\237\350K\"\333\020O\211\351~`\240\245\252H\254\376\201#\213mF\262\236\370\216\231\0009\350]\354\231\nTN\367\327\032\000\312\322\227r\273\350(r\257\370\325 -\003\351{\325\320L5\013\214\276RV\002XU@ $\272\301A\360\344\031#M\220\2457H\035\003\222l\032\362\354\"\357\235o\001u\333\253.\200\001\203\212uT\266^\r@\000\241C\344\032d\246\222\321R\232\201\247/\376yvg\021\310\372\324\3455\024bUv\261\254\212\264\244\034\024r\227\370\246\360\007\205G5^\234N=\376m\016W\237 0\236\264\222\234v\311\274\010\231c\224U\030Q\375\350F\026=\253S\312\021\315j\324h\030\267\274\236S\263\010i(o\265\n^fH\362*\331\3214\013\204\277\266[\273e\376\212\262\217/I\365%\237=\377w\253\242\224\203\rZ\363\262\365\324\231\000\032y\n\262\207\010!I\264\254\227\022\003\274V\207U\025V^\327\304\016\326[\337\231\310\014!\266=\316h\014\321\215efJ\031\261\215'\244.\231E(\005\200\244\021\252 |\335\022\205\025\251\0052Z\337m>d\004\305\311\321\345\375\307\374\351\200j\363\364\025'\307/\324\322\327=\031\235D\33337\017.\325!]\340A3\344Oj)\177n\263Zv\377E<\342\344TT\363\313\373\262u\247\3646\326)D\035w\006\325\337\030%\253\342\201\323\327\314\027\231\345#\353\326\250\360\035;\331\335)\371\362E\024\360\330\356\005\302\210\243\034\213W\265\377\0133B\023\240Ml\346\337K\342,\213B\342Y\030\364\215\250\273\363g\341\371\361\325^\343R\356gM\356\301\341\353\361\213\025t%\367\326\317\272;SI\033'\317\212(/\371\345\035/\341n\351\214\336bP\254\262\321\363n\226\030\207;7\367\374\362\234\233b\365m7\3336\375R\007\216|\370y\377\017\306\234\345A\"\377\312_\246\223\307\235\370\277\364\332\005\255@V\373\232\331\207\177\001\221\020\211m";
-    PyObject *data = __Pyx_DecompressString(cstring, 1315, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1309 bytes) */
+const char* const cstring = "x\332\225U\331n\0347\020\364\247\360%XI\220\027N`%\201\243(Pd9\020\340\310\202\r\353\225\340\016{f\231\235!\307<\366\360\327\247\232\344\036:\354 \017;\313!\233}TW\365\274\021\227}/\264\031\310\006\343l\020\243\247\206\264\261\335~S\374\240\305\220B\0243\022\306jZ\223\026\312ja]\024\24170\3773\265-y\2614\264\022\332Q\310G\264\036] \021\2427\232\302\225\262\302\331~#\032O*\222PbV.\305\271\212\302\004\3218\033M\227\\\n\010\"\006\032\234\337Lq\213]\251\020LgEt\002\227\365\313\354\247Xp\310jT\035\257\274\211j\326S5(I\265\336\r\337\273\233\313\022+\023\347\"nF\022\223\272\037\275\262!\227\261\277R\314p\303\000\252x\200\335\333C\300L\001\241\030]\017c\334\2100Wp\035\323\210\344Z\347E\263\211sg\247\312{\265\271\311\t\270\024\205k\305\314%\253\2038Rkx\371A\037\337<\215U\300O\343\350|$}c\227\2527Z4\303n98M\247\334\003\334C\277&\315D \344\004q\271\246\311\251\350\340`k\\2\003\3549\342\371\337\271\326{\256\025\331\234\337~~\377\376\342\326Y\272u\3007\367\353*\247\316Ej\352\315\214<\220\007\256\334k\204\313M\265\342\356\372\356\345\353__g\256x\372\007\211\004\244<kz\264\023\034\341B\223\351#\3022\346a*nZ\261qIXB\302\350\365\010\273\303\013qNV\004\212\274\020\223\334 \025\001\206\304u\020vR\3016K\342\333\357T\037h\372\341\001\242H\271\262N5\r\205-\304\237\"\215bP\233\014*H\376\225\274\333\243\377\331f:\301%(\272$\017\266D\032\370\335\315\270\250\351\305\344\370T\374\241\264\226\270O\252g\236m\200\246\211U(\002\210\275Z\237\253\345\364\035\352%\177\005\252\323\032\214\255\304E?\243O\350\357\203\343z\n\200\251cb\217\tJe\3561Kzc\027\360\216\345\230\276o\031\000\r\322/\226\277\201x@B<\275\021\346\217}\033\373\254\353\003\303\352:\033>\362\314\325\027\325)\337\205\214\302b\305\313\306\365=7\t5O\325\2549?\220=\033\225\026^<\336\336\252\355B\233\300\335\240\334\223\256\021GL\343.\013\215\373\312s\013\320\221\215y\212\354GX\347\3258g\276&\253\372\3365\250\005\256\212\033\315\375\014\346+\211\363\337\305\253'\322\264\016\345\267*\365QH\351I\247\206\244\024:eJXg_\202\364K\243z\2346\\6""\016\0131.\262z\312\374\323\017\252{\272\307\342\334\025\371\340|\267\233v<\334V r~B\253\250\246\317\234\026U\263\217:\203a\224\002\334\002\334\326to\304\345\247\253\233\233\353\2767c0\341\001\367X\355R\336m\326\370\275\205\244\345-6?R\373\211\276$\262\r\361l\230\356\307\004\032\251\212\260\352\037\230\261\330\346!\353\211\357\270\3773\025\250l\354-\033 \307\032\227r\273\350(rS\370\325 \023\003\215{\325\320L5\013\314\270\222\177\002*U)`\036`\327\234\250\324<L\244\t\2624\001\331b\022\222MC\036R\344\275\363-0m{\325\005\264zP\261\316\304\326\253\001E#t\210\234\266\314\2341ZJ3\360\230\305?\017\351\314vY\237\272\274\206\302\240J#\326O\321\220\224\203B\356\022\037\017\376r\360L\306\213\323\251\307\277\315\341\352\023L\305\223V\222\323.\231\027\305r\214\262\n#\252\037\335\310\352f\031J9\242?\215\032\r\343\226\327sj\026!\r\345\255V\301\313\014I^%;\232f\201\360\327vk\267\314\237K\366\361%\251\276\344\263'\372nU$q\260Ak^\266\236:\023\300\034OA\366P\033\264\207\226\365RbR\327\352\260\252\n\312\353\232\330\301z\353;3\226!\304\266\307\031\215!\272\261\014G)#\266\361\204\246%\263\010\245\000\2204\202\376\204\317X\242\260\"\265@F\353\273\315\207\214\24089\272\274\377\230\277\021\220g\036\263\342\344\370\205Z\372\272'\243\223h{\036G\007\227\3524.\360\240\031\362'\265\224?\267Y \273\377\242\027qr*\252\371\345}\331\272Sz\033\353\024\352\215;\203\352o\214\222\205\360\300\351k\346\213\314\212\221ukT\370`\235\354\356\224|\371\"\nxl\367\002a\304Q\216\305\253\332\377\205\031\241\t\320&6\363\357%q\226E!\361,\014\372F\324\335\371\263\360\374\370\212\345\307\366~#\337\356\226\271\005\207\257\307/V\220\225\334\033?\353\355L%m\234<+\232\274\344\227w\274\204\273\2453z\013A\261\312F\317\273Yb\354\355\334\334\363\313sn\212\325\267\335l\273\364K\2357\362\341g\374?\010s\226\347\210\374+\177\201N\0367\342\377\262k\027\264\002Y\355kf\037\376\005|\200\177\275";
+    PyObject *data = __Pyx_DecompressString(cstring, 1309, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3048 bytes) */
-const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid cmdInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of <NULL>NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>'), ?add_notealready inited and  at 0x<av.FilterContext cannot construct FilterContextcannot delegate pull without linked outputcannot delegate pull without single output; found cannot delegate push without linked inputcannot delegate push without single input; found cannot init from args and kwargscollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension graph is unallocatedisenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object> of <strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.unused config: ASCIIDictionaryEllipsisFilterContextNone__Pyx_PyDict_NextRefSequenceView.MemoryViewabcabufferabuffersinkallocate_bufferargargsav.dictionarybasebufferbuffersinkc__class____class_getitem__cline_in_tracebackcmdconfigurecontextcount__dict__dtype_is_objectencodeenumerateerrorfindflagsformatfortranframe__getstate__graphid__import__indexinput_input_idxinputsitemsitemsizelinklinked__main__memviewmode__module__name__name__ndim__new__objobjectoutput_idxoutputspackpoppullpu""sh__pyx_capi____pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__refregisterres_lensentinel__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__time_baseunpackupdatevaluesweakrefxPyObject *(AVRational const *)\000avrational_to_fractionPyObject *(struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterPad const *, int, struct __pyx_opt_args_2av_6filter_4link_alloc_filter_pads *__pyx_optional_args)\000alloc_filter_pads\000int (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary__Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_framestruct __pyx_obj_2av_5video_5frame_VideoFrame *(void)\000alloc_video_framestruct __pyx_obj_2av_6filter_7context_FilterContext *(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterContext *)\000wrap_filter_contextO";
+    #else /* compression: none (3024 bytes) */
+const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid cmdInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of <NULL>NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>'), ?add_notealready inited and  at 0x<av.FilterContext cannot construct FilterContextcannot delegate pull without linked outputcannot delegate pull without single output; found cannot delegate push without linked inputcannot delegate push without single input; found cannot init from args and kwargscollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension graph is unallocatedisenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object> of <strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.unused config: ASCIIEllipsisFilterContextNone__Pyx_PyDict_NextRefSequenceView.MemoryViewabcabufferabuffersinkallocate_bufferargargsbasebufferbuffersinkc__class____class_getitem__cline_in_tracebackcmdconfigurecontextcount__dict__dtype_is_objectencodeenumerateerrorfindflagsformatfortranframe__getstate__graphid__import__indexinput_input_idxinputsitemsitemsizelinklinked__main__memviewmode__module__name__name__ndim__new__objobjectoutput_idxoutputspackpoppullpush__pyx_capi____pyx_che""cksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex__refregisterres_lensentinel__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__time_baseunpackupdatevaluesweakrefxPyObject *(AVRational const *)\000avrational_to_fractionPyObject *(struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterPad const *, int, struct __pyx_opt_args_2av_6filter_4link_alloc_filter_pads *__pyx_optional_args)\000alloc_filter_pads\000int (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkstruct __pyx_obj_2av_10dictionary_Dictionary *(AVDictionary *)\000wrap_dictionarystruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_framestruct __pyx_obj_2av_5video_5frame_VideoFrame *(void)\000alloc_video_framestruct __pyx_obj_2av_6filter_7context_FilterContext *(struct __pyx_obj_2av_6filter_5graph_Graph *, struct __pyx_obj_2av_6filter_6filter_Filter *, struct AVFilterContext *)\000wrap_filter_contextO";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 154; i++) {
+    for (int i = 0; i < 152; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 59) PyUnicode_InternInPlace(&string);
@@ -23931,7 +24011,7 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 154; i < 163; i++) {
+    for (int i = 152; i < 161; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -23942,14 +24022,14 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 163; i++) {
+    for (Py_ssize_t i = 0; i < 161; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 154;
+      PyObject **table = stringtab + 152;
       for (Py_ssize_t i=0; i<9; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -27799,45 +27879,6 @@ static int __Pyx_ImportFunction_3_2_4(PyObject *module, const char *funcname, vo
     return result;
 }
 #endif
-
-/* ImportFrom */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
-    PyObject* value = __Pyx_PyObject_GetAttrStr(module, name);
-    if (unlikely(!value) && PyErr_ExceptionMatches(PyExc_AttributeError)) {
-        const char* module_name_str = 0;
-        PyObject* module_name = 0;
-        PyObject* module_dot = 0;
-        PyObject* full_name = 0;
-        PyErr_Clear();
-        module_name_str = PyModule_GetName(module);
-        if (unlikely(!module_name_str)) { goto modbad; }
-        module_name = PyUnicode_FromString(module_name_str);
-        if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__2);
-        if (unlikely(!module_dot)) { goto modbad; }
-        full_name = PyUnicode_Concat(module_dot, name);
-        if (unlikely(!full_name)) { goto modbad; }
-        #if (CYTHON_COMPILING_IN_PYPY && PYPY_VERSION_NUM  < 0x07030400) ||\
-                CYTHON_COMPILING_IN_GRAAL
-        {
-            PyObject *modules = PyImport_GetModuleDict();
-            if (unlikely(!modules))
-                goto modbad;
-            value = PyObject_GetItem(modules, full_name);
-        }
-        #else
-        value = PyImport_GetModule(full_name);
-        #endif
-      modbad:
-        Py_XDECREF(full_name);
-        Py_XDECREF(module_dot);
-        Py_XDECREF(module_name);
-    }
-    if (unlikely(!value)) {
-        PyErr_Format(PyExc_ImportError, "cannot import name %S", name);
-    }
-    return value;
-}
 
 /* dict_setdefault (used by CLineInTraceback) */
 static CYTHON_INLINE PyObject *__Pyx_PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *default_value) {

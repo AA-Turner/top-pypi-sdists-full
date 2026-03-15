@@ -6,7 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import Optional
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0118 import stanza, UserTune
 
@@ -32,10 +31,10 @@ class XEP_0118(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('user_tune', UserTune)
 
-    def publish_tune(self, *, artist: Optional[str] = None,
-                     length: Optional[int] =None, rating: Optional[int] = None,
-                     source: Optional[str] = None, title: Optional[str] = None,
-                     track: Optional[str] = None, uri: Optional[str] = None,
+    def publish_tune(self, *, artist: str | None = None,
+                     length: int | None =None, rating: int | None = None,
+                     source: str | None = None, title: str | None = None,
+                     track: str | None = None, uri: str | None = None,
                      **pubsubkwargs) -> Future:
         """
         Publish the user's current tune.

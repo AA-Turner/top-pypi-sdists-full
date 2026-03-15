@@ -8,7 +8,7 @@ from slixmpp.xmlstream import JID
 from slixmpp.roster import RosterNode
 from slixmpp.types import RosterDBProtocol, JidStr
 
-from typing import Iterable, Dict, Optional, TYPE_CHECKING, Iterator
+from typing import Iterable, TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
     from slixmpp import BaseXMPP
@@ -43,12 +43,12 @@ class Roster:
     """
 
     xmpp: "BaseXMPP"
-    db: Optional[RosterDBProtocol]
+    db: RosterDBProtocol | None
     _auto_authorize: bool
     _auto_subscribe: bool
-    _rosters: Dict[str, RosterNode]
+    _rosters: dict[str, RosterNode]
 
-    def __init__(self, xmpp: 'BaseXMPP', db: Optional[RosterDBProtocol] = None) -> None:
+    def __init__(self, xmpp: 'BaseXMPP', db: RosterDBProtocol | None = None) -> None:
         """
         Create a new roster.
 
@@ -133,7 +133,7 @@ class Roster:
         if node not in self._rosters:
             self._rosters[node] = RosterNode(self.xmpp, node, self.db)
 
-    def set_backend(self, db: Optional[RosterDBProtocol] = None, save: bool = True) -> None:
+    def set_backend(self, db: RosterDBProtocol | None = None, save: bool = True) -> None:
         """
         Set the datastore interface object for the roster.
 

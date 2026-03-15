@@ -10,6 +10,9 @@ use rumdl_lib::utils::code_block_utils::CodeBlockUtils;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
+use rumdl_lib::code_block_tools::executor::ExecutorError;
+use rumdl_lib::code_block_tools::processor::ProcessorError;
+
 use super::discovery::to_display_path;
 use super::embedded::{
     check_embedded_markdown_blocks, format_embedded_markdown_blocks, has_fenced_code_blocks,
@@ -228,13 +231,13 @@ pub fn process_file_with_formatter(
                     // Report any errors that occurred during formatting
                     if output.had_errors && !silent {
                         for msg in &output.error_messages {
-                            eprintln!("Warning: {msg}");
+                            eprintln!("Warning: {}", format_tool_warning(msg, &display_path));
                         }
                     }
                 }
                 Err(e) => {
                     if !silent {
-                        eprintln!("Warning: Code block tool formatting failed: {e}");
+                        eprintln!("Warning: {}", format_tool_error(&e, &display_path));
                     }
                 }
             }
@@ -294,13 +297,13 @@ pub fn process_file_with_formatter(
                     // Report any errors that occurred during formatting
                     if output.had_errors && !silent {
                         for msg in &output.error_messages {
-                            eprintln!("Warning: {msg}");
+                            eprintln!("Warning: {}", format_tool_warning(msg, &display_path));
                         }
                     }
                 }
                 Err(e) => {
                     if !silent {
-                        eprintln!("Warning: Code block tool formatting failed: {e}");
+                        eprintln!("Warning: {}", format_tool_error(&e, &display_path));
                     }
                 }
             }
@@ -813,6 +816,141 @@ pub fn apply_fixes_coordinated(
     }
 }
 
+/// Format an error_messages string (from OnError::Warn path) for user display.
+///
+/// Input format: `"line 15 (shell): Tool 'shfmt' failed: Exit code 1: <standard input>:3:27: msg"`
+/// Output format: `"docs/guide.md:18:27: [shfmt] msg"`
+fn format_tool_warning(msg: &str, display_path: &str) -> String {
+    // Parse "line N (lang): rest" prefix
+    let Some(rest) = msg.strip_prefix("line ") else {
+        return format!("{display_path}: {msg}");
+    };
+    let Some(space_pos) = rest.find(' ') else {
+        return format!("{display_path}: {msg}");
+    };
+    let Ok(fence_line) = rest[..space_pos].parse::<usize>() else {
+        return format!("{display_path}: {msg}");
+    };
+    // Extract "(lang): rest_of_message"
+    let after_line = &rest[space_pos + 1..];
+    let Some(paren_end) = after_line.find("): ") else {
+        return format!("{display_path}: {msg}");
+    };
+    let error_msg = &after_line[paren_end + 3..];
+
+    // Extract tool name from "Tool 'name' failed: ..." and strip boilerplate
+    let (tool_bracket, clean_error) = if let Some(tool_start) = error_msg.find("Tool '") {
+        let name_start = tool_start + 6;
+        if let Some(name_end) = error_msg[name_start..].find("' failed: ") {
+            let tool = &error_msg[name_start..name_start + name_end];
+            let after_failed = &error_msg[name_start + name_end + 10..];
+            let stripped = strip_exit_code_prefix(after_failed);
+            (format!("[{tool}]"), stripped.to_string())
+        } else {
+            (String::new(), error_msg.to_string())
+        }
+    } else {
+        (String::new(), error_msg.to_string())
+    };
+
+    let (location, cleaned) = extract_stdin_location(&clean_error, fence_line);
+    let loc = location.unwrap_or_else(|| format!("{fence_line}"));
+    if tool_bracket.is_empty() {
+        format!("{display_path}:{loc}: {cleaned}")
+    } else {
+        format!("{display_path}:{loc}: {tool_bracket} {cleaned}")
+    }
+}
+
+/// Format a code-block-tools ProcessorError for user display.
+///
+/// For `ToolErrorAt` errors, produces `file:line:col: [tool] message` format matching
+/// rumdl's own lint output style. Translates `<standard input>:N:` references to
+/// absolute file line numbers and strips boilerplate like exit codes.
+fn format_tool_error(err: &ProcessorError, display_path: &str) -> String {
+    match err {
+        ProcessorError::ToolErrorAt {
+            error,
+            line: fence_line,
+            ..
+        } => match error {
+            ExecutorError::ExecutionFailed { tool, message } => {
+                let stripped = strip_exit_code_prefix(message);
+                let (location, cleaned) = extract_stdin_location(stripped, *fence_line);
+                let loc = location.unwrap_or_else(|| format!("{fence_line}"));
+                format!("{display_path}:{loc}: [{tool}] {cleaned}")
+            }
+            ExecutorError::Timeout { tool, timeout_ms } => {
+                format!("{display_path}:{fence_line}: [{tool}] timed out after {timeout_ms}ms")
+            }
+            ExecutorError::ToolNotFound { tool } => {
+                format!("{display_path}:{fence_line}: [{tool}] not found in PATH")
+            }
+            ExecutorError::IoError { message } => {
+                format!("{display_path}:{fence_line}: I/O error: {message}")
+            }
+        },
+        _ => format!("{display_path}: {err}"),
+    }
+}
+
+/// Strip "Exit code N: " prefix from tool error messages.
+fn strip_exit_code_prefix(message: &str) -> &str {
+    if let Some(rest) = message.strip_prefix("Exit code ")
+        && let Some(colon_pos) = rest.find(": ")
+    {
+        return &rest[colon_pos + 2..];
+    }
+    message
+}
+
+/// Extract `<standard input>:N:M:` from a tool error message, returning the absolute
+/// `line:col` string and the cleaned-up message with the stdin reference removed.
+///
+/// Returns `(Some("18:27"), "Tool 'shfmt' failed: Exit code 1: `>` must be...")` on
+/// success, or `(None, original_message)` if no stdin reference is found.
+fn extract_stdin_location(message: &str, fence_line: usize) -> (Option<String>, String) {
+    const STDIN_PREFIX: &str = "<standard input>:";
+    let Some(pos) = message.find(STDIN_PREFIX) else {
+        return (None, message.to_string());
+    };
+    let after = &message[pos + STDIN_PREFIX.len()..];
+    // Parse line number
+    let Some(first_colon) = after.find(':') else {
+        return (None, message.to_string());
+    };
+    let Ok(tool_line) = after[..first_colon].parse::<usize>() else {
+        return (None, message.to_string());
+    };
+    let absolute_line = fence_line + tool_line;
+
+    // Try to parse column number
+    let rest_after_line = &after[first_colon + 1..];
+    let (location, remaining_start) = if let Some(second_colon) = rest_after_line.find(':')
+        && let Ok(col) = rest_after_line[..second_colon].parse::<usize>()
+    {
+        // Have both line and column
+        let skip = pos + STDIN_PREFIX.len() + first_colon + 1 + second_colon + 1;
+        (format!("{absolute_line}:{col}"), skip)
+    } else {
+        // Only line number
+        let skip = pos + STDIN_PREFIX.len() + first_colon + 1;
+        (format!("{absolute_line}"), skip)
+    };
+
+    // Reconstruct message: everything before the stdin ref + everything after line:col:
+    let before = message[..pos].trim_end();
+    let after_ref = message[remaining_start..].trim_start();
+    let cleaned = if before.is_empty() {
+        after_ref.to_string()
+    } else if after_ref.is_empty() {
+        before.to_string()
+    } else {
+        format!("{before} {after_ref}")
+    };
+    (Some(location), cleaned)
+}
+
 fn format_loop(cycle: &[String]) -> Option<String> {
     if cycle.is_empty() {
         return None;
@@ -1016,5 +1154,129 @@ mod tests {
 
         assert!(rendered.contains("for README.md"));
         assert!(rendered.contains("Rules that changed content: (none)"));
+    }
+
+    #[test]
+    fn extract_stdin_location_with_line_and_col() {
+        let msg = "<standard input>:3:27: `>` must be followed by a word";
+        let (loc, cleaned) = super::extract_stdin_location(msg, 15);
+        assert_eq!(loc.as_deref(), Some("18:27"));
+        assert_eq!(cleaned, "`>` must be followed by a word");
+    }
+
+    #[test]
+    fn extract_stdin_location_line_only() {
+        let msg = "<standard input>:5: syntax error";
+        let (loc, cleaned) = super::extract_stdin_location(msg, 10);
+        assert_eq!(loc.as_deref(), Some("15"));
+        assert_eq!(cleaned, "syntax error");
+    }
+
+    #[test]
+    fn extract_stdin_location_no_stdin_ref() {
+        let msg = "Unknown option --foo";
+        let (loc, cleaned) = super::extract_stdin_location(msg, 10);
+        assert!(loc.is_none());
+        assert_eq!(cleaned, msg);
+    }
+
+    #[test]
+    fn extract_stdin_location_mid_string() {
+        let msg = "some prefix <standard input>:3:27: error text";
+        let (loc, cleaned) = super::extract_stdin_location(msg, 15);
+        assert_eq!(loc.as_deref(), Some("18:27"));
+        assert_eq!(cleaned, "some prefix error text");
+    }
+
+    #[test]
+    fn strip_exit_code_prefix_present() {
+        assert_eq!(super::strip_exit_code_prefix("Exit code 1: some error"), "some error");
+        assert_eq!(super::strip_exit_code_prefix("Exit code 127: not found"), "not found");
+    }
+
+    #[test]
+    fn strip_exit_code_prefix_absent() {
+        assert_eq!(
+            super::strip_exit_code_prefix("some error without prefix"),
+            "some error without prefix"
+        );
+    }
+
+    #[test]
+    fn format_tool_error_execution_failed_with_stdin() {
+        use rumdl_lib::code_block_tools::executor::ExecutorError;
+        use rumdl_lib::code_block_tools::processor::ProcessorError;
+        let err = ProcessorError::ToolErrorAt {
+            error: ExecutorError::ExecutionFailed {
+                tool: "shfmt".to_string(),
+                message: "Exit code 1: <standard input>:3:27: `>` must be followed by a word".to_string(),
+            },
+            line: 15,
+            language: "shell".to_string(),
+        };
+        assert_eq!(
+            super::format_tool_error(&err, "docs/guide.md"),
+            "docs/guide.md:18:27: [shfmt] `>` must be followed by a word"
+        );
+    }
+
+    #[test]
+    fn format_tool_error_execution_failed_without_stdin() {
+        use rumdl_lib::code_block_tools::executor::ExecutorError;
+        use rumdl_lib::code_block_tools::processor::ProcessorError;
+        let err = ProcessorError::ToolErrorAt {
+            error: ExecutorError::ExecutionFailed {
+                tool: "black".to_string(),
+                message: "Exit code 1: cannot format".to_string(),
+            },
+            line: 15,
+            language: "python".to_string(),
+        };
+        assert_eq!(
+            super::format_tool_error(&err, "readme.md"),
+            "readme.md:15: [black] cannot format"
+        );
+    }
+
+    #[test]
+    fn format_tool_error_timeout() {
+        use rumdl_lib::code_block_tools::executor::ExecutorError;
+        use rumdl_lib::code_block_tools::processor::ProcessorError;
+        let err = ProcessorError::ToolErrorAt {
+            error: ExecutorError::Timeout {
+                tool: "prettier".to_string(),
+                timeout_ms: 5000,
+            },
+            line: 20,
+            language: "javascript".to_string(),
+        };
+        assert_eq!(
+            super::format_tool_error(&err, "test.md"),
+            "test.md:20: [prettier] timed out after 5000ms"
+        );
+    }
+
+    #[test]
+    fn format_tool_warning_with_stdin_ref() {
+        let msg = "line 15 (shell): Tool 'shfmt' failed: Exit code 1: <standard input>:3:27: bad syntax";
+        let result = super::format_tool_warning(msg, "docs/guide.md");
+        assert_eq!(result, "docs/guide.md:18:27: [shfmt] bad syntax");
+    }
+
+    #[test]
+    fn format_tool_warning_without_stdin_ref() {
+        let msg = "line 15 (python): Tool 'black' failed: Exit code 1: cannot format";
+        let result = super::format_tool_warning(msg, "readme.md");
+        assert_eq!(result, "readme.md:15: [black] cannot format");
+    }
+
+    #[test]
+    fn format_tool_warning_no_prefix() {
+        let msg = "No format tools configured for language 'ruby' at line 5";
+        let result = super::format_tool_warning(msg, "test.md");
+        assert_eq!(
+            result,
+            "test.md: No format tools configured for language 'ruby' at line 5"
+        );
     }
 }

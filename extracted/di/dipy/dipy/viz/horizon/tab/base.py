@@ -1,16 +1,18 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import logging
 from typing import Any
 import warnings
 
 import numpy as np
 
 from dipy.testing.decorators import warning_for_keywords
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 from dipy.viz.horizon.util import show_ellipsis
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if has_fury:
     from fury import ui
@@ -33,8 +35,6 @@ class HorizonTab(ABC):
 
     def __init__(self):
         self._elements = []
-        self.hide = lambda *args: None
-        self.show = lambda *args: None
 
     @abstractmethod
     def build(self, tab_id):
@@ -76,6 +76,31 @@ class HorizonTab(ABC):
         if hasattr(self, "_actor_toggle"):
             self._toggle_actors(self._actor_toggle.obj)
 
+    def on_slice_change(self, _x_value, _y_value, _z_value):  # noqa: B027
+        """Assign in TabManager if require to update something while the slice
+        changes."""
+        pass
+
+    def show(*args):
+        """Show elements in the scene.
+
+        Parameters
+        ----------
+        *args : HorizonUIElement or FURY actors
+            Elements to be hidden.
+        """
+        raise NotImplementedError("This method should be implemented in TabManager.")
+
+    def hide(*args):
+        """Hide elements from the scene.
+
+        Parameters
+        ----------
+        *args : HorizonUIElement or FURY actors
+            Elements to be hidden.
+        """
+        raise NotImplementedError("This method should be implemented in TabManager.")
+
     @property
     @abstractmethod
     def name(self):
@@ -84,7 +109,7 @@ class HorizonTab(ABC):
     @property
     @abstractmethod
     def actors(self):
-        """Name of the tab."""
+        """List of actors associated with the tab."""
 
     @property
     def tab_id(self):
@@ -163,7 +188,7 @@ class TabManager:
                 "Images are of different dimensions, "
                 + "synchronization of slices will not work"
             )
-            logging.warning(msg)
+            logger.warning(msg)
 
         for tab_id, tab in enumerate(tabs):
             self._tab_ui.tabs[tab_id].title_font_size = 18

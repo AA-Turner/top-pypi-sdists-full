@@ -764,6 +764,22 @@ def closeWorkersAndExit():
     if consumers is not None:
         PKScanRunner.terminateAllWorkers(userPassedArgs=userPassedArgs,consumers=consumers, tasks_queue=tasks_queue, testing=userPassedArgs.testbuild)
 
+def normalize_datetime_index(data, target_tz='Asia/Kolkata'):
+    """Normalize DataFrame index to handle mixed timezone-aware/naive values."""
+    if data is None or data.empty:
+        return data
+    
+    try:
+        # Convert to datetime with UTC first
+        data.index = pd.to_datetime(data.index, utc=True)
+        # Then convert to target timezone
+        data.index = data.index.tz_convert(target_tz)
+    except Exception as e:
+        # Fallback to naive conversion
+        data.index = pd.to_datetime(data.index)
+    
+    return data
+
 def main(userArgs=None,optionalFinalOutcome_df=None):
     global lastScanOutputStockCodes,scanCycleRunning,runCleanUp,test_messages_queue,show_saved_diff_results, criteria_dateTime, analysis_dict, mp_manager, listStockCodes, screenResults, selectedChoice, defaultAnswer, menuChoiceHierarchy, screenCounter, screenResultsCounter, stockDictPrimary, stockDictSecondary, userPassedArgs, loadedStockData, keyboardInterruptEvent, loadCount, maLength, newlyListedOnly, keyboardInterruptEventFired,strategyFilter, elapsed_time, start_time
     selectedChoice = {"0": "", "1": "", "2": "", "3": "", "4": ""}
@@ -1153,7 +1169,17 @@ def main(userArgs=None,optionalFinalOutcome_df=None):
                 else:
                     data.rename(columns={"index": "Date"}, inplace=True)
                 data.set_index("Date", inplace=True)
-                data.index = pd.to_datetime(data.index)
+                try:
+                    data = normalize_datetime_index(data)
+                except ValueError as e:
+                    if "Cannot mix tz-aware with tz-naive" in str(e):
+                        # Handle mixed timezone-aware and naive values
+                        # Convert all to UTC first, then localize if needed
+                        data.index = pd.to_datetime(data.index, utc=True)
+                        # If you need IST, convert to IST after
+                        # data.index = data.index.tz_convert('Asia/Kolkata')
+                    else:
+                        raise e
                 prediction, pText, sText = screener.getNiftyPrediction(df=data)
                 warningText = "\nNifty AI prediction works best if you request after market is closed. It may not be accurate while market is still open!" if "open" in Utility.marketStatus() else ""
                 try:

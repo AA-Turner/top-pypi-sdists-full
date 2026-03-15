@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connections
@@ -6,6 +6,7 @@ from redis.sentinel import SentinelConnectionPool
 from rq.command import send_stop_job_command
 from rq.executions import Execution
 from rq.job import Job
+from rq.queue import Queue
 from rq.registry import (
     DeferredJobRegistry,
     FailedJobRegistry,
@@ -20,11 +21,11 @@ from rq.worker_registration import clean_worker_registry
 from .connection_utils import get_connection, get_redis_connection, get_unique_connection_configs
 from .cron import DjangoCronScheduler
 from .queues import get_queue_by_index, get_scheduler
-from .settings import QUEUES_LIST
+from .settings import get_queues_list
 from .templatetags.django_rq import to_localtime
 
 
-def get_scheduler_pid(queue):
+def get_scheduler_pid(queue: Queue) -> Union[bool, int, None]:
     '''Checks whether there's a scheduler-lock on a particular queue, and returns the PID.
     It Only works with RQ's Built-in RQScheduler.
     When RQ-Scheduler is available returns False
@@ -47,9 +48,9 @@ def get_scheduler_pid(queue):
     return None
 
 
-def get_statistics(run_maintenance_tasks=False):
+def get_statistics(run_maintenance_tasks: bool = False) -> dict[str, list[dict[str, Any]]]:
     queues = []
-    for index, config in enumerate(QUEUES_LIST):
+    for index, config in enumerate(get_queues_list()):
         queue = get_queue_by_index(index)
         connection = queue.connection
         connection_kwargs = connection.connection_pool.connection_kwargs.copy()
@@ -74,6 +75,7 @@ def get_statistics(run_maintenance_tasks=False):
         connection_kwargs.pop('parser_class', None)
         connection_kwargs.pop('retry', None)
         connection_kwargs.pop('password', None)
+        connection_kwargs.pop('driver_info', None)
 
         queue_data = {
             'name': queue.name,
@@ -103,9 +105,9 @@ def get_statistics(run_maintenance_tasks=False):
     return {'queues': queues}
 
 
-def get_scheduler_statistics():
+def get_scheduler_statistics() -> dict[str, dict[str, Any]]:
     schedulers = {}
-    for index, config in enumerate(QUEUES_LIST):
+    for index, config in enumerate(get_queues_list()):
         # there is only one scheduler per redis connection, so we use the connection as key
         # to handle the possibility of a configuration with multiple redis connections and scheduled
         # jobs in more than one of them
@@ -195,7 +197,7 @@ def get_executions(queue, composite_keys: list[tuple[str, str]]) -> list[Executi
     return executions
 
 
-def stop_jobs(queue, job_ids):
+def stop_jobs(queue: Queue, job_ids: Union[str, list[str], tuple[str, ...]]) -> tuple[list[str], list[str]]:
     job_ids = job_ids if isinstance(job_ids, (list, tuple)) else [job_ids]
     stopped_job_ids = []
     failed_to_stop_job_ids = []
@@ -209,35 +211,6 @@ def stop_jobs(queue, job_ids):
     return stopped_job_ids, failed_to_stop_job_ids
 
 
-def reset_db_connections():
+def reset_db_connections() -> None:
     for c in connections.all():
         c.close()
-
-
-def configure_sentry(sentry_dsn, **options):
-    """
-    Configure the Sentry client.
-
-    The **options kwargs are passed straight from the command
-    invocation - options relevant to Sentry configuration are
-    extracted.
-
-    In addition to the 'debug' and 'ca_certs' options, which can
-    be passed in as command options, we add the RqIntegration and
-    DjangoIntegration to the config.
-
-    Raises ImportError if the sentry_sdk is not available.
-
-    """
-    import sentry_sdk
-
-    sentry_options = {
-        'debug': options.get('sentry_debug', False),
-        'ca_certs': options.get('sentry_ca_certs', None),
-        'integrations': [
-            sentry_sdk.integrations.redis.RedisIntegration(),
-            sentry_sdk.integrations.rq.RqIntegration(),
-            sentry_sdk.integrations.django.DjangoIntegration(),
-        ],
-    }
-    sentry_sdk.init(sentry_dsn, **sentry_options)

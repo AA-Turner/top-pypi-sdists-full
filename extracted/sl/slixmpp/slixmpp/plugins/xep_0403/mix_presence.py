@@ -2,10 +2,6 @@
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import (
-    Optional,
-    Set,
-)
 
 from slixmpp import JID, Iq
 from slixmpp.exceptions import IqError, IqTimeout

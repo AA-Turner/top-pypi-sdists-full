@@ -9,8 +9,6 @@ from collections.abc import AsyncIterator
 from typing import (
     Any,
     Callable,
-    Dict,
-    Optional,
 )
 
 from slixmpp.stanza import Iq
@@ -47,25 +45,25 @@ class ResultIterator(AsyncIterator):
     #: elements (used to count them)
     results: str
     #: From which item id to start
-    start: Optional[str]
+    start: str | None
     #: Amount of elements to retrieve for each page
     amount: int
     #: If True, page backwards through the results
     reverse: bool
     #: Callback to run before sending the stanza
-    pre_cb: Optional[Callable[[Iq], None]]
+    pre_cb: Callable[[Iq], None] | None
     #: Callback to run after receiving the reply
-    post_cb: Optional[Callable[[Iq], None]]
+    post_cb: Callable[[Iq], None] | None
     #: Optional dict of Iq options (timeout, etc…) for Iq.send()
-    iq_options: Dict[str, Any]
+    iq_options: dict[str, Any]
 
     def __init__(self, query: Iq, interface: str, results: str = 'substanzas',
                  amount: int = 10,
-                 start: Optional[str] = None, reverse: bool = False,
-                 recv_interface: Optional[str] = None,
-                 pre_cb: Optional[Callable[[Iq], None]] = None,
-                 post_cb: Optional[Callable[[Iq], None]] = None,
-                 iq_options: Optional[Dict[str, Any]] = None):
+                 start: str | None = None, reverse: bool = False,
+                 recv_interface: str | None = None,
+                 pre_cb: Callable[[Iq], None] | None = None,
+                 post_cb: Callable[[Iq], None] | None = None,
+                 iq_options: dict[str, Any] | None = None):
         """
         :param query: The template query
         :param interface: The substanza of the query to send, for example
@@ -181,10 +179,10 @@ class XEP_0059(BasePlugin):
 
     def iterate(self, stanza: Iq, interface: str, results: str = 'substanzas',
                 amount: int = 10, reverse: bool = False,
-                recv_interface: Optional[str] = None,
-                pre_cb: Optional[Callable[[Iq], None]] = None,
-                post_cb: Optional[Callable[[Iq], None]] = None,
-                iq_options: Optional[Dict[str, Any]] = None
+                recv_interface: str | None = None,
+                pre_cb: Callable[[Iq], None] | None = None,
+                post_cb: Callable[[Iq], None] | None = None,
+                iq_options: dict[str, Any] | None = None
                 ) -> ResultIterator:
         """
         Create a new result set iterator for a given stanza query.

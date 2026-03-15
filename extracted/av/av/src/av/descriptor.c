@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.descriptor",
         "sources": [
-            "av/descriptor.pyx"
+            "av/descriptor.py"
         ]
     },
     "module_name": "av.descriptor"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__descriptor
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1413,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/descriptor.pyx",
+  "av/descriptor.py",
   "<stringsource>",
   "av/option.pxd",
 };
@@ -1615,12 +1597,12 @@ struct __pyx_obj_2av_6option_Option;
 struct __pyx_obj_2av_6option_OptionChoice;
 struct __pyx_obj_2av_10descriptor_Descriptor;
 
-/* "option.pxd":4
+/* "av/option.pxd":4
  * 
  * 
  * cdef class BaseOption:             # <<<<<<<<<<<<<<
- * 
  *     cdef const lib.AVOption *ptr
+ * 
 */
 struct __pyx_obj_2av_6option_BaseOption {
   PyObject_HEAD
@@ -1628,12 +1610,12 @@ struct __pyx_obj_2av_6option_BaseOption {
 };
 
 
-/* "option.pxd":9
- * 
+/* "av/option.pxd":7
+ *     cdef const lib.AVOption *ptr
  * 
  * cdef class Option(BaseOption):             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly tuple choices
+ * 
 */
 struct __pyx_obj_2av_6option_Option {
   struct __pyx_obj_2av_6option_BaseOption __pyx_base;
@@ -1641,12 +1623,12 @@ struct __pyx_obj_2av_6option_Option {
 };
 
 
-/* "option.pxd":14
- * 
+/* "av/option.pxd":10
+ *     cdef readonly tuple choices
  * 
  * cdef class OptionChoice(BaseOption):             # <<<<<<<<<<<<<<
- * 
  *     cdef readonly bint is_default
+ * 
 */
 struct __pyx_obj_2av_6option_OptionChoice {
   struct __pyx_obj_2av_6option_BaseOption __pyx_base;
@@ -2348,9 +2330,13 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
+
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.option" */
 static struct __pyx_obj_2av_6option_Option *(*__pyx_f_2av_6option_wrap_option)(PyObject *, struct AVOption const *); /*proto*/
@@ -2524,12 +2510,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/descriptor.pyx":8
- * cdef object _cinit_sentinel = object()
+/* "av/descriptor.py":13
  * 
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_avclass(ptr: cython.pointer[cython.const[lib.AVClass]]) -> Descriptor | None:
+ *     if ptr == cython.NULL:
 */
 
 static struct __pyx_obj_2av_10descriptor_Descriptor *__pyx_f_2av_10descriptor_wrap_avclass(struct AVClass const *__pyx_v_ptr) {
@@ -2545,40 +2531,40 @@ static struct __pyx_obj_2av_10descriptor_Descriptor *__pyx_f_2av_10descriptor_wr
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("wrap_avclass", 0);
 
-  /* "av/descriptor.pyx":9
- * 
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):
- *     if ptr == NULL:             # <<<<<<<<<<<<<<
+  /* "av/descriptor.py":15
+ * @cython.cfunc
+ * def wrap_avclass(ptr: cython.pointer[cython.const[lib.AVClass]]) -> Descriptor | None:
+ *     if ptr == cython.NULL:             # <<<<<<<<<<<<<<
  *         return None
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)
 */
   __pyx_t_1 = (__pyx_v_ptr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/descriptor.pyx":10
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):
- *     if ptr == NULL:
+    /* "av/descriptor.py":16
+ * def wrap_avclass(ptr: cython.pointer[cython.const[lib.AVClass]]) -> Descriptor | None:
+ *     if ptr == cython.NULL:
  *         return None             # <<<<<<<<<<<<<<
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)
  *     obj.ptr = ptr
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_r = ((struct __pyx_obj_2av_10descriptor_Descriptor *)Py_None); __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/descriptor.pyx":9
- * 
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):
- *     if ptr == NULL:             # <<<<<<<<<<<<<<
+    /* "av/descriptor.py":15
+ * @cython.cfunc
+ * def wrap_avclass(ptr: cython.pointer[cython.const[lib.AVClass]]) -> Descriptor | None:
+ *     if ptr == cython.NULL:             # <<<<<<<<<<<<<<
  *         return None
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)
 */
   }
 
-  /* "av/descriptor.pyx":11
- *     if ptr == NULL:
+  /* "av/descriptor.py":17
+ *     if ptr == cython.NULL:
  *         return None
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)             # <<<<<<<<<<<<<<
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)             # <<<<<<<<<<<<<<
  *     obj.ptr = ptr
  *     return obj
 */
@@ -2588,23 +2574,23 @@ static struct __pyx_obj_2av_10descriptor_Descriptor *__pyx_f_2av_10descriptor_wr
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_2av_10descriptor__cinit_sentinel};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10descriptor_Descriptor, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 11, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_2);
   }
   __pyx_v_obj = ((struct __pyx_obj_2av_10descriptor_Descriptor *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/descriptor.pyx":12
+  /* "av/descriptor.py":18
  *         return None
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)
  *     obj.ptr = ptr             # <<<<<<<<<<<<<<
  *     return obj
  * 
 */
   __pyx_v_obj->ptr = __pyx_v_ptr;
 
-  /* "av/descriptor.pyx":13
- *     cdef Descriptor obj = Descriptor(_cinit_sentinel)
+  /* "av/descriptor.py":19
+ *     obj: Descriptor = Descriptor(_cinit_sentinel)
  *     obj.ptr = ptr
  *     return obj             # <<<<<<<<<<<<<<
  * 
@@ -2615,12 +2601,12 @@ static struct __pyx_obj_2av_10descriptor_Descriptor *__pyx_f_2av_10descriptor_wr
   __pyx_r = __pyx_v_obj;
   goto __pyx_L0;
 
-  /* "av/descriptor.pyx":8
- * cdef object _cinit_sentinel = object()
+  /* "av/descriptor.py":13
  * 
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):             # <<<<<<<<<<<<<<
- *     if ptr == NULL:
- *         return None
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def wrap_avclass(ptr: cython.pointer[cython.const[lib.AVClass]]) -> Descriptor | None:
+ *     if ptr == cython.NULL:
 */
 
   /* function exit code */
@@ -2636,9 +2622,9 @@ static struct __pyx_obj_2av_10descriptor_Descriptor *__pyx_f_2av_10descriptor_wr
   return __pyx_r;
 }
 
-/* "av/descriptor.pyx":17
- * 
- * cdef class Descriptor:
+/* "av/descriptor.py":24
+ * @cython.cclass
+ * class Descriptor:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot construct av.Descriptor")
@@ -2666,32 +2652,32 @@ static int __pyx_pw_2av_10descriptor_10Descriptor_1__cinit__(PyObject *__pyx_v_s
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_sentinel,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 17, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 24, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 17, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 17, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 24, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 17, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 24, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 17, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
     }
     __pyx_v_sentinel = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 17, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 24, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2724,8 +2710,8 @@ static int __pyx_pf_2av_10descriptor_10Descriptor___cinit__(CYTHON_UNUSED struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/descriptor.pyx":18
- * cdef class Descriptor:
+  /* "av/descriptor.py":25
+ * class Descriptor:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Cannot construct av.Descriptor")
@@ -2734,7 +2720,7 @@ static int __pyx_pf_2av_10descriptor_10Descriptor___cinit__(CYTHON_UNUSED struct
   __pyx_t_1 = (__pyx_v_sentinel != __pyx_v_2av_10descriptor__cinit_sentinel);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/descriptor.pyx":19
+    /* "av/descriptor.py":26
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot construct av.Descriptor")             # <<<<<<<<<<<<<<
@@ -2747,15 +2733,15 @@ static int __pyx_pf_2av_10descriptor_10Descriptor___cinit__(CYTHON_UNUSED struct
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Cannot_construct_av_Descriptor};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 19, __pyx_L1_error)
+    __PYX_ERR(0, 26, __pyx_L1_error)
 
-    /* "av/descriptor.pyx":18
- * cdef class Descriptor:
+    /* "av/descriptor.py":25
+ * class Descriptor:
  *     def __cinit__(self, sentinel):
  *         if sentinel is not _cinit_sentinel:             # <<<<<<<<<<<<<<
  *             raise RuntimeError("Cannot construct av.Descriptor")
@@ -2763,9 +2749,9 @@ static int __pyx_pf_2av_10descriptor_10Descriptor___cinit__(CYTHON_UNUSED struct
 */
   }
 
-  /* "av/descriptor.pyx":17
- * 
- * cdef class Descriptor:
+  /* "av/descriptor.py":24
+ * @cython.cclass
+ * class Descriptor:
  *     def __cinit__(self, sentinel):             # <<<<<<<<<<<<<<
  *         if sentinel is not _cinit_sentinel:
  *             raise RuntimeError("Cannot construct av.Descriptor")
@@ -2784,7 +2770,7 @@ static int __pyx_pf_2av_10descriptor_10Descriptor___cinit__(CYTHON_UNUSED struct
   return __pyx_r;
 }
 
-/* "av/descriptor.pyx":21
+/* "av/descriptor.py":28
  *             raise RuntimeError("Cannot construct av.Descriptor")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -2818,7 +2804,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_4name___get__(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/descriptor.pyx":23
+  /* "av/descriptor.py":30
  *     @property
  *     def name(self):
  *         return self.ptr.class_name if self.ptr.class_name else None             # <<<<<<<<<<<<<<
@@ -2828,7 +2814,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_4name___get__(struct __p
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->ptr->class_name != 0);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->class_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 23, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->ptr->class_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 30, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -2840,7 +2826,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_4name___get__(struct __p
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/descriptor.pyx":21
+  /* "av/descriptor.py":28
  *             raise RuntimeError("Cannot construct av.Descriptor")
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -2860,12 +2846,12 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_4name___get__(struct __p
   return __pyx_r;
 }
 
-/* "av/descriptor.pyx":25
+/* "av/descriptor.py":32
  *         return self.ptr.class_name if self.ptr.class_name else None
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def options(self):
- *         cdef const lib.AVOption *ptr = self.ptr.option
+ *         ptr: cython.pointer[cython.const[lib.AVOption]] = self.ptr.option
 */
 
 /* Python wrapper */
@@ -2889,8 +2875,8 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
   struct __pyx_obj_2av_6option_Option *__pyx_v_option = 0;
   struct __pyx_obj_2av_6option_OptionChoice *__pyx_v_option_choice = 0;
   int __pyx_v_choice_is_default;
-  PyObject *__pyx_v_options = NULL;
-  PyObject *__pyx_v_choices = NULL;
+  PyObject *__pyx_v_options = 0;
+  PyObject *__pyx_v_choices = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   struct AVOption const *__pyx_t_1;
@@ -2904,52 +2890,52 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/descriptor.pyx":27
+  /* "av/descriptor.py":34
  *     @property
  *     def options(self):
- *         cdef const lib.AVOption *ptr = self.ptr.option             # <<<<<<<<<<<<<<
- *         cdef const lib.AVOption *choice_ptr
- *         cdef Option option
+ *         ptr: cython.pointer[cython.const[lib.AVOption]] = self.ptr.option             # <<<<<<<<<<<<<<
+ *         choice_ptr: cython.pointer[cython.const[lib.AVOption]]
+ *         option: Option
 */
   __pyx_t_1 = __pyx_v_self->ptr->option;
   __pyx_v_ptr = __pyx_t_1;
 
-  /* "av/descriptor.pyx":32
- *         cdef OptionChoice option_choice
- *         cdef bint choice_is_default
+  /* "av/descriptor.py":39
+ *         option_choice: OptionChoice
+ *         choice_is_default: cython.bint
  *         if self._options is None:             # <<<<<<<<<<<<<<
- *             options = []
+ *             options: list = []
  *             ptr = self.ptr.option
 */
   __pyx_t_2 = (__pyx_v_self->_options == Py_None);
   if (__pyx_t_2) {
 
-    /* "av/descriptor.pyx":33
- *         cdef bint choice_is_default
+    /* "av/descriptor.py":40
+ *         choice_is_default: cython.bint
  *         if self._options is None:
- *             options = []             # <<<<<<<<<<<<<<
+ *             options: list = []             # <<<<<<<<<<<<<<
  *             ptr = self.ptr.option
- *             while ptr != NULL and ptr.name != NULL:
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:
 */
-    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 33, __pyx_L1_error)
+    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_options = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "av/descriptor.pyx":34
+    /* "av/descriptor.py":41
  *         if self._options is None:
- *             options = []
+ *             options: list = []
  *             ptr = self.ptr.option             # <<<<<<<<<<<<<<
- *             while ptr != NULL and ptr.name != NULL:
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:
 */
     __pyx_t_1 = __pyx_v_self->ptr->option;
     __pyx_v_ptr = __pyx_t_1;
 
-    /* "av/descriptor.pyx":35
- *             options = []
+    /* "av/descriptor.py":42
+ *             options: list = []
  *             ptr = self.ptr.option
- *             while ptr != NULL and ptr.name != NULL:             # <<<<<<<<<<<<<<
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:             # <<<<<<<<<<<<<<
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:
  *                     ptr += 1
 */
@@ -2965,9 +2951,9 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
       __pyx_L6_bool_binop_done:;
       if (!__pyx_t_2) break;
 
-      /* "av/descriptor.pyx":36
+      /* "av/descriptor.py":43
  *             ptr = self.ptr.option
- *             while ptr != NULL and ptr.name != NULL:
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:             # <<<<<<<<<<<<<<
  *                     ptr += 1
  *                     continue
@@ -2975,71 +2961,79 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
       __pyx_t_2 = (__pyx_v_ptr->type == AV_OPT_TYPE_CONST);
       if (__pyx_t_2) {
 
-        /* "av/descriptor.pyx":37
- *             while ptr != NULL and ptr.name != NULL:
+        /* "av/descriptor.py":44
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:
  *                     ptr += 1             # <<<<<<<<<<<<<<
  *                     continue
- *                 choices = []
+ *                 choices: list = []
 */
         __pyx_v_ptr = (__pyx_v_ptr + 1);
 
-        /* "av/descriptor.pyx":38
+        /* "av/descriptor.py":45
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:
  *                     ptr += 1
  *                     continue             # <<<<<<<<<<<<<<
- *                 choices = []
- *                 if ptr.unit != NULL:  # option has choices (matching const options)
+ *                 choices: list = []
+ *                 if (
 */
         goto __pyx_L4_continue;
 
-        /* "av/descriptor.pyx":36
+        /* "av/descriptor.py":43
  *             ptr = self.ptr.option
- *             while ptr != NULL and ptr.name != NULL:
+ *             while ptr != cython.NULL and ptr.name != cython.NULL:
  *                 if ptr.type == lib.AV_OPT_TYPE_CONST:             # <<<<<<<<<<<<<<
  *                     ptr += 1
  *                     continue
 */
       }
 
-      /* "av/descriptor.pyx":39
+      /* "av/descriptor.py":46
  *                     ptr += 1
  *                     continue
- *                 choices = []             # <<<<<<<<<<<<<<
- *                 if ptr.unit != NULL:  # option has choices (matching const options)
- *                     choice_ptr = self.ptr.option
+ *                 choices: list = []             # <<<<<<<<<<<<<<
+ *                 if (
+ *                     ptr.unit != cython.NULL
 */
-      __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L1_error)
+      __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_XDECREF_SET(__pyx_v_choices, ((PyObject*)__pyx_t_3));
       __pyx_t_3 = 0;
 
-      /* "av/descriptor.pyx":40
- *                     continue
- *                 choices = []
- *                 if ptr.unit != NULL:  # option has choices (matching const options)             # <<<<<<<<<<<<<<
+      /* "av/descriptor.py":48
+ *                 choices: list = []
+ *                 if (
+ *                     ptr.unit != cython.NULL             # <<<<<<<<<<<<<<
+ *                 ):  # option has choices (matching const options)
  *                     choice_ptr = self.ptr.option
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
 */
       __pyx_t_2 = (__pyx_v_ptr->unit != NULL);
+
+      /* "av/descriptor.py":47
+ *                     continue
+ *                 choices: list = []
+ *                 if (             # <<<<<<<<<<<<<<
+ *                     ptr.unit != cython.NULL
+ *                 ):  # option has choices (matching const options)
+*/
       if (__pyx_t_2) {
 
-        /* "av/descriptor.pyx":41
- *                 choices = []
- *                 if ptr.unit != NULL:  # option has choices (matching const options)
+        /* "av/descriptor.py":50
+ *                     ptr.unit != cython.NULL
+ *                 ):  # option has choices (matching const options)
  *                     choice_ptr = self.ptr.option             # <<<<<<<<<<<<<<
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:
+ *                     while choice_ptr != cython.NULL and choice_ptr.name != cython.NULL:
+ *                         if (
 */
         __pyx_t_1 = __pyx_v_self->ptr->option;
         __pyx_v_choice_ptr = __pyx_t_1;
 
-        /* "av/descriptor.pyx":42
- *                 if ptr.unit != NULL:  # option has choices (matching const options)
+        /* "av/descriptor.py":51
+ *                 ):  # option has choices (matching const options)
  *                     choice_ptr = self.ptr.option
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:             # <<<<<<<<<<<<<<
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:
- *                             choice_ptr += 1
+ *                     while choice_ptr != cython.NULL and choice_ptr.name != cython.NULL:             # <<<<<<<<<<<<<<
+ *                         if (
+ *                             choice_ptr.type != lib.AV_OPT_TYPE_CONST
 */
         while (1) {
           __pyx_t_4 = (__pyx_v_choice_ptr != NULL);
@@ -3053,12 +3047,12 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
           __pyx_L12_bool_binop_done:;
           if (!__pyx_t_2) break;
 
-          /* "av/descriptor.pyx":43
- *                     choice_ptr = self.ptr.option
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:             # <<<<<<<<<<<<<<
- *                             choice_ptr += 1
- *                             continue
+          /* "av/descriptor.py":53
+ *                     while choice_ptr != cython.NULL and choice_ptr.name != cython.NULL:
+ *                         if (
+ *                             choice_ptr.type != lib.AV_OPT_TYPE_CONST             # <<<<<<<<<<<<<<
+ *                             or choice_ptr.unit != ptr.unit
+ *                         ):
 */
           __pyx_t_4 = (__pyx_v_choice_ptr->type != AV_OPT_TYPE_CONST);
           if (!__pyx_t_4) {
@@ -3066,44 +3060,60 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
             __pyx_t_2 = __pyx_t_4;
             goto __pyx_L15_bool_binop_done;
           }
+
+          /* "av/descriptor.py":54
+ *                         if (
+ *                             choice_ptr.type != lib.AV_OPT_TYPE_CONST
+ *                             or choice_ptr.unit != ptr.unit             # <<<<<<<<<<<<<<
+ *                         ):
+ *                             choice_ptr += 1
+*/
           __pyx_t_4 = (__pyx_v_choice_ptr->unit != __pyx_v_ptr->unit);
           __pyx_t_2 = __pyx_t_4;
           __pyx_L15_bool_binop_done:;
+
+          /* "av/descriptor.py":52
+ *                     choice_ptr = self.ptr.option
+ *                     while choice_ptr != cython.NULL and choice_ptr.name != cython.NULL:
+ *                         if (             # <<<<<<<<<<<<<<
+ *                             choice_ptr.type != lib.AV_OPT_TYPE_CONST
+ *                             or choice_ptr.unit != ptr.unit
+*/
           if (__pyx_t_2) {
 
-            /* "av/descriptor.pyx":44
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:
+            /* "av/descriptor.py":56
+ *                             or choice_ptr.unit != ptr.unit
+ *                         ):
  *                             choice_ptr += 1             # <<<<<<<<<<<<<<
  *                             continue
- *                         choice_is_default = (choice_ptr.default_val.i64 == ptr.default_val.i64 or
+ *                         choice_is_default = (
 */
             __pyx_v_choice_ptr = (__pyx_v_choice_ptr + 1);
 
-            /* "av/descriptor.pyx":45
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:
+            /* "av/descriptor.py":57
+ *                         ):
  *                             choice_ptr += 1
  *                             continue             # <<<<<<<<<<<<<<
- *                         choice_is_default = (choice_ptr.default_val.i64 == ptr.default_val.i64 or
- *                                              ptr.type == lib.AV_OPT_TYPE_FLAGS and
+ *                         choice_is_default = (
+ *                             choice_ptr.default_val.i64 == ptr.default_val.i64
 */
             goto __pyx_L10_continue;
 
-            /* "av/descriptor.pyx":43
+            /* "av/descriptor.py":52
  *                     choice_ptr = self.ptr.option
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
- *                         if choice_ptr.type != lib.AV_OPT_TYPE_CONST or choice_ptr.unit != ptr.unit:             # <<<<<<<<<<<<<<
- *                             choice_ptr += 1
- *                             continue
+ *                     while choice_ptr != cython.NULL and choice_ptr.name != cython.NULL:
+ *                         if (             # <<<<<<<<<<<<<<
+ *                             choice_ptr.type != lib.AV_OPT_TYPE_CONST
+ *                             or choice_ptr.unit != ptr.unit
 */
           }
 
-          /* "av/descriptor.pyx":46
- *                             choice_ptr += 1
+          /* "av/descriptor.py":59
  *                             continue
- *                         choice_is_default = (choice_ptr.default_val.i64 == ptr.default_val.i64 or             # <<<<<<<<<<<<<<
- *                                              ptr.type == lib.AV_OPT_TYPE_FLAGS and
- *                                              choice_ptr.default_val.i64 & ptr.default_val.i64)
+ *                         choice_is_default = (
+ *                             choice_ptr.default_val.i64 == ptr.default_val.i64             # <<<<<<<<<<<<<<
+ *                             or ptr.type == lib.AV_OPT_TYPE_FLAGS
+ *                             and choice_ptr.default_val.i64 & ptr.default_val.i64
 */
           __pyx_t_4 = (__pyx_v_choice_ptr->default_val.i64 == __pyx_v_ptr->default_val.i64);
           if (!__pyx_t_4) {
@@ -3112,12 +3122,12 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
             goto __pyx_L17_bool_binop_done;
           }
 
-          /* "av/descriptor.pyx":47
- *                             continue
- *                         choice_is_default = (choice_ptr.default_val.i64 == ptr.default_val.i64 or
- *                                              ptr.type == lib.AV_OPT_TYPE_FLAGS and             # <<<<<<<<<<<<<<
- *                                              choice_ptr.default_val.i64 & ptr.default_val.i64)
- *                         option_choice = wrap_option_choice(choice_ptr, choice_is_default)
+          /* "av/descriptor.py":60
+ *                         choice_is_default = (
+ *                             choice_ptr.default_val.i64 == ptr.default_val.i64
+ *                             or ptr.type == lib.AV_OPT_TYPE_FLAGS             # <<<<<<<<<<<<<<
+ *                             and choice_ptr.default_val.i64 & ptr.default_val.i64
+ *                         )
 */
           __pyx_t_4 = (__pyx_v_ptr->type == AV_OPT_TYPE_FLAGS);
           if (__pyx_t_4) {
@@ -3126,41 +3136,41 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
             goto __pyx_L17_bool_binop_done;
           }
 
-          /* "av/descriptor.pyx":48
- *                         choice_is_default = (choice_ptr.default_val.i64 == ptr.default_val.i64 or
- *                                              ptr.type == lib.AV_OPT_TYPE_FLAGS and
- *                                              choice_ptr.default_val.i64 & ptr.default_val.i64)             # <<<<<<<<<<<<<<
- *                         option_choice = wrap_option_choice(choice_ptr, choice_is_default)
- *                         choices.append(option_choice)
+          /* "av/descriptor.py":61
+ *                             choice_ptr.default_val.i64 == ptr.default_val.i64
+ *                             or ptr.type == lib.AV_OPT_TYPE_FLAGS
+ *                             and choice_ptr.default_val.i64 & ptr.default_val.i64             # <<<<<<<<<<<<<<
+ *                         )
+ *                         option_choice = wrap_option_choice(
 */
           __pyx_t_4 = ((__pyx_v_choice_ptr->default_val.i64 & __pyx_v_ptr->default_val.i64) != 0);
           __pyx_t_2 = __pyx_t_4;
           __pyx_L17_bool_binop_done:;
           __pyx_v_choice_is_default = __pyx_t_2;
 
-          /* "av/descriptor.pyx":49
- *                                              ptr.type == lib.AV_OPT_TYPE_FLAGS and
- *                                              choice_ptr.default_val.i64 & ptr.default_val.i64)
- *                         option_choice = wrap_option_choice(choice_ptr, choice_is_default)             # <<<<<<<<<<<<<<
- *                         choices.append(option_choice)
- *                         choice_ptr += 1
+          /* "av/descriptor.py":63
+ *                             and choice_ptr.default_val.i64 & ptr.default_val.i64
+ *                         )
+ *                         option_choice = wrap_option_choice(             # <<<<<<<<<<<<<<
+ *                             choice_ptr, choice_is_default
+ *                         )
 */
-          __pyx_t_3 = ((PyObject *)__pyx_f_2av_6option_wrap_option_choice(__pyx_v_choice_ptr, __pyx_v_choice_is_default)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
+          __pyx_t_3 = ((PyObject *)__pyx_f_2av_6option_wrap_option_choice(__pyx_v_choice_ptr, __pyx_v_choice_is_default)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 63, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           __Pyx_XDECREF_SET(__pyx_v_option_choice, ((struct __pyx_obj_2av_6option_OptionChoice *)__pyx_t_3));
           __pyx_t_3 = 0;
 
-          /* "av/descriptor.pyx":50
- *                                              choice_ptr.default_val.i64 & ptr.default_val.i64)
- *                         option_choice = wrap_option_choice(choice_ptr, choice_is_default)
+          /* "av/descriptor.py":66
+ *                             choice_ptr, choice_is_default
+ *                         )
  *                         choices.append(option_choice)             # <<<<<<<<<<<<<<
  *                         choice_ptr += 1
  *                 option = wrap_option(tuple(choices), ptr)
 */
-          __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_choices, ((PyObject *)__pyx_v_option_choice)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 50, __pyx_L1_error)
+          __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_choices, ((PyObject *)__pyx_v_option_choice)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 66, __pyx_L1_error)
 
-          /* "av/descriptor.pyx":51
- *                         option_choice = wrap_option_choice(choice_ptr, choice_is_default)
+          /* "av/descriptor.py":67
+ *                         )
  *                         choices.append(option_choice)
  *                         choice_ptr += 1             # <<<<<<<<<<<<<<
  *                 option = wrap_option(tuple(choices), ptr)
@@ -3170,40 +3180,40 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
           __pyx_L10_continue:;
         }
 
-        /* "av/descriptor.pyx":40
+        /* "av/descriptor.py":47
  *                     continue
- *                 choices = []
- *                 if ptr.unit != NULL:  # option has choices (matching const options)             # <<<<<<<<<<<<<<
- *                     choice_ptr = self.ptr.option
- *                     while choice_ptr != NULL and choice_ptr.name != NULL:
+ *                 choices: list = []
+ *                 if (             # <<<<<<<<<<<<<<
+ *                     ptr.unit != cython.NULL
+ *                 ):  # option has choices (matching const options)
 */
       }
 
-      /* "av/descriptor.pyx":52
+      /* "av/descriptor.py":68
  *                         choices.append(option_choice)
  *                         choice_ptr += 1
  *                 option = wrap_option(tuple(choices), ptr)             # <<<<<<<<<<<<<<
  *                 options.append(option)
  *                 ptr += 1
 */
-      __pyx_t_3 = PyList_AsTuple(__pyx_v_choices); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_3 = PyList_AsTuple(__pyx_v_choices); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_6 = ((PyObject *)__pyx_f_2av_6option_wrap_option(((PyObject*)__pyx_t_3), __pyx_v_ptr)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_6 = ((PyObject *)__pyx_f_2av_6option_wrap_option(((PyObject*)__pyx_t_3), __pyx_v_ptr)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 68, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_XDECREF_SET(__pyx_v_option, ((struct __pyx_obj_2av_6option_Option *)__pyx_t_6));
       __pyx_t_6 = 0;
 
-      /* "av/descriptor.pyx":53
+      /* "av/descriptor.py":69
  *                         choice_ptr += 1
  *                 option = wrap_option(tuple(choices), ptr)
  *                 options.append(option)             # <<<<<<<<<<<<<<
  *                 ptr += 1
  *             self._options = tuple(options)
 */
-      __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_options, ((PyObject *)__pyx_v_option)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 53, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyList_Append(__pyx_v_options, ((PyObject *)__pyx_v_option)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 69, __pyx_L1_error)
 
-      /* "av/descriptor.pyx":54
+      /* "av/descriptor.py":70
  *                 option = wrap_option(tuple(choices), ptr)
  *                 options.append(option)
  *                 ptr += 1             # <<<<<<<<<<<<<<
@@ -3214,14 +3224,14 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
       __pyx_L4_continue:;
     }
 
-    /* "av/descriptor.pyx":55
+    /* "av/descriptor.py":71
  *                 options.append(option)
  *                 ptr += 1
  *             self._options = tuple(options)             # <<<<<<<<<<<<<<
  *         return self._options
  * 
 */
-    __pyx_t_6 = PyList_AsTuple(__pyx_v_options); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __pyx_t_6 = PyList_AsTuple(__pyx_v_options); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __Pyx_GOTREF(__pyx_v_self->_options);
@@ -3229,16 +3239,16 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
     __pyx_v_self->_options = __pyx_t_6;
     __pyx_t_6 = 0;
 
-    /* "av/descriptor.pyx":32
- *         cdef OptionChoice option_choice
- *         cdef bint choice_is_default
+    /* "av/descriptor.py":39
+ *         option_choice: OptionChoice
+ *         choice_is_default: cython.bint
  *         if self._options is None:             # <<<<<<<<<<<<<<
- *             options = []
+ *             options: list = []
  *             ptr = self.ptr.option
 */
   }
 
-  /* "av/descriptor.pyx":56
+  /* "av/descriptor.py":72
  *                 ptr += 1
  *             self._options = tuple(options)
  *         return self._options             # <<<<<<<<<<<<<<
@@ -3250,12 +3260,12 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
   __pyx_r = __pyx_v_self->_options;
   goto __pyx_L0;
 
-  /* "av/descriptor.pyx":25
+  /* "av/descriptor.py":32
  *         return self.ptr.class_name if self.ptr.class_name else None
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def options(self):
- *         cdef const lib.AVOption *ptr = self.ptr.option
+ *         ptr: cython.pointer[cython.const[lib.AVOption]] = self.ptr.option
 */
 
   /* function exit code */
@@ -3274,7 +3284,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_7options___get__(struct 
   return __pyx_r;
 }
 
-/* "av/descriptor.pyx":58
+/* "av/descriptor.py":74
  *         return self._options
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3309,28 +3319,28 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_2__repr__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/descriptor.pyx":59
+  /* "av/descriptor.py":75
  * 
  *     def __repr__(self):
  *         return f"<{self.__class__.__name__} {self.name} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_5[0] = __pyx_mstate_global->__pyx_kp_u_;
@@ -3341,7 +3351,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_2__repr__(struct __pyx_o
   __pyx_t_5[5] = __pyx_t_4;
   __pyx_t_5[6] = __pyx_mstate_global->__pyx_kp_u__3;
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_5, 7, 1 * 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -3350,7 +3360,7 @@ static PyObject *__pyx_pf_2av_10descriptor_10Descriptor_2__repr__(struct __pyx_o
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/descriptor.pyx":58
+  /* "av/descriptor.py":74
  *         return self._options
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3832,15 +3842,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_10descriptor_Descriptor_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor)) __PYX_ERR(0, 16, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_10descriptor_Descriptor_spec, __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_10descriptor_Descriptor_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_10descriptor_Descriptor_spec, __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor = &__pyx_type_2av_10descriptor_Descriptor;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor);
@@ -3850,8 +3860,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Descriptor, (PyObject *) __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Descriptor, (PyObject *) __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_10descriptor_Descriptor) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -3887,7 +3897,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6option_Option), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6option_Option),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6option_Option) __PYX_ERR(2, 9, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6option_Option) __PYX_ERR(2, 7, __pyx_L1_error)
   __pyx_mstate->__pyx_ptype_2av_6option_OptionChoice = __Pyx_ImportType_3_2_4(__pyx_t_1, "av.option", "OptionChoice",
   #if defined(PYPY_VERSION_NUM) && PYPY_VERSION_NUM < 0x050B0000
   sizeof(struct __pyx_obj_2av_6option_OptionChoice), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6option_OptionChoice),
@@ -3896,7 +3906,7 @@ static int __Pyx_modinit_type_import_code(__pyx_mstatetype *__pyx_mstate) {
   #else
   sizeof(struct __pyx_obj_2av_6option_OptionChoice), __PYX_GET_STRUCT_ALIGNMENT_3_2_4(struct __pyx_obj_2av_6option_OptionChoice),
   #endif
-  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) __PYX_ERR(2, 14, __pyx_L1_error)
+  __Pyx_ImportType_CheckSize_Warn_3_2_4); if (!__pyx_mstate->__pyx_ptype_2av_6option_OptionChoice) __PYX_ERR(2, 10, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -4220,12 +4230,12 @@ __Pyx_RefNannySetupContext("PyInit_descriptor", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/descriptor.pyx":6
+  /* "av/descriptor.py":10
+ * )
+ * 
+ * _cinit_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
- * cdef object _cinit_sentinel = object()             # <<<<<<<<<<<<<<
- * 
- * cdef Descriptor wrap_avclass(const lib.AVClass *ptr):
 */
   __pyx_t_3 = NULL;
   __pyx_t_4 = 1;
@@ -4233,7 +4243,7 @@ __Pyx_RefNannySetupContext("PyInit_descriptor", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 6, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 10, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_10descriptor__cinit_sentinel);
@@ -4241,10 +4251,10 @@ __Pyx_RefNannySetupContext("PyInit_descriptor", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/descriptor.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
- * 
- * from .option cimport Option, OptionChoice, wrap_option, wrap_option_choice
+  /* "av/descriptor.py":1
+ * import cython             # <<<<<<<<<<<<<<
+ * import cython.cimports.libav as lib
+ * from cython.cimports.av.option import (
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -4288,8 +4298,8 @@ __Pyx_RefNannySetupContext("PyInit_descriptor", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 6, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 10, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 75, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;

@@ -7,7 +7,6 @@ import logging
 import hashlib
 
 from asyncio import Future
-from typing import Optional
 
 from slixmpp import JID
 from slixmpp.exceptions import XMPPError
@@ -67,8 +66,8 @@ class XEP_0231(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0030'].add_feature('urn:xmpp:bob')
 
-    async def set_bob(self, data: bytes, mtype: str, cid: Optional[str] = None,
-                      max_age: Optional[int] = None) -> str:
+    async def set_bob(self, data: bytes, mtype: str, cid: str | None = None,
+                      max_age: int | None = None) -> str:
         """Register a blob of binary data as a BOB.
 
         .. versionchanged:: 1.8.0
@@ -98,8 +97,8 @@ class XEP_0231(BasePlugin):
             self.xmpp.loop.call_later(max_age, self.del_bob,  cid)
         return cid
 
-    async def get_bob(self, jid: Optional[JID] = None, cid: Optional[str] = None,
-                      cached: bool = True, ifrom: Optional[JID] = None,
+    async def get_bob(self, jid: JID | None = None, cid: str | None = None,
+                      cached: bool = True, ifrom: JID | None = None,
                       **iqkwargs) -> Iq:
         """Get a BOB.
 

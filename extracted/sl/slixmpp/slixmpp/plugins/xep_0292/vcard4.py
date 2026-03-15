@@ -1,6 +1,5 @@
 import logging
 from datetime import date
-from typing import Optional
 
 from slixmpp import (
     JID,
@@ -50,18 +49,18 @@ class XEP_0292(BasePlugin):
 
     def publish_vcard(
         self,
-        full_name: Optional[str] = None,
-        given: Optional[str] = None,
-        surname: Optional[str] = None,
-        birthday: Optional[date] = None,
-        nickname: Optional[str] = None,
-        phone: Optional[str] = None,
-        note: Optional[str] = None,
-        url: Optional[str] = None,
-        email: Optional[str] = None,
-        country: Optional[str] = None,
-        locality: Optional[str] = None,
-        impp: Optional[str] = None,
+        full_name: str | None = None,
+        given: str | None = None,
+        surname: str | None = None,
+        birthday: date | None = None,
+        nickname: str | None = None,
+        phone: str | None = None,
+        note: str | None = None,
+        url: str | None = None,
+        email: str | None = None,
+        country: str | None = None,
+        locality: str | None = None,
+        impp: str | None = None,
         **pubsubkwargs,
     ):
         """

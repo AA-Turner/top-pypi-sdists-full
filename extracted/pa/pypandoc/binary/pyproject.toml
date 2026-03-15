@@ -1,0 +1,16 @@
+[project]
+name = "pypandoc_binary"
+dynamic = ["version", "readme", "description", "license", "requires-python", "authors", "classifiers", "urls"]
+
+[build-system]
+requires = ["hatchling", "tomli; python_version < '3.11'"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[project.scripts]
+pypandoc = "pypandoc.cli:main"

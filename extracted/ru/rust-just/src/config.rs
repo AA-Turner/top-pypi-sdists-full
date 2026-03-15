@@ -1,12 +1,13 @@
 use {
   super::*,
   clap::{
+    Arg, ArgAction, ArgGroup, ArgMatches, Command,
     builder::{
-      styling::{AnsiColor, Effects},
       FalseyValueParser, Styles,
+      styling::{AnsiColor, Effects},
     },
     parser::ValuesRef,
-    value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command,
+    value_parser,
   },
 };
 
@@ -24,6 +25,7 @@ pub(crate) struct Config {
   pub(crate) dry_run: bool,
   pub(crate) dump_format: DumpFormat,
   pub(crate) explain: bool,
+  pub(crate) groups: Vec<String>,
   pub(crate) highlight: bool,
   pub(crate) invocation_directory: PathBuf,
   pub(crate) list_heading: String,
@@ -110,6 +112,7 @@ mod arg {
   pub(crate) const GLOBAL_JUSTFILE: &str = "GLOBAL-JUSTFILE";
   pub(crate) const HIGHLIGHT: &str = "HIGHLIGHT";
   pub(crate) const JUSTFILE: &str = "JUSTFILE";
+  pub(crate) const GROUP: &str = "GROUP";
   pub(crate) const LIST_HEADING: &str = "LIST-HEADING";
   pub(crate) const LIST_PREFIX: &str = "LIST-PREFIX";
   pub(crate) const LIST_SUBMODULES: &str = "LIST-SUBMODULES";
@@ -314,6 +317,14 @@ impl Config {
           .env("JUST_LIST_SUBMODULES")
           .help("List recipes in submodules")
           .action(ArgAction::SetTrue)
+          .requires(cmd::LIST),
+      )
+      .arg(
+        Arg::new(arg::GROUP)
+          .long("group")
+          .env("JUST_GROUP")
+          .help("Only list recipes in <GROUP>")
+          .action(ArgAction::Append)
           .requires(cmd::LIST),
       )
       .arg(
@@ -675,6 +686,14 @@ impl Config {
     }
   }
 
+  pub(crate) fn timestamp(&self) -> Option<String> {
+    self.timestamp.then(|| {
+      chrono::Local::now()
+        .format(&self.timestamp_format)
+        .to_string()
+    })
+  }
+
   pub(crate) fn from_matches(matches: &ArgMatches) -> ConfigResult<Self> {
     let mut overrides = BTreeMap::new();
     if let Some(mut values) = matches.get_many::<String>(arg::SET) {
@@ -819,6 +838,10 @@ impl Config {
       explain,
       highlight: !matches.get_flag(arg::NO_HIGHLIGHT),
       invocation_directory: env::current_dir().context(config_error::CurrentDirContext)?,
+      groups: matches
+        .get_many::<String>(arg::GROUP)
+        .map(|s| s.map(Into::into).collect())
+        .unwrap_or_default(),
       list_heading: matches.get_one::<String>(arg::LIST_HEADING).unwrap().into(),
       list_prefix: matches.get_one::<String>(arg::LIST_PREFIX).unwrap().into(),
       list_submodules: matches.get_flag(arg::LIST_SUBMODULES),

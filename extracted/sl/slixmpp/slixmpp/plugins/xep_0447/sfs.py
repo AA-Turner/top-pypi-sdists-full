@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional, Literal
+from typing import Iterable, Literal
 
 from slixmpp.plugins import BasePlugin
 from slixmpp.stanza import Message
@@ -37,18 +37,29 @@ class XEP_0447(BasePlugin):
     def get_sfs(
         self,
         path: Path,
-        uris: Optional[Iterable[str]] = None,
-        media_type: Optional[str] = None,
-        desc: Optional[str] = None,
-        disposition: Optional[Literal["inline", "attachment"]] = None
-    ):
+        uris: Iterable[str] | None = None,
+        media_type: str | None = None,
+        desc: str | None = None,
+        disposition: Literal["inline", "attachment"] | None = None
+    ) -> stanza.StatelessFileSharing:
+        """
+        Produce an SFS element from a file present locally.
+
+        :param path: Path of the file.
+        :param uris: Iterable on uris to that file.
+        :param media_type: Media type of the file.
+        :param desc: Description of the file.
+        :param disposition: The content-disposition of the file.
+        :returns: The SFS element.
+        """
         sfs = stanza.StatelessFileSharing()
         if disposition:
             sfs["disposition"] = disposition
-        for uri in uris:
-            ref = stanza.UrlData()
-            ref["target"] = uri
-            sfs["sources"].append(ref)
+        if uris is not None:
+            for uri in uris:
+                ref = stanza.UrlData()
+                ref["target"] = uri
+                sfs["sources"].append(ref)
         if media_type:
             sfs["file"]["media-type"] = media_type
         if desc:

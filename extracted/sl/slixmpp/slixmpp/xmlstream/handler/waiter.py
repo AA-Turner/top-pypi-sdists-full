@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from asyncio import Event, wait_for, TimeoutError
-from typing import Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 from xml.etree.ElementTree import Element
 
 import slixmpp
@@ -37,7 +37,7 @@ class Waiter(BaseHandler):
     """
     _event: Event
 
-    def __init__(self, name: str, matcher: MatcherBase, stream: Optional[XMLStream] = None):
+    def __init__(self, name: str, matcher: MatcherBase, stream: XMLStream | None = None):
         BaseHandler.__init__(self, name, matcher, stream=stream)
         self._event = Event()
 
@@ -55,7 +55,7 @@ class Waiter(BaseHandler):
         """Do not process this handler during the main event loop."""
         pass
 
-    async def wait(self, timeout: Optional[int] = None) -> Optional[StanzaBase]:
+    async def wait(self, timeout: int | None = None) -> StanzaBase | None:
         """Block an event handler while waiting for a stanza to arrive.
 
         Be aware that this will impact performance if called from a

@@ -12,9 +12,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
-    Optional,
-    Tuple,
 )
 
 from slixmpp import JID
@@ -60,17 +57,17 @@ class XEP_0313(BasePlugin):
 
     def retrieve(
             self,
-            jid: Optional[JID] = None,
-            start: Optional[datetime] = None,
-            end: Optional[datetime] = None,
-            with_jid: Optional[JID] = None,
-            ifrom: Optional[JID] = None,
+            jid: JID | None = None,
+            start: datetime | None = None,
+            end: datetime | None = None,
+            with_jid: JID | None = None,
+            ifrom: JID | None = None,
             reverse: bool = False,
-            timeout: int = None,
-            callback: Callable[[Iq], None] = None,
+            timeout: int | None = None,
+            callback: Callable[[Iq], None] | None = None,
             iterator: bool = False,
-            rsm: Optional[Dict[str, Any]] = None
-    ) -> Awaitable:
+            rsm: dict[str, Any] | None = None
+    ) -> Awaitable[Iq]:
         """
         Send a MAM query and retrieve the results.
 
@@ -137,15 +134,15 @@ class XEP_0313(BasePlugin):
 
     async def iterate(
             self,
-            jid: Optional[JID] = None,
-            start: Optional[datetime] = None,
-            end: Optional[datetime] = None,
-            with_jid: Optional[JID] = None,
-            ifrom: Optional[JID] = None,
+            jid: JID | None = None,
+            start: datetime | None = None,
+            end: datetime | None = None,
+            with_jid: JID | None = None,
+            ifrom: JID | None = None,
             reverse: bool = False,
-            rsm: Optional[Dict[str, Any]] = None,
-            total: Optional[int] = None,
-    ) -> AsyncGenerator:
+            rsm: dict[str, Any] | None = None,
+            total: int | None = None,
+    ) -> AsyncGenerator[Message, None]:
         """
         Iterate over each message of MAM query.
 
@@ -211,12 +208,12 @@ class XEP_0313(BasePlugin):
 
     def _pre_mam_retrieve(
             self,
-            jid: Optional[JID] = None,
-            start: Optional[datetime] = None,
-            end: Optional[datetime] = None,
-            with_jid: Optional[JID] = None,
-            ifrom: Optional[JID] = None,
-    ) -> Tuple[Iq, Message]:
+            jid: JID | None = None,
+            start: datetime | None = None,
+            end: datetime | None = None,
+            with_jid: JID | None = None,
+            ifrom: JID | None = None,
+    ) -> tuple[Iq, Message]:
         """Build the IQ and stanza mask for MAM results
         """
         iq = self.xmpp.make_iq_set(ito=jid, ifrom=ifrom)
@@ -238,7 +235,7 @@ class XEP_0313(BasePlugin):
 
         return (iq, stanza_mask)
 
-    async def get_fields(self, jid: Optional[JID] = None, **iqkwargs) -> Form:
+    async def get_fields(self, jid: JID | None = None, **iqkwargs) -> Form:
         """Get MAM query fields.
 
         .. versionadded:: 1.8.0
@@ -252,8 +249,8 @@ class XEP_0313(BasePlugin):
         result = await iq.send(**iqkwargs)
         return result['mam']['form']
 
-    async def get_configuration_commands(self, jid: Optional[JID],
-                                         **discokwargs) -> Future:
+    async def get_configuration_commands(self, jid: JID | str | None,
+                                         **discokwargs) -> Future[Iq]:
         """Get the list of MAM advanced configuration commands.
 
         .. versionchanged:: 1.8.0
@@ -268,8 +265,8 @@ class XEP_0313(BasePlugin):
             **discokwargs
         )
 
-    def get_archive_metadata(self, jid: Optional[JID] = None,
-                             **iqkwargs) -> Future:
+    def get_archive_metadata(self, jid: JID | None = None,
+                             **iqkwargs) -> Future[Iq]:
         """Get the archive metadata from a JID.
 
         :param jid: JID to get the metadata from.

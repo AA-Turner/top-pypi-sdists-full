@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-plugin-dotenv
-Version: 3.2.0
+Version: 3.3.0
 Summary: poetry-plugin-dotenv - is the plugin that automatically loads environment variables from a dotenv file into the environment before poetry commands are run.
 License: MIT
 License-File: LICENSE

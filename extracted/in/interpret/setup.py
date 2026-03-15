@@ -5,7 +5,7 @@ from setuptools import find_packages, setup
 
 name = "interpret"
 # NOTE: Version is replaced by a regex script.
-version = "0.7.6"
+version = "0.7.7"
 long_description = """
 In the beginning machines learned in darkness, and data scientists struggled in the void to explain them.
 
@@ -39,12 +39,13 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],

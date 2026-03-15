@@ -6,7 +6,7 @@
 import logging
 
 from asyncio import Future
-from typing import Optional, Callable, List
+from typing import Callable
 from slixmpp import JID
 from slixmpp.xmlstream import register_stanza_plugin, ElementBase
 from slixmpp.plugins.base import BasePlugin, register_plugin
@@ -45,8 +45,8 @@ class XEP_0222(BasePlugin):
             jid=None, node=node, config=config, **iqkwargs
         )
 
-    def store(self, stanza: ElementBase, node: Optional[str] = None,
-              id: Optional[str] = None, **pubsubkwargs) -> Future:
+    def store(self, stanza: ElementBase, node: str | None = None,
+              id: str | None = None, **pubsubkwargs) -> Future:
         """
         Store public data via PEP.
 
@@ -79,8 +79,8 @@ class XEP_0222(BasePlugin):
 
         return self.xmpp['xep_0163'].publish(stanza, node, id=id, **pubsubkwargs)
 
-    def retrieve(self, node: str, id: Optional[str] = None,
-                 item_ids: Optional[List[str]] = None, **iqkwargs) -> Future:
+    def retrieve(self, node: str, id: str | None = None,
+                 item_ids: list[str] | None = None, **iqkwargs) -> Future:
         """
         Retrieve public data via PEP.
 

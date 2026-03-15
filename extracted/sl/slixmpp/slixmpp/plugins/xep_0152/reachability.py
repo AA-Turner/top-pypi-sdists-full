@@ -8,7 +8,7 @@ import logging
 from asyncio import Future
 
 from slixmpp import JID
-from typing import Dict, List, Optional, Callable
+from typing import Callable
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0152 import stanza, Reachability
 from slixmpp.plugins.xep_0004 import Form
@@ -35,7 +35,7 @@ class XEP_0152(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('reachability', Reachability)
 
-    def publish_reachability(self, addresses: List[Dict[str, str]],
+    def publish_reachability(self, addresses: list[dict[str, str]],
                              **pubsubkwargs) -> Future:
         """
         Publish alternative addresses where the user can be reached.

@@ -182,7 +182,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
         if y is not None:
             y = clean_dimensions(y, "y")
             if y.ndim != 1:
-                msg = "y must be 1 dimensional"
+                msg = f"y must be 1 dimensional, but got {y.ndim} dimensions with shape {y.shape}"
                 raise ValueError(msg)
             n_samples = len(y)
 
@@ -232,7 +232,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
             _log.error(msg)
             raise ValueError(msg)
 
-        feature_names_in = unify_feature_names(
+        feature_names_in, feature_types = unify_feature_names(
             X, self.feature_names, self.feature_types
         )
         n_features = len(feature_names_in)
@@ -279,17 +279,15 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
             X,
             n_samples,
             feature_names_in,
-            self.feature_types,
+            feature_types,
             self.min_unique_continuous,
         )
         for feature_idx in range(n_features):
-            feature_type_given = (
-                None if self.feature_types is None else self.feature_types[feature_idx]
-            )
-            if feature_type_given == "ignore":
+            feature_type = feature_types[feature_idx]
+            if feature_type == "ignore":
                 feature_type_in = "ignore"
             else:
-                feature_type_in, nonmissings, uniques, X_col, bad = get_col(feature_idx)
+                feature_type_in, bad, X_col, uniques, nonmissings = get_col(feature_idx)
 
                 # TODO: in the future allow this to be per-feature
                 max_bins = self.max_bins
@@ -313,7 +311,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
                             _log.error(msg)
                             raise ValueError(msg)
 
-                        if feature_type_given != "continuous":
+                        if feature_type != "continuous":
                             is_privacy_types_warning = True
 
                         min_feature_val = np.nan
@@ -365,7 +363,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
                         cuts = _cut_continuous(
                             native,
                             X_col,
-                            feature_type_given,
+                            feature_type,
                             self.binning,
                             max_bins,
                             self.min_samples_bin,
@@ -404,7 +402,8 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
                 else:
                     # categorical feature
 
-                    categories = dict(zip(uniques, count(1)))
+                    # use map(str,...) to convert numpy strins to python strings
+                    categories = dict(zip(map(str, uniques), count(1)))
 
                     X_col = categorical_encode(uniques, X_col, nonmissings, categories)
 
@@ -421,7 +420,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
                             _log.error(msg)
                             raise ValueError(msg)
 
-                        if feature_type_given is None:
+                        if feature_type is None:
                             # if auto-detected then we need to show a privacy warning
                             is_privacy_types_warning = True
 
@@ -539,7 +538,9 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
 
                     X_col = 0
                 else:
-                    _, nonmissings, uniques, X_col, bad = get_col(feature_idx)
+                    bad, X_col, uniques, nonmissings = get_col(
+                        feature_idx, self.feature_types_in_[feature_idx]
+                    )
                     if isinstance(bins, dict):
                         # categorical feature
 
@@ -576,7 +577,7 @@ class EBMPreprocessor(TransformerMixin, BaseEstimator):
         if y is not None:
             y = clean_dimensions(y, "y")
             if y.ndim != 1:
-                msg = "y must be 1 dimensional"
+                msg = f"y must be 1 dimensional, but got {y.ndim} dimensions with shape {y.shape}"
                 raise ValueError(msg)
             n_samples = len(y)
 

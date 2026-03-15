@@ -1,4 +1,3 @@
-import logging
 from warnings import warn
 
 import numpy as np
@@ -9,6 +8,7 @@ from dipy.io.stateful_tractogram import Space, StatefulTractogram
 from dipy.io.streamline import save_tractogram
 from dipy.testing.decorators import warning_for_keywords
 from dipy.tracking.streamline import Streamlines
+from dipy.utils.logging import logger
 from dipy.utils.optpkg import optional_package
 from dipy.viz.gmem import GlobalHorizon
 from dipy.viz.horizon.tab import (
@@ -24,7 +24,7 @@ from dipy.viz.horizon.util import (
     check_img_dtype,
     check_img_shapes,
     check_peak_size,
-    unpack_image,
+    unpack_data,
     unpack_surface,
 )
 from dipy.viz.horizon.visualizer import (
@@ -34,7 +34,9 @@ from dipy.viz.horizon.visualizer import (
     SurfaceVisualizer,
 )
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if has_fury:
     from fury import __version__ as fury_version, actor, ui, window
@@ -92,25 +94,31 @@ class Horizon:
         roi_colors=(1, 0, 0),
         surface_colors=((1, 0, 0),),
     ):
-        """Interactive medical visualization - Invert the Horizon!
+        """Orchestrate interactive medical visualization for multimodal data.
+
+        Invert the Horizon! The Horizon class acts as a central controller for
+        visualizing medical imaging data, including tractograms, volumetric images,
+        and surfaces. It manages the 3D scene, user interactions, and optional
+        processing pipelines such as QuickBundlesX clustering
         :footcite:p:`Garyfallidis2019`.
 
         Parameters
         ----------
-        tractograms : sequence of StatefulTractograms
+        tractograms : sequence of StatefulTractograms, optional
             StatefulTractograms are used for making sure that the coordinate
             systems are correct
-        images : sequence of tuples
+        images : sequence of tuples, optional
             Each tuple contains data and affine
-        pams : sequence of PeakAndMetrics
+        pams : sequence of PeakAndMetrics, optional
             Contains peak directions and spherical harmonic coefficients
-        surfaces : sequence of tuples
+        surfaces : sequence of tuples, optional
             Each tuple contains vertices and faces
-        cluster : bool
-            Enable QuickBundlesX clustering
+        cluster : bool, optional
+            If True, applies QuickBundlesX clustering to the input tractograms
+            for real-time simplification and grouping of streamlines.
         rgb : bool, optional
             Enable the color image (rgb only, alpha channel will be ignored).
-        cluster_thr : float
+        cluster_thr : float, optional
             Distance threshold used for clustering. Default value 15.0 for
             small animal data you may need to use something smaller such
             as 2.0. The threshold is in mm. For this parameter to be active
@@ -123,34 +131,34 @@ class Horizon:
             should only be applied to one of the 2 types, then use the
             options 'tracts' and 'rois' for the tractograms and the ROIs
             respectively.
-        length_gt : float
+        length_gt : float, optional
             Clusters with average length greater than ``length_gt`` amount
             in mm will be shown.
-        length_lt : float
+        length_lt : float, optional
             Clusters with average length less than ``length_lt`` amount in mm
             will be shown.
-        clusters_gt : int
+        clusters_gt : int, optional
             Clusters with size greater than ``clusters_gt`` will be shown.
-        clusters_lt : int
+        clusters_lt : int, optional
             Clusters with size less than ``clusters_lt`` will be shown.
-        world_coords : bool
+        world_coords : bool, optional
             Show data in their world coordinates (not native voxel coordinates)
             Default True.
-        interactive : bool
+        interactive : bool, optional
             Allow user interaction. If False then Horizon goes on stealth mode
             and just saves pictures.
-        out_png : string
+        out_png : string, optional
             Filename of saved picture.
-        recorded_events : string
+        recorded_events : string, optional
             File path to replay recorded events
-        return_showm : bool
+        return_showm : bool, optional
             Return ShowManager object. Used only at Python level. Can be used
             for extending Horizon's capabilities externally and for testing
             purposes.
-        bg_color : ndarray or list or tuple
+        bg_color : ndarray or list or tuple, optional
             Define the background color of the scene.
             Default is black (0, 0, 0)
-        order_transparent : bool
+        order_transparent : bool, optional
             Default True. Use depth peeling to sort transparent objects.
             If True also enables anti-aliasing.
         buan : bool, optional
@@ -388,14 +396,14 @@ class Horizon:
                 c = cluster_actors[bundle]["cluster"]
                 indices = tractogram_clusters[t][c]
                 saving_streamlines.extend(Streamlines(indices))
-        logging.info("Saving result in tmp.trk")
+        logger.info("Saving result in tmp.trx")
 
         # Using the header of the first of the tractograms
         sft_new = StatefulTractogram(
             saving_streamlines, self.tractograms[0], Space.RASMM
         )
-        save_tractogram(sft_new, "tmp.trk", bbox_valid_check=False)
-        logging.info("Saved!")
+        save_tractogram(sft_new, "tmp.trx", bbox_valid_check=False)
+        logger.info("Saved!")
 
     # TODO: Move to another class/module
     def __show_all(self):
@@ -487,6 +495,14 @@ class Horizon:
             for t, sft in enumerate(self.tractograms):
                 streamlines = sft.streamlines
 
+                if len(streamlines) == 0:
+                    warn(
+                        f"Tractogram {t} is empty and will be skipped.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    continue
+
                 if "tracts" in self.random_colors:
                     colors = next(self.color_gen)
                 else:
@@ -557,9 +573,9 @@ class Horizon:
             sync_slices, sync_vol = check_img_shapes(self.images)
             for img in self.images:
                 title = f"Image {img_count + 1}"
-                data, affine, fname = unpack_image(img)
+                data, affine, fname = unpack_data(img, return_size=3)
                 self.vox2ras = affine
-                if self.__roi_images:
+                if self.__roi_images and data.ndim == 3:
                     if "rois" in self.random_colors:
                         roi_color = next(self.color_gen)
                     roi_actor = actor.contour_from_roi(
@@ -592,6 +608,15 @@ class Horizon:
 
         sync_peaks = False
         if len(self.pams) > 0:
+            for idx, f_pam in enumerate(self.pams):
+                title = f"Peaks {idx + 1}"
+                pam, fname = unpack_data(f_pam, return_size=2)
+                peak_viz = PeaksVisualizer(
+                    (pam.peak_dirs, pam.affine), self.world_coords, fname
+                )
+                scene.add(peak_viz.actors[0])
+                self.__tabs.append(PeaksTab(peak_viz.actors[0], title, fname))
+                self.pams[idx] = (pam, fname)
             if self.images:
                 sync_peaks = check_peak_size(
                     self.pams,
@@ -600,12 +625,6 @@ class Horizon:
                 )
             else:
                 sync_peaks = check_peak_size(self.pams)
-            for pam in self.pams:
-                peak_viz = PeaksVisualizer(
-                    (pam.peak_dirs, pam.affine), self.world_coords
-                )
-                scene.add(peak_viz.actors[0])
-                self.__tabs.append(PeaksTab(peak_viz.actors[0]))
 
         if len(self._surfaces) > 0:
             for idx, surface in enumerate(self._surfaces):
@@ -703,7 +722,7 @@ class Horizon:
             self.show_m.render()
 
         def right_click_cluster_callback(obj, event):
-            logging.info("Cluster Area Selected")
+            logger.info("Cluster Area Selected")
             self.show_m.render()
 
         for cl in self.cla:

@@ -1,7 +1,5 @@
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import typing
+import unittest
 
 
 class TestCase(unittest.TestCase):
@@ -10,4 +8,4 @@ class TestCase(unittest.TestCase):
     If necessary, we can put common utility or setup code in here.
     """
 
-    maxDiff = 10 ** 10
+    maxDiff: typing.Optional[int] = 10**10

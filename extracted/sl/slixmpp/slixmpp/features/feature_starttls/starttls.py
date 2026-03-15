@@ -12,7 +12,7 @@ from slixmpp.xmlstream.matcher import MatchXPath
 from slixmpp.xmlstream.handler import CoroutineCallback
 from slixmpp.features.feature_starttls import stanza
 
-from typing import ClassVar, Set
+from typing import ClassVar
 
 
 log = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class FeatureSTARTTLS(BasePlugin):
 
     name = 'feature_starttls'
     description = 'RFC 6120: Stream Feature: STARTTLS'
-    dependencies: ClassVar[Set[str]] = set()
+    dependencies: ClassVar[set[str]] = set()
     stanza = stanza
 
     def plugin_init(self):

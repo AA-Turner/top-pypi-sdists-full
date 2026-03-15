@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 import datetime as dt
-from typing import Union
 
 from slixmpp.plugins import BasePlugin, register_plugin
 
@@ -27,7 +26,7 @@ def parse(time_str: str) -> dt.datetime:
         return dt.datetime.strptime(time_str, '%Y-%m-%dT%H:%M:%S%z')
 
 
-def format_date(time_obj: Union[dt.datetime, dt.date]) -> str:
+def format_date(time_obj: dt.datetime | dt.date) -> str:
     """
     Return a formatted string version of a date object.
 
@@ -42,7 +41,7 @@ def format_date(time_obj: Union[dt.datetime, dt.date]) -> str:
     return time_obj.isoformat()
 
 
-def format_time(time_obj: Union[dt.datetime, dt.time]) -> str:
+def format_time(time_obj: dt.datetime | dt.time) -> str:
     """
     Return a formatted string version of a time object.
 
@@ -78,7 +77,7 @@ def format_datetime(time_obj: dt.datetime) -> str:
     return timestamp
 
 
-def date(year=None, month=None, day=None, obj=False) -> Union[str, dt.date]:
+def date(year=None, month=None, day=None, obj=False) -> str | dt.date:
     """
     Create a date only timestamp for the given instant.
 

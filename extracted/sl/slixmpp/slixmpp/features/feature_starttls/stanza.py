@@ -3,7 +3,7 @@
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Set, ClassVar
+from typing import ClassVar
 from slixmpp.xmlstream import StanzaBase, ElementBase
 from slixmpp.xmlstream.xmlstream import InvalidCABundle
 
@@ -38,7 +38,7 @@ class Proceed(StanzaBase):
     """
     name = 'proceed'
     namespace = 'urn:ietf:params:xml:ns:xmpp-tls'
-    interfaces: ClassVar[Set[str]] = set()
+    interfaces: ClassVar[set[str]] = set()
 
     def exception(self, e: Exception) -> None:
         log.exception('Error handling {%s}%s stanza',
@@ -57,4 +57,4 @@ class Failure(StanzaBase):
     """
     name = 'failure'
     namespace = 'urn:ietf:params:xml:ns:xmpp-tls'
-    interfaces: ClassVar[Set[str]] = set()
+    interfaces: ClassVar[set[str]] = set()

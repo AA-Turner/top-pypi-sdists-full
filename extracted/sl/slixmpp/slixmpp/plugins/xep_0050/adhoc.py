@@ -3,6 +3,7 @@
 # Copyright (C) 2011 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
+from slixmpp.types import OptJidStr, OptJid
 import asyncio
 import functools
 import logging
@@ -25,7 +26,9 @@ log = logging.getLogger(__name__)
 
 
 SessionDict = dict[str, typing.Any]
+HandlerType = typing.Callable[[Iq, SessionDict], typing.Awaitable[SessionDict] | SessionDict]
 TimeoutHandlerType = typing.Callable[[SessionDict], typing.Awaitable[None]]
+CommandType = tuple[str, HandlerType | None, TimeoutHandlerType | None, float]
 
 
 class XEP_0050(BasePlugin):
@@ -43,17 +46,24 @@ class XEP_0050(BasePlugin):
     Also see <http://xmpp.org/extensions/xep-0050.html>
 
     Events:
-        command_execute  -- Received a command with action="execute"
-        command_next     -- Received a command with action="next"
-        command_complete -- Received a command with action="complete"
-        command_cancel   -- Received a command with action="cancel"
+        - command_execute: Received a command with action="execute"
+        - command_next: Received a command with action="next"
+        - command_complete: Received a command with action="complete"
+        - command_cancel: Received a command with action="cancel"
 
     Attributes:
-        commands -- A dictionary mapping JID/node pairs to command
-                    names and handlers.
-        sessions -- A dictionary or equivalent backend mapping
-                    session IDs to dictionaries containing data
-                    relevant to a command's session.
+        - ``commands``: A dictionary mapping JID/node pairs to command
+            names and handlers. Only used with the default API handlers.
+        - ``sessions``: A dictionary or equivalent backend mapping
+            session IDs to dictionaries containing data
+            relevant to a command's session.
+
+    Slixmpp API:
+        A basic default static implementation is provided for those using the
+        ``self.commands`` attribute.
+
+        - set_command: Set handler for a ``jid/node/ifrom`` combo
+        - get_command: Get handler for a ``jid/node/ifrom`` combo
 
     """
 
@@ -64,7 +74,7 @@ class XEP_0050(BasePlugin):
     default_config = {
         'session_db': None
     }
-    commands: dict[tuple[str, str], tuple[str, typing.Callable, TimeoutHandlerType | None, float]]
+    commands: dict[tuple[str , str | None], CommandType]
     _timeout_tasks: dict[str, asyncio.Task]
 
     def plugin_init(self):
@@ -85,6 +95,8 @@ class XEP_0050(BasePlugin):
         register_stanza_plugin(Command, Form, iterable=True)
 
         self.xmpp.add_event_handler('command', self._handle_command_all)
+        self.api.register(self._set_command, "set_command", default=True)
+        self.api.register(self._get_command, "get_command", default=True)
 
     def plugin_end(self):
         self.xmpp.del_event_handler('command', self._handle_command_all)
@@ -119,10 +131,43 @@ class XEP_0050(BasePlugin):
         """
         pass
 
+    # Default API handlers
+
+    async def _set_command(self,
+        jid: OptJid = None,
+        node: str | None = None,
+        ifrom: OptJid = None,
+        args: CommandType | None = None,
+    ) -> None:
+        if args is None:
+            raise RuntimeError
+        jid = self.__default_jid(jid)
+        self.commands[(jid.full, node)] = args
+
+    async def _get_command(self,
+        jid: OptJidStr = None,
+        node: str | None = None,
+        ifrom: OptJid = None,
+        args: None = None,
+    ) -> CommandType | None:
+        jid = self.__default_jid(jid)
+        return self.commands.get((jid.full, node))
+
+    def __default_jid(self, jid: OptJidStr) -> JID:
+        if jid is None:
+            jid = self.xmpp.boundjid
+        elif not isinstance(jid, JID):
+            jid = JID(jid)
+        return jid
+
     # =================================================================
     # Server side (command provider) API
 
-    def add_command(self, jid=None, node=None, name='', handler=None,
+    def add_command(self,
+                    jid:OptJidStr = None,
+                    node:str | None = None,
+                    name='',
+                    handler: HandlerType | None=None,
                     *,
                     timeout: float = 0,
                     timeout_handler: TimeoutHandlerType | None = None):
@@ -149,10 +194,7 @@ class XEP_0050(BasePlugin):
             on timeout, with the session dict, before the "cancel" IQ is sent
             to the XMPP client.
         """
-        if jid is None:
-            jid = self.xmpp.boundjid
-        elif not isinstance(jid, JID):
-            jid = JID(jid)
+        jid = self.__default_jid(jid)
         item_jid = jid.full
 
         self.xmpp['xep_0030'].add_identity(category='automation',
@@ -172,7 +214,12 @@ class XEP_0050(BasePlugin):
                                            jid=jid)
         self.xmpp['xep_0030'].add_feature(Command.namespace, None, jid)
 
-        self.commands[(item_jid, node)] = (name, handler, timeout_handler, timeout)
+        self.xmpp.loop.create_task(
+            self.__add_command(item_jid, node, None, (name, handler, timeout_handler, timeout))
+        )
+
+    async def __add_command(self, *args) -> None:
+        await self.api["set_command"](*args)
 
     def new_session(self):
         """Return a new session ID."""
@@ -201,7 +248,7 @@ class XEP_0050(BasePlugin):
             return await self._handle_command_cancel(iq)
         return None
 
-    async def _handle_command_start(self, iq):
+    async def _handle_command_start(self, iq: Iq) -> None:
         """
         Process an initial request to execute a command.
 
@@ -210,14 +257,15 @@ class XEP_0050(BasePlugin):
         sessionid = self.new_session()
         node = iq['command']['node']
         key = (iq['to'].full, node)
-        name, handler, _, _ = self.commands.get(key, ('Not found', None, None, 0))
+
+        name, handler, _, _ = await self.api["get_command"](*key, iq.get_from()) or ('Not found', None, None, 0)
         if not handler:
-            log.debug('Command not found: %s, %s', key, self.commands)
+            log.debug('Command not found: %s', key)
             raise XMPPError('item-not-found')
 
         payload = []
-        for stanza in iq['command']['substanzas']:
-            payload.append(stanza)
+        for stanza_ in iq['command']['substanzas']:
+            payload.append(stanza_)
 
         if len(payload) == 1:
             payload = payload[0]
@@ -241,10 +289,10 @@ class XEP_0050(BasePlugin):
                            'prev': None,
                            'cancel': None}
 
-        self._reset_timeout_task(initial_session, iq)
+        await self._reset_timeout_task(initial_session, iq)
         session = await _await_if_needed(handler, iq, initial_session)
 
-        self._process_command_response(iq, session)
+        await self._process_command_response(iq, session)
 
     async def _handle_command_next(self, iq):
         """
@@ -255,7 +303,7 @@ class XEP_0050(BasePlugin):
         """
         sessionid = iq['command']['sessionid']
         session = self.sessions.get(sessionid)
-        self._reset_timeout_task(session, iq)
+        await self._reset_timeout_task(session, iq)
 
         if session:
             handler = session['next']
@@ -269,7 +317,7 @@ class XEP_0050(BasePlugin):
 
             session = await _await_if_needed(handler, results, session)
 
-            self._process_command_response(iq, session)
+            await self._process_command_response(iq, session)
         else:
             raise XMPPError('item-not-found')
 
@@ -282,7 +330,7 @@ class XEP_0050(BasePlugin):
         """
         sessionid = iq['command']['sessionid']
         session = self.sessions.get(sessionid)
-        self._reset_timeout_task(session, iq)
+        await self._reset_timeout_task(session, iq)
 
         if session:
             handler = session['prev']
@@ -296,11 +344,11 @@ class XEP_0050(BasePlugin):
 
             session = await _await_if_needed(handler, results, session)
 
-            self._process_command_response(iq, session)
+            await self._process_command_response(iq, session)
         else:
             raise XMPPError('item-not-found')
 
-    def _process_command_response(self, iq, session):
+    async def _process_command_response(self, iq: Iq, session: dict) -> None:
         """
         Generate a command reply stanza based on the
         provided session data.
@@ -309,7 +357,7 @@ class XEP_0050(BasePlugin):
         :param session: A dictionary of relevant session data.
         """
         sessionid = session['id']
-        self._reset_timeout_task(session, iq)
+        await self._reset_timeout_task(session, iq)
 
         payload = session['payload']
         if payload is None:
@@ -441,9 +489,12 @@ class XEP_0050(BasePlugin):
         else:
             raise XMPPError('item-not-found')
 
-    def _reset_timeout_task(self, session: SessionDict, iq: Iq) -> None:
+    async def _reset_timeout_task(self, session: SessionDict | None, iq: Iq) -> None:
+        if not session:
+            return
+
         key = (iq['to'].full, iq['command']['node'])
-        _, _, handler, timeout = self.commands.get(key, ("Not found", None, None, 0))
+        _, _, handler, timeout = await self.api["get_command"](*key, iq.get_from()) or ("Not found", None, None, 0)
 
         self._cancel_timeout_task(session["id"])
 
@@ -680,8 +731,8 @@ async def _await_if_needed(handler, *args):
     if handler is None:
         raise XMPPError("bad-request", text="The command is completed")
     if _iscoroutine_or_partial_coroutine(handler):
-        log.debug(f"%s is async", handler)
+        log.debug("%s is async", handler)
         return await handler(*args)
     else:
-        log.debug(f"%s is sync", handler)
+        log.debug("%s is sync", handler)
         return handler(*args)

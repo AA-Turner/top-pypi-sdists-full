@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-cffi"
-version = "1.17.0.20260307"
+version = "2.0.0.20260315"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`cffi`](https://github.com/python-cffi/cffi/) package. It can be used by type checkers
 to check code that uses `cffi`. This version of
 `types-cffi` aims to provide accurate annotations for
-`cffi==1.17.*`.
+`cffi==2.0.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`07ffb67b924d5f532f8b8b72a4902f58faae6aca`](https://github.com/python/typeshed/commit/07ffb67b924d5f532f8b8b72a4902f58faae6aca).
+[`f8f0794d0fe249c06dc9f31a004d85be6cca6ced`](https://github.com/python/typeshed/commit/f8f0794d0fe249c06dc9f31a004d85be6cca6ced).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -48,3 +48,7 @@ dependencies = ['types-setuptools']
 [tool.setuptools]
 packages = ['_cffi_backend-stubs', 'cffi-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'_cffi_backend-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'cffi-stubs' = ['__init__.pyi', 'api.pyi', 'backend_ctypes.pyi', 'cffi_opcode.pyi', 'commontypes.pyi', 'cparser.pyi', 'error.pyi', 'ffiplatform.pyi', 'lock.pyi', 'model.pyi', 'pkgconfig.pyi', 'recompiler.pyi', 'setuptools_ext.pyi', 'vengine_cpy.pyi', 'vengine_gen.pyi', 'verifier.pyi', 'METADATA.toml', 'py.typed']

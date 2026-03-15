@@ -6,10 +6,6 @@ from datetime import datetime
 from typing import (
     Any,
     Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
 )
 
 from slixmpp.stanza import Message
@@ -59,7 +55,7 @@ class MAM(ElementBase):
 
     def setup(self, xml=None):
         ElementBase.setup(self, xml)
-        self._results: List[Message] = []
+        self._results: list[Message] = []
 
     def _setup_form(self):
         found = self.xml.find(
@@ -79,32 +75,32 @@ class MAM(ElementBase):
             return {}
         return form.get_fields()
 
-    def get_start(self) -> Optional[datetime]:
+    def get_start(self) -> datetime | None:
         fields = self.get_fields()
         field = fields.get('start')
         if field and field["value"]:
             return xep_0082.parse(field['value'])
         return None
 
-    def set_start(self, value: Union[str, datetime]):
+    def set_start(self, value: str | datetime):
         self._setup_form()
         if isinstance(value, datetime):
             value = xep_0082.format_datetime(value)
         self.set_custom_field('start', value)
 
-    def get_end(self) -> Optional[datetime]:
+    def get_end(self) -> datetime | None:
         fields = self.get_fields()
         field = fields.get('end')
         if field and field["value"]:
             return xep_0082.parse(field['value'])
         return None
 
-    def set_end(self, value: Union[str, datetime]):
+    def set_end(self, value: str | datetime):
         if isinstance(value, datetime):
             value = xep_0082.format_datetime(value)
         self.set_custom_field('end', value)
 
-    def get_with(self) -> Optional[JID]:
+    def get_with(self) -> JID | None:
         fields = self.get_fields()
         field = fields.get('with')
         if field:
@@ -124,7 +120,7 @@ class MAM(ElementBase):
             field = self['form'].add_field(var=fieldname)
             field['value'] = str(value)
 
-    def get_custom_field(self, fieldname: str) -> Optional[str]:
+    def get_custom_field(self, fieldname: str) -> str | None:
         fields = self.get_fields()
         field = fields.get(fieldname)
         if field:
@@ -143,7 +139,7 @@ class MAM(ElementBase):
     def get_after_id(self):
         self.get_custom_field('after-id')
 
-    def set_ids(self, value: List[str]):
+    def set_ids(self, value: list[str]):
         self._setup_form()
         fields = self.get_fields()
         field = fields.get('ids')
@@ -160,10 +156,10 @@ class MAM(ElementBase):
     # way to access the set of collected message responses
     # from the query.
 
-    def get_results(self) -> List[Message]:
+    def get_results(self) -> list[Message]:
         return self._results
 
-    def set_results(self, values: List[Message]):
+    def set_results(self, values: list[Message]):
         self._results = values
 
     def del_results(self):
@@ -194,16 +190,16 @@ class Fin(ElementBase):
 
     def setup(self, xml=None):
         ElementBase.setup(self, xml)
-        self._results: List[Message] = []
+        self._results: list[Message] = []
 
     # The results interface is meant only as an easy
     # way to access the set of collected message responses
     # from the query.
 
-    def get_results(self) -> List[Message]:
+    def get_results(self) -> list[Message]:
         return self._results
 
-    def set_results(self, values: List[Message]):
+    def set_results(self, values: list[Message]):
         self._results = values
 
     def del_results(self):
@@ -278,7 +274,7 @@ class Start(ElementBase):
     #:   archive
     interfaces = {'id', 'timestamp'}
 
-    def get_timestamp(self) -> Optional[datetime]:
+    def get_timestamp(self) -> datetime | None:
         """Get the timestamp.
 
         :returns: The timestamp.
@@ -288,7 +284,7 @@ class Start(ElementBase):
             return xep_0082.parse(stamp)
         return stamp
 
-    def set_timestamp(self, value: Union[datetime, str]):
+    def set_timestamp(self, value: datetime | str):
         """Set the timestamp.
 
         :param value: Value of the timestamp (either a datetime or a
@@ -323,7 +319,7 @@ class End(ElementBase):
     #:   archive
     interfaces = {'id', 'timestamp'}
 
-    def get_timestamp(self) -> Optional[datetime]:
+    def get_timestamp(self) -> datetime | None:
         """Get the timestamp.
 
         :returns: The timestamp.
@@ -333,7 +329,7 @@ class End(ElementBase):
             return xep_0082.parse(stamp)
         return stamp
 
-    def set_timestamp(self, value: Union[datetime, str]):
+    def set_timestamp(self, value: datetime | str):
         """Set the timestamp.
 
         :param value: Value of the timestamp (either a datetime or a

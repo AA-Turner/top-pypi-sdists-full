@@ -3,7 +3,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-from typing import Optional
 from slixmpp import JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.exceptions import IqError, IqTimeout
@@ -21,7 +20,7 @@ class XEP_0502(BasePlugin):
     dependencies = {"xep_0030", "xep_0128"}
     namespace = 'urn:xmpp:muc-activity'
 
-    async def get_activity(self, jid: JID, **iqargs) -> Optional[float]:
+    async def get_activity(self, jid: JID, **iqargs) -> float | None:
         """
         Return the activity of a room, or None if the activity is not found
         """

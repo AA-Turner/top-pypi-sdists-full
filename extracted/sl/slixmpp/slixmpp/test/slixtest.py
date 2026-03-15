@@ -7,7 +7,6 @@ import atexit
 import unittest
 from queue import Queue
 from xml.parsers.expat import ExpatError
-from typing import Optional, Union
 
 from slixmpp.test import TestTransport
 from slixmpp import ClientXMPP, ComponentXMPP
@@ -632,7 +631,7 @@ class SlixTest(unittest.TestCase):
         loop.run_until_complete(queue.join())
         future.cancel()
 
-    def wait_(self, timeout: Optional[Union[int, float]] = None):
+    def wait_(self, timeout: int | float | None = None):
         async def yield_some():
             for i in range(100):
                 await asyncio.sleep(0)

@@ -6,7 +6,7 @@ steps:
   setup_venv:
     image: codeberg.org/poezio/slixmpp:ci
     commands:
-    - uv sync --frozen --only-group dev
+    - uv sync --frozen --only-group lint
   mypy:
     image: codeberg.org/poezio/slixmpp:ci
     commands:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from asyncio import ensure_future
 from inspect import iscoroutinefunction
-from typing import Optional, Callable, Awaitable, TYPE_CHECKING
+from typing import Callable, Awaitable, TYPE_CHECKING
 
 from slixmpp.xmlstream.stanzabase import StanzaBase
 from slixmpp.xmlstream.handler.base import BaseHandler
@@ -51,7 +51,7 @@ class CoroutineCallback(BaseHandler):
 
     def __init__(self, name: str, matcher: MatcherBase,
                  pointer: CoroutineFunction, once: bool = False,
-                 instream: bool = False, stream: Optional[XMLStream] = None):
+                 instream: bool = False, stream: XMLStream | None = None):
         BaseHandler.__init__(self, name, matcher, stream)
         if not iscoroutinefunction(pointer):
             raise ValueError("Given function is not a coroutine")

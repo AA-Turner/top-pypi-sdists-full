@@ -49,16 +49,12 @@ class Marginal(ExplainerMixin):
 
         y = clean_dimensions(y, "y")
         if y.ndim != 1:
-            msg = "y must be 1 dimensional"
+            msg = f"y must be 1 dimensional, but got {y.ndim} dimensions with shape {y.shape}"
             raise ValueError(msg)
 
         try:
             y = y.astype(np.float64, copy=False)
-        except (TypeError, ValueError):
-            # we get a TypeError whenever we have an np.object_ array and numpy attempts to call float(), but the
-            # object doesn't have a __float__ function.  We get a ValueError when either a str object inside an
-            # np.object_ array or when an np.unicode_ array attempts to convert a string to a float and fails
-
+        except:  # object can throw anything in their __float__ function
             y = typify_classification(y)
 
         X, n_samples = preclean_X(X, self.feature_names, self.feature_types, len(y))
@@ -107,8 +103,8 @@ class Marginal(ExplainerMixin):
                 values, counts = np.unique(X[:, feat_idx], return_counts=True)
                 corr = None
             else:
-                msg = f"Cannot support type: {feature_type}"
-                raise Exception(msg)
+                msg = f"Unsupported feature type '{feature_type}'. Expected 'continuous', 'nominal', or 'ordinal'."
+                raise ValueError(msg)
 
             feat_density_data_dict = {"names": values, "scores": counts}
             specific_dict = {
@@ -318,16 +314,12 @@ class ClassHistogram(ExplainerMixin):
 
         y = clean_dimensions(y, "y")
         if y.ndim != 1:
-            msg = "y must be 1 dimensional"
+            msg = f"y must be 1 dimensional, but got {y.ndim} dimensions with shape {y.shape}"
             raise ValueError(msg)
 
         try:
             y = y.astype(np.float64, copy=False)
-        except (TypeError, ValueError):
-            # we get a TypeError whenever we have an np.object_ array and numpy attempts to call float(), but the
-            # object doesn't have a __float__ function.  We get a ValueError when either a str object inside an
-            # np.object_ array or when an np.unicode_ array attempts to convert a string to a float and fails
-
+        except:  # object can throw anything in their __float__ function
             y = typify_classification(y)
 
         X, n_samples = preclean_X(X, self.feature_names, self.feature_types, len(y))

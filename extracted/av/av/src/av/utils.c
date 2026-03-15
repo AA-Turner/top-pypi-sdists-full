@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__utils
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1579,8 +1561,7 @@ static const char* const __pyx_f[] = {
 struct __pyx_opt_args_2av_5error_stash_exception;
 struct __pyx_opt_args_2av_5error_err_check;
 
-/* "av/error.pxd":2
- * 
+/* "av/error.pxd":1
  * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
  * cpdef int err_check(int res, filename=*) except -1
 */
@@ -1589,8 +1570,7 @@ struct __pyx_opt_args_2av_5error_stash_exception {
   PyObject *exc_info;
 };
 
-/* "av/error.pxd":3
- * 
+/* "av/error.pxd":2
  * cdef int stash_exception(exc_info=*)
  * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
 */
@@ -1696,9 +1676,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
 #else
 static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf);
 #endif
-
-/* RaiseUnexpectedTypeError.proto */
-static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
 /* PyThreadStateGet.proto (used by PyErrFetchRestore) */
 #if CYTHON_FAST_THREAD_STATE
@@ -2125,8 +2102,6 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
 
 /* Module declarations from "cython.view" */
@@ -2264,7 +2239,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/utils.py":12
+/* "av/utils.py":9
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2284,7 +2259,7 @@ static PyObject *__pyx_f_2av_5utils__decode(char *__pyx_v_s, PyObject *__pyx_v_e
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode", 0);
 
-  /* "av/utils.py":14
+  /* "av/utils.py":11
  * @cython.cfunc
  * def _decode(s: cython.pointer[cython.char], encoding, errors) -> str:
  *     return cython.cast(bytes, s).decode(encoding, errors)             # <<<<<<<<<<<<<<
@@ -2292,7 +2267,7 @@ static PyObject *__pyx_f_2av_5utils__decode(char *__pyx_v_s, PyObject *__pyx_v_e
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_s); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_s); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 11, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -2302,14 +2277,14 @@ static PyObject *__pyx_f_2av_5utils__decode(char *__pyx_v_s, PyObject *__pyx_v_e
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/utils.py":12
+  /* "av/utils.py":9
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2330,69 +2305,7 @@ static PyObject *__pyx_f_2av_5utils__decode(char *__pyx_v_s, PyObject *__pyx_v_e
   return __pyx_r;
 }
 
-/* "av/utils.py":17
- * 
- * 
- * @cython.cfunc             # <<<<<<<<<<<<<<
- * def _encode(s, encoding, errors) -> bytes:
- *     return s.encode(encoding, errors)
-*/
-
-static PyObject *__pyx_f_2av_5utils__encode(PyObject *__pyx_v_s, PyObject *__pyx_v_encoding, PyObject *__pyx_v_errors) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  size_t __pyx_t_3;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_encode", 0);
-
-  /* "av/utils.py":19
- * @cython.cfunc
- * def _encode(s, encoding, errors) -> bytes:
- *     return s.encode(encoding, errors)             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-  __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __pyx_v_s;
-  __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = 0;
-  {
-    PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_encoding, __pyx_v_errors};
-    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
-  if (!(likely(PyBytes_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_t_1))) __PYX_ERR(0, 19, __pyx_L1_error)
-  __pyx_r = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
-  goto __pyx_L0;
-
-  /* "av/utils.py":17
- * 
- * 
- * @cython.cfunc             # <<<<<<<<<<<<<<
- * def _encode(s, encoding, errors) -> bytes:
- *     return s.encode(encoding, errors)
-*/
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_AddTraceback("av.utils._encode", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
-  __pyx_L0:;
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "av/utils.py":22
+/* "av/utils.py":14
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2413,7 +2326,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("avdict_to_dict", 0);
 
-  /* "av/utils.py":26
+  /* "av/utils.py":18
  *     input: cython.pointer[lib.AVDictionary], encoding: str, errors: str
  * ) -> dict:
  *     element: cython.pointer[lib.AVDictionaryEntry] = cython.NULL             # <<<<<<<<<<<<<<
@@ -2422,19 +2335,19 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
 */
   __pyx_v_element = NULL;
 
-  /* "av/utils.py":27
+  /* "av/utils.py":19
  * ) -> dict:
  *     element: cython.pointer[lib.AVDictionaryEntry] = cython.NULL
  *     output: dict = {}             # <<<<<<<<<<<<<<
  *     while True:
  *         element = lib.av_dict_get(input, "", element, lib.AV_DICT_IGNORE_SUFFIX)
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 27, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_output = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/utils.py":28
+  /* "av/utils.py":20
  *     element: cython.pointer[lib.AVDictionaryEntry] = cython.NULL
  *     output: dict = {}
  *     while True:             # <<<<<<<<<<<<<<
@@ -2443,7 +2356,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
 */
   while (1) {
 
-    /* "av/utils.py":29
+    /* "av/utils.py":21
  *     output: dict = {}
  *     while True:
  *         element = lib.av_dict_get(input, "", element, lib.AV_DICT_IGNORE_SUFFIX)             # <<<<<<<<<<<<<<
@@ -2452,7 +2365,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
 */
     __pyx_v_element = av_dict_get(__pyx_v_input, ((char *)""), __pyx_v_element, AV_DICT_IGNORE_SUFFIX);
 
-    /* "av/utils.py":30
+    /* "av/utils.py":22
  *     while True:
  *         element = lib.av_dict_get(input, "", element, lib.AV_DICT_IGNORE_SUFFIX)
  *         if element == cython.NULL:             # <<<<<<<<<<<<<<
@@ -2462,7 +2375,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
     __pyx_t_2 = (__pyx_v_element == NULL);
     if (__pyx_t_2) {
 
-      /* "av/utils.py":31
+      /* "av/utils.py":23
  *         element = lib.av_dict_get(input, "", element, lib.AV_DICT_IGNORE_SUFFIX)
  *         if element == cython.NULL:
  *             break             # <<<<<<<<<<<<<<
@@ -2471,7 +2384,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
 */
       goto __pyx_L4_break;
 
-      /* "av/utils.py":30
+      /* "av/utils.py":22
  *     while True:
  *         element = lib.av_dict_get(input, "", element, lib.AV_DICT_IGNORE_SUFFIX)
  *         if element == cython.NULL:             # <<<<<<<<<<<<<<
@@ -2480,24 +2393,24 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
 */
     }
 
-    /* "av/utils.py":32
+    /* "av/utils.py":24
  *         if element == cython.NULL:
  *             break
  *         output[_decode(element.key, encoding, errors)] = _decode(             # <<<<<<<<<<<<<<
  *             element.value, encoding, errors
  *         )
 */
-    __pyx_t_1 = __pyx_f_2av_5utils__decode(__pyx_v_element->value, __pyx_v_encoding, __pyx_v_errors); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_2av_5utils__decode(__pyx_v_element->value, __pyx_v_encoding, __pyx_v_errors); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __pyx_f_2av_5utils__decode(__pyx_v_element->key, __pyx_v_encoding, __pyx_v_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 32, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_2av_5utils__decode(__pyx_v_element->key, __pyx_v_encoding, __pyx_v_errors); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (unlikely((PyDict_SetItem(__pyx_v_output, __pyx_t_3, __pyx_t_1) < 0))) __PYX_ERR(0, 32, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_output, __pyx_t_3, __pyx_t_1) < 0))) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
   __pyx_L4_break:;
 
-  /* "av/utils.py":36
+  /* "av/utils.py":28
  *         )
  * 
  *     return output             # <<<<<<<<<<<<<<
@@ -2509,7 +2422,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
   __pyx_r = __pyx_v_output;
   goto __pyx_L0;
 
-  /* "av/utils.py":22
+  /* "av/utils.py":14
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2530,7 +2443,7 @@ static PyObject *__pyx_f_2av_5utils_avdict_to_dict(AVDictionary *__pyx_v_input, 
   return __pyx_r;
 }
 
-/* "av/utils.py":39
+/* "av/utils.py":31
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2559,7 +2472,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("dict_to_avdict", 0);
 
-  /* "av/utils.py":46
+  /* "av/utils.py":38
  *     errors: str,
  * ):
  *     lib.av_dict_free(dst)             # <<<<<<<<<<<<<<
@@ -2568,7 +2481,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
 */
   av_dict_free(__pyx_v_dst);
 
-  /* "av/utils.py":47
+  /* "av/utils.py":39
  * ):
  *     lib.av_dict_free(dst)
  *     for key, value in src.items():             # <<<<<<<<<<<<<<
@@ -2576,7 +2489,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
  *             lib.av_dict_set(
 */
   __pyx_t_2 = 0;
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_src, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_src, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -2584,7 +2497,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 47, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 39, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_5);
@@ -2592,7 +2505,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "av/utils.py":50
+    /* "av/utils.py":42
  *         err_check(
  *             lib.av_dict_set(
  *                 dst, key.encode(encoding, errors), value.encode(encoding, errors), 0             # <<<<<<<<<<<<<<
@@ -2606,10 +2519,10 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
       PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_v_encoding, __pyx_v_errors};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_8, (3-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 50, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 42, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_9 = __Pyx_PyObject_AsString(__pyx_t_6); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_AsString(__pyx_t_6); if (unlikely((!__pyx_t_9) && PyErr_Occurred())) __PYX_ERR(0, 42, __pyx_L1_error)
     __pyx_t_10 = __pyx_v_value;
     __Pyx_INCREF(__pyx_t_10);
     __pyx_t_8 = 0;
@@ -2617,25 +2530,25 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
       PyObject *__pyx_callargs[3] = {__pyx_t_10, __pyx_v_encoding, __pyx_v_errors};
       __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_8, (3-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 50, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 42, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
-    __pyx_t_11 = __Pyx_PyObject_AsString(__pyx_t_5); if (unlikely((!__pyx_t_11) && PyErr_Occurred())) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_AsString(__pyx_t_5); if (unlikely((!__pyx_t_11) && PyErr_Occurred())) __PYX_ERR(0, 42, __pyx_L1_error)
 
-    /* "av/utils.py":48
+    /* "av/utils.py":40
  *     lib.av_dict_free(dst)
  *     for key, value in src.items():
  *         err_check(             # <<<<<<<<<<<<<<
  *             lib.av_dict_set(
  *                 dst, key.encode(encoding, errors), value.encode(encoding, errors), 0
 */
-    __pyx_t_7 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_dst, __pyx_t_9, __pyx_t_11, 0), 0, NULL); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 48, __pyx_L1_error)
+    __pyx_t_7 = __pyx_f_2av_5error_err_check(av_dict_set(__pyx_v_dst, __pyx_t_9, __pyx_t_11, 0), 0, NULL); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "av/utils.py":39
+  /* "av/utils.py":31
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2661,7 +2574,7 @@ static PyObject *__pyx_f_2av_5utils_dict_to_avdict(AVDictionary **__pyx_v_dst, P
   return __pyx_r;
 }
 
-/* "av/utils.py":59
+/* "av/utils.py":47
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2685,7 +2598,7 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("avrational_to_fraction", 0);
 
-  /* "av/utils.py":63
+  /* "av/utils.py":51
  *     input: cython.pointer[cython.const[lib.AVRational]],
  * ) -> object:
  *     if input.num and input.den:             # <<<<<<<<<<<<<<
@@ -2703,7 +2616,7 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "av/utils.py":64
+    /* "av/utils.py":52
  * ) -> object:
  *     if input.num and input.den:
  *         return Fraction(input.num, input.den)             # <<<<<<<<<<<<<<
@@ -2712,11 +2625,11 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Fraction); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_input->num); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_From_int(__pyx_v_input->num); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_input->den); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_input->den); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -2737,14 +2650,14 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "av/utils.py":63
+    /* "av/utils.py":51
  *     input: cython.pointer[cython.const[lib.AVRational]],
  * ) -> object:
  *     if input.num and input.den:             # <<<<<<<<<<<<<<
@@ -2753,7 +2666,7 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
 */
   }
 
-  /* "av/utils.py":65
+  /* "av/utils.py":53
  *     if input.num and input.den:
  *         return Fraction(input.num, input.den)
  *     return None             # <<<<<<<<<<<<<<
@@ -2764,7 +2677,7 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "av/utils.py":59
+  /* "av/utils.py":47
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2787,7 +2700,7 @@ static PyObject *__pyx_f_2av_5utils_avrational_to_fraction(AVRational const *__p
   return __pyx_r;
 }
 
-/* "av/utils.py":68
+/* "av/utils.py":56
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2804,33 +2717,33 @@ static void __pyx_f_2av_5utils_to_avrational(PyObject *__pyx_v_frac, AVRational 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_avrational", 0);
 
-  /* "av/utils.py":70
+  /* "av/utils.py":58
  * @cython.cfunc
  * def to_avrational(frac: object, input: cython.pointer[lib.AVRational]) -> cython.void:
  *     input.num = frac.numerator             # <<<<<<<<<<<<<<
  *     input.den = frac.denominator
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_frac, __pyx_mstate_global->__pyx_n_u_numerator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_frac, __pyx_mstate_global->__pyx_n_u_numerator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_input->num = __pyx_t_2;
 
-  /* "av/utils.py":71
+  /* "av/utils.py":59
  * def to_avrational(frac: object, input: cython.pointer[lib.AVRational]) -> cython.void:
  *     input.num = frac.numerator
  *     input.den = frac.denominator             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_frac, __pyx_mstate_global->__pyx_n_u_denominator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_frac, __pyx_mstate_global->__pyx_n_u_denominator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_input->den = __pyx_t_2;
 
-  /* "av/utils.py":68
+  /* "av/utils.py":56
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2847,7 +2760,7 @@ static void __pyx_f_2av_5utils_to_avrational(PyObject *__pyx_v_frac, AVRational 
   __Pyx_RefNannyFinishContext();
 }
 
-/* "av/utils.py":74
+/* "av/utils.py":62
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -2870,22 +2783,22 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("check_ndarray", 0);
 
-  /* "av/utils.py":79
+  /* "av/utils.py":67
  *     Check a numpy array has the expected data type and number of dimensions.
  *     """
  *     if array.dtype != dtype:             # <<<<<<<<<<<<<<
  *         raise ValueError(
  *             f"Expected numpy array with dtype `{dtype}` but got `{array.dtype}`"
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_v_dtype, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_v_dtype, Py_NE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/utils.py":80
+    /* "av/utils.py":68
  *     """
  *     if array.dtype != dtype:
  *         raise ValueError(             # <<<<<<<<<<<<<<
@@ -2894,18 +2807,18 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
 */
     __pyx_t_1 = NULL;
 
-    /* "av/utils.py":81
+    /* "av/utils.py":69
  *     if array.dtype != dtype:
  *         raise ValueError(
  *             f"Expected numpy array with dtype `{dtype}` but got `{array.dtype}`"             # <<<<<<<<<<<<<<
  *         )
  *     if array.ndim != ndim:
 */
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_dtype, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_dtype, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_Expected_numpy_array_with_dtype;
@@ -2914,7 +2827,7 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
     __pyx_t_7[3] = __pyx_t_6;
     __pyx_t_7[4] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_7, 5, 33 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -2924,14 +2837,14 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 80, __pyx_L1_error)
+    __PYX_ERR(0, 68, __pyx_L1_error)
 
-    /* "av/utils.py":79
+    /* "av/utils.py":67
  *     Check a numpy array has the expected data type and number of dimensions.
  *     """
  *     if array.dtype != dtype:             # <<<<<<<<<<<<<<
@@ -2940,25 +2853,25 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
 */
   }
 
-  /* "av/utils.py":83
+  /* "av/utils.py":71
  *             f"Expected numpy array with dtype `{dtype}` but got `{array.dtype}`"
  *         )
  *     if array.ndim != ndim:             # <<<<<<<<<<<<<<
  *         raise ValueError(
  *             f"Expected numpy array with ndim `{ndim}` but got `{array.ndim}`"
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_ndim); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_ndim); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_t_5, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_t_5, Py_NE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (unlikely(__pyx_t_3)) {
 
-    /* "av/utils.py":84
+    /* "av/utils.py":72
  *         )
  *     if array.ndim != ndim:
  *         raise ValueError(             # <<<<<<<<<<<<<<
@@ -2967,17 +2880,17 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
 */
     __pyx_t_5 = NULL;
 
-    /* "av/utils.py":85
+    /* "av/utils.py":73
  *     if array.ndim != ndim:
  *         raise ValueError(
  *             f"Expected numpy array with ndim `{ndim}` but got `{array.ndim}`"             # <<<<<<<<<<<<<<
  *         )
 */
-    __pyx_t_2 = __Pyx_PyUnicode_From_int(__pyx_v_ndim, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_From_int(__pyx_v_ndim, 0, ' ', 'd'); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_ndim); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_7[0] = __pyx_mstate_global->__pyx_kp_u_Expected_numpy_array_with_ndim;
@@ -2986,7 +2899,7 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
     __pyx_t_7[3] = __pyx_t_4;
     __pyx_t_7[4] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_7, 5, 32 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -2996,14 +2909,14 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 84, __pyx_L1_error)
+    __PYX_ERR(0, 72, __pyx_L1_error)
 
-    /* "av/utils.py":83
+    /* "av/utils.py":71
  *             f"Expected numpy array with dtype `{dtype}` but got `{array.dtype}`"
  *         )
  *     if array.ndim != ndim:             # <<<<<<<<<<<<<<
@@ -3012,7 +2925,7 @@ static void __pyx_f_2av_5utils_check_ndarray(PyObject *__pyx_v_array, PyObject *
 */
   }
 
-  /* "av/utils.py":74
+  /* "av/utils.py":62
  * 
  * 
  * @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3790,17 +3703,6 @@ static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *
     return result;
 }
 #endif
-
-/* RaiseUnexpectedTypeError */
-static int
-__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
-{
-    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
-                 expected, obj_type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
-}
 
 /* PyErrFetchRestore (used by IterFinish) */
 #if CYTHON_FAST_THREAD_STATE

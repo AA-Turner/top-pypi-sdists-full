@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.format",
         "sources": [
-            "av/format.pyx"
+            "av/format.py"
         ]
     },
     "module_name": "av.format"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__format
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -1431,7 +1413,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/format.pyx",
+  "av/format.py",
   "<stringsource>",
   "av/descriptor.pxd",
 };
@@ -1637,8 +1619,8 @@ struct __pyx_obj_2av_10descriptor_Descriptor {
 struct __pyx_obj_2av_6format_ContainerFormat {
   PyObject_HEAD
   PyObject *name;
-  struct AVInputFormat *iptr;
-  struct AVOutputFormat *optr;
+  struct AVInputFormat const *iptr;
+  struct AVOutputFormat const *optr;
 };
 
 /* #### Code section: utility_code_proto ### */
@@ -2376,16 +2358,20 @@ static int __Pyx_State_RemoveModule(void*);
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
+
+/* Module declarations from "cython.view" */
+
+/* Module declarations from "cython.dataclasses" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "av.descriptor" */
 static struct __pyx_obj_2av_10descriptor_Descriptor *(*__pyx_f_2av_10descriptor_wrap_avclass)(struct AVClass const *); /*proto*/
 
 /* Module declarations from "av.format" */
 static PyObject *__pyx_v_2av_6format__cinit_bypass_sentinel = 0;
-static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_container_format(struct AVInputFormat *, struct AVOutputFormat *); /*proto*/
+static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_container_format(struct AVInputFormat const *, struct AVOutputFormat const *); /*proto*/
 static PyObject *__pyx_f_2av_6format_get_output_format_names(void); /*proto*/
 static PyObject *__pyx_f_2av_6format_get_input_format_names(void); /*proto*/
 /* #### Code section: typeinfo ### */
@@ -2605,15 +2591,15 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/format.pyx":10
- * cdef object _cinit_bypass_sentinel = object()
+/* "av/format.py":10
  * 
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):             # <<<<<<<<<<<<<<
- *     if not iptr and not optr:
- *         raise ValueError("needs input format or output format")
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def build_container_format(
+ *     iptr: cython.pointer[cython.const[lib.AVInputFormat]],
 */
 
-static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_container_format(struct AVInputFormat *__pyx_v_iptr, struct AVOutputFormat *__pyx_v_optr) {
+static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_container_format(struct AVInputFormat const *__pyx_v_iptr, struct AVOutputFormat const *__pyx_v_optr) {
   struct __pyx_obj_2av_6format_ContainerFormat *__pyx_v_format = 0;
   struct __pyx_obj_2av_6format_ContainerFormat *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -2627,12 +2613,12 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_container_format", 0);
 
-  /* "av/format.pyx":11
- * 
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):
+  /* "av/format.py":15
+ *     optr: cython.pointer[cython.const[lib.AVOutputFormat]],
+ * ) -> ContainerFormat:
  *     if not iptr and not optr:             # <<<<<<<<<<<<<<
  *         raise ValueError("needs input format or output format")
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)
+ *     format: ContainerFormat = ContainerFormat.__new__(
 */
   __pyx_t_2 = (!(__pyx_v_iptr != 0));
   if (__pyx_t_2) {
@@ -2645,12 +2631,12 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/format.pyx":12
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):
+    /* "av/format.py":16
+ * ) -> ContainerFormat:
  *     if not iptr and not optr:
  *         raise ValueError("needs input format or output format")             # <<<<<<<<<<<<<<
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)
- *     format.iptr = iptr
+ *     format: ContainerFormat = ContainerFormat.__new__(
+ *         ContainerFormat, _cinit_bypass_sentinel
 */
     __pyx_t_4 = NULL;
     __pyx_t_5 = 1;
@@ -2658,51 +2644,51 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_needs_input_format_or_output_for};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 12, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 12, __pyx_L1_error)
+    __PYX_ERR(0, 16, __pyx_L1_error)
 
-    /* "av/format.pyx":11
- * 
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):
+    /* "av/format.py":15
+ *     optr: cython.pointer[cython.const[lib.AVOutputFormat]],
+ * ) -> ContainerFormat:
  *     if not iptr and not optr:             # <<<<<<<<<<<<<<
  *         raise ValueError("needs input format or output format")
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)
+ *     format: ContainerFormat = ContainerFormat.__new__(
 */
   }
 
-  /* "av/format.pyx":13
+  /* "av/format.py":17
  *     if not iptr and not optr:
  *         raise ValueError("needs input format or output format")
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)             # <<<<<<<<<<<<<<
- *     format.iptr = iptr
- *     format.optr = optr
+ *     format: ContainerFormat = ContainerFormat.__new__(             # <<<<<<<<<<<<<<
+ *         ContainerFormat, _cinit_bypass_sentinel
+ *     )
 */
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_v_2av_6format__cinit_bypass_sentinel);
   __Pyx_GIVEREF(__pyx_v_2av_6format__cinit_bypass_sentinel);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_2av_6format__cinit_bypass_sentinel) != (0)) __PYX_ERR(0, 13, __pyx_L1_error);
-  __pyx_t_4 = ((PyObject *)__pyx_tp_new_2av_6format_ContainerFormat(((PyTypeObject *)__pyx_mstate_global->__pyx_ptype_2av_6format_ContainerFormat), __pyx_t_3, NULL)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_2av_6format__cinit_bypass_sentinel) != (0)) __PYX_ERR(0, 17, __pyx_L1_error);
+  __pyx_t_4 = ((PyObject *)__pyx_tp_new_2av_6format_ContainerFormat(((PyTypeObject *)__pyx_mstate_global->__pyx_ptype_2av_6format_ContainerFormat), __pyx_t_3, NULL)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_GOTREF((PyObject *)__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_format = ((struct __pyx_obj_2av_6format_ContainerFormat *)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/format.pyx":14
- *         raise ValueError("needs input format or output format")
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)
+  /* "av/format.py":20
+ *         ContainerFormat, _cinit_bypass_sentinel
+ *     )
  *     format.iptr = iptr             # <<<<<<<<<<<<<<
  *     format.optr = optr
  *     format.name = optr.name if optr else iptr.name
 */
   __pyx_v_format->iptr = __pyx_v_iptr;
 
-  /* "av/format.pyx":15
- *     cdef ContainerFormat format = ContainerFormat.__new__(ContainerFormat, _cinit_bypass_sentinel)
+  /* "av/format.py":21
+ *     )
  *     format.iptr = iptr
  *     format.optr = optr             # <<<<<<<<<<<<<<
  *     format.name = optr.name if optr else iptr.name
@@ -2710,7 +2696,7 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
 */
   __pyx_v_format->optr = __pyx_v_optr;
 
-  /* "av/format.pyx":16
+  /* "av/format.py":22
  *     format.iptr = iptr
  *     format.optr = optr
  *     format.name = optr.name if optr else iptr.name             # <<<<<<<<<<<<<<
@@ -2719,12 +2705,12 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
 */
   __pyx_t_1 = (__pyx_v_optr != 0);
   if (__pyx_t_1) {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_optr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_optr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = __pyx_t_3;
     __pyx_t_3 = 0;
   } else {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_iptr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 16, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_iptr->name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 22, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -2735,7 +2721,7 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
   __pyx_v_format->name = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "av/format.pyx":17
+  /* "av/format.py":23
  *     format.optr = optr
  *     format.name = optr.name if optr else iptr.name
  *     return format             # <<<<<<<<<<<<<<
@@ -2747,12 +2733,12 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
   __pyx_r = __pyx_v_format;
   goto __pyx_L0;
 
-  /* "av/format.pyx":10
- * cdef object _cinit_bypass_sentinel = object()
+  /* "av/format.py":10
  * 
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):             # <<<<<<<<<<<<<<
- *     if not iptr and not optr:
- *         raise ValueError("needs input format or output format")
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def build_container_format(
+ *     iptr: cython.pointer[cython.const[lib.AVInputFormat]],
 */
 
   /* function exit code */
@@ -2768,7 +2754,7 @@ static struct __pyx_obj_2av_6format_ContainerFormat *__pyx_f_2av_6format_build_c
   return __pyx_r;
 }
 
-/* "av/format.pyx":49
+/* "av/format.py":59
  *     """
  * 
  *     def __cinit__(self, name, mode=None):             # <<<<<<<<<<<<<<
@@ -2799,35 +2785,35 @@ static int __pyx_pw_2av_6format_15ContainerFormat_1__cinit__(PyObject *__pyx_v_s
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_name,&__pyx_mstate_global->__pyx_n_u_mode,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 49, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 59, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 59, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 59, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 2, i); __PYX_ERR(0, 49, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 2, i); __PYX_ERR(0, 59, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 59, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 59, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -2838,7 +2824,7 @@ static int __pyx_pw_2av_6format_15ContainerFormat_1__cinit__(PyObject *__pyx_v_s
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 49, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 59, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2876,7 +2862,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/format.pyx":50
+  /* "av/format.py":60
  * 
  *     def __cinit__(self, name, mode=None):
  *         if name is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
@@ -2886,7 +2872,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
   __pyx_t_1 = (__pyx_v_name == __pyx_v_2av_6format__cinit_bypass_sentinel);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":51
+    /* "av/format.py":61
  *     def __cinit__(self, name, mode=None):
  *         if name is _cinit_bypass_sentinel:
  *             return             # <<<<<<<<<<<<<<
@@ -2896,7 +2882,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "av/format.pyx":50
+    /* "av/format.py":60
  * 
  *     def __cinit__(self, name, mode=None):
  *         if name is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
@@ -2905,7 +2891,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
 */
   }
 
-  /* "av/format.pyx":55
+  /* "av/format.py":65
  *         # We need to hold onto the original name because AVInputFormat.name is
  *         # actually comma-separated, and so we need to remember which one this was.
  *         self.name = name             # <<<<<<<<<<<<<<
@@ -2914,14 +2900,14 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
 */
   __pyx_t_2 = __pyx_v_name;
   __Pyx_INCREF(__pyx_t_2);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_self->name);
   __Pyx_DECREF(__pyx_v_self->name);
   __pyx_v_self->name = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/format.pyx":58
+  /* "av/format.py":68
  * 
  *         # Searches comma-separated names.
  *         if mode is None or mode == "r":             # <<<<<<<<<<<<<<
@@ -2934,22 +2920,22 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_mode, __pyx_mstate_global->__pyx_n_u_r, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_mode, __pyx_mstate_global->__pyx_n_u_r, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_3;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":59
+    /* "av/format.py":69
  *         # Searches comma-separated names.
  *         if mode is None or mode == "r":
  *             self.iptr = lib.av_find_input_format(name)             # <<<<<<<<<<<<<<
  * 
  *         if mode is None or mode == "w":
 */
-    __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_AsString(__pyx_v_name); if (unlikely((!__pyx_t_4) && PyErr_Occurred())) __PYX_ERR(0, 69, __pyx_L1_error)
     __pyx_v_self->iptr = av_find_input_format(__pyx_t_4);
 
-    /* "av/format.pyx":58
+    /* "av/format.py":68
  * 
  *         # Searches comma-separated names.
  *         if mode is None or mode == "r":             # <<<<<<<<<<<<<<
@@ -2958,11 +2944,11 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
 */
   }
 
-  /* "av/format.pyx":61
+  /* "av/format.py":71
  *             self.iptr = lib.av_find_input_format(name)
  * 
  *         if mode is None or mode == "w":             # <<<<<<<<<<<<<<
- *             self.optr = lib.av_guess_format(name, NULL, NULL)
+ *             self.optr = lib.av_guess_format(name, cython.NULL, cython.NULL)
  * 
 */
   __pyx_t_3 = (__pyx_v_mode == Py_None);
@@ -2971,32 +2957,32 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_mode, __pyx_mstate_global->__pyx_n_u_w, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_v_mode, __pyx_mstate_global->__pyx_n_u_w, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 71, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_3;
   __pyx_L8_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":62
+    /* "av/format.py":72
  * 
  *         if mode is None or mode == "w":
- *             self.optr = lib.av_guess_format(name, NULL, NULL)             # <<<<<<<<<<<<<<
+ *             self.optr = lib.av_guess_format(name, cython.NULL, cython.NULL)             # <<<<<<<<<<<<<<
  * 
  *         if not self.iptr and not self.optr:
 */
-    __pyx_t_5 = __Pyx_PyObject_AsWritableString(__pyx_v_name); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 62, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_AsWritableString(__pyx_v_name); if (unlikely((!__pyx_t_5) && PyErr_Occurred())) __PYX_ERR(0, 72, __pyx_L1_error)
     __pyx_v_self->optr = av_guess_format(__pyx_t_5, NULL, NULL);
 
-    /* "av/format.pyx":61
+    /* "av/format.py":71
  *             self.iptr = lib.av_find_input_format(name)
  * 
  *         if mode is None or mode == "w":             # <<<<<<<<<<<<<<
- *             self.optr = lib.av_guess_format(name, NULL, NULL)
+ *             self.optr = lib.av_guess_format(name, cython.NULL, cython.NULL)
  * 
 */
   }
 
-  /* "av/format.pyx":64
- *             self.optr = lib.av_guess_format(name, NULL, NULL)
+  /* "av/format.py":74
+ *             self.optr = lib.av_guess_format(name, cython.NULL, cython.NULL)
  * 
  *         if not self.iptr and not self.optr:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"no container format {name!r}")
@@ -3013,7 +2999,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
   __pyx_L11_bool_binop_done:;
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/format.pyx":65
+    /* "av/format.py":75
  * 
  *         if not self.iptr and not self.optr:
  *             raise ValueError(f"no container format {name!r}")             # <<<<<<<<<<<<<<
@@ -3021,9 +3007,9 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
  *     def __repr__(self):
 */
     __pyx_t_6 = NULL;
-    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 75, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_no_container_format, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_no_container_format, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 75, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_9 = 1;
@@ -3032,15 +3018,15 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 65, __pyx_L1_error)
+    __PYX_ERR(0, 75, __pyx_L1_error)
 
-    /* "av/format.pyx":64
- *             self.optr = lib.av_guess_format(name, NULL, NULL)
+    /* "av/format.py":74
+ *             self.optr = lib.av_guess_format(name, cython.NULL, cython.NULL)
  * 
  *         if not self.iptr and not self.optr:             # <<<<<<<<<<<<<<
  *             raise ValueError(f"no container format {name!r}")
@@ -3048,7 +3034,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
 */
   }
 
-  /* "av/format.pyx":49
+  /* "av/format.py":59
  *     """
  * 
  *     def __cinit__(self, name, mode=None):             # <<<<<<<<<<<<<<
@@ -3071,7 +3057,7 @@ static int __pyx_pf_2av_6format_15ContainerFormat___cinit__(struct __pyx_obj_2av
   return __pyx_r;
 }
 
-/* "av/format.pyx":67
+/* "av/format.py":77
  *             raise ValueError(f"no container format {name!r}")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3106,7 +3092,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_2__repr__(struct __pyx_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/format.pyx":68
+  /* "av/format.py":78
  * 
  *     def __repr__(self):
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"             # <<<<<<<<<<<<<<
@@ -3114,15 +3100,15 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_2__repr__(struct __pyx_o
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_v_self->name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3[0] = __pyx_mstate_global->__pyx_kp_u_av;
   __pyx_t_3[1] = __pyx_t_1;
@@ -3130,7 +3116,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_2__repr__(struct __pyx_o
   __pyx_t_3[3] = __pyx_t_2;
   __pyx_t_3[4] = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_3, 5, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2));
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -3138,7 +3124,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_2__repr__(struct __pyx_o
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":67
+  /* "av/format.py":77
  *             raise ValueError(f"no container format {name!r}")
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -3159,7 +3145,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_2__repr__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/format.pyx":70
+/* "av/format.py":80
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3192,7 +3178,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":72
+  /* "av/format.py":82
  *     @property
  *     def descriptor(self):
  *         if self.iptr:             # <<<<<<<<<<<<<<
@@ -3202,7 +3188,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
   __pyx_t_1 = (__pyx_v_self->iptr != 0);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":73
+    /* "av/format.py":83
  *     def descriptor(self):
  *         if self.iptr:
  *             return wrap_avclass(self.iptr.priv_class)             # <<<<<<<<<<<<<<
@@ -3210,13 +3196,13 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
  *             return wrap_avclass(self.optr.priv_class)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->iptr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->iptr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "av/format.pyx":72
+    /* "av/format.py":82
  *     @property
  *     def descriptor(self):
  *         if self.iptr:             # <<<<<<<<<<<<<<
@@ -3225,7 +3211,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
 */
   }
 
-  /* "av/format.pyx":75
+  /* "av/format.py":85
  *             return wrap_avclass(self.iptr.priv_class)
  *         else:
  *             return wrap_avclass(self.optr.priv_class)             # <<<<<<<<<<<<<<
@@ -3234,14 +3220,14 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
 */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->optr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(__pyx_v_self->optr->priv_class)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
   }
 
-  /* "av/format.pyx":70
+  /* "av/format.py":80
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3260,7 +3246,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10descriptor___get__(str
   return __pyx_r;
 }
 
-/* "av/format.pyx":77
+/* "av/format.py":87
  *             return wrap_avclass(self.optr.priv_class)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3293,7 +3279,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7options___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":79
+  /* "av/format.py":89
  *     @property
  *     def options(self):
  *         return self.descriptor.options             # <<<<<<<<<<<<<<
@@ -3301,16 +3287,16 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7options___get__(struct 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_descriptor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_options); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":77
+  /* "av/format.py":87
  *             return wrap_avclass(self.optr.priv_class)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3330,7 +3316,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7options___get__(struct 
   return __pyx_r;
 }
 
-/* "av/format.pyx":81
+/* "av/format.py":91
  *         return self.descriptor.options
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3363,84 +3349,84 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5input___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":84
+  /* "av/format.py":94
  *     def input(self):
  *         """An input-only view of this format."""
- *         if self.iptr == NULL:             # <<<<<<<<<<<<<<
+ *         if self.iptr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return None
- *         elif self.optr == NULL:
+ *         elif self.optr == cython.NULL:
 */
   __pyx_t_1 = (__pyx_v_self->iptr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":85
+    /* "av/format.py":95
  *         """An input-only view of this format."""
- *         if self.iptr == NULL:
+ *         if self.iptr == cython.NULL:
  *             return None             # <<<<<<<<<<<<<<
- *         elif self.optr == NULL:
+ *         elif self.optr == cython.NULL:
  *             return self
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/format.pyx":84
+    /* "av/format.py":94
  *     def input(self):
  *         """An input-only view of this format."""
- *         if self.iptr == NULL:             # <<<<<<<<<<<<<<
+ *         if self.iptr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return None
- *         elif self.optr == NULL:
+ *         elif self.optr == cython.NULL:
 */
   }
 
-  /* "av/format.pyx":86
- *         if self.iptr == NULL:
+  /* "av/format.py":96
+ *         if self.iptr == cython.NULL:
  *             return None
- *         elif self.optr == NULL:             # <<<<<<<<<<<<<<
+ *         elif self.optr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return self
  *         else:
 */
   __pyx_t_1 = (__pyx_v_self->optr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":87
+    /* "av/format.py":97
  *             return None
- *         elif self.optr == NULL:
+ *         elif self.optr == cython.NULL:
  *             return self             # <<<<<<<<<<<<<<
  *         else:
- *             return build_container_format(self.iptr, NULL)
+ *             return build_container_format(self.iptr, cython.NULL)
 */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF((PyObject *)__pyx_v_self);
     __pyx_r = ((PyObject *)__pyx_v_self);
     goto __pyx_L0;
 
-    /* "av/format.pyx":86
- *         if self.iptr == NULL:
+    /* "av/format.py":96
+ *         if self.iptr == cython.NULL:
  *             return None
- *         elif self.optr == NULL:             # <<<<<<<<<<<<<<
+ *         elif self.optr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return self
  *         else:
 */
   }
 
-  /* "av/format.pyx":89
+  /* "av/format.py":99
  *             return self
  *         else:
- *             return build_container_format(self.iptr, NULL)             # <<<<<<<<<<<<<<
+ *             return build_container_format(self.iptr, cython.NULL)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6format_build_container_format(__pyx_v_self->iptr, NULL)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6format_build_container_format(__pyx_v_self->iptr, NULL)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
   }
 
-  /* "av/format.pyx":81
+  /* "av/format.py":91
  *         return self.descriptor.options
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3459,8 +3445,8 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5input___get__(struct __
   return __pyx_r;
 }
 
-/* "av/format.pyx":91
- *             return build_container_format(self.iptr, NULL)
+/* "av/format.py":101
+ *             return build_container_format(self.iptr, cython.NULL)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def output(self):
@@ -3492,85 +3478,85 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_6output___get__(struct _
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":94
+  /* "av/format.py":104
  *     def output(self):
  *         """An output-only view of this format."""
- *         if self.optr == NULL:             # <<<<<<<<<<<<<<
+ *         if self.optr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return None
- *         elif self.iptr == NULL:
+ *         elif self.iptr == cython.NULL:
 */
   __pyx_t_1 = (__pyx_v_self->optr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":95
+    /* "av/format.py":105
  *         """An output-only view of this format."""
- *         if self.optr == NULL:
+ *         if self.optr == cython.NULL:
  *             return None             # <<<<<<<<<<<<<<
- *         elif self.iptr == NULL:
+ *         elif self.iptr == cython.NULL:
  *             return self
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "av/format.pyx":94
+    /* "av/format.py":104
  *     def output(self):
  *         """An output-only view of this format."""
- *         if self.optr == NULL:             # <<<<<<<<<<<<<<
+ *         if self.optr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return None
- *         elif self.iptr == NULL:
+ *         elif self.iptr == cython.NULL:
 */
   }
 
-  /* "av/format.pyx":96
- *         if self.optr == NULL:
+  /* "av/format.py":106
+ *         if self.optr == cython.NULL:
  *             return None
- *         elif self.iptr == NULL:             # <<<<<<<<<<<<<<
+ *         elif self.iptr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return self
  *         else:
 */
   __pyx_t_1 = (__pyx_v_self->iptr == NULL);
   if (__pyx_t_1) {
 
-    /* "av/format.pyx":97
+    /* "av/format.py":107
  *             return None
- *         elif self.iptr == NULL:
+ *         elif self.iptr == cython.NULL:
  *             return self             # <<<<<<<<<<<<<<
  *         else:
- *             return build_container_format(NULL, self.optr)
+ *             return build_container_format(cython.NULL, self.optr)
 */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF((PyObject *)__pyx_v_self);
     __pyx_r = ((PyObject *)__pyx_v_self);
     goto __pyx_L0;
 
-    /* "av/format.pyx":96
- *         if self.optr == NULL:
+    /* "av/format.py":106
+ *         if self.optr == cython.NULL:
  *             return None
- *         elif self.iptr == NULL:             # <<<<<<<<<<<<<<
+ *         elif self.iptr == cython.NULL:             # <<<<<<<<<<<<<<
  *             return self
  *         else:
 */
   }
 
-  /* "av/format.pyx":99
+  /* "av/format.py":109
  *             return self
  *         else:
- *             return build_container_format(NULL, self.optr)             # <<<<<<<<<<<<<<
+ *             return build_container_format(cython.NULL, self.optr)             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   /*else*/ {
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6format_build_container_format(NULL, __pyx_v_self->optr)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_2 = ((PyObject *)__pyx_f_2av_6format_build_container_format(NULL, __pyx_v_self->optr)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
   }
 
-  /* "av/format.pyx":91
- *             return build_container_format(self.iptr, NULL)
+  /* "av/format.py":101
+ *             return build_container_format(self.iptr, cython.NULL)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def output(self):
@@ -3588,12 +3574,12 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_6output___get__(struct _
   return __pyx_r;
 }
 
-/* "av/format.pyx":101
- *             return build_container_format(NULL, self.optr)
+/* "av/format.py":111
+ *             return build_container_format(cython.NULL, self.optr)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_input(self):
- *         return self.iptr != NULL
+ *         return self.iptr != cython.NULL
 */
 
 /* Python wrapper */
@@ -3620,26 +3606,26 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_8is_input___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":103
+  /* "av/format.py":113
  *     @property
  *     def is_input(self):
- *         return self.iptr != NULL             # <<<<<<<<<<<<<<
+ *         return self.iptr != cython.NULL             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->iptr != NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->iptr != NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":101
- *             return build_container_format(NULL, self.optr)
+  /* "av/format.py":111
+ *             return build_container_format(cython.NULL, self.optr)
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_input(self):
- *         return self.iptr != NULL
+ *         return self.iptr != cython.NULL
 */
 
   /* function exit code */
@@ -3653,12 +3639,12 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_8is_input___get__(struct
   return __pyx_r;
 }
 
-/* "av/format.pyx":105
- *         return self.iptr != NULL
+/* "av/format.py":115
+ *         return self.iptr != cython.NULL
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_output(self):
- *         return self.optr != NULL
+ *         return self.optr != cython.NULL
 */
 
 /* Python wrapper */
@@ -3685,26 +3671,26 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9is_output___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":107
+  /* "av/format.py":117
  *     @property
  *     def is_output(self):
- *         return self.optr != NULL             # <<<<<<<<<<<<<<
+ *         return self.optr != cython.NULL             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->optr != NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((__pyx_v_self->optr != NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":105
- *         return self.iptr != NULL
+  /* "av/format.py":115
+ *         return self.iptr != cython.NULL
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def is_output(self):
- *         return self.optr != NULL
+ *         return self.optr != cython.NULL
 */
 
   /* function exit code */
@@ -3718,8 +3704,8 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9is_output___get__(struc
   return __pyx_r;
 }
 
-/* "av/format.pyx":109
- *         return self.optr != NULL
+/* "av/format.py":119
+ *         return self.optr != cython.NULL
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def long_name(self):
@@ -3752,7 +3738,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9long_name___get__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":113
+  /* "av/format.py":123
  *         # We prefer the output names since the inputs may represent
  *         # multiple formats.
  *         return self.optr.long_name if self.optr else self.iptr.long_name             # <<<<<<<<<<<<<<
@@ -3762,12 +3748,12 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9long_name___get__(struc
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->optr != 0);
   if (__pyx_t_2) {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->optr->long_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->optr->long_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
   } else {
-    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->iptr->long_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_FromString(__pyx_v_self->iptr->long_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -3776,8 +3762,8 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9long_name___get__(struc
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":109
- *         return self.optr != NULL
+  /* "av/format.py":119
+ *         return self.optr != cython.NULL
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def long_name(self):
@@ -3796,12 +3782,12 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_9long_name___get__(struc
   return __pyx_r;
 }
 
-/* "av/format.pyx":115
+/* "av/format.py":125
  *         return self.optr.long_name if self.optr else self.iptr.long_name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def extensions(self):
- *         cdef set exts = set()
+ *         exts: set = set()
 */
 
 /* Python wrapper */
@@ -3832,21 +3818,21 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":117
+  /* "av/format.py":127
  *     @property
  *     def extensions(self):
- *         cdef set exts = set()             # <<<<<<<<<<<<<<
+ *         exts: set = set()             # <<<<<<<<<<<<<<
  *         if self.iptr and self.iptr.extensions:
  *             exts.update(self.iptr.extensions.split(","))
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_exts = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/format.pyx":118
+  /* "av/format.py":128
  *     def extensions(self):
- *         cdef set exts = set()
+ *         exts: set = set()
  *         if self.iptr and self.iptr.extensions:             # <<<<<<<<<<<<<<
  *             exts.update(self.iptr.extensions.split(","))
  *         if self.optr and self.optr.extensions:
@@ -3862,33 +3848,33 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "av/format.pyx":119
- *         cdef set exts = set()
+    /* "av/format.py":129
+ *         exts: set = set()
  *         if self.iptr and self.iptr.extensions:
  *             exts.update(self.iptr.extensions.split(","))             # <<<<<<<<<<<<<<
  *         if self.optr and self.optr.extensions:
  *             exts.update(self.optr.extensions.split(","))
 */
-    __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->iptr->extensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->iptr->extensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyUnicode_Split(((PyObject*)__pyx_t_1), __pyx_mstate_global->__pyx_kp_u__3, -1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Split(((PyObject*)__pyx_t_1), __pyx_mstate_global->__pyx_kp_u__3, -1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PySet_Type__update, __pyx_v_exts, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PySet_Type__update, __pyx_v_exts, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/format.pyx":118
+    /* "av/format.py":128
  *     def extensions(self):
- *         cdef set exts = set()
+ *         exts: set = set()
  *         if self.iptr and self.iptr.extensions:             # <<<<<<<<<<<<<<
  *             exts.update(self.iptr.extensions.split(","))
  *         if self.optr and self.optr.extensions:
 */
   }
 
-  /* "av/format.pyx":120
+  /* "av/format.py":130
  *         if self.iptr and self.iptr.extensions:
  *             exts.update(self.iptr.extensions.split(","))
  *         if self.optr and self.optr.extensions:             # <<<<<<<<<<<<<<
@@ -3906,24 +3892,24 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "av/format.pyx":121
+    /* "av/format.py":131
  *             exts.update(self.iptr.extensions.split(","))
  *         if self.optr and self.optr.extensions:
  *             exts.update(self.optr.extensions.split(","))             # <<<<<<<<<<<<<<
  *         return exts
  * 
 */
-    __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->optr->extensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_self->optr->extensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = PyUnicode_Split(((PyObject*)__pyx_t_1), __pyx_mstate_global->__pyx_kp_u__3, -1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __pyx_t_4 = PyUnicode_Split(((PyObject*)__pyx_t_1), __pyx_mstate_global->__pyx_kp_u__3, -1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PySet_Type__update, __pyx_v_exts, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PySet_Type__update, __pyx_v_exts, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "av/format.pyx":120
+    /* "av/format.py":130
  *         if self.iptr and self.iptr.extensions:
  *             exts.update(self.iptr.extensions.split(","))
  *         if self.optr and self.optr.extensions:             # <<<<<<<<<<<<<<
@@ -3932,7 +3918,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
 */
   }
 
-  /* "av/format.pyx":122
+  /* "av/format.py":132
  *         if self.optr and self.optr.extensions:
  *             exts.update(self.optr.extensions.split(","))
  *         return exts             # <<<<<<<<<<<<<<
@@ -3944,12 +3930,12 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
   __pyx_r = __pyx_v_exts;
   goto __pyx_L0;
 
-  /* "av/format.pyx":115
+  /* "av/format.py":125
  *         return self.optr.long_name if self.optr else self.iptr.long_name
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def extensions(self):
- *         cdef set exts = set()
+ *         exts: set = set()
 */
 
   /* function exit code */
@@ -3965,7 +3951,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_10extensions___get__(str
   return __pyx_r;
 }
 
-/* "av/format.pyx":124
+/* "av/format.py":134
  *         return exts
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4000,22 +3986,14 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5flags___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":131
+  /* "av/format.py":141
  *         :rtype: int
  *         """
- *         return (             # <<<<<<<<<<<<<<
- *             (self.iptr.flags if self.iptr else 0) |
- *             (self.optr.flags if self.optr else 0)
-*/
-  __Pyx_XDECREF(__pyx_r);
-
-  /* "av/format.pyx":132
- *         """
- *         return (
- *             (self.iptr.flags if self.iptr else 0) |             # <<<<<<<<<<<<<<
- *             (self.optr.flags if self.optr else 0)
+ *         return (self.iptr.flags if self.iptr else 0) | (             # <<<<<<<<<<<<<<
+ *             self.optr.flags if self.optr else 0
  *         )
 */
+  __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = (__pyx_v_self->iptr != 0);
   if (__pyx_t_2) {
     __pyx_t_1 = __pyx_v_self->iptr->flags;
@@ -4023,10 +4001,10 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5flags___get__(struct __
     __pyx_t_1 = 0;
   }
 
-  /* "av/format.pyx":133
- *         return (
- *             (self.iptr.flags if self.iptr else 0) |
- *             (self.optr.flags if self.optr else 0)             # <<<<<<<<<<<<<<
+  /* "av/format.py":142
+ *         """
+ *         return (self.iptr.flags if self.iptr else 0) | (
+ *             self.optr.flags if self.optr else 0             # <<<<<<<<<<<<<<
  *         )
  * 
 */
@@ -4037,20 +4015,20 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5flags___get__(struct __
     __pyx_t_3 = 0;
   }
 
-  /* "av/format.pyx":132
+  /* "av/format.py":141
+ *         :rtype: int
  *         """
- *         return (
- *             (self.iptr.flags if self.iptr else 0) |             # <<<<<<<<<<<<<<
- *             (self.optr.flags if self.optr else 0)
+ *         return (self.iptr.flags if self.iptr else 0) | (             # <<<<<<<<<<<<<<
+ *             self.optr.flags if self.optr else 0
  *         )
 */
-  __pyx_t_4 = __Pyx_PyLong_From_long((__pyx_t_1 | __pyx_t_3)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_long((__pyx_t_1 | __pyx_t_3)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":124
+  /* "av/format.py":134
  *         return exts
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4069,7 +4047,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_5flags___get__(struct __
   return __pyx_r;
 }
 
-/* "av/format.pyx":136
+/* "av/format.py":145
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4104,7 +4082,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7no_file___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/format.pyx":138
+  /* "av/format.py":147
  *     @property
  *     def no_file(self):
  *         return bool(self.flags & lib.AVFMT_NOFILE)             # <<<<<<<<<<<<<<
@@ -4112,23 +4090,23 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7no_file___get__(struct 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOFILE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOFILE); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyNumber_And(__pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_And(__pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_4))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_4))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "av/format.pyx":136
+  /* "av/format.py":145
  *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4154,7 +4132,7 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_7no_file___get__(struct 
  * 
  *     cdef readonly str name             # <<<<<<<<<<<<<<
  * 
- *     cdef lib.AVInputFormat *iptr
+ *     cdef const lib.AVInputFormat *iptr
 */
 
 /* Python wrapper */
@@ -4392,16 +4370,16 @@ static PyObject *__pyx_pf_2av_6format_15ContainerFormat_6__setstate_cython__(CYT
   return __pyx_r;
 }
 
-/* "av/format.pyx":141
+/* "av/format.py":150
  * 
  * 
- * cdef get_output_format_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVOutputFormat *ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_output_format_names() -> set:
+ *     names: set = set()
 */
 
 static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
-  PyObject *__pyx_v_names = NULL;
+  PyObject *__pyx_v_names = 0;
   struct AVOutputFormat const *__pyx_v_ptr;
   void *__pyx_v_opaque;
   PyObject *__pyx_r = NULL;
@@ -4414,48 +4392,48 @@ static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_output_format_names", 0);
 
-  /* "av/format.pyx":142
- * 
- * cdef get_output_format_names():
- *     names = set()             # <<<<<<<<<<<<<<
- *     cdef const lib.AVOutputFormat *ptr
- *     cdef void *opaque = NULL
+  /* "av/format.py":152
+ * @cython.cfunc
+ * def get_output_format_names() -> set:
+ *     names: set = set()             # <<<<<<<<<<<<<<
+ *     ptr: cython.pointer[cython.const[lib.AVOutputFormat]]
+ *     opaque: cython.p_void = cython.NULL
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_names = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/format.pyx":144
- *     names = set()
- *     cdef const lib.AVOutputFormat *ptr
- *     cdef void *opaque = NULL             # <<<<<<<<<<<<<<
+  /* "av/format.py":154
+ *     names: set = set()
+ *     ptr: cython.pointer[cython.const[lib.AVOutputFormat]]
+ *     opaque: cython.p_void = cython.NULL             # <<<<<<<<<<<<<<
  *     while True:
- *         ptr = lib.av_muxer_iterate(&opaque)
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))
 */
   __pyx_v_opaque = NULL;
 
-  /* "av/format.pyx":145
- *     cdef const lib.AVOutputFormat *ptr
- *     cdef void *opaque = NULL
+  /* "av/format.py":155
+ *     ptr: cython.pointer[cython.const[lib.AVOutputFormat]]
+ *     opaque: cython.p_void = cython.NULL
  *     while True:             # <<<<<<<<<<<<<<
- *         ptr = lib.av_muxer_iterate(&opaque)
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))
  *         if ptr:
 */
   while (1) {
 
-    /* "av/format.pyx":146
- *     cdef void *opaque = NULL
+    /* "av/format.py":156
+ *     opaque: cython.p_void = cython.NULL
  *     while True:
- *         ptr = lib.av_muxer_iterate(&opaque)             # <<<<<<<<<<<<<<
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))             # <<<<<<<<<<<<<<
  *         if ptr:
  *             names.add(ptr.name)
 */
     __pyx_v_ptr = av_muxer_iterate((&__pyx_v_opaque));
 
-    /* "av/format.pyx":147
+    /* "av/format.py":157
  *     while True:
- *         ptr = lib.av_muxer_iterate(&opaque)
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -4463,21 +4441,21 @@ static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
     __pyx_t_2 = (__pyx_v_ptr != 0);
     if (__pyx_t_2) {
 
-      /* "av/format.pyx":148
- *         ptr = lib.av_muxer_iterate(&opaque)
+      /* "av/format.py":158
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))
  *         if ptr:
  *             names.add(ptr.name)             # <<<<<<<<<<<<<<
  *         else:
  *             break
 */
-      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 148, __pyx_L1_error)
+      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 158, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "av/format.pyx":147
+      /* "av/format.py":157
  *     while True:
- *         ptr = lib.av_muxer_iterate(&opaque)
+ *         ptr = lib.av_muxer_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -4485,7 +4463,7 @@ static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
       goto __pyx_L5;
     }
 
-    /* "av/format.pyx":150
+    /* "av/format.py":160
  *             names.add(ptr.name)
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -4499,24 +4477,24 @@ static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
   }
   __pyx_L4_break:;
 
-  /* "av/format.pyx":151
+  /* "av/format.py":161
  *         else:
  *             break
  *     return names             # <<<<<<<<<<<<<<
  * 
- * cdef get_input_format_names():
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_names);
   __pyx_r = __pyx_v_names;
   goto __pyx_L0;
 
-  /* "av/format.pyx":141
+  /* "av/format.py":150
  * 
  * 
- * cdef get_output_format_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVOutputFormat *ptr
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_output_format_names() -> set:
+ *     names: set = set()
 */
 
   /* function exit code */
@@ -4531,16 +4509,16 @@ static PyObject *__pyx_f_2av_6format_get_output_format_names(void) {
   return __pyx_r;
 }
 
-/* "av/format.pyx":153
- *     return names
+/* "av/format.py":164
  * 
- * cdef get_input_format_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVInputFormat *ptr
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_input_format_names() -> set:
+ *     names: set = set()
 */
 
 static PyObject *__pyx_f_2av_6format_get_input_format_names(void) {
-  PyObject *__pyx_v_names = NULL;
+  PyObject *__pyx_v_names = 0;
   struct AVInputFormat const *__pyx_v_ptr;
   void *__pyx_v_opaque;
   PyObject *__pyx_r = NULL;
@@ -4553,48 +4531,48 @@ static PyObject *__pyx_f_2av_6format_get_input_format_names(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_input_format_names", 0);
 
-  /* "av/format.pyx":154
- * 
- * cdef get_input_format_names():
- *     names = set()             # <<<<<<<<<<<<<<
- *     cdef const lib.AVInputFormat *ptr
- *     cdef void *opaque = NULL
+  /* "av/format.py":166
+ * @cython.cfunc
+ * def get_input_format_names() -> set:
+ *     names: set = set()             # <<<<<<<<<<<<<<
+ *     ptr: cython.pointer[cython.const[lib.AVInputFormat]]
+ *     opaque: cython.p_void = cython.NULL
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_names = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/format.pyx":156
- *     names = set()
- *     cdef const lib.AVInputFormat *ptr
- *     cdef void *opaque = NULL             # <<<<<<<<<<<<<<
+  /* "av/format.py":168
+ *     names: set = set()
+ *     ptr: cython.pointer[cython.const[lib.AVInputFormat]]
+ *     opaque: cython.p_void = cython.NULL             # <<<<<<<<<<<<<<
  *     while True:
- *         ptr = lib.av_demuxer_iterate(&opaque)
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))
 */
   __pyx_v_opaque = NULL;
 
-  /* "av/format.pyx":157
- *     cdef const lib.AVInputFormat *ptr
- *     cdef void *opaque = NULL
+  /* "av/format.py":169
+ *     ptr: cython.pointer[cython.const[lib.AVInputFormat]]
+ *     opaque: cython.p_void = cython.NULL
  *     while True:             # <<<<<<<<<<<<<<
- *         ptr = lib.av_demuxer_iterate(&opaque)
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))
  *         if ptr:
 */
   while (1) {
 
-    /* "av/format.pyx":158
- *     cdef void *opaque = NULL
+    /* "av/format.py":170
+ *     opaque: cython.p_void = cython.NULL
  *     while True:
- *         ptr = lib.av_demuxer_iterate(&opaque)             # <<<<<<<<<<<<<<
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))             # <<<<<<<<<<<<<<
  *         if ptr:
  *             names.add(ptr.name)
 */
     __pyx_v_ptr = av_demuxer_iterate((&__pyx_v_opaque));
 
-    /* "av/format.pyx":159
+    /* "av/format.py":171
  *     while True:
- *         ptr = lib.av_demuxer_iterate(&opaque)
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -4602,21 +4580,21 @@ static PyObject *__pyx_f_2av_6format_get_input_format_names(void) {
     __pyx_t_2 = (__pyx_v_ptr != 0);
     if (__pyx_t_2) {
 
-      /* "av/format.pyx":160
- *         ptr = lib.av_demuxer_iterate(&opaque)
+      /* "av/format.py":172
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))
  *         if ptr:
  *             names.add(ptr.name)             # <<<<<<<<<<<<<<
  *         else:
  *             break
 */
-      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_FromString(__pyx_v_ptr->name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 160, __pyx_L1_error)
+      __pyx_t_3 = PySet_Add(__pyx_v_names, __pyx_t_1); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "av/format.pyx":159
+      /* "av/format.py":171
  *     while True:
- *         ptr = lib.av_demuxer_iterate(&opaque)
+ *         ptr = lib.av_demuxer_iterate(cython.address(opaque))
  *         if ptr:             # <<<<<<<<<<<<<<
  *             names.add(ptr.name)
  *         else:
@@ -4624,7 +4602,7 @@ static PyObject *__pyx_f_2av_6format_get_input_format_names(void) {
       goto __pyx_L5;
     }
 
-    /* "av/format.pyx":162
+    /* "av/format.py":174
  *             names.add(ptr.name)
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -4638,24 +4616,24 @@ static PyObject *__pyx_f_2av_6format_get_input_format_names(void) {
   }
   __pyx_L4_break:;
 
-  /* "av/format.pyx":163
+  /* "av/format.py":175
  *         else:
  *             break
  *     return names             # <<<<<<<<<<<<<<
  * 
- * formats_available = get_output_format_names()
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_names);
   __pyx_r = __pyx_v_names;
   goto __pyx_L0;
 
-  /* "av/format.pyx":153
- *     return names
+  /* "av/format.py":164
  * 
- * cdef get_input_format_names():             # <<<<<<<<<<<<<<
- *     names = set()
- *     cdef const lib.AVInputFormat *ptr
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_input_format_names() -> set:
+ *     names: set = set()
 */
 
   /* function exit code */
@@ -4918,7 +4896,7 @@ static int __Pyx_modinit_function_export_code(__pyx_mstatetype *__pyx_mstate) {
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (unlikely(!__pyx_export_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
     #endif
-    const char * __pyx_export_name = __pyx_export_signature + 96;
+    const char * __pyx_export_name = __pyx_export_signature + 108;
     void (*const __pyx_export_pointers[])(void) = {(void (*)(void))&__pyx_f_2av_6format_build_container_format, (void (*)(void)) NULL};
     void (*const *__pyx_export_pointer)(void) = __pyx_export_pointers;
     const char *__pyx_export_current_signature = __pyx_export_signature;
@@ -4948,15 +4926,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6format_ContainerFormat_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat)) __PYX_ERR(0, 40, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6format_ContainerFormat_spec, __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_6format_ContainerFormat_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat)) __PYX_ERR(0, 50, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_6format_ContainerFormat_spec, __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat = &__pyx_type_2av_6format_ContainerFormat;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat);
@@ -4966,8 +4944,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ContainerFormat, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ContainerFormat, (PyObject *) __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_6format_ContainerFormat) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5321,36 +5299,34 @@ __Pyx_RefNannySetupContext("PyInit_format", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "av/format.pyx":5
- * from av.descriptor cimport wrap_avclass
- * 
+  /* "av/format.py":1
  * from enum import Flag             # <<<<<<<<<<<<<<
  * 
- * 
+ * import cython
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Flag};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_enum, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 5, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_enum, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Flag};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 5, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/format.pyx":8
+  /* "av/format.py":7
+ * from cython.cimports.av.descriptor import wrap_avclass
+ * 
+ * _cinit_bypass_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
  * 
  * 
- * cdef object _cinit_bypass_sentinel = object()             # <<<<<<<<<<<<<<
- * 
- * cdef ContainerFormat build_container_format(lib.AVInputFormat* iptr, lib.AVOutputFormat* optr):
 */
   __pyx_t_4 = NULL;
   __pyx_t_5 = 1;
@@ -5358,7 +5334,7 @@ __Pyx_RefNannySetupContext("PyInit_format", 0);
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_XGOTREF(__pyx_v_2av_6format__cinit_bypass_sentinel);
@@ -5366,284 +5342,283 @@ __Pyx_RefNannySetupContext("PyInit_format", 0);
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/format.pyx":20
+  /* "av/format.py":27
  * 
- * 
+ * # fmt: off
  * class Flags(Flag):             # <<<<<<<<<<<<<<
  *     no_file = lib.AVFMT_NOFILE
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Flag); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Flag); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_Pack(1, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PEP560_update_bases(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CalculateMetaclass(NULL, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_mstate_global->__pyx_n_u_Flags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_format, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_6, __pyx_t_2, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_mstate_global->__pyx_n_u_Flags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_format, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__pyx_t_2 != __pyx_t_4) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 20, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_4) < 0))) __PYX_ERR(0, 27, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(15); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(15); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_need_number, __pyx_mstate_global->__pyx_kp_u_Needs_d_in_filename) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_show_ids, __pyx_mstate_global->__pyx_kp_u_Show_format_stream_IDs_numbers) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_global_header, __pyx_mstate_global->__pyx_kp_u_Format_wants_global_header) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_timestamps, __pyx_mstate_global->__pyx_kp_u_Format_does_not_need_have_any_t) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_generic_index, __pyx_mstate_global->__pyx_kp_u_Use_generic_index_building_code) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_discont, __pyx_mstate_global->__pyx_kp_u_Format_allows_timestamp_discont) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_variable_fps, __pyx_mstate_global->__pyx_kp_u_Format_allows_variable_fps) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_dimensions, __pyx_mstate_global->__pyx_kp_u_Format_does_not_need_width_heig) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_streams, __pyx_mstate_global->__pyx_kp_u_Format_does_not_require_any_str) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_bin_search, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_to_fall_b) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_gen_search, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_to_fall_b_2) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_byte_seek, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_seeking_b) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_nonstrict, __pyx_mstate_global->__pyx_kp_u_Format_does_not_require_strictl) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_negative, __pyx_mstate_global->__pyx_kp_u_Format_allows_muxing_negative_t) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seek_to_pts, __pyx_mstate_global->__pyx_kp_u_Seeking_is_based_on_PTS) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_need_number, __pyx_mstate_global->__pyx_kp_u_Needs_d_in_filename) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_show_ids, __pyx_mstate_global->__pyx_kp_u_Show_format_stream_IDs_numbers) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_global_header, __pyx_mstate_global->__pyx_kp_u_Format_wants_global_header) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_timestamps, __pyx_mstate_global->__pyx_kp_u_Format_does_not_need_have_any_t) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_generic_index, __pyx_mstate_global->__pyx_kp_u_Use_generic_index_building_code) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_discont, __pyx_mstate_global->__pyx_kp_u_Format_allows_timestamp_discont) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_variable_fps, __pyx_mstate_global->__pyx_kp_u_Format_allows_variable_fps) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_dimensions, __pyx_mstate_global->__pyx_kp_u_Format_does_not_need_width_heig) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_streams, __pyx_mstate_global->__pyx_kp_u_Format_does_not_require_any_str) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_bin_search, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_to_fall_b) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_gen_search, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_to_fall_b_2) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_no_byte_seek, __pyx_mstate_global->__pyx_kp_u_Format_does_not_allow_seeking_b) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_nonstrict, __pyx_mstate_global->__pyx_kp_u_Format_does_not_require_strictl) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ts_negative, __pyx_mstate_global->__pyx_kp_u_Format_allows_muxing_negative_t) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seek_to_pts, __pyx_mstate_global->__pyx_kp_u_Seeking_is_based_on_PTS) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":21
- * 
+  /* "av/format.py":28
+ * # fmt: off
  * class Flags(Flag):
  *     no_file = lib.AVFMT_NOFILE             # <<<<<<<<<<<<<<
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
  *     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOFILE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOFILE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_file, __pyx_t_4) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_file, __pyx_t_4) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":22
+  /* "av/format.py":29
  * class Flags(Flag):
  *     no_file = lib.AVFMT_NOFILE
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER             # <<<<<<<<<<<<<<
  *     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS
  *     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NEEDNUMBER); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NEEDNUMBER); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_need_number, __pyx_t_4) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_need_number, __pyx_t_4) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":23
+  /* "av/format.py":30
  *     no_file = lib.AVFMT_NOFILE
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
  *     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS             # <<<<<<<<<<<<<<
  *     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER
  *     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_SHOW_IDS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_SHOW_IDS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_show_ids, __pyx_t_4) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_show_ids, __pyx_t_4) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":24
+  /* "av/format.py":31
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
  *     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS
  *     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER             # <<<<<<<<<<<<<<
  *     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS
  *     generic_index: "Use generic index building code." = lib.AVFMT_GENERIC_INDEX
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_GLOBALHEADER); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_GLOBALHEADER); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_global_header, __pyx_t_4) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_global_header, __pyx_t_4) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":25
+  /* "av/format.py":32
  *     show_ids: "Show format stream IDs numbers." = lib.AVFMT_SHOW_IDS
  *     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER
  *     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS             # <<<<<<<<<<<<<<
  *     generic_index: "Use generic index building code." = lib.AVFMT_GENERIC_INDEX
  *     ts_discont: "Format allows timestamp discontinuities" = lib.AVFMT_TS_DISCONT
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOTIMESTAMPS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOTIMESTAMPS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_timestamps, __pyx_t_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_timestamps, __pyx_t_4) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":26
+  /* "av/format.py":33
  *     global_header: "Format wants global header." = lib.AVFMT_GLOBALHEADER
  *     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS
  *     generic_index: "Use generic index building code." = lib.AVFMT_GENERIC_INDEX             # <<<<<<<<<<<<<<
  *     ts_discont: "Format allows timestamp discontinuities" = lib.AVFMT_TS_DISCONT
  *     variable_fps: "Format allows variable fps." = lib.AVFMT_VARIABLE_FPS
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_GENERIC_INDEX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_GENERIC_INDEX); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_generic_index, __pyx_t_4) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_generic_index, __pyx_t_4) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":27
+  /* "av/format.py":34
  *     no_timestamps: "Format does not need / have any timestamps." = lib.AVFMT_NOTIMESTAMPS
  *     generic_index: "Use generic index building code." = lib.AVFMT_GENERIC_INDEX
  *     ts_discont: "Format allows timestamp discontinuities" = lib.AVFMT_TS_DISCONT             # <<<<<<<<<<<<<<
  *     variable_fps: "Format allows variable fps." = lib.AVFMT_VARIABLE_FPS
  *     no_dimensions: "Format does not need width/height" = lib.AVFMT_NODIMENSIONS
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_DISCONT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_DISCONT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_discont, __pyx_t_4) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_discont, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":28
+  /* "av/format.py":35
  *     generic_index: "Use generic index building code." = lib.AVFMT_GENERIC_INDEX
  *     ts_discont: "Format allows timestamp discontinuities" = lib.AVFMT_TS_DISCONT
  *     variable_fps: "Format allows variable fps." = lib.AVFMT_VARIABLE_FPS             # <<<<<<<<<<<<<<
  *     no_dimensions: "Format does not need width/height" = lib.AVFMT_NODIMENSIONS
  *     no_streams: "Format does not require any streams" = lib.AVFMT_NOSTREAMS
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_VARIABLE_FPS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_VARIABLE_FPS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_variable_fps, __pyx_t_4) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_variable_fps, __pyx_t_4) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":29
+  /* "av/format.py":36
  *     ts_discont: "Format allows timestamp discontinuities" = lib.AVFMT_TS_DISCONT
  *     variable_fps: "Format allows variable fps." = lib.AVFMT_VARIABLE_FPS
  *     no_dimensions: "Format does not need width/height" = lib.AVFMT_NODIMENSIONS             # <<<<<<<<<<<<<<
  *     no_streams: "Format does not require any streams" = lib.AVFMT_NOSTREAMS
  *     no_bin_search: "Format does not allow to fall back on binary search via read_timestamp" = lib.AVFMT_NOBINSEARCH
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NODIMENSIONS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NODIMENSIONS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_dimensions, __pyx_t_4) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_dimensions, __pyx_t_4) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":30
+  /* "av/format.py":37
  *     variable_fps: "Format allows variable fps." = lib.AVFMT_VARIABLE_FPS
  *     no_dimensions: "Format does not need width/height" = lib.AVFMT_NODIMENSIONS
  *     no_streams: "Format does not require any streams" = lib.AVFMT_NOSTREAMS             # <<<<<<<<<<<<<<
  *     no_bin_search: "Format does not allow to fall back on binary search via read_timestamp" = lib.AVFMT_NOBINSEARCH
  *     no_gen_search: "Format does not allow to fall back on generic search" = lib.AVFMT_NOGENSEARCH
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOSTREAMS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOSTREAMS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_streams, __pyx_t_4) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_streams, __pyx_t_4) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":31
+  /* "av/format.py":38
  *     no_dimensions: "Format does not need width/height" = lib.AVFMT_NODIMENSIONS
  *     no_streams: "Format does not require any streams" = lib.AVFMT_NOSTREAMS
  *     no_bin_search: "Format does not allow to fall back on binary search via read_timestamp" = lib.AVFMT_NOBINSEARCH             # <<<<<<<<<<<<<<
  *     no_gen_search: "Format does not allow to fall back on generic search" = lib.AVFMT_NOGENSEARCH
  *     no_byte_seek: "Format does not allow seeking by bytes" = lib.AVFMT_NO_BYTE_SEEK
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOBINSEARCH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOBINSEARCH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_bin_search, __pyx_t_4) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_bin_search, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":32
+  /* "av/format.py":39
  *     no_streams: "Format does not require any streams" = lib.AVFMT_NOSTREAMS
  *     no_bin_search: "Format does not allow to fall back on binary search via read_timestamp" = lib.AVFMT_NOBINSEARCH
  *     no_gen_search: "Format does not allow to fall back on generic search" = lib.AVFMT_NOGENSEARCH             # <<<<<<<<<<<<<<
  *     no_byte_seek: "Format does not allow seeking by bytes" = lib.AVFMT_NO_BYTE_SEEK
  *     ts_nonstrict: "Format does not require strictly increasing timestamps, but they must still be monotonic." = lib.AVFMT_TS_NONSTRICT
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOGENSEARCH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NOGENSEARCH); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_gen_search, __pyx_t_4) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_gen_search, __pyx_t_4) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":33
+  /* "av/format.py":40
  *     no_bin_search: "Format does not allow to fall back on binary search via read_timestamp" = lib.AVFMT_NOBINSEARCH
  *     no_gen_search: "Format does not allow to fall back on generic search" = lib.AVFMT_NOGENSEARCH
  *     no_byte_seek: "Format does not allow seeking by bytes" = lib.AVFMT_NO_BYTE_SEEK             # <<<<<<<<<<<<<<
  *     ts_nonstrict: "Format does not require strictly increasing timestamps, but they must still be monotonic." = lib.AVFMT_TS_NONSTRICT
  *     ts_negative: "Format allows muxing negative timestamps." = lib.AVFMT_TS_NEGATIVE
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NO_BYTE_SEEK); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_NO_BYTE_SEEK); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_byte_seek, __pyx_t_4) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_no_byte_seek, __pyx_t_4) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":34
+  /* "av/format.py":41
  *     no_gen_search: "Format does not allow to fall back on generic search" = lib.AVFMT_NOGENSEARCH
  *     no_byte_seek: "Format does not allow seeking by bytes" = lib.AVFMT_NO_BYTE_SEEK
  *     ts_nonstrict: "Format does not require strictly increasing timestamps, but they must still be monotonic." = lib.AVFMT_TS_NONSTRICT             # <<<<<<<<<<<<<<
  *     ts_negative: "Format allows muxing negative timestamps." = lib.AVFMT_TS_NEGATIVE
  *     # If not set the timestamp will be shifted in `av_write_frame()` and `av_interleaved_write_frame()`
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_NONSTRICT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_NONSTRICT); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_nonstrict, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_nonstrict, __pyx_t_4) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":35
+  /* "av/format.py":42
  *     no_byte_seek: "Format does not allow seeking by bytes" = lib.AVFMT_NO_BYTE_SEEK
  *     ts_nonstrict: "Format does not require strictly increasing timestamps, but they must still be monotonic." = lib.AVFMT_TS_NONSTRICT
  *     ts_negative: "Format allows muxing negative timestamps." = lib.AVFMT_TS_NEGATIVE             # <<<<<<<<<<<<<<
  *     # If not set the timestamp will be shifted in `av_write_frame()` and `av_interleaved_write_frame()`
  *     # so they start from 0. The user or muxer can override this through AVFormatContext.avoid_negative_ts
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_NEGATIVE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_TS_NEGATIVE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_negative, __pyx_t_4) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ts_negative, __pyx_t_4) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":38
+  /* "av/format.py":45
  *     # If not set the timestamp will be shifted in `av_write_frame()` and `av_interleaved_write_frame()`
  *     # so they start from 0. The user or muxer can override this through AVFormatContext.avoid_negative_ts
  *     seek_to_pts: "Seeking is based on PTS" = lib.AVFMT_SEEK_TO_PTS             # <<<<<<<<<<<<<<
+ * # fmt: on
  * 
- * cdef class ContainerFormat:
 */
-  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_SEEK_TO_PTS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From___pyx_anon_enum(AVFMT_SEEK_TO_PTS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_seek_to_pts, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_seek_to_pts, __pyx_t_4) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/format.pyx":20
+  /* "av/format.py":27
  * 
- * 
+ * # fmt: off
  * class Flags(Flag):             # <<<<<<<<<<<<<<
  *     no_file = lib.AVFMT_NOFILE
  *     need_number: "Needs '%d' in filename." = lib.AVFMT_NEEDNUMBER
 */
-  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3ClassCreate(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_t_2, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_t_4) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Flags, __pyx_t_4) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/format.pyx":165
- *     return names
+  /* "av/format.py":178
+ * 
  * 
  * formats_available = get_output_format_names()             # <<<<<<<<<<<<<<
  * formats_available.update(get_input_format_names())
- * 
+ * format_descriptor = wrap_avclass(lib.avformat_get_class())
 */
-  __pyx_t_2 = __pyx_f_2av_6format_get_output_format_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_2av_6format_get_output_format_names(); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_formats_available, __pyx_t_2) < (0)) __PYX_ERR(0, 165, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_formats_available, __pyx_t_2) < (0)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/format.pyx":166
+  /* "av/format.py":179
  * 
  * formats_available = get_output_format_names()
  * formats_available.update(get_input_format_names())             # <<<<<<<<<<<<<<
- * 
- * 
+ * format_descriptor = wrap_avclass(lib.avformat_get_class())
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_formats_available); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_formats_available); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_update); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __pyx_f_2av_6format_get_input_format_names(); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_7 = __pyx_f_2av_6format_get_input_format_names(); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_5 = 1;
   {
@@ -5652,25 +5627,25 @@ __Pyx_RefNannySetupContext("PyInit_format", 0);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/format.pyx":169
- * 
- * 
+  /* "av/format.py":180
+ * formats_available = get_output_format_names()
+ * formats_available.update(get_input_format_names())
  * format_descriptor = wrap_avclass(lib.avformat_get_class())             # <<<<<<<<<<<<<<
 */
-  __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(avformat_get_class())); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_2 = ((PyObject *)__pyx_f_2av_10descriptor_wrap_avclass(avformat_get_class())); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_format_descriptor, __pyx_t_2) < (0)) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_format_descriptor, __pyx_t_2) < (0)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/format.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
+  /* "av/format.py":1
+ * from enum import Flag             # <<<<<<<<<<<<<<
  * 
- * from av.descriptor cimport wrap_avclass
+ * import cython
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -5716,7 +5691,7 @@ __Pyx_RefNannySetupContext("PyInit_format", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 7, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -5745,33 +5720,33 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 7; } index[] = {{1},{43},{41},{29},{40},{72},{54},{45},{35},{37},{91},{29},{25},{25},{33},{34},{1},{1},{1},{1},{4},{7},{6},{2},{9},{35},{20},{50},{15},{4},{5},{20},{15},{9},{9},{18},{10},{7},{4},{5},{17},{17},{13},{12},{13},{5},{8},{13},{4},{10},{15},{4},{8},{11},{13},{12},{13},{7},{13},{10},{13},{6},{7},{3},{11},{12},{11},{12},{1},{10},{17},{13},{11},{12},{10},{12},{19},{8},{8},{10},{11},{12},{6},{6},{12},{1},{83},{118}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (746 bytes) */
-const char* const cstring = "(\265/\375`\035\005\005\027\000V\351m 0Ssf{\223[-\251\303\245\233\244\335\302\t\266\345\033\331]t\251\267\253{Q\021\021\021P\003c\000i\000_\000\354\235m\373P\366N\263\352 8\25762\341<\215\3229\204S\252\234\226)k\203*\225]ntNb\251~\023\226\274\313q\237G\312\345\230\353w\375\311\342\241\352\327|\256\255\230\323\265\344\262\214\\\367\267\361>w\362U\247@\034z\362]\237\375\323h?\033\345kx%\3559\217\364Zy\237\017\353\t\345\002\r\253\257\202D\331\360\0001pP \252:\251\265m9\211*^\365\r\246\313\323\370\\\202\342\230\213\264\223\241(\031\032\027\307}J=\227\363\315P\002 \372$\353Z\346xOQ\002\312\271R\255\010P LU\252s+\227^\315\371sF\322r\177s?\247\373~\357\355\271\211:\177\337\2263hx=\225%\336\233\254O\353OjO\276\"\362\346\203\350\217\376\"\242\372k\203\210k\323\031EL\255\020Y?\264,\271*M\311\036y\321=\027\242s\357\3477s\"2\212\361\022\255\300O+!\231\\ z\223k\"\002\361\2277\255\334h\331\037p\2636u\210\232\232R\206x\277Z2\252\230\362\3465\177\353c\375\r\342e\345\233\002\237\017k\006\361\233\305\031P0D\211P\262\010\000A\301\245\213\340\200\030(8\211\004\005\214r\001\357S\213\240k[\031\351\247\202\0327\342\273>\242\253\305H;\376\376\020\366#\267\363\223\304V\266\217\2052!*KH\031\204\0105\004\365'\355X\272\235\365Y\205\372\023\344]\260\031\225*\242\353\262g\305f\272\232\252\016\177\2501\035b\314 \022\021\032IS\220B\007 \204(TU\346\001\222\351(Q\203\022*\n\n\013K\n\031\3663P)>S^\221\3623\027S\215\025J\010\234KL\375\031\232\260\020\3209\301\210\014n\372\222\034\3577\003\241\200h\251\205\202Z\300\2459\t\227\334\260:\023\305\252\266m\"\241\234\207\304A9\312ze\002\273]\272[\302\247\211\006\301m\204\251\204$;\334\251\036\027\342+\263dy$\335\244\026%\357R3\215 ML\005\025R\210\357\277\364\232\3204\270la\223\300(\360Z\363px()[d\177+>bbE\377\234\205#\322E\260\244\301R\002b\327{\222\312A\321>\230\331&\257(PZO\333\205~\002\3436&0\226\361>\230\251\376\323\005\360\361\262\207\255t\034\354\351^f\264\333t(\010:\220\267W\352-\274\205\325\372\202R\310\014,S\331s{=B\207\320\212\210\312\017\260f\270""\013\222\n\034y\313\034cp\367\202\016\000*\337Ya\321U\343\373\243HFN\242\244`F\370\t\030\235p\251\001";
-    PyObject *data = __Pyx_DecompressString(cstring, 746, 3);
+    const struct { const unsigned int length: 8; } index[] = {{1},{43},{41},{29},{40},{72},{54},{45},{35},{37},{91},{29},{25},{25},{33},{34},{1},{1},{1},{1},{4},{7},{6},{2},{9},{35},{20},{50},{15},{4},{5},{20},{15},{9},{9},{18},{10},{7},{4},{5},{17},{17},{13},{12},{13},{5},{8},{13},{4},{10},{15},{4},{8},{11},{13},{12},{13},{7},{13},{10},{13},{6},{7},{3},{11},{12},{11},{12},{1},{10},{17},{13},{11},{12},{10},{12},{19},{8},{8},{10},{11},{12},{6},{6},{12},{1},{83},{130}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (748 bytes) */
+const char* const cstring = "(\265/\375`)\005\025\027\000\226in 0Ssf{\223[-\251\303\245\233\244\335\302\t\266\345\033\331]t\251\267\253{Q\021\021\021P\003c\000j\000_\000\312\336\331\266\017e\3574\253\016\202\363j#\023\316\323(\235C8\245\312i\231\2626\250R\331\345F\347$\226\3527a\311\273\034\367y\244\\\216\271~\327\237,\036\252~\315\347\332\2129]K.\313\310u\177\033\357s'_u\n\304\241'\337\365\331?\215\366\263Q\276\206W\322\236\363H\257\225\367\371\260\236P.\254|S\303\352\253 Q6<@\014\034\024\210\252Njm[N\242\212W}\203\351\3624>\227\2408\346\"\355d(J\206\306\305q\237R\317\345|3\224\000\210>\311\272\2269\336S\224\200r\256T+\002\024\010S\225\352\334\312\245Ws\376\234\221\264\334\337\334\317\351\276\267\347&\352\374}[\316\240\341\365T\226xo\262>\255?\031\371\212\310\233\017\242?\372\213\210\352\257\r\"\256Mg\236\306\212\230Z!\262~hYrU\232\222=\362\242{.D\347\336\317o\346Dd\024\343%Z\201\237VB2\271@\364&\327D\004\342/oB\274\225\033-\373\003\356?m\352\02055\245\014\361~\265dT1\345\315k\376\326\307\372\033\304\033\237\017k\006\361\233\305\031P0D\211P\262\010\000A\301\245\213\340\200\030(8\211\004\005\214r\001\357S\213\240k[\031\351\247\202\0327\342\273>\242\253\305H;\376\376\020\366#\267\363\223\304V\266\217\2052!*KH\031\204\0105\004\365'\355X\272\235\365Y\205\372\023\344]\260\031\225*\242\353\262g\305f\272\232\252~\002\177\250A\035b\314\020\211\310\214\244\005I\241\003 \204(TV\345\001\262\311(\021t\020\252\n\n\013K\n\031\3663\\)W#w\277\023e\r\205\034\224f-\224\230\316IL\375\014M\262\036\330\0316\243\n.Rr\001\326<\006-\001\231\251\325\004\025`us\362\220\334\266\002L\224W\221m\262Kq\206\362&\217!\317\2300)\367\256>B\3344\201\000/B\267\024$?\334\221\2165\340,\263_\230%\335\374\0255,\271\331 \260=F\233\212\025\310\363_~oh.\334\271\260M\340\330r\213\271Qx^i.2\301\225\037tbH\177a\206#\302\210\020I\273\320c2\354'\001\251R0TcYL\010L\377\303\302Q\002\340V&\301\005\343\371\001\317\275\210\263\272\247S\t\327\261H_J\357\276\031>\010mBo\273B\337\"RX\030\257?\205L\244j\"\306\245G\034\351\010,d\033CS~\3649\343]\3204""\340@R\336\226Q\331%\255\001\244\277\\\307\352\277v\366\202H\302'\261\r\261F{\010\001\235\320\250\001";
+    PyObject *data = __Pyx_DecompressString(cstring, 748, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (842 bytes) */
-const char* const cstring = "BZh91AY&SYS\034\227\020\000\000\005_\200@\000R\367\361\005\255!\337\000\277\377\377\340P\003M/u\357k\327==\227\257\r4\202i\244\332OD\365\003Q\240\320\320\006LCA\221'\244\3234\251\214\021\006\200\000hh\0004\0050\212~TyF\233I\246\200\003 \365\032= H\240\232F\022yFi\006\215\000\000\003@%4\204\304\024\362\020\321\243F\206\200\006\200\007\366\242\036<\271\0207\024\337\303\203\020\017`\242\242\337\353\376z\027\362\034\342\211s\005roChh\352\246\216,\236\221e\220c\271@\027\376\206\246H#:\250[oY\334\317`F\337e\333.\n\272\213\311\245L\251\253\364C\340\020bF\300\030\201\353\343\246\334\316L\0130\350+\273n n\226W\247\027&\217\212j\232\212\321\002\302\024\255X\241\377u\016\007\335\034\000\237\35052\305\356P\0072\350R-,34<\336\260Ij\234\030\031\230\331\000\200\354whIR\320\224\352'\026\331Br\234\235E\352\357\003oLp\213\024T+i\n\241\257\025\020F*\313\327\0334\225\222=\177\013\271\260\337\335`\027D`0\007\372\333\250D\201Q\\-\025\302A\277R\267\307\020\304f/\r\013\224\201\221\355\226\341\033s\027i\034\241'\203w\213\312*O%7\034\202\255A\033\342\240\370!Zz\315,+Fb\3472\013\317L3\350\220\262\215\033\361\214\201\217\224\031aTE\026\202\002\331|\341=mm\364\327\214\036\270\006\270: \352YB\316!5\300\254\346\306(\242$\024o\245#\315Y\371\201\"\005\325\014\230\301\216b\031PZ\225\304\2047\214\021)\220\363r2\260\231\244\246\206E\317\026\3419\347\006\r\246h[\364\315p7\300\207D\211X\"^\250\303\021V\r\222\2601\215\267\364\362\320\022$s\221f\330\263-\332\006\320\355$%\356\327\022\300\270\264\r\225\037\014)\010\206\031\001q*\325XNu\020\271L\320\332\266\344\314\267\030n\242\221]\215\020#B\r,\214\302\250\215\257~\340\024\210\242\211uFf\023\024\236\207\023iF696\252\023H\020\301oU\200\014P\210\245\264\2159\263\312\350+M\t\312\224\334\262B\002:\312\224\234\312\026\246\255d\031yB\313\361\332A+\0254\031\247r\244\336\221\256J\212\332\313Z\023Lh\242\tg\2756\2541\303\035P\303\032\213\030\351\200J\333\307\252\002W\026$\231\016\362\325pPX\305\263\314\251\236E\263-j5\001\336 \025\252@\206\306\232,\205bO\032\205""\022p3\341\3256H\316h\005\014\000\375\322/\032\021Q\220\336\352\316\037\201`\005W\027&\242H\345Q\276\302\352\225\263\231\202bFy\030\014`8\342$\360ZS\232\336z\036\223{M\340\200\305\260\210n\232\312\0349Dx\255\206G(T\305\306\344\366\263\201@\321!\034\320\202<\237\n\000\362\376\250\030\220Y\266\021,\215\243\265t\336M\031\177Fla\237(\032\010)\260\346\247iY\300\204\024\\\223[\362\215\356\031\202\314\017\361w$S\205\t\0051\311q\000";
-    PyObject *data = __Pyx_DecompressString(cstring, 842, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (847 bytes) */
+const char* const cstring = "BZh91AY&SY\007|\205\325\000\000\005_\200@\000R\367\361\005\255!\337\000\277\377\377\340P\003M\355\267^\366\336\357r\275\356\332\360\323H\206\232Q\372\233*oT\365\036P\017P\3204yM\251\223\006E6\247\244\233\322&(h4\001\220\r\000\3654\r\001\002\004\305\036\246\321\000\000\003\324h\321\204\212&A\250\324y\032i\000\000\000\000\002SHL\2012\233A\001\240h\000h\003J|\021\016\3554 l)\226y\261\000\371\n*-\377\227\337\022\352\216\203\371Q50W\006\3616\006\226\313r\263G\266L\263\014u\250\003\017\320\326\350\202T\271B\325\202\322\266x\004m\320\273f\003\277\022\251-3\204\342\376\310\252\203\034\210\330\020b\247\354\341\277D\233%\014\267\225\341\216\000l\205\264\246\352\022\355\263\353\215h\300@\n\347N\265b\212\177j\031\237\244\240\001\036\000\305jN\305\000q\256JE\255\206\363C\336\367E'\262\221`fc\236!\001\301\335\2435{G\247Y8\267E\t\312ru\027\255\336\006\336\250\337\026(\250Wa\n\320\327\n\210\tIY{\253\226\222\263H\247\351\21028\367\310\013+\031\014\201\376{-\"`\250\246S/\312A\242\262\273\243\200`3\027\006K\224\201\211\357\216\341\033x\013u\216P\223\305w\013\306*\247\232\223\216a=\201\033\342\240\365\302\304=\246L,E\246\227\"\t\266j\373\240,\233FX>\000\277\325\314\260\252\"\216p@[%\027F\366\266S\277\007R\271\021\220\350\203\251c\n\270D\326\202\253f\021E\021 \243}\251\036\212\257\333\311\020)hh\340\2622\212w\344iV\334\304\3615%\226\207\365%\033E\256\370<\235\356S,\306\373\362\006\r\250h[\265\321q7\304\206\331\222\260D\301Q\206b\346\r\242\2601\235\222\355\327\000H\201\351\"\314^\313u\\1\024u\020\222\242\367\226\005\301\240wT|\372&\347\212\222\340(%3^\014\325\205\241az!\212\024\032\263\030f\346Bv\241\n*p\255,\313E2:\036\255 *\210\242\264\272c#\t\n\247\270\342r\225\261\261\324\332\231s\212$C\030B!$\3217]'NM\231[\030J\346\226T\247\224,h\204\205\223\2730q\005\014 T\027\007\026\335\217PRm/x\261\250\\\262p\206\270fX\326{P\232cEh*\272\364\332\241\216\030\354\206\030\314\243\035x\004n\314-P\022\264\251$\310w\227\035\241Aa\026\3172\263<\213&X\324j\002#\000\t,5 \374U\\\313d\010\266\240A*\300\313;""\350\347\nP\300\250\224\017\355#\021z*2\034aZ\004\\\265\001E<\020M\004\322\n\243f\027\t\276\215\002\243\241\215ZZ \327\2168\211<\026\264\3473\317'\244\336\3030@b\310D7L\365.Z\230<\226\006G8\334b\263rz\231\300\2644\210Kz\020G\233\343h\017=\370\007\023\013\203\240\211Tl\035\253\327q4c\2763b\374\370\300\310\202\233\016q\273J\231\220@\232\363Eeh\312\201\254,@\344.\344\212p\241 \016\371\013\252";
+    PyObject *data = __Pyx_DecompressString(cstring, 847, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (728 bytes) */
-const char* const cstring = "x\332\215T]o\0231\020\344\247X\225\320\321\252\244\300\003O\010\204ZU\352K\251(\360\272\362\331\233\273\245w\366\325\366%\315\277g|_\ti\221\210\222\313\236\275\236\335\235\235\265*\256}huR\272i\3746\252\266\177\022W)\307\225N\262a\225\244\345\230t\333\305Uq\344\272l)+\321x\227\304\365\222\204\343\261\343F\007\321e\303j}\210b=G\345\374\344\245\"\363C\216\\\356\360M\007 G~\311\2535,Uj\363\240\274S\2458\035v8\256\203\251\325F\264\n\254--\311\375/N\305\216\203\230\t\350\371)\307l\325\205\2525H\321n\367\"1\177;o\305\246\372\242f\251\352\364\334%\360c/a\304\212\t9\267\361\337Np\020\223\232\235\022g\340\0323Q\373\004\316U\331'\225j\336\241}1\301[ra\254Z\017\020\357\304\354S\334j\227\242\252\032_\352F\325`\212\303\2528\271E\276Q\025\257m\201\010j-\r;\335\362\352\244\270\237\272\"\021DE\024\005\246\356~\334\027\305}\r\016\327#\346\230\276\272\271B\322}[r\310\224\374\214\274p*\316\362\023\222\224\306f0\343-\257\212\317\347\253/\237\364f\005\361dq \"\236\225\2218Z\326\r9\211\353P\333\024\310\007\345\373\264_p^e\335iA\230\331\007k\226\327\272o\222\"\nl{\303D\312\366\234;\356\274{\013*\241\222\006\273F\234$\242\313\031b\244\350\272\321U\376E\242\273\335\023~W\240\236n\371)}\3475\221v\340\024\263\341\035\034\220\376\030\026`\215\2161\377\001\211\304Q\n\332p\026\227\345h\202t\311\007\"\353\r\021\203\244u\0160\035\335;\214\013\021\260Z\232\201\216\221@\032\010$\2528\241\343\t\005\215\r\244\261\201\222\270E\350\026E\020>-'=e\323\202\351\341\3317<l\005\217\360`\200\261\231[\274<A6\215\315s\2360S4\316A~\3014R\236N\330\026\232s1\327\216\227A&\036I\0358OJ\206\265\227\247/\177\263I\276\0338\353|G\324\005\356t\0302\352@\261\321\235\314\366T\337c\257\2331\263\260\357\342b\231]\252\275;X\310\344\344\024)y\352@ ^\322T\031\254I\017\203=\341\037\3303X\204\242I,\016\343\366\2013`\246{\r\326|\037f\023U\014\343\330w\026\3477\272\3519\316W\034\341\212\333b\2737Y~\271 TO\037\364\206\336\277;\020\302\325b\252\2637\223\373\327_\227\271iY\321\230\341\263\323W\333\240;Hah\345\213\220\037'\001\035\t""\370\020\362&\217\317\274|\256\226\365o\303\030\315\033\247\257\206\331\244e\230hD\376\003\004zU\206";
-    PyObject *data = __Pyx_DecompressString(cstring, 728, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (731 bytes) */
+const char* const cstring = "x\332\215T]o\3330\014\354O\021\n\014^\213.\335\366\260\247a\303\320\242@_\272b\335\366J\310\022cs\265%W\222\363\361\357w\262\035'M;`A\342\320\022u$\217G\251\342\306\207V'\245\233\306\257\243j\373\215\270J9\256t\222\025\253$-\307\244\333..\212#\327yKY\211\306\273$\256\227$\034\217\035W:\210.\033V\313C\024\3539*\347'/\025\231\037s\344r\213o:\0009\362K^-a\251R\233G\345\235*\305\351\260\305q\035L\255V\242U`miN\356\177q*v\034\304L@/O9f\253.U\255A\212v\333W\211y\356\274\026\233\352\313\232\245\252\323K\227\300O\275\204\021+&\344\334\306\177;\301ALj\266J\234\201k\314D\355\023\270Pe\237T\252y\213\366\305\004o\311\205\261j=@\274\023\263Oq\255]\212\252j|\251\033U\203)\016\213\342\364\016\371FU\274\261\005\"\250\2454\354t\313\213\323\342a\352\212D\020\025Q\024\230\272\377\371P\024\01758\\\216\230c\372\352\366\032I\367m\311!S\362+\362\314\2518\313\033$)\215\315`\306[^\024_.\026_?\353\325\002\342\311\342@D<+#q\264\254\033r\022\327\241\266)\220\017\312\367i\277\340\274\312\272\323\2020;\037\254Y^\352\276I\212(\260\355\r\023)\333s\356\270\363\356\035\250\204J\032\354\032q\222\210\256v\020#E7\215\256\362/\022\335o7\370]\203z\272\343M\372\301K\"\355\300)f\303;8 \3751,\300\032\035c\376\003\022\211\243\024\264\341,.\313\321\004\351\222\017D\326\033\"\006I\313\034`:\272w\030\027\"`\2654\003\035#\2014\020HTqB\307\023\n\032\033Hc\003%q\213\320-\212 |ZNz\312\246\005\323\303\263ox\330\n\036\341\301\000c3\267x~\202l\032\233\347<a\246h\234\203\374\202i\244<\235\260-4\347b\256\035/\203L<\222:p\236\224\014k/O_\376a\223|7p\326\371\216\250\013\334\3510d\324\201b\243;\331\331S}O\275n\306\314\302\276\213\263e\266\251\366\356`!\223\223S\244\344\251\003\201xISe\260&=\014\366\204\177`\357\300\"\024Mbq\030\267\017\234\0013\335k\260v\367a6Q\3050\216}gq~\245\233\236\343\356\212#\\qkl\367&\313/\027\204\352\351\243^\321\207\367\007B\270\236Mu\376vr\377\366\373*7-+\0323|~v\262\016\272\203\024\206V\276\n\371i\022\320\221\200\017!o\363\370L\313\023\360\205\232w\277\017\303\364|\373\354d\230S\232\007\213\306(""\177\001)\375Z\024";
+    PyObject *data = __Pyx_DecompressString(cstring, 731, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1565 bytes) */
-const char* const bytes = " 'Format allows muxing negative timestamps.''Format allows timestamp discontinuities''Format allows variable fps.''Format does not allow seeking by bytes''Format does not allow to fall back on binary search via read_timestamp''Format does not allow to fall back on generic search''Format does not need / have any timestamps.''Format does not need width/height''Format does not require any streams''Format does not require strictly increasing timestamps, but they must still be monotonic.''Format wants global header.'\"Needs '%d' in filename.\"'Seeking is based on PTS''Show format stream IDs numbers.''Use generic index building code.'>,.?<av.disableenablegcisenabledneeds input format or output formatno container format no default __reduce__ due to non-trivial __cinit__ContainerFormatFlagFlags__Pyx_PyDict_NextRef__annotations__av.format__class__cline_in_tracebackdescriptor__doc__enumflagsformat_descriptorformats_availablegeneric_index__getstate__global_headeritems__main____metaclass__mode__module____mro_entries__name__name__need_numberno_bin_searchno_byte_seekno_dimensionsno_fileno_gen_searchno_streamsno_timestampsobjectoptionspop__prepare____pyx_capi____pyx_state__qualname__r__reduce____reduce_cython____reduce_ex__seek_to_pts__set_name__setdefault__setstate____setstate_cython__show_ids__test__ts_discontts_negativets_nonstrictupdatevaluesvariable_fpswstruct __pyx_obj_2av_10descriptor_Descriptor *(struct AVClass const *)\000wrap_avclassstruct __pyx_obj_2av_6format_ContainerFormat *(struct AVInputFormat *, struct AVOutputFormat *)\000build_container_format";
+    #else /* compression: none (1577 bytes) */
+const char* const bytes = " 'Format allows muxing negative timestamps.''Format allows timestamp discontinuities''Format allows variable fps.''Format does not allow seeking by bytes''Format does not allow to fall back on binary search via read_timestamp''Format does not allow to fall back on generic search''Format does not need / have any timestamps.''Format does not need width/height''Format does not require any streams''Format does not require strictly increasing timestamps, but they must still be monotonic.''Format wants global header.'\"Needs '%d' in filename.\"'Seeking is based on PTS''Show format stream IDs numbers.''Use generic index building code.'>,.?<av.disableenablegcisenabledneeds input format or output formatno container format no default __reduce__ due to non-trivial __cinit__ContainerFormatFlagFlags__Pyx_PyDict_NextRef__annotations__av.format__class__cline_in_tracebackdescriptor__doc__enumflagsformat_descriptorformats_availablegeneric_index__getstate__global_headeritems__main____metaclass__mode__module____mro_entries__name__name__need_numberno_bin_searchno_byte_seekno_dimensionsno_fileno_gen_searchno_streamsno_timestampsobjectoptionspop__prepare____pyx_capi____pyx_state__qualname__r__reduce____reduce_cython____reduce_ex__seek_to_pts__set_name__setdefault__setstate____setstate_cython__show_ids__test__ts_discontts_negativets_nonstrictupdatevaluesvariable_fpswstruct __pyx_obj_2av_10descriptor_Descriptor *(struct AVClass const *)\000wrap_avclassstruct __pyx_obj_2av_6format_ContainerFormat *(struct AVInputFormat const *, struct AVOutputFormat const *)\000build_container_format";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif

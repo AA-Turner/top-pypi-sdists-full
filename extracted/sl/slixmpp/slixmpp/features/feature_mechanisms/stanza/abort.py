@@ -3,7 +3,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.xmlstream import StanzaBase
-from typing import ClassVar, Set
+from typing import ClassVar
 
 
 class Abort(StanzaBase):
@@ -13,7 +13,7 @@ class Abort(StanzaBase):
 
     name = 'abort'
     namespace = 'urn:ietf:params:xml:ns:xmpp-sasl'
-    interfaces: ClassVar[Set[str]] = set()
+    interfaces: ClassVar[set[str]] = set()
     plugin_attrib = name
 
     def setup(self, xml):

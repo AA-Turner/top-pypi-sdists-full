@@ -10,8 +10,9 @@ use tombi_severity_level::SeverityLevelDefaultError;
 use crate::{
     comment_directive::get_tombi_array_comment_directive_and_diagnostics,
     validate::{
-        handle_deprecated, handle_type_mismatch, handle_unused_noqa,
-        if_then_else::validate_if_then_else, is_assertion_success, not_schema::validate_not,
+        handle_anything_schema, handle_deprecated, handle_nothing_schema, handle_type_mismatch,
+        handle_unused_noqa, if_then_else::validate_if_then_else, is_assertion_success,
+        merge_validation_results, validate_adjacent_applicators,
     },
 };
 
@@ -23,7 +24,7 @@ impl Validate for tombi_document_tree::Array {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<(), crate::Error>> {
+    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
         let comment_directives = self
             .comment_directives()
             .map(|directives| directives.cloned().collect_vec());
@@ -59,6 +60,7 @@ impl Validate for tombi_document_tree::Array {
                             array_schema,
                             current_schema,
                             schema_context,
+                            comment_directives.as_deref(),
                             lint_rules.as_ref(),
                         )
                         .await
@@ -99,7 +101,9 @@ impl Validate for tombi_document_tree::Array {
                         )
                         .await
                     }
-                    ValueSchema::Null => return Ok(()),
+                    ValueSchema::Null => return Ok(crate::EvaluatedLocations::new()),
+                    ValueSchema::Anything(_) => handle_anything_schema(self),
+                    ValueSchema::Nothing(_) => handle_nothing_schema(self),
                     value_schema => handle_type_mismatch(
                         value_schema.value_type().await,
                         self.value_type(),
@@ -111,19 +115,7 @@ impl Validate for tombi_document_tree::Array {
                 validate_array_without_schema(self, accessors, schema_context).await
             };
 
-            match result {
-                Ok(()) => {
-                    if lint_rules_diagnostics.is_empty() {
-                        Ok(())
-                    } else {
-                        Err(lint_rules_diagnostics.into())
-                    }
-                }
-                Err(mut error) => {
-                    error.prepend_diagnostics(lint_rules_diagnostics);
-                    Err(error)
-                }
-            }
+            crate::validate::with_lint_diagnostics(result, lint_rules_diagnostics)
         }
         .boxed()
     }
@@ -135,24 +127,14 @@ async fn validate_array(
     array_schema: &tombi_schema_store::ArraySchema,
     current_schema: &CurrentSchema<'_>,
     schema_context: &tombi_schema_store::SchemaContext<'_>,
+    comment_directives: Option<&[tombi_ast::TombiValueCommentDirective]>,
     lint_rules: Option<&ArrayCommonLintRules>,
-) -> Result<(), crate::Error> {
+) -> Result<crate::EvaluatedLocations, crate::Error> {
     let mut total_diagnostics = vec![];
-
-    if let Some(not_schema) = array_schema.not.as_ref()
-        && let Err(error) = validate_not(
-            array_value,
-            accessors,
-            not_schema,
-            current_schema,
-            schema_context,
-            array_value.comment_directives(),
-            lint_rules.as_ref().map(|rules| &rules.common),
-        )
-        .await
-    {
-        total_diagnostics.extend(error.diagnostics);
-    }
+    let mut validation_result = crate::EvaluatedLocations::new();
+    let mut evaluated = vec![false; array_value.values().len()];
+    let has_unevaluated_items = array_schema.unevaluated_items_schema.is_some()
+        || array_schema.unevaluated_items == Some(false);
 
     if let Some(if_then_else_schema) = array_schema.if_then_else.as_ref()
         && let Err(error) = validate_if_then_else(
@@ -206,6 +188,7 @@ async fn validate_array(
                 .collect_vec();
 
             if index < prefix_items.len() {
+                evaluated[index] = true;
                 if let Ok(Some(item_schema)) = tombi_schema_store::resolve_schema_item(
                     &prefix_items[index],
                     current_schema.schema_uri.clone(),
@@ -221,6 +204,7 @@ async fn validate_array(
                     total_diagnostics.extend(diagnostics);
                 }
             } else if let Some(overflow) = &overflow_schema {
+                evaluated[index] = true;
                 if let Err(crate::Error { diagnostics, .. }) = value
                     .validate(&new_accessors, Some(overflow), schema_context)
                     .await
@@ -228,6 +212,9 @@ async fn validate_array(
                     total_diagnostics.extend(diagnostics);
                 }
             } else if array_schema.additional_items == Some(false) {
+                if has_unevaluated_items {
+                    evaluated[index] = true;
+                }
                 crate::Diagnostic {
                     kind: Box::new(crate::DiagnosticKind::ArrayAdditionalItems {
                         max_items: prefix_items.len(),
@@ -252,6 +239,7 @@ async fn validate_array(
         .inspect_err(|err| log::warn!("{err}"))
         {
             for (index, value) in array_value.values().iter().enumerate() {
+                evaluated[index] = true;
                 let new_accessors = accessors
                     .iter()
                     .cloned()
@@ -280,7 +268,8 @@ async fn validate_array(
     {
         let min_contains = array_schema.min_contains.unwrap_or(1);
         let max_contains = array_schema.max_contains;
-        let needs_full_count = max_contains.is_some();
+        let needs_full_count = max_contains.is_some() || has_unevaluated_items;
+        let mut contains_evaluated = vec![false; array_value.values().len()];
 
         let mut match_count = 0usize;
         for (index, value) in array_value.values().iter().enumerate() {
@@ -294,6 +283,7 @@ async fn validate_array(
                 .validate(&new_accessors, Some(&contains_schema), schema_context)
                 .await;
             if is_assertion_success(&result) {
+                contains_evaluated[index] = true;
                 match_count += 1;
                 if !needs_full_count && match_count >= min_contains {
                     break;
@@ -340,6 +330,59 @@ async fn validate_array(
                 SeverityLevelDefaultError::default(),
                 &mut total_diagnostics,
             );
+        }
+
+        for (index, matched) in contains_evaluated.iter().enumerate() {
+            if *matched {
+                evaluated[index] = true;
+            }
+        }
+    }
+
+    // Run unevaluatedItems after all applicators that can mark items as evaluated.
+    if has_unevaluated_items {
+        let unevaluated_schema = if let Some(schema_item) = &array_schema.unevaluated_items_schema {
+            tombi_schema_store::resolve_schema_item(
+                schema_item,
+                current_schema.schema_uri.clone(),
+                current_schema.definitions.clone(),
+                schema_context.store,
+            )
+            .await
+            .inspect_err(|err| log::warn!("{err}"))
+            .ok()
+            .flatten()
+        } else {
+            None
+        };
+
+        for (index, value) in array_value.values().iter().enumerate() {
+            if evaluated.get(index).copied().unwrap_or(false) {
+                continue;
+            }
+            evaluated[index] = true;
+            if let Some(schema) = &unevaluated_schema {
+                let new_accessors = accessors
+                    .iter()
+                    .cloned()
+                    .chain(std::iter::once(tombi_schema_store::Accessor::Index(index)))
+                    .collect_vec();
+                if let Err(crate::Error { diagnostics, .. }) = value
+                    .validate(&new_accessors, Some(schema), schema_context)
+                    .await
+                {
+                    total_diagnostics.extend(diagnostics);
+                }
+            } else if array_schema.unevaluated_items == Some(false) {
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::ArrayUnevaluatedItemNotAllowed { index }),
+                    range: value.range(),
+                }
+                .push_diagnostic_with_level(
+                    SeverityLevelDefaultError::default(),
+                    &mut total_diagnostics,
+                );
+            }
         }
     }
 
@@ -528,18 +571,45 @@ async fn validate_array(
         );
     }
 
-    if total_diagnostics.is_empty() {
-        Ok(())
-    } else {
-        Err(total_diagnostics.into())
+    for (index, matched) in evaluated.iter().enumerate() {
+        if *matched {
+            validation_result.mark_index(index);
+        }
     }
+
+    let base_result = if total_diagnostics.is_empty() {
+        Ok(validation_result)
+    } else {
+        Err(crate::Error {
+            score: crate::error::TYPE_MATCHED_SCORE,
+            diagnostics: total_diagnostics,
+            evaluated_locations: validation_result,
+        })
+    };
+
+    merge_validation_results(
+        base_result,
+        validate_adjacent_applicators(
+            array_value,
+            accessors,
+            array_schema.one_of.as_deref(),
+            array_schema.any_of.as_deref(),
+            array_schema.all_of.as_deref(),
+            array_schema.not.as_deref(),
+            current_schema,
+            schema_context,
+            comment_directives,
+            lint_rules.map(|rules| &rules.common),
+        )
+        .await,
+    )
 }
 
 async fn validate_array_without_schema(
     array_value: &tombi_document_tree::Array,
     accessors: &[tombi_schema_store::Accessor],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
-) -> Result<(), crate::Error> {
+) -> Result<crate::EvaluatedLocations, crate::Error> {
     let mut total_diagnostics = vec![];
 
     // Validate without schema
@@ -561,7 +631,7 @@ async fn validate_array_without_schema(
     }
 
     if total_diagnostics.is_empty() {
-        Ok(())
+        Ok(crate::EvaluatedLocations::new())
     } else {
         Err(total_diagnostics.into())
     }

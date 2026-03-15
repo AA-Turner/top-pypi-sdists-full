@@ -4,7 +4,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from asyncio import Future
-from typing import Optional, Callable, Iterable
+from typing import Callable, Iterable
 
 from slixmpp import Iq
 from slixmpp.xmlstream import register_stanza_plugin
@@ -29,65 +29,65 @@ class XEP_0016(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0030'].add_feature(Privacy.namespace)
 
-    def get_privacy_lists(self, timeout: Optional[int] = None,
-                          callback: Optional[Callable] = None) -> Future:
+    def get_privacy_lists(self, timeout: int | None = None,
+                          callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'get'
         iq.enable('privacy')
         return iq.send(timeout=timeout, callback=callback)
 
-    def get_list(self, name: str, timeout: Optional[int] = None,
-                 callback: Optional[Callable] = None) -> Future:
+    def get_list(self, name: str, timeout: int | None = None,
+                 callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'get'
         iq['privacy']['list']['name'] = name
         return iq.send(timeout=timeout, callback=callback)
 
-    def get_active(self, timeout: Optional[int] = None,
-                   callback: Optional[Callable] = None) -> Future:
+    def get_active(self, timeout: int | None = None,
+                   callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'get'
         iq['privacy'].enable('active')
         return iq.send(timeout=timeout, callback=callback)
 
-    def get_default(self, timeout: Optional[int] = None,
-                    callback: Optional[Callable] = None) -> Future:
+    def get_default(self, timeout: int | None = None,
+                    callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'get'
         iq['privacy'].enable('default')
         return iq.send(timeout=timeout, callback=callback)
 
-    def activate(self, name: str, timeout: Optional[int] = None,
-                 callback: Optional[Callable] = None) -> Future:
+    def activate(self, name: str, timeout: int | None = None,
+                 callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy']['active']['name'] = name
         return iq.send(timeout=timeout, callback=callback)
 
-    def deactivate(self, timeout: Optional[int] = None,
-                   callback: Optional[Callable] = None) -> Future:
+    def deactivate(self, timeout: int | None = None,
+                   callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy'].enable('active')
         return iq.send(timeout=timeout, callback=callback)
 
-    def make_default(self, name, timeout: Optional[int] = None,
-                     callback: Optional[Callable] = None) -> Future:
+    def make_default(self, name, timeout: int | None = None,
+                     callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy']['default']['name'] = name
         return iq.send(timeout=timeout, callback=callback)
 
-    def remove_default(self, timeout: Optional[int] = None,
-                       callback: Optional[Callable] = None) -> Future:
+    def remove_default(self, timeout: int | None = None,
+                       callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy'].enable('default')
         return iq.send(timeout=timeout, callback=callback)
 
     def edit_list(self, name: str, rules: Iterable[Item],
-                  timeout: Optional[int] = None,
-                  callback: Optional[Callable] = None) -> Future:
+                  timeout: int | None = None,
+                  callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy']['list']['name'] = name
@@ -119,8 +119,8 @@ class XEP_0016(BasePlugin):
             )
         return iq.send(timeout=timeout, callback=callback)
 
-    def remove_list(self, name: str, timeout: Optional[int] = None,
-                    callback: Optional[Callable] = None) -> Future:
+    def remove_list(self, name: str, timeout: int | None = None,
+                    callback: Callable | None = None) -> Future:
         iq = self.xmpp.Iq()
         iq['type'] = 'set'
         iq['privacy']['list']['name'] = name

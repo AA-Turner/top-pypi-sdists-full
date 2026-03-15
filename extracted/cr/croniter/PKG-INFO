@@ -1,56 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: croniter
-Version: 6.0.0
+Version: 6.2.0
 Summary: croniter provides iteration for datetime object with cron like format
-Home-page: http://github.com/kiorky/croniter
-Author: Matsumoto Taichi, kiorky
-Author-email: taichino@gmail.com, kiorky@cryptelium.net
-License: MIT License
 Keywords: datetime,iterator,cron
+Author-email: Matsumoto Taichi <taichino@gmail.com>, kiorky <kiorky@cryptelium.net>, Ash Berlin-Taylor <ash@apache.org>, Jarek Potiuk <jarek@potiuk.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*
 License-File: LICENSE
 Requires-Dist: python_dateutil
-Requires-Dist: pytz>2021.1
+Project-URL: Homepage, https://github.com/pallets-eco/croniter
 
 Introduction
 ============
-
-DISCLAIMER
-============
-
-**UNMAINTAINED/ABANDONED CODE / DO NOT USE**
-
-Due to the new EU Cyber Resilience Act (as European Union), even if it was implied because there was no more activity, this repository is now explicitly declared unmaintained.
-
-The content does not meet the new regulatory requirements and therefore cannot be deployed or distributed, especially in a European context.
-
-This repository now remains online ONLY for public archiving, documentation and education purposes and we ask everyone to respect this.
-
-As stated, the maintainers stopped development and therefore all support some time ago, and make this declaration on December 15, 2024.
-
-We may also unpublish soon (as in the following monthes) any published ressources tied to this project (pypi, the repositories, ...).
-So, please don't rely on it after March 15, 2025 and adapt whatever project which used this code.
-
 
 .. contents::
 
@@ -66,12 +36,23 @@ croniter provides iteration for the datetime object with a cron like format.
      \___|_|  \___/|_| |_|_|\__\___|_|
 
 
-Website: https://github.com/kiorky/croniter
+Website: https://github.com/pallets-eco/croniter
 
 Build Badge
 ===========
-.. image:: https://github.com/kiorky/croniter/actions/workflows/cicd.yml/badge.svg
-    :target: https://github.com/kiorky/croniter/actions/workflows/cicd.yml
+.. image:: https://github.com/pallets-eco/croniter/actions/workflows/cicd.yml/badge.svg
+    :target: https://github.com/pallets-eco/croniter/actions/workflows/cicd.yml
+
+
+Pallets Community Ecosystem
+===========================
+
+.. important::
+   This project is part of the Pallets Community Ecosystem. Pallets is the open
+   source organization that maintains Flask; Pallets-Eco enables community
+   maintenance of Flask extensions. If you are interested in helping maintain
+   this project, please reach out on the `Pallets Discord server
+   <https://discord.gg/pallets>`_.
 
 
 Usage
@@ -145,9 +126,123 @@ You can validate your crons using ``is_valid`` class method. (>= 0.3.18)::
     >>> croniter.is_valid('0 0 1 * *')  # True
     >>> croniter.is_valid('0 wrong_value 1 * *')  # False
 
+Strict validation
+-----------------
+
+By default, ``is_valid`` and ``expand`` only check that each field is within its own range
+(e.g. day 1-31, month 1-12). They do not cross-validate fields, so expressions like
+``0 0 31 2 *`` (February 31st) are considered valid even though they can never match a real date.
+
+Use ``strict=True`` to enable cross-field validation that rejects impossible day/month
+combinations::
+
+    >>> croniter.is_valid('0 0 31 2 *')  # True (default: syntax only)
+    >>> croniter.is_valid('0 0 31 2 *', strict=True)  # False (Feb has at most 29 days)
+    >>> croniter.is_valid('0 0 31 4 *', strict=True)  # False (Apr has 30 days)
+    >>> croniter.is_valid('0 0 30 1,2 *', strict=True)  # True (day 30 is valid in Jan)
+
+When ``strict=True`` and the expression does not include a year field, February is assumed to
+have 29 days (since leap years exist)::
+
+    >>> croniter.is_valid('0 0 29 2 *', strict=True)  # True (leap years exist)
+
+If the expression includes a year field (7-field format), leap year status is determined from
+the specified years::
+
+    >>> croniter.is_valid('0 0 29 2 * 0 2024', strict=True)  # True (2024 is a leap year)
+    >>> croniter.is_valid('0 0 29 2 * 0 2023', strict=True)  # False (2023 is not)
+    >>> croniter.is_valid('0 0 29 2 * 0 2023-2025', strict=True)  # True (2024 in range is a leap year)
+
+For 5- or 6-field expressions, you can pass ``strict_year`` to provide the year(s) for
+leap year checking without adding a year field to the expression::
+
+    >>> croniter.is_valid('0 0 29 2 *', strict=True, strict_year=2024)  # True (leap year)
+    >>> croniter.is_valid('0 0 29 2 *', strict=True, strict_year=2023)  # False (not a leap year)
+    >>> croniter.is_valid('0 0 29 2 *', strict=True, strict_year=[2023, 2024])  # True (2024 is a leap year)
+
+The ``strict`` and ``strict_year`` parameters are also available on ``expand()``::
+
+    >>> croniter.expand('0 0 31 2 *', strict=True)  # raises CroniterBadCronError
+
+Nearest weekday (W)
+===================
+
+The ``W`` character is supported in the day-of-month field to specify the nearest weekday
+(Monday-Friday) to the given day. Both ``nW`` and ``Wn`` formats are accepted::
+
+    >>> base = datetime(2024, 6, 1)
+    >>> itr = croniter('0 9 15W * *', base)
+    >>> itr.get_next(datetime)   # Jun 15 2024 is Saturday -> fires on Friday 14th
+    datetime.datetime(2024, 6, 14, 9, 0)
+
+Rules:
+
+- If the specified day falls on a weekday, the trigger fires on that day.
+- If the specified day falls on Saturday, the trigger fires on the preceding Friday.
+- If the specified day falls on Sunday, the trigger fires on the following Monday.
+- The nearest weekday never crosses month boundaries. If the 1st is a Saturday, the trigger
+  fires on Monday the 3rd. If the last day of the month is a Sunday, the trigger fires on the
+  preceding Friday.
+- ``W`` can only be used with a single day value, not in a range or list.
+
+Examples::
+
+    >>> croniter('0 9 1W * *', datetime(2024, 5, 31)).get_next(datetime)   # Jun 1 is Sat -> Mon 3rd
+    datetime.datetime(2024, 6, 3, 9, 0)
+    >>> croniter('0 9 W15 * *', datetime(2024, 1, 1)).get_next(datetime)   # Wn format also works
+    datetime.datetime(2024, 1, 15, 9, 0)
+
+Day-of-month and day-of-week
+============================
+
+When both the day-of-month and day-of-week fields are restricted (not ``*``),
+the default POSIX cron behavior is to match when **either** field matches (OR).
+This is controlled by the ``day_or`` parameter::
+
+    >>> # OR (default): fires on every Wednesday OR on the 1st of the month
+    >>> iter = croniter('2 4 1 * wed', datetime(2010, 1, 25))
+    >>> print(iter.get_next(datetime))   # 2010-01-27 04:02:00 (Wed)
+    >>> print(iter.get_next(datetime))   # 2010-02-01 04:02:00 (1st)
+
+    >>> # AND: fires only on the 1st of the month IF it is a Wednesday
+    >>> iter = croniter('2 4 1 * wed', datetime(2010, 1, 25), day_or=False)
+    >>> print(iter.get_next(datetime))   # 2010-09-01 04:02:00 (Wed AND 1st)
+
+This can be used to express patterns like "the first Tuesday of the month"
+by combining a day range with a weekday::
+
+    >>> # First Tuesday of each month: days 1-7 AND Tuesday
+    >>> iter = croniter('1 1 1-7 * 2', datetime(2024, 7, 12), day_or=False)
+    >>> print(iter.get_next(datetime))   # 2024-08-06 01:01:00
+    >>> print(iter.get_next(datetime))   # 2024-09-03 01:01:00
+    >>> print(iter.get_next(datetime))   # 2024-10-01 01:01:00
+    >>> print(iter.get_next(datetime))   # 2024-11-05 01:01:00
+
+Vixie cron bug compatibility
+----------------------------
+
+Some vixie/ISC cron implementations have a `known bug
+<https://crontab.guru/cron-bug.html>`_ where expressions that start with
+``*`` in the day-of-month or day-of-week field (e.g. ``*/32,1-7``) use AND
+logic instead of OR, even though those fields are technically restricted.
+
+If you need to replicate this behavior (e.g. ``*/32,1-7`` as a hack for days
+1-7), use ``implement_cron_bug=True``::
+
+    >>> iter = croniter('1 1 */32,1-7 * 2', datetime(2024, 7, 12), implement_cron_bug=True)
+    >>> print(iter.get_next(datetime))   # 2024-08-06 01:01:00
+    >>> print(iter.get_next(datetime))   # 2024-09-03 01:01:00
+
 About DST
 =========
 Be sure to init your croniter instance with a TZ aware datetime for this to work!
+
+Example using zoneinfo::
+
+    >>> import zoneinfo
+    >>> tz = zoneinfo.ZoneInfo("Europe/Berlin")
+    >>> local_date = datetime(2017, 3, 26, tzinfo=tz)
+    >>> val = croniter('0 0 * * *', local_date).get_next(datetime)
 
 Example using pytz::
 
@@ -203,7 +298,7 @@ To ignore second repetition, simply set second to ``0`` or any other const::
 
 Support for start_time shifts
 ==============================
-See https://github.com/kiorky/croniter/pull/76,
+See https://github.com/pallets-eco/croniter/pull/76,
 You can set start_time=, then expand_from_start_time=True for your generations to be computed from start_time instead of calendar days::
 
     >>> from pprint import pprint
@@ -246,6 +341,19 @@ Test for a match with (>=0.3.32)::
     >>> croniter.match("2 4 1 * wed", datetime(2019, 1, 1, 4, 2, 0, 0), day_or=False) # 04:02 on every 1st day of the month if it is a Wednesday
     False
 
+By default, ``match`` uses a precision of **60 seconds** for standard 5-field cron
+expressions and **1 second** for 6-field expressions (with seconds). This means a
+datetime up to 60 (or 1) seconds after the scheduled time will still match.
+
+You can override this with the ``precision_in_seconds`` parameter::
+
+    >>> # With default precision (60s), 59 seconds past midnight still matches
+    >>> croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 0, 59, 0))
+    True
+    >>> # With precision=1, only an exact match within 1 second works
+    >>> croniter.match("0 0 * * *", datetime(2019, 1, 14, 0, 0, 59, 0), precision_in_seconds=1)
+    False
+
 Testing if a crontab matches in datetime range
 ==============================================
 Test for a match_range with (>=2.0.3)::
@@ -260,6 +368,8 @@ Test for a match_range with (>=2.0.3)::
     >>> croniter.match_range("2 4 1 * wed", datetime(2019, 1, 1, 3, 2, 0, 0), datetime(2019, 1, 1, 5, 2, 0, 0), day_or=False)
     # 04:02 on every 1st day of the month if it is a Wednesday
     False
+
+The ``precision_in_seconds`` parameter is also available on ``match_range``.
 
 Gaps between date matches
 =========================
@@ -388,27 +498,13 @@ Develop this package
 
 ::
 
-    git clone https://github.com/kiorky/croniter.git
+    git clone https://github.com/pallets-eco/croniter.git
     cd croniter
     virtualenv --no-site-packages venv3
     venv3/bin/pip install --upgrade -r requirements/test.txt -r requirements/lint.txt -r requirements/format.txt -r requirements/tox.txt
     venv3/bin/black src/
     venv3/bin/isort src/
     venv3/bin/tox --current-env -e fmt,lint,test
-
-
-Testing under py2
-==================
-
-Install prerequisisites ::
-
-    # install py 2 with eg: apt install python2.7
-    mkdir venv2 && curl -sSL "https://github.com/pypa/get-virtualenv/blob/20.27.0/public/2.7/virtualenv.pyz?raw=true" > venv2/venv && python2 venv2/venv venv2
-    venv2/bin/python2 -m pip install -r ./requirements/test.txt
-
-Run tests::
-
-    ./venv2/bin/pytest src
 
 
 Make a new release
@@ -428,6 +524,8 @@ Thanks to all who have contributed to this project!
 If you have contributed and your name is not listed below please let us know.
 
     - Aarni Koskela (akx)
+    - ashb
+    - bdrung
     - chris-baynes
     - djmitche
     - evanpurkhiser
@@ -439,603 +537,11 @@ If you have contributed and your name is not listed below please let us know.
     - lowell80 (Kintyre)
     - mag009
     - mrmachine
+    - potiuk
     - Ryan Finnie (rfinnie)
     - salitaba
     - scop
     - shazow
     - yuzawa-san
     - zed2015
-
-
-
-Changelog
-==============
-
-6.0.0 (2024-12-17)
-------------------
-- Announce for now that croniter dev is ended (CRA).
-- Rework timestamp_to_datetime to use whatever timezone [kiorky]
-- Make datetime_to_timestamp & timestamp_to_datetime public [kiorky]
-- Fix EPOCH calculation in case of non UTC & 32 bits based systems [kiorky]
-- Apply isort formatter [kiorky]
-- Reintegrate test_speed [kiorky]
-- Apply black formatter [evanpurkhiser, kiorky]
-- Code quality changes [evanpurkhiser, kiorky]
-    - Remove unused _get_caller_globals_and_locals [evanpurkhiser]
-    - Remove single-use bad_length [evanpurkhiser]
-    - Remove unused `days` in `proc_month` [evanpurkhiser]
-    - Use `field_index` over `i` for readability [evanpurkhiser]
-    - Always use `"""` for docstrings [evanpurkhiser]
-    - Make helper instance methods that do not use self static [evanpurkhiser]
-    - Remove unusd call to sys.exc_info [evanpurkhiser]
-    - Remove unused `ALPHAS` [evanpurkhiser]
-    - Improve `croniter.expand` documentation [evanpurkhiser]
-
-5.0.1 (2024-10-29)
-------------------
-
-- Community wanted: Reintroduce 7 as DayOfWeek in deviation from standard cron (#90). [kiorky]
-
-4.0.0 (2024-10-28)
-------------------
-
-- Remove DayOfWeek alias 7 to DayOfWeek 0 to stick to standard cron (#90). [kiorky]
-- Fix DOW ranges calculations when lastday is a Sunday. [kiorky]
-
-3.0.4 (2024-10-25)
-------------------
-
-- Fix overflow on 32bits systems (#87) [kiorky]
-- Fix python2 testing (related to #93) [kiorky]
-- Modernize packaging. Special thanks to Aarni Koskela (akx) for all the inputs. [kiorky, akx]
-
-3.0.3 (2024-07-26)
-------------------
-
-- fix lint [kiorky]
-
-3.0.2 (2024-07-26)
-------------------
-
-- Fix start_time not respected in get_next/get_prev/all_next/all_prev (#86) [hesstobi, kiorky]
-
-3.0.1 (2024-07-25)
-------------------
-
-- Add an `update_current` argument to get_next/get_prev/all_next/all_prev to facilitate writing of some downstream code, see #83. [kiorky]
-
-3.0.0 (2024-07-23)
-------------------
-
-- Support for year field [zhouyizhen, kiorky]
-- Better support for 6 fields (second), and 7 fields crons [zhouyizhen, kiorky]
-- Better fix hashed expressions omitting some entries (#82, #42, #30) fix is retained over #42 initial fix [zhouyizhen, kiorky]
-- Ensure match return false when not time available (#81) [zhouyizhen, kiorky]
-
-
-2.0.7 (2024-07-16)
-------------------
-
-- fix doc
-
-
-2.0.6 (2024-07-16)
-------------------
-
-- Implement second_at_beginning [zhouyizhen, kiorky]
-- Support question mark as wildcard [zhouyizhen, kiorky]
-- Support to start a cron from a reference start time [mghextreme, kiorky]
-
-
-2.0.5 (2024-04-20)
-------------------
-
-- No changes, fix lint [kiorky]
-
-
-2.0.4 (2024-04-20)
-------------------
-
-- Support hashid strings in is_valid [george-kuanli-peng, kiorky]
-- Avoid over-optimization in crontab expansions [Cherie0125, liqirui <liqirui@baidu.com>, kiorky]
-
-
-2.0.3 (2024-03-19)
-------------------
-
-- Add match_range function [salitaba]
-
-
-2.0.2 (2024-02-29)
-------------------
-
-- fix leap year (29 days in February) [zed2015]
-
-
-2.0.1 (2023-10-11)
-------------------
-
-- Fix release issue [kiorky]
-
-
-2.0.0 (2023-10-10)
-------------------
-
-- Add Python 3.12 support [rafsaf]
-- Make major release instructions [kiorky]
-
-
-1.4.1 (2023-06-15)
-------------------
-
-- Make a retrocompatible version of 1.4.0 change about supporting VIXIECRON bug. (fix #47)
-  [kiorky]
-
-
-1.4.0 (2023-06-15)
-------------------
-
-- Added "implement_cron_bug" flag to make the cron parser compatible with a bug in Vixie/ISC Cron
-  [kiorky, David White <dwhite2@cisco.com>]
-  *WARNING*: EXPAND METHOD CHANGES RETURN VALUE
-
-
-1.3.15 (2023-05-25)
--------------------
-
-- Fix hashed expressions omitting some entries
-  [@waltervos/Walter Vos <walter.vos@ns.nl>]
-- Enhance .match() precision for 6 position expressions
-  [@szpol/szymon <szymon.polinkiewicz@gmail.com>]
-
-1.3.14 (2023-04-12)
--------------------
-
-- Lint
-
-
-1.3.13 (2023-04-12)
--------------------
-
-- Add check for range begin/end
-
-
-
-1.3.12 (2023-04-12)
--------------------
-
-- restore py2 compat
-
-
-1.3.11 (2023-04-12)
--------------------
-
--  Do not expose `i` into global namespace
-
-
-1.3.10 (2023-04-07)
--------------------
-
-- Fix DOW hash parsing [kiorky]
-- better error handling on py3 [kiorky]
-
-1.3.8 (2022-11-22)
-------------------
-
-- Add Python 3.11 support and move docs files to main folder [rafsaf]
-
-
-1.3.7 (2022-09-06)
-------------------
-
-- fix tests
-- Fix croniter_range infinite loop  [Shachar Snapiri <ssnapiri@paloaltonetworks.com>]
-
-
-1.3.5 (2022-05-14)
-------------------
-
-- Add Python 3.10 support [eelkevdbos]
-
-
-1.3.4 (2022-02-18)
-------------------
-
-- Really fix compat for tests under py27
-  [kiorky]
-
-
-1.3.3 (2022-02-18)
-------------------
-
-- Fix compat for tests under py27
-  [kiorky]
-
-
-1.3.2 (2022-02-18)
-------------------
-
-- Fix #12: regressions with set_current
-  [kiorky, agateblue]
-
-
-1.3.1 (2022-02-15)
-------------------
-
-- Restore compat with python2
-  [kiorky]
-
-
-1.3.0 (2022-02-15)
-------------------
-
-- Add a way to make next() easier to use. This fixes #11
-  [kiorky]
-
-
-1.2.0 (2022-01-14)
-------------------
-
-- Enforce validation for day=1. Before this release we used to support day=0 and it was silently glided to day=1 to support having both day in day in 4th field when it came to have 6fields cron forms (second repeat). It will now raises a CroniterBadDateError. See https://github.com/kiorky/croniter/issues/6
-  [kiorky]
-
-1.1.0 (2021-12-03)
-------------------
-
-- Enforce validation for month=1. Before this release we used to support month=0 and it was silently glided to month=1 to support having both day in month in 4th field when it came to have 6fields cron forms (second repeat). It will now raises a CroniterBadDateError. See https://github.com/kiorky/croniter/issues/6
-  [kiorky]
-
-1.0.15 (2021-06-25)
--------------------
-
-- restore py2 [kiorky]
-
-
-1.0.14 (2021-06-25)
--------------------
-
-- better type checks [kiorky]
-
-
-1.0.13 (2021-05-06)
--------------------
-
-- Fix ZeroDivisionError with ``* * R/0 * *``
-  [cuu508]
-
-1.0.12 (2021-04-13)
--------------------
-
-- Add support for hashed/random/keyword expressions
-  Ryan Finnie (rfinnie)
-- Review support support for hashed/random/keyword expression and add expanders reactor
-  [ kiorky ]
-
-
-1.0.11 (2021-04-07)
--------------------
-
-- fix bug: bad case:``0 6 30 3 *``
-  [zed2015(zhangchi)]
-- Add support for ``L`` in the day_of_week component.  This enable expressions like ``* * * * L4``, which means last Thursday of the month.  This resolves #159.
-  [Kintyre]
-- Create ``CroniterUnsupportedSyntaxError`` exception for situations where CRON syntax may be valid but some combinations of features is not supported.
-  Currently, this is used when the ``day_of_week`` component has a combination of literal values and nth/last syntax at the same time.
-  For example, ``0 0 * * 1,L6`` or ``0 0 * * 15,sat#1`` will both raise this exception because of mixing literal days of the week with nth-weekday or last-weekday syntax.
-  This *may* impact existing cron expressions in prior releases, because ``0 0 * * 15,sat#1`` was previously allowed but incorrectly handled.
-  [Kintyre]
-
-- Update ``croniter_range()`` to allow an alternate ``croniter`` class to be used.  Helpful when using a custom class derived from croniter.
-  [Kintyre]
-
-
-1.0.10 (2021-03-25)
--------------------
-
-- Remove external library ``natsort``.
-  Sorting of cron expression components now handled with ``sorted()`` with a custom ``key`` function.
-  [Kintyre]
-
-
-
-1.0.9 (2021-03-23)
-------------------
-
-- Remove futures dependency
-  [kiorky]
-
-
-1.0.8 (2021-03-06)
-------------------
-
-- Update `_expand` to lowercase each component of the expression.
-  This is in relation to #157. With this change, croniter accepts and correctly handles `* * 10-L * *`.
-  [cuu508]
-
-
-1.0.7 (2021-03-02)
-------------------
-
-- Fix _expand to reject int literals with underscores
-  [cuu508]
-- Remove a debug statement to make flake8 happy
-  [cuu508]
-
-1.0.6 (2021-02-01)
-------------------
-
-- Fix combination of star and invalid expression bugs
-  [kiorky]
-
-
-1.0.5 (2021-01-29)
-------------------
-
-- Security fix: fix overflow when using cron ranges
-  [kiorky]
-
-1.0.4 (2021-01-29)
-------------------
-
-- Spelling fix release
-
-
-1.0.3 (2021-01-29)
-------------------
-
-- Fix #155: raise CroniterBadCronError when error syntax
-  [kiorky]
-
-
-1.0.2 (2021-01-19)
-------------------
-
-- Fix match when datetime has microseconds
-  [kiorky]
-
-1.0.1 (2021-01-06)
-------------------
-- no changes, just to make sense with new semver2 (making croniter on a stable state)
-  [kiorky]
-
-
-0.3.37 (2020-12-31)
--------------------
-
-- Added Python 3.8 and 3.9 support
-  [eumiro]
-
-
-0.3.36 (2020-11-02)
--------------------
-
-- Updated docs section regarding ``max_years_between_matches`` to be more shorter and hopefully more relevant.
-  [Kintyre]
-- Don't install tests
-  [scop]
-
-
-0.3.35 (2020-10-11)
--------------------
-
-- Handle L in ranges. This fixes #142.
-  [kiorky]
-- Add a new initialization parameter ``max_years_between_matches`` to support finding the next/previous date beyond the default 1 year window, if so desired.  Updated README to include additional notes and example of this usage.  Fixes #145.
-  [Kintyre]
-- The ``croniter_range()`` function was updated to automatically determines the appropriate ``max_years_between_matches`` value, this preventing handling of the ``CroniterBadDateError`` exception.
-  [Kintyre]
-- Updated exception handling classes:  ``CroniterBadDateError`` now only
-  applies during date finding operations (next/prev), and all parsing errors can now be caught using ``CroniterBadCronError``.  The ``CroniterNotAlphaError`` exception is now a subclass of ``CroniterBadCronError``.  A brief description of each exception class was added as an inline docstring.
-  [Kintyre]
-- Updated iterable interfaces to replace the ``CroniterBadDateError`` with ``StopIteration`` if (and only if) the ``max_years_between_matches`` argument is provided.  The rationale here is that if the user has specified the max tolerance between matches, then there's no need to further inform them of no additional matches.  Just stop the iteration.  This also keeps backwards compatibility.
-  [Kintyre]
-- Minor docs update
-  [Kintyre]
-
-
-0.3.34 (2020-06-19)
--------------------
-
-- Feat ``croniter_range(start, stop, cron)``
-  [Kintyre]
-- Optimization for poorly written cron expression
-  [Kintyre]
-
-0.3.33 (2020-06-15)
--------------------
-
-- Make dateutil tz support more official
-  [Kintyre]
-- Feat/support for day or
-  [田口信元]
-
-0.3.32 (2020-05-27)
--------------------
-
-- document seconds repeats, fixes #122
-  [kiorky]
-- Implement match method, fixes #54
-  [kiorky]
-- Adding tests for #127 (test more DSTs and croniter behavior around)
-  [kiorky]
-- Changed lag_hours comparison to absolute to manage dst boundary when getting previous
-  [Sokkka]
-
-0.3.31 (2020-01-02)
--------------------
-
-- Fix get_next() when start_time less then 1s before next instant
-  [AlexHill]
-
-
-0.3.30 (2019-04-20)
--------------------
-
-- credits
-
-
-0.3.29 (2019-03-26)
--------------------
-
-- credits
-- history stripping (security)
-- Handle -Sun notation, This fixes `#119 <https://github.com/taichino/croniter/issues/119>`_.
-  [kiorky]
-- Handle invalid ranges correctly,  This fixes `#114 <https://github.com/taichino/croniter/issues/114>`_.
-  [kiorky]
-
-0.3.25 (2018-08-07)
--------------------
-- Pypi hygiene
-  [hugovk]
-
-
-0.3.24 (2018-06-20)
--------------------
-- fix `#107 <https://github.com/taichino/croniter/issues/107>`_: microsecond threshold
-  [kiorky]
-
-
-0.3.23 (2018-05-23)
--------------------
-
-- fix ``get_next`` while preserving the fix of ``get_prev`` in 7661c2aaa
-  [Avikam Agur <avikam@pagaya-inv.com>]
-
-
-0.3.22 (2018-05-16)
--------------------
-- Don't count previous minute if now is dynamic
-  If the code is triggered from 5-asterisk based cron
-  ``get_prev`` based on ``datetime.now()`` is expected to return
-  current cron iteration and not previous execution.
-  [Igor Khrol <igor.khrol@toptal.com>]
-
-0.3.20 (2017-11-06)
--------------------
-
-- More DST fixes
-  [Kevin Rose <kbrose@github>]
-
-
-0.3.19 (2017-08-31)
--------------------
-
-- fix #87: backward dst changes
-  [kiorky]
-
-
-0.3.18 (2017-08-31)
--------------------
-
-- Add is valid method, refactor errors
-  [otherpirate, Mauro Murari <mauro_murari@hotmail.com>]
-
-
-0.3.17 (2017-05-22)
--------------------
-- DOW occurrence sharp style support.
-  [kiorky, Kengo Seki <sekikn@apache.org>]
-
-
-0.3.16 (2017-03-15)
--------------------
-
-- Better test suite [mrcrilly@github]
-- DST support [kiorky]
-
-0.3.15 (2017-02-16)
--------------------
-
-- fix bug around multiple conditions and range_val in
-  _get_prev_nearest_diff.
-  [abeja-yuki@github]
-
-0.3.14 (2017-01-25)
--------------------
-
-- issue #69: added day_or option to change behavior when day-of-month and
-  day-of-week is given
-  [Andreas Vogl <a.vogl@hackner-security.com>]
-
-
-
-0.3.13 (2016-11-01)
--------------------
-
-- `Real fix for #34 <https://github.com/taichino/croniter/pull/73>`_
-  [kiorky@github]
-- `Modernize test infra <https://github.com/taichino/croniter/pull/72>`_
-  [kiorky@github]
-- `Release as a universal wheel <https://github.com/kiorky/croniter/pull/16>`_
-  [adamchainz@github]
-- `Raise ValueError on negative numbers <https://github.com/taichino/croniter/pull/63>`_
-  [josegonzalez@github]
-- `Compare types using "issubclass" instead of exact match <https://github.com/taichino/croniter/pull/70>`_
-  [darkk@github]
-- `Implement step cron with a variable base <https://github.com/taichino/croniter/pull/60>`_
-  [josegonzalez@github]
-
-0.3.12 (2016-03-10)
--------------------
-- support setting ret_type in __init__ [Brent Tubbs <brent.tubbs@gmail.com>]
-
-0.3.11 (2016-01-13)
--------------------
-
-- Bug fix: The get_prev API crashed when last day of month token was used. Some
-  essential logic was missing.
-  [Iddo Aviram <iddo.aviram@similarweb.com>]
-
-
-0.3.10 (2015-11-29)
--------------------
-
-- The functionality of 'l' as day of month was broken, since the month variable
-  was not properly updated
-  [Iddo Aviram <iddo.aviram@similarweb.com>]
-
-0.3.9 (2015-11-19)
-------------------
-
-- Don't use datetime functions python 2.6 doesn't support
-  [petervtzand]
-
-0.3.8 (2015-06-23)
-------------------
-- Truncate microseconds by setting to 0
-  [Corey Wright]
-
-
-0.3.7 (2015-06-01)
-------------------
-
-- converting sun in range sun-thu transforms to int 0 which is
-  recognized as empty string; the solution was to convert sun to string "0"
-
-0.3.6 (2015-05-29)
-------------------
-
-- Fix default behavior when no start_time given
-  Default value for ``start_time`` parameter is calculated at module init time rather than call time.
-- Fix timezone support and stop depending on the system time zone
-
-
-
-0.3.5 (2014-08-01)
-------------------
-
-- support for 'l' (last day of month)
-
-
-0.3.4 (2014-01-30)
-------------------
-
-- Python 3 compat
-- QA Release
-
-
-0.3.3 (2012-09-29)
-------------------
-- proper packaging
 

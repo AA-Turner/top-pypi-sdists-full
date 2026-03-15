@@ -10,7 +10,6 @@ import logging
 import hashlib
 
 from asyncio import Future
-from typing import Optional
 
 from slixmpp import Message, Iq, Presence
 from slixmpp.basexmpp import BaseXMPP
@@ -99,7 +98,7 @@ class ComponentXMPP(BaseXMPP):
         for st in Message, Iq, Presence:
             register_stanza_plugin(st, Error)
 
-    def connect(self, host: Optional[str] = None, port: Optional[int] = None) -> Future:
+    def connect(self, host: str | None = None, port: int | None = None) -> Future:
         """Connect to the server.
 
 

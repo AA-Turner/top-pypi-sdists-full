@@ -1212,10 +1212,6 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
-    AMAZON_GUARD_DUTY_FULL_ACCESS = "AMAZON_GUARD_DUTY_FULL_ACCESS"
-    '''
-    :stability: experimental
-    '''
     AMAZON_SAGE_MAKER_READ_ONLY = "AMAZON_SAGE_MAKER_READ_ONLY"
     '''
     :stability: experimental

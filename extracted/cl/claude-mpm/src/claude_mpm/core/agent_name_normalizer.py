@@ -1,15 +1,87 @@
-"""Agent name normalization utilities for consistent naming across the system."""
+"""Agent name normalization utilities for consistent naming across the system.
+
+Why: Agent names arrive from many sources (TodoWrite prefixes, Task tool
+parameters, user input) in inconsistent formats — hyphens, underscores,
+mixed case, with or without "-agent" suffix.  A single normalizer ensures
+that every subsystem (color coding, TODO formatting, Task dispatch) resolves
+the same canonical display name regardless of how the caller spelled the
+agent type.
+
+What: Provides :class:`AgentNameNormalizer` with class-level lookups
+(``CANONICAL_NAMES``, ``ALIASES``, ``AGENT_COLORS``) and conversion methods
+(``normalize``, ``to_key``, ``to_todo_prefix``, ``colorize``,
+``extract_from_todo``, ``validate_todo_format``, ``to_task_format``,
+``from_task_format``).  All methods are ``@classmethod`` so no instance is
+required; a module-level singleton ``agent_name_normalizer`` is also
+exported for convenience.
+"""
 
 from typing import Optional
 
+from claude_mpm.core.agent_name_registry import (
+    AGENT_NAME_MAP,  # type: ignore[import-untyped]
+)
 from claude_mpm.core.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
 
-class AgentNameNormalizer:
+def _build_canonical_names_from_registry() -> dict[str, str]:
+    """Build CANONICAL_NAMES dict from AGENT_NAME_MAP as the single source of truth.
+
+    Why: :class:`AgentNameNormalizer` needs an underscore-keyed lookup table
+    (``"python_engineer" -> "Python Engineer"``) while
+    :data:`~claude_mpm.core.agent_name_registry.AGENT_NAME_MAP` uses hyphen
+    stems.  Building dynamically from the registry ensures the two tables
+    never diverge when new agents are added to the registry.
+
+    What: Converts each hyphen-stem key to its underscore equivalent, records
+    the ``stem -> display_name`` mapping, and skips duplicate display names so
+    only the first (shortest/canonical) stem wins.
+
+    Test: Verify that ``_build_canonical_names_from_registry()`` contains the
+    key ``"python_engineer"`` mapping to ``"Python Engineer"``, and that legacy
+    suffix variants (``"research_agent"``) do *not* overwrite the canonical
+    ``"research"`` entry.
+
+    AGENT_NAME_MAP uses hyphen-format stems (e.g. "python-engineer").
+    CANONICAL_NAMES uses underscore-format keys (e.g. "python_engineer").
+    The first mapping for each display name wins (shorter/canonical stem takes priority).
     """
-    Handles agent name normalization to ensure consistency across:
+    result: dict[str, str] = {}
+    seen_names: set[str] = set()
+    for stem, display_name in AGENT_NAME_MAP.items():
+        underscore_key = stem.replace("-", "_")
+        # Always store the key→name mapping so every stem is reachable
+        if underscore_key not in result:
+            result[underscore_key] = display_name
+        # Track which display names we've seen so the first (canonical) stem wins
+        if display_name not in seen_names:
+            seen_names.add(display_name)
+    return result
+
+
+class AgentNameNormalizer:
+    """Handles agent name normalization to ensure consistency across the system.
+
+    Why: Agent names reach the system from heterogeneous sources: TodoWrite
+    ``[Research]`` prefixes, Task tool ``subagent_type`` parameters, webhook
+    payloads, and user CLI arguments.  Without a central normalizer each
+    consumer would implement its own heuristics and the system would display
+    the same agent under multiple spellings.
+
+    What: Provides class-level tables (``CANONICAL_NAMES``, ``ALIASES``,
+    ``AGENT_COLORS``) and conversion methods to unify every spelling variant
+    into a single canonical display name, lowercase underscore key, or
+    ANSI-coloured string.
+
+    Test: All ``@classmethod`` methods can be called without instantiation.
+    ``AgentNameNormalizer.normalize("research-agent") == "Research"`` and
+    ``AgentNameNormalizer.normalize("ENGINEER") == "Engineer"``.  Calling
+    with an unknown name should return ``"Engineer"`` (the default) and log
+    a warning.
+
+    Covers:
     - TodoWrite prefixes
     - Task tool display
     - Agent type identification
@@ -17,61 +89,14 @@ class AgentNameNormalizer:
     """
 
     # Canonical agent names (standardized format)
-    # These are the display names used in TodoWrite prefixes
-    CANONICAL_NAMES = {
-        "research": "Research",
-        "engineer": "Engineer",
-        "qa": "QA",
-        "security": "Security",
-        "documentation": "Documentation",
-        "ops": "Ops",
-        "version_control": "Version Control",
-        "data_engineer": "Data Engineer",
+    # These are the display names used in TodoWrite prefixes.
+    # Populated from AGENT_NAME_MAP (agent_name_registry) as the single source of truth,
+    # with additional entries for agents not yet in the registry (architect, pm).
+    CANONICAL_NAMES: dict[str, str] = {
+        **_build_canonical_names_from_registry(),
+        # Entries not yet present in AGENT_NAME_MAP:
         "architect": "Architect",
         "pm": "PM",
-        # Additional agent types from deployed agents
-        "python_engineer": "Python Engineer",
-        "golang_engineer": "Golang Engineer",
-        "java_engineer": "Java Engineer",
-        "javascript_engineer": "JavaScript Engineer",
-        "typescript_engineer": "TypeScript Engineer",
-        "rust_engineer": "Rust Engineer",
-        "ruby_engineer": "Ruby Engineer",
-        "php_engineer": "PHP Engineer",
-        "phoenix_engineer": "Phoenix Engineer",
-        "nestjs_engineer": "NestJS Engineer",
-        "react_engineer": "React Engineer",
-        "nextjs_engineer": "NextJS Engineer",
-        "svelte_engineer": "Svelte Engineer",
-        "dart_engineer": "Dart Engineer",
-        "tauri_engineer": "Tauri Engineer",
-        "prompt_engineer": "Prompt Engineer",
-        "refactoring_engineer": "Refactoring Engineer",
-        # QA variants
-        "api_qa": "API QA",
-        "web_qa": "Web QA",
-        "real_user": "Real User",
-        # Ops variants
-        "clerk_ops": "Clerk Ops",
-        "digitalocean_ops": "DigitalOcean Ops",
-        "gcp_ops": "GCP Ops",
-        "local_ops": "Local Ops",
-        "vercel_ops": "Vercel Ops",
-        "project_organizer": "Project Organizer",
-        "agentic_coder_optimizer": "Agentic Coder Optimizer",
-        "tmux": "Tmux",
-        # Universal agents
-        "code_analyzer": "Code Analyzer",
-        "content": "Content",
-        "memory_manager": "Memory Manager",
-        "product_owner": "Product Owner",
-        "web_ui": "Web UI",
-        "imagemagick": "ImageMagick",
-        "ticketing": "Ticketing",
-        # MPM-specific agents
-        "mpm_agent_manager": "MPM Agent Manager",
-        "mpm_skills_manager": "MPM Skills Manager",
-        "tavily_research": "Research",  # Maps to Research
     }
 
     # Aliases and variations that map to canonical names
@@ -196,6 +221,17 @@ class AgentNameNormalizer:
         "agent_manager": "mpm_agent_manager",
         "mpm_skills_manager": "mpm_skills_manager",
         "skills_manager": "mpm_skills_manager",
+        # AWS Ops variations
+        "aws_ops": "aws_ops",
+        "aws": "aws_ops",
+        # Data Scientist variations
+        "data_scientist": "data_scientist",
+        "data_science": "data_scientist",
+        # Visual Basic Engineer variations
+        "visual_basic_engineer": "visual_basic_engineer",
+        "visual_basic": "visual_basic_engineer",
+        "vb_engineer": "visual_basic_engineer",
+        "vb": "visual_basic_engineer",
     }
 
     # Agent colors for consistent display
@@ -254,20 +290,37 @@ class AgentNameNormalizer:
         # MPM-specific agents
         "mpm_agent_manager": "\033[95m",  # Bright Magenta
         "mpm_skills_manager": "\033[95m",  # Bright Magenta
+        # New agents
+        "aws_ops": "\033[35m",  # Magenta (like ops)
+        "data_scientist": "\033[96m",  # Bright Cyan (like data_engineer)
+        "visual_basic_engineer": "\033[32m",  # Green (like engineers)
     }
 
     COLOR_RESET = "\033[0m"
 
     @classmethod
     def normalize(cls, agent_name: str) -> str:
-        """
-        Normalize an agent name to its canonical form.
+        """Normalize an agent name to its canonical display form.
+
+        Why: Incoming agent names vary wildly in format; this is the single
+        entry point that converts any spelling to the canonical display name
+        (e.g. ``"Python Engineer"``) used for TodoWrite prefixes and logging.
+
+        What: Strips whitespace, lowercases, replaces hyphens/spaces with
+        underscores, removes ``_agent`` suffixes, then looks up via
+        ``ALIASES`` -> ``CANONICAL_NAMES``.  Falls back to ``"Engineer"`` for
+        unrecognised names and logs a warning.
 
         Args:
             agent_name: The agent name to normalize
 
         Returns:
-            The canonical agent name
+            The canonical display name (e.g. ``"Python Engineer"``), or
+            ``"Engineer"`` when the input is empty or unrecognised.
+
+        Test: ``cls.normalize("python-engineer") == "Python Engineer"``,
+        ``cls.normalize("research-agent") == "Research"``,
+        ``cls.normalize("") == "Engineer"``.
         """
         if not agent_name:
             return "Engineer"  # Default
@@ -319,43 +372,82 @@ class AgentNameNormalizer:
 
     @classmethod
     def to_key(cls, agent_name: str) -> str:
-        """
-        Convert an agent name to its key format (lowercase with underscores).
+        """Convert an agent name to its internal key format (lowercase underscores).
+
+        Why: Internal lookups (``CANONICAL_NAMES``, ``AGENT_COLORS``) use
+        underscore-separated lowercase keys (e.g. ``"python_engineer"``).
+        Callers that start with a display name need a single conversion point
+        so they do not have to re-implement the reverse-lookup logic.
+
+        What: Calls :meth:`normalize` to get the display name, then
+        reverse-looks it up in ``CANONICAL_NAMES``; falls back to deriving
+        the key by lowercasing and replacing spaces with underscores.
 
         Args:
             agent_name: The agent name to convert
 
         Returns:
-            The key format of the agent name
+            The key format of the agent name (e.g. ``"python_engineer"``).
+
+        Test: ``cls.to_key("Python Engineer") == "python_engineer"`` and
+        ``cls.to_key("research") == "research"``.
         """
         normalized = cls.normalize(agent_name)
+        # Reverse-lookup the CANONICAL_NAMES key that maps to this display name
+        for key, value in cls.CANONICAL_NAMES.items():
+            if value == normalized:
+                return key
+        # Fallback: derive from normalized name
         return normalized.lower().replace(" ", "_")
 
     @classmethod
     def to_todo_prefix(cls, agent_name: str) -> str:
-        """
-        Format agent name for TODO prefix (e.g., [Research]).
+        """Format agent name for TodoWrite prefix (e.g., ``[Research]``).
+
+        Why: TodoWrite items must carry a bracketed agent prefix so PM can
+        parse and colour-code them.  This helper ensures the prefix always
+        uses the canonical display name regardless of how the caller spelt the
+        agent type.
+
+        What: Normalises *agent_name* then wraps it in square brackets.
 
         Args:
             agent_name: The agent name to format
 
         Returns:
-            The formatted TODO prefix
+            The formatted TODO prefix string, e.g. ``"[Research]"``.
+
+        Test: ``cls.to_todo_prefix("research-agent") == "[Research]"`` and
+        ``cls.to_todo_prefix("ENGINEER") == "[Engineer]"``.
         """
         normalized = cls.normalize(agent_name)
         return f"[{normalized}]"
 
     @classmethod
     def colorize(cls, agent_name: str, text: Optional[str] = None) -> str:
-        """
-        Apply consistent color coding to agent names.
+        """Apply consistent ANSI colour coding to agent names for terminal output.
+
+        Why: Terminal output uses colour to distinguish agent types at a glance
+        (e.g. Research=cyan, Engineer=green, QA=yellow).  Centralising colour
+        assignment here prevents drift where different subsystems use different
+        colours for the same agent.
+
+        What: Resolves *agent_name* to its internal key via :meth:`to_key`,
+        looks up the ANSI escape code in ``AGENT_COLORS``, and wraps *text*
+        (defaulting to the canonical display name) with the escape code and
+        ``COLOR_RESET``.  Returns plain text if no colour is registered.
 
         Args:
             agent_name: The agent name to colorize
-            text: Optional text to colorize (defaults to agent name)
+            text: Optional text to colorize (defaults to the canonical display name)
 
         Returns:
-            The colorized text
+            The ANSI-coloured string, or plain *text* if the agent has no
+            registered colour.
+
+        Test: ``cls.colorize("research")`` should start with ``"\\033[36m"``
+        (cyan) and end with ``"\\033[0m"``.  ``cls.colorize("unknown_agent")``
+        should return the plain display name without escape codes.
         """
         key = cls.to_key(agent_name)
         color = cls.AGENT_COLORS.get(key, "")
@@ -367,14 +459,25 @@ class AgentNameNormalizer:
 
     @classmethod
     def extract_from_todo(cls, todo_text: str) -> Optional[str]:
-        """
-        Extract agent name from a TODO line.
+        """Extract and normalise the agent name embedded in a TODO line.
+
+        Why: PM logic needs to parse TodoWrite items and identify which agent
+        owns each task.  The agent name may appear in a ``[Agent]`` prefix or
+        be mentioned in free text; this method handles both cases.
+
+        What: First tries to match a ``[...]`` prefix via regex.  If that
+        fails it scans ``ALIASES`` for any alias present in the lowercased
+        text.  Returns ``None`` if no agent is detected.
 
         Args:
-            todo_text: The TODO text (e.g., "[Research] Analyze patterns")
+            todo_text: The TODO text (e.g., ``"[Research] Analyze patterns"``)
 
         Returns:
-            The normalized agent name, or None if not found
+            The normalised canonical display name, or ``None`` if no agent
+            could be identified.
+
+        Test: ``cls.extract_from_todo("[Research] Do X") == "Research"``.
+        ``cls.extract_from_todo("No agent here")`` returns ``None``.
         """
         import re
 
@@ -393,14 +496,26 @@ class AgentNameNormalizer:
 
     @classmethod
     def validate_todo_format(cls, todo_text: str) -> tuple[bool, Optional[str]]:
-        """
-        Validate that a TODO has proper agent prefix.
+        """Validate that a TODO item carries a recognised agent prefix.
+
+        Why: TodoWrite items without a valid ``[Agent]`` prefix cannot be
+        routed to the correct subagent.  Early validation surfaces formatting
+        errors to the PM before they cause silent delegation failures.
+
+        What: Uses :meth:`extract_from_todo` to detect the agent prefix then
+        checks that the resolved canonical key exists in ``CANONICAL_NAMES``.
+        Returns a human-readable error message for invalid items.
 
         Args:
             todo_text: The TODO text to validate
 
         Returns:
-            Tuple of (is_valid, error_message)
+            ``(True, None)`` if the format is valid; ``(False, error_message)``
+            otherwise.
+
+        Test: ``cls.validate_todo_format("[Research] Do X") == (True, None)``.
+        ``cls.validate_todo_format("Do X")`` returns ``(False, <message>)``
+        describing the missing prefix.
         """
         agent = cls.extract_from_todo(todo_text)
         if not agent:
@@ -435,10 +550,9 @@ class AgentNameNormalizer:
             "Data Engineer" → "data-engineer"
             "QA" → "qa"
         """
-        # First normalize to canonical form
-        normalized = cls.normalize(agent_name)
-        # Convert to lowercase and replace spaces with hyphens
-        return normalized.lower().replace(" ", "-")
+        # Use the canonical key (e.g., "documentation") not the display name
+        key = cls.to_key(agent_name)
+        return key.replace("_", "-")
 
     @classmethod
     def from_task_format(cls, task_format: str) -> str:

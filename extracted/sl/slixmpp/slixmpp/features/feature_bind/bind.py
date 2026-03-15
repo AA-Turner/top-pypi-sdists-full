@@ -10,7 +10,7 @@ from slixmpp.stanza import Iq, StreamFeatures
 from slixmpp.features.feature_bind import stanza
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins import BasePlugin
-from typing import ClassVar, Set
+from typing import ClassVar
 
 
 log = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class FeatureBind(BasePlugin):
 
     name = 'feature_bind'
     description = 'RFC 6120: Stream Feature: Resource Binding'
-    dependencies: ClassVar[Set[str]] = set()
+    dependencies: ClassVar[set[str]] = set()
     stanza = stanza
 
     def plugin_init(self):

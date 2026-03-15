@@ -5,8 +5,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-from typing import Optional
-
 import sys
 import logging
 from pathlib import Path
@@ -33,7 +31,7 @@ class HttpUpload(slixmpp.ClientXMPP):
         password: str,
         recipient: JID,
         filename: Path,
-        domain: Optional[JID] = None,
+        domain: JID | None = None,
         encrypted: bool = False,
     ):
         slixmpp.ClientXMPP.__init__(self, jid, password)

@@ -1,20 +1,12 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, print_function
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
 import os
-import sys
+import unittest
+import zoneinfo
 from datetime import datetime
 from timeit import Timer
 
-import pytz
-
-from croniter import cron_m, croniter
+from croniter import croniter
 from croniter.tests import base
 
 
@@ -91,7 +83,7 @@ class CroniterSpeedTest(base.TestCase):
             itr.get_prev(datetime)
 
         # dst regression test
-        tz = pytz.timezone("Europe/Bucharest")
+        tz = zoneinfo.ZoneInfo("Europe/Bucharest")
         offsets = set()
         dst_cron = "15 0,3 * 3 *"
         dst_iters = int(2 * 31 * (iterations / 40))
@@ -106,15 +98,13 @@ class CroniterSpeedTest(base.TestCase):
             offsets.add(d.utcoffset())
 
     def test_not_long_time(self):
-        if int(sys.version[0]) < 3:
-            return
         iterations = int(os.environ.get("CRONITER_TEST_SPEED_ITERATIONS", "40"))
         globs = globals()
         globs.update(locals())
         t = Timer("self.run_long_test(iterations)", globals=globs)
         limit = 80
         ret = t.timeit(limit)
-        self.assertTrue(ret < limit, "Regression in croniter speed detected ({0} {1}).".format(ret, limit))
+        self.assertTrue(ret < limit, f"Regression in croniter speed detected ({ret} {limit}).")
 
 
 if __name__ == "__main__":

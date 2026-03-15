@@ -2,7 +2,6 @@
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Optional
 
 from slixmpp import JID, Message
 from slixmpp.exceptions import IqError, IqTimeout
@@ -46,8 +45,8 @@ class XEP_0424(BasePlugin):
 
     def send_retraction(self, mto: JID, id: str, mtype: str = 'chat',
                         include_fallback: bool = True,
-                        fallback_text: Optional[str] = None, *,
-                        mfrom: Optional[JID] = None):
+                        fallback_text: str | None = None, *,
+                        mfrom: JID | None = None):
         """
         Send a message retraction
 
@@ -55,7 +54,7 @@ class XEP_0424(BasePlugin):
         :param str id: Message ID to retract
         :param str mtype: Message type
         :param bool include_fallback: Whether to include a fallback body
-        :param Optional[str] fallback_text: The content of the fallback
+        :param str | None fallback_text: The content of the fallback
                                             body. None will set the default value.
         """
         if fallback_text is None:

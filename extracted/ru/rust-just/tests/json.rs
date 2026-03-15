@@ -89,7 +89,9 @@ struct Settings<'a> {
   dotenv_required: bool,
   export: bool,
   fallback: bool,
+  guards: bool,
   ignore_comments: bool,
+  lazy: bool,
   no_exit_message: bool,
   positional_arguments: bool,
   quiet: bool,
@@ -137,7 +139,7 @@ fn case_with_submodule(justfile: &str, submodule: Option<(&str, &str)>, mut expe
 
   fix_source(test.tempdir.path(), &mut expected);
 
-  let actual = test.run().stdout;
+  let actual = test.success().stdout;
 
   let actual: Module = serde_json::from_str(actual.as_str()).unwrap();
   pretty_assertions::assert_eq!(actual, expected);

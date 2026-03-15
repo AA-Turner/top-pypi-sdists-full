@@ -8,7 +8,7 @@ import time
 import logging
 
 from asyncio import Future
-from typing import Optional, Callable, List
+from typing import Callable
 
 from slixmpp.jid import JID
 from slixmpp.stanza import Iq
@@ -64,7 +64,7 @@ class XEP_0199(BasePlugin):
         """
         register_stanza_plugin(Iq, Ping)
 
-        self.__pending_futures: List[Future] = []
+        self.__pending_futures: list[Future] = []
 
         self.xmpp.register_handler(
                 Callback('Ping',
@@ -101,8 +101,8 @@ class XEP_0199(BasePlugin):
                 future.cancel()
             self.__pending_futures.clear()
 
-    def enable_keepalive(self, interval: Optional[float] = None,
-                         timeout: Optional[float] = None) -> None:
+    def enable_keepalive(self, interval: float | None = None,
+                         timeout: float | None = None) -> None:
         """
         Enable the ping keepalive on the connection.
         The plugin will send a ping at `interval` and reconnect if the ping
@@ -166,9 +166,9 @@ class XEP_0199(BasePlugin):
         log.debug("Pinged by %s", iq['from'])
         iq.reply().send()
 
-    def send_ping(self, jid: JID, ifrom: Optional[JID] = None,
-                  timeout: Optional[float] = None,
-                  callback: Optional[Callable] = None) -> Future[Iq]:
+    def send_ping(self, jid: JID, ifrom: JID | None = None,
+                  timeout: float | None = None,
+                  callback: Callable | None = None) -> Future[Iq]:
         """Send a ping request.
 
         :param jid: The JID that will receive the ping.
@@ -184,9 +184,9 @@ class XEP_0199(BasePlugin):
 
         return iq.send(timeout=timeout, callback=callback)
 
-    async def ping(self, jid: Optional[JID] = None,
-                   ifrom: Optional[JID] = None,
-                   timeout: Optional[float] = None) -> float:
+    async def ping(self, jid: JID | None = None,
+                   ifrom: JID | None = None,
+                   timeout: float | None = None) -> float:
         """Send a ping request and calculate RTT.
         This is a coroutine.
 

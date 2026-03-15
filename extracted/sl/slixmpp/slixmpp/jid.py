@@ -11,10 +11,6 @@ import re
 import socket
 
 from functools import lru_cache
-from typing import (
-    Optional,
-    Union,
-)
 
 from slixmpp.stringprep import nodeprep, resourceprep, idna, StringprepError
 
@@ -70,7 +66,7 @@ def _parse_jid(data: str):
     return node, domain, resource
 
 
-def _validate_node(node: Optional[str]):
+def _validate_node(node: str | None):
     """Validate the local, or username, portion of a JID.
 
     :raises InvalidJID:
@@ -151,7 +147,7 @@ def _validate_domain(domain: str):
     return domain
 
 
-def _validate_resource(resource: Optional[str]):
+def _validate_resource(resource: str | None):
     """Validate the resource portion of a JID.
 
     :raises InvalidJID:
@@ -173,7 +169,7 @@ def _validate_resource(resource: Optional[str]):
     return resource
 
 
-def _unescape_node(node: str):
+def unescape_node(node: str):
     """Unescape a local portion of a JID.
 
     .. note::
@@ -198,30 +194,6 @@ def _unescape_node(node: str):
     return ''.join(unescaped)
 
 
-def _format_jid(
-        local: Optional[str] = None,
-        domain: Optional[str] = None,
-        resource: Optional[str] = None,
-    ):
-    """Format the given JID components into a full or bare JID.
-
-    :param string local: Optional. The local portion of the JID.
-    :param string domain: Required. The domain name portion of the JID.
-    :param string resource: Optional. The resource portion of the JID.
-
-    :return: A full or bare JID string.
-    """
-    if domain is None:
-        return ''
-    if local is not None:
-        result = local + '@' + domain
-    else:
-        result = domain
-    if resource is not None:
-        result += '/' + resource
-    return result
-
-
 class InvalidJID(ValueError):
     """
     Raised when attempting to create a JID that does not pass validation.
@@ -230,52 +202,6 @@ class InvalidJID(ValueError):
     to make it invalid, such trying to remove the domain from an existing
     full JID while the local and resource portions still exist.
     """
-
-# pylint: disable=R0903
-class UnescapedJID:
-
-    """
-    .. versionadded:: 1.1.10
-    """
-
-    __slots__ = ('_node', '_domain', '_resource')
-
-    def __init__(
-            self,
-            node: Optional[str],
-            domain: Optional[str],
-            resource: Optional[str],
-        ):
-        self._node = node
-        self._domain = domain
-        self._resource = resource
-
-    def __getattribute__(self, name: str):
-        """Retrieve the given JID component.
-
-        :param name: one of: user, server, domain, resource,
-                     full, or bare.
-        """
-        if name == 'resource':
-            return self._resource or ''
-        if name in ('user', 'username', 'local', 'node'):
-            return self._node or ''
-        if name in ('server', 'domain', 'host'):
-            return self._domain or ''
-        if name in ('full', 'jid'):
-            return _format_jid(self._node, self._domain, self._resource)
-        if name == 'bare':
-            return _format_jid(self._node, self._domain)
-        return object.__getattribute__(self, name)
-
-    def __str__(self):
-        """Use the full JID as the string value."""
-        return _format_jid(self._node, self._domain, self._resource)
-
-    def __repr__(self):
-        """Use the full JID as the representation."""
-        return _format_jid(self._node, self._domain, self._resource)
-
 
 class JID:
 
@@ -311,7 +237,7 @@ class JID:
 
     __slots__ = ('_node', '_domain', '_resource', '_bare', '_full')
 
-    def __init__(self, jid: Optional[Union[str, 'JID']] = None, bare: bool = False):
+    def __init__(self, jid: str | 'JID' | None = None, bare: bool = False):
         if not jid:
             self._node = ''
             self._domain = ''
@@ -332,21 +258,6 @@ class JID:
 
     def __bool__(self) -> bool:
         return self._domain != ''
-
-    def unescape(self):
-        """Return an unescaped JID object.
-
-        Using an unescaped JID is preferred for displaying JIDs
-        to humans, and they should NOT be used for any other
-        purposes than for presentation.
-
-        :return: :class:`UnescapedJID`
-
-        .. versionadded:: 1.1.10
-        """
-        return UnescapedJID(_unescape_node(self._node),
-                            self._domain,
-                            self._resource)
 
     def _update_bare_full(self):
         """Format the given JID into a bare and a full JID.
@@ -376,7 +287,7 @@ class JID:
         return self._node
 
     @node.setter
-    def node(self, value: Optional[str]):
+    def node(self, value: str | None):
         self._node = _validate_node(value)
         self._update_bare_full()
 
@@ -394,7 +305,7 @@ class JID:
         return self._resource
 
     @resource.setter
-    def resource(self, value: Optional[str]):
+    def resource(self, value: str | None):
         self._resource = _validate_resource(value)
         self._update_bare_full()
 
@@ -429,8 +340,6 @@ class JID:
     # pylint: disable=W0212
     def __eq__(self, other):
         """Two JIDs are equal if they have the same full JID value."""
-        if isinstance(other, UnescapedJID):
-            return False
         if not isinstance(other, JID):
             try:
                 other = JID(other)

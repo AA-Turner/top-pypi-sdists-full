@@ -3,17 +3,9 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "define_macros": [
-            [
-                "Py_LIMITED_API",
-                51052544
-            ]
-        ],
         "depends": [
             "/tmp/vendor/include/libavcodec/avcodec.h",
             "/tmp/vendor/include/libavcodec/bsf.h",
-            "/tmp/vendor/include/libavcodec/codec.h",
-            "/tmp/vendor/include/libavcodec/codec_id.h",
             "/tmp/vendor/include/libavcodec/packet.h",
             "/tmp/vendor/include/libavdevice/avdevice.h",
             "/tmp/vendor/include/libavfilter/avfilter.h",
@@ -31,15 +23,12 @@
             "/tmp/vendor/include/libavutil/hwcontext.h",
             "/tmp/vendor/include/libavutil/imgutils.h",
             "/tmp/vendor/include/libavutil/log.h",
-            "/tmp/vendor/include/libavutil/mathematics.h",
             "/tmp/vendor/include/libavutil/motion_vector.h",
             "/tmp/vendor/include/libavutil/opt.h",
             "/tmp/vendor/include/libavutil/pixdesc.h",
             "/tmp/vendor/include/libavutil/rational.h",
             "/tmp/vendor/include/libavutil/samplefmt.h",
-            "/tmp/vendor/include/libavutil/video_enc_params.h",
-            "/tmp/vendor/include/libswresample/swresample.h",
-            "/tmp/vendor/include/libswscale/swscale.h"
+            "/tmp/vendor/include/libavutil/video_enc_params.h"
         ],
         "include_dirs": [
             "/tmp/vendor/include"
@@ -58,7 +47,7 @@
         ],
         "name": "av.audio.layout",
         "sources": [
-            "av/audio/layout.pyx"
+            "av/audio/layout.py"
         ]
     },
     "module_name": "av.audio.layout"
@@ -1183,39 +1172,32 @@ static int __Pyx_init_co_variables(void) {
 #define __PYX_HAVE_API__av__audio__layout
 /* Early includes */
 #include <stdint.h>
-#include "libavutil/mathematics.h"
-#include "libavutil/display.h"
-#include "libavutil/rational.h"
-#include "libavutil/avutil.h"
-#include "libavutil/pixdesc.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/audio_fifo.h"
-#include "stdarg.h"
-#include "libavutil/opt.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/log.h"
+#include "libavutil/avutil.h"
 #include "libavutil/buffer.h"
 #include "libavutil/dict.h"
+#include "libavutil/display.h"
 #include "libavutil/error.h"
 #include "libavutil/frame.h"
 #include "libavutil/hwcontext.h"
-#include "libavutil/samplefmt.h"
+#include "libavutil/imgutils.h"
+#include "libavutil/log.h"
 #include "libavutil/motion_vector.h"
-#include <stddef.h>
+#include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/rational.h"
+#include "libavutil/samplefmt.h"
 #include "libavutil/video_enc_params.h"
-#include "libavcodec/codec.h"
-#include "libavcodec/codec_id.h"
-#include "libavcodec/packet.h"
+#include "stdarg.h"
+#include "libavutil/channel_layout.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/bsf.h"
-#include "libavdevice/avdevice.h"
+#include "libavcodec/packet.h"
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
-#include "libswscale/swscale.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersink.h"
 #include "libavfilter/buffersrc.h"
-#include "stdio.h"
+#include "libavdevice/avdevice.h"
 #include <string.h>
 #include <stdio.h>
 #ifdef _OPENMP
@@ -1433,7 +1415,7 @@ static const char *__pyx_filename;
 /* #### Code section: filename_table ### */
 
 static const char* const __pyx_f[] = {
-  "av/audio/layout.pyx",
+  "av/audio/layout.py",
   "<stringsource>",
   "cpython/type.pxd",
 };
@@ -1619,28 +1601,13 @@ struct __pyx_obj_2av_5audio_6layout_AudioLayout;
  * 
  * cdef class AudioLayout:             # <<<<<<<<<<<<<<
  *     cdef lib.AVChannelLayout layout
- *     cdef _init(self, lib.AVChannelLayout layout)
+ * 
 */
 struct __pyx_obj_2av_5audio_6layout_AudioLayout {
   PyObject_HEAD
-  struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtab;
   AVChannelLayout layout;
 };
 
-
-
-/* "av/audio/layout.pyx":24
- * 
- * 
- * cdef class AudioLayout:             # <<<<<<<<<<<<<<
- *     def __init__(self, layout):
- *         if layout is _cinit_bypass_sentinel:
-*/
-
-struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout {
-  PyObject *(*_init)(struct __pyx_obj_2av_5audio_6layout_AudioLayout *, AVChannelLayout);
-};
-static struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtabptr_2av_5audio_6layout_AudioLayout;
 /* #### Code section: utility_code_proto ### */
 
 /* --- Runtime support code (head) --- */
@@ -1716,6 +1683,70 @@ static struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *__pyx_vtabptr_2av
     } while (0)
 #define __Pyx_CLEAR(r)    do { PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);} while(0)
 #define __Pyx_XCLEAR(r)   do { if((r) != NULL) {PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);}} while(0)
+
+/* PyErrExceptionMatches.proto (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
+#else
+#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
+#endif
+
+/* PyThreadStateGet.proto (used by PyErrFetchRestore) */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
+#define __Pyx_PyThreadState_assign  __pyx_tstate = __Pyx_PyThreadState_Current;
+#if PY_VERSION_HEX >= 0x030C00A6
+#define __Pyx_PyErr_Occurred()  (__pyx_tstate->current_exception != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->current_exception ? (PyObject*) Py_TYPE(__pyx_tstate->current_exception) : (PyObject*) NULL)
+#else
+#define __Pyx_PyErr_Occurred()  (__pyx_tstate->curexc_type != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->curexc_type)
+#endif
+#else
+#define __Pyx_PyThreadState_declare
+#define __Pyx_PyThreadState_assign
+#define __Pyx_PyErr_Occurred()  (PyErr_Occurred() != NULL)
+#define __Pyx_PyErr_CurrentExceptionType()  PyErr_Occurred()
+#endif
+
+/* PyErrFetchRestore.proto (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
+#define __Pyx_ErrRestoreWithState(type, value, tb)  __Pyx_ErrRestoreInState(PyThreadState_GET(), type, value, tb)
+#define __Pyx_ErrFetchWithState(type, value, tb)    __Pyx_ErrFetchInState(PyThreadState_GET(), type, value, tb)
+#define __Pyx_ErrRestore(type, value, tb)  __Pyx_ErrRestoreInState(__pyx_tstate, type, value, tb)
+#define __Pyx_ErrFetch(type, value, tb)    __Pyx_ErrFetchInState(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
+static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A6
+#define __Pyx_PyErr_SetNone(exc) (Py_INCREF(exc), __Pyx_ErrRestore((exc), NULL, NULL))
+#else
+#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
+#endif
+#else
+#define __Pyx_PyErr_Clear() PyErr_Clear()
+#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
+#define __Pyx_ErrRestoreWithState(type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetchWithState(type, value, tb)  PyErr_Fetch(type, value, tb)
+#define __Pyx_ErrRestoreInState(tstate, type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetchInState(tstate, type, value, tb)  PyErr_Fetch(type, value, tb)
+#define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
+#define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
+#endif
+
+/* PyObjectGetAttrStr.proto (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
+#else
+#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
+#endif
+
+/* PyObjectGetAttrStrNoError.proto (used by GetBuiltinName) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
+
+/* GetBuiltinName.proto */
+static PyObject *__Pyx_GetBuiltinName(PyObject *name);
 
 /* TupleAndListFromArray.proto (used by fastcall) */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -1801,13 +1832,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObj
 
 /* PyObjectCallOneArg.proto (used by CallUnboundCMethod0) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
-
-/* PyObjectGetAttrStr.proto (used by UnpackUnboundCMethod) */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name);
-#else
-#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
-#endif
 
 /* UnpackUnboundCMethod.proto (used by CallUnboundCMethod0) */
 typedef struct {
@@ -1941,49 +1965,6 @@ static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count,
 /* PyValueError_Check.proto */
 #define __Pyx_PyExc_ValueError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_ValueError)
 
-/* PyThreadStateGet.proto (used by PyErrFetchRestore) */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyThreadState_declare  PyThreadState *__pyx_tstate;
-#define __Pyx_PyThreadState_assign  __pyx_tstate = __Pyx_PyThreadState_Current;
-#if PY_VERSION_HEX >= 0x030C00A6
-#define __Pyx_PyErr_Occurred()  (__pyx_tstate->current_exception != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->current_exception ? (PyObject*) Py_TYPE(__pyx_tstate->current_exception) : (PyObject*) NULL)
-#else
-#define __Pyx_PyErr_Occurred()  (__pyx_tstate->curexc_type != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  (__pyx_tstate->curexc_type)
-#endif
-#else
-#define __Pyx_PyThreadState_declare
-#define __Pyx_PyThreadState_assign
-#define __Pyx_PyErr_Occurred()  (PyErr_Occurred() != NULL)
-#define __Pyx_PyErr_CurrentExceptionType()  PyErr_Occurred()
-#endif
-
-/* PyErrFetchRestore.proto (used by RaiseException) */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_Clear() __Pyx_ErrRestore(NULL, NULL, NULL)
-#define __Pyx_ErrRestoreWithState(type, value, tb)  __Pyx_ErrRestoreInState(PyThreadState_GET(), type, value, tb)
-#define __Pyx_ErrFetchWithState(type, value, tb)    __Pyx_ErrFetchInState(PyThreadState_GET(), type, value, tb)
-#define __Pyx_ErrRestore(type, value, tb)  __Pyx_ErrRestoreInState(__pyx_tstate, type, value, tb)
-#define __Pyx_ErrFetch(type, value, tb)    __Pyx_ErrFetchInState(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
-static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A6
-#define __Pyx_PyErr_SetNone(exc) (Py_INCREF(exc), __Pyx_ErrRestore((exc), NULL, NULL))
-#else
-#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
-#endif
-#else
-#define __Pyx_PyErr_Clear() PyErr_Clear()
-#define __Pyx_PyErr_SetNone(exc) PyErr_SetNone(exc)
-#define __Pyx_ErrRestoreWithState(type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetchWithState(type, value, tb)  PyErr_Fetch(type, value, tb)
-#define __Pyx_ErrRestoreInState(tstate, type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetchInState(tstate, type, value, tb)  PyErr_Fetch(type, value, tb)
-#define __Pyx_ErrRestore(type, value, tb)  PyErr_Restore(type, value, tb)
-#define __Pyx_ErrFetch(type, value, tb)  PyErr_Fetch(type, value, tb)
-#endif
-
 /* RaiseException.export */
 static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
 
@@ -1993,11 +1974,6 @@ static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject 
 /* PyObjectFormatAndDecref.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatSimpleAndDecref(PyObject* s, PyObject* f);
 static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObject* f);
-
-/* PyRange_Check.proto */
-#if CYTHON_COMPILING_IN_PYPY && !defined(PyRange_Check)
-  #define PyRange_Check(obj)  __Pyx_TypeCheck((obj), &PyRange_Type)
-#endif
 
 /* ListAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
@@ -2019,20 +1995,6 @@ static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
 #else
 #define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
 #endif
-
-/* PyErrExceptionMatches.proto (used by PyObjectGetAttrStrNoError) */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_PyErr_ExceptionMatches(err) __Pyx_PyErr_ExceptionMatchesInState(__pyx_tstate, err)
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err);
-#else
-#define __Pyx_PyErr_ExceptionMatches(err)  PyErr_ExceptionMatches(err)
-#endif
-
-/* PyObjectGetAttrStrNoError.proto (used by GetBuiltinName) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
-
-/* GetBuiltinName.proto (used by GetModuleGlobalName) */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name);
 
 /* PyDictVersioning.proto (used by GetModuleGlobalName) */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
@@ -2121,6 +2083,14 @@ static CYTHON_INLINE PyObject* __Pyx_decode_bytes(
         start, stop, encoding, errors, decode_func);
 }
 
+/* PyLongBinop.proto */
+#if !CYTHON_COMPILING_IN_PYPY
+static CYTHON_INLINE PyObject* __Pyx_PyLong_SubtractObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
+#else
+#define __Pyx_PyLong_SubtractObjC(op1, op2, intval, inplace, zerodivision_check)\
+    (inplace ? PyNumber_InPlaceSubtract(op1, op2) : PyNumber_Subtract(op1, op2))
+#endif
+
 /* PyRuntimeError_Check.proto */
 #define __Pyx_PyExc_RuntimeError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_RuntimeError)
 
@@ -2191,15 +2161,6 @@ static int __Pyx_validate_bases_tuple(const char *type_name, Py_ssize_t dictoffs
 
 /* PyType_Ready.proto */
 CYTHON_UNUSED static int __Pyx_PyType_Ready(PyTypeObject *t);
-
-/* SetVTable.proto */
-static int __Pyx_SetVtable(PyTypeObject* typeptr , void* vtable);
-
-/* GetVTable.proto (used by MergeVTables) */
-static void* __Pyx_GetVtable(PyTypeObject *type);
-
-/* MergeVTables.proto */
-static int __Pyx_MergeVtables(PyTypeObject *type);
 
 /* DelItemOnTypeDict.proto (used by SetupReduce) */
 static int __Pyx__DelItemOnTypeDict(PyTypeObject *tp, PyObject *k);
@@ -2464,7 +2425,7 @@ static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, P
 static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value);
 
 /* CIntFromPy.proto */
-static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *);
+static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *);
 
 /* FormatTypeName.proto */
 #if CYTHON_COMPILING_IN_LIMITED_API
@@ -2488,9 +2449,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_long(long value);
 
 /* CIntFromPy.proto */
 static CYTHON_INLINE long __Pyx_PyLong_As_long(PyObject *);
-
-/* CIntFromPy.proto */
-static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *);
 
 /* FastTypeChecks.proto */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -2578,13 +2536,12 @@ static int __Pyx_State_RemoveModule(void*);
 #define __PYX_ABI_MODULE_NAME "_cython_" CYTHON_ABI
 #define __PYX_TYPE_MODULE_PREFIX __PYX_ABI_MODULE_NAME "."
 
-static PyObject *__pyx_f_2av_5audio_6layout_11AudioLayout__init(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, AVChannelLayout __pyx_v_layout); /* proto*/
 
 /* Module declarations from "libc.stdint" */
 
-/* Module declarations from "libc.stddef" */
-
 /* Module declarations from "libav" */
+
+/* Module declarations from "cython" */
 
 /* Module declarations from "libc.string" */
 
@@ -2610,10 +2567,11 @@ int __pyx_module_is_main_av__audio__layout = 0;
 
 /* Implementation of "av.audio.layout" */
 /* #### Code section: global_var ### */
+static PyObject *__pyx_builtin_object;
 /* #### Code section: string_decls ### */
 /* #### Code section: decls ### */
 static PyObject *__pyx_pf_2av_5audio_6layout_12AudioChannel___repr__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, PyObject *__pyx_v_layout); /* proto */
+static int __pyx_pf_2av_5audio_6layout_11AudioLayout___cinit__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, PyObject *__pyx_v_layout); /* proto */
 static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4__eq__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, PyObject *__pyx_v_other); /* proto */
 static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_11nb_channels___get__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self); /* proto */
@@ -2650,6 +2608,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_codeobj_tab[1];
   PyObject *__pyx_string_tab[61];
+  PyObject *__pyx_number_tab[1];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2700,13 +2659,13 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u__6 __pyx_string_tab[7]
 #define __pyx_kp_u_av __pyx_string_tab[8]
 #define __pyx_kp_u_av_AudioChannel __pyx_string_tab[9]
-#define __pyx_kp_u_av_audio_layout_pyx __pyx_string_tab[10]
+#define __pyx_kp_u_av_audio_layout_py __pyx_string_tab[10]
 #define __pyx_kp_u_disable __pyx_string_tab[11]
 #define __pyx_kp_u_enable __pyx_string_tab[12]
 #define __pyx_kp_u_gc __pyx_string_tab[13]
 #define __pyx_kp_u_isenabled __pyx_string_tab[14]
 #define __pyx_kp_u_layout_must_be_of_type_string_av __pyx_string_tab[15]
-#define __pyx_kp_u_self_layout_cannot_be_converted __pyx_string_tab[16]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[16]
 #define __pyx_n_u_AudioChannel __pyx_string_tab[17]
 #define __pyx_n_u_AudioChannel___repr __pyx_string_tab[18]
 #define __pyx_n_u_AudioLayout __pyx_string_tab[19]
@@ -2731,11 +2690,11 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_name __pyx_string_tab[38]
 #define __pyx_n_u_name_2 __pyx_string_tab[39]
 #define __pyx_n_u_nb_channels __pyx_string_tab[40]
-#define __pyx_n_u_pop __pyx_string_tab[41]
-#define __pyx_n_u_prepare __pyx_string_tab[42]
-#define __pyx_n_u_pyx_capi __pyx_string_tab[43]
-#define __pyx_n_u_pyx_state __pyx_string_tab[44]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[45]
+#define __pyx_n_u_object __pyx_string_tab[41]
+#define __pyx_n_u_pop __pyx_string_tab[42]
+#define __pyx_n_u_prepare __pyx_string_tab[43]
+#define __pyx_n_u_pyx_capi __pyx_string_tab[44]
+#define __pyx_n_u_pyx_state __pyx_string_tab[45]
 #define __pyx_n_u_qualname __pyx_string_tab[46]
 #define __pyx_n_u_reduce __pyx_string_tab[47]
 #define __pyx_n_u_reduce_cython __pyx_string_tab[48]
@@ -2751,6 +2710,7 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_values __pyx_string_tab[58]
 #define __pyx_kp_b_iso88591_A_1D_a __pyx_string_tab[59]
 #define __pyx_kp_b_struct___pyx_obj_2av_5audio_6lay __pyx_string_tab[60]
+#define __pyx_int_1 __pyx_number_tab[0]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2770,6 +2730,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_2av_5audio_6layout_AudioLayout);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
   for (int i=0; i<61; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2797,6 +2758,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_2av_5audio_6layout_AudioLayout);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
   for (int i=0; i<61; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -2810,7 +2772,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/audio/layout.pyx":12
+/* "av/audio/layout.py":13
  *     description: str
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -2858,32 +2820,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 12, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 13, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 12, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 13, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__repr__", 0) < (0)) __PYX_ERR(0, 12, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__repr__", 0) < (0)) __PYX_ERR(0, 13, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, i); __PYX_ERR(0, 12, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, i); __PYX_ERR(0, 13, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 12, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 13, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 12, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__repr__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 13, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2916,22 +2878,22 @@ static PyObject *__pyx_pf_2av_5audio_6layout_12AudioChannel___repr__(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/audio/layout.pyx":13
+  /* "av/audio/layout.py":14
  * 
  *     def __repr__(self):
  *         return f"<av.AudioChannel '{self.name}' ({self.description})>"             # <<<<<<<<<<<<<<
  * 
- * cdef object _cinit_bypass_sentinel
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_description); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_description); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_4[0] = __pyx_mstate_global->__pyx_kp_u_av_AudioChannel;
@@ -2940,7 +2902,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_12AudioChannel___repr__(CYTHON_UNUS
   __pyx_t_4[3] = __pyx_t_3;
   __pyx_t_4[4] = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, 18 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2948,7 +2910,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_12AudioChannel___repr__(CYTHON_UNUS
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":12
+  /* "av/audio/layout.py":13
  *     description: str
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -2969,12 +2931,12 @@ static PyObject *__pyx_pf_2av_5audio_6layout_12AudioChannel___repr__(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":17
- * cdef object _cinit_bypass_sentinel
+/* "av/audio/layout.py":20
  * 
- * cdef AudioLayout get_audio_layout(lib.AVChannelLayout c_layout):             # <<<<<<<<<<<<<<
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_audio_layout(c_layout: lib.AVChannelLayout) -> AudioLayout:
  *     """Get an AudioLayout from Cython land."""
- *     cdef AudioLayout layout = AudioLayout.__new__(AudioLayout, _cinit_bypass_sentinel)
 */
 
 static struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_f_2av_5audio_6layout_get_audio_layout(AVChannelLayout __pyx_v_c_layout) {
@@ -2983,43 +2945,43 @@ static struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_f_2av_5audio_6layo
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
+  size_t __pyx_t_3;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_audio_layout", 0);
 
-  /* "av/audio/layout.pyx":19
- * cdef AudioLayout get_audio_layout(lib.AVChannelLayout c_layout):
+  /* "av/audio/layout.py":23
+ * def get_audio_layout(c_layout: lib.AVChannelLayout) -> AudioLayout:
  *     """Get an AudioLayout from Cython land."""
- *     cdef AudioLayout layout = AudioLayout.__new__(AudioLayout, _cinit_bypass_sentinel)             # <<<<<<<<<<<<<<
- *     layout._init(c_layout)
+ *     layout: AudioLayout = AudioLayout(_cinit_bypass_sentinel)             # <<<<<<<<<<<<<<
+ *     layout.layout = c_layout
  *     return layout
 */
-  __pyx_t_1 = PyTuple_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_INCREF(__pyx_v_2av_5audio_6layout__cinit_bypass_sentinel);
-  __Pyx_GIVEREF(__pyx_v_2av_5audio_6layout__cinit_bypass_sentinel);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_2av_5audio_6layout__cinit_bypass_sentinel) != (0)) __PYX_ERR(0, 19, __pyx_L1_error);
-  __pyx_t_2 = ((PyObject *)__pyx_tp_new_2av_5audio_6layout_AudioLayout(((PyTypeObject *)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout), __pyx_t_1, NULL)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 19, __pyx_L1_error)
-  __Pyx_GOTREF((PyObject *)__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_2);
-  __pyx_t_2 = 0;
+  __pyx_t_2 = NULL;
+  __pyx_t_3 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_2av_5audio_6layout__cinit_bypass_sentinel};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 23, __pyx_L1_error)
+    __Pyx_GOTREF((PyObject *)__pyx_t_1);
+  }
+  __pyx_v_layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_1);
+  __pyx_t_1 = 0;
 
-  /* "av/audio/layout.pyx":20
+  /* "av/audio/layout.py":24
  *     """Get an AudioLayout from Cython land."""
- *     cdef AudioLayout layout = AudioLayout.__new__(AudioLayout, _cinit_bypass_sentinel)
- *     layout._init(c_layout)             # <<<<<<<<<<<<<<
+ *     layout: AudioLayout = AudioLayout(_cinit_bypass_sentinel)
+ *     layout.layout = c_layout             # <<<<<<<<<<<<<<
  *     return layout
  * 
 */
-  __pyx_t_2 = ((struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *)__pyx_v_layout->__pyx_vtab)->_init(__pyx_v_layout, __pyx_v_c_layout); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v_layout->layout = __pyx_v_c_layout;
 
-  /* "av/audio/layout.pyx":21
- *     cdef AudioLayout layout = AudioLayout.__new__(AudioLayout, _cinit_bypass_sentinel)
- *     layout._init(c_layout)
+  /* "av/audio/layout.py":25
+ *     layout: AudioLayout = AudioLayout(_cinit_bypass_sentinel)
+ *     layout.layout = c_layout
  *     return layout             # <<<<<<<<<<<<<<
  * 
  * 
@@ -3029,12 +2991,12 @@ static struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_f_2av_5audio_6layo
   __pyx_r = __pyx_v_layout;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":17
- * cdef object _cinit_bypass_sentinel
+  /* "av/audio/layout.py":20
  * 
- * cdef AudioLayout get_audio_layout(lib.AVChannelLayout c_layout):             # <<<<<<<<<<<<<<
+ * 
+ * @cython.cfunc             # <<<<<<<<<<<<<<
+ * def get_audio_layout(c_layout: lib.AVChannelLayout) -> AudioLayout:
  *     """Get an AudioLayout from Cython land."""
- *     cdef AudioLayout layout = AudioLayout.__new__(AudioLayout, _cinit_bypass_sentinel)
 */
 
   /* function exit code */
@@ -3050,17 +3012,17 @@ static struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_f_2av_5audio_6layo
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":25
- * 
- * cdef class AudioLayout:
- *     def __init__(self, layout):             # <<<<<<<<<<<<<<
+/* "av/audio/layout.py":30
+ * @cython.cclass
+ * class AudioLayout:
+ *     def __cinit__(self, layout):             # <<<<<<<<<<<<<<
  *         if layout is _cinit_bypass_sentinel:
  *             return
 */
 
 /* Python wrapper */
-static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__cinit__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__cinit__(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_layout = 0;
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
@@ -3070,7 +3032,7 @@ static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__(PyObject *__pyx_v
   int __pyx_clineno = 0;
   int __pyx_r;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("__init__ (wrapper)", 0);
+  __Pyx_RefNannySetupContext("__cinit__ (wrapper)", 0);
   #if CYTHON_ASSUME_SAFE_SIZE
   __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
   #else
@@ -3080,43 +3042,43 @@ static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__(PyObject *__pyx_v
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_layout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 25, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 30, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 30, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 25, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 30, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 25, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 30, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 30, __pyx_L3_error)
     }
     __pyx_v_layout = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 25, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 30, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
-  __Pyx_AddTraceback("av.audio.layout.AudioLayout.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("av.audio.layout.AudioLayout.__cinit__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_v_self), __pyx_v_layout);
+  __pyx_r = __pyx_pf_2av_5audio_6layout_11AudioLayout___cinit__(((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_v_self), __pyx_v_layout);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -3126,7 +3088,7 @@ static int __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__(PyObject *__pyx_v
   return __pyx_r;
 }
 
-static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, PyObject *__pyx_v_layout) {
+static int __pyx_pf_2av_5audio_6layout_11AudioLayout___cinit__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, PyObject *__pyx_v_layout) {
   int __pyx_v_ret;
   AVChannelLayout __pyx_v_c_layout;
   int __pyx_r;
@@ -3142,11 +3104,11 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("__init__", 0);
+  __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/audio/layout.pyx":26
- * cdef class AudioLayout:
- *     def __init__(self, layout):
+  /* "av/audio/layout.py":31
+ * class AudioLayout:
+ *     def __cinit__(self, layout):
  *         if layout is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
  *             return
  * 
@@ -3154,8 +3116,8 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
   __pyx_t_1 = (__pyx_v_layout == __pyx_v_2av_5audio_6layout__cinit_bypass_sentinel);
   if (__pyx_t_1) {
 
-    /* "av/audio/layout.pyx":27
- *     def __init__(self, layout):
+    /* "av/audio/layout.py":32
+ *     def __cinit__(self, layout):
  *         if layout is _cinit_bypass_sentinel:
  *             return             # <<<<<<<<<<<<<<
  * 
@@ -3164,38 +3126,38 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "av/audio/layout.pyx":26
- * cdef class AudioLayout:
- *     def __init__(self, layout):
+    /* "av/audio/layout.py":31
+ * class AudioLayout:
+ *     def __cinit__(self, layout):
  *         if layout is _cinit_bypass_sentinel:             # <<<<<<<<<<<<<<
  *             return
  * 
 */
   }
 
-  /* "av/audio/layout.pyx":29
+  /* "av/audio/layout.py":34
  *             return
  * 
  *         if type(layout) is str:             # <<<<<<<<<<<<<<
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)
  *             if ret != 0:
 */
   __pyx_t_1 = (((PyObject *)Py_TYPE(__pyx_v_layout)) == ((PyObject *)(&PyUnicode_Type)));
   if (__pyx_t_1) {
 
-    /* "av/audio/layout.pyx":30
+    /* "av/audio/layout.py":35
  * 
  *         if type(layout) is str:
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)             # <<<<<<<<<<<<<<
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 raise ValueError(f"Invalid layout: {layout}")
 */
-    __pyx_t_2 = __Pyx_PyObject_AsString(__pyx_v_layout); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 30, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_AsString(__pyx_v_layout); if (unlikely((!__pyx_t_2) && PyErr_Occurred())) __PYX_ERR(0, 35, __pyx_L1_error)
     __pyx_v_ret = av_channel_layout_from_string((&__pyx_v_c_layout), __pyx_t_2);
 
-    /* "av/audio/layout.pyx":31
+    /* "av/audio/layout.py":36
  *         if type(layout) is str:
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)
  *             if ret != 0:             # <<<<<<<<<<<<<<
  *                 raise ValueError(f"Invalid layout: {layout}")
  *         elif isinstance(layout, AudioLayout):
@@ -3203,17 +3165,17 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (unlikely(__pyx_t_1)) {
 
-      /* "av/audio/layout.pyx":32
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)
+      /* "av/audio/layout.py":37
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)
  *             if ret != 0:
  *                 raise ValueError(f"Invalid layout: {layout}")             # <<<<<<<<<<<<<<
  *         elif isinstance(layout, AudioLayout):
- *             c_layout = (<AudioLayout>layout).layout
+ *             c_layout = cython.cast(AudioLayout, layout).layout
 */
       __pyx_t_4 = NULL;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_layout, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_layout, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Invalid_layout, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 32, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Invalid_layout, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 37, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_7 = 1;
@@ -3222,74 +3184,82 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
         __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 32, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 37, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 32, __pyx_L1_error)
+      __PYX_ERR(0, 37, __pyx_L1_error)
 
-      /* "av/audio/layout.pyx":31
+      /* "av/audio/layout.py":36
  *         if type(layout) is str:
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)
  *             if ret != 0:             # <<<<<<<<<<<<<<
  *                 raise ValueError(f"Invalid layout: {layout}")
  *         elif isinstance(layout, AudioLayout):
 */
     }
 
-    /* "av/audio/layout.pyx":29
+    /* "av/audio/layout.py":34
  *             return
  * 
  *         if type(layout) is str:             # <<<<<<<<<<<<<<
- *             ret = lib.av_channel_layout_from_string(&c_layout, layout)
+ *             ret = lib.av_channel_layout_from_string(cython.address(c_layout), layout)
  *             if ret != 0:
 */
     goto __pyx_L4;
   }
 
-  /* "av/audio/layout.pyx":33
+  /* "av/audio/layout.py":38
  *             if ret != 0:
  *                 raise ValueError(f"Invalid layout: {layout}")
  *         elif isinstance(layout, AudioLayout):             # <<<<<<<<<<<<<<
- *             c_layout = (<AudioLayout>layout).layout
+ *             c_layout = cython.cast(AudioLayout, layout).layout
  *         else:
 */
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_layout, __pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout); 
   if (likely(__pyx_t_1)) {
 
-    /* "av/audio/layout.pyx":34
+    /* "av/audio/layout.py":39
  *                 raise ValueError(f"Invalid layout: {layout}")
  *         elif isinstance(layout, AudioLayout):
- *             c_layout = (<AudioLayout>layout).layout             # <<<<<<<<<<<<<<
+ *             c_layout = cython.cast(AudioLayout, layout).layout             # <<<<<<<<<<<<<<
  *         else:
- *             raise TypeError(f"layout must be of type: string | av.AudioLayout, got {type(layout)}")
+ *             raise TypeError(
 */
     __pyx_t_8 = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_v_layout)->layout;
     __pyx_v_c_layout = __pyx_t_8;
 
-    /* "av/audio/layout.pyx":33
+    /* "av/audio/layout.py":38
  *             if ret != 0:
  *                 raise ValueError(f"Invalid layout: {layout}")
  *         elif isinstance(layout, AudioLayout):             # <<<<<<<<<<<<<<
- *             c_layout = (<AudioLayout>layout).layout
+ *             c_layout = cython.cast(AudioLayout, layout).layout
  *         else:
 */
     goto __pyx_L4;
   }
 
-  /* "av/audio/layout.pyx":36
- *             c_layout = (<AudioLayout>layout).layout
+  /* "av/audio/layout.py":41
+ *             c_layout = cython.cast(AudioLayout, layout).layout
  *         else:
- *             raise TypeError(f"layout must be of type: string | av.AudioLayout, got {type(layout)}")             # <<<<<<<<<<<<<<
- * 
- *         self._init(c_layout)
+ *             raise TypeError(             # <<<<<<<<<<<<<<
+ *                 f"layout must be of type: string | av.AudioLayout, got {type(layout)}"
+ *             )
 */
   /*else*/ {
     __pyx_t_6 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_layout)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
+
+    /* "av/audio/layout.py":42
+ *         else:
+ *             raise TypeError(
+ *                 f"layout must be of type: string | av.AudioLayout, got {type(layout)}"             # <<<<<<<<<<<<<<
+ *             )
+ * 
+*/
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_layout)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_layout_must_be_of_type_string_av, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_layout_must_be_of_type_string_av, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_7 = 1;
@@ -3298,30 +3268,28 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 36, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 36, __pyx_L1_error)
+    __PYX_ERR(0, 41, __pyx_L1_error)
   }
   __pyx_L4:;
 
-  /* "av/audio/layout.pyx":38
- *             raise TypeError(f"layout must be of type: string | av.AudioLayout, got {type(layout)}")
+  /* "av/audio/layout.py":45
+ *             )
  * 
- *         self._init(c_layout)             # <<<<<<<<<<<<<<
+ *         self.layout = c_layout             # <<<<<<<<<<<<<<
  * 
- *     cdef _init(self, lib.AVChannelLayout layout):
+ *     def __repr__(self):
 */
-  __pyx_t_3 = ((struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout *)__pyx_v_self->__pyx_vtab)->_init(__pyx_v_self, __pyx_v_c_layout); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_v_self->layout = __pyx_v_c_layout;
 
-  /* "av/audio/layout.pyx":25
- * 
- * cdef class AudioLayout:
- *     def __init__(self, layout):             # <<<<<<<<<<<<<<
+  /* "av/audio/layout.py":30
+ * @cython.cclass
+ * class AudioLayout:
+ *     def __cinit__(self, layout):             # <<<<<<<<<<<<<<
  *         if layout is _cinit_bypass_sentinel:
  *             return
 */
@@ -3334,52 +3302,15 @@ static int __pyx_pf_2av_5audio_6layout_11AudioLayout___init__(struct __pyx_obj_2
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
-  __Pyx_AddTraceback("av.audio.layout.AudioLayout.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("av.audio.layout.AudioLayout.__cinit__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":40
- *         self._init(c_layout)
- * 
- *     cdef _init(self, lib.AVChannelLayout layout):             # <<<<<<<<<<<<<<
- *         self.layout = layout
- * 
-*/
-
-static PyObject *__pyx_f_2av_5audio_6layout_11AudioLayout__init(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self, AVChannelLayout __pyx_v_layout) {
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_init", 0);
-
-  /* "av/audio/layout.pyx":41
- * 
- *     cdef _init(self, lib.AVChannelLayout layout):
- *         self.layout = layout             # <<<<<<<<<<<<<<
- * 
- *     def __repr__(self):
-*/
-  __pyx_v_self->layout = __pyx_v_layout;
-
-  /* "av/audio/layout.pyx":40
- *         self._init(c_layout)
- * 
- *     cdef _init(self, lib.AVChannelLayout layout):             # <<<<<<<<<<<<<<
- *         self.layout = layout
- * 
-*/
-
-  /* function exit code */
-  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "av/audio/layout.pyx":43
- *         self.layout = layout
+/* "av/audio/layout.py":47
+ *         self.layout = c_layout
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
@@ -3413,7 +3344,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/audio/layout.pyx":44
+  /* "av/audio/layout.py":48
  * 
  *     def __repr__(self):
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"             # <<<<<<<<<<<<<<
@@ -3421,17 +3352,17 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __py
  *     def __eq__(self, other):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_2), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_2), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -3440,7 +3371,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __py
   __pyx_t_4[3] = __pyx_t_3;
   __pyx_t_4[4] = __pyx_mstate_global->__pyx_kp_u__4;
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_4, 5, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -3448,8 +3379,8 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __py
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":43
- *         self.layout = layout
+  /* "av/audio/layout.py":47
+ *         self.layout = c_layout
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
@@ -3469,12 +3400,12 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_2__repr__(struct __py
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":46
+/* "av/audio/layout.py":50
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
  * 
  *     def __eq__(self, other):             # <<<<<<<<<<<<<<
- *         return isinstance(other, AudioLayout) and self.name == other.name and self.nb_channels == other.nb_channels
- * 
+ *         return (
+ *             isinstance(other, AudioLayout)
 */
 
 /* Python wrapper */
@@ -3505,31 +3436,47 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4__eq__(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__eq__", 0);
 
-  /* "av/audio/layout.pyx":47
+  /* "av/audio/layout.py":51
  * 
  *     def __eq__(self, other):
- *         return isinstance(other, AudioLayout) and self.name == other.name and self.nb_channels == other.nb_channels             # <<<<<<<<<<<<<<
- * 
- *     @property
+ *         return (             # <<<<<<<<<<<<<<
+ *             isinstance(other, AudioLayout)
+ *             and self.name == other.name
 */
   __Pyx_XDECREF(__pyx_r);
+
+  /* "av/audio/layout.py":52
+ *     def __eq__(self, other):
+ *         return (
+ *             isinstance(other, AudioLayout)             # <<<<<<<<<<<<<<
+ *             and self.name == other.name
+ *             and self.nb_channels == other.nb_channels
+*/
   __pyx_t_2 = __Pyx_TypeCheck(__pyx_v_other, __pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout); 
   if (__pyx_t_2) {
   } else {
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
+
+  /* "av/audio/layout.py":53
+ *         return (
+ *             isinstance(other, AudioLayout)
+ *             and self.name == other.name             # <<<<<<<<<<<<<<
+ *             and self.nb_channels == other.nb_channels
+ *         )
+*/
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
   if (__pyx_t_2) {
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   } else {
@@ -3538,11 +3485,19 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4__eq__(struct __pyx_
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 47, __pyx_L1_error)
+
+  /* "av/audio/layout.py":54
+ *             isinstance(other, AudioLayout)
+ *             and self.name == other.name
+ *             and self.nb_channels == other.nb_channels             # <<<<<<<<<<<<<<
+ *         )
+ * 
+*/
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_other, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_INCREF(__pyx_t_3);
@@ -3553,12 +3508,12 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4__eq__(struct __pyx_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":46
+  /* "av/audio/layout.py":50
  *         return f"<av.{self.__class__.__name__} {self.name!r}>"
  * 
  *     def __eq__(self, other):             # <<<<<<<<<<<<<<
- *         return isinstance(other, AudioLayout) and self.name == other.name and self.nb_channels == other.nb_channels
- * 
+ *         return (
+ *             isinstance(other, AudioLayout)
 */
 
   /* function exit code */
@@ -3575,8 +3530,8 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4__eq__(struct __pyx_
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":49
- *         return isinstance(other, AudioLayout) and self.name == other.name and self.nb_channels == other.nb_channels
+/* "av/audio/layout.py":57
+ *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def nb_channels(self):
@@ -3607,7 +3562,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_11nb_channels___get__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/layout.pyx":51
+  /* "av/audio/layout.py":59
  *     @property
  *     def nb_channels(self):
  *         return self.layout.nb_channels             # <<<<<<<<<<<<<<
@@ -3615,14 +3570,14 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_11nb_channels___get__
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->layout.nb_channels); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->layout.nb_channels); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":49
- *         return isinstance(other, AudioLayout) and self.name == other.name and self.nb_channels == other.nb_channels
+  /* "av/audio/layout.py":57
+ *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def nb_channels(self):
@@ -3640,12 +3595,12 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_11nb_channels___get__
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":53
+/* "av/audio/layout.py":61
  *         return self.layout.nb_channels
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def channels(self):
- *         cdef char buf[16]
+ *         buf: cython.char[16]
 */
 
 /* Python wrapper */
@@ -3666,187 +3621,164 @@ static PyObject *__pyx_pw_2av_5audio_6layout_11AudioLayout_8channels_1__get__(Py
 static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_8channels___get__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self) {
   char __pyx_v_buf[16];
   char __pyx_v_buf2[128];
-  PyObject *__pyx_v_results = NULL;
-  PyObject *__pyx_v_index = NULL;
-  long __pyx_v_size;
-  long __pyx_v_size2;
+  PyObject *__pyx_v_results = 0;
+  int __pyx_v_index;
+  PyObject *__pyx_v_size = NULL;
+  PyObject *__pyx_v_size2 = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  size_t __pyx_t_4;
-  PyObject *(*__pyx_t_5)(PyObject *);
-  unsigned int __pyx_t_6;
+  int __pyx_t_2;
+  int __pyx_t_3;
+  int __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
+  Py_ssize_t __pyx_t_8;
   PyObject *__pyx_t_9 = NULL;
   PyObject *__pyx_t_10 = NULL;
-  int __pyx_t_11;
+  size_t __pyx_t_11;
+  int __pyx_t_12;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/layout.pyx":58
- *         cdef char buf2[128]
+  /* "av/audio/layout.py":66
+ *         buf2: cython.char[128]
  * 
- *         results = []             # <<<<<<<<<<<<<<
- * 
+ *         results: list = []             # <<<<<<<<<<<<<<
  *         for index in range(self.layout.nb_channels):
+ *             size = lib.av_channel_name(
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_results = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/layout.pyx":60
- *         results = []
+  /* "av/audio/layout.py":67
  * 
+ *         results: list = []
  *         for index in range(self.layout.nb_channels):             # <<<<<<<<<<<<<<
- *             size = lib.av_channel_name(buf, sizeof(buf), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
+ *             size = lib.av_channel_name(
+ *                 buf,
 */
-  __pyx_t_2 = NULL;
-  __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_self->layout.nb_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = 1;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
-    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyRange_Type), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_2 = __pyx_v_self->layout.nb_channels;
+  __pyx_t_3 = __pyx_t_2;
+  for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
+    __pyx_v_index = __pyx_t_4;
+
+    /* "av/audio/layout.py":68
+ *         results: list = []
+ *         for index in range(self.layout.nb_channels):
+ *             size = lib.av_channel_name(             # <<<<<<<<<<<<<<
+ *                 buf,
+ *                 cython.sizeof(buf),
+*/
+    __pyx_t_1 = __Pyx_PyLong_From_int(av_channel_name(__pyx_v_buf, (sizeof(__pyx_v_buf)), av_channel_layout_channel_from_index((&__pyx_v_self->layout), __pyx_v_index))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-  }
-  __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  for (;;) {
-    {
-      __pyx_t_1 = __pyx_t_5(__pyx_t_3);
-      if (unlikely(!__pyx_t_1)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 60, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
-    }
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_XDECREF_SET(__pyx_v_index, __pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_size, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/audio/layout.pyx":61
- * 
- *         for index in range(self.layout.nb_channels):
- *             size = lib.av_channel_name(buf, sizeof(buf), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1             # <<<<<<<<<<<<<<
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
- *             results.append(
+    /* "av/audio/layout.py":75
+ *                 ),
+ *             )
+ *             size2 = lib.av_channel_description(             # <<<<<<<<<<<<<<
+ *                 buf2,
+ *                 cython.sizeof(buf2),
 */
-    __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_v_index); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 61, __pyx_L1_error)
-    __pyx_v_size = (av_channel_name(__pyx_v_buf, (sizeof(__pyx_v_buf)), av_channel_layout_channel_from_index((&__pyx_v_self->layout), __pyx_t_6)) - 1);
+    __pyx_t_1 = __Pyx_PyLong_From_int(av_channel_description(__pyx_v_buf2, (sizeof(__pyx_v_buf2)), av_channel_layout_channel_from_index((&__pyx_v_self->layout), __pyx_v_index))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_size2, __pyx_t_1);
+    __pyx_t_1 = 0;
 
-    /* "av/audio/layout.pyx":62
- *         for index in range(self.layout.nb_channels):
- *             size = lib.av_channel_name(buf, sizeof(buf), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1             # <<<<<<<<<<<<<<
- *             results.append(
- *                 AudioChannel(
-*/
-    __pyx_t_6 = __Pyx_PyLong_As_unsigned_int(__pyx_v_index); if (unlikely((__pyx_t_6 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 62, __pyx_L1_error)
-    __pyx_v_size2 = (av_channel_description(__pyx_v_buf2, (sizeof(__pyx_v_buf2)), av_channel_layout_channel_from_index((&__pyx_v_self->layout), __pyx_t_6)) - 1);
-
-    /* "av/audio/layout.pyx":64
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
+    /* "av/audio/layout.py":83
+ *             )
  *             results.append(
  *                 AudioChannel(             # <<<<<<<<<<<<<<
- *                     PyBytes_FromStringAndSize(buf, size).decode("utf-8"),
- *                     PyBytes_FromStringAndSize(buf2, size2).decode("utf-8"),
+ *                     PyBytes_FromStringAndSize(buf, size - 1).decode("utf-8"),
+ *                     PyBytes_FromStringAndSize(buf2, size2 - 1).decode("utf-8"),
 */
-    __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_AudioChannel); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 64, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_AudioChannel); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
 
-    /* "av/audio/layout.pyx":65
+    /* "av/audio/layout.py":84
  *             results.append(
  *                 AudioChannel(
- *                     PyBytes_FromStringAndSize(buf, size).decode("utf-8"),             # <<<<<<<<<<<<<<
- *                     PyBytes_FromStringAndSize(buf2, size2).decode("utf-8"),
+ *                     PyBytes_FromStringAndSize(buf, size - 1).decode("utf-8"),             # <<<<<<<<<<<<<<
+ *                     PyBytes_FromStringAndSize(buf2, size2 - 1).decode("utf-8"),
  *                 )
 */
-    __pyx_t_8 = PyBytes_FromStringAndSize(__pyx_v_buf, __pyx_v_size); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 65, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    if (unlikely(__pyx_t_8 == Py_None)) {
+    __pyx_t_7 = __Pyx_PyLong_SubtractObjC(__pyx_v_size, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 84, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = __Pyx_PyIndex_AsSsize_t(__pyx_t_7); if (unlikely((__pyx_t_8 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = PyBytes_FromStringAndSize(__pyx_v_buf, __pyx_t_8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 84, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (unlikely(__pyx_t_7 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "decode");
-      __PYX_ERR(0, 65, __pyx_L1_error)
+      __PYX_ERR(0, 84, __pyx_L1_error)
     }
-    __pyx_t_9 = __Pyx_decode_bytes(__pyx_t_8, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_decode_bytes(__pyx_t_7, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "av/audio/layout.pyx":66
+    /* "av/audio/layout.py":85
  *                 AudioChannel(
- *                     PyBytes_FromStringAndSize(buf, size).decode("utf-8"),
- *                     PyBytes_FromStringAndSize(buf2, size2).decode("utf-8"),             # <<<<<<<<<<<<<<
+ *                     PyBytes_FromStringAndSize(buf, size - 1).decode("utf-8"),
+ *                     PyBytes_FromStringAndSize(buf2, size2 - 1).decode("utf-8"),             # <<<<<<<<<<<<<<
  *                 )
  *             )
 */
-    __pyx_t_8 = PyBytes_FromStringAndSize(__pyx_v_buf2, __pyx_v_size2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 66, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    if (unlikely(__pyx_t_8 == Py_None)) {
+    __pyx_t_7 = __Pyx_PyLong_SubtractObjC(__pyx_v_size2, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = __Pyx_PyIndex_AsSsize_t(__pyx_t_7); if (unlikely((__pyx_t_8 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = PyBytes_FromStringAndSize(__pyx_v_buf2, __pyx_t_8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (unlikely(__pyx_t_7 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "decode");
-      __PYX_ERR(0, 66, __pyx_L1_error)
+      __PYX_ERR(0, 85, __pyx_L1_error)
     }
-    __pyx_t_10 = __Pyx_decode_bytes(__pyx_t_8, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_decode_bytes(__pyx_t_7, 0, PY_SSIZE_T_MAX, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_4 = 1;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_11 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_7))) {
-      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_7);
-      assert(__pyx_t_2);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
-      __Pyx_INCREF(__pyx_t_2);
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_5);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
-      __pyx_t_4 = 0;
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_11 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_t_9, __pyx_t_10};
-      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_t_9, __pyx_t_10};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_11, (3-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
 
-    /* "av/audio/layout.pyx":63
- *             size = lib.av_channel_name(buf, sizeof(buf), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
+    /* "av/audio/layout.py":82
+ *                 ),
+ *             )
  *             results.append(             # <<<<<<<<<<<<<<
  *                 AudioChannel(
- *                     PyBytes_FromStringAndSize(buf, size).decode("utf-8"),
+ *                     PyBytes_FromStringAndSize(buf, size - 1).decode("utf-8"),
 */
-    __pyx_t_11 = __Pyx_PyList_Append(__pyx_v_results, __pyx_t_1); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 63, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyList_Append(__pyx_v_results, __pyx_t_1); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-    /* "av/audio/layout.pyx":60
- *         results = []
- * 
- *         for index in range(self.layout.nb_channels):             # <<<<<<<<<<<<<<
- *             size = lib.av_channel_name(buf, sizeof(buf), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
- *             size2 = lib.av_channel_description(buf2, sizeof(buf2), lib.av_channel_layout_channel_from_index(&self.layout, index)) - 1
-*/
   }
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "av/audio/layout.pyx":70
+  /* "av/audio/layout.py":89
  *             )
  * 
  *         return tuple(results)             # <<<<<<<<<<<<<<
@@ -3854,40 +3786,40 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_8channels___get__(str
  *     @property
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = PyList_AsTuple(__pyx_v_results); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_r = __pyx_t_3;
-  __pyx_t_3 = 0;
+  __pyx_t_1 = PyList_AsTuple(__pyx_v_results); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":53
+  /* "av/audio/layout.py":61
  *         return self.layout.nb_channels
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def channels(self):
- *         cdef char buf[16]
+ *         buf: cython.char[16]
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_10);
   __Pyx_AddTraceback("av.audio.layout.AudioLayout.channels.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_results);
-  __Pyx_XDECREF(__pyx_v_index);
+  __Pyx_XDECREF(__pyx_v_size);
+  __Pyx_XDECREF(__pyx_v_size2);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "av/audio/layout.pyx":72
+/* "av/audio/layout.py":91
  *         return tuple(results)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3911,7 +3843,7 @@ static PyObject *__pyx_pw_2av_5audio_6layout_11AudioLayout_4name_1__get__(PyObje
 }
 
 static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4name___get__(struct __pyx_obj_2av_5audio_6layout_AudioLayout *__pyx_v_self) {
-  char __pyx_v_layout_name[128];
+  char __pyx_v_layout_name[129];
   int __pyx_v_ret;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -3926,18 +3858,18 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4name___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/layout.pyx":78
- *         cdef int ret
- * 
- *         ret = lib.av_channel_layout_describe(&self.layout, layout_name, sizeof(layout_name))             # <<<<<<<<<<<<<<
- *         if ret < 0:
- *             raise RuntimeError(f"Failed to get layout name: {ret}")
+  /* "av/audio/layout.py":95
+ *         """The canonical name of the audio layout."""
+ *         layout_name: cython.char[129]
+ *         ret: cython.int = lib.av_channel_layout_describe(             # <<<<<<<<<<<<<<
+ *             cython.address(self.layout), layout_name, cython.sizeof(layout_name)
+ *         )
 */
   __pyx_v_ret = av_channel_layout_describe((&__pyx_v_self->layout), __pyx_v_layout_name, (sizeof(__pyx_v_layout_name)));
 
-  /* "av/audio/layout.pyx":79
- * 
- *         ret = lib.av_channel_layout_describe(&self.layout, layout_name, sizeof(layout_name))
+  /* "av/audio/layout.py":98
+ *             cython.address(self.layout), layout_name, cython.sizeof(layout_name)
+ *         )
  *         if ret < 0:             # <<<<<<<<<<<<<<
  *             raise RuntimeError(f"Failed to get layout name: {ret}")
  * 
@@ -3945,17 +3877,17 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4name___get__(struct 
   __pyx_t_1 = (__pyx_v_ret < 0);
   if (unlikely(__pyx_t_1)) {
 
-    /* "av/audio/layout.pyx":80
- *         ret = lib.av_channel_layout_describe(&self.layout, layout_name, sizeof(layout_name))
+    /* "av/audio/layout.py":99
+ *         )
  *         if ret < 0:
  *             raise RuntimeError(f"Failed to get layout name: {ret}")             # <<<<<<<<<<<<<<
  * 
  *         return layout_name
 */
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_ret, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_From_int(__pyx_v_ret, 0, ' ', 'd'); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Failed_to_get_layout_name, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Failed_to_get_layout_name, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = 1;
@@ -3964,35 +3896,35 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4name___get__(struct 
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 80, __pyx_L1_error)
+    __PYX_ERR(0, 99, __pyx_L1_error)
 
-    /* "av/audio/layout.pyx":79
- * 
- *         ret = lib.av_channel_layout_describe(&self.layout, layout_name, sizeof(layout_name))
+    /* "av/audio/layout.py":98
+ *             cython.address(self.layout), layout_name, cython.sizeof(layout_name)
+ *         )
  *         if ret < 0:             # <<<<<<<<<<<<<<
  *             raise RuntimeError(f"Failed to get layout name: {ret}")
  * 
 */
   }
 
-  /* "av/audio/layout.pyx":82
+  /* "av/audio/layout.py":101
  *             raise RuntimeError(f"Failed to get layout name: {ret}")
  * 
  *         return layout_name             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyUnicode_FromString(__pyx_v_layout_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_FromString(__pyx_v_layout_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/layout.pyx":72
+  /* "av/audio/layout.py":91
  *         return tuple(results)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4016,7 +3948,7 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_4name___get__(struct 
 
 /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
 
@@ -4072,16 +4004,16 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_6__reduce_cython__(CY
 
   /* "(tree fragment)":2
  * def __reduce_cython__(self):
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"             # <<<<<<<<<<<<<<
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"             # <<<<<<<<<<<<<<
  * def __setstate_cython__(self, __pyx_state):
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_TypeError))), __pyx_mstate_global->__pyx_kp_u_self_layout_cannot_be_converted, 0, 0);
+  __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_TypeError))), __pyx_mstate_global->__pyx_kp_u_no_default___reduce___due_to_non, 0, 0);
   __PYX_ERR(1, 2, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
 
@@ -4096,9 +4028,9 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_6__reduce_cython__(CY
 
 /* "(tree fragment)":3
  * def __reduce_cython__(self):
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
 
 /* Python wrapper */
@@ -4195,18 +4127,18 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_8__setstate_cython__(
   __Pyx_RefNannySetupContext("__setstate_cython__", 0);
 
   /* "(tree fragment)":4
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"             # <<<<<<<<<<<<<<
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"             # <<<<<<<<<<<<<<
 */
-  __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_TypeError))), __pyx_mstate_global->__pyx_kp_u_self_layout_cannot_be_converted, 0, 0);
+  __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_TypeError))), __pyx_mstate_global->__pyx_kp_u_no_default___reduce___due_to_non, 0, 0);
   __PYX_ERR(1, 4, __pyx_L1_error)
 
   /* "(tree fragment)":3
  * def __reduce_cython__(self):
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
- *     raise TypeError, "self.layout cannot be converted to a Python object for pickling"
+ *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
 
   /* function exit code */
@@ -4218,16 +4150,16 @@ static PyObject *__pyx_pf_2av_5audio_6layout_11AudioLayout_8__setstate_cython__(
   return __pyx_r;
 }
 /* #### Code section: module_exttypes ### */
-static struct __pyx_vtabstruct_2av_5audio_6layout_AudioLayout __pyx_vtable_2av_5audio_6layout_AudioLayout;
 
-static PyObject *__pyx_tp_new_2av_5audio_6layout_AudioLayout(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
-  struct __pyx_obj_2av_5audio_6layout_AudioLayout *p;
+static PyObject *__pyx_tp_new_2av_5audio_6layout_AudioLayout(PyTypeObject *t, PyObject *a, PyObject *k) {
   PyObject *o;
   o = __Pyx_AllocateExtensionType(t, 0);
   if (unlikely(!o)) return 0;
-  p = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)o);
-  p->__pyx_vtab = __pyx_vtabptr_2av_5audio_6layout_AudioLayout;
+  if (unlikely(__pyx_pw_2av_5audio_6layout_11AudioLayout_1__cinit__(o, a, k) < 0)) goto bad;
   return o;
+  bad:
+  Py_DECREF(o); o = 0;
+  return NULL;
 }
 
 static void __pyx_tp_dealloc_2av_5audio_6layout_AudioLayout(PyObject *o) {
@@ -4303,11 +4235,9 @@ static struct PyGetSetDef __pyx_getsets_2av_5audio_6layout_AudioLayout[] = {
 static PyType_Slot __pyx_type_2av_5audio_6layout_AudioLayout_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_2av_5audio_6layout_AudioLayout},
   {Py_tp_repr, (void *)__pyx_pw_2av_5audio_6layout_11AudioLayout_3__repr__},
-  {Py_tp_doc, (void *)PyDoc_STR("AudioLayout(layout)")},
   {Py_tp_richcompare, (void *)__pyx_tp_richcompare_2av_5audio_6layout_AudioLayout},
   {Py_tp_methods, (void *)__pyx_methods_2av_5audio_6layout_AudioLayout},
   {Py_tp_getset, (void *)__pyx_getsets_2av_5audio_6layout_AudioLayout},
-  {Py_tp_init, (void *)__pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__},
   {Py_tp_new, (void *)__pyx_tp_new_2av_5audio_6layout_AudioLayout},
   {0, 0},
 };
@@ -4341,7 +4271,7 @@ static PyTypeObject __pyx_type_2av_5audio_6layout_AudioLayout = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE, /*tp_flags*/
-  PyDoc_STR("AudioLayout(layout)"), /*tp_doc*/
+  0, /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   __pyx_tp_richcompare_2av_5audio_6layout_AudioLayout, /*tp_richcompare*/
@@ -4358,7 +4288,7 @@ static PyTypeObject __pyx_type_2av_5audio_6layout_AudioLayout = {
   #if !CYTHON_USE_TYPE_SPECS
   0, /*tp_dictoffset*/
   #endif
-  __pyx_pw_2av_5audio_6layout_11AudioLayout_1__init__, /*tp_init*/
+  0, /*tp_init*/
   0, /*tp_alloc*/
   __pyx_tp_new_2av_5audio_6layout_AudioLayout, /*tp_new*/
   0, /*tp_free*/
@@ -4475,18 +4405,16 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
-  __pyx_vtabptr_2av_5audio_6layout_AudioLayout = &__pyx_vtable_2av_5audio_6layout_AudioLayout;
-  __pyx_vtable_2av_5audio_6layout_AudioLayout._init = (PyObject *(*)(struct __pyx_obj_2av_5audio_6layout_AudioLayout *, AVChannelLayout))__pyx_f_2av_5audio_6layout_11AudioLayout__init;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5audio_6layout_AudioLayout_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5audio_6layout_AudioLayout_spec, __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5audio_6layout_AudioLayout_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_2av_5audio_6layout_AudioLayout_spec, __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout = &__pyx_type_2av_5audio_6layout_AudioLayout;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout);
@@ -4496,10 +4424,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_vtabptr_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioLayout, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioLayout, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_6layout_AudioLayout) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -4826,62 +4752,60 @@ __Pyx_RefNannySetupContext("PyInit_layout", 0);
   (void)__Pyx_modinit_function_import_code(__pyx_mstate);
   /*--- Execution code ---*/
 
-  /* "av/audio/layout.pyx":4
- * from cpython.bytes cimport PyBytes_FromStringAndSize
- * 
+  /* "av/audio/layout.py":1
  * from dataclasses import dataclass             # <<<<<<<<<<<<<<
  * 
- * 
+ * import cython
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_dataclass};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_dataclasses, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 4, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_dataclasses, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_dataclass};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 4, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 4, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/layout.pyx":8
+  /* "av/audio/layout.py":9
  * 
  * @dataclass
  * class AudioChannel:             # <<<<<<<<<<<<<<
  *     name: str
  *     description: str
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_mstate_global->__pyx_n_u_AudioChannel, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_audio_layout, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_mstate_global->__pyx_n_u_AudioChannel, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_av_audio_layout, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_description, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_name, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_description, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/audio/layout.pyx":12
+  /* "av/audio/layout.py":13
  *     description: str
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
  *         return f"<av.AudioChannel '{self.name}' ({self.description})>"
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_2av_5audio_6layout_12AudioChannel_1__repr__, 0, __pyx_mstate_global->__pyx_n_u_AudioChannel___repr, NULL, __pyx_mstate_global->__pyx_n_u_av_audio_layout, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_2av_5audio_6layout_12AudioChannel_1__repr__, 0, __pyx_mstate_global->__pyx_n_u_AudioChannel___repr, NULL, __pyx_mstate_global->__pyx_n_u_av_audio_layout, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_repr, __pyx_t_4) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_repr, __pyx_t_4) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "av/audio/layout.pyx":7
+  /* "av/audio/layout.py":8
  * 
  * 
  * @dataclass             # <<<<<<<<<<<<<<
@@ -4889,17 +4813,17 @@ __Pyx_RefNannySetupContext("PyInit_layout", 0);
  *     name: str
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 7, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "av/audio/layout.pyx":8
+  /* "av/audio/layout.py":9
  * 
  * @dataclass
  * class AudioChannel:             # <<<<<<<<<<<<<<
  *     name: str
  *     description: str
 */
-  __pyx_t_7 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
@@ -4911,17 +4835,38 @@ __Pyx_RefNannySetupContext("PyInit_layout", 0);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 7, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_AudioChannel, __pyx_t_4) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/layout.pyx":1
- * cimport libav as lib             # <<<<<<<<<<<<<<
- * from cpython.bytes cimport PyBytes_FromStringAndSize
+  /* "av/audio/layout.py":17
  * 
+ * 
+ * _cinit_bypass_sentinel = cython.declare(object, object())             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __pyx_t_4 = NULL;
+  __pyx_t_8 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_object, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __Pyx_XGOTREF(__pyx_v_2av_5audio_6layout__cinit_bypass_sentinel);
+  __Pyx_DECREF_SET(__pyx_v_2av_5audio_6layout__cinit_bypass_sentinel, __pyx_t_2);
+  __Pyx_GIVEREF(__pyx_t_2);
+  __pyx_t_2 = 0;
+
+  /* "av/audio/layout.py":1
+ * from dataclasses import dataclass             # <<<<<<<<<<<<<<
+ * 
+ * import cython
 */
   __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -4968,6 +4913,7 @@ __Pyx_RefNannySetupContext("PyInit_layout", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 17, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -4977,6 +4923,8 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate->__pyx_umethod_PyDict_Type_values.type = (PyObject*)&PyDict_Type;
   __pyx_mstate->__pyx_umethod_PyDict_Type_values.method_name = &__pyx_mstate->__pyx_n_u_values;
   return 0;
+  __pyx_L1_error:;
+  return -1;
 }
 /* #### Code section: cached_constants ### */
 
@@ -4992,33 +4940,33 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 7; } index[] = {{3},{27},{16},{2},{1},{1},{1},{1},{4},{18},{19},{7},{6},{2},{9},{53},{63},{12},{21},{11},{20},{15},{18},{15},{9},{18},{9},{11},{11},{7},{8},{12},{13},{5},{6},{8},{13},{10},{4},{8},{11},{3},{11},{12},{11},{14},{12},{10},{17},{13},{8},{4},{12},{10},{12},{19},{3},{8},{6},{20},{83}};
-    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (465 bytes) */
-const char* const cstring = "(\265/\375`\034\002=\016\000&ZO-`O\322\001D0\014\274\022\030\004\241\003U\273dK\355A\366n\037\251\t\221d\313\024\022\344t\342\374\300m=\332\277R)\224\035@\031\001F\000B\000;\000l]s45>\r\265\301\346Wqx\025\304TW\223\274\216e\212\030\206d\220\362\000\2272\226\036\025m\235Ga\244\224\240`&p\"\001#\234])1\014\214\320J2\354\327\246\\\330\nakttm^ \340A\257\271\246\230\266\212M\234?\263\266\235\377\243\034mQ\215\267Z\013\313\264\361\377.R\3673\020\333\005\2426B\327\036l\245\037MC\326<z\332\300l\247\022k\2521\226\212y\2262v\203p!\003E\020\n\352\242?j\021\2537\225d\277\256\3474\375\331f\205+\332{\336\377\332\331\334\n\261\367\374\277j\316\037\255S\254\016kv: *\033U\351\372l\257l\231s\251\237a\244de\333\001\375\332\224\353\255\020@B\007\005A\001!\376p)\035\216\255\236k\316\213\301\205\340\"PbA\322@R0`2\020pB\031a}+\245\277Y\373w\315\275^>\352\364oQ\245\236\263\362\205\254&[\332(\325\3572\n<( \204@DH\017@\0142\242\264\001TWQ\007\0062jNB\312\306\225r5 \007\224\035*\032h0\342\001\027\353\013\215{iA\354\002\262\006Q\007\202\312-2<\006\032\rA\252.\201#\360\205\326\006\373j\264\017ty\r\245\260\306\356]`\177\255^\265\232B\324q\004\200e*2\276\r\270s\373\253=M\267w\026\000\014r\303\307|\241\356\333Y\314\300C\226\207\236\360\366\211 \037\252\014\321\354cZ\034\206\014";
-    PyObject *data = __Pyx_DecompressString(cstring, 465, 3);
+    const struct { const unsigned int length: 7; } index[] = {{3},{27},{16},{2},{1},{1},{1},{1},{4},{18},{18},{7},{6},{2},{9},{53},{50},{12},{21},{11},{20},{15},{18},{15},{9},{18},{9},{11},{11},{7},{8},{12},{13},{5},{6},{8},{13},{10},{4},{8},{11},{6},{3},{11},{12},{11},{12},{10},{17},{13},{8},{4},{12},{10},{12},{19},{3},{8},{6},{20},{83}};
+    #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (451 bytes) */
+const char* const cstring = "(\265/\375`\006\002\315\r\000&ZN,`O\322\001D0\014\214f\254a`ao\227l\251=\310\336\355#5ir\357\262\007\207\234N\234\037\270\255\007\314_\251\024\312\016\240\214F\000>\000<\000\016[\327\374D\215\227\206j\301\346\207Q\274\311a\252\313\222\274*z\232\206l\200\362\000\2272\226\037\026m\325\2534PNT4\024H\221\200\022jWB,\003%\024\223\014\373\265(\027\266:\330\032\225\256M\014\004<\010\256\245\246mb\021\347\317\254mg7\306\362\277hGgt\343\235\366\"\023q\374\277{\232\277\227m\372q\345B\353\232\201\265F}\n\177MO\251\373\261\327\313\213*l\014\2739\270\240\201#\030O{:)\210\245q\272\005\223\354\327\365T\323\237mb\030\243\275\347\375\257\235\315\255\016{\227\377OM\375\317\272\304\252X\263S\205\244\264hJ\327g{\346\\i5\331@\311\312\266_\013\375Z\224\353\255\016@\202G\005A\001#\016q(\037\216\235\236k\316\023\203\023\202\023\001\223\213\022\207\222\202\001\224\201\200\224\n\t\353[\t\375\315\332\277k\356\313R\3763\312\332GGi\345\023\331'\323\257.\037u\317\0378( \206@D\311\003`\014\325Q\332T\252\242\300_\254\336\"\204\250p\243X\325\022\360uV\344\321 \306\013n\341\227B%(|7\t\341b\020b\253\024\320=P(\371\"xN~\r\232\301\372\211\221)\302\005\013\277\345\002\203\264\032S\333\024\206\217h \220\033 \020\353C\215\303=<\320\347\3200\336%\241\350\025\004T\302 \361\205#\0165\343-F\222$\004/\332\205\226\026u'\003";
+    PyObject *data = __Pyx_DecompressString(cstring, 451, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (524 bytes) */
-const char* const cstring = "BZh91AY&SY(r\264\033\000\000\031\177\332@`\240\000L\365\263\025\255%Q\000\277\377\377d@\000@@@\000@@@\001\313\200\014D\321O)\240\006\232\r\r\0000\214\233I\2435\007\251\372\241\024\364@i\251\2011\003C#&\215\032\014\214\214G\250s\000\230\0010\000\t\200\000\230\000\r4!\003D\300Jy4\020\320h\000\310=M\212n\270&0\023ID\274\017\263Q\342G\206\234\323\n\037<\302\036R\304ZH.\214\370U\243X\234@ptA\361p\302\241H\214\351&\340Q.\243\222Q;\254\024Pt\253CL\031C\010.\005\026\271\220\002\177/\214\034\364T\t\271\224\004\375\216\256zq(\324(\333\n\014(h'+\227K)h\320\353@5qa\\\202\220m)\023\022\000$PV\267y\032it\362\345\177C$\034\220c3\206\200w?\250X\203?\277\2145\375\014\363\370yq\264\002\n\0220\337!\274|\200.\326j\220W\357n\262\344\030\234-\242\251@\025\034\341\221\210A\331\t\024\237X\341\273\263\006\352\2603\005,\247\023\332\320\021C\317\202\311\006\300b\263\222v\302P\215\372\206\231\no\345\204\346N\2763\014\314\017\370\014mL\207\235;\304\326\003%\226!\003\207\203=\232\205\n\001\003{\316>\225\363\206T\353\301R\261u\234\025\242\266\024\031\007\263J\212\026\r\204\200\243\302#T\005*DQO#\230\202 \242\254\267\257\264@\233\375\035\352,\340n@\233\205\270\265\366j\343d\363Rv\2557\014EN\215\025{\242)j\2555\207\nl\245\335R\2344\230\032SX\2215@<':\331\235C\224\035\305\312U\030\216\303@`(f\003\033\254\305*\030F\321TH\245\033\246\324\256C\300!\027:\355\313b\"0M&N\311\224\007\245\321@\2326`]0:\246\226\366\376&f\376.\344\212p\241 P\345h6";
-    PyObject *data = __Pyx_DecompressString(cstring, 524, 2);
+    #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (522 bytes) */
+const char* const cstring = "BZh91AY&SY\375\376\253V\000\000\027\177\332@`\240\000L\367\263\025\255%Q\000\277\377\377d@\000@@@\000@@@\001\253[9\267a\246\246\220)\214\0324\211\265\000\000\003A\3524\321\372\247\352\203M)O\306\243S)\264\214\t\240\r\030&\0022\0314\375Pjz#SM2\246\237\252z\236\220\032\000\000\000\003G\224\r\023Q\246\202z\206\231\000\320\000\000\000\006\203\2271\010#\010\313\035\225o\355\340cT@\345\234\340\276%\027\312v\263\317\322\372g\303Ya\007/\313\010\254\324\034\253*\323\242\241\355\343\202\302\370\030\260S(\246\311R\323\272r\031)\314\240'\325\227,\t\376@\035U\304\253\234>F\0316\222\026(7a\232\324kU\235\213!\317;^\321z\2604q\231#\000\244\032\212<\274\240\004\206%\345\231\351\363\317\246\271\026A\315\004\\\347\201\306\336a\241\005\373=\344\300d5?\267\343\356\224 \241\"\334f\304A\013s\340\003X\027\251B\220Eh\333R\200D\312\027k\245\201\303\221\242@jo6\215\275\315\365I\213\324!T7\236\030\006\000\345\240#8T\3053X\347\263\341<\341fB\032\343[\246G\254\322\364\007\354\010\332*a\236\013A\252X\221\202@A\002:\2165\256\326\016#\346J\001mf\005O4\265\346\210\241\212#S\241P\231\tC\220\325|\310\320$o\000\313k\021\2202\200\023\301(\203.\022\242\n*v\272&\351\230\235V\214d\250\004\322*r\331Z\212\363>\365'@\224L\257s\321\037C u\250d.\010b\252\216\215p\230\030FB\302o\200|)d\236\361B\203\031}*\220\204\021\202\200\323L\003\350\2540\262\353\0024@\376\232\021\322\272\005\271\306`\204-e\203\256\353B\"\204}.u%\014]d\340#\356\022H\216\226\021\344\207\364v\351\377\027rE8P\220\375\376\253V";
+    PyObject *data = __Pyx_DecompressString(cstring, 522, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (449 bytes) */
-const char* const cstring = "x\332MRAk\0251\020\366\250\247\342?\030Ph+\262E\241\036\212T\036\026A\020)\036\274\016\263\311\354kl^\262n\222\345-x\360\247\364\350\361\375\224\036\3759N\222\335\347\006\222|If\346\233\231/\247p\366\211\214e\r\321\303\226#X\232|\212\340h\307W\360\331\215d\215\236/\257\340\374\032\256\233\017\357il\362\334$m\374\307;r\216-\234\322xA\371\342\242\0327\375\264\327&Pk\231]^\267\312\204\212\364\314\261K!B\313\340;\210S/t!\016\306m\341\027,\301\277\024\303\327\260\365\021\002\333\256\231=\225p\372\342\253\274\033y\2105\177\202\333)\336y\007\276\375\301*B\347\007\350\215\272\267\022u\235\354\0327\210\003\367\003\342\212\020\361v\332\313\2741*\342W\336\307o\334!\026N\212\306\273 \20709e|\243\374 \016\306q\220\234K\375s\216\210\312R\010y\223W4\016\343@\212[R\367\232\"\225\307#\340\2409\250\301\3649:\242\366\net\311\225]d\tB\314\002M\300#\243\211\274\013\013\331\216\204A\306\216\347\220\345\340u\262\342\226\305<\256-\252Zy\350}\217\330K\3654\344\330(\212\241\242\336,x&\315p\214Y\270\374\3603\221\255\221r\343tRk\244J\373W\027\274\257\207\334\340,`^\343\234\211 \315\035%\033\013^J\374\217\227h\362-\020#\007\261\223\357\2308\374\336\374}z\362x\362\342\341\315\303\315\237g\207\347\207\227\007\022\243$\222\327tE\177|K#^\026E\360\335\334\245\225\304\360\352l\363}\376\002\365\346\374\211\364\031\253C\265\377\007S\0275\306";
-    PyObject *data = __Pyx_DecompressString(cstring, 449, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (440 bytes) */
+const char* const cstring = "x\332MR\315\212\0241\020\366\250\247\3057\010(\354\256h/.\254\207EV\006\027A\020\021\017^\213\352\244z6\232Nb\247\322L\203\007\037e\217\036\347Q<\3728V\272\323\263\023H\362\245\376\276\372\311\251:\373\200\326\221Q\034\324\226X9\234Bf\345\261\247k\365\321\217\350\254\251\302ku~\243n\232woql\312\336dc\303\373;\364\236\234:\305\361\002\213\340b1n\342dl\302\326\021\371rn\265M\0132\225\242\317\211UK*t\212\247(l\211\007\353\267\352\227Zc\177\232\r_\252m\220\204\2022\324av\254\000\0062Y\023\2002\231J\342>\370W\342<Zt\242\325\326[\0068N\357\0307\305?\016\325`\341\000\3702\355d\337Z\315\360\231v\374\225:\0001\017\214l\203O\362H\223\32764:\014\342`=%Is\256\270q5\206v\230R\271D\013\326\003\017\250\251E\375\303 \343\254<\000J\206\222\036l,\321\001L\320 \253\313~\276e\020I\210\245B\260\t\016\214\226\251O+Y\217\302 \253\247\032r~\004\223\235\270\225\361\035\316\026\364Ry\n\355w\322\034C\004\210\322\003\034\n\003D)]c\264+\256\324?3\272%\302C\303\017HO|\027\374\221\200v\313\24346\221\353\312\3115\003Auv3^K{\300k4\371\001\000LI\354\344\343eJ\2777\377\036\237\374=yv\377\372\376\366\317\223\375\323\375\363=\212Q\326\345\027\224\\\245\"\270\304\021\256\346I\300\233\332\235\243\321\252\027g\233ou\364\213\344\374\221\364\027\026\207\305\376?t\354-)";
+    PyObject *data = __Pyx_DecompressString(cstring, 440, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (796 bytes) */
-const char* const bytes = "' (Failed to get layout name: Invalid layout: )> >.?<av.<av.AudioChannel 'av/audio/layout.pyxdisableenablegcisenabledlayout must be of type: string | av.AudioLayout, got self.layout cannot be converted to a Python object for picklingAudioChannelAudioChannel.__repr__AudioLayout__Pyx_PyDict_NextRef__annotations__asyncio.coroutinesav.audio.layout__class__cline_in_tracebackdataclassdataclassesdescription__doc____func____getstate___is_coroutineitemslayout__main____metaclass____module__name__name__nb_channelspop__prepare____pyx_capi____pyx_state__pyx_vtable____qualname____reduce____reduce_cython____reduce_ex____repr__self__set_name__setdefault__setstate____setstate_cython__str__test__values\200A\330\010\017\320\017#\2401\240D\250\t\260\021\260$\260astruct __pyx_obj_2av_5audio_6layout_AudioLayout *(AVChannelLayout)\000get_audio_layout";
+    #else /* compression: none (774 bytes) */
+const char* const bytes = "' (Failed to get layout name: Invalid layout: )> >.?<av.<av.AudioChannel 'av/audio/layout.pydisableenablegcisenabledlayout must be of type: string | av.AudioLayout, got no default __reduce__ due to non-trivial __cinit__AudioChannelAudioChannel.__repr__AudioLayout__Pyx_PyDict_NextRef__annotations__asyncio.coroutinesav.audio.layout__class__cline_in_tracebackdataclassdataclassesdescription__doc____func____getstate___is_coroutineitemslayout__main____metaclass____module__name__name__nb_channelsobjectpop__prepare____pyx_capi____pyx_state__qualname____reduce____reduce_cython____reduce_ex____repr__self__set_name__setdefault__setstate____setstate_cython__str__test__values\200A\330\010\017\320\017#\2401\240D\250\t\260\021\260$\260astruct __pyx_obj_2av_5audio_6layout_AudioLayout *(AVChannelLayout)\000get_audio_layout";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
@@ -5071,6 +5019,33 @@ const char* const bytes = "' (Failed to get layout name: Invalid layout: )> >.?<
     }
     #endif
   }
+  {
+    PyObject **numbertab = __pyx_mstate->__pyx_number_tab + 0;
+    int8_t const cint_constants_1[] = {1};
+    for (int i = 0; i < 1; i++) {
+      numbertab[i] = PyLong_FromLong(cint_constants_1[i - 0]);
+      if (unlikely(!numbertab[i])) __PYX_ERR(0, 1, __pyx_L1_error)
+    }
+  }
+  #if CYTHON_IMMORTAL_CONSTANTS
+  {
+    PyObject **table = __pyx_mstate->__pyx_number_tab;
+    for (Py_ssize_t i=0; i<1; ++i) {
+      #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
+      #if PY_VERSION_HEX < 0x030E0000
+      if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
+      #else
+      if (PyUnstable_Object_IsUniquelyReferenced(table[i]))
+      #endif
+      {
+        Py_SET_REFCNT(table[i], _Py_IMMORTAL_REFCNT_LOCAL);
+      }
+      #else
+      Py_SET_REFCNT(table[i], _Py_IMMORTAL_INITIAL_REFCNT);
+      #endif
+    }
+  }
+  #endif
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -5099,9 +5074,9 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 12};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 13};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_av_audio_layout_pyx, __pyx_mstate->__pyx_n_u_repr, __pyx_mstate->__pyx_kp_b_iso88591_A_1D_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_av_audio_layout_py, __pyx_mstate->__pyx_n_u_repr, __pyx_mstate->__pyx_kp_b_iso88591_A_1D_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -5179,6 +5154,155 @@ end:
     return (__Pyx_RefNannyAPIStruct *)r;
 }
 #endif
+
+/* PyErrExceptionMatches (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_FAST_THREAD_STATE
+static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
+    Py_ssize_t i, n;
+    n = PyTuple_GET_SIZE(tuple);
+    for (i=0; i<n; i++) {
+        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
+    }
+    for (i=0; i<n; i++) {
+        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
+    }
+    return 0;
+}
+static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
+    int result;
+    PyObject *exc_type;
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *current_exception = tstate->current_exception;
+    if (unlikely(!current_exception)) return 0;
+    exc_type = (PyObject*) Py_TYPE(current_exception);
+    if (exc_type == err) return 1;
+#else
+    exc_type = tstate->curexc_type;
+    if (exc_type == err) return 1;
+    if (unlikely(!exc_type)) return 0;
+#endif
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_INCREF(exc_type);
+    #endif
+    if (unlikely(PyTuple_Check(err))) {
+        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
+    } else {
+        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
+    }
+    #if CYTHON_AVOID_BORROWED_REFS
+    Py_DECREF(exc_type);
+    #endif
+    return result;
+}
+#endif
+
+/* PyErrFetchRestore (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject *tmp_value;
+    assert(type == NULL || (value != NULL && type == (PyObject*) Py_TYPE(value)));
+    if (value) {
+        #if CYTHON_COMPILING_IN_CPYTHON
+        if (unlikely(((PyBaseExceptionObject*) value)->traceback != tb))
+        #endif
+            PyException_SetTraceback(value, tb);
+    }
+    tmp_value = tstate->current_exception;
+    tstate->current_exception = value;
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+#else
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    tmp_type = tstate->curexc_type;
+    tmp_value = tstate->curexc_value;
+    tmp_tb = tstate->curexc_traceback;
+    tstate->curexc_type = type;
+    tstate->curexc_value = value;
+    tstate->curexc_traceback = tb;
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+#endif
+}
+static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+#if PY_VERSION_HEX >= 0x030C00A6
+    PyObject* exc_value;
+    exc_value = tstate->current_exception;
+    tstate->current_exception = 0;
+    *value = exc_value;
+    *type = NULL;
+    *tb = NULL;
+    if (exc_value) {
+        *type = (PyObject*) Py_TYPE(exc_value);
+        Py_INCREF(*type);
+        #if CYTHON_COMPILING_IN_CPYTHON
+        *tb = ((PyBaseExceptionObject*) exc_value)->traceback;
+        Py_XINCREF(*tb);
+        #else
+        *tb = PyException_GetTraceback(exc_value);
+        #endif
+    }
+#else
+    *type = tstate->curexc_type;
+    *value = tstate->curexc_value;
+    *tb = tstate->curexc_traceback;
+    tstate->curexc_type = 0;
+    tstate->curexc_value = 0;
+    tstate->curexc_traceback = 0;
+#endif
+}
+#endif
+
+/* PyObjectGetAttrStr (used by PyObjectGetAttrStrNoError) */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro))
+        return tp->tp_getattro(obj, attr_name);
+    return PyObject_GetAttr(obj, attr_name);
+}
+#endif
+
+/* PyObjectGetAttrStrNoError (used by GetBuiltinName) */
+#if __PYX_LIMITED_VERSION_HEX < 0x030d0000
+static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
+        __Pyx_PyErr_Clear();
+}
+#endif
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
+    PyObject *result;
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
+    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
+    return result;
+#else
+#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
+        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
+    }
+#endif
+    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
+    if (unlikely(!result)) {
+        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
+    }
+    return result;
+#endif
+}
+
+/* GetBuiltinName */
+static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
+    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_mstate_global->__pyx_b, name);
+    if (unlikely(!result) && !PyErr_Occurred()) {
+        PyErr_Format(PyExc_NameError,
+            "name '%U' is not defined", name);
+    }
+    return result;
+}
 
 /* TupleAndListFromArray (used by fastcall) */
 #if !CYTHON_COMPILING_IN_CPYTHON && CYTHON_METH_FASTCALL
@@ -5541,16 +5665,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObjec
     PyObject *args[2] = {NULL, arg};
     return __Pyx_PyObject_FastCall(func, args+1, 1 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
-
-/* PyObjectGetAttrStr (used by UnpackUnboundCMethod) */
-#if CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro))
-        return tp->tp_getattro(obj, attr_name);
-    return PyObject_GetAttr(obj, attr_name);
-}
-#endif
 
 /* UnpackUnboundCMethod (used by CallUnboundCMethod0) */
 #if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030C0000
@@ -6297,65 +6411,6 @@ bad:
 #endif
 }
 
-/* PyErrFetchRestore (used by RaiseException) */
-#if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx_ErrRestoreInState(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *tmp_value;
-    assert(type == NULL || (value != NULL && type == (PyObject*) Py_TYPE(value)));
-    if (value) {
-        #if CYTHON_COMPILING_IN_CPYTHON
-        if (unlikely(((PyBaseExceptionObject*) value)->traceback != tb))
-        #endif
-            PyException_SetTraceback(value, tb);
-    }
-    tmp_value = tstate->current_exception;
-    tstate->current_exception = value;
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-#else
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    tmp_type = tstate->curexc_type;
-    tmp_value = tstate->curexc_value;
-    tmp_tb = tstate->curexc_traceback;
-    tstate->curexc_type = type;
-    tstate->curexc_value = value;
-    tstate->curexc_traceback = tb;
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
-#endif
-}
-static CYTHON_INLINE void __Pyx_ErrFetchInState(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject* exc_value;
-    exc_value = tstate->current_exception;
-    tstate->current_exception = 0;
-    *value = exc_value;
-    *type = NULL;
-    *tb = NULL;
-    if (exc_value) {
-        *type = (PyObject*) Py_TYPE(exc_value);
-        Py_INCREF(*type);
-        #if CYTHON_COMPILING_IN_CPYTHON
-        *tb = ((PyBaseExceptionObject*) exc_value)->traceback;
-        Py_XINCREF(*tb);
-        #else
-        *tb = PyException_GetTraceback(exc_value);
-        #endif
-    }
-#else
-    *type = tstate->curexc_type;
-    *value = tstate->curexc_value;
-    *tb = tstate->curexc_traceback;
-    tstate->curexc_type = 0;
-    tstate->curexc_value = 0;
-    tstate->curexc_traceback = 0;
-#endif
-}
-#endif
-
 /* RaiseException */
 static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
     PyObject* owned_instance = NULL;
@@ -6478,86 +6533,6 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_FormatAndDecref(PyObject* s, PyObj
     return result;
 }
 
-/* PyErrExceptionMatches (used by PyObjectGetAttrStrNoError) */
-#if CYTHON_FAST_THREAD_STATE
-static int __Pyx_PyErr_ExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
-    Py_ssize_t i, n;
-    n = PyTuple_GET_SIZE(tuple);
-    for (i=0; i<n; i++) {
-        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
-    }
-    for (i=0; i<n; i++) {
-        if (__Pyx_PyErr_GivenExceptionMatches(exc_type, PyTuple_GET_ITEM(tuple, i))) return 1;
-    }
-    return 0;
-}
-static CYTHON_INLINE int __Pyx_PyErr_ExceptionMatchesInState(PyThreadState* tstate, PyObject* err) {
-    int result;
-    PyObject *exc_type;
-#if PY_VERSION_HEX >= 0x030C00A6
-    PyObject *current_exception = tstate->current_exception;
-    if (unlikely(!current_exception)) return 0;
-    exc_type = (PyObject*) Py_TYPE(current_exception);
-    if (exc_type == err) return 1;
-#else
-    exc_type = tstate->curexc_type;
-    if (exc_type == err) return 1;
-    if (unlikely(!exc_type)) return 0;
-#endif
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_INCREF(exc_type);
-    #endif
-    if (unlikely(PyTuple_Check(err))) {
-        result = __Pyx_PyErr_ExceptionMatchesTuple(exc_type, err);
-    } else {
-        result = __Pyx_PyErr_GivenExceptionMatches(exc_type, err);
-    }
-    #if CYTHON_AVOID_BORROWED_REFS
-    Py_DECREF(exc_type);
-    #endif
-    return result;
-}
-#endif
-
-/* PyObjectGetAttrStrNoError (used by GetBuiltinName) */
-#if __PYX_LIMITED_VERSION_HEX < 0x030d0000
-static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    if (likely(__Pyx_PyErr_ExceptionMatches(PyExc_AttributeError)))
-        __Pyx_PyErr_Clear();
-}
-#endif
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name) {
-    PyObject *result;
-#if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
-    (void) PyObject_GetOptionalAttr(obj, attr_name, &result);
-    return result;
-#else
-#if CYTHON_COMPILING_IN_CPYTHON && CYTHON_USE_TYPE_SLOTS
-    PyTypeObject* tp = Py_TYPE(obj);
-    if (likely(tp->tp_getattro == PyObject_GenericGetAttr)) {
-        return _PyObject_GenericGetAttrWithDict(obj, attr_name, NULL, 1);
-    }
-#endif
-    result = __Pyx_PyObject_GetAttrStr(obj, attr_name);
-    if (unlikely(!result)) {
-        __Pyx_PyObject_GetAttrStr_ClearAttributeError();
-    }
-    return result;
-#endif
-}
-
-/* GetBuiltinName (used by GetModuleGlobalName) */
-static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
-    PyObject* result = __Pyx_PyObject_GetAttrStrNoError(__pyx_mstate_global->__pyx_b, name);
-    if (unlikely(!result) && !PyErr_Occurred()) {
-        PyErr_Format(PyExc_NameError,
-            "name '%U' is not defined", name);
-    }
-    return result;
-}
-
 /* PyDictVersioning (used by GetModuleGlobalName) */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
 static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
@@ -6646,6 +6621,105 @@ static CYTHON_INLINE PyObject* __Pyx_decode_c_bytes(
         return PyUnicode_Decode(cstring, length, encoding, errors);
     }
 }
+
+/* PyLongBinop */
+#if !CYTHON_COMPILING_IN_PYPY
+static PyObject* __Pyx_Fallback___Pyx_PyLong_SubtractObjC(PyObject *op1, PyObject *op2, int inplace) {
+    return (inplace ? PyNumber_InPlaceSubtract : PyNumber_Subtract)(op1, op2);
+}
+#if CYTHON_USE_PYLONG_INTERNALS
+static PyObject* __Pyx_Unpacked___Pyx_PyLong_SubtractObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(inplace);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    long a;
+    const PY_LONG_LONG llb = intval;
+    PY_LONG_LONG lla;
+    if (unlikely(__Pyx_PyLong_IsZero(op1))) {
+        return PyLong_FromLong(-intval);
+    }
+    const int is_positive = __Pyx_PyLong_IsPos(op1);
+    const digit* digits = __Pyx_PyLong_Digits(op1);
+    const Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
+    if (likely(size == 1)) {
+        a = (long) digits[0];
+        if (!is_positive) a *= -1;
+    } else {
+        switch (size) {
+            case 2:
+                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
+                    a = (long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    if (!is_positive) a *= -1;
+                    goto calculate_long;
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    if (!is_positive) lla *= -1;
+                    goto calculate_long_long;
+                }
+                break;
+            case 3:
+                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
+                    a = (long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    if (!is_positive) a *= -1;
+                    goto calculate_long;
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    if (!is_positive) lla *= -1;
+                    goto calculate_long_long;
+                }
+                break;
+            case 4:
+                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
+                    a = (long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    if (!is_positive) a *= -1;
+                    goto calculate_long;
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    if (!is_positive) lla *= -1;
+                    goto calculate_long_long;
+                }
+                break;
+        }
+        return PyLong_Type.tp_as_number->nb_subtract(op1, op2);
+    }
+    calculate_long:
+        {
+            long x;
+            x = a - b;
+            return PyLong_FromLong(x);
+        }
+    calculate_long_long:
+        {
+            PY_LONG_LONG llx;
+            llx = lla - llb;
+            return PyLong_FromLongLong(llx);
+        }
+    
+}
+#endif
+static PyObject* __Pyx_Float___Pyx_PyLong_SubtractObjC(PyObject *float_val, long intval, int zerodivision_check) {
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    double a = __Pyx_PyFloat_AS_DOUBLE(float_val);
+        double result;
+        
+        result = ((double)a) - (double)b;
+        return PyFloat_FromDouble(result);
+}
+static CYTHON_INLINE PyObject* __Pyx_PyLong_SubtractObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        return __Pyx_Unpacked___Pyx_PyLong_SubtractObjC(op1, op2, intval, inplace, zerodivision_check);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        return __Pyx_Float___Pyx_PyLong_SubtractObjC(op1, intval, zerodivision_check);
+    }
+    return __Pyx_Fallback___Pyx_PyLong_SubtractObjC(op1, op2, inplace);
+}
+#endif
 
 /* CIntToDigits (used by CIntToPyUnicode) */
 static const char DIGIT_PAIRS_10[2*10*10+1] = {
@@ -7426,138 +7500,6 @@ static int __Pyx_PyType_Ready(PyTypeObject *t) {
 #endif
     return r;
 #endif
-}
-
-/* SetVTable */
-static int __Pyx_SetVtable(PyTypeObject *type, void *vtable) {
-    PyObject *ob = PyCapsule_New(vtable, 0, 0);
-    if (unlikely(!ob))
-        goto bad;
-#if CYTHON_COMPILING_IN_LIMITED_API
-    if (unlikely(PyObject_SetAttr((PyObject *) type, __pyx_mstate_global->__pyx_n_u_pyx_vtable, ob) < 0))
-#else
-    if (unlikely(PyDict_SetItem(type->tp_dict, __pyx_mstate_global->__pyx_n_u_pyx_vtable, ob) < 0))
-#endif
-        goto bad;
-    Py_DECREF(ob);
-    return 0;
-bad:
-    Py_XDECREF(ob);
-    return -1;
-}
-
-/* GetVTable (used by MergeVTables) */
-static void* __Pyx_GetVtable(PyTypeObject *type) {
-    void* ptr;
-#if CYTHON_COMPILING_IN_LIMITED_API
-    PyObject *ob = PyObject_GetAttr((PyObject *)type, __pyx_mstate_global->__pyx_n_u_pyx_vtable);
-#else
-    PyObject *ob = PyObject_GetItem(type->tp_dict, __pyx_mstate_global->__pyx_n_u_pyx_vtable);
-#endif
-    if (!ob)
-        goto bad;
-    ptr = PyCapsule_GetPointer(ob, 0);
-    if (!ptr && !PyErr_Occurred())
-        PyErr_SetString(PyExc_RuntimeError, "invalid vtable found for imported type");
-    Py_DECREF(ob);
-    return ptr;
-bad:
-    Py_XDECREF(ob);
-    return NULL;
-}
-
-/* MergeVTables */
-static int __Pyx_MergeVtables(PyTypeObject *type) {
-    int i=0;
-    Py_ssize_t size;
-    void** base_vtables;
-    __Pyx_TypeName tp_base_name = NULL;
-    __Pyx_TypeName base_name = NULL;
-    void* unknown = (void*)-1;
-    PyObject* bases = __Pyx_PyType_GetSlot(type, tp_bases, PyObject*);
-    int base_depth = 0;
-    {
-        PyTypeObject* base = __Pyx_PyType_GetSlot(type, tp_base, PyTypeObject*);
-        while (base) {
-            base_depth += 1;
-            base = __Pyx_PyType_GetSlot(base, tp_base, PyTypeObject*);
-        }
-    }
-    base_vtables = (void**) PyMem_Malloc(sizeof(void*) * (size_t)(base_depth + 1));
-    base_vtables[0] = unknown;
-#if CYTHON_COMPILING_IN_LIMITED_API
-    size = PyTuple_Size(bases);
-    if (size < 0) goto other_failure;
-#else
-    size = PyTuple_GET_SIZE(bases);
-#endif
-    for (i = 1; i < size; i++) {
-        PyObject *basei;
-        void* base_vtable;
-#if CYTHON_AVOID_BORROWED_REFS
-        basei = PySequence_GetItem(bases, i);
-        if (unlikely(!basei)) goto other_failure;
-#elif !CYTHON_ASSUME_SAFE_MACROS
-        basei = PyTuple_GetItem(bases, i);
-        if (unlikely(!basei)) goto other_failure;
-#else
-        basei = PyTuple_GET_ITEM(bases, i);
-#endif
-        base_vtable = __Pyx_GetVtable((PyTypeObject*)basei);
-#if CYTHON_AVOID_BORROWED_REFS
-        Py_DECREF(basei);
-#endif
-        if (base_vtable != NULL) {
-            int j;
-            PyTypeObject* base = __Pyx_PyType_GetSlot(type, tp_base, PyTypeObject*);
-            for (j = 0; j < base_depth; j++) {
-                if (base_vtables[j] == unknown) {
-                    base_vtables[j] = __Pyx_GetVtable(base);
-                    base_vtables[j + 1] = unknown;
-                }
-                if (base_vtables[j] == base_vtable) {
-                    break;
-                } else if (base_vtables[j] == NULL) {
-                    goto bad;
-                }
-                base = __Pyx_PyType_GetSlot(base, tp_base, PyTypeObject*);
-            }
-        }
-    }
-    PyErr_Clear();
-    PyMem_Free(base_vtables);
-    return 0;
-bad:
-    {
-        PyTypeObject* basei = NULL;
-        PyTypeObject* tp_base = __Pyx_PyType_GetSlot(type, tp_base, PyTypeObject*);
-        tp_base_name = __Pyx_PyType_GetFullyQualifiedName(tp_base);
-#if CYTHON_AVOID_BORROWED_REFS
-        basei = (PyTypeObject*)PySequence_GetItem(bases, i);
-        if (unlikely(!basei)) goto really_bad;
-#elif !CYTHON_ASSUME_SAFE_MACROS
-        basei = (PyTypeObject*)PyTuple_GetItem(bases, i);
-        if (unlikely(!basei)) goto really_bad;
-#else
-        basei = (PyTypeObject*)PyTuple_GET_ITEM(bases, i);
-#endif
-        base_name = __Pyx_PyType_GetFullyQualifiedName(basei);
-#if CYTHON_AVOID_BORROWED_REFS
-        Py_DECREF(basei);
-#endif
-    }
-    PyErr_Format(PyExc_TypeError,
-        "multiple bases have vtable conflict: '" __Pyx_FMT_TYPENAME "' and '" __Pyx_FMT_TYPENAME "'", tp_base_name, base_name);
-#if CYTHON_AVOID_BORROWED_REFS || !CYTHON_ASSUME_SAFE_MACROS
-really_bad: // bad has failed!
-#endif
-    __Pyx_DECREF_TypeName(tp_base_name);
-    __Pyx_DECREF_TypeName(base_name);
-#if CYTHON_COMPILING_IN_LIMITED_API || CYTHON_AVOID_BORROWED_REFS || !CYTHON_ASSUME_SAFE_MACROS
-other_failure:
-#endif
-    PyMem_Free(base_vtables);
-    return -1;
 }
 
 /* DelItemOnTypeDict (used by SetupReduce) */
@@ -9866,21 +9808,21 @@ static CYTHON_INLINE PyObject* __Pyx_PyLong_From_int(int value) {
 }
 
 /* CIntFromPy */
-static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
+static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *x) {
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #endif
-    const unsigned int neg_one = (unsigned int) -1, const_zero = (unsigned int) 0;
+    const int neg_one = (int) -1, const_zero = (int) 0;
 #ifdef __Pyx_HAS_GCC_DIAGNOSTIC
 #pragma GCC diagnostic pop
 #endif
     const int is_unsigned = neg_one > const_zero;
     if (unlikely(!PyLong_Check(x))) {
-        unsigned int val;
+        int val;
         PyObject *tmp = __Pyx_PyNumber_Long(x);
-        if (!tmp) return (unsigned int) -1;
-        val = __Pyx_PyLong_As_unsigned_int(tmp);
+        if (!tmp) return (int) -1;
+        val = __Pyx_PyLong_As_int(tmp);
         Py_DECREF(tmp);
         return val;
     }
@@ -9889,35 +9831,35 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
         if (unlikely(__Pyx_PyLong_IsNeg(x))) {
             goto raise_neg_overflow;
         } else if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(unsigned int, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
+            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
         } else {
             const digit* digits = __Pyx_PyLong_Digits(x);
             assert(__Pyx_PyLong_DigitCount(x) > 1);
             switch (__Pyx_PyLong_DigitCount(x)) {
                 case 2:
-                    if ((8 * sizeof(unsigned int) > 1 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) >= 2 * PyLong_SHIFT)) {
-                            return (unsigned int) (((((unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0]));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 2 * PyLong_SHIFT)) {
+                            return (int) (((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
                         }
                     }
                     break;
                 case 3:
-                    if ((8 * sizeof(unsigned int) > 2 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) >= 3 * PyLong_SHIFT)) {
-                            return (unsigned int) (((((((unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0]));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 3 * PyLong_SHIFT)) {
+                            return (int) (((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
                         }
                     }
                     break;
                 case 4:
-                    if ((8 * sizeof(unsigned int) > 3 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) >= 4 * PyLong_SHIFT)) {
-                            return (unsigned int) (((((((((unsigned int)digits[3]) << PyLong_SHIFT) | (unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0]));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) >= 4 * PyLong_SHIFT)) {
+                            return (int) (((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
                         }
                     }
                     break;
@@ -9932,89 +9874,89 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
         {
             int result = PyObject_RichCompareBool(x, Py_False, Py_LT);
             if (unlikely(result < 0))
-                return (unsigned int) -1;
+                return (int) -1;
             if (unlikely(result == 1))
                 goto raise_neg_overflow;
         }
 #endif
-        if ((sizeof(unsigned int) <= sizeof(unsigned long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(unsigned int, unsigned long, PyLong_AsUnsignedLong(x))
-        } else if ((sizeof(unsigned int) <= sizeof(unsigned PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(unsigned int, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
+        if ((sizeof(int) <= sizeof(unsigned long))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned long, PyLong_AsUnsignedLong(x))
+        } else if ((sizeof(int) <= sizeof(unsigned PY_LONG_LONG))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
         }
     } else {
 #if CYTHON_USE_PYLONG_INTERNALS
         if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(unsigned int, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
+            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
         } else {
             const digit* digits = __Pyx_PyLong_Digits(x);
             assert(__Pyx_PyLong_DigitCount(x) > 1);
             switch (__Pyx_PyLong_SignedDigitCount(x)) {
                 case -2:
-                    if ((8 * sizeof(unsigned int) - 1 > 1 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) - 1 > 1 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (unsigned int) (((unsigned int)-1)*(((((unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
                 case 2:
-                    if ((8 * sizeof(unsigned int) > 1 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (unsigned int) ((((((unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
+                            return (int) ((((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
                 case -3:
-                    if ((8 * sizeof(unsigned int) - 1 > 2 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (unsigned int) (((unsigned int)-1)*(((((((unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
                 case 3:
-                    if ((8 * sizeof(unsigned int) > 2 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (unsigned int) ((((((((unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
+                            return (int) ((((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
                 case -4:
-                    if ((8 * sizeof(unsigned int) - 1 > 3 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (unsigned int) (((unsigned int)-1)*(((((((((unsigned int)digits[3]) << PyLong_SHIFT) | (unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
+                            return (int) (((int)-1)*(((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
                 case 4:
-                    if ((8 * sizeof(unsigned int) > 3 * PyLong_SHIFT)) {
+                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
                         if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(unsigned int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(unsigned int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (unsigned int) ((((((((((unsigned int)digits[3]) << PyLong_SHIFT) | (unsigned int)digits[2]) << PyLong_SHIFT) | (unsigned int)digits[1]) << PyLong_SHIFT) | (unsigned int)digits[0])));
+                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
+                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
+                            return (int) ((((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
                         }
                     }
                     break;
             }
         }
 #endif
-        if ((sizeof(unsigned int) <= sizeof(long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(unsigned int, long, PyLong_AsLong(x))
-        } else if ((sizeof(unsigned int) <= sizeof(PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(unsigned int, PY_LONG_LONG, PyLong_AsLongLong(x))
+        if ((sizeof(int) <= sizeof(long))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, long, PyLong_AsLong(x))
+        } else if ((sizeof(int) <= sizeof(PY_LONG_LONG))) {
+            __PYX_VERIFY_RETURN_INT_EXC(int, PY_LONG_LONG, PyLong_AsLongLong(x))
         }
     }
     {
-        unsigned int val;
+        int val;
         int ret = -1;
 #if PY_VERSION_HEX >= 0x030d00A6 && !CYTHON_COMPILING_IN_LIMITED_API
         Py_ssize_t bytes_copied = PyLong_AsNativeBytes(
@@ -10040,14 +9982,14 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
             v = __Pyx_NewRef(x);
         } else {
             v = PyNumber_Long(x);
-            if (unlikely(!v)) return (unsigned int) -1;
+            if (unlikely(!v)) return (int) -1;
             assert(PyLong_CheckExact(v));
         }
         {
             int result = PyObject_RichCompareBool(v, Py_False, Py_LT);
             if (unlikely(result < 0)) {
                 Py_DECREF(v);
-                return (unsigned int) -1;
+                return (int) -1;
             }
             is_negative = result == 1;
         }
@@ -10058,15 +10000,15 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
             stepval = PyNumber_Invert(v);
             Py_DECREF(v);
             if (unlikely(!stepval))
-                return (unsigned int) -1;
+                return (int) -1;
         } else {
             stepval = v;
         }
         v = NULL;
-        val = (unsigned int) 0;
+        val = (int) 0;
         mask = PyLong_FromLong((1L << chunk_size) - 1); if (unlikely(!mask)) goto done;
         shift = PyLong_FromLong(chunk_size); if (unlikely(!shift)) goto done;
-        for (bits = 0; bits < (int) sizeof(unsigned int) * 8 - chunk_size; bits += chunk_size) {
+        for (bits = 0; bits < (int) sizeof(int) * 8 - chunk_size; bits += chunk_size) {
             PyObject *tmp, *digit;
             long idigit;
             digit = PyNumber_And(stepval, mask);
@@ -10074,7 +10016,7 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
             idigit = PyLong_AsLong(digit);
             Py_DECREF(digit);
             if (unlikely(idigit < 0)) goto done;
-            val |= ((unsigned int) idigit) << bits;
+            val |= ((int) idigit) << bits;
             tmp = PyNumber_Rshift(stepval, shift);
             if (unlikely(!tmp)) goto done;
             Py_DECREF(stepval); stepval = tmp;
@@ -10084,13 +10026,13 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
         {
             long idigit = PyLong_AsLong(stepval);
             if (unlikely(idigit < 0)) goto done;
-            remaining_bits = ((int) sizeof(unsigned int) * 8) - bits - (is_unsigned ? 0 : 1);
+            remaining_bits = ((int) sizeof(int) * 8) - bits - (is_unsigned ? 0 : 1);
             if (unlikely(idigit >= (1L << remaining_bits)))
                 goto raise_overflow;
-            val |= ((unsigned int) idigit) << bits;
+            val |= ((int) idigit) << bits;
         }
         if (!is_unsigned) {
-            if (unlikely(val & (((unsigned int) 1) << (sizeof(unsigned int) * 8 - 1))))
+            if (unlikely(val & (((int) 1) << (sizeof(int) * 8 - 1))))
                 goto raise_overflow;
             if (is_negative)
                 val = ~val;
@@ -10102,17 +10044,17 @@ static CYTHON_INLINE unsigned int __Pyx_PyLong_As_unsigned_int(PyObject *x) {
         Py_XDECREF(stepval);
 #endif
         if (unlikely(ret))
-            return (unsigned int) -1;
+            return (int) -1;
         return val;
     }
 raise_overflow:
     PyErr_SetString(PyExc_OverflowError,
-        "value too large to convert to unsigned int");
-    return (unsigned int) -1;
+        "value too large to convert to int");
+    return (int) -1;
 raise_neg_overflow:
     PyErr_SetString(PyExc_OverflowError,
-        "can't convert negative value to unsigned int");
-    return (unsigned int) -1;
+        "can't convert negative value to int");
+    return (int) -1;
 }
 
 /* FormatTypeName */
@@ -10471,256 +10413,6 @@ raise_neg_overflow:
     PyErr_SetString(PyExc_OverflowError,
         "can't convert negative value to long");
     return (long) -1;
-}
-
-/* CIntFromPy */
-static CYTHON_INLINE int __Pyx_PyLong_As_int(PyObject *x) {
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#endif
-    const int neg_one = (int) -1, const_zero = (int) 0;
-#ifdef __Pyx_HAS_GCC_DIAGNOSTIC
-#pragma GCC diagnostic pop
-#endif
-    const int is_unsigned = neg_one > const_zero;
-    if (unlikely(!PyLong_Check(x))) {
-        int val;
-        PyObject *tmp = __Pyx_PyNumber_Long(x);
-        if (!tmp) return (int) -1;
-        val = __Pyx_PyLong_As_int(tmp);
-        Py_DECREF(tmp);
-        return val;
-    }
-    if (is_unsigned) {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (unlikely(__Pyx_PyLong_IsNeg(x))) {
-            goto raise_neg_overflow;
-        } else if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_upylong, __Pyx_PyLong_CompactValueUnsigned(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_DigitCount(x)) {
-                case 2:
-                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 2 * PyLong_SHIFT)) {
-                            return (int) (((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 3 * PyLong_SHIFT)) {
-                            return (int) (((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) >= 4 * PyLong_SHIFT)) {
-                            return (int) (((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0]));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030C00A7
-        if (unlikely(Py_SIZE(x) < 0)) {
-            goto raise_neg_overflow;
-        }
-#else
-        {
-            int result = PyObject_RichCompareBool(x, Py_False, Py_LT);
-            if (unlikely(result < 0))
-                return (int) -1;
-            if (unlikely(result == 1))
-                goto raise_neg_overflow;
-        }
-#endif
-        if ((sizeof(int) <= sizeof(unsigned long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned long, PyLong_AsUnsignedLong(x))
-        } else if ((sizeof(int) <= sizeof(unsigned PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, unsigned PY_LONG_LONG, PyLong_AsUnsignedLongLong(x))
-        }
-    } else {
-#if CYTHON_USE_PYLONG_INTERNALS
-        if (__Pyx_PyLong_IsCompact(x)) {
-            __PYX_VERIFY_RETURN_INT(int, __Pyx_compact_pylong, __Pyx_PyLong_CompactValue(x))
-        } else {
-            const digit* digits = __Pyx_PyLong_Digits(x);
-            assert(__Pyx_PyLong_DigitCount(x) > 1);
-            switch (__Pyx_PyLong_SignedDigitCount(x)) {
-                case -2:
-                    if ((8 * sizeof(int) - 1 > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 2:
-                    if ((8 * sizeof(int) > 1 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 2 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                            return (int) ((((((int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case -3:
-                    if ((8 * sizeof(int) - 1 > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 3:
-                    if ((8 * sizeof(int) > 2 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 3 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                            return (int) ((((((((int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case -4:
-                    if ((8 * sizeof(int) - 1 > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, long, -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (int) (((int)-1)*(((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-                case 4:
-                    if ((8 * sizeof(int) > 3 * PyLong_SHIFT)) {
-                        if ((8 * sizeof(unsigned long) > 4 * PyLong_SHIFT)) {
-                            __PYX_VERIFY_RETURN_INT(int, unsigned long, (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0])))
-                        } else if ((8 * sizeof(int) - 1 > 4 * PyLong_SHIFT)) {
-                            return (int) ((((((((((int)digits[3]) << PyLong_SHIFT) | (int)digits[2]) << PyLong_SHIFT) | (int)digits[1]) << PyLong_SHIFT) | (int)digits[0])));
-                        }
-                    }
-                    break;
-            }
-        }
-#endif
-        if ((sizeof(int) <= sizeof(long))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, long, PyLong_AsLong(x))
-        } else if ((sizeof(int) <= sizeof(PY_LONG_LONG))) {
-            __PYX_VERIFY_RETURN_INT_EXC(int, PY_LONG_LONG, PyLong_AsLongLong(x))
-        }
-    }
-    {
-        int val;
-        int ret = -1;
-#if PY_VERSION_HEX >= 0x030d00A6 && !CYTHON_COMPILING_IN_LIMITED_API
-        Py_ssize_t bytes_copied = PyLong_AsNativeBytes(
-            x, &val, sizeof(val), Py_ASNATIVEBYTES_NATIVE_ENDIAN | (is_unsigned ? Py_ASNATIVEBYTES_UNSIGNED_BUFFER | Py_ASNATIVEBYTES_REJECT_NEGATIVE : 0));
-        if (unlikely(bytes_copied == -1)) {
-        } else if (unlikely(bytes_copied > (Py_ssize_t) sizeof(val))) {
-            goto raise_overflow;
-        } else {
-            ret = 0;
-        }
-#elif PY_VERSION_HEX < 0x030d0000 && !(CYTHON_COMPILING_IN_PYPY || CYTHON_COMPILING_IN_LIMITED_API) || defined(_PyLong_AsByteArray)
-        int one = 1; int is_little = (int)*(unsigned char *)&one;
-        unsigned char *bytes = (unsigned char *)&val;
-        ret = _PyLong_AsByteArray((PyLongObject *)x,
-                                    bytes, sizeof(val),
-                                    is_little, !is_unsigned);
-#else
-        PyObject *v;
-        PyObject *stepval = NULL, *mask = NULL, *shift = NULL;
-        int bits, remaining_bits, is_negative = 0;
-        int chunk_size = (sizeof(long) < 8) ? 30 : 62;
-        if (likely(PyLong_CheckExact(x))) {
-            v = __Pyx_NewRef(x);
-        } else {
-            v = PyNumber_Long(x);
-            if (unlikely(!v)) return (int) -1;
-            assert(PyLong_CheckExact(v));
-        }
-        {
-            int result = PyObject_RichCompareBool(v, Py_False, Py_LT);
-            if (unlikely(result < 0)) {
-                Py_DECREF(v);
-                return (int) -1;
-            }
-            is_negative = result == 1;
-        }
-        if (is_unsigned && unlikely(is_negative)) {
-            Py_DECREF(v);
-            goto raise_neg_overflow;
-        } else if (is_negative) {
-            stepval = PyNumber_Invert(v);
-            Py_DECREF(v);
-            if (unlikely(!stepval))
-                return (int) -1;
-        } else {
-            stepval = v;
-        }
-        v = NULL;
-        val = (int) 0;
-        mask = PyLong_FromLong((1L << chunk_size) - 1); if (unlikely(!mask)) goto done;
-        shift = PyLong_FromLong(chunk_size); if (unlikely(!shift)) goto done;
-        for (bits = 0; bits < (int) sizeof(int) * 8 - chunk_size; bits += chunk_size) {
-            PyObject *tmp, *digit;
-            long idigit;
-            digit = PyNumber_And(stepval, mask);
-            if (unlikely(!digit)) goto done;
-            idigit = PyLong_AsLong(digit);
-            Py_DECREF(digit);
-            if (unlikely(idigit < 0)) goto done;
-            val |= ((int) idigit) << bits;
-            tmp = PyNumber_Rshift(stepval, shift);
-            if (unlikely(!tmp)) goto done;
-            Py_DECREF(stepval); stepval = tmp;
-        }
-        Py_DECREF(shift); shift = NULL;
-        Py_DECREF(mask); mask = NULL;
-        {
-            long idigit = PyLong_AsLong(stepval);
-            if (unlikely(idigit < 0)) goto done;
-            remaining_bits = ((int) sizeof(int) * 8) - bits - (is_unsigned ? 0 : 1);
-            if (unlikely(idigit >= (1L << remaining_bits)))
-                goto raise_overflow;
-            val |= ((int) idigit) << bits;
-        }
-        if (!is_unsigned) {
-            if (unlikely(val & (((int) 1) << (sizeof(int) * 8 - 1))))
-                goto raise_overflow;
-            if (is_negative)
-                val = ~val;
-        }
-        ret = 0;
-    done:
-        Py_XDECREF(shift);
-        Py_XDECREF(mask);
-        Py_XDECREF(stepval);
-#endif
-        if (unlikely(ret))
-            return (int) -1;
-        return val;
-    }
-raise_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "value too large to convert to int");
-    return (int) -1;
-raise_neg_overflow:
-    PyErr_SetString(PyExc_OverflowError,
-        "can't convert negative value to int");
-    return (int) -1;
 }
 
 /* FastTypeChecks */

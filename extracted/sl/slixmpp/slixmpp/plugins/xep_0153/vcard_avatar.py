@@ -6,10 +6,6 @@
 import hashlib
 import logging
 from asyncio import Future
-from typing import (
-    Dict,
-    Optional,
-)
 
 from slixmpp import JID
 from slixmpp.stanza import Presence
@@ -58,9 +54,9 @@ class XEP_0153(BasePlugin):
         self.xmpp.del_event_handler('presence_chat', self._recv_presence)
         self.xmpp.del_event_handler('presence_away', self._recv_presence)
 
-    def set_avatar(self, jid: Optional[JID] = None,
-                   avatar: Optional[bytes] = None,
-                   mtype: Optional[str] = None, **iqkwargs) -> Future:
+    def set_avatar(self, jid: JID | None = None,
+                   avatar: bytes | None = None,
+                   mtype: str | None = None, **iqkwargs) -> Future:
         """Set a VCard avatar.
 
         :param jid: The JID to set the avatar for.
@@ -140,7 +136,7 @@ class XEP_0153(BasePlugin):
 
     # =================================================================
 
-    async def _reset_hash(self, jid: JID, node: str, ifrom: JID, args: Dict):
+    async def _reset_hash(self, jid: JID, node: str, ifrom: JID, args: dict):
         own_jid = (jid.bare == self.xmpp.boundjid.bare)
         if self.xmpp.is_component:
             own_jid = (jid.domain == self.xmpp.boundjid.domain)
@@ -166,8 +162,8 @@ class XEP_0153(BasePlugin):
 
         await self.api['set_hash'](jid, args=new_hash)
 
-    def _get_hash(self, jid: JID, node: str, ifrom: JID, args: Dict):
+    def _get_hash(self, jid: JID, node: str, ifrom: JID, args: dict):
         return self._hashes.get(jid.bare, None)
 
-    def _set_hash(self, jid: JID, node: str, ifrom: JID, args: Dict):
+    def _set_hash(self, jid: JID, node: str, ifrom: JID, args: dict):
         self._hashes[jid.bare] = args

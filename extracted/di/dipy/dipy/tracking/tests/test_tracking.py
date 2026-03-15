@@ -18,6 +18,7 @@ from dipy.direction import (
 from dipy.reconst.csdeconv import ConstrainedSphericalDeconvModel
 from dipy.reconst.shm import descoteaux07_legacy_msg
 from dipy.sims.voxel import multi_tensor, single_tensor
+from dipy.testing import assert_warns
 from dipy.testing.decorators import set_random_number_generator
 from dipy.tracking.local_tracking import LocalTracking, ParticleFilteringTracking
 from dipy.tracking.stopping_criterion import (
@@ -1010,7 +1011,9 @@ def test_eudx_tracker():
         np.array([4.0, 4.0, 1.0]),
     ]
 
-    streamlines = LocalTracking(dg, sc, seeds, np.eye(4), 1.0)
+    streamlines = assert_warns(
+        DeprecationWarning, LocalTracking, dg, sc, seeds, np.eye(4), 1.0
+    )
 
     expected = [
         np.array(
@@ -1341,7 +1344,7 @@ def test_tracking_with_initial_directions():
     )
 
     # Test warning is raised for possible directional biases
-    npt.assert_warns(
+    assert_warns(
         Warning,
         lambda: LocalTracking(
             dg,

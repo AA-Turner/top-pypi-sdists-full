@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: cadwyn
-Version: 6.0.3
+Version: 6.0.4
 Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
 Project-URL: Source code, https://github.com/zmievsa/cadwyn
 Project-URL: Documentation, https://docs.cadwyn.dev
 Author-email: Stanislav Zmiev <zmievsa@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: api,api-versioning,code-generation,fastapi,hints,json-schema,pydantic,python,python310,python311,python312,python313,python39,stripe,versioning
+Keywords: api,api-versioning,code-generation,fastapi,hints,json-schema,pydantic,python,python310,python311,python312,python313,python314,python39,stripe,versioning
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO
@@ -20,11 +20,11 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
@@ -33,7 +33,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
 Requires-Dist: fastapi>=0.128.6
 Requires-Dist: jinja2>=3.1.2

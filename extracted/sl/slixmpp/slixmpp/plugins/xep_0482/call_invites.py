@@ -3,13 +3,10 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permissio
 import logging
-from typing import Optional
 
 from slixmpp.stanza import Message
-from slixmpp.jid import JID
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
-from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0482 import stanza
 
@@ -45,7 +42,8 @@ class XEP_0482(BasePlugin):
                 Callback(f'Call {event}',
                          StanzaPath(f'message/call_{event}'),
                          self._handle_event))
-    def _handle_event(self, message):
+
+    def _handle_event(self, message: Message):
         for event in ('invite', 'reject', 'retract', 'leave', 'left'):
             if message.get_plugin(f'call_{event}', check=True):
                 self.xmpp.event(f'call_{event}')

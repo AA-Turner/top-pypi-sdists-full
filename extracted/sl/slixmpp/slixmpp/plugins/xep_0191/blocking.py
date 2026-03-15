@@ -6,12 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import (
-    List,
-    Optional,
-    Set,
-    Union,
-)
 
 from slixmpp.stanza import Iq
 from slixmpp.plugins import BasePlugin
@@ -23,11 +17,11 @@ from slixmpp.plugins.xep_0191 import stanza, Block, Unblock, BlockList, BlockIte
 
 log = logging.getLogger(__name__)
 
-BlockedJIDs = Union[
-    JID,
-    Set[JID],
-    List[JID]
-]
+BlockedJIDs = (
+    JID |
+    set[JID] |
+    list[JID]
+)
 
 
 class XEP_0191(BasePlugin):
@@ -59,13 +53,13 @@ class XEP_0191(BasePlugin):
         self.xmpp.remove_handler('Blocked Contact')
         self.xmpp.remove_handler('Unblocked Contact')
 
-    def get_blocked(self, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+    def get_blocked(self, ifrom: JID | None = None, **iqkwargs) -> Future:
         """Get the iq containing the blocklist."""
         iq = self.xmpp.make_iq_get(ifrom=ifrom)
         iq.enable('blocklist')
         return iq.send(**iqkwargs)
 
-    async def get_blocked_jids(self, ifrom: Optional[JID] = None, **iqkwargs) -> Set[JID]:
+    async def get_blocked_jids(self, ifrom: JID | None = None, **iqkwargs) -> set[JID]:
         """Get the list of blocked JIDs."""
         iq = self.xmpp.make_iq_get(ifrom=ifrom)
         iq.enable('blocklist')
@@ -73,7 +67,7 @@ class XEP_0191(BasePlugin):
         return {JID(item['jid']) for item in result['blocklist']}
 
     def block(self, jids: BlockedJIDs,
-              ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+              ifrom: JID | None = None, **iqkwargs) -> Future:
         """Block a JID or a list of JIDs.
 
         :param jids: JID(s) to block.
@@ -88,7 +82,7 @@ class XEP_0191(BasePlugin):
 
         return iq.send(**iqkwargs)
 
-    def unblock(self, jids: BlockedJIDs, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+    def unblock(self, jids: BlockedJIDs, ifrom: JID | None = None, **iqkwargs) -> Future:
         """Unblock a JID or a list of JIDs.
 
         :param jids: JID(s) to unblock.

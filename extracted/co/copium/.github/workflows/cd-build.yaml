@@ -1,0 +1,175 @@
+name: Build
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wheels:
+    strategy:
+      fail-fast: false
+      max-parallel: 64
+      matrix:
+        build:
+          # Linux
+          - { os: ubuntu-latest,    rust_target: x86_64-unknown-linux-gnu,    manylinux: auto, wheel_arch: "manylinux*_x86_64",  arch_label: "x86_64",        platform_label: "Linux" }
+          - { os: ubuntu-24.04-arm, rust_target: aarch64-unknown-linux-gnu,   manylinux: auto, wheel_arch: "manylinux*_aarch64", arch_label: "ARM64",         platform_label: "Linux" }
+          # Windows
+          - { os: windows-latest,   rust_target: x86_64-pc-windows-msvc,                       wheel_arch: "win_amd64",          arch_label: "x64",           platform_label: "Windows" }
+          - { os: windows-11-arm,   rust_target: aarch64-pc-windows-msvc,                      wheel_arch: "win_arm64",          arch_label: "ARM64",         platform_label: "Windows" }
+          # macOS
+          - { os: macos-15,         rust_target: aarch64-apple-darwin,                          wheel_arch: "macosx*_arm64",      arch_label: "Apple Silicon", platform_label: "macOS" }
+          - { os: macos-15-intel,   rust_target: x86_64-apple-darwin,                           wheel_arch: "macosx*_x86_64",     arch_label: "Intel",         platform_label: "macOS" }
+        python:
+          - { tag: "cp310", version: "3.10.11", label: "3.10" }
+          - { tag: "cp311", version: "3.11.9",  label: "3.11" }
+          - { tag: "cp312", version: "3.12.10", label: "3.12" }
+          - { tag: "cp313", version: "3.13.9",  label: "3.13" }
+          - { tag: "cp314", version: "3.14.0",  label: "3.14" }
+
+        exclude:
+          - { build: { os: windows-11-arm }, python: { tag: "cp310" } }
+          - { build: { os: windows-11-arm }, python: { tag: "cp311" } }
+
+    runs-on: ${{ matrix.build.os }}
+
+    name: "Python ${{ matrix.python.label }} - ${{ matrix.build.platform_label }} - ${{ matrix.build.arch_label }}"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python (non-Linux)
+        if: runner.os != 'Linux' && matrix.build.os != 'windows-11-arm'
+        shell: bash
+        run: |
+          uv python install ${{ matrix.python.version }}
+          echo "PYTHON=$(uv python find ${{ matrix.python.version }})" >> "$GITHUB_ENV"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.build.rust_target }}
+          manylinux: ${{ matrix.build.manylinux || 'auto' }}
+          args: --release --out dist -i ${{ env.PYTHON || matrix.python.label }}
+          rust-toolchain: nightly
+          sccache: 'true'
+        env:
+          CL: ${{ runner.os == 'Windows' && '/experimental:c11atomics' || '' }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ runner.os == 'macOS' && '10.12' || '' }}
+
+      - name: Clear sccache wrapper
+        # this is required due to maturin failing to find sccache later during getting metadata on uv sync.
+        if: runner.os == 'Linux'
+        run: echo "RUSTC_WRAPPER=" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "Wheels-${{ matrix.python.label }}-${{ matrix.build.platform_label }}-${{ matrix.build.arch_label }}"
+          path: dist/*.whl
+
+      - name: Find built wheel
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        id: wheel
+        shell: bash
+        run: |
+          wheel=$(find dist -name "*-${{ matrix.python.tag }}-*-${{ matrix.build.wheel_arch }}.whl" -type f | head -n1)
+
+          if [[ -z "$wheel" ]]; then
+            echo "No compatible wheel found"
+            exit 1
+          fi
+
+          echo "Found: $wheel"
+          echo "path=$wheel" >> "$GITHUB_OUTPUT"
+
+      - name: Setup test environment
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: |
+          uv venv --python ${{ matrix.python.label }} --clear
+          uv sync --extra test --no-install-project
+          uv pip install "${{ steps.wheel.outputs.path }}"
+
+      - name: "Test: Built wheel"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: uv run --no-sync pytest tests/ -vvv
+
+      - name: Setup venv for codspeed
+        if: runner.os == 'Linux' && matrix.build.arch_label == 'x86_64' && contains(fromJSON('["3.13","3.14"]'), matrix.python.label)
+        run: |
+          uv venv --python ${{ matrix.python.version }} --clear
+          uv sync --extra test --no-install-project
+
+      - name: Run codspeed benchmarks
+        if: runner.os == 'Linux' && matrix.build.arch_label == 'x86_64' && contains(fromJSON('["3.13","3.14"]'), matrix.python.label)
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: simulation
+          run: uv run --with "${{ steps.wheel.outputs.path }}" --no-sync pytest tests/ --codspeed -k test_performance -v
+
+      - name: Setup venv for shuffle tests
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: |
+          uv venv --python ${{ matrix.python.label }} --clear
+          uv sync --extra test --no-install-project
+          uv pip install "${{ steps.wheel.outputs.path }}"
+
+      - name: "Test: Shuffle A"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: uv run --no-sync pytest tests/ -v --random-order --random-order-seed=A
+
+      - name: "Test: Shuffle B"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: uv run --no-sync pytest tests/ -v --random-order --random-order-seed=B
+
+      - name: "Test: Shuffle C"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: uv run --no-sync pytest tests/ -v --random-order --random-order-seed=C
+
+      - name: "Test: Shuffle D"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        run: uv run --no-sync pytest tests/ -v --random-order --random-order-seed=D
+
+      - name: "Cache CPython test suite"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        id: cpython-cache
+        uses: actions/cache@v4
+        with:
+          path: cpython-tests
+          key: cpython-tests-${{ matrix.python.label }}
+
+      - name: "Checkout CPython test suite"
+        if: ${{ matrix.build.os != 'windows-11-arm' && steps.cpython-cache.outputs.cache-hit != 'true' }}
+        uses: actions/checkout@v5
+        with:
+          repository: python/cpython
+          ref: ${{ matrix.python.label }}
+          sparse-checkout: Lib/test
+          sparse-checkout-cone-mode: true
+          path: cpython-tests
+
+      - name: "Test: CPython test_copy (patched)"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        env:
+          COPIUM_PATCH_ENABLE: "1"
+          PYTHONPATH: ${{ github.workspace }}/cpython-tests/Lib
+        run: uv run --no-sync python -m unittest test.test_copy -v
+
+      - name: "Test: CPython test_copy (patched, dict memo)"
+        if: ${{ matrix.build.os != 'windows-11-arm' }}
+        env:
+          COPIUM_PATCH_ENABLE: "1"
+          COPIUM_USE_DICT_MEMO: "1"
+          PYTHONPATH: ${{ github.workspace }}/cpython-tests/Lib
+        run: uv run --no-sync python -m unittest test.test_copy -v

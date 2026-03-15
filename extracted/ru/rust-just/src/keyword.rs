@@ -17,9 +17,11 @@ pub(crate) enum Keyword {
   F,
   Fallback,
   False,
+  Guards,
   If,
   IgnoreComments,
   Import,
+  Lazy,
   Mod,
   NoExitMessage,
   PositionalArguments,
@@ -38,7 +40,7 @@ pub(crate) enum Keyword {
 }
 
 impl Keyword {
-  pub(crate) fn from_lexeme(lexeme: &str) -> Option<Keyword> {
+  pub(crate) fn from_lexeme(lexeme: &str) -> Option<Self> {
     lexeme.parse().ok()
   }
 

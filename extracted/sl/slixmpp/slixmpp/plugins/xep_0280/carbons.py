@@ -6,7 +6,6 @@
 import logging
 
 from asyncio import Future
-from typing import Optional
 
 from slixmpp import JID
 from slixmpp.stanza import Message, Iq
@@ -73,13 +72,13 @@ class XEP_0280(BasePlugin):
         if msg['from'].bare == self.xmpp.boundjid.bare:
             self.xmpp.event('carbon_sent', msg)
 
-    def enable(self, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+    def enable(self, ifrom: JID | None = None, **iqkwargs) -> Future:
         """Enable carbons."""
         iq = self.xmpp.make_iq_set(ifrom=ifrom)
         iq.enable('carbon_enable')
         return iq.send(**iqkwargs)
 
-    def disable(self, ifrom: Optional[JID] = None, **iqkwargs) -> Future:
+    def disable(self, ifrom: JID | None = None, **iqkwargs) -> Future:
         """Disable carbons."""
         iq = self.xmpp.make_iq_set(ifrom=ifrom)
         iq.enable('carbon_disable')

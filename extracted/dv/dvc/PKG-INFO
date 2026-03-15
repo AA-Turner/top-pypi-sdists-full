@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc
-Version: 3.66.1
+Version: 3.67.0
 Summary: Git for data scientists - manage your code and data together
 Author-email: Dmitry Petrov <dmitry@dvc.org>
 Maintainer-email: Treeverse <support@dvc.org>
@@ -27,7 +27,7 @@ Requires-Dist: configobj>=5.0.9
 Requires-Dist: distro>=1.3
 Requires-Dist: dpath<3,>=2.1.0
 Requires-Dist: dulwich
-Requires-Dist: dvc-data<3.19.0,>=3.18.0
+Requires-Dist: dvc-data<3.19.0,>=3.18.2
 Requires-Dist: dvc-http>=2.29.0
 Requires-Dist: dvc-objects
 Requires-Dist: dvc-render<2,>=1.0.1
@@ -45,12 +45,12 @@ Requires-Dist: kombu
 Requires-Dist: networkx>=2.5
 Requires-Dist: omegaconf
 Requires-Dist: packaging>=19
-Requires-Dist: pathspec<1,>=0.10.3
+Requires-Dist: pathspec<2,>=0.10.3
 Requires-Dist: platformdirs<5,>=3.1.1
 Requires-Dist: psutil>=5.8
 Requires-Dist: pydot>=1.2.4
 Requires-Dist: pygtrie>=2.3.2
-Requires-Dist: pyparsing>=2.4.7
+Requires-Dist: pyparsing>=3.0.0
 Requires-Dist: requests>=2.22
 Requires-Dist: rich>=12
 Requires-Dist: ruamel.yaml>=0.17.11

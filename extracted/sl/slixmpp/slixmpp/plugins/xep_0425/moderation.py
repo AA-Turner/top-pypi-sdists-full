@@ -2,10 +2,9 @@
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Optional
+from asyncio import Future
 
-from slixmpp import JID, Message
-from slixmpp.exceptions import IqError, IqTimeout
+from slixmpp import JID, Message, Iq
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins import BasePlugin
@@ -40,7 +39,15 @@ class XEP_0425(BasePlugin):
         self.xmpp.plugin['xep_0030'].del_feature(feature=stanza.NS)
 
     async def moderate(self, room: JID, id: str, reason: str = '', *,
-                       ifrom: Optional[JID] = None, **iqkwargs):
+                       ifrom: JID | None = None, **iqkwargs) -> Future[Iq]:
+        """
+        Moderate a message.
+
+        :param room: Room in which the message to moderate was sent.
+        :param id: Stanza-ID of the message to moderate.
+        :param reason: An optional reason for the moderation.
+        :param ifrom: Which JID the message is to be sent from (for components).
+        """
         iq = self.xmpp.make_iq_set(ito=room.bare, ifrom=ifrom)
         iq['moderate']['id'] = id
         iq['moderate']['reason'] = reason

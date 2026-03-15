@@ -1,8 +1,9 @@
 import warnings
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, cast
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db import connection, transaction
 from redis import Redis
 from rq.job import Job
 from rq.queue import Queue
@@ -15,24 +16,42 @@ from .connection_utils import (
     get_redis_connection,
 )
 from .jobs import get_job_class
+from .settings import get_queues_list
+
+VALID_COMMIT_MODES = ('auto', 'request_finished', 'on_db_commit')
 
 
-def get_commit_mode():
+def get_commit_mode() -> str:
     """
-    Disabling AUTOCOMMIT causes enqueued jobs to be stored in a temporary queue.
-    Jobs in this queue are only enqueued after the request is completed and are
-    discarded if the request causes an exception (similar to db transactions).
+    Returns the configured commit mode.
 
-    To disable autocommit, put this in settings.py:
-    RQ = {
-        'AUTOCOMMIT': False,
-    }
+    COMMIT_MODE is preferred and supports:
+    - "on_db_commit" (default): enqueue when the database transaction commits
+    - "auto": enqueue immediately
+    - "request_finished": enqueue when the request finishes (legacy behavior)
+
+    If COMMIT_MODE isn't set, fall back to AUTOCOMMIT for backwards
+    compatibility (True -> "auto", False -> "request_finished").
     """
     RQ = getattr(settings, 'RQ', {})
-    return RQ.get('AUTOCOMMIT', True)
+    commit_mode = RQ.get('COMMIT_MODE')
+
+    if not commit_mode:
+        if 'AUTOCOMMIT' in RQ:
+            warnings.warn('"AUTOCOMMIT" is deprecated; use "COMMIT_MODE" instead.', DeprecationWarning)
+            return 'auto' if RQ.get('AUTOCOMMIT') else 'request_finished'
+        return 'on_db_commit'
+
+    if commit_mode in VALID_COMMIT_MODES:
+        return commit_mode
+    else:
+        raise ImproperlyConfigured(f'"COMMIT_MODE" must be one of {VALID_COMMIT_MODES}.')
 
 
-def get_queue_class(config=None, queue_class=None):
+def get_queue_class(
+    config: Optional[dict[str, Any]] = None,
+    queue_class: Optional[Union[str, type[Queue]]] = None,
+) -> type[Queue]:
     """
     Return queue class from config or from RQ settings, otherwise return DjangoRQ.
     If ``queue_class`` is provided, it takes priority.
@@ -49,7 +68,7 @@ def get_queue_class(config=None, queue_class=None):
             queue_class = config.get('QUEUE_CLASS', queue_class)
 
     if isinstance(queue_class, str):
-        queue_class = import_attribute(queue_class)
+        queue_class = cast(type[Queue], import_attribute(queue_class))
     return queue_class
 
 
@@ -61,7 +80,18 @@ class DjangoRQ(Queue):
 
     def __init__(self, *args, **kwargs):
         autocommit = kwargs.pop('autocommit', None)
-        self._autocommit = get_commit_mode() if autocommit is None else autocommit
+        commit_mode = kwargs.pop('commit_mode', None)
+
+        if commit_mode:
+            if commit_mode not in VALID_COMMIT_MODES:
+                raise ImproperlyConfigured(f'commit_mode must be one of {VALID_COMMIT_MODES}.')
+        elif autocommit is not None:
+            warnings.warn('The "autocommit" argument is deprecated; use "commit_mode" instead.', DeprecationWarning)
+            commit_mode = 'auto' if autocommit else 'request_finished'
+        else:
+            commit_mode = get_commit_mode()
+
+        self._commit_mode = commit_mode
 
         super().__init__(*args, **kwargs)
 
@@ -72,8 +102,13 @@ class DjangoRQ(Queue):
         return super().enqueue_call(*args, **kwargs)
 
     def enqueue_call(self, *args, **kwargs):
-        if self._autocommit:
+        if self._commit_mode == 'auto':
             return self.original_enqueue_call(*args, **kwargs)
+        elif self._commit_mode == 'on_db_commit':
+            if connection.in_atomic_block:
+                transaction.on_commit(lambda: self.original_enqueue_call(*args, **kwargs))
+            else:
+                return self.original_enqueue_call(*args, **kwargs)
         else:
             thread_queue.add(self, args, kwargs)
 
@@ -83,12 +118,13 @@ def get_queue(
     default_timeout: Optional[int] = None,
     is_async: Optional[bool] = None,
     autocommit: Optional[bool] = None,
+    commit_mode: Optional[str] = None,
     connection: Optional[Redis] = None,
-    queue_class: Optional[Union[str, type[DjangoRQ]]] = None,
+    queue_class: Optional[Union[str, type[Queue]]] = None,
     job_class: Optional[Union[str, type[Job]]] = None,
     serializer: Any = None,
     **kwargs: Any,
-) -> DjangoRQ:
+) -> Queue:
     """
     Returns an rq Queue using parameters defined in ``RQ_QUEUES``
     """
@@ -118,18 +154,17 @@ def get_queue(
         is_async=is_async,
         job_class=job_class,
         autocommit=autocommit,
+        commit_mode=commit_mode,
         serializer=serializer,
         **kwargs,
     )
 
 
-def get_queue_by_index(index):
+def get_queue_by_index(index: int) -> Queue:
     """
     Returns an rq Queue using parameters defined in ``QUEUES_LIST``
     """
-    from .settings import QUEUES_LIST
-
-    config = QUEUES_LIST[int(index)]
+    config = get_queues_list()[int(index)]
     return get_queue_class(config)(
         config['name'],
         connection=get_redis_connection(config['connection_config']),
@@ -138,13 +173,11 @@ def get_queue_by_index(index):
     )
 
 
-def get_scheduler_by_index(index):
+def get_scheduler_by_index(index: int) -> 'DjangoScheduler':
     """
     Returns an rq-scheduler Scheduler using parameters defined in ``QUEUES_LIST``
     """
-    from .settings import QUEUES_LIST
-
-    config = QUEUES_LIST[int(index)]
+    config = get_queues_list()[int(index)]
     return get_scheduler(config['name'])
 
 
@@ -192,7 +225,7 @@ def enqueue(func: Callable, *args, **kwargs) -> Job:
     return get_queue().enqueue(func, *args, **kwargs)
 
 
-def get_result_ttl(name: str = 'default'):
+def get_result_ttl(name: str = 'default') -> Optional[int]:
     """
     Returns the result ttl from RQ_QUEUES if found, otherwise from RQ
     """
@@ -230,7 +263,7 @@ try:
 
     def get_scheduler(
         name: str = 'default',
-        queue: Optional[DjangoRQ] = None,
+        queue: Optional[Queue] = None,
         interval: int = 60,
         connection: Optional[Redis] = None,
     ) -> DjangoScheduler:

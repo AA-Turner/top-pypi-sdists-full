@@ -369,6 +369,10 @@ def registerUser(user,forceFetch=False):
         otpValue, subsModel,subsValidity,alertUser = dbManager.getOTP(user.id,user.username,f"{user.first_name} {user.last_name}",validityIntervalInSeconds=configManager.otpInterval)
         if str(otpValue).strip() != '0' and user.id not in PKLocalCache().registeredIDs:
             PKLocalCache().registeredIDs.append(user.id)
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if not is_subscription_enabled:
+        from PKDevTools.classes.DBManager import LocalOTPCache
+        otpValue,_ = LocalOTPCache().generate_emergency_otp_with_pdf(userid=user.id,username=user.username)
     return otpValue, subsModel,subsValidity,alertUser
 
 def loadRegisteredUsers():

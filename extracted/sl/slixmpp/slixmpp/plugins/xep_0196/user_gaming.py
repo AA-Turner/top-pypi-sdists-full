@@ -7,7 +7,7 @@ import logging
 
 from asyncio import Future
 from slixmpp import JID
-from typing import Optional, Callable
+from typing import Callable
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0196 import stanza, UserGaming
 from slixmpp.plugins.xep_0004.stanza import Form
@@ -34,13 +34,13 @@ class XEP_0196(BasePlugin):
     def session_bind(self, jid):
         self.xmpp['xep_0163'].register_pep('user_gaming', UserGaming)
 
-    def publish_gaming(self, name: Optional[str] = None,
-                       level: Optional[str] = None,
-                       server_name: Optional[str] = None,
-                       uri: Optional[str] = None,
-                       character_name: Optional[str] = None,
-                       character_profile: Optional[str] = None,
-                       server_address: Optional[str] = None,
+    def publish_gaming(self, name: str | None = None,
+                       level: str | None = None,
+                       server_name: str | None = None,
+                       uri: str | None = None,
+                       character_name: str | None = None,
+                       character_profile: str | None = None,
+                       server_address: str | None = None,
                        **pubsubkwargs) -> Future:
         """
         Publish the user's current gaming status.

@@ -8,10 +8,7 @@ import logging
 
 from asyncio import Future
 from typing import (
-    Optional,
     Callable,
-    List,
-    Union,
 )
 
 from slixmpp import JID
@@ -134,8 +131,8 @@ class XEP_0030(BasePlugin):
         self.api.register_default(default_handler, op)
 
     def set_node_handler(self, htype: str, jid: OptJid = None,
-                         node: Optional[str] = None,
-                         handler: Optional[Callable] = None):
+                         node: str | None = None,
+                         handler: Callable | None = None):
         """
         Add a node handler for the given hierarchy level and
         handler type.
@@ -186,7 +183,7 @@ class XEP_0030(BasePlugin):
         """
         self.api.register(handler, htype, jid, node)
 
-    def del_node_handler(self, htype: str, jid: OptJid, node: Optional[str]):
+    def del_node_handler(self, htype: str, jid: OptJid, node: str | None):
         """
         Remove a handler type for a JID and node combination.
 
@@ -211,8 +208,8 @@ class XEP_0030(BasePlugin):
         """
         self.api.unregister(htype, jid, node)
 
-    def restore_defaults(self, jid: OptJid = None, node: Optional[str] = None,
-                         handlers: Optional[List[Callable]] = None):
+    def restore_defaults(self, jid: OptJid = None, node: str | None = None,
+                         handlers: list[Callable] | None = None):
         """
         Change all or some of a node's handlers to the default
         handlers. Useful for manually overriding the contents
@@ -234,8 +231,8 @@ class XEP_0030(BasePlugin):
         for op in handlers:
             self.api.restore_default(op, jid, node)
 
-    def supports(self, jid: OptJid = None, node: Optional[str] = None,
-                 feature: Optional[str] = None, local: bool = False,
+    def supports(self, jid: OptJid = None, node: str | None = None,
+                 feature: str | None = None, local: bool = False,
                  cached: bool = True, ifrom: OptJid = None) -> Future:
         """
         Check if a JID supports a given feature.
@@ -268,9 +265,9 @@ class XEP_0030(BasePlugin):
                 'cached': cached}
         return self.api['supports'](jid, node, ifrom, data)
 
-    def has_identity(self, jid: OptJid = None, node: Optional[str] = None,
-                     category: Optional[str] = None,
-                     itype: Optional[str] = None, lang: Optional[str] = None,
+    def has_identity(self, jid: OptJid = None, node: str | None = None,
+                     category: str | None = None,
+                     itype: str | None = None, lang: str | None = None,
                      local: bool = False, cached: bool = True,
                      ifrom: OptJid = None) -> Future:
         """
@@ -342,9 +339,9 @@ class XEP_0030(BasePlugin):
             callback(results)
         return results
 
-    async def get_info(self, jid: OptJid = None, node: Optional[str] = None,
-                       local: Optional[bool] = None,
-                       cached: Optional[bool] = None, **kwargs) -> Iq:
+    async def get_info(self, jid: OptJid = None, node: str | None = None,
+                       local: bool | None = None,
+                       cached: bool | None = None, **kwargs) -> Iq:
         """
         Retrieve the disco#info results from a given JID/node combination.
 
@@ -418,8 +415,8 @@ class XEP_0030(BasePlugin):
         iq['disco_info']['node'] = node if node else ''
         return await iq.send(**kwargs)
 
-    def set_info(self, jid: OptJid = None, node: Optional[str] = None,
-                 info: Optional[Union[Iq, DiscoInfo]] = None) -> Future:
+    def set_info(self, jid: OptJid = None, node: str | None = None,
+                 info: Iq | DiscoInfo | None = None) -> Future:
         """
         Set the disco#info data for a JID/node based on an existing
         disco#info stanza.
@@ -432,7 +429,7 @@ class XEP_0030(BasePlugin):
             info = info['disco_info']
         return self.api['set_info'](jid, node, None, info)
 
-    async def get_items(self, jid: OptJid = None, node: Optional[str] = None,
+    async def get_items(self, jid: OptJid = None, node: str | None = None,
                         local: bool = False, ifrom: OptJid = None,
                         **kwargs) -> Iq:
         """
@@ -478,7 +475,7 @@ class XEP_0030(BasePlugin):
         else:
             return await iq.send(**kwargs)
 
-    def set_items(self, jid: OptJid = None, node: Optional[str] = None,
+    def set_items(self, jid: OptJid = None, node: str | None = None,
                   **kwargs) -> Future:
         """
         Set or replace all items for the specified JID/node combination.
@@ -496,7 +493,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['set_items'](jid, node, None, kwargs)
 
-    def del_items(self, jid: OptJid = None, node: Optional[str] = None,
+    def del_items(self, jid: OptJid = None, node: str | None = None,
                   **kwargs) -> Future:
         """
         Remove all items from the given JID/node combination.
@@ -511,7 +508,7 @@ class XEP_0030(BasePlugin):
         return self.api['del_items'](jid, node, None, kwargs)
 
     def add_item(self, jid: str = '', name: str = '',
-                 node: Optional[str] = None, subnode: str = '',
+                 node: str | None = None, subnode: str = '',
                  ijid: OptJid = None) -> Future:
         """
         Add a new item element to the given JID/node combination.
@@ -535,7 +532,7 @@ class XEP_0030(BasePlugin):
                   'inode': subnode}
         return self.api['add_item'](ijid, node, None, kwargs)
 
-    def del_item(self, jid: OptJid = None, node: Optional[str] = None,
+    def del_item(self, jid: OptJid = None, node: str | None = None,
                  **kwargs) -> Future:
         """
         Remove a single item from the given JID/node combination.
@@ -548,8 +545,8 @@ class XEP_0030(BasePlugin):
         return self.api['del_item'](jid, node, None, kwargs)
 
     def add_identity(self, category: str = '', itype: str = '', name: str = '',
-                     node: Optional[str] = None, jid: OptJid = None,
-                     lang: Optional[str] = None) -> Future:
+                     node: str | None = None, jid: OptJid = None,
+                     lang: str | None = None) -> Future:
         """
         Add a new identity to the given JID/node combination.
 
@@ -577,7 +574,7 @@ class XEP_0030(BasePlugin):
                   'lang': lang}
         return self.api['add_identity'](jid, node, None, kwargs)
 
-    def add_feature(self, feature: str, node: Optional[str] = None,
+    def add_feature(self, feature: str, node: str | None = None,
                     jid: OptJid = None) -> Future:
         """
         Add a feature to a JID/node combination.
@@ -593,7 +590,7 @@ class XEP_0030(BasePlugin):
         return self.api['add_feature'](jid, node, None, kwargs)
 
     def del_identity(self, jid: OptJid = None,
-                     node: Optional[str] = None, **kwargs) -> Future:
+                     node: str | None = None, **kwargs) -> Future:
         """
         Remove an identity from the given JID/node combination.
 
@@ -609,7 +606,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['del_identity'](jid, node, None, kwargs)
 
-    def del_feature(self, jid: OptJid = None, node: Optional[str] = None,
+    def del_feature(self, jid: OptJid = None, node: str | None = None,
                     **kwargs) -> Future:
         """
         Remove a feature from a given JID/node combination.
@@ -623,7 +620,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['del_feature'](jid, node, None, kwargs)
 
-    def set_identities(self, jid: OptJid = None, node: Optional[str] = None,
+    def set_identities(self, jid: OptJid = None, node: str | None = None,
                        **kwargs) -> Future:
         """
         Add or replace all identities for the given JID/node combination.
@@ -641,7 +638,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['set_identities'](jid, node, None, kwargs)
 
-    def del_identities(self, jid: OptJid = None, node: Optional[str] = None,
+    def del_identities(self, jid: OptJid = None, node: str | None = None,
                        **kwargs) -> Future:
         """
         Remove all identities for a JID/node combination.
@@ -659,7 +656,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['del_identities'](jid, node, None, kwargs)
 
-    def set_features(self, jid: OptJid = None, node: Optional[str] = None,
+    def set_features(self, jid: OptJid = None, node: str | None = None,
                      **kwargs) -> Future:
         """
         Add or replace the set of supported features
@@ -674,7 +671,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['set_features'](jid, node, None, kwargs)
 
-    def del_features(self, jid: OptJid = None, node: Optional[str] = None,
+    def del_features(self, jid: OptJid = None, node: str | None = None,
                      **kwargs) -> Future:
         """
         Remove all features from a JID/node combination.
@@ -687,7 +684,7 @@ class XEP_0030(BasePlugin):
         """
         return self.api['del_features'](jid, node, None, kwargs)
 
-    async def _run_node_handler(self, htype, jid, node: Optional[str] = None,
+    async def _run_node_handler(self, htype, jid, node: str | None = None,
                                 ifrom: OptJid = None, data=None):
         """
         Execute the most specific node handler for the given

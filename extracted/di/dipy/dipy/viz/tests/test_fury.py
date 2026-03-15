@@ -1,4 +1,4 @@
-from os.path import join as pjoin
+from pathlib import Path
 from tempfile import TemporaryDirectory
 import warnings
 
@@ -14,12 +14,14 @@ from dipy.reconst.dti import color_fa, fractional_anisotropy
 from dipy.reconst.shm import CsaOdfModel, descoteaux07_legacy_msg, sh_to_sf_matrix
 from dipy.testing.decorators import set_random_number_generator, use_xvfb
 from dipy.tracking import utils
-from dipy.tracking.local_tracking import LocalTracking
 from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
 from dipy.tracking.streamline import center_streamlines, transform_streamlines
+from dipy.tracking.tracker import eudx_tracking
 from dipy.utils.optpkg import optional_package
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if has_fury:
     from dipy.viz import actor, colormap, window
@@ -80,12 +82,21 @@ def test_contour_from_roi():
     seed_mask = labels == 2
     seeds = utils.seeds_from_mask(seed_mask, density=[1, 1, 1], affine=affine)
 
-    # Initialization of LocalTracking.
+    # Initialization of Eudx Tracking.
     # The computation happens in the next step.
-    streamlines = LocalTracking(csa_peaks, classifier, seeds, affine, step_size=2)
+    streamlines_generator = eudx_tracking(
+        seeds,
+        classifier,
+        affine,
+        pam=csa_peaks,
+        random_seed=1,
+        sphere=default_sphere,
+        step_size=2,
+        max_angle=45,
+    )
 
     # Compute streamlines and store as a list.
-    streamlines = list(streamlines)
+    streamlines = list(streamlines_generator)
 
     # Prepare the display objects.
     streamlines_actor = actor.line(
@@ -101,19 +112,24 @@ def test_contour_from_roi():
         sc2 = window.Scene()
         sc.add(streamlines_actor)
         arr3 = window.snapshot(
-            sc, fname=pjoin(out_dir, "test_surface3.png"), offscreen=True
+            sc, fname=Path(out_dir) / "test_surface3.png", offscreen=True
         )
         report3 = window.analyze_snapshot(arr3, find_objects=True)
         sc2.add(streamlines_actor)
         sc2.add(seedroi_actor)
         arr4 = window.snapshot(
-            sc2, fname=pjoin(out_dir, "test_surface4.png"), offscreen=True
+            sc2, fname=Path(out_dir) / "test_surface4.png", offscreen=True
         )
         report4 = window.analyze_snapshot(arr4, find_objects=True)
 
         # assert that the seed ROI rendering is not far
-        # away from the streamlines (affine error)
-        npt.assert_equal(report3.objects, report4.objects)
+        # away from the streamlines (affine error).
+        # If the ROI were affine-shifted far away, it would appear as a
+        # completely separate object, increasing the count beyond report3.
+        # Platform rendering differences (e.g. Windows vs Linux) can cause
+        # the streamlines to appear as more or fewer connected regions, so
+        # we only require that adding the ROI does not increase the count.
+        npt.assert_array_less(report4.objects, report3.objects + 1)
         # window.show(sc)
         # window.show(sc2)
 

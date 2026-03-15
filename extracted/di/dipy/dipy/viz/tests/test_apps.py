@@ -1,5 +1,4 @@
-import os
-from os.path import join as pjoin
+from pathlib import Path
 from tempfile import TemporaryDirectory
 import warnings
 
@@ -16,7 +15,9 @@ from dipy.testing.decorators import set_random_number_generator, use_xvfb
 from dipy.tracking.streamline import Streamlines
 from dipy.utils.optpkg import optional_package
 
-fury, has_fury, setup_module = optional_package("fury", min_version="0.10.0")
+fury, has_fury, setup_module = optional_package(
+    "fury", min_version="0.10.0", max_version="1.0.0"
+)
 
 if has_fury:
     from fury import io, window
@@ -67,7 +68,7 @@ def test_horizon_events(rng):
     # select all centroids and expand and click everything else
     # do not press the key shortcuts as vtk generates warning that
     # blocks recording
-    fname = os.path.join(DATA_DIR, "record_horizon.log.gz")
+    fname = Path(DATA_DIR) / "record_horizon.log.gz"
 
     with TemporaryDirectory() as out_dir:
         horizon(
@@ -84,8 +85,8 @@ def test_horizon_events(rng):
             clusters_lt=np.inf,
             world_coords=True,
             interactive=True,
-            out_png=pjoin(out_dir, "horizon-event.png"),
-            recorded_events=fname,
+            out_png=str(Path(out_dir) / "horizon-event.png"),
+            recorded_events=str(fname),
         )
 
 
@@ -143,7 +144,7 @@ def test_horizon(rng):
             clusters_gt=0,
             world_coords=True,
             interactive=False,
-            out_png=pjoin(out_dir, "only-tractograms.png"),
+            out_png=Path(out_dir) / "only-tractograms.png",
         )
 
         images = [(data, affine, "/test/filename.nii.gz")]
@@ -161,7 +162,7 @@ def test_horizon(rng):
                 clusters_gt=0,
                 world_coords=False,
                 interactive=False,
-                out_png=pjoin(out_dir, "native-tractograms.png"),
+                out_png=Path(out_dir) / "native-tractograms.png",
             )
 
         msg = "Currently native coordinates are not supported for streamlines."
@@ -181,7 +182,7 @@ def test_horizon(rng):
             clusters_gt=0,
             world_coords=True,
             interactive=False,
-            out_png=pjoin(out_dir, "only-images.png"),
+            out_png=Path(out_dir) / "only-images.png",
         )
 
         # no clustering tractograms and images
@@ -197,7 +198,7 @@ def test_horizon(rng):
             clusters_gt=0,
             world_coords=True,
             interactive=False,
-            out_png=pjoin(out_dir, "no-clusting-tractograms-and-images.png"),
+            out_png=Path(out_dir) / "no-clusting-tractograms-and-images.png",
         )
 
 
@@ -218,10 +219,55 @@ def test_horizon_wrong_dtype_images():
         horizon(
             images=images,
             interactive=False,
-            out_png=pjoin(out_dir, "wrong-dtype.png"),
+            out_png=str(Path(out_dir) / "wrong-dtype.png"),
         )
         # Asserting the image will not get added and the image will be black.
-        assert len(np.unique(io.load_image(pjoin(out_dir, "wrong-dtype.png")))) == 1
+        assert (
+            len(np.unique(io.load_image(str(Path(out_dir) / "wrong-dtype.png")))) == 1
+        )
+
+
+@pytest.mark.skipif(skip_it or not has_fury, reason="Needs xvfb")
+@set_random_number_generator()
+def test_horizon_empty_tractogram(rng):
+    """Test that empty tractograms are handled gracefully without errors."""
+    # Create an empty streamlines container
+    empty_streamlines = Streamlines()
+    empty_streamlines.shrink_data()
+
+    affine = np.array(
+        [
+            [1.0, 0.0, 0.0, -98.0],
+            [0.0, 1.0, 0.0, -134.0],
+            [0.0, 0.0, 1.0, -72.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+
+    data = 255 * rng.random((197, 233, 189))
+    vox_size = (1.0, 1.0, 1.0)
+
+    header = create_nifti_header(affine, data.shape, vox_size)
+    sft = StatefulTractogram(empty_streamlines, header, Space.RASMM)
+
+    tractograms = [sft]
+    images = [(data, affine, "/test/filename.nii.gz")]
+
+    # This should not raise an error, but should skip the empty tractogram
+    # with a warning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with TemporaryDirectory() as out_dir:
+            horizon(
+                tractograms=tractograms,
+                images=images,
+                cluster=False,
+                world_coords=True,
+                interactive=False,
+                out_png=Path(out_dir) / "empty-tractogram.png",
+            )
+        # Check that a warning was raised about empty tractogram
+        check_for_warnings(w, "Tractogram 0 is empty and will be skipped.")
 
 
 @pytest.mark.skipif(skip_it or not has_fury, reason="Needs xvfb")

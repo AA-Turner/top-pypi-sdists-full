@@ -11,7 +11,7 @@ impl<'src> CompileError<'src> {
     self.token
   }
 
-  pub(crate) fn new(token: Token<'src>, kind: CompileErrorKind<'src>) -> CompileError<'src> {
+  pub(crate) fn new(token: Token<'src>, kind: CompileErrorKind<'src>) -> Self {
     Self {
       token,
       kind: kind.into(),
@@ -131,6 +131,12 @@ impl Display for CompileError<'_> {
         first.ordinal(),
         self.token.line.ordinal(),
       ),
+      DuplicateEnvAttribute { variable, first } => write!(
+        f,
+        "Environment variable `{variable}` first set on line {} is set again on line {}",
+        first.ordinal(),
+        self.token.line.ordinal(),
+      ),
       DuplicateDefault { recipe } => write!(
         f,
         "Recipe `{recipe}` has duplicate `[default]` attribute, which may only appear once per module",
@@ -188,6 +194,10 @@ impl Display for CompileError<'_> {
         "Function `{function}` called with {found} {} but takes {}",
         Count("argument", *found),
         expected.display(),
+      ),
+      GuardAndInfallibleSigil => write!(
+        f,
+        "The guard `?` and infallible `-` sigils may not be used together"
       ),
       Include => write!(
         f,
@@ -338,10 +348,7 @@ impl Display for CompileError<'_> {
         write!(f, "Alias `{alias}` has an unknown target `{target}`")
       }
       AttributeKeyMissingValue { key } => {
-        write!(
-          f,
-          "Attribute key `{key}` requires value",
-        )
+        write!(f, "Attribute key `{key}` requires value")
       }
       UnknownAttributeKeyword { attribute, keyword } => {
         write!(f, "Unknown keyword `{keyword}` for `{attribute}` attribute")

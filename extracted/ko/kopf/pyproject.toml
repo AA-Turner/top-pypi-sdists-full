@@ -28,6 +28,7 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "python-json-logger",   # 0.05 MB
+    "jsonpatch",
     "iso8601",              # 0.07 MB
     "pyyaml",               # 0.90 MB
     "click>=8.2.0",         # 0.60 MB
@@ -72,13 +73,13 @@ docs = [
     "furo",
 ]
 test = [
-    "aresponses",
     "astpath[xpath]",
     "certbuilder",
     "certvalidator",
     "codecov",
     "coverage>=7.12.0",
     "freezegun",
+    "kmock>=0.5",
     "looptime>=0.7",
     "lxml",
     "pyngrok",
@@ -116,6 +117,11 @@ lint = [
     "pyngrok",
     "uvloop",
 ]
+dev = [
+    {include-group = "docs"},
+    {include-group = "lint"},
+    {include-group = "test"},
+]
 
 [tool.setuptools.packages.find]
 # The star is for the versions.py, which is gitignored in docker builds (somewhy).
@@ -136,6 +142,8 @@ ignore_missing_imports = true
 minversion = "9.0"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
 addopts = ["--strict-markers", "--looptime"]
 
 [tool.isort]

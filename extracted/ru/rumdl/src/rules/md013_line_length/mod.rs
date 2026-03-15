@@ -832,16 +832,412 @@ impl MD013LineLength {
                     || info.in_pymdown_block
             });
 
+            // Skip link reference definitions but NOT footnote definitions.
+            // Footnote definitions (`[^id]: prose`) contain reflowable text,
+            // while link reference definitions (`[ref]: URL`) contain URLs
+            // that cannot be shortened.
+            let is_link_ref_def =
+                lines[i].trim().starts_with('[') && !lines[i].trim().starts_with("[^") && lines[i].contains("]:");
+
             if should_skip_due_to_line_info
                 || lines[i].trim().starts_with('#')
                 || TableUtils::is_potential_table_row(lines[i])
                 || lines[i].trim().is_empty()
                 || is_horizontal_rule(lines[i].trim())
                 || is_template_directive_only(lines[i])
-                || (lines[i].trim().starts_with('[') && lines[i].contains("]:"))
+                || is_link_ref_def
                 || ctx.line_info(line_num).is_some_and(|info| info.is_div_marker)
             {
                 i += 1;
+                continue;
+            }
+
+            // Handle footnote definitions: `[^id]: prose text that can be reflowed`
+            // Supports multi-paragraph footnotes with code blocks, blockquotes,
+            // tables, and lists preserved verbatim.
+            // Validate structure: must start with `[^`, contain `]:`, and the ID
+            // must not contain `[` or `]` (prevents false matches on nested brackets)
+            if lines[i].trim().starts_with("[^") && lines[i].contains("]:") && {
+                let after_caret = &lines[i].trim()[2..];
+                after_caret
+                    .find("]:")
+                    .is_some_and(|pos| pos > 0 && !after_caret[..pos].contains(['[', ']']))
+            } {
+                let footnote_start = i;
+                let line = lines[i];
+
+                // Extract the prefix `[^id]:`
+                let Some(colon_pos) = line.find("]:") else {
+                    i += 1;
+                    continue;
+                };
+                let prefix_end = colon_pos + 2;
+                let prefix = &line[..prefix_end];
+
+                // Content starts after `]: ` (with optional space)
+                let content_start = if line[prefix_end..].starts_with(' ') {
+                    prefix_end + 1
+                } else {
+                    prefix_end
+                };
+                let first_content = &line[content_start..];
+
+                // CommonMark footnotes use 4-space continuation indent
+                const FN_INDENT: usize = 4;
+
+                // --- Line classification for footnote content ---
+                #[derive(Debug, Clone)]
+                enum FnLineType {
+                    Content(String),
+                    Verbatim(String, usize), // preserved text, original indent
+                    Empty,
+                }
+
+                // Helper: compute visual indent (tabs = 4 spaces)
+                let visual_indent = |s: &str| -> usize {
+                    s.chars()
+                        .take_while(|c| c.is_whitespace())
+                        .map(|c| if c == '\t' { 4 } else { 1 })
+                        .sum::<usize>()
+                };
+
+                // Helper: check if a trimmed line is a fence marker (homogeneous chars)
+                let is_fence = |s: &str| -> bool {
+                    let t = s.trim();
+                    let fence_char = t.chars().next();
+                    matches!(fence_char, Some('`') | Some('~'))
+                        && t.chars().take_while(|&c| c == fence_char.unwrap()).count() >= 3
+                };
+
+                // Helper: check if a trimmed line is a setext underline
+                let is_setext_underline = |s: &str| -> bool {
+                    let t = s.trim();
+                    !t.is_empty()
+                        && (t.chars().all(|c| c == '=' || c == ' ') || t.chars().all(|c| c == '-' || c == ' '))
+                        && t.contains(['=', '-'])
+                };
+
+                // Deferred body: `[^id]:\n    content` — first line has no content,
+                // actual content starts on the next indented line
+                let deferred_body = first_content.trim().is_empty();
+
+                // Collect all lines belonging to this footnote definition
+                let mut fn_lines: Vec<FnLineType> = Vec::new();
+                if !deferred_body {
+                    fn_lines.push(FnLineType::Content(first_content.to_string()));
+                }
+                let mut last_consumed = i;
+                i += 1;
+
+                // Strip only the footnote continuation indent, preserving
+                // internal indentation (e.g., code block body indent)
+                let strip_fn_indent = |s: &str| -> String {
+                    let mut chars = s.chars();
+                    let mut stripped = 0;
+                    while stripped < FN_INDENT {
+                        match chars.next() {
+                            Some('\t') => stripped += 4,
+                            Some(c) if c.is_whitespace() => stripped += 1,
+                            _ => break,
+                        }
+                    }
+                    chars.as_str().to_string()
+                };
+
+                let mut in_fenced_code = false;
+                let mut consecutive_blanks = 0u32;
+
+                while i < lines.len() {
+                    let next = lines[i];
+                    let next_trimmed = next.trim();
+
+                    // Blank line handling
+                    if next_trimmed.is_empty() {
+                        consecutive_blanks += 1;
+                        // 2+ consecutive blanks terminate the footnote
+                        if consecutive_blanks >= 2 {
+                            break;
+                        }
+
+                        // Inside a fenced code block, blank lines are part of the code
+                        if in_fenced_code {
+                            consecutive_blanks = 0; // Don't count blanks inside code blocks
+                            fn_lines.push(FnLineType::Verbatim(String::new(), 0));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
+
+                        // Peek ahead: if next non-blank line is indented >= FN_INDENT,
+                        // this blank is an internal paragraph separator
+                        if i + 1 < lines.len() {
+                            let peek = lines[i + 1];
+                            let peek_indent = visual_indent(peek);
+                            if !peek.trim().is_empty() && peek_indent >= FN_INDENT {
+                                fn_lines.push(FnLineType::Empty);
+                                last_consumed = i;
+                                i += 1;
+                                continue;
+                            }
+                        }
+                        // No valid continuation after blank — end of footnote
+                        break;
+                    }
+
+                    consecutive_blanks = 0;
+                    let indent = visual_indent(next);
+
+                    // Not indented enough — end of footnote
+                    if indent < FN_INDENT {
+                        break;
+                    }
+
+                    // Inside a fenced code block: everything is verbatim until closing fence
+                    if in_fenced_code {
+                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                        if is_fence(next_trimmed) {
+                            in_fenced_code = false;
+                        }
+                        last_consumed = i;
+                        i += 1;
+                        continue;
+                    }
+
+                    // Fence opener — start verbatim code block
+                    if is_fence(next_trimmed) {
+                        in_fenced_code = true;
+                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                        last_consumed = i;
+                        i += 1;
+                        continue;
+                    }
+
+                    // Indented code block: indent >= FN_INDENT + 4 (= 8 spaces)
+                    if indent >= FN_INDENT + 4 {
+                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                        last_consumed = i;
+                        i += 1;
+                        continue;
+                    }
+
+                    // Structural content that must be preserved verbatim
+                    if next_trimmed.starts_with('#')
+                        || is_list_item(next_trimmed)
+                        || next_trimmed.starts_with('>')
+                        || TableUtils::is_potential_table_row(next_trimmed)
+                        || is_setext_underline(next_trimmed)
+                        || is_horizontal_rule(next_trimmed)
+                        || crate::utils::mkdocs_footnotes::is_footnote_definition(next_trimmed)
+                    {
+                        // Preserve verbatim: blockquotes, tables, lists, setext
+                        // underlines, and horizontal rules inside the footnote
+                        if next_trimmed.starts_with('>')
+                            || TableUtils::is_potential_table_row(next_trimmed)
+                            || is_list_item(next_trimmed)
+                            || is_setext_underline(next_trimmed)
+                            || is_horizontal_rule(next_trimmed)
+                        {
+                            fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
+                        // Headings, new footnote defs, link refs — end the footnote
+                        break;
+                    }
+
+                    // Link reference definitions inside footnotes are not reflowable
+                    if next_trimmed.starts_with('[')
+                        && !next_trimmed.starts_with("[^")
+                        && next_trimmed.contains("]:")
+                        && LINK_REF_PATTERN.is_match(next_trimmed)
+                    {
+                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                        last_consumed = i;
+                        i += 1;
+                        continue;
+                    }
+
+                    // Regular prose content
+                    fn_lines.push(FnLineType::Content(next_trimmed.to_string()));
+                    last_consumed = i;
+                    i += 1;
+                }
+
+                // Nothing collected or only empty lines
+                if fn_lines.iter().all(|l| matches!(l, FnLineType::Empty)) || fn_lines.is_empty() {
+                    continue;
+                }
+
+                // --- Group into blocks ---
+                #[derive(Debug)]
+                enum FnBlock {
+                    Paragraph(Vec<String>),
+                    Verbatim(Vec<(String, usize)>), // (content, indent) preserved as-is
+                }
+
+                let mut blocks: Vec<FnBlock> = Vec::new();
+                let mut current_para: Vec<String> = Vec::new();
+                let mut current_verbatim: Vec<(String, usize)> = Vec::new();
+
+                for fl in &fn_lines {
+                    match fl {
+                        FnLineType::Content(s) => {
+                            if !current_verbatim.is_empty() {
+                                blocks.push(FnBlock::Verbatim(std::mem::take(&mut current_verbatim)));
+                            }
+                            current_para.push(s.clone());
+                        }
+                        FnLineType::Verbatim(s, indent) => {
+                            if !current_para.is_empty() {
+                                blocks.push(FnBlock::Paragraph(std::mem::take(&mut current_para)));
+                            }
+                            current_verbatim.push((s.clone(), *indent));
+                        }
+                        FnLineType::Empty => {
+                            if !current_para.is_empty() {
+                                blocks.push(FnBlock::Paragraph(std::mem::take(&mut current_para)));
+                            }
+                            if !current_verbatim.is_empty() {
+                                blocks.push(FnBlock::Verbatim(std::mem::take(&mut current_verbatim)));
+                            }
+                        }
+                    }
+                }
+                if !current_para.is_empty() {
+                    blocks.push(FnBlock::Paragraph(current_para));
+                }
+                if !current_verbatim.is_empty() {
+                    blocks.push(FnBlock::Verbatim(current_verbatim));
+                }
+
+                // --- Reflow paragraphs and reconstruct ---
+                let prefix_display_width = prefix.chars().count() + 1; // +1 for space
+                let reflow_line_length = if config.line_length.is_unlimited() {
+                    usize::MAX
+                } else {
+                    config
+                        .line_length
+                        .get()
+                        .saturating_sub(FN_INDENT.max(prefix_display_width))
+                        .max(20)
+                };
+                let reflow_options = crate::utils::text_reflow::ReflowOptions {
+                    line_length: reflow_line_length,
+                    break_on_sentences: true,
+                    preserve_breaks: false,
+                    sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+                    semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
+                    abbreviations: config.abbreviations_for_reflow(),
+                    length_mode: self.reflow_length_mode(),
+                    attr_lists: ctx.flavor.supports_attr_lists(),
+                    require_sentence_capital: config.require_sentence_capital,
+                    max_list_continuation_indent: None,
+                };
+
+                let indent_str = " ".repeat(FN_INDENT);
+                let mut result_lines: Vec<String> = Vec::new();
+                let mut is_first_block = true;
+
+                for block in &blocks {
+                    match block {
+                        FnBlock::Paragraph(para_lines) => {
+                            let paragraph_text = para_lines.join(" ");
+                            let paragraph_text = paragraph_text.trim();
+                            if paragraph_text.is_empty() {
+                                continue;
+                            }
+
+                            let reflowed = crate::utils::text_reflow::reflow_line(paragraph_text, &reflow_options);
+                            if reflowed.is_empty() {
+                                continue;
+                            }
+
+                            // Blank line separator between blocks
+                            if !result_lines.is_empty() {
+                                result_lines.push(String::new());
+                            }
+
+                            for (idx, rline) in reflowed.iter().enumerate() {
+                                if is_first_block && idx == 0 {
+                                    result_lines.push(format!("{prefix} {rline}"));
+                                } else {
+                                    result_lines.push(format!("{indent_str}{rline}"));
+                                }
+                            }
+                            is_first_block = false;
+                        }
+                        FnBlock::Verbatim(verb_lines) => {
+                            // Blank line separator between blocks
+                            if !result_lines.is_empty() {
+                                result_lines.push(String::new());
+                            }
+
+                            if is_first_block {
+                                // Verbatim as first block in a deferred-body footnote
+                                if deferred_body {
+                                    result_lines.push(prefix.to_string());
+                                }
+                                is_first_block = false;
+                            }
+                            for (content, _orig_indent) in verb_lines {
+                                result_lines.push(format!("{indent_str}{content}"));
+                            }
+                        }
+                    }
+                }
+
+                // If nothing was produced, skip
+                if result_lines.is_empty() {
+                    continue;
+                }
+
+                let reflowed_text = result_lines.join(line_ending);
+
+                // Calculate byte range using last_consumed
+                let start_range = line_index.whole_line_range(footnote_start + 1);
+                let end_range = if last_consumed == lines.len() - 1 && !ctx.content.ends_with('\n') {
+                    line_index.line_text_range(last_consumed + 1, 1, lines[last_consumed].len() + 1)
+                } else {
+                    line_index.whole_line_range(last_consumed + 1)
+                };
+                let byte_range = start_range.start..end_range.end;
+
+                let replacement = if last_consumed < lines.len() - 1 || ctx.content.ends_with('\n') {
+                    format!("{reflowed_text}{line_ending}")
+                } else {
+                    reflowed_text
+                };
+
+                let original_text = &ctx.content[byte_range.clone()];
+                let max_length = (footnote_start..=last_consumed)
+                    .map(|idx| self.calculate_effective_length(lines[idx]))
+                    .max()
+                    .unwrap_or(0);
+                let line_limit = if config.line_length.is_unlimited() {
+                    usize::MAX
+                } else {
+                    config.line_length.get()
+                };
+                if original_text != replacement && max_length > line_limit {
+                    warnings.push(LintWarning {
+                        rule_name: Some(self.name().to_string()),
+                        message: format!(
+                            "Line length {} exceeds {} characters",
+                            max_length,
+                            config.line_length.get()
+                        ),
+                        line: footnote_start + 1,
+                        column: 1,
+                        end_line: last_consumed + 1,
+                        end_column: lines[last_consumed].len() + 1,
+                        severity: Severity::Warning,
+                        fix: Some(crate::rule::Fix {
+                            range: byte_range,
+                            replacement,
+                        }),
+                    });
+                }
                 continue;
             }
 

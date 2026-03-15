@@ -253,6 +253,23 @@ def test_shape_id(setup_backend):
             assert y.shape == (3, 2)
             assert x.shape == (3, 10, 11, 2)
 
+    x = setup.full((2, 3))
+    with suppress((OperationNotSupportedError, *setup.exceptions)):
+        assert einx.id("a b, a b -> a (b + b)", x, x).shape == (2, 6)
+    with suppress((OperationNotSupportedError, *setup.exceptions)):
+        assert einx.id("a b, a b -> (b + b) a", x, x).shape == (6, 2)
+    with suppress((OperationNotSupportedError, *setup.exceptions)):
+        assert einx.id("b a, b a -> (b + b) a", x, x).shape == (4, 3)
+    with suppress((OperationNotSupportedError, *setup.exceptions)):
+        assert einx.id("b a, b a -> a (b + b)", x, x).shape == (3, 4)
+    if "torch.vmap" not in setup.name and "mlx.vmap" not in setup.name:
+        with suppress((OperationNotSupportedError, *setup.exceptions)):
+            assert einx.id("a b1, a b2 -> a (b1 + b2)", x, x).shape == (2, 6)
+        with suppress((OperationNotSupportedError, *setup.exceptions)):
+            assert einx.id("b1 a, b2 a -> a (b1 + b2)", x, x).shape == (3, 4)
+    with pytest.raises((OperationNotSupportedError, EinxError, *setup.exceptions)):
+        einx.id("a b1, a b2 -> a ((a b1) + b2)", x, x)
+
 
 @use_backend
 def test_shape_dot(setup_backend):
@@ -679,7 +696,7 @@ def test_shape_elementwise(setup_backend):
         elif dtype == "bool":
             return True
         else:
-            assert False
+            raise ValueError(f"Unsupported dtype: {dtype}")
 
     for op, dtypes in ops:
         tensor_args = [setup.full((3,), dtype=dtype, value=1) for dtype in dtypes]

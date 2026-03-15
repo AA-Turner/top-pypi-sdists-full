@@ -13,8 +13,9 @@ import copy
 import logging
 import threading
 
-from typing import Any, Dict, Set, ClassVar, Union, Optional, TYPE_CHECKING, Type
+from typing import Any, ClassVar, TYPE_CHECKING
 
+from slixmpp.api import APIWrapper
 if TYPE_CHECKING:
     from slixmpp.clientxmpp import ClientXMPP, BaseXMPP
     from slixmpp.componentxmpp import ComponentXMPP
@@ -39,7 +40,7 @@ class PluginNotFound(Exception):
     """Raised if an unknown plugin is accessed."""
 
 
-def register_plugin(impl: Type['BasePlugin'], name=None) -> None:
+def register_plugin(impl: type['BasePlugin'], name=None) -> None:
     """Add a new plugin implementation to the registry.
 
     :param class impl: The plugin class.
@@ -105,14 +106,14 @@ def load_plugin(name, module=None):
 
 
 class PluginManager(object):
-    def __init__(self, xmpp: 'BaseXMPP', config: Optional[Dict] = None):
+    def __init__(self, xmpp: 'BaseXMPP', config: dict | None = None):
         #: We will track all enabled plugins in a set so that we
         #: can enable plugins in batches and pull in dependencies
         #: without problems.
-        self._enabled: Set[str] = set()
+        self._enabled: set[str] = set()
 
         #: Maintain references to active plugins.
-        self._plugins: Dict[str, 'BasePlugin'] = {}
+        self._plugins: dict[str, 'BasePlugin'] = {}
 
         self._plugin_lock = threading.RLock()
 
@@ -243,7 +244,7 @@ class PluginManager(object):
             raise PluginNotFound(name)
         return plugin
 
-    def get(self, name: str, default: Optional['BasePlugin']) -> Optional['BasePlugin']:
+    def get(self, name: str, default: 'BasePlugin' | None) -> 'BasePlugin' | None:
         return self._plugins.get(name, default)
 
     def __iter__(self):
@@ -269,7 +270,7 @@ class BasePlugin(object):
     #: Some plugins may depend on others in order to function properly.
     #: Any plugin names included in :attr:`~BasePlugin.dependencies` will
     #: be initialized as needed if this plugin is enabled.
-    dependencies: ClassVar[Set[str]] = set()
+    dependencies: ClassVar[set[str]] = set()
 
     #: The basic, standard configuration for the plugin, which may
     #: be overridden when initializing the plugin. The configuration
@@ -277,9 +278,11 @@ class BasePlugin(object):
     #: the plugin. For example, including the configuration field 'foo'
     #: would mean accessing `plugin.foo` returns the current value of
     #: `plugin.config['foo']`.
-    default_config: ClassVar[Dict[str, Any]] = {}
+    default_config: ClassVar[dict[str, Any]] = {}
 
-    def __init__(self, xmpp: Union[ClientXMPP,ComponentXMPP], config=None):
+    api: APIWrapper
+
+    def __init__(self, xmpp: ClientXMPP | ComponentXMPP, config=None):
         self.xmpp = xmpp
         if self.xmpp:
             self.api = self.xmpp.api.wrap(self.name)

@@ -4,7 +4,6 @@
 import json
 import logging
 from datetime import datetime
-from typing import Optional, Union
 from urllib.parse import urlparse
 
 from slixmpp import JID
@@ -20,10 +19,10 @@ class AiohttpNotFound(Exception):
 
 @dataclass
 class ExternalStatus:
-    planned: Optional[bool]
+    planned: bool | None
     beginning: datetime
-    expected_end: Optional[datetime]
-    message: Optional[dict[str, str]]
+    expected_end: datetime | None
+    message: dict[str, str] | None
 
 
 class XEP_0455(BasePlugin):
@@ -35,7 +34,7 @@ class XEP_0455(BasePlugin):
     dependencies = {'xep_0128', 'xep_0030', 'xep_0082'}
     namespace = 'urn:xmpp:sos:0'
 
-    async def get_external_status_addresses(self, domain: Optional[JID] = None,
+    async def get_external_status_addresses(self, domain: JID | None = None,
                                             **iqkwargs) -> list[str]:
         """Return the list of external status addresses for this domain.
 
@@ -63,7 +62,7 @@ class XEP_0455(BasePlugin):
         return uris
 
     @classmethod
-    async def fetch_status(cls, addresses: Union[str, list[str]]) -> dict:
+    async def fetch_status(cls, addresses: str | list[str]) -> dict:
         """
         Get the external status from a list of addresses.
         Only works with http/https for now and stops on the first status
@@ -94,7 +93,7 @@ class XEP_0455(BasePlugin):
                     return status
 
     @staticmethod
-    def _parse_status(raw: str) -> Optional[ExternalStatus]:
+    def _parse_status(raw: str) -> ExternalStatus | None:
         """
         Parse a status json payload. Return None if the required (beginning)
         field is not found or not parseable.

@@ -55,3 +55,19 @@ class TestParamsSpecific(unittest.TestCase):
         self.assertEqual(type(destination.params["is_a_bool"]), bool)
         self.assertEqual(destination.params["is_a_bool"], True)
         self.assertEqual(destination.params["int_value"], 1010)
+
+    def test_map_nested_resubmit_definition(self):
+        tool = mock_galaxy.Tool("marvin")
+        user = mock_galaxy.User("trillian", "panic@vortex.org")
+
+        destination = self._map_to_destination(tool, user)
+        self.assertEqual(
+            destination.resubmit,
+            [
+                {
+                    "condition": "memory_limit_reached and attempt <= 3",
+                    "destination": "tpv_dispatcher",
+                    "delay": "attempt * 30",
+                }
+            ],
+        )
