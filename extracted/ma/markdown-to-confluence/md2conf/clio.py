@@ -10,7 +10,7 @@ import re
 from argparse import ArgumentParser, Namespace
 from dataclasses import MISSING, Field, dataclass, fields, is_dataclass
 from types import NoneType, UnionType
-from typing import Any, Literal, TypeVar, Union, cast, get_args, get_origin
+from typing import Any, Literal, NewType, TypeVar, Union, cast, get_args, get_origin
 
 from .compatibility import LiteralString
 
@@ -21,7 +21,7 @@ class BaseOption:
         return "argument"
 
 
-@dataclass
+@dataclass(frozen=True)
 class BooleanOption(BaseOption):
     true_text: LiteralString
     false_text: LiteralString
@@ -33,7 +33,7 @@ def boolean_option(true_text: LiteralString, false_text: LiteralString) -> dict[
     return {BaseOption.field_name(): BooleanOption(true_text, false_text)}
 
 
-@dataclass
+@dataclass(frozen=True)
 class ValueOption(BaseOption):
     text: LiteralString
 
@@ -44,7 +44,7 @@ def value_option(text: LiteralString) -> dict[str, Any]:
     return {BaseOption.field_name(): ValueOption(text)}
 
 
-@dataclass
+@dataclass(frozen=True)
 class NullableOption(BaseOption):
     value_text: LiteralString
     omit_text: LiteralString
@@ -56,7 +56,7 @@ def nullable_option(value_text: LiteralString, omit_text: LiteralString) -> dict
     return {BaseOption.field_name(): NullableOption(value_text, omit_text)}
 
 
-@dataclass
+@dataclass(frozen=True)
 class CompositeOption(BaseOption):
     """
     Determines how a data-class populates command-line arguments.
@@ -83,6 +83,15 @@ def _get_metadata(field: Field[Any], tp: type[T]) -> T:
     if not isinstance(attrs, tp):
         raise TypeError(f"expected: object of type {tp.__name__}; got: {attrs}")
     return attrs
+
+
+def _get_metavar(field_type: Any) -> str | None:
+    "Returns a descriptive name for the argument in usage messages."
+
+    if isinstance(field_type, (NewType, type)):
+        return title_to_upper(field_type.__name__)  # type: ignore[union-attr]
+    else:
+        return None
 
 
 # inserts underscore before capital letters that follow lowercase letters or digits
@@ -145,10 +154,7 @@ class _OptionTreeVisitor:
         help_text = value_opt.text
         if field.default is not MISSING and field.default is not None:
             help_text += f" (default: {field.default!s})"
-        if isinstance(field_type, type):
-            metavar = title_to_upper(field_type.__name__)
-        else:
-            metavar = None
+        metavar = _get_metavar(field_type)
         self.parser.add_argument(
             self._get_arg_name(arg_name),
             dest=self._get_field_name(field.name),
@@ -164,10 +170,7 @@ class _OptionTreeVisitor:
         value_help_text = value_opt.value_text
         if field.default is not MISSING and field.default is not None:
             value_help_text += f" (default: {field.default!s})"
-        if isinstance(field_type, type):
-            metavar = title_to_upper(field_type.__name__)
-        else:
-            metavar = None
+        metavar = _get_metavar(field_type)
         self.parser.add_argument(
             self._get_arg_name(arg_name),
             dest=self._get_field_name(field.name),

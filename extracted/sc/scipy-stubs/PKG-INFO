@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.17.1.1
+Version: 1.17.1.2
 Summary: Type annotations for SciPy
 Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
 Author: Joren Hammudoglu
@@ -324,6 +324,12 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 | `PearsonRResult[T: floating scalar/array, P: f64 scalar/array]`                | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.PearsonRResult.html) |
 | `TtestResult[T: floating scalar/array]`                                        | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.TtestResult.html)    |
 
+#### `scipy.stats.contingency`
+
+| generic type                           | `scipy-stubs` | `scipy` |                                                                                                |
+| -------------------------------------- | ------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `Chi2ContingencyResult[S: (int, ...)]` | `>=1.17.1.2`  | `*`     | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2_contingency.html) |
+
 ## Contributing
 
 We welcome contributions from the community! There are many ways to help improve `scipy-stubs`:
@@ -396,6 +402,7 @@ PyMC ([PyTensor](https://github.com/pymc-devs/pytensor)) |
 [radioactivedecay](https://github.com/radioactivedecay/radioactivedecay) |
 [scikit-fingerprints](https://github.com/scikit-fingerprints/scikit-fingerprints) |
 scverse ([PyDESeq2](https://github.com/scverse/PyDESeq2), [scanpy](https://github.com/scverse/scanpy)) |
+[SeQUeNCe](https://github.com/sequence-toolbox/SeQUeNCe) |
 [Skore](https://github.com/probabl-ai/skore) |
 Theis Lab ([anndata2ri](https://github.com/theislab/anndata2ri)) |
 [TorchFX](https://github.com/matteospanio/torchfx) |

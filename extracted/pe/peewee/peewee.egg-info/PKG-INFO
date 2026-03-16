@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peewee
-Version: 4.0.1
+Version: 4.0.2
 Summary: a little orm
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/peewee
@@ -9,7 +9,6 @@ Project-URL: Changelog, https://github.com/coleifer/peewee/blob/master/CHANGELOG
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -46,9 +45,10 @@ Peewee is a simple and small ORM. It has few (but expressive) concepts, making i
 * supports sqlite, mysql, mariadb, postgresql
 * asyncio support
 * tons of extensions
-* use with `flask <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#flask>`_
-  `fastapi <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#fastapi>`_ and
-  `more <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html>`_.
+* use with `flask <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#flask>`__,
+  `fastapi <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#fastapi>`__,
+  `pydantic <https://docs.peewee-orm.com/en/latest/peewee/orm_utils.html#module-playhouse.pydantic_utils>`__, and
+  `more <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html>`__.
 
 New to peewee? These may help:
 

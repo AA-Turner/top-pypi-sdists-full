@@ -1261,10 +1261,10 @@ class NODE_MT_gn_utilities_text_base(bl_ui.node_add_menu.NodeMenu):
         :return: The class or default when not found.
         """
 
-    def draw(self, _context) -> None:
+    def draw(self, context) -> None:
         """
 
-        :param _context:
+        :param context:
         """
 
 class NODE_MT_gn_utilities_vector_base(bl_ui.node_add_menu.NodeMenu):

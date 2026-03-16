@@ -1,5 +1,3 @@
-"""Plugin: output-pii-filter — LLM output returned to users must have PII filtering."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -21,10 +19,11 @@ class OutputPiiFilterPlugin(DefensePlugin):
     )
 
     def applies_to(self, integration: LLMIntegration) -> bool:
-        # Only applies when LLM output is returned to external users
         return bool(integration.input_sources)
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_pii_filter:
             return self._pass(
                 integration,

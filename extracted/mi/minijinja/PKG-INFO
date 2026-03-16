@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: minijinja
-Version: 2.17.1
+Version: 2.18.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

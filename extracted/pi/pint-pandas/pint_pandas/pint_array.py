@@ -36,11 +36,37 @@ from pint import compat, errors
 # quantify/dequantify
 NO_UNIT = "No Unit"
 DEFAULT_SUBDTYPE = "Float64"
+SINGLE_ROW_HEADER_SEPARATOR: str | None = None
+SINGLE_ROW_HEADER_SUFFIX: str | None = None
+
 
 pandas_version = version("pandas")
 pandas_version_info = tuple(
     int(x) if x.isdigit() else x for x in pandas_version.split(".")
 )
+
+
+# taken from below since not in pandas.api
+# pandas/pandas/core/indexers/utils.py
+def getitem_returns_view(arr, key) -> bool:
+    """
+    Check if an ``arr.__getitem__`` call with given ``key`` would return a view
+    or not.
+    """
+    if not isinstance(key, tuple):
+        key = (key,)
+
+    # filter out Ellipsis and np.newaxis
+    key = tuple(k for k in key if k is not Ellipsis and k is not np.newaxis)
+    if not key:
+        return True
+    # single integer gives view if selecting subset of 2D array
+    # if arr.ndim == 2 and lib.is_integer(key[0]):
+    #     return True
+    # slices always give views
+    if all(isinstance(k, slice) for k in key):
+        return True
+    return False
 
 
 class PintType(ExtensionDtype):
@@ -247,11 +273,7 @@ class PintType(ExtensionDtype):
             return None
 
 
-_NumpyEADtype = (
-    pd.core.dtypes.dtypes.PandasDtype  # type: ignore
-    if pandas_version_info < (2, 1)
-    else pd.core.dtypes.dtypes.NumpyEADtype  # type: ignore
-)
+_NumpyEADtype = pd.core.dtypes.dtypes.NumpyEADtype  # type: ignore
 
 dtypemap = {
     int: pd.Int64Dtype(),
@@ -447,10 +469,16 @@ class PintArray(ExtensionArray, ExtensionScalarOpsMixin):
             return self._Q(self._data[item], self.units)
 
         item = check_array_indexer(self, item)
+        result = self.__class__(self._data[item], self.dtype)
 
-        return self.__class__(self._data[item], self.dtype)
+        if getitem_returns_view(self, item):
+            result._readonly = self._readonly
+        return result
 
     def __setitem__(self, key, value):
+        if self._readonly:
+            raise ValueError("Cannot modify read-only array")
+
         # need to not use `not value` on numpy arrays
         if isinstance(value, (list, tuple)) and (not value):
             # doing nothing here seems to be ok
@@ -903,7 +931,7 @@ class PintArray(ExtensionArray, ExtensionScalarOpsMixin):
                 try:
                     res = cls.from_1darray_quantity(res, subdtype)
                 except TypeError:
-                    pass
+                    res = cls.from_1darray_quantity(res)
 
             return res
 
@@ -1002,6 +1030,42 @@ class PintArray(ExtensionArray, ExtensionScalarOpsMixin):
             value = [item.to(self.units).magnitude for item in value]
         return arr.searchsorted(value, side=side, sorter=sorter)
 
+    def _cast_pointwise_result(self, values):
+        """
+        Construct an ExtensionArray after a pointwise operation.
+
+        Cast the result of a pointwise operation (e.g. Series.map) to an
+        array. This is not required to return an ExtensionArray of the same
+        type as self or of the same dtype. It can also return another
+        ExtensionArray of the same "family" if you implement multiple
+        ExtensionArrays/Dtypes that are interoperable (e.g. if you have float
+        array with units, this method can return an int array with units).
+
+        If converting to your own ExtensionArray is not possible, this method
+        falls back to returning an array with the default type inference.
+        If you only need to cast to `self.dtype`, it is recommended to override
+        `_from_scalars` instead of this method.
+
+        Parameters
+        ----------
+        values : sequence
+
+        Returns
+        -------
+        ExtensionArray or ndarray
+        """
+
+        for i in values:
+            if isinstance(i, np.bool_):
+                return np.asarray(values, dtype=bool)
+            elif isinstance(i, _Quantity):
+                try:
+                    dtype = PintType(units=i.units, subdtype=self.dtype.subdtype)
+                    return type(self)._from_sequence(values, dtype=dtype)
+                except (TypeError, ValueError):
+                    dtype = PintType(units=i.units, subdtype=type(i.magnitude))
+                    return type(self)._from_sequence(values, dtype=dtype)
+
     def map(self, mapper, na_action=None):
         """
         Map values using an input mapping or function.
@@ -1020,13 +1084,9 @@ class PintArray(ExtensionArray, ExtensionScalarOpsMixin):
         If mapper is a function, operate on the magnitudes of the array and
 
         """
-        if pandas_version_info < (2, 1):
-            ser = pd.Series(self._to_array_of_quantity())
-            arr = ser.map(mapper, na_action).values
-        else:
-            from pandas.core.algorithms import map_array
+        from pandas.core.algorithms import map_array
 
-            arr = map_array(self, mapper, na_action)
+        arr = map_array(self, mapper, na_action)
 
         try:
             next(i for i in arr if hasattr(i, "units"))
@@ -1117,10 +1177,61 @@ class PintArray(ExtensionArray, ExtensionScalarOpsMixin):
 
         return self._from_sequence(result, self.dtype)
 
+    def _groupby_op(self, *args, **kwargs):
+        result = self._data._groupby_op(*args, **kwargs)
+        dtype = self.dtype
+        if kwargs["how"] == "var":
+            dtype = PintType(units=f"pint[({self.units})**2]", subdtype=result.dtype)
+        return self._from_sequence(result, dtype)
+
 
 PintArray._add_arithmetic_ops()
 PintArray._add_comparison_ops()
 register_extension_dtype(PintType)
+
+
+def _parse_column_name(column_name, separator, suffix):
+    if separator in column_name:
+        return column_name.rstrip(suffix).split(separator)
+    return column_name, NO_UNIT
+
+
+def _parsing_function(column_name):
+    global SINGLE_ROW_HEADER_SEPARATOR, SINGLE_ROW_HEADER_SUFFIX
+    # Use defined options if they exist
+    if SINGLE_ROW_HEADER_SEPARATOR is not None and SINGLE_ROW_HEADER_SUFFIX is not None:
+        return _parse_column_name(
+            column_name, SINGLE_ROW_HEADER_SEPARATOR, SINGLE_ROW_HEADER_SUFFIX
+        )
+
+    # Otherwise, check for the first separator in the column name
+    # and set the global variables for future use
+    for separator, suffix in [
+        (" [", "]"),
+        (" (", ")"),
+        (" / ", ""),
+    ]:
+        if separator in column_name:
+            SINGLE_ROW_HEADER_SEPARATOR = separator
+            SINGLE_ROW_HEADER_SUFFIX = suffix
+            return _parse_column_name(column_name, separator, suffix)
+    # If no separator is found, return the column name and no unit
+    return column_name, NO_UNIT
+
+
+def _formatter_func(dtype):
+    # TODO: remove once pint 0.24 is min version supported
+    if version_parse(pint.__version__).base_version < "0.24":
+        formatter = "{:" + dtype.ureg.default_format + "}"
+    else:
+        formatter = "{:" + dtype.ureg.formatter.default_format + "}"
+    return formatter.format(dtype.units)
+
+
+def _writing_function(column_name, units):
+    global SINGLE_ROW_HEADER_SEPARATOR, SINGLE_ROW_HEADER_SUFFIX
+    # Use defined options if they exist
+    return column_name + SINGLE_ROW_HEADER_SEPARATOR + units + SINGLE_ROW_HEADER_SUFFIX
 
 
 @register_dataframe_accessor("pint")
@@ -1128,8 +1239,14 @@ class PintDataFrameAccessor(object):
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
 
-    def quantify(self, level=-1):
+    def quantify(self, level=-1, parsing_function=_parsing_function):
         df = self._obj
+
+        if not isinstance(df.columns, pd.MultiIndex):
+            df.columns = pd.MultiIndex.from_tuples(
+                [parsing_function(col) for col in df.columns]
+            )
+
         df_columns = df.columns.to_frame()
         unit_col_name = df_columns.columns[level]
         units = df_columns[unit_col_name]
@@ -1147,24 +1264,37 @@ class PintDataFrameAccessor(object):
 
         return df_new
 
-    def dequantify(self):
-        def formatter_func(dtype):
-            # TODO: remove once pint 0.24 is min version supported
-            if version_parse(pint.__version__).base_version < "0.24":
-                formatter = "{:" + dtype.ureg.default_format + "}"
-            else:
-                formatter = "{:" + dtype.ureg.formatter.default_format + "}"
-            return formatter.format(dtype.units)
+    def dequantify(self, writing_function=None):
+        global SINGLE_ROW_HEADER_SEPARATOR, SINGLE_ROW_HEADER_SUFFIX
 
         df = self._obj
 
         df_columns = df.columns.to_frame()
         df_columns["units"] = [
-            formatter_func(df.dtypes.iloc[i])
+            _formatter_func(df.dtypes.iloc[i])
             if isinstance(df.dtypes.iloc[i], PintType)
             else NO_UNIT
             for i, col in enumerate(df.columns)
         ]
+
+        # Use default writing function when a function isn't provided,
+        # and a single line header has been read in previously
+        if writing_function is None:
+            if (
+                SINGLE_ROW_HEADER_SEPARATOR is not None
+                and SINGLE_ROW_HEADER_SUFFIX is not None
+            ):
+                writing_function = _writing_function
+
+        if not isinstance(df.columns, pd.MultiIndex) and writing_function is not None:
+            # If the columns are a MultiIndex, we need to drop the unit column
+            # and keep the rest of the columns
+            df_columns = pd.DataFrame(
+                [
+                    writing_function(*row) if row[1] != NO_UNIT else row[0]
+                    for row in df_columns.values
+                ]
+            )
 
         data_for_df = []
         for i, col in enumerate(df.columns):
@@ -1188,8 +1318,10 @@ class PintDataFrameAccessor(object):
                 )
 
         df_new = pd.concat(data_for_df, axis=1, copy=False)
-        df_new.columns.names = df.columns.names + ["unit"]
-
+        if len(df_columns.columns) > 1:
+            df_new.columns.names = df.columns.names + ["unit"]
+        else:
+            df_new.columns = df_new.columns.get_level_values(0)
         return df_new
 
     def to_base_units(self):
@@ -1287,6 +1419,8 @@ class DelegatedScalarProperty(DelegatedProperty):
 
 
 class DelegatedMethod(Delegated):
+    reinitialize = False
+
     def __get__(self, obj, type=None):
         index = object.__getattribute__(obj, "_index")
         name = object.__getattribute__(obj, "_name")
@@ -1294,6 +1428,12 @@ class DelegatedMethod(Delegated):
 
         def delegated_method(*args, **kwargs):
             result = method(*args, **kwargs)
+            if self.reinitialize:
+                q = object.__getattribute__(obj, "quantity")
+                values = pd.array(q.m)
+                dtype = PintType(units=q.units, subdtype=ddtypemap[q.dtype])
+                po = object.__getattribute__(obj, "pandas_obj")
+                po.__init__(values, dtype=dtype)
             if self.to_series:
                 if isinstance(result, _Quantity):
                     result = PintArray.from_1darray_quantity(
@@ -1307,6 +1447,11 @@ class DelegatedMethod(Delegated):
 
 class DelegatedScalarMethod(DelegatedMethod):
     to_series = False
+
+
+class DelegatedInplaceMethod(DelegatedMethod):
+    to_series = False
+    reinitialize = True
 
 
 for attr in [
@@ -1327,16 +1472,19 @@ for attr in [
     "check",
     "compatible_units",
     "format_babel",
-    "ito",
-    "ito_base_units",
-    "ito_reduced_units",
-    "ito_root_units",
     "plus_minus",
-    "put",
     "to_tuple",
     "tolist",
 ]:
     setattr(PintSeriesAccessor, attr, DelegatedScalarMethod(attr))
+for attr in [
+    "ito",
+    "ito_base_units",
+    "ito_reduced_units",
+    "ito_root_units",
+    "put",
+]:
+    setattr(PintSeriesAccessor, attr, DelegatedInplaceMethod(attr))
 for attr in [
     "clip",
     "from_tuple",

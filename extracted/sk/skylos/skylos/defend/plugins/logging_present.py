@@ -1,5 +1,3 @@
-"""Plugin: logging-present — LLM calls should have input/output logging."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -20,7 +18,9 @@ class LoggingPresentPlugin(DefensePlugin):
         "Use Python logging, structlog, or an LLM observability platform."
     )
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_logging:
             return self._pass(
                 integration,

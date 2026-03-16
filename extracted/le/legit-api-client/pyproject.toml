@@ -2,7 +2,7 @@
 license = "MIT"
 
 name = "legit_api_client"
-version = "1.1.4710"
+version = "1.1.4711"
 description = "Inventory"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},

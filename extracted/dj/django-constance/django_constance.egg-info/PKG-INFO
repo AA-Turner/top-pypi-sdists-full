@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-constance
-Version: 4.3.4
+Version: 4.3.5
 Summary: Django live settings with pluggable backends, including Redis.
 Author-email: Jannis Leidel <jannis@leidel.info>
 License: BSD

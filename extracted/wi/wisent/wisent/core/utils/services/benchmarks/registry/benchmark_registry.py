@@ -29,7 +29,8 @@ _benchmark_cache = {
 
 def _get_params_dir() -> Path:
     """Get the path to the lm_eval parameters directory."""
-    return Path(__file__).parent.parent / "parameters" / "lm_eval"
+    import wisent as _wisent_root
+    return Path(_wisent_root.__file__).parent / "support" / "parameters" / "lm_eval"
 
 
 def get_lm_eval_tasks() -> List[str]:

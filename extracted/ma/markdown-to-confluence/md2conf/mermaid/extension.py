@@ -11,25 +11,22 @@ import logging
 import uuid
 from pathlib import Path
 
-import lxml.etree as ET
 from cattrs import BaseValidationError
 
 from md2conf.attachment import EmbeddedFileData, ImageData, attachment_name
 from md2conf.compatibility import override, path_relative_to
-from md2conf.csf import AC_ATTR, AC_ELEM
-from md2conf.extension import MarketplaceExtension
+from md2conf.csf import AC_ATTR, AC_ELEM, ElementType
+from md2conf.extension import DiagramExtension
 from md2conf.formatting import ImageAttributes
 
 from .config import MermaidConfigProperties
 from .render import render_diagram
 from .scanner import MermaidScanner
 
-ElementType = ET._Element  # pyright: ignore [reportPrivateUsage]
-
 LOGGER = logging.getLogger(__name__)
 
 
-class MermaidExtension(MarketplaceExtension):
+class MermaidExtension(DiagramExtension):
     @override
     def matches_image(self, absolute_path: Path) -> bool:
         return absolute_path.name.endswith((".mmd", ".mermaid"))
@@ -57,7 +54,7 @@ class MermaidExtension(MarketplaceExtension):
 
             config = self._extract_mermaid_config(content)
             image_data = render_diagram(content, self.generator.options.output_format, config=config)
-            return self.generator.transform_attached_data(image_data, attrs, relative_path)
+            return self.generator.transform_attached_data(image_data, attrs, relative_path=relative_path)
         else:
             self.attachments.add_image(ImageData(absolute_path, attrs.alt))
             mermaid_filename = attachment_name(relative_path)
@@ -68,9 +65,9 @@ class MermaidExtension(MarketplaceExtension):
         if self.options.render:
             config = self._extract_mermaid_config(content)
             image_data = render_diagram(content, self.generator.options.output_format, config=config)
-            return self.generator.transform_attached_data(image_data, ImageAttributes.EMPTY_BLOCK)
+            return self.generator.transform_attached_data(image_data, ImageAttributes.EMPTY_BLOCK, content=content)
         else:
-            mermaid_data = content.encode("utf-8")
+            mermaid_data = content.encode()
             mermaid_hash = hashlib.md5(mermaid_data).hexdigest()
             mermaid_filename = attachment_name(f"embedded_{mermaid_hash}.mmd")
             self.attachments.add_embed(mermaid_filename, EmbeddedFileData(mermaid_data))

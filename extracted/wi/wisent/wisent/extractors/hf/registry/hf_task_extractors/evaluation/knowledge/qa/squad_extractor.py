@@ -13,10 +13,14 @@ __all__ = ["SQuADv2Extractor", "DROPExtractor"]
 
 class SQuADv2Extractor(HuggingFaceBenchmarkExtractor):
     """Extract contrastive pairs from SQuAD v2 benchmark."""
+    evaluator_name = "generation"
 
-    def __init__(self, context_max_length: int):
+    def __init__(self, context_max_length: int | None = None):
         super().__init__()
         self.name = "squadv2"
+        if context_max_length is None:
+            from wisent.core.utils.config_tools.constants import EXTRACTOR_CONTEXT_MAX_LENGTH
+            context_max_length = EXTRACTOR_CONTEXT_MAX_LENGTH
         self._context_max_length = context_max_length
 
     def extract_contrastive_pairs(self, limit: int | None = None) -> list[ContrastivePair]:
@@ -85,10 +89,14 @@ Answer:"""
 
 class DROPExtractor(HuggingFaceBenchmarkExtractor):
     """Extract contrastive pairs from DROP benchmark."""
+    evaluator_name = "generation"
 
-    def __init__(self, context_max_length: int):
+    def __init__(self, context_max_length: int | None = None):
         super().__init__()
         self.name = "drop"
+        if context_max_length is None:
+            from wisent.core.utils.config_tools.constants import EXTRACTOR_CONTEXT_MAX_LENGTH
+            context_max_length = EXTRACTOR_CONTEXT_MAX_LENGTH
         self._context_max_length = context_max_length
 
     def extract_contrastive_pairs(self, limit: int | None = None) -> list[ContrastivePair]:

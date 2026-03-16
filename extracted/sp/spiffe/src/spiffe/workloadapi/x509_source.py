@@ -16,8 +16,10 @@ under the License.
 
 import logging
 import threading
+import warnings
 from typing import Optional, Callable, List, FrozenSet
 
+from spiffe.bundle.x509_bundle.x509_bundle_set import X509BundleSet
 from spiffe.bundle.x509_bundle.x509_bundle import X509Bundle
 from spiffe.spiffe_id.spiffe_id import TrustDomain
 from spiffe.svid.x509_svid import X509Svid
@@ -111,6 +113,14 @@ class X509Source:
     @property
     def svid(self) -> X509Svid:
         """Returns an X509-SVID from the source."""
+        warnings.warn(
+            (
+                'X509Source.svid is deprecated; '
+                'use X509Source.get_x509_context().default_svid instead.'
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         with self._lock:
             if self._error is not None:
                 raise X509SourceError(
@@ -120,9 +130,33 @@ class X509Source:
                 raise X509SourceError('Cannot get X.509 SVID: source is closed')
             return self._x509_svid
 
+    def get_x509_context(self) -> X509Context:
+        """Returns a coherent X509Context snapshot for this source."""
+        with self._lock:
+            if self._error is not None:
+                raise X509SourceError(
+                    f'Cannot get X.509 context: source has error: {self._error}'
+                )
+            if self._closed:
+                raise X509SourceError('Cannot get X.509 context: source is closed')
+
+            bundle_set = X509BundleSet.of(list(self._x509_bundle_set.bundles))
+            return X509Context(
+                x509_svids=[self._x509_svid],
+                x509_bundle_set=bundle_set,
+            )
+
     @property
     def bundles(self) -> FrozenSet[X509Bundle]:
         """Returns the set of all X509Bundles."""
+        warnings.warn(
+            (
+                'X509Source.bundles is deprecated; '
+                'use X509Source.get_x509_context().x509_bundle_set.bundles instead.'
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         with self._lock:
             if self._error is not None:
                 raise X509SourceError(

@@ -89,7 +89,9 @@ class BaseEvaluator(ABC):
         if not getattr(cls, "name", None):
             raise TypeError("Evaluator subclasses must define a class attribute `name`.")
         if cls.name in BaseEvaluator._REGISTRY:
-            raise DuplicateNameError(name=cls.name, context="evaluator registry")
+            if BaseEvaluator._REGISTRY[cls.name] is cls:
+                return
+            raise DuplicateNameError(entity_type="evaluator", name=cls.name)
         BaseEvaluator._REGISTRY[cls.name] = cls  
 
     @abstractmethod

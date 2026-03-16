@@ -1,5 +1,3 @@
-"""Plugin: prompt-delimiter — user input in prompts must be delimited."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -21,10 +19,11 @@ class PromptDelimiterPlugin(DefensePlugin):
     )
 
     def applies_to(self, integration: LLMIntegration) -> bool:
-        # Only applies if there are input sources flowing to prompts
         return bool(integration.input_sources) and bool(integration.prompt_sites)
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_prompt_delimiter:
             return self._pass(
                 integration,

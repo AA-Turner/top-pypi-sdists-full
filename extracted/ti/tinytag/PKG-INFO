@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinytag
-Version: 2.2.0
+Version: 2.2.1
 Summary: Read audio file metadata
 Keywords: metadata,audio,music,mp3,m4a,wav,ogg,opus,flac,wma,aiff
 Author: Tom Wallroth, Mat (mathiascode)
@@ -37,7 +37,7 @@ Project-URL: Homepage, https://github.com/tinytag/tinytag
 Provides-Extra: tests
 
 <!--
-  SPDX-FileCopyrightText: 2014-2024 tinytag Contributors
+  SPDX-FileCopyrightText: 2014-2026 tinytag Contributors
   SPDX-License-Identifier: MIT
 -->
 
@@ -428,6 +428,10 @@ TinyTag.get(file_obj=your_file_obj)
 
 
 ## Changelog
+
+### 2.2.1  (2026-03-15)
+
+- ID3: Prevent infinite loop due to malformed SYLT strings
 
 ### 2.2.0  (2025-12-15)
 

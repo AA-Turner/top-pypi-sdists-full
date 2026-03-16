@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-fsm-2
-Version: 4.2.2
+Version: 4.2.3
 Summary: Django friendly finite state machine support.
 Project-URL: Homepage, http://github.com/django-commons/django-fsm-2
 Project-URL: Repository, http://github.com/django-commons/django-fsm-2

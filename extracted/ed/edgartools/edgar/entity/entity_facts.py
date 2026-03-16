@@ -6,7 +6,7 @@ analytics and AI-ready interfaces.
 """
 
 import warnings
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from datetime import date
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union as TypingUnion
 
@@ -76,7 +76,19 @@ def load_company_facts_from_local(cik: int) -> Dict[str, Any]:
     return json.loads(company_facts_file.read_text())
 
 
-_company_facts_cache: Dict[int, 'EntityFacts'] = {}
+_COMPANY_FACTS_CACHE_MAXSIZE = 1
+
+_company_facts_cache: OrderedDict[int, 'EntityFacts'] = OrderedDict()
+
+
+def clear_company_facts_cache():
+    """Clear the in-memory company facts cache.
+
+    Use this in long-running processes (web apps, MCP servers, notebooks)
+    to free memory from previously loaded EntityFacts objects.
+    Each major company's facts can consume 40-80 MB.
+    """
+    _company_facts_cache.clear()
 
 
 def get_company_facts(cik: int):
@@ -94,6 +106,7 @@ def get_company_facts(cik: int):
     """
     cached = _company_facts_cache.get(cik)
     if cached is not None:
+        _company_facts_cache.move_to_end(cik)
         return cached
 
     if is_using_local_storage():
@@ -111,6 +124,9 @@ def get_company_facts(cik: int):
     result = EntityFactsParser.parse_company_facts(company_facts_json)
     if result is not None:
         _company_facts_cache[cik] = result
+        # Evict oldest entry if cache exceeds max size
+        while len(_company_facts_cache) > _COMPANY_FACTS_CACHE_MAXSIZE:
+            _company_facts_cache.popitem(last=False)
     return result
 
 
@@ -141,8 +157,20 @@ class EntityFacts:
         self._facts = facts
         self._sic_code = sic_code
         self._ticker = ticker
+        self._sic_resolver = None
         self._fact_index = self._build_indices()
         self._cache = {}
+
+    def _resolve_industry_info(self):
+        """Lazily resolve SIC code and ticker for industry-specific statement enhancements.
+
+        Called only when building statements, not on initial facts access.
+        This avoids triggering a submissions download just to get SIC/ticker
+        when the user only needs raw facts, shares_outstanding, or TTM metrics.
+        """
+        if self._sic_code is None and self._sic_resolver is not None:
+            self._sic_code, self._ticker = self._sic_resolver()
+            self._sic_resolver = None
 
     def _suggest_concepts(self, query: str, n: int = 3) -> List[str]:
         """Return up to n concept keys similar to query, using difflib."""
@@ -304,13 +332,15 @@ class EntityFacts:
         filtered_facts = self.query().by_period_type(period_type).execute()
 
         # Create a new EntityFacts instance with the filtered facts
-        return EntityFacts(
+        filtered = EntityFacts(
             cik=self.cik,
             name=self.name,
             facts=filtered_facts,
             sic_code=self._sic_code,
             ticker=self._ticker
         )
+        filtered._sic_resolver = self._sic_resolver
+        return filtered
 
     def __rich__(self):
         """Creates a rich representation providing an at-a-glance view of company facts."""
@@ -1396,6 +1426,7 @@ class EntityFacts:
             df = stmt.to_dataframe()
         """
         # Always build the enhanced multi-period statement
+        self._resolve_industry_info()
         from edgar.entity.enhanced_statement import EnhancedStatementBuilder
         builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
         enhanced_stmt = builder.build_multi_period_statement(
@@ -1444,6 +1475,7 @@ class EntityFacts:
         """
         if not as_of:
             # Always build the enhanced multi-period statement for regular periods
+            self._resolve_industry_info()
             from edgar.entity.enhanced_statement import EnhancedStatementBuilder
             builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
             enhanced_stmt = builder.build_multi_period_statement(
@@ -1561,6 +1593,7 @@ class EntityFacts:
             df = stmt.to_dataframe()
         """
         # Always build the enhanced multi-period statement
+        self._resolve_industry_info()
         from edgar.entity.enhanced_statement import EnhancedStatementBuilder
         builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
         enhanced_stmt = builder.build_multi_period_statement(

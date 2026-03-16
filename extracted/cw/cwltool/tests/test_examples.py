@@ -575,6 +575,27 @@ def test_scandeps_defaults_with_secondaryfiles() -> None:
     ].endswith(os.path.join("tests", "wf", "indir1"))
 
 
+def test_issue_1765_print_deps_with_workflows_having_namespace_location_steps() -> None:
+    """Test for issue 1765.
+
+    An external workflow step passed the validation, but failed to print-deps.
+    """
+    stream = StringIO()
+
+    main(
+        [
+            "--print-deps",
+            "--relative-deps=primary",
+            "--debug",
+            get_data("tests/wf/print_deps_with_workflows_having_namespace_location_steps.cwl"),
+        ],
+        stdout=stream,
+    )
+    assert json.loads(stream.getvalue())["secondaryFiles"][0]["secondaryFiles"][0][
+        "location"
+    ].endswith("EDAM_1.18.owl")
+
+
 def test_dedupe() -> None:
     not_deduped: list[CWLObjectType] = [
         {"class": "File", "location": "file:///example/a"},
@@ -1096,8 +1117,7 @@ def test_print_dot() -> None:
     cwl_path = get_data("tests/wf/three_step_color.cwl")
     expected_dot = cast(
         list[pydot.core.Dot],
-        pydot.graph_from_dot_data(
-            """
+        pydot.graph_from_dot_data("""
     digraph {{
         graph [bgcolor="#eeeeee",
                 clusterrank=local,
@@ -1141,8 +1161,7 @@ def test_print_dot() -> None:
         "operation" -> "string_output";
         "command_line_tool" -> "file_output";
 }}
-    """.format()
-        ),
+    """.format()),
     )[0]
     stdout = StringIO()
     assert main(["--debug", "--print-dot", cwl_path], stdout=stdout) == 0
@@ -1940,3 +1959,16 @@ def test_make_template() -> None:
         ]
     )
     assert exit_code == 0, stderr
+
+
+def test_anonymous_record_mismatch_error() -> None:
+    """Ensure that mis-matched usages of anonymous records generates a good error message."""
+    exit_code, stdout, stderr = get_main_output(
+        [
+            "--validate",
+            get_data("tests/2205.cwl"),
+        ]
+    )
+    assert exit_code == 1, stderr
+    assert "tests/2205.cwl:11:9: Record comparison failure between this record and " in stdout
+    assert "tests/2205.cwl:24:14: Did not match fields for 'missing': None and string." in stdout

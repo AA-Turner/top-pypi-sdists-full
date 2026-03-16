@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lastversion
-Version: 3.6.8
+Version: 3.6.9
 Summary: A CLI tool to find the latest stable version of an arbitrary project
 Home-page: https://github.com/dvershinin/lastversion
 Author: Danila Vershinin

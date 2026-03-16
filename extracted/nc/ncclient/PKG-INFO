@@ -1,41 +1,44 @@
 Metadata-Version: 2.4
 Name: ncclient
-Version: 0.7.0
+Version: 0.7.1
 Summary: Python library for NETCONF clients
-Home-page: https://github.com/ncclient/ncclient
+Project-URL: Homepage, https://github.com/ncclient/ncclient
+Project-URL: Documentation, https://ncclient.readthedocs.io/
+Project-URL: Repository, https://github.com/ncclient/ncclient
+Project-URL: Issues, https://github.com/ncclient/ncclient/issues
 Author: Shikhar Bhushan, Leonidas Poulopoulos, Ebben Aries, Einar Nilsen-Nygaard
-Author-email: shikhar@schmizz.net, lpoulopoulos@verisign.com, exa@dscp.org, einarnn@gmail.com
-License: Apache 2.0
-Keywords: NETCONF,NETCONF Python client,Juniper Optimization,Cisco NXOS Optimization
-Platform: Posix; OS X; Windows
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Topic :: System :: Networking
-Classifier: Intended Audience :: Developers
-Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.5
+Maintainer: ncclient maintainers
+License-Expression: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: paramiko>=3.2.0
+Keywords: Cisco NXOS Optimization,Juniper Optimization,NETCONF,NETCONF Python client
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
+Requires-Python: >=3.7
 Requires-Dist: lxml>=3.3.0
+Requires-Dist: paramiko>=3.2.0
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == 'docs'
 Provides-Extra: libssh
-Requires-Dist: ssh-python>=1.1.1; extra == "libssh"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: ssh-python>=1.1.1; extra == 'libssh'
+Provides-Extra: release
+Requires-Dist: twine; extra == 'release'
+Provides-Extra: test
+Requires-Dist: mock; (python_version < '3.6') and extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Description-Content-Type: text/x-rst
 
 ncclient: Python library for NETCONF clients
 --------------------------------------------
@@ -70,12 +73,6 @@ apt-get):
 
 Installation:
 ^^^^^^^^^^^^^
-
-::
-
-    [ncclient] $ sudo python setup.py install
-
-or via pip:
 
 ::
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypsrp
-Version: 0.9.0
+Version: 0.9.1
 Summary: PowerShell Remoting Protocol and WinRM for Python
 Author-email: Jordan Borean <jborean93@gmail.com>
 License-Expression: MIT

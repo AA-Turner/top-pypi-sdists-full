@@ -162,6 +162,7 @@ def generate_and_upload_baseline(
             "question": prompt,
             "choices": [neg_response, expected],
             "task_name": benchmark,
+            "model": wisent_model,
         }
         metadata = pair_dict.get("metadata", {})
         if metadata:

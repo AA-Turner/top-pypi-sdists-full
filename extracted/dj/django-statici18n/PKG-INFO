@@ -1,29 +1,43 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-statici18n
-Version: 2.6.0
+Version: 2.7.1
 Summary: A Django app that compiles i18n JavaScript catalogs to static files.
 Home-page: http://django-statici18n.readthedocs.org/
 Author: Sebastien Fievet
-Author-email: zyegfryed@gmail.com
+Author-email: _@sebastien-fievet.net
 License: BSD
 Project-URL: Source, https://github.com/zyegfryed/django-statici18n
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: Django>=3.2
+Requires-Dist: Django<6.1,>=4.2
 Requires-Dist: django-appconf>=1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 django-statici18n
 =================
@@ -66,7 +80,7 @@ Supported Django Versions
 
 ``django-statici18n`` works with all the Django versions officially
 supported by the Django project. At this time of writing, these are the
-4.2 (LTS), 5.0 and 5.1 series.
+4.2 (LTS), 5.2 (LTS) and 6.0 series.
 
 Installation
 ------------
@@ -136,9 +150,9 @@ The following step assumes you're using `django.contrib.staticfiles`_.
     <script>{% inlinei18n LANGUAGE_CODE %}</script>
 
 .. _PyPI: http://pypi.python.org/pypi/django-statici18n
-.. _translated: https://docs.djangoproject.com/en/4.2/topics/i18n/translation/#message-files
-.. _compiled: https://docs.djangoproject.com/en/4.2/topics/i18n/translation/#compiling-message-files
-.. _django.core.context_processors.i18n: https://docs.djangoproject.com/en/4.2/ref/templates/api/#django-template-context-processors-i18n
+.. _translated: https://docs.djangoproject.com/en/5.2/topics/i18n/translation/#message-files
+.. _compiled: https://docs.djangoproject.com/en/5.2/topics/i18n/translation/#compiling-message-files
+.. _django.core.context_processors.i18n: https://docs.djangoproject.com/en/5.2/ref/templates/api/#django-template-context-processors-i18n
 .. _Upgrading templates to Django 1.8: https://docs.djangoproject.com/en/2.2/ref/templates/upgrading/
-.. _dynamically generated script: https://docs.djangoproject.com/en/4.2/topics/i18n/translation/#using-the-javascript-translation-catalog
-.. _django.contrib.staticfiles: https://docs.djangoproject.com/en/4.2/ref/contrib/staticfiles/
+.. _dynamically generated script: https://docs.djangoproject.com/en/5.2/topics/i18n/translation/#using-the-javascript-translation-catalog
+.. _django.contrib.staticfiles: https://docs.djangoproject.com/en/5.2/ref/contrib/staticfiles/

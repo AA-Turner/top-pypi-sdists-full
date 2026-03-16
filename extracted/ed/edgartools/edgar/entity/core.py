@@ -549,8 +549,8 @@ class Entity(SecFiler):
         return filings.latest(n)
 
     def __str__(self):
-        if hasattr(self, 'data'):
-            return f"Entity({self.data.name} [{self.cik}])"
+        if self._data is not None:
+            return f"Entity({self._data.name} [{self.cik}])"
         return f"Entity(CIK={self.cik})"
 
     def __rich__(self):
@@ -610,14 +610,14 @@ class Company(Entity):
 
     def get_financials(self) -> Optional[Financials]:
         """
-        Get financial statements from this company's latest 10-K annual report.
+        Get financial statements from this company's latest annual report.
 
-        This is the recommended starting point for financial analysis. Returns a
-        Financials object with access to income statement, balance sheet, and
-        cash flow statement — typically covering 3 years of data.
+        Checks 10-K first, then falls back to 20-F (foreign private issuers)
+        and 40-F (Canadian filers). Returns a Financials object with access to
+        income statement, balance sheet, and cash flow statement.
 
         Returns:
-            Financials object, or None if no 10-K filing is available
+            Financials object, or None if no annual filing is available
 
         Example::
 
@@ -630,17 +630,23 @@ class Company(Entity):
         tenk_filing = self.latest_tenk
         if tenk_filing is not None:
             return tenk_filing.financials
+        # Fall back to 20-F (foreign private issuers) and 40-F (Canadian filers)
+        for form in ('20-F', '40-F'):
+            filing = self.get_filings(form=form, amendments=False, trigger_full_load=False).latest()
+            if filing is not None:
+                return Financials.extract(filing)
         return None
 
     def get_quarterly_financials(self) -> Optional[Financials]:
         """
-        Get financial statements from this company's latest 10-Q quarterly report.
+        Get financial statements from this company's latest quarterly report.
 
+        Checks 10-Q first, then falls back to 6-K (foreign private issuers).
         Returns a Financials object with the same interface as get_financials(),
         but with quarterly data instead of annual.
 
         Returns:
-            Financials object, or None if no 10-Q filing is available
+            Financials object, or None if no quarterly filing is available
 
         Example::
 
@@ -651,6 +657,10 @@ class Company(Entity):
         tenq_filing = self.latest_tenq
         if tenq_filing is not None:
             return tenq_filing.financials
+        # Fall back to 6-K (foreign private issuers)
+        filing = self.get_filings(form='6-K', amendments=False, trigger_full_load=False).latest()
+        if filing is not None:
+            return Financials.extract(filing)
         return None
 
     @property
@@ -883,14 +893,15 @@ class Company(Entity):
             EntityFacts object with SIC code and ticker set, optionally filtered by period type
         """
         facts = super().get_facts(period_type)
-        if facts:
-            # Inject SIC code and ticker for industry-specific statement building
-            # Ticker is used for curated industries like payment_networks where SIC doesn't map well
-            facts._sic_code = self.sic
-            facts._ticker = self.tickers[0] if self.tickers else None
+        if facts and facts._sic_code is None and facts._sic_resolver is None:
+            # Defer SIC/ticker resolution until statement-building time.
+            # This avoids triggering a submissions download just to get metadata
+            # when the user only needs raw facts, shares_outstanding, or TTM metrics.
+            company = self  # capture for closure
+            facts._sic_resolver = lambda: (company.sic, company.tickers[0] if company.tickers else None)
         return facts
 
-    @property
+    @cached_property
     def facts(self) -> Optional['EntityFacts']:
         """Get enhanced structured facts about this company."""
         return self.get_facts()
@@ -1501,14 +1512,14 @@ class Company(Entity):
         raise ValueError(f"Invalid date format: '{as_of}'. Use 'YYYY-MM-DD' or 'YYYY-QN'")
 
     def __str__(self):
-        if hasattr(self, 'data') and self.data.name:
+        if self._data is not None and self._data.name:
             # Handle individuals (persons)
-            if self.data.is_individual:
+            if self._data.is_individual:
                 return f"{self.display_name} (Person) CIK:{self.cik}"
 
             # Company format
             ticker = self.get_ticker()
-            parts = [self.data.name]
+            parts = [self._data.name]
             if ticker:
                 parts.append(f"[{ticker}]")
             parts.append(f"CIK:{self.cik}")

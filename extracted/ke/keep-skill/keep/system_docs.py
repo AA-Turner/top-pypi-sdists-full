@@ -287,6 +287,8 @@ def migrate_system_documents(keeper: "Keeper", progress=None) -> dict:
             existing_doc = keeper._document_store.get(doc_coll, new_id)
             if existing_doc:
                 prev_hash = existing_doc.tags.get("bundled_hash")
+                if isinstance(prev_hash, list):
+                    prev_hash = prev_hash[0] if prev_hash else None
                 if prev_hash == bundled_hash:
                     # Content unchanged — skip to avoid creating spurious versions
                     continue
@@ -331,7 +333,11 @@ def migrate_system_documents(keeper: "Keeper", progress=None) -> dict:
             # Activate edge backfill for tagdocs with _inverse
             if new_id.startswith(".tag/") and "/" not in new_id[5:]:
                 old_inverse = existing_doc.tags.get("_inverse") if existing_doc else None
+                if isinstance(old_inverse, list):
+                    old_inverse = old_inverse[0]
                 new_inverse = tags.get("_inverse")
+                if isinstance(new_inverse, list):
+                    new_inverse = new_inverse[0]
                 if new_inverse and new_inverse != old_inverse:
                     # New or changed _inverse → enqueue backfill
                     if old_inverse:

@@ -470,6 +470,131 @@ def render_context(ctx: ItemContext, as_json: bool = False) -> str:
     return _render_frontmatter(ctx)
 
 
+def _dicts_to_items(raw: list, summary_limit: int = 200) -> "list[Item]":
+    """Convert find-action result dicts to Item objects for rendering.
+
+    Truncates summaries to *summary_limit* chars to keep output bounded.
+    """
+    from .types import Item
+
+    items = []
+    for r in raw:
+        if not isinstance(r, dict):
+            continue
+        score = r.get("score")
+        summary = str(r.get("summary", ""))
+        if len(summary) > summary_limit:
+            summary = summary[:summary_limit] + "..."
+        items.append(Item(
+            id=str(r.get("id", "")),
+            summary=summary,
+            tags=dict(r.get("tags", {})),
+            score=float(score) if isinstance(score, (int, float)) else None,
+        ))
+    return items
+
+
+def render_flow_response(
+    result: "FlowResult",
+    token_budget: int = 4000,
+    keeper=None,
+) -> str:
+    """Render a FlowResult as token-budgeted text for LLM consumption.
+
+    Reuses render_find_context() for search result lists found in the
+    flow's return data.
+    """
+    def _tok(text: str) -> int:
+        return len(text) // 4
+
+    lines: list[str] = []
+    remaining = token_budget
+
+    # Header
+    header = f"flow: {result.status} ({result.ticks} ticks)"
+    if result.history:
+        header += f" via {' > '.join(result.history)}"
+    lines.append(header)
+    remaining -= _tok(header)
+
+    # Render data fields — auto-detect result lists, meta sections, scalars
+    def _render_result_list(label: str, raw: list) -> None:
+        nonlocal remaining
+        items = _dicts_to_items(raw)
+        if not items or remaining <= 0:
+            return
+        section_budget = min(remaining, token_budget // 3)
+        rendered = render_find_context(
+            items, keeper=keeper, token_budget=section_budget,
+        )
+        section = f"\n{label}:\n{rendered}"
+        lines.append(section)
+        remaining -= _tok(section)
+
+    if result.data and remaining > 0:
+        for key, val in result.data.items():
+            if remaining <= 0:
+                break
+            if val is None:
+                continue
+            # Direct result list (e.g., data.results)
+            if isinstance(val, list) and val and isinstance(val[0], dict):
+                _render_result_list(key, val)
+            # Action binding with results (e.g., data.similar = {results: [...]})
+            elif isinstance(val, dict) and "results" in val:
+                raw_results = val["results"]
+                if isinstance(raw_results, list) and raw_results:
+                    _render_result_list(key, raw_results)
+            # Meta sections (e.g., data.meta = {sections: {learnings: [...], todo: [...]}})
+            elif isinstance(val, dict) and "sections" in val:
+                for section_name, section_items in val["sections"].items():
+                    if isinstance(section_items, list) and section_items and remaining > 0:
+                        _render_result_list(f"meta/{section_name}", section_items)
+            # Versions (e.g., data.versions = {versions: [{offset, summary, date}], count})
+            elif isinstance(val, dict) and "versions" in val:
+                vers = val["versions"]
+                if isinstance(vers, list) and vers and remaining > 0:
+                    lines.append(f"\n{key}:")
+                    for v in vers:
+                        if remaining <= 0:
+                            break
+                        line = f"  - @V{{{v.get('offset', '?')}}}  [{v.get('date', '')[:10]}]  {str(v.get('summary', ''))[:150]}"
+                        lines.append(line)
+                        remaining -= _tok(line)
+            # Edges (e.g., data.edges = {edges: {predicate: [{id, summary, ...}]}, count})
+            elif isinstance(val, dict) and "edges" in val:
+                edge_groups = val["edges"]
+                if isinstance(edge_groups, dict) and edge_groups and remaining > 0:
+                    lines.append(f"\n{key}:")
+                    for predicate, refs in edge_groups.items():
+                        if remaining <= 0:
+                            break
+                        if isinstance(refs, list):
+                            for ref in refs:
+                                if remaining <= 0:
+                                    break
+                                line = f"  - [{predicate}] {ref.get('id', '')}  {str(ref.get('summary', ''))[:100]}"
+                                lines.append(line)
+                                remaining -= _tok(line)
+            # Scalar (margin, entropy, reason, item_id, etc.)
+            elif not isinstance(val, (dict, list)):
+                line = f"{key}: {val}"
+                lines.append(line)
+                remaining -= _tok(line)
+
+    # Tried queries (for stopped flows)
+    if result.tried_queries and remaining > 0:
+        line = f"queries tried: {', '.join(repr(q) for q in result.tried_queries)}"
+        lines.append(line)
+        remaining -= _tok(line)
+
+    # Cursor for stopped flows
+    if result.cursor:
+        lines.append(f"\ncursor: {result.cursor}")
+
+    return "\n".join(lines)
+
+
 def render_find_context(
     items: "list[Item]",
     keeper=None,
@@ -490,7 +615,7 @@ def render_find_context(
     is skipped — this gives maximum budget to deep-discovered evidence,
     useful for multi-hop queries.
 
-    Used by expand_prompt() for {find} expansion and MCP keep_find.
+    Used by expand_prompt() for {find} expansion and MCP keep_flow.
     """
     from .types import SYSTEM_TAG_PREFIX
 
@@ -3022,7 +3147,7 @@ def _get_config_value(cfg, store_path: Path, path: str):
             subprocess.Popen(["xdg-open", str(out)])
         return (
             'After installation, just say to Claude:\n'
-            'Please read all the keep_help documentation, and then use keep_prompt(name="reflect")'
+            'Please read all the keep_help documentation, and then use keep_prompt(name="reflect") to save some notes about what you learn.'
         )
     if path == "docs":
         return str(get_tool_directory() / "docs")
@@ -3432,6 +3557,10 @@ def pending_cmd(
         "--retry",
         help="Reset failed items back to pending for retry"
     )] = False,
+    list_items: Annotated[bool, typer.Option(
+        "--list", "-l",
+        help="List pending work items"
+    )] = False,
     purge: Annotated[bool, typer.Option(
         "--purge",
         help="Delete all pending work items from the queue"
@@ -3564,7 +3693,7 @@ def pending_cmd(
                 if result["processed"] == 0 and result["failed"] == 0 and delegated == 0 and not flow_activity:
                     # Check for outstanding delegated tasks before exiting
                     delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
-                    flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+                    flow_remaining = kp.pending_work_count(claimable_only=True) if hasattr(kp, "pending_work_count") else 0
                     pending_remaining = kp._pending_queue.count()
                     if delegated_remaining > 0:
                         _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
@@ -3652,6 +3781,25 @@ def pending_cmd(
             f"Enqueued {stats['enqueued']} items + {stats['versions']} versions",
             err=True,
         )
+
+    # --list: show pending items and exit
+    if list_items:
+        items = kp._pending_queue.list_pending()
+        failed = kp._pending_queue.list_failed()
+        if not items and not failed:
+            typer.echo("Nothing pending.")
+        else:
+            if items:
+                for item in items:
+                    retry = f" (retry after {item['retry_after']})" if item.get("retry_after") else ""
+                    typer.echo(f"  {item['task_type']:15s} {item['supersede_key'] or item['work_id']}{retry}")
+            if failed:
+                typer.echo(f"\nFailed ({len(failed)}):")
+                for item in failed[:10]:
+                    error = item.get("last_error", "unknown")
+                    typer.echo(f"  {item['task_type']:15s} {item['id']}: {error}")
+        kp.close()
+        return
 
     # Interactive mode: show status, ensure daemon running, tail log
     pending_count = kp.pending_count()
@@ -3856,12 +4004,10 @@ def flow_cmd(
     }
     if result.data:
         output["data"] = result.data
-    if result.bindings:
-        output["bindings"] = result.bindings
-    if result.history:
-        output["history"] = result.history
     if result.cursor:
         output["cursor"] = result.cursor
+    if result.tried_queries:
+        output["tried_queries"] = result.tried_queries
 
     if _get_json_output():
         typer.echo(json.dumps(output, ensure_ascii=False))

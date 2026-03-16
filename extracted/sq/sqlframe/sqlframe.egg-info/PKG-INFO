@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 3.48.0
+Version: 3.49.0
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
@@ -25,7 +25,7 @@ Requires-Dist: google-cloud-bigquery-storage<3,>=2; extra == "bigquery"
 Provides-Extra: databricks
 Requires-Dist: databricks-sql-connector[pyarrow]<5,>=3.6; extra == "databricks"
 Provides-Extra: dev
-Requires-Dist: duckdb<1.5,>=1.2; extra == "dev"
+Requires-Dist: duckdb<1.6,>=1.2; extra == "dev"
 Requires-Dist: findspark<3,>=2; extra == "dev"
 Requires-Dist: mirakuru<3.0.3; extra == "dev"
 Requires-Dist: ty>=0.0.18; extra == "dev"
@@ -50,7 +50,7 @@ Requires-Dist: mkdocs-material==9.0.5; extra == "docs"
 Requires-Dist: mkdocs-material-extensions==1.1.1; extra == "docs"
 Requires-Dist: pymdown-extensions; extra == "docs"
 Provides-Extra: duckdb
-Requires-Dist: duckdb<1.5,>=1.2; extra == "duckdb"
+Requires-Dist: duckdb<1.6,>=1.2; extra == "duckdb"
 Requires-Dist: pandas<4,>=2; extra == "duckdb"
 Provides-Extra: openai
 Requires-Dist: openai<3,>=1.30; extra == "openai"

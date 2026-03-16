@@ -1,5 +1,3 @@
-"""Plugin: cost-controls — LLM API calls should set max_tokens."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -21,7 +19,9 @@ class CostControlsPlugin(DefensePlugin):
         "to cap response length and control costs."
     )
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_max_tokens:
             return self._pass(
                 integration,

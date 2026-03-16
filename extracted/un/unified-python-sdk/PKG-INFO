@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.57.18
+Version: 0.57.19
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -337,7 +337,7 @@ asyncio.run(main())
 * [list_ads_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_groups) - List all groups
 * [list_ads_insertionorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_insertionorders) - List all insertionorders
 * [list_ads_organizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_organizations) - List all organizations
-* [list_ads_promotedes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_promotedes) - List all promotedes
+* [list_ads_promoteds](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_promoteds) - List all promoteds
 * [list_ads_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_reports) - List all reports
 * [list_ads_targets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_targets) - List all targets
 * [patch_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_ad) - Update an ad
@@ -1441,7 +1441,7 @@ asyncio.run(main())
 
 ### [Promoted](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md)
 
-* [list_ads_promotedes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md#list_ads_promotedes) - List all promotedes
+* [list_ads_promoteds](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/promoted/README.md#list_ads_promoteds) - List all promoteds
 
 ### [Prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/prompt/README.md)
 

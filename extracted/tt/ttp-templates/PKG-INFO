@@ -1,40 +1,34 @@
-Metadata-Version: 2.1
-Name: ttp-templates
-Version: 0.3.7
+Metadata-Version: 2.4
+Name: ttp_templates
+Version: 0.4.0
 Summary: Template Text Parser Templates collections
-Home-page: https://github.com/dmulyalin/ttp_templates
 License: MIT
+License-File: LICENSE
 Keywords: Parsing,TTP,regex
 Author: Denis Mulyalin
 Author-email: d.mulyalin@gmail.com
 Maintainer: Denis Mulyalin
 Maintainer-email: d.mulyalin@gmail.com
-Requires-Python: >=3.6,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Provides-Extra: docs
-Requires-Dist: mkdocs (==1.2.4) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: mkdocs-material (==7.2.2) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: mkdocs-material-extensions (==1.0.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: mkdocstrings[python] (>=0.18.0,<0.19.0) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: pygments (==2.11) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: pymdown-extensions (==9.3) ; (python_version >= "3.7") and (extra == "docs")
+Requires-Dist: mkdocs ; extra == "docs"
+Requires-Dist: mkdocs-material ; extra == "docs"
+Requires-Dist: mkdocs-material-extensions ; extra == "docs"
+Requires-Dist: mkdocstrings[python] ; extra == "docs"
+Requires-Dist: pygments ; extra == "docs"
+Requires-Dist: pymdown-extensions ; extra == "docs"
 Requires-Dist: ttp (>=0.6.0)
 Project-URL: Documentation, https://dmulyalin.github.io/ttp_templates/
+Project-URL: Homepage, https://github.com/dmulyalin/ttp_templates
 Project-URL: Repository, https://github.com/dmulyalin/ttp_templates
 Description-Content-Type: text/markdown
 
@@ -262,5 +256,6 @@ List of resources with TTP templates:
 
 - TTP SrosParser - https://pypi.org/project/ttp-sros-parser/ by [h4ndzdatm0ld](https://github.com/h4ndzdatm0ld)
 - Template for parsing "show run" for Cisco IOS - https://github.com/tbotnz/ios-show-run-ttp by [tbotnz](https://github.com/tbotnz)
-- Template for Cisco ASA configuration - https://gist.github.com/consentfactory/85872fc83453d1735b15aed3e47a9763 by [consentfactory](https://gist.github.com/consentfactory)
+- Template for Cisco ASA configuration - https://github.com/consentfactory/ttp-cisco-asa-template by [consentfactory](https://gist.github.com/consentfactory)
+  - (gist for historical purposes) https://gist.github.com/consentfactory/85872fc83453d1735b15aed3e47a9763
 

@@ -11,13 +11,12 @@ import logging
 import uuid
 from pathlib import Path
 
-import lxml.etree as ET
 from cattrs import BaseValidationError
 
 from md2conf.attachment import EmbeddedFileData, ImageData, attachment_name
 from md2conf.compatibility import override, path_relative_to
-from md2conf.csf import AC_ATTR, AC_ELEM
-from md2conf.extension import MarketplaceExtension
+from md2conf.csf import AC_ATTR, AC_ELEM, ElementType
+from md2conf.extension import DiagramExtension
 from md2conf.formatting import ImageAttributes
 from md2conf.svg import get_svg_dimensions
 
@@ -25,12 +24,10 @@ from .config import PlantUMLConfigProperties
 from .render import compress_plantuml_data, has_plantuml, render_diagram
 from .scanner import PlantUMLScanner
 
-ElementType = ET._Element  # pyright: ignore [reportPrivateUsage]
-
 LOGGER = logging.getLogger(__name__)
 
 
-class PlantUMLExtension(MarketplaceExtension):
+class PlantUMLExtension(DiagramExtension):
     @override
     def matches_image(self, absolute_path: Path) -> bool:
         return absolute_path.name.endswith((".puml", ".plantuml"))
@@ -74,7 +71,10 @@ class PlantUMLExtension(MarketplaceExtension):
             # render diagram as image file (PNG or SVG based on diagram output format)
             config = self._extract_plantuml_config(content)
             image_data = render_diagram(content, self.generator.options.output_format, config=config)
-            return self.generator.transform_attached_data(image_data, attrs, relative_path)
+            if relative_path is not None:
+                return self.generator.transform_attached_data(image_data, attrs, relative_path=relative_path)
+            else:
+                return self.generator.transform_attached_data(image_data, attrs, content=content)
         else:
             if relative_path is not None:
                 absolute_path = self.base_dir / relative_path
@@ -94,7 +94,7 @@ class PlantUMLExtension(MarketplaceExtension):
                     svg_filename = attachment_name(relative_path.with_suffix(".svg"))
                     self.attachments.add_embed(svg_filename, EmbeddedFileData(image_data, attrs.alt))
                 else:
-                    plantuml_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+                    plantuml_hash = hashlib.md5(content.encode()).hexdigest()
                     svg_filename = attachment_name(f"embedded_{plantuml_hash}.svg")
                     self.attachments.add_embed(svg_filename, EmbeddedFileData(image_data))
 

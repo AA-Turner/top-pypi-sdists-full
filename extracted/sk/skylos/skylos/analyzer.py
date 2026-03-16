@@ -78,6 +78,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Skylos")
 
+# Load LLM-tuned heuristic weights if available, else use defaults
+_heuristic_weights = {"same_file_attr": 1.0, "same_pkg_attr": 0.3, "global_attr": 0.1}
+try:
+    from skylos.llm.feedback import get_tuned_weights
+
+    _heuristic_weights = get_tuned_weights()
+except Exception:
+    pass
+
 
 class Skylos:
     def __init__(self):
@@ -647,17 +656,17 @@ class Skylos:
                     ctx_pkg = ctx_mod.split(".")[0] if ctx_mod else ""
 
                     if ctx_mod == defn_mod:
-                        defn.heuristic_refs["same_file_attr"] = (
-                            defn.heuristic_refs.get("same_file_attr", 0.0) + 1.0
-                        )
+                        defn.heuristic_refs["same_file_attr"] = defn.heuristic_refs.get(
+                            "same_file_attr", 0.0
+                        ) + _heuristic_weights.get("same_file_attr", 1.0)
                     elif ctx_pkg and defn_pkg and ctx_pkg == defn_pkg:
-                        defn.heuristic_refs["same_pkg_attr"] = (
-                            defn.heuristic_refs.get("same_pkg_attr", 0.0) + 0.3
-                        )
+                        defn.heuristic_refs["same_pkg_attr"] = defn.heuristic_refs.get(
+                            "same_pkg_attr", 0.0
+                        ) + _heuristic_weights.get("same_pkg_attr", 0.3)
                     else:
-                        defn.heuristic_refs["global_attr"] = (
-                            defn.heuristic_refs.get("global_attr", 0.0) + 0.1
-                        )
+                        defn.heuristic_refs["global_attr"] = defn.heuristic_refs.get(
+                            "global_attr", 0.0
+                        ) + _heuristic_weights.get("global_attr", 0.1)
 
     def _get_base_classes(self, class_name):
         if class_name not in self.defs:
@@ -703,13 +712,41 @@ class Skylos:
         if registry_bases:
             registry_simple_names = {b.split(".")[-1] for b in registry_bases}
 
+            parents_of: dict[str, list[str]] = {}
+            for n, d in self.defs.items():
+                if d.type == "class":
+                    parents_of[n] = getattr(d, "base_classes", [])
+
+            suffix_to_qname: dict[str, str] = {}
+            for n in parents_of:
+                parts = n.split(".")
+                for i in range(len(parts)):
+                    suffix = ".".join(parts[i:])
+                    if suffix not in suffix_to_qname:
+                        suffix_to_qname[suffix] = n
+
+            def _resolve(name: str) -> str:
+                if name in parents_of:
+                    return name
+                return suffix_to_qname.get(name, name)
+
+            def _has_registry_ancestor(cls_name: str) -> bool:
+                visited: set[str] = set()
+                stack = [_resolve(b) for b in parents_of.get(cls_name, [])]
+                while stack:
+                    ancestor = stack.pop()
+                    if ancestor in visited:
+                        continue
+                    visited.add(ancestor)
+                    if ancestor in registry_bases:
+                        return True
+                    stack.extend(_resolve(b) for b in parents_of.get(ancestor, []))
+                return False
+
             for name, defn in self.defs.items():
                 if defn.type == "class":
-                    bases = getattr(defn, "base_classes", [])
-                    for base in bases:
-                        if base in registry_bases:
-                            defn.references += 1
-                            break
+                    if _has_registry_ancestor(name):
+                        defn.references += 1
 
                 if defn.type == "function" and defn.return_type:
                     if defn.return_type in registry_simple_names:
@@ -1118,7 +1155,9 @@ class Skylos:
                         if findings:
                             all_secrets.extend(findings)
                     except Exception:
-                        logger.debug("Secret scan failed for config file", exc_info=True)
+                        logger.debug(
+                            "Secret scan failed for config file", exc_info=True
+                        )
 
         finally:
             if injected:
@@ -1319,18 +1358,15 @@ class Skylos:
                         path[0] if isinstance(path, (list, tuple)) else path
                     ).resolve()
 
-                    # Scan Python files already collected
                     for f in files:
                         if str(f).endswith(".py"):
                             inj_hits = _injection_scan_file(f)
                             if inj_hits:
                                 all_dangers.extend(inj_hits)
 
-                    # Also scan non-Python text files (md, yaml, json, toml, env, etc.)
                     if _inj_root.is_dir():
                         _non_py_exts = SCANNABLE_EXTENSIONS - {".py"}
                         for dirpath, dirnames, filenames in os.walk(_inj_root):
-                            # Prune excluded/hidden dirs
                             dirnames[:] = [
                                 d
                                 for d in dirnames

@@ -418,12 +418,17 @@ class TPESampler(BaseSampler):
             assert self._search_space_group is not None
             params = {}
             for sub_space in self._search_space_group.search_spaces:
-                search_space = {}
+                _search_space = {}
                 # Sort keys because Python's string hashing is nondeterministic.
                 for name, distribution in sorted(sub_space.items()):
-                    if not distribution.single():
-                        search_space[name] = distribution
-                params.update(self._sample_relative(study, trial, search_space))
+                    if distribution.single():
+                        continue
+                    if name not in search_space:
+                        # When used together with PartialFixedSampler, the search space may be
+                        # smaller than what is inferred from the study.
+                        continue
+                    _search_space[name] = distribution
+                params.update(self._sample_relative(study, trial, _search_space))
         else:
             params = self._sample_relative(study, trial, search_space)
 
@@ -450,7 +455,7 @@ class TPESampler(BaseSampler):
         if len(trials) < self._n_startup_trials:
             return {}
 
-        return self._sample(study, trial, search_space, use_trial_cache=True)
+        return self._sample(study, trial, search_space)
 
     def sample_independent(
         self,
@@ -483,10 +488,7 @@ class TPESampler(BaseSampler):
                     )
                 )
 
-        search_space = {param_name: param_distribution}
-        return self._sample(study, trial, search_space, use_trial_cache=not self._constant_liar)[
-            param_name
-        ]
+        return self._sample(study, trial, {param_name: param_distribution})[param_name]
 
     def _get_params(self, trial: FrozenTrial) -> dict[str, Any]:
         if trial.state.is_finished() or not self._multivariate:
@@ -519,17 +521,14 @@ class TPESampler(BaseSampler):
         return {k: np.asarray(v) for k, v in values.items()}
 
     def _sample(
-        self,
-        study: Study,
-        trial: FrozenTrial,
-        search_space: dict[str, BaseDistribution],
-        use_trial_cache: bool,
+        self, study: Study, trial: FrozenTrial, search_space: dict[str, BaseDistribution]
     ) -> dict[str, Any]:
         if self._constant_liar:
             states = [TrialState.COMPLETE, TrialState.PRUNED, TrialState.RUNNING]
         else:
             states = [TrialState.COMPLETE, TrialState.PRUNED]
-        trials = study._get_trials(deepcopy=False, states=states, use_cache=use_trial_cache)
+        use_cache = not self._constant_liar
+        trials = study._get_trials(deepcopy=False, states=states, use_cache=use_cache)
 
         if self._constant_liar:
             # For constant_liar, filter out the current trial.

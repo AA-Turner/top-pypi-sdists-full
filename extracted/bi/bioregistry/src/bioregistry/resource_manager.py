@@ -39,7 +39,6 @@ from .constants import (
     NonePair,
     get_failure_return_type,
 )
-from .license_standardizer import standardize_license
 from .schema import (
     Attributable,
     Collection,
@@ -58,7 +57,7 @@ from .schema_utils import (
     write_collections,
     write_registry,
 )
-from .utils import NormDict, _norm, get_ec_url
+from .utils import NormDict, get_ec_url
 
 __all__ = [
     "Manager",
@@ -762,48 +761,59 @@ class Manager:
         return ReferenceTuple(norm_prefix, norm_identifier)
 
     @cache  # noqa:B019
-    def get_registry_map(self, metaprefix: str) -> dict[str, str]:
+    def get_registry_map(
+        self, metaprefix: str, *, use_obo_preferred: bool = False
+    ) -> dict[str, str]:
         """Get a mapping from the Bioregistry prefixes to prefixes in another registry."""
-        return dict(self._iter_registry_map(metaprefix))
+        return dict(self._iter_registry_map(metaprefix, use_obo_preferred=use_obo_preferred))
 
     @cache  # noqa:B019
-    def get_registry_invmap(self, metaprefix: str, normalize: bool = False) -> dict[str, str]:
+    def get_registry_invmap(
+        self, metaprefix: str, use_obo_preferred: bool = False
+    ) -> dict[str, str]:
         """Get a mapping from prefixes in another registry to Bioregistry prefixes.
 
         :param metaprefix: Which external registry should be used?
-        :param normalize: Should the external prefixes be normalized?
+        :param use_obo_preferred: Should OBO preferred prefixes be used?
 
         :returns: A mapping of external prefixes to bioregistry prefies
 
         >>> from bioregistry import manager
-        >>> obofoundry_to_bioregistry = manager.get_registry_invmap("obofoundry", normalize=True)
+        >>> obofoundry_to_bioregistry = manager.get_registry_invmap(
+        ...     "obofoundry", use_obo_preferred=False
+        ... )
         >>> obofoundry_to_bioregistry["go"]
         'go'
         >>> obofoundry_to_bioregistry["geo"]
         'geogeo'
+        >>> manager.get_registry_invmap("obofoundry", use_obo_preferred=True)["GO"]
+        'go'
         """
-        if normalize:
-            return {
-                _norm(external_prefix): prefix
-                for prefix, external_prefix in self._iter_registry_map(metaprefix)
-            }
         return {
             external_prefix: prefix
-            for prefix, external_prefix in self._iter_registry_map(metaprefix)
+            for prefix, external_prefix in self._iter_registry_map(
+                metaprefix, use_obo_preferred=use_obo_preferred
+            )
         }
 
-    def _iter_registry_map(self, metaprefix: str) -> Iterable[tuple[str, str]]:
+    def _iter_registry_map(
+        self, metaprefix: str, use_obo_preferred: bool = False
+    ) -> Iterable[tuple[str, str]]:
         for prefix, resource in self.registry.items():
-            mapped_prefix = resource.get_mapped_prefix(metaprefix)
+            mapped_prefix = resource.get_mapped_prefix(
+                metaprefix, use_obo_preferred=use_obo_preferred
+            )
             if mapped_prefix is not None:
                 yield prefix, mapped_prefix
 
-    def get_mapped_prefix(self, prefix: str, metaprefix: str) -> str | None:
+    def get_mapped_prefix(
+        self, prefix: str, metaprefix: str, *, use_obo_preferred: bool = False
+    ) -> str | None:
         """Get the prefix mapped into another registry."""
         resource = self.get_resource(prefix)
         if resource is None:
             return None
-        return resource.get_mapped_prefix(metaprefix)
+        return resource.get_mapped_prefix(metaprefix, use_obo_preferred=use_obo_preferred)
 
     def get_external(self, prefix: str, metaprefix: str) -> Mapping[str, Any]:
         """Get the external data for the entry."""
@@ -1282,26 +1292,6 @@ class Manager:
             # TODO automate checking that all fields have a function?
         )
 
-    def get_license_conflicts(self) -> list[tuple[str, str | None, str | None, str | None]]:
-        """Get license conflicts."""
-        conflicts = []
-        for prefix, entry in self.registry.items():
-            override = entry.license
-            obo_license = entry.get_external("obofoundry").get("license")
-            ols_license = entry.get_external("ols").get("license")
-            if 2 > sum(license_ is not None for license_ in (override, obo_license, ols_license)):
-                continue  # can't be a conflict if all none or only 1 is available
-            obo_norm = standardize_license(obo_license)
-            ols_norm = standardize_license(ols_license)
-            first, *rest = [
-                norm_license
-                for norm_license in (override, obo_norm, ols_norm)
-                if norm_license is not None
-            ]
-            if any(first != element for element in rest):
-                conflicts.append((prefix, override, obo_license, ols_license))
-        return conflicts
-
     def get_appears_in(self, prefix: str) -> list[str] | None:
         """Return a list of resources that this resource (has been annotated to) depends on.
 
@@ -1346,7 +1336,8 @@ class Manager:
     def _get_obo_list(self, *, prefix: str, resource: Resource, key: str) -> list[str]:
         rv = []
         for obo_prefix in resource.get_external("obofoundry").get(key, []):
-            canonical_prefix = self.lookup_from("obofoundry", obo_prefix, normalize=True)
+            # these prefixes are normalized / lowercased already
+            canonical_prefix = self.lookup_from("obofoundry", obo_prefix)
             if canonical_prefix is None:
                 logger.warning("[%s] could not map OBO %s: %s", prefix, key, obo_prefix)
             else:
@@ -1354,29 +1345,27 @@ class Manager:
         return rv
 
     def lookup_from(
-        self, metaprefix: str, metaidentifier: str, normalize: bool = False
+        self, metaprefix: str, metaidentifier: str, use_obo_preferred: bool = False
     ) -> str | None:
         """Get the bioregistry prefix from an external prefix.
 
         :param metaprefix: The key for the external registry
         :param metaidentifier: The prefix in the external registry
-        :param normalize: Should external prefixes be normalized during lookup (e.g.,
-            lowercased)
 
         :returns: The bioregistry prefix (if it can be mapped)
 
         >>> from bioregistry import manager
-        >>> manager.lookup_from("obofoundry", "GO")
-        'go'
         >>> manager.lookup_from("obofoundry", "go")
+        'go'
+        >>> manager.lookup_from("obofoundry", "GO")
         None
-        >>> manager.lookup_from("obofoundry", "go", normalize=True)
+        >>> manager.lookup_from("obofoundry", "GO", use_obo_preferred=True)
         'go'
         """
-        external_id_to_bioregistry_id = self.get_registry_invmap(metaprefix, normalize=normalize)
-        return external_id_to_bioregistry_id.get(
-            _norm(metaidentifier) if normalize else metaidentifier
+        external_id_to_bioregistry_id = self.get_registry_invmap(
+            metaprefix, use_obo_preferred=use_obo_preferred
         )
+        return external_id_to_bioregistry_id.get(metaidentifier)
 
     def get_has_canonical(self, prefix: str) -> str | None:
         """Get the canonical prefix."""
@@ -1568,7 +1557,7 @@ class Manager:
         >>> manager.get_formatted_iri("obofoundry", "fbbt", "00007294")
         'http://purl.obolibrary.org/obo/FBbt_00007294'
         """
-        mapped_prefix = self.get_mapped_prefix(prefix, metaprefix)
+        mapped_prefix = self.get_mapped_prefix(prefix, metaprefix, use_obo_preferred=True)
         registry = self.metaregistry.get(metaprefix)
         if registry is None or mapped_prefix is None:
             return None
@@ -1809,7 +1798,7 @@ class Manager:
         A custom provider is given, which makes the Bioregistry very extensible
 
         >>> manager.get_iri("chebi:24867", provider="chebi-img")
-        'https://www.ebi.ac.uk/chebi/displayImage.do?defaultImage=true&imageIndex=0&chebiId=24867'
+        'https://www.ebi.ac.uk/chebi/backend/api/public/compound/24867/structure/?width=300&height=300'
         """
         if identifier is None:
             reference = self.parse_curie(prefix, on_failure_return_type=FailureReturnType.single)
@@ -2111,11 +2100,11 @@ class Manager:
 
     def get_obo_health_url(self, prefix: str) -> str | None:
         """Get the OBO community health badge."""
-        obo_prefix = self.get_mapped_prefix(prefix, "obofoundry")
+        obo_prefix = self.get_mapped_prefix(prefix, "obofoundry", use_obo_preferred=False)
         if obo_prefix is None:
             return None
         obo_pp = manager.get_preferred_prefix(prefix)
-        return f"{SHIELDS_BASE}/json?url={HEALTH_BASE}&query=$.{obo_prefix.lower()}.score&label={obo_pp}{EXTRAS}"
+        return f"{SHIELDS_BASE}/json?url={HEALTH_BASE}&query=$.{obo_prefix}.score&label={obo_pp}{EXTRAS}"
 
     def read_contributors(self, direct_only: bool = False) -> Mapping[str, Attributable]:
         """Get a mapping from contributor ORCID identifiers to author objects."""
@@ -2153,6 +2142,27 @@ class Manager:
             target_only=target_only,
             mappings=mappings,
         )
+
+    def get_collection_indirect_dependencies(self, collection: str | Collection) -> list[Resource]:
+        """Get all the "depends on" recursively for a collection."""
+        if isinstance(collection, str):
+            collection = self.collections[collection]
+        return self.get_indirect_dependencies(collection.resources)
+
+    def get_indirect_dependencies(self, prefixes: list[str]) -> list[Resource]:
+        """Get all the "depends on" recursively for a list of prefixes."""
+        prefix_set = set(prefixes)
+        rv: dict[str, Resource] = {}
+        to_visit: list[str] = []
+        to_visit.extend(prefix_set)
+        while to_visit:
+            prefix = to_visit.pop()
+            if prefix in rv:
+                continue
+            rv[prefix] = self.registry[prefix]
+            to_visit.extend(p for p in self.registry[prefix].depends_on or [] if p not in rv)
+
+        return [resource for prefix, resource in rv.items() if prefix not in prefix_set]
 
 
 def _read_contributors(

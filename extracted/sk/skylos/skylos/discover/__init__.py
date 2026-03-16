@@ -1,5 +1,3 @@
-"""Skylos AI Discovery Engine — maps LLM integrations in codebases."""
-
 from skylos.discover.integration import LLMIntegration, ToolDef
 from skylos.discover.graph import AIIntegrationGraph, GraphNode, GraphEdge
 from skylos.discover.detector import detect_integrations

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrtcm
-Version: 1.1.10
+Version: 1.1.11
 Summary: RTCM3 protocol parser
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>

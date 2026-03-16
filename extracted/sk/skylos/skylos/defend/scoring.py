@@ -10,8 +10,19 @@ SEVERITY_WEIGHTS: dict[str, int] = {
 }
 
 
+def _score_pct(numerator: int, denominator: int) -> int:
+    if denominator <= 0:
+        return 100
+    return round(numerator / denominator * 100)
+
+
 def compute_defense_score(results: list[DefenseResult]) -> DefenseScore:
-    defense_results = [r for r in results if r.category == "defense"]
+    defense_results: list[DefenseResult] = []
+    for result in results:
+        if result.category != "defense":
+            continue
+        defense_results.append(result)
+
     if not defense_results:
         return DefenseScore(
             weighted_score=0,
@@ -22,9 +33,18 @@ def compute_defense_score(results: list[DefenseResult]) -> DefenseScore:
             total=0,
         )
 
-    weighted_max = sum(r.weight for r in defense_results)
-    weighted_score = sum(r.weight for r in defense_results if r.passed)
-    pct = round(weighted_score / weighted_max * 100) if weighted_max > 0 else 100
+    weighted_max = 0
+    weighted_score = 0
+    passed = 0
+
+    for result in defense_results:
+        weighted_max += result.weight
+        if not result.passed:
+            continue
+        weighted_score += result.weight
+        passed += 1
+
+    pct = _score_pct(weighted_score, weighted_max)
 
     if pct < 25:
         risk = "CRITICAL"
@@ -42,19 +62,30 @@ def compute_defense_score(results: list[DefenseResult]) -> DefenseScore:
         weighted_max=weighted_max,
         score_pct=pct,
         risk_rating=risk,
-        passed=sum(1 for r in defense_results if r.passed),
+        passed=passed,
         total=len(defense_results),
     )
 
 
 def compute_ops_score(results: list[DefenseResult]) -> OpsScore:
-    ops_results = [r for r in results if r.category == "ops"]
+    ops_results: list[DefenseResult] = []
+    for result in results:
+        if result.category != "ops":
+            continue
+        ops_results.append(result)
+
     if not ops_results:
         return OpsScore(passed=0, total=0, score_pct=100, rating="EXCELLENT")
 
-    passed = sum(1 for r in ops_results if r.passed)
-    total = len(ops_results)
-    pct = round(passed / total * 100) if total > 0 else 100
+    passed = 0
+    total = 0
+
+    for result in ops_results:
+        total += 1
+        if result.passed:
+            passed += 1
+
+    pct = _score_pct(passed, total)
 
     if pct >= 80:
         rating = "EXCELLENT"

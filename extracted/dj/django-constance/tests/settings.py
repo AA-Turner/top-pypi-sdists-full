@@ -29,6 +29,13 @@ DATABASES = {
     },
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "tests.cache_mockup.Cache",
+        "LOCATION": "locmem",
+    }
+}
+
 INSTALLED_APPS = (
     "django.contrib.admin",
     "django.contrib.staticfiles",
@@ -43,6 +50,7 @@ INSTALLED_APPS = (
 ROOT_URLCONF = "tests.urls"
 
 CONSTANCE_REDIS_CONNECTION_CLASS = "tests.redis_mockup.Connection"
+CONSTANCE_REDIS_ASYNC_CONNECTION_CLASS = "tests.redis_mockup.AsyncConnection"
 
 CONSTANCE_ADDITIONAL_FIELDS = {
     "yes_no_null_select": [

@@ -190,6 +190,58 @@ class LocalFlowEnvironment:
             limit=limit,
         )
 
+    def list_versions(self, id: str, *, limit: int = 3) -> list[Any]:
+        return self._keeper.list_versions(id, limit=limit)
+
+    def resolve_edges(self, id: str, *, limit: int = 5) -> dict[str, Any]:
+        """Resolve forward and inverse edges for an item."""
+        from .types import EdgeRef
+
+        item = self._keeper.get(id)
+        if item is None:
+            return {"edges": {}, "count": 0}
+        edge_refs = self._keeper._resolve_edge_refs(item, id)
+        result: dict[str, list[dict]] = {}
+        total = 0
+        for key, refs in edge_refs.items():
+            entries = []
+            for ref in refs[:limit]:
+                entries.append({
+                    "id": ref.source_id,
+                    "summary": ref.summary or "",
+                    "predicate": key,
+                    "date": ref.date or "",
+                })
+                total += 1
+            if entries:
+                result[key] = entries
+        return {"edges": result, "count": total}
+
+    def get_db_connection(self):
+        return self._keeper._document_store._conn
+
+    def get_collection(self) -> str:
+        return self._keeper._resolve_doc_collection()
+
+    def put(self, *, content: str | None = None, uri: str | None = None,
+            id: str | None = None, tags: dict | None = None,
+            summary: str | None = None) -> Any:
+        if uri is not None:
+            return self._keeper.put(uri=uri, id=id, tags=tags, summary=summary)
+        from .utils import _text_content_id
+        doc_id = id or _text_content_id(content) if content else id
+        return self._keeper.put(content, id=doc_id, tags=tags, summary=summary)
+
+    def tag(self, id: str, tags: dict) -> Any:
+        return self._keeper.tag(id, tags)
+
+    def move(self, name: str, *, source_id: str = "now",
+             tags: dict | None = None, only_current: bool = False) -> Any:
+        return self._keeper.move(name, source_id=source_id, tags=tags, only_current=only_current)
+
+    def delete(self, id: str) -> None:
+        self._keeper.delete(id)
+
     def resolve_meta(self, id: str, *, limit_per_doc: int = 3) -> dict[str, list[Any]]:
         return self._keeper.resolve_meta(id, limit_per_doc=limit_per_doc)
 

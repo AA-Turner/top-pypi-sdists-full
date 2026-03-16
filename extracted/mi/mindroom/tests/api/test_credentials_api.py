@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from mindroom.api.main import app
+from mindroom import constants
+from mindroom.api import main
+from mindroom.api.main import app, initialize_api_app
 from mindroom.config.main import Config
 from mindroom.tool_system.worker_routing import ToolExecutionIdentity, resolve_worker_key
 
@@ -33,15 +35,23 @@ def _config_with_worker_scope(worker_scope: str | None) -> Config:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(tmp_path: Path) -> TestClient:
     """Create a test client for the API."""
+    initialize_api_app(
+        app,
+        constants.resolve_primary_runtime_paths(
+            config_path=tmp_path / "config.yaml",
+            storage_path=tmp_path / "mindroom_data",
+            process_env={},
+        ),
+    )
     return TestClient(app)
 
 
 @pytest.fixture
 def mock_credentials_manager() -> Generator[MagicMock, None, None]:
     """Mock the credentials manager."""
-    with patch("mindroom.api.credentials.get_credentials_manager") as mock:
+    with patch("mindroom.api.credentials.get_runtime_credentials_manager") as mock:
         mock_manager = MagicMock()
         mock.return_value = mock_manager
         yield mock_manager
@@ -138,7 +148,7 @@ class TestCredentialsAPI:
         """Dashboard credential management should reject user-scoped agents."""
         config = _config_with_worker_scope("user")
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/openai/api-key?agent_name=general")
 
         assert response.status_code == 400
@@ -151,7 +161,7 @@ class TestCredentialsAPI:
         """Dashboard credential management should reject user-agent scoped agents."""
         config = _config_with_worker_scope("user_agent")
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/openai/api-key?agent_name=general")
 
         assert response.status_code == 400
@@ -173,6 +183,20 @@ class TestCredentialsAPI:
         mock_credentials_manager.for_worker.return_value = worker_manager
         monkeypatch.setenv("CUSTOMER_ID", "tenant-123")
         monkeypatch.setenv("ACCOUNT_ID", "account-456")
+        runtime_paths = main._app_runtime_paths(client.app)
+        main.initialize_api_app(
+            client.app,
+            constants.resolve_primary_runtime_paths(
+                config_path=runtime_paths.config_path,
+                storage_path=runtime_paths.storage_root,
+                process_env={
+                    **dict(runtime_paths.process_env),
+                    "CUSTOMER_ID": "tenant-123",
+                    "ACCOUNT_ID": "account-456",
+                },
+            ),
+        )
+        main._app_context(client.app).auth_state = None
 
         expected_worker_key = resolve_worker_key(
             "shared",
@@ -191,7 +215,7 @@ class TestCredentialsAPI:
         )
         assert expected_worker_key is not None
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/openai/api-key?agent_name=general")
 
         assert response.status_code == 200
@@ -204,7 +228,7 @@ class TestCredentialsAPI:
         """Dashboard credential management should fail early for unsupported worker scopes."""
         config = _config_with_worker_scope("user")
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/google?agent_name=general")
 
         assert response.status_code == 400
@@ -217,7 +241,7 @@ class TestCredentialsAPI:
         """Dashboard service listing should reject unsupported worker scopes."""
         config = _config_with_worker_scope("user")
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/list?agent_name=general")
 
         assert response.status_code == 400
@@ -238,7 +262,7 @@ class TestCredentialsAPI:
             "_source": "ui",
         }
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/openai/api-key?agent_name=general")
 
         assert response.status_code == 200
@@ -259,7 +283,7 @@ class TestCredentialsAPI:
             "_source": "env",
         }
 
-        with patch("mindroom.api.main.load_runtime_config", return_value=(config, Path("config.yaml"))):
+        with patch("mindroom.api.config_lifecycle.load_runtime_config", return_value=(config, Path("config.yaml"))):
             response = client.get("/api/credentials/openai/api-key?agent_name=general")
 
         assert response.status_code == 200

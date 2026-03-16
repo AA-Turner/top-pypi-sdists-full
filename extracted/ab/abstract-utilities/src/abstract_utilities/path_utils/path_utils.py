@@ -259,4 +259,7 @@ def get_file_parts(path):
                 "super_dirname":super_dirname,
                 "super_dirbase":super_dirbase
                 }
-
+def get_expanded_path(path):
+    expanded_user = os.path.expanduser(conda_exe)
+    abspath =os.path.abspath(expanded_user)
+    return abspath

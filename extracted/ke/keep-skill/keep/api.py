@@ -550,6 +550,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 continue
             inverse = td.tags.get("_inverse")
             if inverse:
+                # Coerce to str in case stored as list (defensive)
+                if isinstance(inverse, list):
+                    inverse = inverse[0]
                 self._check_edge_backfill(td.id[5:], inverse, doc_coll)
                 self._ensure_inverse_tagdoc(td.id[5:], inverse, doc_coll)
 
@@ -1227,6 +1230,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             inverse = td_tags.get("_inverse")
             if not inverse:
                 continue
+            if isinstance(inverse, list):
+                inverse = inverse[0]
 
             current_values = set(tag_values(merged_tags, key))
             previous_values = set(tag_values(existing_tags, key))
@@ -1452,7 +1457,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             try:
                 self._migrate_system_documents()
             except Exception as e:
-                logger.warning("System doc migration deferred: %s", e)
+                logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
         # Get existing item to preserve tags (check document store first, fall back to ChromaDB)
         existing_tags = {}
@@ -1516,9 +1521,18 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             and _user_tags_changed(existing_doc.tags, merged_tags)
         )
 
-        # Early return: nothing to do
+        # Early return: content and tags unchanged.
+        # Still dispatch after-write flow — it will no-op if processing
+        # is already complete, but re-enqueues if a prior purge dropped
+        # unfinished work.
         if content_unchanged and not tags_changed and summary is None and not force:
-            logger.debug("Content and tags unchanged, skipping for %s", id)
+            logger.debug("Content and tags unchanged for %s", id)
+            if queue_summarize and not id.startswith("."):
+                self._dispatch_after_write_flow(
+                    item_id=id,
+                    content=content,
+                    tags=dict(existing_doc.tags),
+                )
             return _record_to_item(existing_doc, changed=False)
 
         # Determine summary
@@ -1623,11 +1637,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         doc_coll, chroma_coll, new_hash, id, content,
                     )
                 if embedding is None:
-                    embedding = self._get_embedding_provider().embed(content)
+                    embedding = self._get_embedding_provider().embed(final_summary)
             else:
                 embedding = self._try_dedup_embedding(doc_coll, chroma_coll, new_hash, id, content)
                 if embedding is None:
-                    embedding = self._get_embedding_provider().embed(content)
+                    embedding = self._get_embedding_provider().embed(final_summary)
 
         # Detect _inverse changes on tagdocs BEFORE storage overwrites old state
         if id.startswith(".tag/"):
@@ -1874,6 +1888,18 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     summary=summary,
                     ocr_pages=ocr_pages,
                 )
+
+            # Process email attachments as child items with edges
+            attachments = (doc.metadata or {}).get("_attachments")
+            if attachments:
+                self._put_email_attachments(
+                    parent_id=result.id,
+                    attachments=attachments,
+                    parent_tags=merged_tags,
+                    created_at=created_at,
+                    queue_background_tasks=queue_background_tasks,
+                )
+
             return result
         else:
             # Inline mode: store content directly
@@ -1922,6 +1948,63 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     summary=summary,
                 )
             return result
+
+    def _put_email_attachments(
+        self,
+        parent_id: str,
+        attachments: list[dict],
+        parent_tags: dict,
+        created_at: Optional[str] = None,
+        queue_background_tasks: bool = True,
+    ) -> list[Item]:
+        """Store email attachments as child items with edges to the parent.
+
+        Each attachment is put via the normal URI path (so it gets text
+        extraction, OCR, etc.) with an ``attachment`` edge-tag pointing
+        to the parent email.  The child ID uses a fragment suffix:
+        ``{parent_id}#att-{N}``.
+
+        Temp files in ~/.cache/keep/email-att/ are NOT cleaned up here
+        because background tasks (OCR, describe) need the files later.
+        """
+        results = []
+
+        for i, att in enumerate(attachments, 1):
+            att_path = att.get("path")
+            if not att_path:
+                continue
+
+            child_id = f"{parent_id}#att-{i}"
+            filename = att.get("filename", f"attachment-{i}")
+
+            # Inherit key context tags from the parent email
+            child_tags: dict = {}
+            for key in ("from", "to", "cc", "bcc", "date", "subject"):
+                if key in parent_tags:
+                    child_tags[key] = parent_tags[key]
+            child_tags["attachment"] = parent_id
+            child_tags["filename"] = filename
+
+            try:
+                result = self._put_direct(
+                    uri=att_path,
+                    id=child_id,
+                    tags=child_tags,
+                    created_at=created_at,
+                    queue_background_tasks=queue_background_tasks,
+                )
+                results.append(result)
+                logger.info(
+                    "Stored email attachment %s (%s, %s)",
+                    child_id, filename, att.get("content_type", ""),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to store email attachment %s (%s): %s",
+                    child_id, filename, e,
+                )
+
+        return results
 
     def put(
         self,
@@ -2003,7 +2086,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 self._flush_edge_backfill(doc_coll)
                 self._needs_sysdoc_migration = False
             except Exception as e:
-                logger.warning("System doc migration deferred: %s", e)
+                logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
         embedding = None  # Set in semantic/similar_to branches
 
@@ -3095,7 +3178,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             try:
                 self._migrate_system_documents()
             except Exception as e:
-                logger.warning("System doc migration deferred: %s", e)
+                logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
         # Validate inputs
         id = normalize_id(id)
@@ -4168,16 +4251,75 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             _loader = make_state_doc_loader(env)
 
         # Decode cursor if resuming
-        cursor = decode_cursor(cursor_token) if cursor_token else None
+        cursor = None
+        if cursor_token:
+            # Try server-side cursor first (short ID)
+            cursor = self._load_cursor(cursor_token)
+            if cursor is None:
+                # Fall back to self-contained base64 cursor (backward compat)
+                cursor = decode_cursor(cursor_token)
 
-        return run_flow(
+        # Inject defaults for query flow params
+        merged_params: dict[str, Any] = {
+            "limit": 10,
+            "margin_high": 0.15,
+            "margin_low": 0.03,
+            "entropy_high": 0.8,
+            "entropy_low": 0.3,
+            "lineage_strong": 0.5,
+            "explore_limit": 10,
+            "explore_limit_wide": 15,
+            "pivot_limit": 5,
+            "bridge_limit": 5,
+            "deep_limit": 10,
+            "max_summary_length": 200,
+            "similar_limit": 3,
+            "meta_limit": 3,
+            "parts_limit": 5,
+            "versions_limit": 3,
+            "edges_limit": 5,
+        }
+        merged_params.update(params or {})
+
+        result = run_flow(
             state,
-            params or {},
+            merged_params,
             budget=budget,
             load_state_doc=_loader,
             run_action=runner,
             cursor=cursor,
         )
+
+        # Store cursor server-side, replace with short ID
+        if result.cursor:
+            cursor_id = self._store_cursor(result.cursor)
+            result.cursor = cursor_id
+
+        return result
+
+    def _store_cursor(self, cursor_token: str) -> str:
+        """Store a self-contained cursor as a system note, return short ID."""
+        import hashlib
+        cursor_id = hashlib.sha256(cursor_token.encode()).hexdigest()[:12]
+        note_id = f".cursor/{cursor_id}"
+        self.put(cursor_token, id=note_id)
+        return cursor_id
+
+    def _load_cursor(self, cursor_id: str) -> "Optional[FlowCursor]":
+        """Load a server-side cursor by short ID, delete after loading."""
+        from .state_doc_runtime import decode_cursor
+        note_id = f".cursor/{cursor_id}"
+        item = self.get(note_id)
+        if item is None:
+            return None
+        try:
+            self.delete(note_id)
+        except Exception:
+            pass
+        content = getattr(item, "content", None) or getattr(item, "summary", None)
+        if not content:
+            return None
+        return decode_cursor(str(content))
 
     # -- Spawn/processor methods are in BackgroundProcessingMixin --
 

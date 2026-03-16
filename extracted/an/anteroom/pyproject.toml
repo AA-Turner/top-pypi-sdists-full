@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.115.1"
+version = "1.116.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -96,7 +96,7 @@ anteroom = "anteroom.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-anteroom = ["static/**/*", "cli/default_skills/*.yaml", "packs/**/*"]
+anteroom = ["static/**/*", "cli/default_skills/*.yaml", "packs/**/*", "workflows/**/*.yaml"]
 
 [tool.ruff]
 target-version = "py310"

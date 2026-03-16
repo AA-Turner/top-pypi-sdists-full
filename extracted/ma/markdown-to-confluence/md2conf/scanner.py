@@ -6,11 +6,12 @@ Copyright 2022-2026, Levente Hunyadi
 :see: https://github.com/hunyadi/md2conf
 """
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
-from .coalesce import coalesce
+from .coalesce import coalesce_dataclass
 from .frontmatter import extract_frontmatter_json, extract_value
 from .options import LayoutOptions
 from .serializer import JsonType, json_to_object
@@ -71,6 +72,11 @@ class ScannedDocument:
     start_line_number: int
 
 
+_PAGE_ID_REGEXP = re.compile(r"<!--\s+confluence[-_]page[-_]id:\s*(\d+)\s+-->")
+_SPACE_KEY_REGEXP = re.compile(r"<!--\s+confluence[-_]space[-_]key:\s*(\S+)\s+-->")
+_GENERATED_BY_REGEXP = re.compile(r"<!--\s+generated[-_]by:\s*(.*)\s+-->")
+
+
 class Scanner:
     def read(self, absolute_path: Path) -> ScannedDocument:
         """
@@ -88,13 +94,13 @@ class Scanner:
         """
 
         # extract Confluence page ID
-        page_id, text = extract_value(r"<!--\s+confluence[-_]page[-_]id:\s*(\d+)\s+-->", text)
+        page_id, text = extract_value(_PAGE_ID_REGEXP, text)
 
         # extract Confluence space key
-        space_key, text = extract_value(r"<!--\s+confluence[-_]space[-_]key:\s*(\S+)\s+-->", text)
+        space_key, text = extract_value(_SPACE_KEY_REGEXP, text)
 
         # extract 'generated-by' tag text
-        generated_by, text = extract_value(r"<!--\s+generated[-_]by:\s*(.*)\s+-->", text)
+        generated_by, text = extract_value(_GENERATED_BY_REGEXP, text)
 
         body_props = DocumentProperties(page_id=page_id, space_key=space_key, generated_by=generated_by)
 
@@ -107,7 +113,7 @@ class Scanner:
                 frontmatter_props.page_id = alias_props.confluence_page_id
             if alias_props.confluence_space_key is not None:
                 frontmatter_props.space_key = alias_props.confluence_space_key
-            props = coalesce(body_props, frontmatter_props)
+            props = coalesce_dataclass(body_props, frontmatter_props)
             start_line_number = frontmatter.outer_line_count + 1
         else:
             props = body_props

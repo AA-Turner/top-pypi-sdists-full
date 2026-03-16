@@ -11,7 +11,11 @@ from skylos.discover.integration import LLMIntegration, ToolDef
 from skylos.discover.graph import AIIntegrationGraph
 from skylos.defend.engine import run_defense_checks
 from skylos.defend.result import DefenseResult, DefenseScore, OpsScore
-from skylos.defend.scoring import compute_defense_score, compute_ops_score, SEVERITY_WEIGHTS
+from skylos.defend.scoring import (
+    compute_defense_score,
+    compute_ops_score,
+    SEVERITY_WEIGHTS,
+)
 from skylos.defend.report import format_defense_table, format_defense_json
 from skylos.defend.policy import (
     load_policy,
@@ -39,6 +43,7 @@ from skylos.defend.plugins.rate_limiting import RateLimitingPlugin
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_integration(**kwargs) -> LLMIntegration:
     """Create a test LLMIntegration with sensible defaults."""
@@ -169,17 +174,13 @@ class TestModelPinnedPlugin:
     plugin = ModelPinnedPlugin()
 
     def test_passes_when_pinned(self):
-        integ = _make_integration(
-            model_value="gpt-4o-2024-08-06", model_pinned=True
-        )
+        integ = _make_integration(model_value="gpt-4o-2024-08-06", model_pinned=True)
         result = self.plugin.check(integ, _empty_graph())
         assert result.passed is True
         assert "gpt-4o-2024-08-06" in result.message
 
     def test_fails_when_floating(self):
-        integ = _make_integration(
-            model_value="gpt-4o", model_pinned=False
-        )
+        integ = _make_integration(model_value="gpt-4o", model_pinned=False)
         result = self.plugin.check(integ, _empty_graph())
         assert result.passed is False
         assert "floating" in result.message.lower()
@@ -336,14 +337,18 @@ class TestEngine:
     def test_policy_disables_plugin(self):
         integ = _make_integration(model_value="gpt-4o", model_pinned=False)
         policy = DefensePolicy(rules={"model-pinned": {"enabled": False}})
-        results, score, _ops = run_defense_checks([integ], _empty_graph(), policy=policy)
+        results, score, _ops = run_defense_checks(
+            [integ], _empty_graph(), policy=policy
+        )
         plugin_ids = {r.plugin_id for r in results}
         assert "model-pinned" not in plugin_ids
 
     def test_policy_overrides_severity(self):
         integ = _make_integration(model_value="gpt-4o", model_pinned=False)
         policy = DefensePolicy(rules={"model-pinned": {"severity": "critical"}})
-        results, score, _ops = run_defense_checks([integ], _empty_graph(), policy=policy)
+        results, score, _ops = run_defense_checks(
+            [integ], _empty_graph(), policy=policy
+        )
         mp_results = [r for r in results if r.plugin_id == "model-pinned"]
         assert len(mp_results) == 1
         assert mp_results[0].severity == "critical"
@@ -359,13 +364,25 @@ class TestReport:
     def test_table_format(self):
         results = [
             DefenseResult(
-                "model-pinned", True, "t.py:10", "t.py:10",
-                "Model pinned to gpt-4o-2024-08-06", "medium", 3, "defense",
+                "model-pinned",
+                True,
+                "t.py:10",
+                "t.py:10",
+                "Model pinned to gpt-4o-2024-08-06",
+                "medium",
+                3,
+                "defense",
                 owasp_llm="LLM03",
             ),
             DefenseResult(
-                "no-dangerous-sink", False, "t.py:10", "t.py:10",
-                "LLM output flows to eval()", "critical", 8, "defense",
+                "no-dangerous-sink",
+                False,
+                "t.py:10",
+                "t.py:10",
+                "LLM output flows to eval()",
+                "critical",
+                8,
+                "defense",
                 owasp_llm="LLM02",
             ),
         ]
@@ -378,8 +395,14 @@ class TestReport:
     def test_json_format(self):
         results = [
             DefenseResult(
-                "model-pinned", True, "t.py:10", "t.py:10",
-                "ok", "medium", 3, "defense",
+                "model-pinned",
+                True,
+                "t.py:10",
+                "t.py:10",
+                "ok",
+                "medium",
+                3,
+                "defense",
             ),
         ]
         score = compute_defense_score(results)
@@ -440,9 +463,7 @@ class TestPolicy:
         except ImportError:
             pytest.skip("PyYAML not installed")
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(
                 {
                     "rules": {"model-pinned": {"severity": "high"}},
@@ -463,6 +484,7 @@ class TestPolicy:
     def test_load_policy_returns_none_when_no_file(self):
         with tempfile.TemporaryDirectory() as d:
             import os
+
             orig = os.getcwd()
             os.chdir(d)
             try:
@@ -475,8 +497,28 @@ class TestPolicy:
 class TestOWASPCoverage:
     def test_coverage_all_passing(self):
         results = [
-            DefenseResult("prompt-delimiter", True, "t:1", "t:1", "ok", "high", 5, "defense", owasp_llm="LLM01"),
-            DefenseResult("no-dangerous-sink", True, "t:1", "t:1", "ok", "critical", 8, "defense", owasp_llm="LLM02"),
+            DefenseResult(
+                "prompt-delimiter",
+                True,
+                "t:1",
+                "t:1",
+                "ok",
+                "high",
+                5,
+                "defense",
+                owasp_llm="LLM01",
+            ),
+            DefenseResult(
+                "no-dangerous-sink",
+                True,
+                "t:1",
+                "t:1",
+                "ok",
+                "critical",
+                8,
+                "defense",
+                owasp_llm="LLM02",
+            ),
         ]
         coverage = compute_owasp_coverage(results)
         assert coverage["LLM01"]["status"] == "covered"
@@ -484,8 +526,28 @@ class TestOWASPCoverage:
 
     def test_coverage_partial(self):
         results = [
-            DefenseResult("prompt-delimiter", True, "t:1", "t:1", "ok", "high", 5, "defense", owasp_llm="LLM01"),
-            DefenseResult("input-length-limit", False, "t:1", "t:1", "bad", "low", 1, "defense", owasp_llm="LLM01"),
+            DefenseResult(
+                "prompt-delimiter",
+                True,
+                "t:1",
+                "t:1",
+                "ok",
+                "high",
+                5,
+                "defense",
+                owasp_llm="LLM01",
+            ),
+            DefenseResult(
+                "input-length-limit",
+                False,
+                "t:1",
+                "t:1",
+                "bad",
+                "low",
+                1,
+                "defense",
+                owasp_llm="LLM01",
+            ),
         ]
         coverage = compute_owasp_coverage(results)
         assert coverage["LLM01"]["status"] == "partial"
@@ -513,7 +575,7 @@ class TestEndToEnd:
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 
 client = openai.OpenAI()
@@ -524,7 +586,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
 
             integrations, graph = detect_integrations(root)
@@ -543,7 +605,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import json
 
@@ -560,7 +622,7 @@ def chat(msg):
     raw = response.choices[0].message.content
     parsed = json.loads(raw)
     return parsed
-'''
+"""
             )
 
             integrations, graph = detect_integrations(root)
@@ -578,7 +640,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 
 client = openai.OpenAI()
@@ -588,7 +650,7 @@ def chat(msg):
         model="gpt-4o",
         messages=[{"role": "user", "content": msg}],
     )
-'''
+"""
             )
 
             integrations, graph = detect_integrations(root)
@@ -644,7 +706,8 @@ def chat(msg):
         severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
         threshold = severity_order["medium"]
         should_gate = any(
-            r.category == "defense" and not r.passed
+            r.category == "defense"
+            and not r.passed
             and severity_order.get(r.severity, 0) >= threshold
             for r in results
         )
@@ -671,7 +734,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import json
 
@@ -687,7 +750,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -699,7 +762,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import subprocess
 
@@ -714,7 +777,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -920,8 +983,12 @@ class TestOpsScore:
 
     def test_ops_score_all_pass(self):
         results = [
-            DefenseResult("logging-present", True, "t:1", "t:1", "ok", "medium", 3, "ops"),
-            DefenseResult("cost-controls", True, "t:1", "t:1", "ok", "medium", 3, "ops"),
+            DefenseResult(
+                "logging-present", True, "t:1", "t:1", "ok", "medium", 3, "ops"
+            ),
+            DefenseResult(
+                "cost-controls", True, "t:1", "t:1", "ok", "medium", 3, "ops"
+            ),
         ]
         score = compute_ops_score(results)
         assert score.score_pct == 100
@@ -931,8 +998,12 @@ class TestOpsScore:
 
     def test_ops_score_mixed(self):
         results = [
-            DefenseResult("logging-present", True, "t:1", "t:1", "ok", "medium", 3, "ops"),
-            DefenseResult("cost-controls", False, "t:1", "t:1", "bad", "medium", 3, "ops"),
+            DefenseResult(
+                "logging-present", True, "t:1", "t:1", "ok", "medium", 3, "ops"
+            ),
+            DefenseResult(
+                "cost-controls", False, "t:1", "t:1", "bad", "medium", 3, "ops"
+            ),
         ]
         score = compute_ops_score(results)
         assert score.score_pct == 50
@@ -940,9 +1011,15 @@ class TestOpsScore:
 
     def test_ops_score_all_fail(self):
         results = [
-            DefenseResult("logging-present", False, "t:1", "t:1", "bad", "medium", 3, "ops"),
-            DefenseResult("cost-controls", False, "t:1", "t:1", "bad", "medium", 3, "ops"),
-            DefenseResult("rate-limiting", False, "t:1", "t:1", "bad", "medium", 3, "ops"),
+            DefenseResult(
+                "logging-present", False, "t:1", "t:1", "bad", "medium", 3, "ops"
+            ),
+            DefenseResult(
+                "cost-controls", False, "t:1", "t:1", "bad", "medium", 3, "ops"
+            ),
+            DefenseResult(
+                "rate-limiting", False, "t:1", "t:1", "bad", "medium", 3, "ops"
+            ),
         ]
         score = compute_ops_score(results)
         assert score.score_pct == 0
@@ -950,8 +1027,12 @@ class TestOpsScore:
 
     def test_ops_score_excludes_defense(self):
         results = [
-            DefenseResult("model-pinned", True, "t:1", "t:1", "ok", "medium", 3, "defense"),
-            DefenseResult("logging-present", False, "t:1", "t:1", "bad", "medium", 3, "ops"),
+            DefenseResult(
+                "model-pinned", True, "t:1", "t:1", "ok", "medium", 3, "defense"
+            ),
+            DefenseResult(
+                "logging-present", False, "t:1", "t:1", "bad", "medium", 3, "ops"
+            ),
         ]
         score = compute_ops_score(results)
         assert score.total == 1
@@ -1013,7 +1094,7 @@ class TestPhase3Detection:
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 
 client = openai.OpenAI()
@@ -1025,7 +1106,7 @@ def chat(msg):
         max_tokens=1000,
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1035,7 +1116,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 
 client = openai.OpenAI()
@@ -1046,7 +1127,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1056,7 +1137,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import logging
 
@@ -1071,7 +1152,7 @@ def chat(msg):
     )
     logger.info("Got response")
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1081,7 +1162,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import logging
 
@@ -1097,7 +1178,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1107,7 +1188,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 from slowapi import Limiter
 
@@ -1121,7 +1202,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1131,7 +1212,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import chromadb
 
@@ -1150,7 +1231,7 @@ def rag_chat(msg):
         ],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1161,7 +1242,7 @@ def rag_chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 import chromadb
 
@@ -1178,7 +1259,7 @@ def plain_chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1189,7 +1270,7 @@ def plain_chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
@@ -1207,7 +1288,7 @@ def chat(msg):
     results = analyzer.analyze(text=text, language="en")
     cleaned = anonymizer.anonymize(text=text, analyzer_results=results)
     return cleaned.text
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1218,7 +1299,7 @@ def chat(msg):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             (root / "app.py").write_text(
-                '''
+                """
 import openai
 
 MODEL = "gpt-4o-2024-08-06"
@@ -1230,7 +1311,7 @@ def chat(msg):
         messages=[{"role": "user", "content": msg}],
     )
     return response.choices[0].message.content
-'''
+"""
             )
             integrations, graph = detect_integrations(root)
             assert len(integrations) == 1
@@ -1240,9 +1321,30 @@ def chat(msg):
     def test_ops_score_in_report(self):
         """Ops score should appear in table output when ops checks exist."""
         results = [
-            DefenseResult("model-pinned", True, "t.py:10", "t.py:10", "ok", "medium", 3, "defense", owasp_llm="LLM03"),
-            DefenseResult("logging-present", False, "t.py:10", "t.py:10", "no logging", "medium", 3, "ops"),
-            DefenseResult("cost-controls", True, "t.py:10", "t.py:10", "ok", "medium", 3, "ops"),
+            DefenseResult(
+                "model-pinned",
+                True,
+                "t.py:10",
+                "t.py:10",
+                "ok",
+                "medium",
+                3,
+                "defense",
+                owasp_llm="LLM03",
+            ),
+            DefenseResult(
+                "logging-present",
+                False,
+                "t.py:10",
+                "t.py:10",
+                "no logging",
+                "medium",
+                3,
+                "ops",
+            ),
+            DefenseResult(
+                "cost-controls", True, "t.py:10", "t.py:10", "ok", "medium", 3, "ops"
+            ),
         ]
         score = compute_defense_score(results)
         ops = compute_ops_score(results)
@@ -1254,8 +1356,19 @@ def chat(msg):
     def test_ops_score_in_json(self):
         """Ops score should appear in JSON output."""
         results = [
-            DefenseResult("model-pinned", True, "t.py:10", "t.py:10", "ok", "medium", 3, "defense"),
-            DefenseResult("logging-present", False, "t.py:10", "t.py:10", "bad", "medium", 3, "ops"),
+            DefenseResult(
+                "model-pinned", True, "t.py:10", "t.py:10", "ok", "medium", 3, "defense"
+            ),
+            DefenseResult(
+                "logging-present",
+                False,
+                "t.py:10",
+                "t.py:10",
+                "bad",
+                "medium",
+                3,
+                "ops",
+            ),
         ]
         score = compute_defense_score(results)
         ops = compute_ops_score(results)
@@ -1363,3 +1476,526 @@ Answer the user's question."""
             # Cost controls should pass (max_tokens set)
             cc = [r for r in results if r.plugin_id == "cost-controls"]
             assert cc[0].passed is True
+
+
+# ---------------------------------------------------------------------------
+# Contract regression tests (CLI → Cloud payload integrity)
+# ---------------------------------------------------------------------------
+
+
+class TestDefenseContractIntegrity:
+    """Verify the CLI emits a complete, correct payload for cloud ingestion."""
+
+    def test_json_includes_integrations_with_scores(self):
+        """format_defense_json must emit integrations with per-integration scores."""
+        integ1 = _make_integration(location="src/chat.py:10", provider="Anthropic")
+        integ2 = _make_integration(location="src/agent.py:20", provider="OpenAI")
+        results, score, ops = run_defense_checks([integ1, integ2], _empty_graph())
+
+        output = format_defense_json(
+            results,
+            score,
+            2,
+            5,
+            integrations=[integ1, integ2],
+            ops_score=ops,
+        )
+        data = json.loads(output)
+
+        assert "integrations" in data
+        assert len(data["integrations"]) == 2
+
+        locs = {i["location"] for i in data["integrations"]}
+        assert "src/chat.py:10" in locs
+        assert "src/agent.py:20" in locs
+
+        for integ in data["integrations"]:
+            assert "provider" in integ
+            assert "weighted_score" in integ
+            assert "weighted_max" in integ
+            assert "score_pct" in integ
+            assert "risk_rating" in integ
+            assert isinstance(integ["score_pct"], int)
+
+    def test_json_includes_integration_metadata(self):
+        """Integrations carry full metadata (tools, input_sources, model, etc)."""
+        integ = _make_integration(
+            provider="Anthropic",
+            location="api.py:42",
+            model_value="claude-sonnet-4-20250514",
+            model_pinned=True,
+            input_sources=["Flask form"],
+            tools=[ToolDef(name="search", location="tools.py:5")],
+            has_output_validation=True,
+        )
+        results, score, ops = run_defense_checks([integ], _empty_graph())
+        output = format_defense_json(
+            results,
+            score,
+            1,
+            1,
+            integrations=[integ],
+            ops_score=ops,
+        )
+        data = json.loads(output)
+        i = data["integrations"][0]
+
+        assert i["provider"] == "Anthropic"
+        assert i["model_value"] == "claude-sonnet-4-20250514"
+        assert i["input_sources"] == ["Flask form"]
+        assert len(i["tools"]) == 1
+        assert i["tools"][0]["name"] == "search"
+        assert i["has_output_validation"] is True
+
+    def test_findings_carry_integration_location(self):
+        """Each finding must have integration_location matching its integration."""
+        integ = _make_integration(location="x.py:5")
+        results, score, _ = run_defense_checks([integ], _empty_graph())
+        output = format_defense_json(results, score, 1, 1, integrations=[integ])
+        data = json.loads(output)
+
+        for f in data["findings"]:
+            assert f["integration_location"] == "x.py:5"
+
+    def test_json_without_integrations_param_backward_compat(self):
+        """Omitting integrations param produces empty list (backward compat)."""
+        results = [
+            DefenseResult(
+                "model-pinned",
+                True,
+                "t.py:10",
+                "t.py:10",
+                "ok",
+                "medium",
+                3,
+                "defense",
+            ),
+        ]
+        score = compute_defense_score(results)
+        output = format_defense_json(results, score, 1, 10)
+        data = json.loads(output)
+
+        assert "integrations" in data
+        assert data["integrations"] == []
+
+    def test_two_integrations_independent_scores(self):
+        """Two integrations in one file get independent defense scores."""
+        integ_good = _make_integration(
+            location="app.py:10",
+            has_output_validation=True,
+            has_system_prompt=True,
+            model_pinned=True,
+            model_value="gpt-4o",
+        )
+        integ_bad = _make_integration(
+            location="app.py:50",
+            has_output_validation=False,
+            has_system_prompt=False,
+            model_pinned=False,
+        )
+        results, score, ops = run_defense_checks(
+            [integ_good, integ_bad], _empty_graph()
+        )
+        output = format_defense_json(
+            results,
+            score,
+            2,
+            1,
+            integrations=[integ_good, integ_bad],
+            ops_score=ops,
+        )
+        data = json.loads(output)
+
+        by_loc = {i["location"]: i for i in data["integrations"]}
+        assert by_loc["app.py:10"]["score_pct"] > by_loc["app.py:50"]["score_pct"]
+
+    def test_upload_payload_carries_integrations(self):
+        """upload_defense_report payload must include defense_integrations."""
+        integ = _make_integration(location="svc.py:1", provider="Anthropic")
+        results, score, ops = run_defense_checks([integ], _empty_graph())
+        json_str = format_defense_json(
+            results,
+            score,
+            1,
+            1,
+            integrations=[integ],
+            ops_score=ops,
+        )
+        data = json.loads(json_str)
+
+        # Simulate what api.py does
+        payload_integrations = data.get("integrations", [])
+        assert len(payload_integrations) == 1
+        assert payload_integrations[0]["provider"] == "Anthropic"
+        assert payload_integrations[0]["location"] == "svc.py:1"
+
+
+# ---------------------------------------------------------------------------
+# Scoping regression tests (integration isolation)
+# ---------------------------------------------------------------------------
+
+
+class TestIntegrationScoping:
+    """Verify that discovery scopes prompt_sites, tools, sinks, etc.
+    per function — not per file."""
+
+    def test_two_llm_calls_in_one_file_get_scoped_prompts(self):
+        """Each LLM call only gets prompt_sites from its own function."""
+        code = """
+import openai
+
+def func_a():
+    system_msg = "You are a helpful assistant. Respond with JSON."
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "system", "content": system_msg}]
+    )
+
+def func_b():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": "hello"}]
+    )
+"""
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+        by_func = {}
+        for integ in integrations:
+            line = int(integ.location.split(":")[-1])
+            by_func[line] = integ
+
+        # func_a's call should have the prompt site
+        func_a_integ = by_func[min(by_func)]
+        assert len(func_a_integ.prompt_sites) > 0
+
+        # func_b's call should NOT have func_a's prompt site
+        func_b_integ = by_func[max(by_func)]
+        assert len(func_b_integ.prompt_sites) == 0
+
+    def test_input_sources_dont_bleed_across_functions(self):
+        """Flask input source in one function should not bleed to another."""
+        code = """
+import openai
+from flask import request
+
+def web_endpoint():
+    user_input = request.json.get("text")
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": user_input}]
+    )
+
+def batch_job():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": "process batch"}]
+    )
+"""
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+        web = [i for i in integrations if i.input_sources]
+        batch = [i for i in integrations if not i.input_sources]
+
+        assert len(web) == 1, "Only the Flask endpoint should have input sources"
+        assert len(batch) == 1, "Batch job should NOT inherit Flask input sources"
+        assert "Flask" in web[0].input_sources[0]
+
+    def test_two_agents_get_own_tools(self):
+        """Each agent LLM call only gets tools defined in its scope."""
+        code = '''
+import openai
+
+def tool_search():
+    """Search the web."""
+    pass
+
+def agent_one():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        tools=[{"type": "function", "function": {"name": "tool_search"}}],
+        messages=[{"role": "user", "content": "find info"}]
+    )
+
+def tool_calc():
+    """Calculate numbers."""
+    pass
+
+def agent_two():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        tools=[{"type": "function", "function": {"name": "tool_calc"}}],
+        messages=[{"role": "user", "content": "compute"}]
+    )
+'''
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "agents.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        # Both should be agent type (tools kwarg present)
+        agents = [i for i in integrations if i.integration_type == "agent"]
+        assert len(agents) == 2
+
+        # Tools should NOT bleed — each agent gets only module-level tools
+        # (since tool funcs aren't decorated with @tool, they won't be ToolDefs,
+        # so both should have empty tools lists)
+        for agent in agents:
+            # No @tool decorated functions, so no tools attached
+            assert len(agent.tools) == 0
+
+    def test_module_level_prompt_available_to_function_calls(self):
+        """Module-level prompt definitions should be visible to function-scoped calls."""
+        code = """
+import openai
+
+SYSTEM_PROMPT = "You are a helpful assistant. Your task is to help users."
+
+def handle_request():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": "hello"}
+        ]
+    )
+"""
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 1
+        # Module-level prompt should be inherited by function-scoped call
+        assert len(integrations[0].prompt_sites) > 0
+
+    def test_prompt_delimiter_scoped_to_function(self):
+        """Delimiter in one function should not apply to another function's call."""
+        code = '''
+import openai
+
+def func_with_delimiter():
+    prompt = """You are an assistant.
+    <user_input>
+    {text}
+    </user_input>
+    Respond carefully.
+    """
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": prompt.format(text="hi")}]
+    )
+
+def func_without_delimiter():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": "hello"}]
+    )
+'''
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+        by_delim = {i.has_prompt_delimiter: i for i in integrations}
+
+        # The function with the delimiter tag should have it
+        assert True in by_delim
+        # The function without should NOT inherit it
+        assert False in by_delim
+
+    def test_validation_on_one_call_not_another(self):
+        """Output validation in one function should not apply to another."""
+        code = """
+import openai
+import json
+
+def validated_call():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": "give json"}]
+    )
+    result = json.loads(resp.choices[0].message.content)
+    return result
+
+def unvalidated_call():
+    client = openai.OpenAI()
+    resp = client.chat.completions.create(
+        model="gpt-4o-2024-05-13",
+        messages=[{"role": "user", "content": "hello"}]
+    )
+    return resp.choices[0].message.content
+"""
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+        validated = [i for i in integrations if i.has_output_validation]
+        unvalidated = [i for i in integrations if not i.has_output_validation]
+
+        assert len(validated) == 1
+        assert len(unvalidated) == 1
+
+    def test_defense_results_dont_bleed_across_integrations(self):
+        """Defense checks on one integration must not affect another."""
+        integ_with_sink = _make_integration(
+            location="app.py:10",
+            output_sinks=["eval (L15)"],
+        )
+        integ_clean = _make_integration(
+            location="app.py:30",
+            output_sinks=[],
+        )
+        results, _, _ = run_defense_checks(
+            [integ_with_sink, integ_clean], _empty_graph()
+        )
+
+        # Find no-dangerous-sink results for each
+        sink_results_10 = [
+            r
+            for r in results
+            if r.plugin_id == "no-dangerous-sink"
+            and r.integration_location == "app.py:10"
+        ]
+        sink_results_30 = [
+            r
+            for r in results
+            if r.plugin_id == "no-dangerous-sink"
+            and r.integration_location == "app.py:30"
+        ]
+
+        assert len(sink_results_10) == 1
+        assert sink_results_10[0].passed is False
+
+        assert len(sink_results_30) == 1
+        assert sink_results_30[0].passed is True
+
+    def test_plugin_wording_no_flows(self):
+        """Plugin messages should use 'detected in same scope', not 'flows'."""
+        integ_with_sink = _make_integration(output_sinks=["eval (L15)"])
+        results, _, _ = run_defense_checks([integ_with_sink], _empty_graph())
+
+        sink_result = [r for r in results if r.plugin_id == "no-dangerous-sink"][0]
+        assert "flows" not in sink_result.message.lower()
+        assert "same scope" in sink_result.message.lower()
+
+    def test_tool_defs_dont_bleed_across_agent_calls(self):
+        """Module-level @tool defs should only attach to agents that use them."""
+        code = '''\
+import openai
+
+@tool
+def safe_tool(query: str) -> str:
+    """Search the database."""
+    return db.search(query)
+
+@tool
+def dangerous_tool(cmd: str) -> str:
+    """Run a shell command."""
+    import subprocess
+    return subprocess.check_output(cmd, shell=True)
+
+client = openai.OpenAI()
+
+def safe_agent():
+    client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[safe_tool],
+    )
+
+def dangerous_agent():
+    client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[dangerous_tool],
+    )
+'''
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "agents.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+
+        safe = [
+            i
+            for i in integrations
+            if "safe_agent" in i.location or any(t.name == "safe_tool" for t in i.tools)
+        ]
+        dangerous = [
+            i
+            for i in integrations
+            if "dangerous_agent" in i.location
+            or any(t.name == "dangerous_tool" for t in i.tools)
+        ]
+
+        # Each agent should only have its own tool
+        assert len(safe) == 1
+        tool_names_safe = [t.name for t in safe[0].tools]
+        assert "safe_tool" in tool_names_safe
+        assert "dangerous_tool" not in tool_names_safe
+
+        assert len(dangerous) == 1
+        tool_names_danger = [t.name for t in dangerous[0].tools]
+        assert "dangerous_tool" in tool_names_danger
+        assert "safe_tool" not in tool_names_danger
+
+    def test_delimiter_doesnt_bleed_across_prompts(self):
+        """A delimited module-level prompt should not defend unrelated calls."""
+        code = """\
+import openai
+
+SAFE_PROMPT = "You are a helper. <user_input>{text}</user_input>"
+UNSAFE_PROMPT = "You are a summarizer. Summarize: {text}"
+
+client = openai.OpenAI()
+
+def safe_handler(text):
+    user_text = input("Enter text: ")
+    client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": SAFE_PROMPT.format(text=user_text)}],
+    )
+
+def unsafe_handler(text):
+    user_text = input("Enter text: ")
+    client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": UNSAFE_PROMPT.format(text=user_text)}],
+    )
+"""
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "app.py"
+            p.write_text(code)
+            integrations, _ = detect_integrations(d)
+
+        assert len(integrations) == 2
+
+        # Sort by location line number to get stable ordering
+        integrations.sort(key=lambda i: i.location)
+
+        # First integration (safe_handler) uses the delimited prompt
+        assert integrations[0].has_prompt_delimiter is True
+        # Second integration (unsafe_handler) should NOT inherit the delimiter
+        assert integrations[1].has_prompt_delimiter is False

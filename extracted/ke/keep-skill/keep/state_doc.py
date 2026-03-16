@@ -516,12 +516,17 @@ def _eval_sequence(
 
         # Terminal
         if rule.return_status is not None:
-            data = _resolve_template(rule.return_with, eval_ctx) if rule.return_with else None
+            if rule.return_with:
+                data = _resolve_template(rule.return_with, eval_ctx)
+                data = data if isinstance(data, dict) else None
+            else:
+                # Auto-passthrough: expose all bindings when return.with is omitted
+                data = dict(bindings) if bindings else None
             return EvalResult(
                 actions=actions,
                 bindings=bindings,
                 terminal=rule.return_status,
-                terminal_data=data if isinstance(data, dict) else None,
+                terminal_data=data,
             )
 
         # Action
@@ -542,6 +547,10 @@ def _eval_sequence(
                         eval_ctx[rule.id] = output
                 except Exception as exc:
                     logger.warning("Action %s failed: %s", rule.do, exc)
+                    error_output = {"error": str(exc)}
+                    if rule.id:
+                        bindings[rule.id] = error_output
+                        eval_ctx[rule.id] = error_output
 
         # Transition
         if rule.then is not None:
@@ -596,6 +605,10 @@ def _eval_all(
                         eval_ctx[rule.id] = output
                 except Exception as exc:
                     logger.warning("Action %s failed: %s", rule.do, exc)
+                    error_output = {"error": str(exc)}
+                    if rule.id:
+                        bindings[rule.id] = error_output
+                        eval_ctx[rule.id] = error_output
 
     # Post block
     if doc.post:
@@ -604,12 +617,16 @@ def _eval_all(
                 if not _eval_predicate(rule.when, eval_ctx):
                     continue
             if rule.return_status is not None:
-                data = _resolve_template(rule.return_with, eval_ctx) if rule.return_with else None
+                if rule.return_with:
+                    data = _resolve_template(rule.return_with, eval_ctx)
+                    data = data if isinstance(data, dict) else None
+                else:
+                    data = dict(bindings) if bindings else None
                 return EvalResult(
                     actions=actions,
                     bindings=bindings,
                     terminal=rule.return_status,
-                    terminal_data=data if isinstance(data, dict) else None,
+                    terminal_data=data,
                 )
             if rule.then is not None:
                 transition = rule.then

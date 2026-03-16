@@ -164,7 +164,7 @@ END:VEVENT
 END:VCALENDAR
 """
 
-# example from http://www.rfc-editor.org/rfc/rfc5545.txt
+# example from https://datatracker.ietf.org/doc/html/rfc5545
 evr = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Example Corp.//CalDAV Client//EN
@@ -209,7 +209,7 @@ X-MOZ-GENERATION:1
 END:VEVENT
 END:VCALENDAR"""
 
-# example from http://www.rfc-editor.org/rfc/rfc5545.txt
+# example from https://datatracker.ietf.org/doc/html/rfc5545
 todo = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Example Corp.//CalDAV Client//EN
@@ -872,8 +872,6 @@ class RepeatedFunctionalTestsBaseClass:
         except:
             pass
 
-    ## TODO: Why do we have more logic here than in fixture_helpers.py?
-    ## TODO: perhaps a decorator is a better pattern than a wrapper?
     def _fixCalendar(self, **kwargs):
         cal = self._fixCalendar_(**kwargs)
         if self.cleanup_regime == "wipe-calendar":
@@ -1272,10 +1270,13 @@ END:VCALENDAR
             ## Calendar.new() is supported from icalendar 7, which is yet to be released as of 2025-09
             pytest.skip("Newer icalendar version required")
 
+        ## Use a near-future date so servers with a "sliding window" (e.g. OX) can find the event
+        start = datetime.now() + timedelta(days=30)
+        end = start + timedelta(hours=1)
         icalevent = icalendar.Event.new(
             uid="ctuid1",
-            start=datetime(2015, 10, 10, 8, 7, 6),
-            end=datetime(2015, 10, 10, 9, 7, 6),
+            start=start,
+            end=end,
             summary="This is a test event",
         )
         icalcal.add_component(icalevent)
@@ -3249,7 +3250,7 @@ END:VCALENDAR
             expand=True,
         )
 
-        ## According to https://tools.ietf.org/html/rfc4791#section-7.8.3, the
+        ## According to https://datatracker.ietf.org/doc/html/rfc4791#section-7.8.3, the
         ## resultset should be one vcalendar with two events.
         assert len(r1) == 1
         assert "RRULE" not in r1[0].data

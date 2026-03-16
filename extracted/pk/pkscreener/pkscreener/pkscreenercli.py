@@ -152,11 +152,13 @@ from PKDevTools.classes.log import default_logger
 from PKDevTools.classes.PKDateUtilities import PKDateUtilities
 from PKDevTools.classes.OutputControls import OutputControls
 from PKDevTools.classes.FunctionTimeouts import ping
+from PKDevTools.classes.DebugConfig import DebugConfigManager
 
 from pkscreener import Imports
 from pkscreener.classes.MarketMonitor import MarketMonitor
 from pkscreener.classes.PKAnalytics import PKAnalyticsService
 import pkscreener.classes.ConfigManager as ConfigManager
+from PKDevTools.classes import Archiver
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
@@ -471,7 +473,6 @@ class LoggerSetup:
     def get_log_file_path():
         """Get the path for the log file."""
         try:
-            from PKDevTools.classes import Archiver
             file_path = os.path.join(Archiver.get_user_data_dir(), "pkscreener-logs.txt")
             with open(file_path, "w") as f:
                 f.write("Logger file for pkscreener!")
@@ -859,7 +860,6 @@ def _get_debug_args():
 def _exit_gracefully(config_manager, arg_parser):
     """Perform graceful exit cleanup."""
     try:
-        from PKDevTools.classes import Archiver
         from pkscreener.globals import resetConfigToDefault
         
         file_path = None
@@ -1046,6 +1046,10 @@ def pkscreenercli():
                 traceback.print_exc()
     
     try:
+        debug_config_path = os.path.join(Archiver.get_user_data_dir(), "debug_config.ini")
+        if os.path.exists(debug_config_path) and os.path.isfile(debug_config_path):
+            manager = DebugConfigManager()
+            config = manager.load_from_file(debug_config_path)
         _remove_old_instances()
         OutputControls(
             enableMultipleLineOutput=(args is None or args.monitor is None or args.runintradayanalysis),
@@ -1149,6 +1153,7 @@ def pkscreenercli():
         
         # Validate premium user for system-launched
         from pkscreener.classes.PKUserRegistration import PKUserRegistration, ValidationResult
+        PKUserRegistration.populateSavedUserCreds()
         if args.systemlaunched and not PKUserRegistration.validateToken()[0]:
             result = PKUserRegistration.login()
             if result != ValidationResult.Success:
@@ -1162,7 +1167,6 @@ def pkscreenercli():
         # Handle telegram mode
         if args.telegram:
             if (PKDateUtilities.isTradingTime() and not PKDateUtilities.isTodayHoliday()[0]) or ("PKDevTools_Default_Log_Level" in os.environ.keys()):
-                from PKDevTools.classes import Archiver
                 file_path = os.path.join(Archiver.get_user_data_dir(), "monitor_outputs_1.txt")
                 if os.path.exists(file_path):
                     default_logger().info("monitor_outputs_1.txt exists! Another instance may be running. Exiting...")
@@ -1203,7 +1207,8 @@ def pkscreenercli():
         except NameError:
             LoggedIn = False
         
-        if not LoggedIn and not args.telegram and not args.bot and not args.systemlaunched and not args.testbuild:
+        auth_not_required = LoggedIn or args.telegram or args.bot or args.systemlaunched or args.testbuild
+        if not auth_not_required:
             if not PKUserRegistration.login():
                 sys.exit(0)
             LoggedIn = True

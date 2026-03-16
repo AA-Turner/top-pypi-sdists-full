@@ -1,2 +1,0 @@
-import"./rolldown-runtime-DIIn1E2Q.js";import{Rt as e}from"./vendor-vue-core-DO0afONr.js";import{K as t}from"./api-Bzi--8-2.js";var isNodeMissingDefinition=(e,t)=>{let n=e?.type;return n?!t[n]:!1},collectMissingNodes=(n,r)=>{if(!n)return[];let i=e(r);return t(n,e=>isNodeMissingDefinition(e,i))},graphHasMissingNodes=(e,t)=>collectMissingNodes(e,t).length>0;export{graphHasMissingNodes as t};
-//# sourceMappingURL=graphHasMissingNodes-B-wRQUVg.js.map

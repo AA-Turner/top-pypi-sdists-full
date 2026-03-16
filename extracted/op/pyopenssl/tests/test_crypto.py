@@ -58,6 +58,7 @@ from OpenSSL.crypto import (
     load_publickey,
 )
 
+from . import conftest
 from .util import (
     NON_ASCII,
 )
@@ -71,7 +72,7 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-GOOD_CIPHER = "blowfish"
+GOOD_CIPHER = "aes-256-cbc"
 BAD_CIPHER = "zippers"
 
 GOOD_DIGEST = "SHA256"
@@ -555,60 +556,6 @@ ywIDAQAB
 -----END PUBLIC KEY-----
 """
 
-crlData = b"""\
------BEGIN X509 CRL-----
-MIIBWzCBxTANBgkqhkiG9w0BAQQFADBYMQswCQYDVQQGEwJVUzELMAkGA1UECBMC
-SUwxEDAOBgNVBAcTB0NoaWNhZ28xEDAOBgNVBAoTB1Rlc3RpbmcxGDAWBgNVBAMT
-D1Rlc3RpbmcgUm9vdCBDQRcNMDkwNzI2MDQzNDU2WhcNMTIwOTI3MDI0MTUyWjA8
-MBUCAgOrGA8yMDA5MDcyNTIzMzQ1NlowIwICAQAYDzIwMDkwNzI1MjMzNDU2WjAM
-MAoGA1UdFQQDCgEEMA0GCSqGSIb3DQEBBAUAA4GBAEBt7xTs2htdD3d4ErrcGAw1
-4dKcVnIWTutoI7xxen26Wwvh8VCsT7i/UeP+rBl9rC/kfjWjzQk3/zleaarGTpBT
-0yp4HXRFFoRhhSE/hP+eteaPXRgrsNRLHe9ZDd69wmh7J1wMDb0m81RG7kqcbsid
-vrzEeLDRiiPl92dyyWmu
------END X509 CRL-----
-"""
-
-# The signature on this CRL is invalid.
-crlDataUnsupportedExtension = b"""\
------BEGIN X509 CRL-----
-MIIGRzCCBS8CAQEwDQYJKoZIhvcNAQELBQAwJzELMAkGA1UEBhMCVVMxGDAWBgNV
-BAMMD2NyeXB0b2dyYXBoeS5pbxgPMjAxNTAxMDEwMDAwMDBaGA8yMDE2MDEwMTAw
-MDAwMFowggTOMBQCAQAYDzIwMTUwMTAxMDAwMDAwWjByAgEBGA8yMDE1MDEwMTAw
-MDAwMFowXDAYBgNVHRgEERgPMjAxNTAxMDEwMDAwMDBaMDQGA1UdHQQtMCukKTAn
-MQswCQYDVQQGEwJVUzEYMBYGA1UEAwwPY3J5cHRvZ3JhcGh5LmlvMAoGA1UdFQQD
-CgEAMHICAQIYDzIwMTUwMTAxMDAwMDAwWjBcMBgGA1UdGAQRGA8yMDE1MDEwMTAw
-MDAwMFowNAYDVR0dBC0wK6QpMCcxCzAJBgNVBAYTAlVTMRgwFgYDVQQDDA9jcnlw
-dG9ncmFwaHkuaW8wCgYDVR0VBAMKAQEwcgIBAxgPMjAxNTAxMDEwMDAwMDBaMFww
-GAYDVR0YBBEYDzIwMTUwMTAxMDAwMDAwWjA0BgNVHR0ELTArpCkwJzELMAkGA1UE
-BhMCVVMxGDAWBgNVBAMMD2NyeXB0b2dyYXBoeS5pbzAKBgNVHRUEAwoBAjByAgEE
-GA8yMDE1MDEwMTAwMDAwMFowXDAYBgNVHRgEERgPMjAxNTAxMDEwMDAwMDBaMDQG
-A1UdHQQtMCukKTAnMQswCQYDVQQGEwJVUzEYMBYGA1UEAwwPY3J5cHRvZ3JhcGh5
-LmlvMAoGA1UdFQQDCgEDMHICAQUYDzIwMTUwMTAxMDAwMDAwWjBcMBgGA1UdGAQR
-GA8yMDE1MDEwMTAwMDAwMFowNAYDVR0dBC0wK6QpMCcxCzAJBgNVBAYTAlVTMRgw
-FgYDVQQDDA9jcnlwdG9ncmFwaHkuaW8wCgYDVR0VBAMKAQQwcgIBBhgPMjAxNTAx
-MDEwMDAwMDBaMFwwGAYDVR0YBBEYDzIwMTUwMTAxMDAwMDAwWjA0BgNVHR0ELTAr
-pCkwJzELMAkGA1UEBhMCVVMxGDAWBgNVBAMMD2NyeXB0b2dyYXBoeS5pbzAKBgNV
-HRUEAwoBBTByAgEHGA8yMDE1MDEwMTAwMDAwMFowXDAYBgNVHRgEERgPMjAxNTAx
-MDEwMDAwMDBaMDQGA1UdHQQtMCukKTAnMQswCQYDVQQGEwJVUzEYMBYGA1UEAwwP
-Y3J5cHRvZ3JhcGh5LmlvMAoGA1UdFQQDCgEGMHICAQgYDzIwMTUwMTAxMDAwMDAw
-WjBcMBgGA1UdGAQRGA8yMDE1MDEwMTAwMDAwMFowNAYDVR0dBC0wK6QpMCcxCzAJ
-BgNVBAYTAlVTMRgwFgYDVQQDDA9jcnlwdG9ncmFwaHkuaW8wCgYDVR0VBAMKAQgw
-cgIBCRgPMjAxNTAxMDEwMDAwMDBaMFwwGAYDVR0YBBEYDzIwMTUwMTAxMDAwMDAw
-WjA0BgNVHR0ELTArpCkwJzELMAkGA1UEBhMCVVMxGDAWBgNVBAMMD2NyeXB0b2dy
-YXBoeS5pbzAKBgNVHRUEAwoBCTByAgEKGA8yMDE1MDEwMTAwMDAwMFowXDAYBgNV
-HRgEERgPMjAxNTAxMDEwMDAwMDBaMDQGA1UdHQQtMCukKTAnMQswCQYDVQQGEwJV
-UzEYMBYGA1UEAwwPY3J5cHRvZ3JhcGh5LmlvMAoGA1UdFQQDCgEKMC4CAQsYDzIw
-MTUwMTAxMDAwMDAwWjAYMAoGA1UdFQQDCgEBMAoGAyoDBAQDCgEAMA0GCSqGSIb3
-DQEBCwUAA4IBAQBTaloHlPaCZzYee8LxkWej5meiqxQVNWFoVdjesroa+f1FRrH+
-drRU60Nq97KCKf7f9GNN/J3ZIlQmYhmuDqh12f+XLpotoj1ZRfBz2hjFCkJlv+2c
-oWWGNHgA70ndFoVtcmX088SYpX8E3ARATivS4q2h9WlwV6rO93mhg3HGIe3JpcK4
-7BcW6Poi/ut/zsDOkVbI00SqaujRpdmdCTht82MH3ztjyDkI9KYaD/YEweKSrWOz
-SdEILd164bfBeLuplVI+xpmTEMVNpXBlSXl7+xIw9Vk7p7Q1Pa3k/SvhOldYCm6y
-C1xAg/AAq6w78yzYt18j5Mj0s6eeHi1YpHKw
------END X509 CRL-----
-"""
-
-
 # A broken RSA private key which can be used to test the error path through
 # PKey.check.
 inconsistentPrivateKeyPEM = b"""-----BEGIN RSA PRIVATE KEY-----
@@ -1077,8 +1024,22 @@ class TestPKey:
         [
             (dsa_private_key_pem, dsa.DSAPrivateKey),
             (ec_private_key_pem, ec.EllipticCurvePrivateKey),
-            (ed25519_private_key_pem, ed25519.Ed25519PrivateKey),
-            (ed448_private_key_pem, ed448.Ed448PrivateKey),
+            pytest.param(
+                ed25519_private_key_pem,
+                ed25519.Ed25519PrivateKey,
+                marks=pytest.mark.skipif(
+                    conftest.is_awslc,
+                    reason="aws-lc doesn't support Ed25519 serialization",
+                ),
+            ),
+            pytest.param(
+                ed448_private_key_pem,
+                ed448.Ed448PrivateKey,
+                marks=pytest.mark.skipif(
+                    conftest.is_awslc,
+                    reason="aws-lc doesn't support Ed448",
+                ),
+            ),
             (rsa_private_key_pem, rsa.RSAPrivateKey),
         ],
     )
@@ -1131,8 +1092,22 @@ class TestPKey:
         [
             (dsa_public_key_pem, dsa.DSAPublicKey),
             (ec_public_key_pem, ec.EllipticCurvePublicKey),
-            (ed25519_public_key_pem, ed25519.Ed25519PublicKey),
-            (ed448_public_key_pem, ed448.Ed448PublicKey),
+            pytest.param(
+                ed25519_public_key_pem,
+                ed25519.Ed25519PublicKey,
+                marks=pytest.mark.skipif(
+                    conftest.is_awslc,
+                    reason="aws-lc doesn't support Ed25519 serialization",
+                ),
+            ),
+            pytest.param(
+                ed448_public_key_pem,
+                ed448.Ed448PublicKey,
+                marks=pytest.mark.skipif(
+                    conftest.is_awslc,
+                    reason="aws-lc doesn't support Ed448",
+                ),
+            ),
             (rsa_public_key_pem, rsa.RSAPublicKey),
         ],
     )
@@ -1876,6 +1851,8 @@ class TestX509:
         key = PKey()
         key.generate_key(TYPE_RSA, 2048)
         cert.set_pubkey(key)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(24 * 60 * 60)
         cert.sign(key, GOOD_DIGEST)
 
     def test_construction(self) -> None:
@@ -1944,20 +1921,21 @@ class TestX509:
         set(certificate, when)
         assert get(certificate) == when
 
-        # A plus two hours and thirty minutes offset
-        when = b"20040203040506+0530"
-        set(certificate, when)
-        assert get(certificate) == when
+        if not conftest.is_awslc:
+            # A plus two hours and thirty minutes offset
+            when = b"20040203040506+0530"
+            set(certificate, when)
+            assert get(certificate) == when
 
-        # A minus one hour fifteen minutes offset
-        when = b"20040203040506-0115"
-        set(certificate, when)
-        assert (
-            get(
-                certificate,
+            # A minus one hour fifteen minutes offset
+            when = b"20040203040506-0115"
+            set(certificate, when)
+            assert (
+                get(
+                    certificate,
+                )
+                == when
             )
-            == when
-        )
 
         # An invalid string results in a ValueError
         with pytest.raises(ValueError):

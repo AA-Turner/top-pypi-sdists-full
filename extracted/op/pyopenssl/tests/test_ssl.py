@@ -37,6 +37,7 @@ from socket import (
     SOL_SOCKET,
     gaierror,
     socket,
+    socketpair,
 )
 from sys import getfilesystemencoding, platform
 from weakref import ref
@@ -66,7 +67,6 @@ from OpenSSL.crypto import (
 )
 from OpenSSL.SSL import (
     DTLS_METHOD,
-    MODE_RELEASE_BUFFERS,
     NO_OVERLAPPING_PROTOCOLS,
     OP_COOKIE_EXCHANGE,
     OP_NO_COMPRESSION,
@@ -131,6 +131,7 @@ from OpenSSL.SSL import (
     _NoOverlappingProtocols,
 )
 
+from . import conftest
 from .test_crypto import (
     client_cert_pem,
     client_key_pem,
@@ -642,6 +643,12 @@ class TestContext:
                 "",
                 "no cipher match",
             ),
+            # aws-lc
+            (
+                "SSL routines",
+                "OPENSSL_internal",
+                "NO_CIPHER_MATCH",
+            ),
         ]
 
     def test_load_client_ca(self, context: Context, ca_file: bytes) -> None:
@@ -670,7 +677,8 @@ class TestContext:
         """
         Passing the path as unicode raises a warning but works.
         """
-        pytest.deprecated_call(context.load_client_ca, ca_file.decode("ascii"))
+        with pytest.deprecated_call():
+            context.load_client_ca(ca_file.decode("ascii"))  # type: ignore[arg-type]
 
     def test_set_session_id(self, context: Context) -> None:
         """
@@ -698,6 +706,12 @@ class TestContext:
                 "",
                 "ssl session id context too long",
             ),
+            # aws-lc
+            (
+                "SSL routines",
+                "OPENSSL_internal",
+                "SSL_SESSION_ID_CONTEXT_TOO_LONG",
+            ),
         ]
 
     def test_set_session_id_unicode(self, context: Context) -> None:
@@ -705,7 +719,8 @@ class TestContext:
         `Context.set_session_id` raises a warning if a unicode string is
         passed.
         """
-        pytest.deprecated_call(context.set_session_id, "abc")
+        with pytest.deprecated_call():
+            context.set_session_id("abc")  # type: ignore[arg-type]
 
     def test_method(self) -> None:
         """
@@ -919,7 +934,8 @@ class TestContext:
         newly set mode.
         """
         context = Context(SSLv23_METHOD)
-        assert MODE_RELEASE_BUFFERS & context.set_mode(MODE_RELEASE_BUFFERS)
+        mode = _lib.SSL_MODE_ENABLE_PARTIAL_WRITE
+        assert mode & context.set_mode(mode)
 
     def test_set_timeout_wrong_args(self) -> None:
         """
@@ -966,7 +982,7 @@ class TestContext:
         """
         key = PKey()
         key.generate_key(TYPE_RSA, 1024)
-        pem = dump_privatekey(FILETYPE_PEM, key, "blowfish", passphrase)
+        pem = dump_privatekey(FILETYPE_PEM, key, "aes-256-cbc", passphrase)
         with open(tmpfile, "w") as fObj:
             fObj.write(pem.decode("ascii"))
         return tmpfile
@@ -1160,7 +1176,7 @@ class TestContext:
         client_context = Context(TLS_METHOD)
         client_context.set_max_proto_version(low_version)
 
-        with pytest.raises(Error, match="unsupported protocol"):
+        with pytest.raises(Error, match=r"(?i)unsupported.protocol"):
             self._handshake_test(server_context, client_context)
 
         client_context = Context(TLS_METHOD)
@@ -1629,7 +1645,9 @@ class TestContext:
         if mode == SSL.VERIFY_PEER:
             with pytest.raises(Exception) as exc:
                 self._handshake_test(serverContext, clientContext)
-            assert "certificate verify failed" in str(exc.value)
+            assert "certificate verify failed" in str(
+                exc.value
+            ) or "CERTIFICATE_VERIFY_FAILED" in str(exc.value)
         else:
             self._handshake_test(serverContext, clientContext)
 
@@ -1858,8 +1876,26 @@ class TestContext:
             with pytest.deprecated_call():
                 context.set_tmp_ecdh(curve)
 
+        awslc_unsupported_curves = {
+            "BRAINPOOLP256R1",
+            "BRAINPOOLP384R1",
+            "BRAINPOOLP512R1",
+            "SECP192R1",
+            "SECT163K1",
+            "SECT163R2",
+            "SECT233K1",
+            "SECT233R1",
+            "SECT283K1",
+            "SECT283R1",
+            "SECT409K1",
+            "SECT409R1",
+            "SECT571K1",
+            "SECT571R1",
+        }
         for name in dir(ec.EllipticCurveOID):
             if name.startswith("_"):
+                continue
+            if conftest.is_awslc and name in awslc_unsupported_curves:
                 continue
             oid = getattr(ec.EllipticCurveOID, name)
             cryptography_curve = ec.get_curve_for_oid(oid)
@@ -2030,6 +2066,56 @@ class TestServerNameCallback:
         interact_in_memory(server, client)
 
         assert args == [(server, b"foo1.example.com")]
+
+    def test_servername_callback_exception(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        When the callback passed to `Context.set_tlsext_servername_callback`
+        raises an exception, ``sys.excepthook`` is called with the exception
+        and the handshake fails with an ``Error``.
+        """
+        exc = TypeError("server name callback failed")
+
+        def servername(conn: Connection) -> None:
+            raise exc
+
+        excepthook_calls: list[
+            tuple[type[BaseException], BaseException, object]
+        ] = []
+
+        def custom_excepthook(
+            exc_type: type[BaseException],
+            exc_value: BaseException,
+            exc_tb: object,
+        ) -> None:
+            excepthook_calls.append((exc_type, exc_value, exc_tb))
+
+        context = Context(SSLv23_METHOD)
+        context.set_tlsext_servername_callback(servername)
+
+        # Necessary to actually accept the connection
+        context.use_privatekey(load_privatekey(FILETYPE_PEM, server_key_pem))
+        context.use_certificate(
+            load_certificate(FILETYPE_PEM, server_cert_pem)
+        )
+
+        # Do a little connection to trigger the logic
+        server = Connection(context, None)
+        server.set_accept_state()
+
+        client = Connection(Context(SSLv23_METHOD), None)
+        client.set_connect_state()
+        client.set_tlsext_host_name(b"foo1.example.com")
+
+        monkeypatch.setattr(sys, "excepthook", custom_excepthook)
+        with pytest.raises(Error):
+            interact_in_memory(server, client)
+
+        assert len(excepthook_calls) == 1
+        assert excepthook_calls[0][0] is TypeError
+        assert excepthook_calls[0][1] is exc
+        assert excepthook_calls[0][2] is not None
 
 
 class TestApplicationLayerProtoNegotiation:
@@ -2696,10 +2782,12 @@ class TestConnection:
         assert tls_server.get_state_string() in [
             b"before/accept initialization",
             b"before SSL initialization",
+            b"TLS server start_accept",
         ]
         assert tls_client.get_state_string() in [
             b"before/connect initialization",
             b"before SSL initialization",
+            b"TLS client start_connect",
         ]
 
     def test_app_data(self) -> None:
@@ -3070,7 +3158,14 @@ class TestConnection:
         `OpenSSL.SSL.WantWriteError` if writing to the connection's BIO
         fail indicating a should-write state.
         """
-        client_socket, _ = socket_pair()
+        # Use Unix domain sockets rather than TCP loopback. On macOS,
+        # TCP loopback aggressively auto-tunes buffer sizes and drains
+        # the send buffer into the peer's receive buffer nearly
+        # instantly, so the send buffer won't stay full long enough
+        # for do_handshake() to observe it.
+        client_socket, peer = socketpair()
+        client_socket.setblocking(False)
+        peer.setblocking(False)
         # Fill up the client's send buffer so Connection won't be able to write
         # anything. Start by sending larger chunks (Windows Socket I/O is slow)
         # and continue by writing a single byte at a time so we can be sure we
@@ -3169,9 +3264,10 @@ class TestConnection:
             return False  # Retry succeeded
         except SSL.Error as e:
             reason = get_ssl_error_reason(e)
-            assert reason == "bad write retry", (
-                f"Retry failed with unexpected SSL error: {e!r}({reason})."
-            )
+            assert reason in (
+                "bad write retry",
+                "BAD_WRITE_RETRY",
+            ), f"Retry failed with unexpected SSL error: {e!r}({reason})."
             return True  # Bad write retry
 
     def _shutdown_connections(
@@ -3436,6 +3532,54 @@ class TestConnection:
         assert isinstance(client_protocol_version, int)
 
         assert server_protocol_version == client_protocol_version
+
+    @pytest.mark.skipif(
+        not getattr(_lib, "Cryptography_HAS_SSL_GET0_GROUP_NAME", None),
+        reason="SSL_get0_group_name unavailable",
+    )
+    def test_get_group_name_before_connect(self) -> None:
+        """
+        `Connection.get_group_name()` returns `None` if no connection
+        has been established.
+        """
+        ctx = Context(TLS_METHOD)
+        conn = Connection(ctx, None)
+        assert conn.get_group_name() is None
+
+    @pytest.mark.skipif(
+        not getattr(_lib, "Cryptography_HAS_SSL_GET0_GROUP_NAME", None),
+        reason="SSL_get0_group_name unavailable",
+    )
+    def test_group_name_null_case(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        `Connection.get_group_name()` returns `None` when SSL_get0_group_name
+        returns NULL.
+        """
+        monkeypatch.setattr(_lib, "SSL_get0_group_name", lambda ssl: _ffi.NULL)
+
+        server, client = loopback()
+        assert server.get_group_name() is None
+        assert client.get_group_name() is None
+
+    @pytest.mark.skipif(
+        not getattr(_lib, "Cryptography_HAS_SSL_GET0_GROUP_NAME", None),
+        reason="SSL_get0_group_name unavailable",
+    )
+    def test_get_group_name(self) -> None:
+        """
+        `Connection.get_group_name()` returns a string giving the
+        name of the connection's negotiated key exchange group.
+        """
+        server, client = loopback()
+        server_group_name = server.get_group_name()
+        client_group_name = client.get_group_name()
+
+        assert isinstance(server_group_name, str)
+        assert isinstance(client_group_name, str)
+
+        assert server_group_name == client_group_name
 
     def test_wantReadError(self) -> None:
         """
@@ -3837,6 +3981,10 @@ class TestConnectionRenegotiate:
         connection = Connection(Context(SSLv23_METHOD), None)
         assert connection.total_renegotiations() == 0
 
+    @pytest.mark.skipif(
+        conftest.is_awslc,
+        reason="aws-lc doesn't support renegotiation",
+    )
     def test_renegotiate(self) -> None:
         """
         Go through a complete renegotiation cycle.
@@ -3929,6 +4077,10 @@ class TestConstants:
         reason=(
             "OP_NO_COMPRESSION unavailable - OpenSSL version may be too old"
         ),
+    )
+    @pytest.mark.skipif(
+        conftest.is_awslc,
+        reason="aws-lc defines OP_NO_COMPRESSION as 0",
     )
     def test_op_no_compression(self) -> None:
         """
@@ -4992,11 +5144,61 @@ class TestDTLS:
         c.set_ciphertext_mtu(500)
         assert 0 < c.get_cleartext_mtu() < 500
 
+    @pytest.mark.skipif(
+        OP_COOKIE_EXCHANGE is None,
+        reason="DTLS cookie exchange not supported",
+    )
     def test_it_works_at_all(self) -> None:
         self._test_handshake_and_data(srtp_profile=None)
 
+    @pytest.mark.skipif(
+        OP_COOKIE_EXCHANGE is None,
+        reason="DTLS cookie exchange not supported",
+    )
     def test_it_works_with_srtp(self) -> None:
         self._test_handshake_and_data(srtp_profile=b"SRTP_AES128_CM_SHA1_80")
+
+    @pytest.mark.skipif(
+        OP_COOKIE_EXCHANGE is None,
+        reason="DTLS cookie exchange not supported",
+    )
+    def test_cookie_generate_too_long(self) -> None:
+        s_ctx = Context(DTLS_METHOD)
+
+        def generate_cookie(ssl: Connection) -> bytes:
+            return b"\x00" * 256
+
+        def verify_cookie(ssl: Connection, cookie: bytes) -> bool:
+            return True
+
+        s_ctx.set_cookie_generate_callback(generate_cookie)
+        s_ctx.set_cookie_verify_callback(verify_cookie)
+        s_ctx.use_privatekey(load_privatekey(FILETYPE_PEM, server_key_pem))
+        s_ctx.use_certificate(load_certificate(FILETYPE_PEM, server_cert_pem))
+        s_ctx.set_options(OP_NO_QUERY_MTU)
+        s = Connection(s_ctx)
+        s.set_accept_state()
+
+        c_ctx = Context(DTLS_METHOD)
+        c_ctx.set_options(OP_NO_QUERY_MTU)
+        c = Connection(c_ctx)
+        c.set_connect_state()
+
+        c.set_ciphertext_mtu(1500)
+        s.set_ciphertext_mtu(1500)
+
+        # Client sends ClientHello
+        try:
+            c.do_handshake()
+        except SSL.WantReadError:
+            pass
+        chunk = c.bio_read(self.LARGE_BUFFER)
+        s.bio_write(chunk)
+
+        # Server tries DTLSv1_listen, which triggers cookie generation.
+        # The oversized cookie should raise ValueError.
+        with pytest.raises(ValueError, match="Cookie too long"):
+            s.DTLSv1_listen()
 
     def test_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
         c_ctx = Context(DTLS_METHOD)

@@ -1093,10 +1093,6 @@ def main(
 
             loadingContext, workflowobj, uri = fetch_document(uri, loadingContext)
 
-            if args.print_deps and loadingContext.loader:
-                printdeps(workflowobj, loadingContext.loader, stdout, args.relative_deps, uri)
-                return 0
-
             loadingContext, uri = resolve_and_validate_document(
                 loadingContext,
                 workflowobj,
@@ -1110,6 +1106,10 @@ def main(
             processobj = cast(Union[CommentedMap, CommentedSeq], processobj)
             if args.pack:
                 print(print_pack(loadingContext, uri), file=stdout)
+                return 0
+
+            if args.print_deps:
+                printdeps(workflowobj, loadingContext.loader, stdout, args.relative_deps, uri)
                 return 0
 
             if args.provenance and runtimeContext.research_obj:
@@ -1313,7 +1313,7 @@ def main(
             runtimeContext.validate_only = args.validate
             runtimeContext.validate_stdout = stdout
 
-            (out, status) = real_executor(
+            out, status = real_executor(
                 tool, initialized_job_order_object, runtimeContext, logger=_logger
             )
             if runtimeContext.validate_only is True:

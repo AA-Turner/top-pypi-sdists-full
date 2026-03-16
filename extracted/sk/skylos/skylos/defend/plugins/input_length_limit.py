@@ -1,5 +1,3 @@
-"""Plugin: input-length-limit — user input should be length-limited before LLM call."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -22,7 +20,9 @@ class InputLengthLimitPlugin(DefensePlugin):
     def applies_to(self, integration: LLMIntegration) -> bool:
         return bool(integration.input_sources)
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_input_length_limit:
             loc = integration.input_length_limit_location or integration.location
             return self._pass(

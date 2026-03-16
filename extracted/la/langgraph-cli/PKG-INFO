@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-cli
-Version: 0.4.17
+Version: 0.4.18
 Summary: CLI for interacting with LangGraph API
 Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/cli
 Project-URL: Twitter, https://x.com/LangChain

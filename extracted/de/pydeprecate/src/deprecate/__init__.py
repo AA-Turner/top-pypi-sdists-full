@@ -15,20 +15,24 @@ Main Features:
 Core Components:
 
 **Main Decorator** (:mod:`deprecate.deprecation`):
-    - :func:`~deprecate.deprecation.deprecated`: Decorator for marking functions/classes as deprecated
+    - :func:`~deprecate.deprecation.deprecated`: Decorator for marking functions/methods as deprecated
     - :func:`~deprecate.utils.void`: Silences IDE and mypy warnings about unused parameters in deprecated stubs
 
 **Audit** (:mod:`deprecate.audit`):
-    - :func:`~deprecate.audit.validate_deprecated_callable`: Validate a single wrapper's configuration
-    - :func:`~deprecate.audit.find_deprecated_callables`: Scan a package for all deprecated wrappers
+    - :func:`~deprecate.audit.validate_deprecation_wrapper`: Validate a single wrapper's configuration
+    - :func:`~deprecate.audit.find_deprecation_wrappers`: Scan a package for all deprecated wrappers
     - :func:`~deprecate.audit.validate_deprecation_expiry`: Detect wrappers that outlived their ``remove_in`` deadline
-    - :func:`~deprecate.audit.validate_deprecation_chains`: Detect deprecated functions chaining to
-      other deprecated functions
-    - :class:`~deprecate.audit.DeprecatedCallableInfo`: Structured result returned by the audit functions
+    - :func:`~deprecate.audit.validate_deprecation_chains`: Detect deprecated wrappers chaining to
+      other deprecated wrappers
+    - :class:`~deprecate.audit.DeprecationWrapperInfo`: Structured result returned by the audit functions
     - :class:`~deprecate.audit.ChainType`: Enum describing the kind of deprecation chain detected
 
+**Proxy** (:mod:`deprecate.proxy`):
+    - :func:`~deprecate.proxy.deprecated_instance`: Wrap any object with deprecation warnings
+    - :func:`~deprecate.proxy.deprecated_class`: Decorator for deprecating Enum/dataclass definitions
+
 **Testing** (:mod:`deprecate.utils`):
-    - :func:`~deprecate.utils.no_warning_call`: Context manager asserting that no warnings are raised
+    - :func:`~deprecate.utils.assert_no_warnings`: Context manager asserting that no warnings are raised
 
 Quick Example:
     >>> from deprecate import deprecated
@@ -66,22 +70,32 @@ Complete Documentation:
 
 from deprecate.__about__ import *  # noqa: F403
 from deprecate.audit import (
-    DeprecatedCallableInfo,
-    find_deprecated_callables,
-    validate_deprecated_callable,
+    DeprecatedCallableInfo,  # noqa: F401 # backward-compat alias for DeprecatedWrapperInfo
+    DeprecationWrapperInfo,
+    find_deprecated_callables,  # noqa: F401 # deprecated since 0.6, use find_deprecation_wrappers
+    find_deprecation_wrappers,
+    validate_deprecated_callable,  # noqa: F401 # deprecated since 0.6, use validate_deprecation_wrapper
     validate_deprecation_chains,
     validate_deprecation_expiry,
+    validate_deprecation_wrapper,
 )
 from deprecate.deprecation import deprecated
-from deprecate.utils import no_warning_call, void
+from deprecate.proxy import deprecated_class, deprecated_instance
+from deprecate.utils import (
+    assert_no_warnings,
+    no_warning_call,  # noqa: F401 # deprecated since 0.6, use assert_no_warnings
+    void,
+)
 
 __all__ = [
     "deprecated",
-    "DeprecatedCallableInfo",
-    "find_deprecated_callables",
-    "validate_deprecated_callable",
+    "DeprecationWrapperInfo",
+    "deprecated_class",
+    "deprecated_instance",
+    "find_deprecation_wrappers",
+    "validate_deprecation_wrapper",
     "validate_deprecation_chains",
     "validate_deprecation_expiry",
-    "no_warning_call",
+    "assert_no_warnings",
     "void",
 ]

@@ -19,7 +19,17 @@ def get_values():
     # First load a mapping between config name and default value
     default_initial = ((name, options[0]) for name, options in settings.CONFIG.items())
     # Then update the mapping with actually values from the backend
-    return dict(default_initial, **dict(config._backend.mget(settings.CONFIG)))
+    return dict(default_initial, **config._backend.mget(settings.CONFIG))
+
+
+async def aget_values():
+    """
+    Get dictionary of values from the backend asynchronously
+    :return:
+    """
+    default_initial = {name: options[0] for name, options in settings.CONFIG.items()}
+    backend_values = await config.amget(settings.CONFIG.keys())
+    return dict(default_initial, **backend_values)
 
 
 def get_values_for_keys(keys):
@@ -42,4 +52,25 @@ def get_values_for_keys(keys):
         raise AttributeError(f'"{", ".join(missing_keys)}" keys not found in configuration.')
 
     # Merge default values and backend values, prioritizing backend values
-    return dict(default_initial, **dict(config._backend.mget(keys)))
+    return dict(default_initial, **config._backend.mget(keys))
+
+
+async def aget_values_for_keys(keys):
+    """
+    Retrieve values for specified keys from the backend asynchronously.
+
+    :param keys: List of keys to retrieve.
+    :return: Dictionary with values for the specified keys.
+    :raises AttributeError: If any key is not found in the configuration.
+    """
+    if not isinstance(keys, (list, tuple, set)):
+        raise TypeError("keys must be a list, tuple, or set of strings")
+
+    default_initial = {name: options[0] for name, options in settings.CONFIG.items() if name in keys}
+
+    missing_keys = [key for key in keys if key not in default_initial]
+    if missing_keys:
+        raise AttributeError(f'"{", ".join(missing_keys)}" keys not found in configuration.')
+
+    backend_values = await config.amget(keys)
+    return dict(default_initial, **backend_values)

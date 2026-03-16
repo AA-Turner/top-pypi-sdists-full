@@ -262,6 +262,13 @@ class SEQUENCER_MT_context_menu(_bpy_types.Menu):
         :param context:
         """
 
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class SEQUENCER_MT_editor_menus(_bpy_types.Menu):
     bl_idname: typing.Any
     bl_label: typing.Any

@@ -1826,6 +1826,7 @@ type IconItems = typing.Literal[
     "NODE_SOCKET_TEXT",  # NODE_SOCKET_TEXT.
     "NODE_SOCKET_MASK",  # NODE_SOCKET_MASK.
     "NODE_SOCKET_SOUND",  # NODE_SOCKET_SOUND.
+    "NODE_SOCKET_INT_VECTOR",  # NODE_SOCKET_INT_VECTOR.
 ]
 type IdTypeItems = typing.Literal[
     "ACTION",  # Action.
@@ -2255,6 +2256,7 @@ type NodeSocketDataTypeItems = typing.Literal[
     "TEXT",  # Text.
     "MASK",  # Mask.
     "SOUND",  # Sound.
+    "INT_VECTOR",  # Integer Vector.
 ]
 type NodeSocketInOutItems = typing.Literal[
     "IN",  # Input.
@@ -2293,6 +2295,7 @@ type NodeSocketTypeItems = typing.Literal[
     "TEXT",  # Text.
     "MASK",  # Mask.
     "SOUND",  # Sound.
+    "INT_VECTOR",  # Integer Vector.
 ]
 type NodeTreeInterfaceItemTypeItems = typing.Literal[
     "SOCKET",  # Socket.

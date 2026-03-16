@@ -1,6 +1,6 @@
 [package]
 name = "wavelet-matrix"
-version = "2.1.6"
+version = "2.1.8"
 edition = "2024"
 readme = "README.md"
 

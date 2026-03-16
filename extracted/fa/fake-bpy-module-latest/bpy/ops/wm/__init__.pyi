@@ -3158,6 +3158,7 @@ def save_as_mainfile(
     compress: bool | None = False,
     relative_remap: bool | None = True,
     copy: bool | None = False,
+    show_save_modified_images_dialog: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current file in the desired location
 
@@ -3198,6 +3199,7 @@ def save_as_mainfile(
         :param compress: Compress, Write compressed .blend file (optional)
         :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory (optional)
         :param copy: Save Copy, Save a copy of the actual working state but does not make saved file active (optional)
+        :param show_save_modified_images_dialog: Show Save Modified Images Dialog, Show a popup dialog to save modified images before saving the blend file (optional)
         :return: Result of the operator call.
     """
 
@@ -3245,6 +3247,7 @@ def save_mainfile(
     relative_remap: bool | None = False,
     exit: bool | None = False,
     incremental: bool | None = False,
+    show_save_modified_images_dialog: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current Blender file
 
@@ -3286,6 +3289,7 @@ def save_mainfile(
         :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory (optional)
         :param exit: Exit, Exit Blender after saving (optional)
         :param incremental: Incremental, Save the current Blender file with a numerically incremented name that does not overwrite any existing files (optional)
+        :param show_save_modified_images_dialog: Show Save Modified Images Dialog, Show a popup dialog to save modified images before saving the blend file (optional)
         :return: Result of the operator call.
     """
 

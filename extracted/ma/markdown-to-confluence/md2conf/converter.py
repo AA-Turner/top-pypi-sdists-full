@@ -10,8 +10,10 @@ import copy
 import logging
 import os.path
 import re
+import unicodedata
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -21,21 +23,21 @@ from urllib.parse import ParseResult, quote_plus, urlparse
 import lxml.etree as ET
 
 from .attachment import AttachmentCatalog, EmbeddedFileData, ImageData, attachment_name
-from .coalesce import coalesce
+from .coalesce import coalesce_dataclass
 from .collection import ConfluencePageCollection
 from .compatibility import override, path_relative_to
-from .csf import AC_ATTR, AC_ELEM, HTML, RI_ATTR, RI_ELEM, ParseError, elements_from_strings, elements_to_string, normalize_inline
+from .csf import AC_ATTR, AC_ELEM, HTML, RI_ATTR, RI_ELEM, ElementType, ParseError, elements_from_strings, elements_to_string, normalize_inline
 from .drawio.extension import DrawioExtension
 from .emoticon import emoji_to_emoticon
 from .environment import PageError
-from .extension import ExtensionOptions, MarketplaceExtension
+from .extension import DiagramExtension, ExtensionOptions
 from .formatting import FormattingContext, ImageAlignment, ImageAttributes
-from .image import ImageGenerator, ImageGeneratorOptions
+from .image import ImageGenerator, ImageGeneratorOptions, to_element_attrs
 from .latex import render_latex
 from .markdown import markdown_to_html, markdown_with_line_numbers
 from .mermaid.extension import MermaidExtension
 from .metadata import ConfluenceSiteMetadata
-from .options import ConfluencePageID, ConverterOptions, ProcessorOptions
+from .options import ConfluencePageID, ConverterOptions, MarketplaceExtension, ProcessorOptions
 from .plantuml.extension import PlantUMLExtension
 from .png import remove_png_chunks
 from .scanner import ScannedDocument, Scanner
@@ -43,8 +45,6 @@ from .serializer import JsonType
 from .toc import TableOfContentsBuilder
 from .uri import is_absolute_url, to_uuid_urn
 from .xml import element_to_text, remove_element
-
-ElementType = ET._Element  # pyright: ignore [reportPrivateUsage]
 
 
 def apply_generated_by_template(template: str, path: Path) -> str:
@@ -273,17 +273,65 @@ class NodeVisitor(ABC):
     def transform(self, child: ElementType) -> ElementType | ElementAction: ...
 
 
-_DISALLOWED_CHAR_REGEXP = re.compile(r"[^\sA-Za-z0-9_\-]")
+_DISALLOWED_CHAR_REGEXP = re.compile(r"[^\sa-z0-9_-]")
 _SPACE_COLLAPSE_REGEXP = re.compile(r"\s+")
 
 
 def title_to_identifier(title: str) -> str:
-    "Converts a section heading title to a GitHub-style Markdown same-page anchor."
+    """
+    Converts a section heading title to a GitHub-style Markdown same-page anchor.
 
+    :param title: Heading title text without formatting.
+    """
+
+    # remove leading and trailing whitespace, convert letters to lowercase
     s = title.strip().lower()
+    # remove international characters
     s = _DISALLOWED_CHAR_REGEXP.sub("", s)
+    # collapse whitespace to hyphens
     s = _SPACE_COLLAPSE_REGEXP.sub("-", s)
     return s
+
+
+def title_to_slug(title: str) -> str:
+    """
+    Converts a section heading title to a GitHub-style Markdown same-page anchor with accent removal.
+
+    :param title: Heading title text without formatting.
+    """
+
+    s = title.strip()
+    # normalize to NFD (decomposes accents)
+    s = unicodedata.normalize("NFD", s)
+    # remove nonspacing combining diacritic marks (zero advance width) (Unicode category `Mn`)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    # transform to lowercase
+    s = s.lower()
+    # remove punctuation except spaces and hyphens
+    s = _DISALLOWED_CHAR_REGEXP.sub("", s)
+    # collapse whitespace to hyphens
+    s = _SPACE_COLLAPSE_REGEXP.sub("-", s)
+
+    return s
+
+
+_HEADING_IDENTIFIER_REGEXP = re.compile(r"\s*\{#(?P<id>[^{}]+)\}$")
+
+
+class _HeadingIdentifierMatcher:
+    value: str | None = None
+
+    def __call__(self, match: re.Match[str]) -> str:
+        self.value = match.group("id")
+        return ""
+
+
+def heading_id_text(title: str) -> tuple[str | None, str]:
+    "Extracts an identifier from the heading title text."
+
+    matcher = _HeadingIdentifierMatcher()
+    title = _HEADING_IDENTIFIER_REGEXP.sub(matcher, title, count=1)
+    return matcher.value, title
 
 
 def element_text_starts_with_any(node: ElementType, prefixes: list[str]) -> bool:
@@ -378,17 +426,12 @@ _FOOTNOTE_REF_REGEXP = re.compile(r"^fnref(\d*):(.+)$")
 _TASKLIST_REGEXP = re.compile(r"^\[([x X])\]")
 
 
-@dataclass
+@dataclass(frozen=True)
 class ConfluencePanel:
     emoji: str
     emoji_shortname: str
     background_color: str
     from_class: ClassVar[dict[str, "ConfluencePanel"]]
-
-    def __init__(self, emoji: str, emoji_shortname: str, background_color: str) -> None:
-        self.emoji = emoji
-        self.emoji_shortname = emoji_shortname
-        self.background_color = background_color
 
     @property
     def emoji_unicode(self) -> str:
@@ -436,7 +479,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
     page_metadata: ConfluencePageCollection
 
     image_generator: ImageGenerator
-    extensions: list[MarketplaceExtension]
+    extensions: Sequence[MarketplaceExtension]
 
     def __init__(
         self,
@@ -467,11 +510,15 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             ImageGeneratorOptions(self.options.diagram_output_format, self.options.prefer_raster, self.options.layout.image.max_width),
         )
 
-        self.extensions = [
-            DrawioExtension(self.image_generator, ExtensionOptions(render=self.options.render_drawio)),
-            MermaidExtension(self.image_generator, ExtensionOptions(render=self.options.render_mermaid)),
-            PlantUMLExtension(self.image_generator, ExtensionOptions(render=self.options.render_plantuml)),
-        ]
+        if options.extensions is not None:
+            self.extensions = options.extensions
+        else:
+            extensions: Sequence[DiagramExtension] = [
+                DrawioExtension(self.image_generator, ExtensionOptions(render=self.options.render_drawio)),
+                MermaidExtension(self.image_generator, ExtensionOptions(render=self.options.render_mermaid)),
+                PlantUMLExtension(self.image_generator, ExtensionOptions(render=self.options.render_plantuml)),
+            ]
+            self.extensions = extensions
 
     def _transform_heading(self, heading: ElementType) -> None:
         """
@@ -491,6 +538,21 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         for e in heading:
             self.visit(e)
 
+        identifier: str | None = None
+        if len(heading) > 0:
+            # heading has formatting, use tail of last child
+            last_child = heading[-1]
+            if last_child.tail:
+                identifier, last_child.tail = heading_id_text(last_child.tail)
+        else:
+            # heading has no formatting, use text
+            if heading.text:
+                identifier, heading.text = heading_id_text(heading.text)
+
+        # infer identifier from title text if explicit identifier is not present
+        if identifier is None:
+            identifier = title_to_slug(element_to_text(heading))
+
         anchor = AC_ELEM(
             "structured-macro",
             {
@@ -500,7 +562,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM(
                 "parameter",
                 {AC_ATTR("name"): ""},
-                title_to_identifier(element_to_text(heading)),
+                identifier,
             ),
         )
 
@@ -702,7 +764,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             height=pixel_height,
             alt=alt,
             title=title,
-            caption=None,
+            show_caption=True,
             alignment=ImageAlignment(self.options.layout.get_image_alignment()),
         )
 
@@ -732,10 +794,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 {RI_ATTR("value"): url},
             )
         )
-        if attrs.caption:
-            elements.append(AC_ELEM("caption", attrs.caption))
+        caption = attrs.get_caption()
+        if caption:
+            elements.append(AC_ELEM("caption", caption))
 
-        return AC_ELEM("image", attrs.as_dict(max_width=self.options.layout.image.max_width), *elements)
+        return AC_ELEM("image", to_element_attrs(attrs, max_width=self.options.layout.image.max_width), *elements)
 
     def _warn_or_raise(self, image: ElementType, msg: str) -> None:
         "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
@@ -769,12 +832,13 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         if attrs.context is FormattingContext.BLOCK:
             message = HTML.p("❌ Missing image: ", HTML.code(path.as_posix()))
-            if attrs.caption is not None:
+            caption = attrs.get_caption()
+            if caption:
                 content = [
                     AC_ELEM(
                         "parameter",
                         {AC_ATTR("name"): "title"},
-                        attrs.caption,
+                        caption,
                     ),
                     AC_ELEM("rich-text-body", {}, message),
                 ]
@@ -1175,10 +1239,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             height=None,
             alt=content,
             title=None,
-            caption="",
+            show_caption=False,
             alignment=ImageAlignment(self.options.layout.get_image_alignment()),
         )
-        return self.image_generator.transform_attached_data(image_data, attrs, image_type="formula")
+        return self.image_generator.transform_attached_data(image_data, attrs, image_type="formula", content=content)
 
     def _transform_inline_math(self, elem: ElementType) -> ElementType:
         """
@@ -1615,8 +1679,30 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             # <table>...</table>
             case "table":
+                # remove <thead> if it doesn't contain any text
+                for thead in list(child.iterchildren("thead")):
+                    for th in thead.iterdescendants("td", "th"):
+                        if any(text and not text.isspace() for text in th.itertext()):
+                            break
+                    else:
+                        child.remove(thead)
+
+                # check if there is a separator column to indicate a header column
+                for tr in child.iterdescendants("tr"):
+                    if len(tr) < 2:
+                        break
+                    column_text = tr[1].text
+                    if column_text and not column_text.isspace():
+                        break
+                else:
+                    for tr in child.iterdescendants("tr"):
+                        tr[0].tag = "th"  # make it a header cell
+                        tr.remove(tr[1])  # remove separator column
+
+                # ensure inline content is wrapped in <p>
                 for td in child.iterdescendants("td", "th"):
                     normalize_inline(td)
+
                 match self.options.layout.alignment:
                     case "left":
                         layout = "align-start"
@@ -1769,7 +1855,7 @@ class ConfluenceDocument:
 
         # modify HTML as necessary
         if self.options.generated_by is not None:
-            generated_by = props.generated_by or self.options.generated_by.string
+            generated_by = props.generated_by or self.options.generated_by
         else:
             generated_by = None
 
@@ -1795,7 +1881,7 @@ class ConfluenceDocument:
         # configure HTML-to-Confluence converter
         converter_options = copy.deepcopy(self.options.converter)
         if props.layout is not None:
-            converter_options.layout = coalesce(props.layout, converter_options.layout)
+            converter_options.layout = coalesce_dataclass(props.layout, converter_options.layout)
         converter = ConfluenceStorageFormatConverter(converter_options, path, root_dir, site_metadata, page_metadata)
 
         # execute HTML-to-Confluence converter

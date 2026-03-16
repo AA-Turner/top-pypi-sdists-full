@@ -266,9 +266,7 @@ def test_extra_007cx() -> None:
 >  title"
 >  )
 > a real test
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[block-quote(1,1)::> \n> \n> \n> \n> \n> \n> \n> \n]",
         "[para(1,3):\n\n \n \n\n \n \n]",
@@ -288,9 +286,7 @@ title">a\a
 not
 so simple</a>
 a real test</p>
-</blockquote>""".replace(
-        "\a", " "
-    )
+</blockquote>""".replace("\a", " ")
 
     # Act & Assert
     act_and_assert(source_markdown, expected_gfm, expected_tokens)
@@ -311,9 +307,7 @@ def test_extra_007ca() -> None:
 >  title"
 >  )
 > a real test
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[block-quote(1,1)::> \n> \n> \n> \n> \n> \n> \n> \n]",
         "[para(1,3):\n\n \n \n\n \n \n]",
@@ -4828,9 +4822,7 @@ def test_extra_038x() -> None:
   part 2
   part 3
   ---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::  \n  \n  \n]",
@@ -4866,9 +4858,7 @@ heading 1\a\a
  part 2
 part 3
 ---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[setext(5,1):-:3::(2,1)]",
@@ -4897,9 +4887,7 @@ def test_extra_038bx() -> None:
 + heading 1\a\a
 \tpart 2
 \tpart 3
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n]",
@@ -4933,9 +4921,7 @@ def test_extra_038ba() -> None:
 \tpart 2
 \tpart 3
 \t---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n\n]",
@@ -4971,9 +4957,7 @@ def test_extra_038bb() -> None:
 \tpart 2
 \tpart 3
 \t---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n\n]",
@@ -5009,9 +4993,7 @@ def test_extra_038bc() -> None:
 \tpart 2
 \tpart 3
 \t---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n\n]",
@@ -5045,9 +5027,7 @@ def test_extra_038bd() -> None:
 \t part 2
 \tpart 3
 \t---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n\n]",
@@ -5083,9 +5063,7 @@ def test_extra_038be() -> None:
 \tpart 2
 \tpart 3
 \t---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::\n\n\n]",
@@ -5118,9 +5096,7 @@ def test_extra_038cx() -> None:
 + heading 1\a\a
   part 2
   part 3
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::  \n  \n]",
@@ -5154,9 +5130,7 @@ def test_extra_038ca() -> None:
   part 2
   part 3
   ---
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[BLANK(1,1):]",
         "[ulist(2,1):+::2::  \n  \n  \n]",
@@ -5194,9 +5168,7 @@ def test_extra_038dx() -> None:
    part *5*\a
 \tpart 6
    ----
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[olist(1,1):.:1:3::\n   \n\n   \n\n   \n]",
         "[setext(7,4):-:4::(1,4)]",
@@ -5242,9 +5214,7 @@ def test_extra_038da() -> None:
    part *5*\a
 \tpart 6
    ----
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[olist(1,1):.:1:3::\n   \n\n   \n\n   \n]",
         "[setext(7,4):-:4::(1,4)]",
@@ -5292,9 +5262,7 @@ def test_extra_039x() -> None:
 \tpart 3
 \tpart 4
 \t----
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[ulist(1,1):+::2::\n\n\n\n]",
         "[setext(5,5):-:4::(1,3)]",
@@ -5332,9 +5300,7 @@ def test_extra_039a() -> None:
    part 5\a\a
 \tpart 6
    ----
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[olist(1,1):.:1:3::\n   \n\n   \n\n   \n]",
         "[setext(7,4):-:4::(1,4)]",
@@ -17106,9 +17072,7 @@ def test_extra_058ca() -> None:
 
 | abc | def |
 | --- | --- |
-""".replace(
-        "\a", " "
-    )
+""".replace("\a", " ")
     expected_tokens = [
         "[table(1,3)]",
         "[table-header(1,3):  : :True: |  --- | :---: | ]",
@@ -17373,6 +17337,491 @@ abc
 &quot; xx
 paragraph&quot;
 LRD.</p>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059aa() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+   properly indented content
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3::   \n]",
+        "[para(1,4):\n]",
+        "[text(1,4):a list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[BLANK(3,1):]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+properly indented content</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059ab() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+  almost properly indented content (-1 indent)
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3::\n]",
+        "[para(1,4):\n  ]",
+        "[text(1,4):a list\nalmost properly indented content (-1 indent)::\n]",
+        "[end-para:::True]",
+        "[BLANK(3,1):]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+almost properly indented content (-1 indent)</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059ac() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+    almost properly indented content (+1 indent)
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3::   \n]",
+        "[para(1,4):\n ]",
+        "[text(1,4):a list\nalmost properly indented content (+1 indent)::\n]",
+        "[end-para:::True]",
+        "[BLANK(3,1):]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+almost properly indented content (+1 indent)</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059ba() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+1. a list
+   1. another list
+      properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[olist(2,1):.:1:3:]",
+        "[para(2,4):]",
+        "[text(2,4):a list:]",
+        "[end-para:::True]",
+        "[olist(3,4):.:1:6:   :      \n]",
+        "[para(3,7):\n]",
+        "[text(3,7):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[BLANK(5,1):]",
+        "[end-olist:::True]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059bb() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+   1. another list
+     almost properly indented content (-1 indent)
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3:]",
+        "[para(1,4):]",
+        "[text(1,4):a list:]",
+        "[end-para:::True]",
+        "[olist(2,4):.:1:6:   :\n]",
+        "[para(2,7):\n     ]",
+        "[text(2,7):another list\nalmost properly indented content (-1 indent)::\n]",
+        "[end-para:::True]",
+        "[BLANK(4,1):]",
+        "[end-olist:::True]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+<ol>
+<li>another list
+almost properly indented content (-1 indent)</li>
+</ol>
+</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059bc() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+   1. another list
+  almost properly indented content (-4 indent)
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3:]",
+        "[para(1,4):]",
+        "[text(1,4):a list:]",
+        "[end-para:::True]",
+        "[olist(2,4):.:1:6:   :\n]",
+        "[para(2,7):\n  ]",
+        "[text(2,7):another list\nalmost properly indented content (-4 indent)::\n]",
+        "[end-para:::True]",
+        "[BLANK(4,1):]",
+        "[end-olist:::True]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+<ol>
+<li>another list
+almost properly indented content (-4 indent)</li>
+</ol>
+</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059bd() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """1. a list
+   1. another list
+       almost properly indented content (+1 indent)
+"""
+    expected_tokens = [
+        "[olist(1,1):.:1:3:]",
+        "[para(1,4):]",
+        "[text(1,4):a list:]",
+        "[end-para:::True]",
+        "[olist(2,4):.:1:6:   :      \n]",
+        "[para(2,7):\n ]",
+        "[text(2,7):another list\nalmost properly indented content (+1 indent)::\n]",
+        "[end-para:::True]",
+        "[BLANK(4,1):]",
+        "[end-olist:::True]",
+        "[end-olist:::True]",
+    ]
+    expected_gfm = """<ol>
+<li>a list
+<ol>
+<li>another list
+almost properly indented content (+1 indent)</li>
+</ol>
+</li>
+</ol>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059ca() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+     properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::     ]",
+        "[para(3,6):\n]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059cb() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+>    properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n> ]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::   ]",
+        "[para(3,6):\n]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059cc() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+    properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::    ]",
+        "[para(3,6):\n]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059cd() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+>   properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n> ]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::  ]",
+        "[para(3,6):\n]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059ce() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+      properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::     ]",
+        "[para(3,6):\n ]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(
+        source_markdown, expected_gfm, expected_tokens, config_map=tables_config_map
+    )
+
+
+@pytest.mark.gfm
+def test_extra_059cf() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """
+> a block
+> 1. another list
+>     properly indented content
+"""
+    expected_tokens = [
+        "[BLANK(1,1):]",
+        "[block-quote(2,1)::> \n> \n> ]",
+        "[para(2,3):]",
+        "[text(2,3):a block:]",
+        "[end-para:::True]",
+        "[olist(3,3):.:1:5::   ]",
+        "[para(3,6):\n ]",
+        "[text(3,6):another list\nproperly indented content::\n]",
+        "[end-para:::True]",
+        "[end-olist:::True]",
+        "[end-block-quote:::True]",
+        "[BLANK(5,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>a block</p>
+<ol>
+<li>another list
+properly indented content</li>
+</ol>
+</blockquote>"""
 
     # Act & Assert
     act_and_assert(

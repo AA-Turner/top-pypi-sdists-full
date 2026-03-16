@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwltool
-Version: 3.1.20260108082145
+Version: 3.1.20260315121657
 Summary: Common workflow language reference implementation
 Home-page: https://github.com/common-workflow-language/cwltool
 Download-URL: https://github.com/common-workflow-language/cwltool
@@ -35,7 +35,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: requests>=2.6.1
 Requires-Dist: ruamel.yaml<0.20,>=0.16
-Requires-Dist: rdflib<7.6.0,>=4.2.2
+Requires-Dist: rdflib<7.7.0,>=4.2.2
 Requires-Dist: schema-salad<9,>=8.9
 Requires-Dist: prov==1.5.1
 Requires-Dist: mypy-extensions

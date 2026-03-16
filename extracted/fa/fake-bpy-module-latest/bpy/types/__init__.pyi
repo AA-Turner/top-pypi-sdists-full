@@ -1642,11 +1642,15 @@ class bpy_prop_collection[_GenericType1](bpy_prop):
         | typing_extensions.Buffer
         | npt.NDArray,
     ) -> None:
-        """This is a function to give fast access to attributes within a collection.Only works for basic type properties (bool, int and float)!
+        """Fast access to a basic-type attribute within a collection.Only works for basic type properties (bool, int and float)!
         Multi-dimensional arrays (like array of vectors) will be flattened into seq.
 
-                :param attr:
-                :param seq:
+                :param attr: Name of the item attribute to read (for example co, normal or
+        select). The attribute must be a basic type (bool, int or float).
+
+        For geometry attribute types, see `Attribute.data_type`.
+                :param seq: Writable sequence or buffer receiving flattened values.
+        For array attributes, the length must be len(collection) * array_length.
         """
 
     def foreach_set(
@@ -1658,11 +1662,15 @@ class bpy_prop_collection[_GenericType1](bpy_prop):
         | typing_extensions.Buffer
         | npt.NDArray,
     ) -> None:
-        """This is a function to give fast access to attributes within a collection.Only works for basic type properties (bool, int and float)!
+        """Fast access to a basic-type attribute within a collection.Only works for basic type properties (bool, int and float)!
         seq must be uni-dimensional, multi-dimensional arrays (like array of vectors) will be re-created from it.
 
-                :param attr:
-                :param seq:
+                :param attr: Name of the item attribute to write (for example co or
+        select). The attribute must be a basic type (bool, int or float).
+
+        For geometry attribute types, see `Attribute.data_type`.
+                :param seq: Sequence or buffer containing flattened values.
+        For array attributes, the length must be len(collection) * array_length.
         """
 
     def get[_GenericType2](
@@ -17909,7 +17917,7 @@ class BrushGpencilSettings(bpy_struct):
     """ Amount of erasing for thickness (in [0, 100], default 0.0)"""
 
     extend_stroke_factor: float
-    """ Strokes end extension for closing gaps, use zero to disable (in [0, 10], default 0.0)"""
+    """ Strokes end extension for closing gaps, use zero to disable (in [0, inf], default 0.0)"""
 
     fill_direction: typing.Literal["NORMAL", "INVERT"]
     """ Direction of the fill (default 'NORMAL')"""
@@ -34397,6 +34405,66 @@ class FunctionNodeInputInt(FunctionNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
+class FunctionNodeInputIntVector(FunctionNode, NodeInternal, Node, bpy_struct):
+    """Provide an integer vector value that can be connected to other nodes in the tree"""
+
+    vector: typing.Any
+    """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
+
+    vector_dimensions: int
+    """ Dimensions of the vector socket (in [2, 3], default 3)"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class FunctionNodeInputMenu(FunctionNode, NodeInternal, Node, bpy_struct):
     """Provide a menu value that can be connected to other nodes in the tree"""
 
@@ -35834,6 +35902,60 @@ class FunctionNodeSliceString(FunctionNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
+class FunctionNodeSplitString(FunctionNode, NodeInternal, Node, bpy_struct):
+    """Split a string into a list using a separator"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class FunctionNodeStringLength(FunctionNode, NodeInternal, Node, bpy_struct):
     """Output the number of characters in the given string"""
 
@@ -36055,6 +36177,60 @@ class FunctionNodeTransformPoint(FunctionNode, NodeInternal, Node, bpy_struct):
 
 class FunctionNodeTransposeMatrix(FunctionNode, NodeInternal, Node, bpy_struct):
     """Flip a matrix over its diagonal, turning columns into rows and vice-versa"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class FunctionNodeTrimString(FunctionNode, NodeInternal, Node, bpy_struct):
+    """Remove characters from the beginning and end of a string"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -48476,6 +48652,60 @@ class GeometryNodeSetMeshNormal(GeometryNode, NodeInternal, Node, bpy_struct):
 
 class GeometryNodeSetNURBSOrder(GeometryNode, NodeInternal, Node, bpy_struct):
     """Control how many curve control points influence each evaluated point by changing the "nurbs_order" attribute"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class GeometryNodeSetNURBSWeight(GeometryNode, NodeInternal, Node, bpy_struct):
+    """Control the influence of each NURBS control point on the curve by changing the "nurbs_weight" attribute"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -69615,6 +69845,302 @@ class NodeSocketIntUnsigned(NodeSocketStandard, NodeSocket, bpy_struct):
         :return: The class or default when not found.
         """
 
+class NodeSocketIntVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 2 items, in [-inf, inf], default (0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVector3D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 2 items, in [0, inf], default (0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorFactor3D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 2 items, in [0, inf], default (0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorPercentage3D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorUnsigned2D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 2 items, in [0, inf], default (0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeSocketIntVectorUnsigned3D(NodeSocketStandard, NodeSocket, bpy_struct):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    links: NodeLinks | None
+    """ List of node links from or to this socket.(readonly)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class NodeSocketMask(NodeSocketStandard, NodeSocket, bpy_struct):
     """Mask socket of a node"""
 
@@ -73215,6 +73741,582 @@ class NodeTreeInterfaceSocketIntUnsigned(
 
     default_value: int
     """ Input value used for unconnected socket (in [0, inf], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVector2D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 2 items, in [-inf, inf], default (0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVector3D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorFactor2D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorFactor3D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorPercentage2D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorPercentage3D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorUnsigned2D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 2 items, in [0, inf], default (0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
+
+    max_value: int
+    """ Maximum value (in [-inf, inf], default 0)"""
+
+    min_value: int
+    """ Minimum value (in [-inf, inf], default 0)"""
+
+    subtype: typing.Literal["DEFAULT"]
+    """ Subtype of the default value (default 'DEFAULT')"""
+
+    def draw(self, context: Context, layout: UILayout | None) -> None:
+        """Draw interface socket settings
+
+        :param context: (never None)
+        :param layout: Layout, Layout in the UI (never None)
+        """
+
+    def init_socket(
+        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
+    ) -> None:
+        """Initialize a node socket instance
+
+        :param node: Node, Node of the socket to initialize (never None)
+        :param socket: Socket, Socket to initialize (never None)
+        :param data_path: Data Path, Path to specialized socket data (never None)
+        """
+
+    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+        """Setup template parameters from an existing socket
+
+        :param node: Node, Node of the original socket (never None)
+        :param socket: Socket, Original socket (never None)
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeTreeInterfaceSocketIntVectorUnsigned3D(
+    NodeTreeInterfaceSocket, NodeTreeInterfaceItem, bpy_struct
+):
+    """Integer vector socket of a node"""
+
+    default_value: typing.Any
+    """ Input value used for unconnected socket (array of 3 items, in [0, inf], default (0, 0, 0))"""
+
+    dimensions: int
+    """ Dimensions of the integer vector socket (in [2, 3], default 0)"""
 
     max_value: int
     """ Maximum value (in [-inf, inf], default 0)"""
@@ -83605,6 +84707,11 @@ class RenderResult(bpy_struct):
 class RenderSettings(bpy_struct):
     """Rendering settings for a Scene data-block"""
 
+    anisotropic_filter: typing.Literal[
+        "FILTER_0", "FILTER_2", "FILTER_4", "FILTER_8", "FILTER_16"
+    ]
+    """ Quality of anisotropic filtering in materials (default 'FILTER_2')"""
+
     bake: BakeSettings | None
     """ (readonly, never None)"""
 
@@ -84990,7 +86097,7 @@ class Scene(ID, bpy_struct):
 
         index, The face index, -1 when original data isnt available, int
 
-        object, Ray cast object, `Object`
+        object, The original (un-evaluated) object that was hit. Note that location, normal, and index correspond to the evaluated objects mesh., `Object`
 
         matrix, Matrix, `mathutils.Matrix`
         """
@@ -112153,7 +113260,7 @@ class XrSessionSettings(bpy_struct):
     """ Define where the location and rotation for the VR view come from, to which translation and rotation deltas from the VR headset will be applied to (default 'SCENE_CAMERA')"""
 
     base_scale: float
-    """ Uniform scale to apply to VR view (in [1e-06, inf], default 1.0)"""
+    """ Uniform base pose scale to apply to VR view (in [1e-06, inf], default 1.0)"""
 
     clip_end: float
     """ VR viewport far clipping distance (in [1e-06, inf], default 0.0)"""
@@ -112297,7 +113404,7 @@ class XrSessionSettings(bpy_struct):
     """ Allow VR headsets to affect the location in virtual space, in addition to the rotation (default False)"""
 
     view_scale: float
-    """ Scaling factor applied on top of scene scale for adjustments to the VR view. When possible, prefer modifying the scene scale instead (in [1e-06, inf], default 1.0)"""
+    """ Scaling factor applied to the VR view for fine adjustements. Modifying this value will keep the viewer at the same world relative position (in [1e-06, inf], default 1.0)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -112343,7 +113450,7 @@ class XrSessionState(bpy_struct):
     """ Rotation offset to apply to base pose when determining viewer rotation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
     navigation_scale: float
-    """ Additional scale multiplier to apply to base scale when determining viewer scale (in [-inf, inf], default 0.0, readonly)"""
+    """ Navigation scale multiplier applied when determining viewer scale (in [-inf, inf], default 0.0)"""
 
     selected_actionmap: int
     """ (in [-inf, inf], default 0)"""
@@ -112353,6 +113460,9 @@ class XrSessionState(bpy_struct):
 
     viewer_pose_rotation: mathutils.Quaternion
     """ Last known rotation of the viewer pose (center between the eyes) in world space (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
+
+    viewer_scale: float
+    """ Viewer XR scale factor, computed from the navigation scale, view scale session setting, and active scene unit scale (in [-inf, inf], default 0.0, readonly)"""
 
     @classmethod
     def is_running(cls, context: Context) -> bool:

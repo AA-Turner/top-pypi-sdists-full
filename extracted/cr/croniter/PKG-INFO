@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: croniter
-Version: 6.2.0
+Version: 6.2.2
 Summary: croniter provides iteration for datetime object with cron like format
-Keywords: datetime,iterator,cron
+Project-URL: Homepage, https://github.com/pallets-eco/croniter
 Author-email: Matsumoto Taichi <taichino@gmail.com>, kiorky <kiorky@cryptelium.net>, Ash Berlin-Taylor <ash@apache.org>, Jarek Potiuk <jarek@potiuk.com>
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
+License-Expression: MIT
+License-File: LICENSE
+Keywords: cron,datetime,iterator
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -15,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-License-File: LICENSE
-Requires-Dist: python_dateutil
-Project-URL: Homepage, https://github.com/pallets-eco/croniter
+Requires-Python: >=3.9
+Requires-Dist: python-dateutil
+Description-Content-Type: text/x-rst
 
 Introduction
 ============
@@ -544,4 +546,3 @@ If you have contributed and your name is not listed below please let us know.
     - shazow
     - yuzawa-san
     - zed2015
-

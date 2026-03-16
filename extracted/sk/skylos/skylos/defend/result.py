@@ -8,9 +8,9 @@ from typing import Optional
 class DefenseResult:
     plugin_id: str
     passed: bool
-    integration_location: str  # location of the integration being checked
-    location: str  # file:line where defense is missing or present
-    message: str  # human-readable explanation
+    integration_location: str
+    location: str
+    message: str
     severity: str  # "critical" | "high" | "medium" | "low"
     weight: int
     category: str  # "defense" or "ops"
@@ -37,7 +37,7 @@ class DefenseScore:
     weighted_score: int
     weighted_max: int
     score_pct: int
-    risk_rating: str  # "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SECURE"
+    risk_rating: str
     passed: int
     total: int
 

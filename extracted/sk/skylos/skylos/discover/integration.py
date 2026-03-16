@@ -36,7 +36,6 @@ class LLMIntegration:
     has_prompt_delimiter: bool = False
     has_input_length_limit: bool = False
     input_length_limit_location: str = ""
-    # Phase 3 fields
     has_rag_context: bool = False
     has_pii_filter: bool = False
     has_logging: bool = False

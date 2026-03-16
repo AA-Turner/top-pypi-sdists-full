@@ -1,18 +1,18 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-waitress"
-version = "3.0.1.20250801"
+version = "3.0.1.20260316"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for waitress"
 readme = { text = """\
 ## Typing stubs for waitress
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`waitress`](https://github.com/Pylons/waitress) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`waitress`](https://github.com/Pylons/waitress) package. It can be used by type checkers
 to check code that uses `waitress`. This version of
 `types-waitress` aims to provide accurate annotations for
 `waitress~=3.0.1`.
@@ -25,16 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
 It was generated from typeshed commit
-[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
+[`61524fab4e1804462cc31d2e6b43ff7279188f85`](https://github.com/python/typeshed/commit/61524fab4e1804462cc31d2e6b43ff7279188f85).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -47,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['waitress-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'waitress-stubs' = ['__init__.pyi', 'adjustments.pyi', 'buffers.pyi', 'channel.pyi', 'compat.pyi', 'parser.pyi', 'proxy_headers.pyi', 'receiver.pyi', 'rfc7230.pyi', 'runner.pyi', 'server.pyi', 'task.pyi', 'trigger.pyi', 'utilities.pyi', 'wasyncore.pyi', 'METADATA.toml', 'py.typed']

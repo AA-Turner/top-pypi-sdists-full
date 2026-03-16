@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 14.1.0
+Version: 15.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -477,6 +477,7 @@ Class | Method | HTTP request | Description
 *SmartTransferApi* | [**update_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#update_ticket_term) | **PUT** /smart-transfers/{ticketId}/terms/{termId} | Update ticket leg (term)
 *StakingApi* | [**approve_terms_of_service_by_provider_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#approve_terms_of_service_by_provider_id) | **POST** /staking/providers/{providerId}/approveTermsOfService | Approve provider terms of service
 *StakingApi* | [**claim_rewards**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#claim_rewards) | **POST** /staking/chains/{chainDescriptor}/claim_rewards | Claim accrued rewards
+*StakingApi* | [**consolidate**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#consolidate) | **POST** /staking/chains/{chainDescriptor}/consolidate | Consolidate staking positions (ETH validator consolidation)
 *StakingApi* | [**get_all_delegations**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_all_delegations) | **GET** /staking/positions | List staking positions
 *StakingApi* | [**get_chain_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chain_info) | **GET** /staking/chains/{chainDescriptor}/chainInfo | Get chain-level staking parameters
 *StakingApi* | [**get_chains**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chains) | **GET** /staking/chains | List supported staking chains
@@ -626,6 +627,7 @@ Class | Method | HTTP request | Description
 *WebhooksV2Api* | [**resend_notification_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#resend_notification_by_id) | **POST** /webhooks/{webhookId}/notifications/{notificationId}/resend | Resend notification by id
 *WebhooksV2Api* | [**resend_notifications_by_resource_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#resend_notifications_by_resource_id) | **POST** /webhooks/{webhookId}/notifications/resend_by_resource | Resend notifications by resource Id
 *WebhooksV2Api* | [**update_webhook**](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhooksV2Api.md#update_webhook) | **PATCH** /webhooks/{webhookId} | Update webhook
+*WorkspaceApi* | [**get_workspace**](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkspaceApi.md#get_workspace) | **GET** /workspace | Get workspace
 *WorkspaceStatusBetaApi* | [**get_workspace_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkspaceStatusBetaApi.md#get_workspace_status) | **GET** /management/workspace_status | Returns current workspace status
 *WhitelistIpAddressesApi* | [**get_whitelist_ip_addresses**](https://github.com/fireblocks/py-sdk/tree/master/docs/WhitelistIpAddressesApi.md#get_whitelist_ip_addresses) | **GET** /management/api_users/{userId}/whitelist_ip_addresses | Get whitelisted ip addresses for an API Key
 
@@ -756,6 +758,9 @@ Class | Method | HTTP request | Description
  - [ChannelDvnConfigWithConfirmations](https://github.com/fireblocks/py-sdk/tree/master/docs/ChannelDvnConfigWithConfirmations.md)
  - [ChannelDvnConfigWithConfirmationsReceiveConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ChannelDvnConfigWithConfirmationsReceiveConfig.md)
  - [ChannelDvnConfigWithConfirmationsSendConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ChannelDvnConfigWithConfirmationsSendConfig.md)
+ - [ChapsAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsAddress.md)
+ - [ChapsDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsDestination.md)
+ - [ChapsPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsPaymentInfo.md)
  - [ClaimRewardsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ClaimRewardsRequest.md)
  - [CollectionBurnRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnRequestDto.md)
  - [CollectionBurnResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnResponseDto.md)
@@ -975,13 +980,13 @@ Class | Method | HTTP request | Description
  - [ExecutionTransferOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionTransferOperation.md)
  - [ExternalAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccount.md)
  - [ExternalAccountLocalBankAfrica](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountLocalBankAfrica.md)
- - [ExternalAccountLocalBankAfricaType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountLocalBankAfricaType.md)
  - [ExternalAccountMobileMoney](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoney.md)
  - [ExternalAccountMobileMoneyProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoneyProvider.md)
  - [ExternalAccountMobileMoneyType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountMobileMoneyType.md)
  - [ExternalAccountSenderInformation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountSenderInformation.md)
  - [ExternalAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalAccountType.md)
  - [ExternalWalletAsset](https://github.com/fireblocks/py-sdk/tree/master/docs/ExternalWalletAsset.md)
+ - [ExtraParameters](https://github.com/fireblocks/py-sdk/tree/master/docs/ExtraParameters.md)
  - [Failure](https://github.com/fireblocks/py-sdk/tree/master/docs/Failure.md)
  - [FailureReason](https://github.com/fireblocks/py-sdk/tree/master/docs/FailureReason.md)
  - [Fee](https://github.com/fireblocks/py-sdk/tree/master/docs/Fee.md)
@@ -1043,7 +1048,12 @@ Class | Method | HTTP request | Description
  - [InitiatorConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfig.md)
  - [InitiatorConfigPattern](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfigPattern.md)
  - [InstructionAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/InstructionAmount.md)
+ - [InteracAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/InteracAddress.md)
+ - [InteracDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/InteracDestination.md)
+ - [InteracPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/InteracPaymentInfo.md)
  - [InternalReference](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalReference.md)
+ - [InternalTransferAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalTransferAddress.md)
+ - [InternalTransferDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalTransferDestination.md)
  - [InternalTransferResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/InternalTransferResponse.md)
  - [InvalidParamaterValueError](https://github.com/fireblocks/py-sdk/tree/master/docs/InvalidParamaterValueError.md)
  - [JobCreated](https://github.com/fireblocks/py-sdk/tree/master/docs/JobCreated.md)
@@ -1151,11 +1161,15 @@ Class | Method | HTTP request | Description
  - [PayeeAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/PayeeAccount.md)
  - [PayeeAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PayeeAccountResponse.md)
  - [PayeeAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/PayeeAccountType.md)
+ - [PayidAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PayidAddress.md)
+ - [PayidDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/PayidDestination.md)
+ - [PayidPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/PayidPaymentInfo.md)
  - [PaymentAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentAccount.md)
  - [PaymentAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentAccountResponse.md)
  - [PaymentAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentAccountType.md)
  - [PaymentInstructions](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentInstructions.md)
  - [PaymentInstructionsOneOf](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentInstructionsOneOf.md)
+ - [PaymentRedirect](https://github.com/fireblocks/py-sdk/tree/master/docs/PaymentRedirect.md)
  - [PayoutInitMethod](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInitMethod.md)
  - [PayoutInstruction](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInstruction.md)
  - [PayoutInstructionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/PayoutInstructionResponse.md)
@@ -1215,6 +1229,7 @@ Class | Method | HTTP request | Description
  - [ReadAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/ReadAbiFunction.md)
  - [ReadCallFunctionDto](https://github.com/fireblocks/py-sdk/tree/master/docs/ReadCallFunctionDto.md)
  - [ReadCallFunctionDtoAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/ReadCallFunctionDtoAbiFunction.md)
+ - [RecipientHandle](https://github.com/fireblocks/py-sdk/tree/master/docs/RecipientHandle.md)
  - [RedeemFundsToLinkedDDAResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RedeemFundsToLinkedDDAResponse.md)
  - [RegisterNewAssetRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterNewAssetRequest.md)
  - [ReissueMultichainTokenRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ReissueMultichainTokenRequest.md)
@@ -1606,6 +1621,7 @@ Class | Method | HTTP request | Description
  - [WorkflowConfigStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowConfigStatus.md)
  - [WorkflowConfigurationId](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowConfigurationId.md)
  - [WorkflowExecutionOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowExecutionOperation.md)
+ - [Workspace](https://github.com/fireblocks/py-sdk/tree/master/docs/Workspace.md)
  - [WriteAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/WriteAbiFunction.md)
  - [WriteCallFunctionDto](https://github.com/fireblocks/py-sdk/tree/master/docs/WriteCallFunctionDto.md)
  - [WriteCallFunctionDtoAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/WriteCallFunctionDtoAbiFunction.md)

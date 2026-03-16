@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wavelet-matrix
-Version: 2.1.6
+Version: 2.1.8
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Information Technology
@@ -31,7 +31,6 @@ Author-email: Koki Watanabe <koki.watanabe.56@gmail.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://math-hiyoko.github.io/wavelet-matrix
-Project-URL: homepage, https://github.com/math-hiyoko/wavelet-matrix
 Project-URL: repository, https://github.com/math-hiyoko/wavelet-matrix
 
 # Wavelet Matrix
@@ -47,6 +46,7 @@ Project-URL: repository, https://github.com/math-hiyoko/wavelet-matrix
 ![PyPI - Format](https://img.shields.io/pypi/format/wavelet-matrix)
 ![Rust](https://img.shields.io/badge/powered%20by-Rust-orange)
 ![Unsafe](https://img.shields.io/badge/unsafe-0-success)
+![GitHub Repo stars](https://img.shields.io/github/stars/math-hiyoko/wavelet-matrix)
 
 
 High-performance Wavelet Matrix implementation powered by Rust,  

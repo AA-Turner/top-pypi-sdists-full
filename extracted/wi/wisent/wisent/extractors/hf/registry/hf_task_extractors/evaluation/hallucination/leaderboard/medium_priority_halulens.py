@@ -61,11 +61,15 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
         "fabrication",      # Add completely fabricated details
     ]
 
-    def __init__(self, context_max_length: int):
+    def __init__(self, context_max_length: int | None = None):
         """Initialize HalluLens extractor with dynamic generation."""
         super().__init__()
-        from wisent.core.utils.config_tools.constants import DEFAULT_RANDOM_SEED
+        from wisent.core.utils.config_tools.constants import (
+            DEFAULT_RANDOM_SEED, EXTRACTOR_CONTEXT_MAX_LENGTH,
+        )
         self._rng = random.Random(DEFAULT_RANDOM_SEED)
+        if context_max_length is None:
+            context_max_length = EXTRACTOR_CONTEXT_MAX_LENGTH
         self._context_max_length = context_max_length
 
     def extract_contrastive_pairs(

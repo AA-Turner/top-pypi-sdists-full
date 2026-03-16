@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.11.2
+Version: 0.11.3
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -29,9 +29,10 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: anyio<5.0.0,>=3.0.0
+Requires-Dist: anyio<5.0.0,>=4.0.0
 Requires-Dist: diskcache
 Requires-Dist: docker
+Requires-Dist: fast-depends[pydantic]<4.0.0,>=3.0.8
 Requires-Dist: httpx<1,>=0.28.1
 Requires-Dist: packaging
 Requires-Dist: pydantic<3,>=2.6.1
@@ -73,20 +74,30 @@ Provides-Extra: cosmosdb
 Requires-Dist: azure-cosmos>=4.2.0; extra == 'cosmosdb'
 Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
+Provides-Extra: dashscope
+Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
 Provides-Extra: deepseek
 Requires-Dist: openai>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'dev'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'dev'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
+Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
+Requires-Dist: dashscope>=1.25.13; extra == 'dev'
 Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
 Requires-Dist: dirty-equals==0.9.0; extra == 'dev'
 Requires-Dist: fastapi==0.116.1; extra == 'dev'
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'dev'
 Requires-Dist: freezegun==1.5.5; extra == 'dev'
+Requires-Dist: google-api-core; extra == 'dev'
+Requires-Dist: google-auth; extra == 'dev'
+Requires-Dist: google-cloud-aiplatform; extra == 'dev'
+Requires-Dist: google-genai<2.0,>=1.20.0; extra == 'dev'
 Requires-Dist: ipykernel==7.1.0; extra == 'dev'
 Requires-Dist: jinja2==3.1.6; extra == 'dev'
+Requires-Dist: jsonschema; extra == 'dev'
 Requires-Dist: mcp>=1.11.0; extra == 'dev'
 Requires-Dist: mdx-include==1.4.2; extra == 'dev'
 Requires-Dist: mike==2.1.3; extra == 'dev'
@@ -102,6 +113,7 @@ Requires-Dist: mypy==1.17.1; extra == 'dev'
 Requires-Dist: nbclient==0.10.2; extra == 'dev'
 Requires-Dist: nbconvert==7.16.6; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
+Requires-Dist: ollama>=0.4.7; extra == 'dev'
 Requires-Dist: openai>=1.99.3; extra == 'dev'
 Requires-Dist: opentelemetry-api>=1.20; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
@@ -129,8 +141,16 @@ Requires-Dist: uv==0.8.15; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
+Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
+Requires-Dist: dashscope>=1.25.13; extra == 'docs'
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'docs'
+Requires-Dist: google-api-core; extra == 'docs'
+Requires-Dist: google-auth; extra == 'docs'
+Requires-Dist: google-cloud-aiplatform; extra == 'docs'
+Requires-Dist: google-genai<2.0,>=1.20.0; extra == 'docs'
 Requires-Dist: jinja2==3.1.6; extra == 'docs'
+Requires-Dist: jsonschema; extra == 'docs'
 Requires-Dist: mcp>=1.11.0; extra == 'docs'
 Requires-Dist: mdx-include==1.4.2; extra == 'docs'
 Requires-Dist: mike==2.1.3; extra == 'docs'
@@ -143,6 +163,8 @@ Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'docs'
 Requires-Dist: mkdocs-redirects==1.2.2; extra == 'docs'
 Requires-Dist: mkdocstrings[python]==0.30.0; extra == 'docs'
 Requires-Dist: nbclient==0.10.2; extra == 'docs'
+Requires-Dist: ollama>=0.4.7; extra == 'docs'
+Requires-Dist: openai>=1.99.3; extra == 'docs'
 Requires-Dist: opentelemetry-api>=1.20; extra == 'docs'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
@@ -231,7 +253,7 @@ Requires-Dist: pyyaml; extra == 'mcp-proxy-gen'
 Requires-Dist: requests; extra == 'mcp-proxy-gen'
 Requires-Dist: typer; extra == 'mcp-proxy-gen'
 Provides-Extra: mistral
-Requires-Dist: mistralai>=1.0.1; extra == 'mistral'
+Requires-Dist: mistralai>=2.0.0; extra == 'mistral'
 Provides-Extra: neo4j
 Requires-Dist: docx2txt==0.9; extra == 'neo4j'
 Requires-Dist: llama-index-core<0.14,>=0.12; extra == 'neo4j'
@@ -246,6 +268,12 @@ Requires-Dist: openai>=1.99.3; extra == 'openai'
 Provides-Extra: openai-realtime
 Requires-Dist: openai>=1.99.3; extra == 'openai-realtime'
 Requires-Dist: openai[realtime]; extra == 'openai-realtime'
+Provides-Extra: quick-research
+Requires-Dist: beautifulsoup4; extra == 'quick-research'
+Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'quick-research'
+Requires-Dist: tavily-python>=0.7.4; extra == 'quick-research'
+Requires-Dist: tiktoken; extra == 'quick-research'
+Requires-Dist: tldextract; extra == 'quick-research'
 Provides-Extra: rag
 Requires-Dist: chromadb<2,>=0.5; extra == 'rag'
 Requires-Dist: docling<3,>=2.15.1; extra == 'rag'
@@ -331,6 +359,8 @@ Requires-Dist: pandas==2.3.2; extra == 'test'
 Requires-Dist: pytest-asyncio==1.1.0; extra == 'test'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test'
 Requires-Dist: pytest==8.4.2; extra == 'test'
+Provides-Extra: tinyfish
+Requires-Dist: tinyfish>=0.2.3; extra == 'tinyfish'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
 Provides-Extra: tracing
@@ -440,8 +470,8 @@ The project is currently maintained by a [dynamic group of volunteers](MAINTAINE
   - [Example applications](#example-applications)
   - [Introduction of different agent concepts](#introduction-of-different-agent-concepts)
     - [Conversable agent](#conversable-agent)
-    - [Human in the loop](#human-in-the-loop)
-    - [Orchestrating multiple agents](#orchestrating-multiple-agents)
+    - [Orchestrating Multiple Agents](#orchestrating-multiple-agents)
+    - [Human in the Loop](#human-in-the-loop)
     - [Tools](#tools)
     - [Advanced agentic design patterns](#advanced-agentic-design-patterns)
   - [Announcements](#announcements)

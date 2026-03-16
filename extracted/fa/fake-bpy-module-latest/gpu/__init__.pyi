@@ -283,3 +283,9 @@ from . import shader as shader
 from . import state as state
 from . import texture as texture
 from . import types as types
+
+def init() -> None:
+    """Initializes the GPU module for background use.
+    If the initialization fails, a SystemError will be raised.
+
+    """

@@ -10,7 +10,7 @@ from setuptools import setup
 
 setup(
     name='awscurl',
-    version='0.36',
+    version='0.39',
     description='Curl like tool with AWS request signing',
     url='http://github.com/okigan/awscurl',
     author='Igor Okulist',
@@ -31,7 +31,9 @@ setup(
         'configargparse',
         'configparser',
         'urllib3',
-        'botocore',
+        "boto3",
+        "botocore",
+        "awscrt"
     ],
     extras_require={
         'awslibs': []

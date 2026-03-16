@@ -12,6 +12,8 @@ import pprint
 import sys
 import re
 
+from botocore import crt, awsrequest
+from botocore.credentials import Credentials
 from typing import Dict
 import urllib
 from urllib.parse import quote
@@ -104,39 +106,52 @@ def make_request(method,
     amzdate = current_time.strftime('%Y%m%dT%H%M%SZ')
     datestamp = current_time.strftime('%Y%m%d')  # Date w/o time, used in credential scope
 
-    canonical_request, payload_hash, signed_headers = task_1_create_a_canonical_request(
-        query,
-        headers,
-        port,
-        host,
-        amzdate,
-        method,
-        data,
-        security_token,
-        data_binary,
-        canonical_uri)
-    string_to_sign, algorithm, credential_scope = task_2_create_the_string_to_sign(
-        amzdate,
-        datestamp,
-        canonical_request,
-        service,
-        region)
-    signature = task_3_calculate_the_signature(
-        datestamp,
-        string_to_sign,
-        service,
-        region,
-        secret_key)
-    auth_headers = task_4_build_auth_headers_for_the_request(
-        amzdate,
-        payload_hash,
-        algorithm,
-        credential_scope,
-        signed_headers,
-        signature,
-        access_key,
-        security_token)
-    headers.update(auth_headers)
+    if region == "*":
+        # support sigv4a
+        auth_headers = get_sigv4a_headers(
+            service,
+            region,
+            method,
+            uri,
+            access_key,
+            secret_key,
+            security_token)
+        headers.update(auth_headers)
+    else:
+        canonical_request, payload_hash, signed_headers = task_1_create_a_canonical_request(
+            query,
+            headers,
+            port,
+            host,
+            amzdate,
+            method,
+            data,
+            security_token,
+            data_binary,
+            canonical_uri)
+
+        string_to_sign, algorithm, credential_scope = task_2_create_the_string_to_sign(
+            amzdate,
+            datestamp,
+            canonical_request,
+            service,
+            region)
+        signature = task_3_calculate_the_signature(
+            datestamp,
+            string_to_sign,
+            service,
+            region,
+            secret_key)
+        auth_headers = task_4_build_auth_headers_for_the_request(
+            amzdate,
+            payload_hash,
+            algorithm,
+            credential_scope,
+            signed_headers,
+            signature,
+            access_key,
+            security_token)
+        headers.update(auth_headers)
 
     if data_binary:
         return __send_request(uri, data, headers, method, verify, allow_redirects)
@@ -196,37 +211,42 @@ def task_1_create_a_canonical_request(
 
     fullhost = remove_default_port(urllib.parse.urlparse('//' + fullhost))
 
-    # Step 4: Create the canonical headers and signed headers. Header names
+    # Step 4: Create payload hash (hash of the request body content). For GET
+    # requests, the payload is an empty string ("").
+    payload_hash = sha256_hash_for_binary_data(data) if data_binary else sha256_hash(data)
+
+    # Step 5: Create the canonical headers and signed headers. Header names
     # and value must be trimmed and lowercase, and sorted in ASCII order.
     # Note that there is a trailing \n.
     canonical_headers_dict = {'host': fullhost.lower(), 
+                              'x-amz-content-sha256': payload_hash,
                               'x-amz-date': amzdate}
 
     if security_token:
         canonical_headers_dict['x-amz-security-token'] = security_token
 
-    # Step 5: Create the list of signed headers. This lists the headers
+    if 'content-type' in headers:
+        canonical_headers_dict['content-type'] = headers['content-type'].strip()
+
+    # Step 6: Create the list of signed headers. This lists the headers
     # in the canonical_headers list, delimited with ";" and in alpha order.
     # Note: The request can include any headers; canonical_headers and
     # signed_headers lists those that you want to be included in the
     # hash of the request. "Host" and "x-amz-date" are always required.
-    # already tracked in canonical_headers_dict
+    # "content-type" must be included if present in the request.
+    # Headers starting with "x-amz-" (e.g. x-amz-content-sha256) are also required.
 
-    # Step 5.5: Add custom signed headers into the canonical_headers and signed_headers lists.
+    # Step 6.5: Add custom signed headers into the canonical_headers and signed_headers lists.
     # Header names must be lowercase, values trimmed, and sorted in ASCII order.
     for header, value in sorted(headers.items()):
-        if "x-amz-" in header.lower():
+        if header.lower().startswith("x-amz-"):
             canonical_headers_dict[header.lower()] = value.strip()
 
     sorted_canonical_headers_items = sorted(canonical_headers_dict.items())
     canonical_headers = ''.join(['%s:%s\n' % (k, v) for k, v in sorted_canonical_headers_items])
     signed_headers = ';'.join(k for k, v in sorted_canonical_headers_items)
 
-    # Step 6: Create payload hash (hash of the request body content). For GET
-    # requests, the payload is an empty string ("").
-    payload_hash = sha256_hash_for_binary_data(data) if data_binary else sha256_hash(data)
-
-    # Step 7: Combine elements to create create canonical request
+    # Step 7: Combine elements to create canonical request
     canonical_request = (method + '\n' +
                          requests.utils.quote(canonical_uri) + '\n' +
                          canonical_querystring + '\n' +
@@ -333,6 +353,14 @@ def task_4_build_auth_headers_for_the_request(
     if security_token is not None:
         headers['x-amz-security-token'] = security_token
     return headers
+
+
+def get_sigv4a_headers(service, region, method, url, access_key, secret_key, security_token):
+    sig_v4a = crt.auth.CrtS3SigV4AsymAuth(
+        Credentials(access_key, secret_key, security_token), service, region)
+    request = awsrequest.AWSRequest(method=method, url=url)
+    sig_v4a.add_auth(request)
+    return request.prepare().headers
 
 
 def __normalize_query_string(query):
@@ -451,6 +479,25 @@ def normalize_args(args):
         args.session_token = None
 
 
+def parse_data(data, binary):
+    if data is None:
+        return
+
+    # if data is not a file identifier, return it
+    if not data.startswith("@"):
+        return data
+
+    # if data is the stdin `@-` identifier, read from stdin
+    if data == "@-":
+        return sys.stdin.read()
+
+    # otherwise read from the file
+    filename = data[1:]
+    read_mode = "rb" if binary else "r"
+    with open(filename, read_mode) as post_data_file:
+        return post_data_file.read()
+
+
 def inner_main(argv):
     """
     Awscurl CLI main entry point
@@ -506,13 +553,7 @@ def inner_main(argv):
     if args.verbose:
         __log(vars(args))
 
-    data = args.data
-
-    if data is not None and data.startswith("@"):
-        filename = data[1:]
-        read_mode = "rb" if args.data_binary else "r"
-        with open(filename, read_mode) as post_data_file:
-            data = post_data_file.read()
+    data = parse_data(args.data, args.data_binary)
 
     if args.header is None:
         args.header = default_headers

@@ -12,7 +12,69 @@ from __future__ import annotations
 
 BUILTIN_STATE_DOCS: dict[str, str] = {
     # -----------------------------------------------------------------
-    # Write path
+    # Simple operations (thin wrappers for flow-based access)
+    # -----------------------------------------------------------------
+    "put": """\
+match: sequence
+rules:
+  - id: stored
+    do: put
+    with:
+      content: "{params.content}"
+      uri: "{params.uri}"
+      id: "{params.id}"
+      tags: "{params.tags}"
+      summary: "{params.summary}"
+  - return: done
+""",
+
+    "tag": """\
+match: sequence
+rules:
+  - id: tagged
+    do: tag
+    with:
+      id: "{params.id}"
+      items: "{params.items}"
+      tags: "{params.tags}"
+  - return: done
+""",
+
+    "delete": """\
+match: sequence
+rules:
+  - id: result
+    do: delete
+    with:
+      id: "{params.id}"
+  - return: done
+""",
+
+    "move": """\
+match: sequence
+rules:
+  - id: moved
+    do: move
+    with:
+      name: "{params.name}"
+      source: "{params.source}"
+      tags: "{params.tags}"
+      only_current: "{params.only_current}"
+  - return: done
+""",
+
+    "stats": """\
+match: sequence
+rules:
+  - id: profile
+    do: stats
+    with:
+      top_k: "{params.top_k}"
+  - return: done
+""",
+
+    # -----------------------------------------------------------------
+    # Write path: post-processing
     # -----------------------------------------------------------------
     "after-write": """\
 match: all
@@ -24,7 +86,12 @@ rules:
     id: described
     do: describe
 post:
-  - return: done
+  - return:
+      status: done
+      with:
+        item_id: "{params.id}"
+        summary: "{summary}"
+        described: "{described}"
 """,
 
     # -----------------------------------------------------------------
@@ -39,17 +106,35 @@ rules:
       similar_to: "{params.item_id}"
       limit: "{params.similar_limit}"
   - id: parts
-    do: find
+    do: list_parts
     with:
-      prefix: "{params.item_id}@p"
+      id: "{params.item_id}"
       limit: "{params.parts_limit}"
   - id: meta
     do: resolve_meta
     with:
       item_id: "{params.item_id}"
       limit: "{params.meta_limit}"
+  - id: versions
+    do: list_versions
+    with:
+      id: "{params.item_id}"
+      limit: "{params.versions_limit}"
+  - id: edges
+    do: resolve_edges
+    with:
+      id: "{params.item_id}"
+      limit: "{params.edges_limit}"
 post:
-  - return: done
+  - return:
+      status: done
+      with:
+        item_id: "{params.item_id}"
+        similar: "{similar}"
+        parts: "{parts}"
+        meta: "{meta}"
+        versions: "{versions}"
+        edges: "{edges}"
 """,
 
     # -----------------------------------------------------------------
@@ -63,14 +148,29 @@ rules:
     with:
       query: "{params.query}"
       limit: "{params.limit}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
   - when: "search.margin > params.margin_high"
-    return: done
+    return:
+      status: done
+      with:
+        results: "{search.results}"
+        margin: "{search.margin}"
+        entropy: "{search.entropy}"
   - when: "search.lineage_strong > params.lineage_strong"
     do: find
     with:
       query: "{params.query}"
       tags: "{search.dominant_lineage_tags}"
       limit: 5
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
     then: query-resolve
   - when: "search.margin < params.margin_low || search.entropy > params.entropy_high"
     then:
@@ -82,6 +182,11 @@ rules:
     with:
       query: "{params.query}"
       limit: 5
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
     then: query-resolve
   - then: query-explore
 """,
@@ -94,20 +199,40 @@ rules:
     with:
       query: "{params.query}"
       limit: "{params.pivot_limit}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
   - id: bridge
     do: find
     with:
       query: "{params.query}"
       limit: "{params.bridge_limit}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
 post:
   - when: "pivot1.margin > params.margin_high || bridge.margin > params.margin_high"
-    return: done
+    return:
+      status: done
+      with:
+        results: "{pivot1.results}"
+        bridge_results: "{bridge.results}"
+        margin: "{pivot1.margin}"
+        bridge_margin: "{bridge.margin}"
   - when: "budget.remaining > 0"
     then: query-resolve
   - return:
       status: stopped
       with:
         reason: "ambiguous"
+        results: "{pivot1.results}"
+        bridge_results: "{bridge.results}"
+        margin: "{pivot1.margin}"
+        bridge_margin: "{bridge.margin}"
 """,
 
     "query-explore": """\
@@ -118,18 +243,36 @@ rules:
     with:
       query: "{params.query}"
       limit: "{params.explore_limit}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
   - when: "search.margin > params.margin_high"
-    return: done
+    return:
+      status: done
+      with:
+        results: "{search.results}"
+        margin: "{search.margin}"
+        entropy: "{search.entropy}"
   - when: "budget.remaining > 0"
     do: find
     with:
       query: "{params.query}"
       limit: "{params.explore_limit_wide}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
     then: query-resolve
   - return:
       status: stopped
       with:
         reason: "budget"
+        results: "{search.results}"
+        margin: "{search.margin}"
+        entropy: "{search.entropy}"
 """,
 
     # -----------------------------------------------------------------
@@ -143,14 +286,28 @@ rules:
     with:
       query: "{params.query}"
       limit: "{params.limit}"
+      tags: "{params.tags}"
+      bias: "{params.bias}"
+      since: "{params.since}"
+      until: "{params.until}"
+      offset: "{params.offset}"
   - when: "search.count == 0"
-    return: done
+    return:
+      status: done
+      with:
+        results: "{search.results}"
+        count: "{search.count}"
   - id: related
     do: traverse
     with:
       items: "{search.results}"
       limit: "{params.deep_limit}"
-  - return: done
+  - return:
+      status: done
+      with:
+        results: "{search.results}"
+        count: "{search.count}"
+        related: "{related}"
 """,
 }
 
@@ -175,7 +332,7 @@ rules:
 rules:
   - when: "!item.is_system_note && item.has_content"
     id: tagged
-    do: tag
+    do: auto_tag
 """,
         "links": """\
 rules:
@@ -195,8 +352,8 @@ rules:
         "duplicates": """\
 rules:
   - when: "!item.is_system_note && item.has_content"
-    id: find-duplicates
-    do: find_duplicates
+    id: resolve-duplicates
+    do: resolve_duplicates
     with:
       tag: duplicates
 """,

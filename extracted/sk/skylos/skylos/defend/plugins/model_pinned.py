@@ -1,5 +1,3 @@
-"""Plugin: model-pinned — model version must be pinned to a dated snapshot."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -20,7 +18,9 @@ class ModelPinnedPlugin(DefensePlugin):
         "claude-sonnet-4-20250514) to prevent unexpected behavior changes."
     )
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if not integration.model_value:
             return self._fail(
                 integration,

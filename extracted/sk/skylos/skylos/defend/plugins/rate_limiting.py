@@ -1,5 +1,3 @@
-"""Plugin: rate-limiting — LLM endpoint handlers should have rate limiting."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -22,10 +20,11 @@ class RateLimitingPlugin(DefensePlugin):
     )
 
     def applies_to(self, integration: LLMIntegration) -> bool:
-        # Only applies when there are external input sources (HTTP endpoints)
         return bool(integration.input_sources)
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_rate_limiting:
             return self._pass(
                 integration,

@@ -10,8 +10,6 @@ import enum
 from dataclasses import dataclass
 from typing import ClassVar
 
-from .csf import AC_ATTR
-
 
 @enum.unique
 class FormattingContext(enum.Enum):
@@ -44,7 +42,7 @@ def display_width(*, width: int | None, max_width: int | None) -> int | None:
     return max_width
 
 
-@dataclass
+@dataclass(frozen=True)
 class ImageAttributes:
     """
     Attributes applied to an `<img>` element.
@@ -54,8 +52,8 @@ class ImageAttributes:
     :param height: Natural image height in pixels.
     :param alt: Alternate text.
     :param title: Title text (a.k.a. image tooltip).
-    :param caption: Caption text (shown below figure).
-    :param alignment: Alignment for block-level images.
+    :param show_caption: Whether to show caption text below figure (block-level images only).
+    :param alignment: Figure alignment (block-level images only).
     """
 
     context: FormattingContext
@@ -63,73 +61,37 @@ class ImageAttributes:
     height: int | None
     alt: str | None
     title: str | None
-    caption: str | None
+    show_caption: bool = True
     alignment: ImageAlignment = ImageAlignment.CENTER
 
-    def __post_init__(self) -> None:
-        if self.caption is None and self.context is FormattingContext.BLOCK:
-            self.caption = self.title or self.alt
+    def get_caption(self) -> str | None:
+        "Deduces a caption for block-level images."
 
-    def as_dict(self, *, max_width: int | None) -> dict[str, str]:
-        """
-        Produces a key-value store of element attributes.
+        if self.show_caption and self.context is FormattingContext.BLOCK:
+            return self.title or self.alt
+        else:
+            return None
 
-        :param max_width: The desired maximum width of the image in pixels.
-        """
+    def with_dimensions(self, width: int, height: int) -> "ImageAttributes":
+        "Creates a copy of the image attributes but with an updated width and height."
 
-        attributes: dict[str, str] = {}
-        match self.context:
-            case FormattingContext.BLOCK:
-                match self.alignment:
-                    case ImageAlignment.LEFT:
-                        align = "left"
-                        layout = "align-start"
-                    case ImageAlignment.RIGHT:
-                        align = "right"
-                        layout = "align-end"
-                    case ImageAlignment.CENTER:
-                        align = "center"
-                        layout = "center"
-                attributes[AC_ATTR("align")] = align
-                attributes[AC_ATTR("layout")] = layout
-
-                if self.width is not None:
-                    attributes[AC_ATTR("original-width")] = str(self.width)
-                if self.height is not None:
-                    attributes[AC_ATTR("original-height")] = str(self.height)
-                if self.width is not None:
-                    attributes[AC_ATTR("custom-width")] = "true"
-                    # Use display_width if set, otherwise use natural width
-                    effective_width = display_width(width=self.width, max_width=max_width) or self.width
-                    attributes[AC_ATTR("width")] = str(effective_width)
-
-            case FormattingContext.INLINE:
-                if self.width is not None:
-                    attributes[AC_ATTR("width")] = str(self.width)
-                if self.height is not None:
-                    attributes[AC_ATTR("height")] = str(self.height)
-
-        if self.alt is not None:
-            attributes.update({AC_ATTR("alt"): self.alt})
-        if self.title is not None:
-            attributes.update({AC_ATTR("title"): self.title})
-        return attributes
+        return ImageAttributes(
+            context=self.context,
+            width=width,
+            height=height,
+            alt=self.alt,
+            title=self.title,
+            show_caption=self.show_caption,
+            alignment=self.alignment,
+        )
 
     EMPTY_BLOCK: ClassVar["ImageAttributes"]
     EMPTY_INLINE: ClassVar["ImageAttributes"]
 
-    @classmethod
-    def empty(cls, context: FormattingContext) -> "ImageAttributes":
-        match context:
-            case FormattingContext.BLOCK:
-                return cls.EMPTY_BLOCK
-            case FormattingContext.INLINE:
-                return cls.EMPTY_INLINE
-
 
 ImageAttributes.EMPTY_BLOCK = ImageAttributes(
-    FormattingContext.BLOCK, width=None, height=None, alt=None, title=None, caption=None, alignment=ImageAlignment.CENTER
+    FormattingContext.BLOCK, width=None, height=None, alt=None, title=None, show_caption=True, alignment=ImageAlignment.CENTER
 )
 ImageAttributes.EMPTY_INLINE = ImageAttributes(
-    FormattingContext.INLINE, width=None, height=None, alt=None, title=None, caption=None, alignment=ImageAlignment.CENTER
+    FormattingContext.INLINE, width=None, height=None, alt=None, title=None, show_caption=True, alignment=ImageAlignment.CENTER
 )

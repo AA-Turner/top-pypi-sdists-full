@@ -125,6 +125,10 @@ _STRONG_KEYWORDS = {
     StatementType.CASH_FLOW: [
         'cash flows from operating', 'cash flows from investing',
         'cash flows from financing',
+        'net cash provided by operating', 'net cash used in operating',
+        'net cash provided by investing', 'net cash used in investing',
+        'net cash provided by financing', 'net cash used in financing',
+        'net cash provided by (used in)',
     ],
 }
 
@@ -141,6 +145,9 @@ _STATEMENT_KEYWORDS = {
         'noninterest expense', 'loss from operations', 'loss before',
         'pretax income', 'pre-tax income', 'income before provision',
         'provision for credit', 'provision for income',
+        'net earnings', 'diluted eps', 'basic eps',
+        'eps (diluted)', 'eps (basic)', 'reported sales',
+        'cost of products sold', 'sales to customers',
     ],
     StatementType.BALANCE_SHEET: [
         'total assets', 'total liabilities', 'stockholders', 'current assets',
@@ -152,7 +159,8 @@ _STATEMENT_KEYWORDS = {
         'cash flows', 'operating activities', 'investing activities',
         'financing activities', 'cash and cash equivalents, beginning',
         'cash and cash equivalents, end', 'depreciation and amortization',
-        'capital expenditures',
+        'capital expenditures', 'net cash provided by', 'net cash used in',
+        'cash at beginning', 'cash at end of period',
     ],
     StatementType.SEGMENT_DATA: [
         'client computing', 'data center', 'foundry', 'segment revenue',
@@ -911,7 +919,10 @@ class EarningsRelease:
     @classmethod
     def from_filing(cls, filing: 'Filing') -> Optional['EarningsRelease']:
         """
-        Find and wrap the EX-99.1 earnings exhibit from a filing.
+        Find and wrap the best EX-99 earnings exhibit from a filing.
+
+        Tries EX-99.1 first. If it has no income statement, tries subsequent
+        EX-99.* exhibits before falling back to EX-99.1.
 
         Args:
             filing: An SEC Filing object (typically an 8-K)
@@ -919,10 +930,27 @@ class EarningsRelease:
         Returns:
             EarningsRelease if an EX-99 exhibit is found, None otherwise.
         """
-        exhibit = find_earnings_exhibit(filing.attachments)
-        if exhibit:
-            return cls(exhibit)
-        return None
+        exhibits = find_earnings_exhibits(filing.attachments)
+        if not exhibits:
+            return None
+
+        # Try first exhibit (common case — EX-99.1)
+        first = cls(exhibits[0])
+        if len(exhibits) == 1:
+            return first
+
+        # If the first exhibit has an income statement, use it
+        if first.income_statement is not None:
+            return first
+
+        # Try remaining exhibits for one with an income statement
+        for exhibit in exhibits[1:]:
+            candidate = cls(exhibit)
+            if candidate.income_statement is not None:
+                return candidate
+
+        # No exhibit had an income statement — return the first one anyway
+        return first
 
     @property
     def document(self):
@@ -943,10 +971,26 @@ class EarningsRelease:
 
     @property
     def detected_scale(self) -> Scale:
-        """Detect the primary scale used in the document."""
+        """Detect the primary scale used in the document.
+
+        Uses parenthetical patterns like '(in millions)' that appear near
+        financial tables, rather than bare word matches in narrative text.
+        """
         if self._scale is None:
-            text = self.document.text()
-            self._scale = Scale.detect(text)
+            text = self.document.text().lower()
+            # Look for explicit parenthetical scale markers near tables
+            # Matches: "(in millions", "(dollars in millions", "(amounts in millions"
+            _parens_millions = r'\((?:dollars |amounts |figures )?in\s+millions'
+            _parens_thousands = r'\((?:dollars |amounts |figures )?in\s+thousands'
+            _parens_billions = r'\((?:dollars |amounts |figures )?in\s+billions'
+            if re.search(_parens_millions, text):
+                self._scale = Scale.MILLIONS
+            elif re.search(_parens_thousands, text):
+                self._scale = Scale.THOUSANDS
+            elif re.search(_parens_billions, text):
+                self._scale = Scale.BILLIONS
+            else:
+                self._scale = Scale.UNITS
         return self._scale
 
     @property
@@ -1049,7 +1093,7 @@ class EarningsRelease:
     def _extract_tables(self) -> List[FinancialTable]:
         """Extract and classify all tables from the document."""
         tables = []
-        doc_scale = Scale.UNITS  # Safe default — per-table detection is primary
+        doc_scale = self.detected_scale  # Use document-level scale as fallback
 
         for idx, table_node in enumerate(self.document.tables):
             df = _extract_clean_dataframe(table_node)
@@ -1190,37 +1234,54 @@ def get_earnings_tables(filing: 'Filing') -> List[FinancialTable]:
     return []
 
 
-def find_earnings_exhibit(attachments: 'Attachments') -> Optional['Attachment']:
+def find_earnings_exhibits(attachments: 'Attachments') -> List['Attachment']:
     """
-    Find the EX-99.1 (or similar) earnings press release exhibit.
+    Find all EX-99.* HTML exhibits that may contain earnings data.
+
+    Returns exhibits in order of priority (EX-99.1 first, then EX-99.2, etc.).
 
     Args:
         attachments: Attachments collection from a filing
 
     Returns:
-        The earnings exhibit Attachment if found, None otherwise.
+        List of HTML Attachment objects matching EX-99.* pattern.
     """
-    exhibit_patterns = [
-        r'EX-99\.1',
-        r'EX-99\.01',
-        r'EX-99',
-    ]
+    candidates = []
+    for attachment in attachments:
+        desc = (attachment.description or "").upper()
+        doc = (attachment.document or "").lower()
 
-    for pattern in exhibit_patterns:
-        for attachment in attachments:
-            desc = (attachment.description or "").upper()
-            doc = (attachment.document or "").lower()
+        is_ex99 = (re.search(r'EX-99', desc, re.IGNORECASE)
+                   or re.search(r'ex-?99', doc, re.IGNORECASE))
+        if not is_ex99:
+            continue
+        if any(x in doc for x in ['.xsd', '.xml', '_lab.', '_pre.', '_def.', '_cal.']):
+            continue
+        if attachment.is_html():
+            candidates.append(attachment)
 
-            if re.search(pattern, desc, re.IGNORECASE):
-                if any(x in doc for x in ['.xsd', '.xml', '_lab.', '_pre.', '_def.', '_cal.']):
-                    continue
-                if attachment.is_html():
-                    return attachment
+    # Sort by exhibit number (EX-99.1 before EX-99.2, etc.)
+    def _exhibit_sort_key(att):
+        desc = (att.description or "")
+        m = re.search(r'EX-99\.?(\d+)', desc, re.IGNORECASE)
+        return int(m.group(1)) if m else 99
+    candidates.sort(key=_exhibit_sort_key)
 
-            if re.search(r'ex-?99', doc, re.IGNORECASE) and attachment.is_html():
-                return attachment
+    return candidates
 
-    return None
+
+def find_earnings_exhibit(attachments: 'Attachments') -> Optional['Attachment']:
+    """
+    Find the first EX-99 HTML exhibit from a filing's attachments.
+
+    Args:
+        attachments: Attachments collection from a filing
+
+    Returns:
+        The first EX-99 HTML Attachment if found, None otherwise.
+    """
+    candidates = find_earnings_exhibits(attachments)
+    return candidates[0] if candidates else None
 
 
 # =============================================================================
@@ -1243,9 +1304,9 @@ def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
             if pattern in header_text:
                 return stmt_type
 
-    # 2. Keyword matching on row labels (expanded range)
+    # 2. Keyword matching on row labels (scan all rows for classification)
     labels = []
-    for row in table_node.rows[:20]:
+    for row in table_node.rows[:40]:
         for cell in row.cells:
             content = (cell.content or "").strip()
             if content and len(content) > 3:
@@ -1253,7 +1314,7 @@ def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
                 break
 
     if hasattr(df, 'index'):
-        labels.extend([str(x).lower() for x in df.index[:20]])
+        labels.extend([str(x).lower() for x in df.index])
 
     labels_text = ' '.join(labels)
 

@@ -23,8 +23,9 @@ from wisent.core.utils.config_tools.constants import (
     GENERATION_DEFAULT_TEMPERATURE, GENERATION_DEFAULT_TOP_P,
     EVAL_F1_THRESHOLD, EVAL_GENERATION_EMBEDDING_WEIGHT,
     EVAL_GENERATION_NLI_WEIGHT, SPLIT_RATIO_TRAIN_DEFAULT,
-    METHODS_REQUIRING_QK_CAPTURE,
+    METHODS_REQUIRING_QK_CAPTURE, SCORE_MIDPOINT_PCT,
 )
+from wisent.core.utils.infra_tools.infra.core.hardware import subprocess_timeout_s
 from wisent.core.control.steering_methods.configs.optimal import get_optimal, get_optimal_extraction_strategy
 
 
@@ -163,6 +164,8 @@ def run_pipeline(
         generation_embedding_weight=EVAL_GENERATION_EMBEDDING_WEIGHT,
         generation_nli_weight=EVAL_GENERATION_NLI_WEIGHT,
         train_ratio=SPLIT_RATIO_TRAIN_DEFAULT,
+        subprocess_timeout=subprocess_timeout_s(),
+        personalization_good_threshold=SCORE_MIDPOINT_PCT,
     ))
     eval_elapsed = time.monotonic() - eval_t0
     print(f"[run_pipeline] {_ts()} evaluate done in {eval_elapsed:.1f}s", flush=True)

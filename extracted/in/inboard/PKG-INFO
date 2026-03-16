@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inboard
-Version: 0.87.1
+Version: 0.87.2
 Summary: Docker images and utilities to power your Python APIs and help you ship faster.
 Project-URL: Docker, https://github.com/br3ndonland/inboard/pkgs/container/inboard
 Project-URL: Documentation, https://inboard.bws.bio
@@ -27,22 +27,10 @@ Classifier: Typing :: Typed
 Requires-Python: <4,>=3.10
 Requires-Dist: gunicorn==23.0.0
 Requires-Dist: uvicorn==0.28.1
-Provides-Extra: checks
-Requires-Dist: basedpyright<1.38,>=1.37; extra == 'checks'
-Requires-Dist: ruff<0.15,>=0.14; extra == 'checks'
-Provides-Extra: docs
-Requires-Dist: mkdocs-material<10,>=9; extra == 'docs'
 Provides-Extra: fastapi
 Requires-Dist: fastapi==0.129.2; extra == 'fastapi'
 Provides-Extra: starlette
 Requires-Dist: starlette<0.53.0,>=0.40.0; extra == 'starlette'
-Provides-Extra: tests
-Requires-Dist: coverage[toml]<8,>=7.10; extra == 'tests'
-Requires-Dist: httpx<1,>=0.23; extra == 'tests'
-Requires-Dist: pytest-mock<4,>=3; extra == 'tests'
-Requires-Dist: pytest-timeout<3,>=2; extra == 'tests'
-Requires-Dist: pytest<9,>=8.1.1; extra == 'tests'
-Requires-Dist: trustme<2,>=1.2; extra == 'tests'
 Provides-Extra: uvicorn-fast
 Requires-Dist: httptools>=0.6.3; extra == 'uvicorn-fast'
 Requires-Dist: uvloop>0.15.1; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'uvicorn-fast'

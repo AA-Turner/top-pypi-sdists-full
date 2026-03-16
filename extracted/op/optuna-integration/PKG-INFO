@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-integration
-Version: 4.7.0
+Version: 4.8.0
 Summary: Integration libraries of Optuna.
 Project-URL: repository, https://github.com/optuna/optuna-integration
 Classifier: Development Status :: 5 - Production/Stable
@@ -75,6 +75,7 @@ Provides-Extra: fastai
 Requires-Dist: fastai>=2.0.0; extra == "fastai"
 Provides-Extra: fastaiv2
 Requires-Dist: fastai>=2.0.0; extra == "fastaiv2"
+Requires-Dist: fastcore<1.12.2; extra == "fastaiv2"
 Provides-Extra: keras
 Requires-Dist: tensorflow; extra == "keras"
 Provides-Extra: lightgbm
@@ -116,6 +117,8 @@ Provides-Extra: wandb
 Requires-Dist: wandb; extra == "wandb"
 Provides-Extra: xgboost
 Requires-Dist: xgboost; extra == "xgboost"
+Provides-Extra: trackio
+Requires-Dist: trackio; extra == "trackio"
 Dynamic: license-file
 
 # Optuna-Integration
@@ -181,6 +184,7 @@ Here is the table of `optuna-integration` modules:
 |[tf.keras](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#tensorflow)|[TFKerasPruningCallback](https://github.com/optuna/optuna-examples/tree/main/tfkeras/tfkeras_integration.py)|
 |[Weights & Biases](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#wandb)|[WeightsAndBiasesCallback](https://github.com/optuna/optuna-examples/blob/main/wandb/wandb_integration.py)|
 |[XGBoost](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#xgboost)|[XGBoostPruningCallback](https://github.com/optuna/optuna-examples/tree/main/xgboost/xgboost_integration.py)|
+|[Trackio](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#trackio)|[TrackioCallback](https://github.com/optuna/optuna-integration/tree/main/optuna_integration/trackio/trackio.py)|
 |[AllenNLP](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#allennlp)*|[AllenNLPPruningCallback](https://github.com/optuna/optuna-examples/blob/main/allennlp/allennlp_simple.py)|
 |[Chainer](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#chainer)*|[ChainerPruningExtension](https://github.com/optuna/optuna-examples/tree/main/chainer/chainer_integration.py)|
 |[ChainerMN](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#chainermn)* | [ChainerMNStudy](https://github.com/optuna/optuna-examples/tree/main/chainer/chainermn_simple.py) |

@@ -1,5 +1,3 @@
-"""Plugin: output-validation — LLM output must be validated before use."""
-
 from skylos.defend.plugin import DefensePlugin
 from skylos.defend.result import DefenseResult
 from skylos.discover.integration import LLMIntegration
@@ -20,7 +18,9 @@ class OutputValidationPlugin(DefensePlugin):
         "or similar parsing before consuming LLM responses."
     )
 
-    def check(self, integration: LLMIntegration, graph: AIIntegrationGraph) -> DefenseResult:
+    def check(
+        self, integration: LLMIntegration, graph: AIIntegrationGraph
+    ) -> DefenseResult:
         if integration.has_output_validation:
             loc = integration.output_validation_location or integration.location
             return self._pass(

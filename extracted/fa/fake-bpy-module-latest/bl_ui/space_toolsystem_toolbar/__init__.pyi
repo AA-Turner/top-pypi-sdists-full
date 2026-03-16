@@ -77,6 +77,12 @@ class SEQUENCER_PT_tools_active(
         :param mode:
         """
 
+class ToolDefaults:
+    aspect_base: typing.Any
+    aspect_depth: typing.Any
+    origin_base: typing.Any
+    origin_depth: typing.Any
+
 class VIEW3D_PT_tools_active(
     bl_ui.space_toolsystem_common.ToolSelectPanelHelper, _bpy_types.Panel
 ):
@@ -417,6 +423,7 @@ class _defs_view3d_add:
     cube_add: typing.Any
     cylinder_add: typing.Any
     ico_sphere_add: typing.Any
+    sculpt_tool_defaults: typing.Any
     uv_sphere_add: typing.Any
 
     @staticmethod
@@ -427,6 +434,15 @@ class _defs_view3d_add:
         :param _item:
         :param _km:
         :param prefix:
+        """
+
+    @staticmethod
+    def draw_settings_defaults_init(mode, tool, primitive_type) -> None:
+        """
+
+        :param mode:
+        :param tool:
+        :param primitive_type:
         """
 
     @staticmethod

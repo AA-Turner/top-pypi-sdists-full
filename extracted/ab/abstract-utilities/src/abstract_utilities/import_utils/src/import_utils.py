@@ -66,7 +66,7 @@ def get_imports(files: List[str],self=None) -> Dict[str, Dict[str, Any]]:
             mod = importlib.import_module(dotted)
         except Exception as e:
             # Helpful hint if user ran file directly (no package context)
-            if "__package__" in dir() and not __package__:
+            if not globals().get("__package__"):
                 raise RuntimeError(
                     f"Import failed for {dotted}. If you ran this file directly, "
                     f"bootstrap package context or run via `python -m ...`."
