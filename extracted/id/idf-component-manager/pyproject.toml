@@ -10,27 +10,25 @@ include = [
 
 [project]
 name = "idf-component-manager"
-version = "2.4.8"
+version = "3.0.0"
 authors = [
     { name = "Sergei Silnov", email = "sergei.silnov@espressif.com" },
     { name = "Fu Hanxi", email = "fuhanxi@espressif.com" },
 ]
 description = "Espressif IDF Component Manager"
 readme = "README.md"
-requires-python = ">=3.7,<4.0"
+requires-python = ">=3.10,<4.0"
 license = { text = "Apache-2.0" }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: CPython',
 ]
 dependencies = [
@@ -44,12 +42,11 @@ dependencies = [
     "requests-toolbelt",
     "tqdm",
     "jsonref",
-    "pydantic!=2.12.0",
+    "pydantic",
     "pydantic-core",
     "pydantic-settings",
     "typing-extensions; python_version < '3.12'",
-    "truststore; python_version >= '3.10'",
-    "importlib-metadata; python_version < '3.8'",
+    "truststore"
 ]
 
 [project.optional-dependencies]
@@ -60,6 +57,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx-tabs",
     "sphinx_collapse",
+    "sphinxext-rediraffe",
     "autodoc_pydantic",
     "docutils<0.22",  # sphinx-tabs 3.4.7 incompatible with docutils 0.22+
 ]
@@ -141,12 +139,12 @@ version_files = [
     "idf_component_tools/__version__.py:__version__",
     "pyproject.toml:project.version",
 ]
-update_changelog_on_bump = true
+update_changelog_on_bump = false
 bump_message = "change: bump version from v$current_version to v$new_version"
 
 [tool.ruff]
 line-length = 100
-target-version = "py37"
+target-version = "py38"
 
 [tool.ruff.lint]
 extend-select = [

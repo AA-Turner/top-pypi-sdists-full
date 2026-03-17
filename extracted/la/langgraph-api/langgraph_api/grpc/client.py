@@ -1,6 +1,7 @@
 """gRPC client wrapper for LangGraph persistence services."""
 
 import asyncio
+import os
 import threading
 import time
 
@@ -72,6 +73,10 @@ class GrpcClient:
         options = [
             ("grpc.max_receive_message_length", config.GRPC_CLIENT_MAX_RECV_MSG_BYTES),
             ("grpc.max_send_message_length", config.GRPC_CLIENT_MAX_SEND_MSG_BYTES),
+            (
+                "grpc.http2.initial_window_size",
+                config.GRPC_CLIENT_HTTP2_INITIAL_WINDOW_SIZE,
+            ),
         ]
 
         self._channel = aio.insecure_channel(self.server_address, options=options)
@@ -278,6 +283,43 @@ async def get_shared_client() -> GrpcClient:
     return await _client_pool.get_client()
 
 
+def _get_go_core_exit_detail() -> str | None:
+    """Return a diagnostic message if the Go core-api-grpc process has exited."""
+    pid_str = os.environ.get("CORE_API_GRPC_PID")
+    if not pid_str:
+        return None
+    try:
+        pid = int(pid_str)
+    except ValueError:
+        return None
+
+    # In the container entrypoints, the shell starts Go, then execs Python.
+    # That leaves Go as a child process, so waitpid can surface its exit status.
+    try:
+        waited_pid, status = os.waitpid(pid, os.WNOHANG)
+        if waited_pid == 0:
+            return None
+        if os.WIFEXITED(status):
+            code = os.WEXITSTATUS(status)
+            return f"Go core server (PID {pid}) exited with code {code}"
+        if os.WIFSIGNALED(status):
+            sig = os.WTERMSIG(status)
+            return f"Go core server (PID {pid}) was killed by signal {sig}"
+        return f"Go core server (PID {pid}) terminated (wait status={status})"
+    except ChildProcessError:
+        pass
+
+    try:
+        os.kill(pid, 0)
+        return None
+    except ProcessLookupError:
+        return (
+            f"Go core server (PID {pid}) is no longer running (exit code unavailable)"
+        )
+    except PermissionError:
+        return None
+
+
 async def wait_until_grpc_ready(
     timeout_seconds: float = GRPC_INIT_TIMEOUT,
     interval_seconds: float = GRPC_INIT_PROBE_INTERVAL,
@@ -310,6 +352,18 @@ async def wait_until_grpc_ready(
             )
             return
         except Exception as exc:
+            proc_msg = _get_go_core_exit_detail()
+            if proc_msg is not None:
+                await logger.aerror(
+                    "Go core server process has exited",
+                    detail=proc_msg,
+                    server_address=config.LSD_GRPC_SERVER_ADDRESS,
+                )
+                raise RuntimeError(
+                    f"gRPC server not ready: {proc_msg}. "
+                    f"Check Go core server logs above for errors."
+                ) from exc
+
             if attempt >= max_attempts - 1:
                 raise RuntimeError(
                     f"gRPC server not ready after {timeout_seconds}s (reached max attempts: {max_attempts})"

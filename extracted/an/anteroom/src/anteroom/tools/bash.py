@@ -133,6 +133,7 @@ async def handle(
     timeout: int = _DEFAULT_TIMEOUT,
     _bypass_hard_block: bool = False,
     _sandbox_config: BashSandboxConfig | None = None,
+    _env: dict[str, str] | None = None,
     **_: Any,
 ) -> dict[str, Any]:
     # Null byte check runs unconditionally — never bypassable.
@@ -171,12 +172,16 @@ async def handle(
     use_os_sandbox = sys.platform == "win32" and _sandbox_config is not None and _sandbox_config.sandbox.is_enabled
 
     try:
+        # Merge per-step credential env if provided (#970)
+        subprocess_env = {**os.environ, **_env} if _env else None
+
         proc = await asyncio.create_subprocess_shell(
             command,
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=_working_dir,
+            env=subprocess_env,
         )
 
         # Assign process to Job Object for kernel-level resource limits

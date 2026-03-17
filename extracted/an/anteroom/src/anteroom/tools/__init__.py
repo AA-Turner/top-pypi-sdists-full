@@ -235,6 +235,7 @@ class ToolRegistry:
         confirm_callback: ConfirmCallback | None = None,
         *,
         rule_enforcer_override: RuleEnforcer | None = None,
+        _extra_env: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         handler = self._handlers.get(name)
         if not handler:
@@ -290,6 +291,9 @@ class ToolRegistry:
             extra_kwargs["_bypass_hard_block"] = True
         if name == "bash" and self._safety_config is not None:
             extra_kwargs["_sandbox_config"] = self._safety_config.bash
+        # Per-step credential env injection for workflow bash tool calls (#970)
+        if name == "bash" and _extra_env is not None:
+            extra_kwargs["_env"] = _extra_env
         result = await handler(**arguments, **extra_kwargs)
         result["_approval_decision"] = approval_decision
         result["_context_trust"] = "untrusted" if name in _UNTRUSTED_TOOLS else "trusted"

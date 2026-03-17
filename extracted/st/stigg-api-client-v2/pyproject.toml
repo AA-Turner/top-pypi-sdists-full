@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stigg-api-client-v2"
-version = "6.4.0"
+version = "6.5.0"
 description = ""
 authors = ["Stigg <support@stigg.io>"]
 license = "STIGG SDK LICENSE"

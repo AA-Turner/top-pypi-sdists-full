@@ -1089,7 +1089,13 @@ class AnyscaleClient(AnyscaleClientInterface):
         cloud_id: Optional[str] = None,
     ) -> str:
         # Only pass cloud_id for Azure deployments.
-        if self.get_deployment_infra_provider() != "azure":
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
             cloud_id = None
 
         build = self._internal_api_client.get_or_create_build_from_image_uri_api_v2_builds_get_or_create_build_from_image_uri_post(

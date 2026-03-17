@@ -1,8 +1,9 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models.base import Model
+from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.related_descriptors import (
     ForwardManyToOneDescriptor,
@@ -11,6 +12,8 @@ from django.db.models.fields.related_descriptors import (
     ReverseOneToOneDescriptor,
 )
 from django.db.models.fields.reverse_related import ForeignObjectRel
+from django.db.models.lookups import Transform
+from django.db.models.sql.query import Query
 from mypy.checker import TypeChecker
 from mypy.errorcodes import NO_REDEF
 from mypy.nodes import ARG_NAMED, ARG_NAMED_OPT, ARG_STAR, CallExpr, Expression, ListExpr, SetExpr, TupleExpr
@@ -22,6 +25,9 @@ from mypy_django_plugin.django.context import DjangoContext, LookupsAreUnsupport
 from mypy_django_plugin.lib import fullnames, helpers
 from mypy_django_plugin.lib.helpers import DjangoModel
 from mypy_django_plugin.transformers.models import get_annotated_type
+
+if TYPE_CHECKING:
+    from django.db.models.options import _AnyField
 
 
 def determine_proper_manager_type(ctx: FunctionContext) -> MypyType:
@@ -290,7 +296,7 @@ def extract_proper_type_queryset_values(ctx: MethodContext, django_context: Djan
     """
     Extract proper return type for QuerySet.values(*fields, **expressions) method calls.
 
-    See https://docs.djangoproject.com/en/5.2/ref/models/querysets/#values
+    See https://docs.djangoproject.com/en/stable/ref/models/querysets/#values
     """
     django_model = helpers.get_model_info_from_qs_ctx(ctx, django_context)
     if django_model is None or django_model.is_annotated:
@@ -522,7 +528,7 @@ def check_valid_prefetch_related_lookup(
     """Check if a lookup string resolve to something that can be prefetched"""
     current_model_cls = django_model.cls
     contenttypes_installed = django_context.apps_registry.is_installed("django.contrib.contenttypes")
-    for through_attr in lookup.split("__"):
+    for through_attr in lookup.split(LOOKUP_SEP):
         rel_obj_descriptor = getattr(current_model_cls, through_attr, None)
         if rel_obj_descriptor is None:
             ctx.api.fail(
@@ -597,7 +603,7 @@ def extract_prefetch_related_annotations(ctx: MethodContext, django_context: Dja
     """
     Extract annotated attributes via `prefetch_related(Prefetch(..., to_attr=...))`
 
-    See https://docs.djangoproject.com/en/5.2/ref/models/querysets/#prefetch-objects
+    See https://docs.djangoproject.com/en/stable/ref/models/querysets/#prefetch-objects
     """
     api = helpers.get_typechecker_api(ctx)
 
@@ -653,6 +659,12 @@ def extract_prefetch_related_annotations(ctx: MethodContext, django_context: Dja
         if to_attr and check_valid_attr_value(
             ctx, django_context, qs_model, to_attr, new_attr_names=set(new_attrs.keys())
         ):
+            # When traversing multiple relations (e.g. "groups__user_set"), the to_attr is set
+            # on the last item of the chain (e.g. Group), not on the root model (e.g. User).
+            # We can't annotate an intermediate model from here, so skip adding the annotation
+            # to the root model to avoid incorrectly attributing to_attr to it.
+            if lookup and LOOKUP_SEP in lookup:
+                continue
             new_attrs[to_attr] = api.named_generic_type(
                 "builtins.list",
                 [elem_model if elem_model is not None else AnyType(TypeOfAny.special_form)],
@@ -694,6 +706,70 @@ def extract_prefetch_related_annotations(ctx: MethodContext, django_context: Dja
     return default_return_type.copy_modified(args=[annotated_model, row_type])
 
 
+def _try_get_field(
+    ctx: MethodContext, model_cls: type[Model], field_name: str, *, resolve_pk: bool = False
+) -> "_AnyField | None":
+    opts = model_cls._meta
+    resolved_name = opts.pk.name if resolve_pk and field_name == "pk" else field_name
+    try:
+        return opts.get_field(resolved_name)
+    except FieldDoesNotExist as e:
+        ctx.api.fail(str(e), ctx.context)
+        return None
+
+
+def _check_field_concrete(ctx: MethodContext, field: "_AnyField", field_name: str, method: str) -> bool:
+    if not field.concrete or field.many_to_many:
+        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
+        return False
+    return True
+
+
+def _check_field_not_pk(
+    ctx: MethodContext,
+    model_cls: type[Model],
+    field: "_AnyField",
+    field_name: str,
+    method: str,
+    *,
+    attr_name: str | None = None,
+) -> bool:
+    opts = model_cls._meta
+    all_pk_fields = set(getattr(opts, "pk_fields", [opts.pk]))
+    for parent in getattr(opts, "all_parents", opts.get_parent_list()):
+        all_pk_fields.update(getattr(parent._meta, "pk_fields", [parent._meta.pk]))
+    if field in all_pk_fields:
+        param_str = f' in "{attr_name}="' if attr_name else ""
+        ctx.api.fail(f'"{method}()" does not support primary key fields{param_str}. Got "{field_name}"', ctx.context)
+        return False
+    return True
+
+
+def _extract_field_names_from_collection(
+    ctx: MethodContext, django_context: DjangoContext, arg_index: int
+) -> list[str] | None:
+    if not (
+        len(ctx.args) > arg_index
+        and ctx.args[arg_index]
+        and isinstance((collection_expr := ctx.args[arg_index][0]), (ListExpr, TupleExpr, SetExpr))
+    ):
+        return None
+
+    return [
+        field_name
+        for field_arg in collection_expr.items
+        if (field_name := helpers.resolve_string_attribute_value(field_arg, django_context)) is not None
+    ]
+
+
+def _extract_field_names_from_varargs(ctx: MethodContext) -> list[str]:
+    return [
+        lookup_value
+        for lookup_type in (ctx.arg_types[0] if ctx.arg_types and ctx.arg_types[0] else [])
+        if (lookup_value := helpers.get_literal_str_type(get_proper_type(lookup_type))) is not None
+    ]
+
+
 def _get_select_related_field_choices(model_cls: type[Model]) -> set[str]:
     """
     Get valid field choices for select_related lookups.
@@ -723,7 +799,7 @@ def _validate_select_related_lookup(
         )
         return False
 
-    lookup_parts = lookup.split("__")
+    lookup_parts = lookup.split(LOOKUP_SEP)
     observed_model = model_cls
     for i, part in enumerate(lookup_parts):
         valid_choices = _get_select_related_field_choices(observed_model)
@@ -754,45 +830,23 @@ def validate_select_related(ctx: MethodContext, django_context: DjangoContext) -
 
     Extracted and adapted from `django.db.models.sql.compiler.SQLCompiler.get_related_selections`
     """
-    if not (
-        isinstance(ctx.type, Instance)
-        and (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is not None
-        and ctx.arg_types
-        and ctx.arg_types[0]
-    ):
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
         return ctx.default_return_type
 
-    for lookup_type in ctx.arg_types[0]:
-        lookup_value = helpers.get_literal_str_type(get_proper_type(lookup_type))
-        if lookup_value is not None:
-            _validate_select_related_lookup(ctx, django_context, django_model.cls, lookup_value)
+    for lookup_value in _extract_field_names_from_varargs(ctx):
+        _validate_select_related_lookup(ctx, django_context, django_model.cls, lookup_value)
 
     return ctx.default_return_type
 
 
 def _validate_bulk_update_field(
-    ctx: MethodContext, model_cls: type[Model], field_name: str, method: Literal["bulk_update", "abulk_update"]
+    ctx: MethodContext, model_cls: type[Model], field_name: str, method: str, *, attr_name: str | None = None
 ) -> bool:
-    opts = model_cls._meta
-    try:
-        field = opts.get_field(field_name)
-    except FieldDoesNotExist as e:
-        ctx.api.fail(str(e), ctx.context)
-        return False
-
-    if not field.concrete or field.many_to_many:
-        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
-        return False
-
-    all_pk_fields = set(getattr(opts, "pk_fields", [opts.pk]))
-    for parent in getattr(opts, "all_parents", opts.get_parent_list()):
-        all_pk_fields.update(getattr(parent._meta, "pk_fields", [parent._meta.pk]))
-
-    if field in all_pk_fields:
-        ctx.api.fail(f'"{method}()" cannot be used with primary key fields. Got "{field_name}"', ctx.context)
-        return False
-
-    return True
+    return (
+        (field := _try_get_field(ctx, model_cls, field_name)) is not None
+        and _check_field_concrete(ctx, field, field_name, method)
+        and _check_field_not_pk(ctx, model_cls, field, field_name, method, attr_name=attr_name)
+    )
 
 
 def validate_bulk_update(
@@ -804,22 +858,114 @@ def validate_bulk_update(
     Extracted and adapted from `django.db.models.query.QuerySet.bulk_update`
     Mirrors tests from `django/tests/queries/test_bulk_update.py`
     """
-    if not (
-        isinstance(ctx.type, Instance)
-        and (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is not None
-        and len(ctx.args) >= 2
-        and ctx.args[1]
-        and isinstance((fields_args := ctx.args[1][0]), (ListExpr, TupleExpr, SetExpr))
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None or (
+        field_names := _extract_field_names_from_collection(ctx, django_context, arg_index=1)
+    ) is None:
+        return ctx.default_return_type
+
+    if not field_names:
+        # Only error if the collection literal itself is empty (not when items are unresolvable).
+        collection_expr = ctx.args[1][0]
+        if isinstance(collection_expr, (ListExpr, TupleExpr, SetExpr)) and not collection_expr.items:
+            ctx.api.fail(f'Field names must be given to "{method}()"', ctx.context)
+        return ctx.default_return_type
+
+    for field_name in field_names:
+        _validate_bulk_update_field(ctx, django_model.cls, field_name, method)
+
+    return ctx.default_return_type
+
+
+def _validate_bulk_create_unique_field(
+    ctx: MethodContext, model_cls: type[Model], field_name: str, method: str
+) -> bool:
+    return (field := _try_get_field(ctx, model_cls, field_name, resolve_pk=True)) is not None and _check_field_concrete(
+        ctx, field, field_name, method
+    )
+
+
+def validate_bulk_create(
+    ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_create", "abulk_create"]
+) -> MypyType:
+    """
+    Type check the `update_fields` and `unique_fields` arguments passed to `QuerySet.bulk_create(...)`.
+
+    Extracted and adapted from `django.db.models.query.QuerySet._check_bulk_create_options`
+    """
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    update_field_names = _extract_field_names_from_collection(ctx, django_context, arg_index=4)
+    if update_field_names is not None:
+        for field_name in update_field_names:
+            _validate_bulk_update_field(ctx, django_model.cls, field_name, method, attr_name="update_fields")
+
+    unique_field_names = _extract_field_names_from_collection(ctx, django_context, arg_index=5)
+    if unique_field_names is not None:
+        for field_name in unique_field_names:
+            _validate_bulk_create_unique_field(ctx, django_model.cls, field_name, method)
+
+    return ctx.default_return_type
+
+
+def _validate_order_by_lookup(ctx: MethodContext, model_cls: type[Model], parts: list[str]) -> None:
+    if len(parts) == 1 and parts[0] == "?":
+        return
+
+    try:
+        _, final_field, _, remainder = Query(model_cls).names_to_path(parts, model_cls._meta)
+    except FieldError as exc:
+        ctx.api.fail(exc.args[0], ctx.context)
+        return
+
+    if remainder:
+        # Check if the trailing part is a valid transform (e.g. __year, __month) on the field.
+        # Transforms are allowed in order_by, but lookups (e.g. __exact) are not.
+        lookup_cls = final_field.get_lookups().get(remainder[0])
+        if lookup_cls is None or not issubclass(lookup_cls, Transform):
+            msg = f"Cannot resolve keyword '{remainder[0]}' into field or transform on '{final_field.name}'."
+            ctx.api.fail(msg, ctx.context)
+
+
+def validate_order_by(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None:
+        return ctx.default_return_type
+
+    selected_fields = _get_selected_fields_from_queryset_type(ctx.type) if isinstance(ctx.type, Instance) else None
+
+    for lookup_value in _extract_field_names_from_varargs(ctx):
+        parts = lookup_value.removeprefix("-").split(LOOKUP_SEP)
+
+        if django_model.typ.extra_attrs and parts[0] in django_model.typ.extra_attrs.attrs:
+            # Skip validation for annotated fields
+            continue
+        if selected_fields is not None and parts[0] in selected_fields:
+            # Skip validation for fields selected via values()/values_list()
+            continue
+        _validate_order_by_lookup(ctx, django_model.cls, parts)
+
+    return ctx.default_return_type
+
+
+def _validate_defer_only_fields(
+    ctx: MethodContext, model_cls: type[Model], field_names: list[str], *, is_defer: bool
+) -> None:
+    query = Query(model_cls)
+    query.add_deferred_loading(field_names) if is_defer else query.add_immediate_loading(field_names)
+
+    try:
+        query.get_select_mask()
+    except (FieldDoesNotExist, FieldError) as exc:
+        method = "defer" if is_defer else "only"
+        ctx.api.fail(f'Invalid field in "{method}()": {exc.args[0]}', ctx.context)
+
+
+def validate_defer_only(ctx: MethodContext, django_context: DjangoContext, *, is_defer: bool) -> MypyType:
+    if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None or not (
+        field_names := _extract_field_names_from_varargs(ctx)
     ):
         return ctx.default_return_type
 
-    if len(fields_args.items) == 0:
-        ctx.api.fail(f'Field names must be given to "{method}()"', ctx.context)
-        return ctx.default_return_type
-
-    for field_arg in fields_args.items:
-        field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
-        if field_name is not None:
-            _validate_bulk_update_field(ctx, django_model.cls, field_name, method)
+    _validate_defer_only_fields(ctx, django_model.cls, field_names, is_defer=is_defer)
 
     return ctx.default_return_type

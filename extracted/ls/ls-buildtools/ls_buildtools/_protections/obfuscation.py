@@ -1,6 +1,6 @@
 _B=True
 _A=False
-import os,re,shutil
+import os,re
 from pathlib import Path
 from tempfile import mkdtemp,tempdir
 from typing import Tuple
@@ -16,4 +16,3 @@ class Obfuscation(Protection):
 		if B.suffix!='.py':return _A
 		return _B
 	def protect_file(B,source_path:Path,distribution_path:Path)->Tuple[Path,Path]:C=distribution_path;A=Path(B.minified_directory)/C;A.parent.mkdir(parents=_B,exist_ok=_B);B.obfuscator.obfuscate_file(source_path,A);return A,C
-	def finalize(A):shutil.rmtree(A.minified_directory)

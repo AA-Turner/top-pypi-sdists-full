@@ -162,7 +162,7 @@ describe("Integration management for data detection & discovery", () => {
         cy.getByTestId("add-modal-content")
           .should("be.visible")
           .within(() => {
-            cy.get(".grid-cols-3").should("exist");
+            cy.get(".ant-row").should("exist");
             cy.getByTestId("integration-info-bq_placeholder").should("exist");
           });
       });
@@ -821,7 +821,7 @@ describe("Integration management for data detection & discovery", () => {
 
           // Toggle it back off
           cy.getByTestId("input-use_llm_classifier").click();
-          cy.getByTestId("input-llm_model_override").should("not.exist");
+          cy.getByTestId("input-llm_model_override").should("not.be.visible");
           cy.getByTestId("controlled-select-prompt_template").should(
             "not.exist",
           );
@@ -846,8 +846,8 @@ describe("Integration management for data detection & discovery", () => {
             .should("exist")
             .should("be.disabled");
 
-          // LLM fields should not exist
-          cy.getByTestId("input-llm_model_override").should("not.exist");
+          // LLM fields should not be visible
+          cy.getByTestId("input-llm_model_override").should("not.be.visible");
           cy.getByTestId("controlled-select-prompt_template").should(
             "not.exist",
           );

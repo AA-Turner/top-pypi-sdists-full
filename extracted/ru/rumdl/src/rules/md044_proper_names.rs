@@ -355,6 +355,14 @@ impl MD044ProperNames {
                     continue;
                 }
 
+                // Skip if inside a Markdown inline link URL in contexts where
+                // pulldown-cmark doesn't parse Markdown syntax
+                if (line_info.in_html_comment || line_info.in_html_block || line_info.in_front_matter)
+                    && Self::is_in_markdown_link_url(line, start_pos)
+                {
+                    continue;
+                }
+
                 // Find which proper name this matches
                 if let Some(proper_name) = self.get_proper_name_for(found_name) {
                     // Only flag if it's not already correct
@@ -477,6 +485,95 @@ impl MD044ProperNames {
                         }
                         if found_close {
                             i = j + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+        false
+    }
+
+    /// Check if a position within a line falls inside a Markdown link's
+    /// non-text portion (URL or reference label).
+    ///
+    /// pulldown-cmark does not parse Markdown syntax inside HTML comments, HTML
+    /// blocks, or frontmatter, so `ctx.links` won't contain links found there.
+    /// This function detects link patterns directly in the line text:
+    /// - `[text](url)` — returns true if `pos` is within `(...)`
+    /// - `[text][ref]` — returns true if `pos` is within the second `[...]`
+    fn is_in_markdown_link_url(line: &str, pos: usize) -> bool {
+        let bytes = line.as_bytes();
+        let len = bytes.len();
+        let mut i = 0;
+
+        while i < len {
+            // Look for unescaped '[' (handle double-escaped \\[ as unescaped)
+            if bytes[i] == b'[' && (i == 0 || bytes[i - 1] != b'\\' || (i >= 2 && bytes[i - 2] == b'\\')) {
+                // Find matching ']' handling nested brackets
+                let mut depth: u32 = 1;
+                let mut j = i + 1;
+                while j < len && depth > 0 {
+                    match bytes[j] {
+                        b'\\' => {
+                            j += 1; // skip escaped char
+                        }
+                        b'[' => depth += 1,
+                        b']' => depth -= 1,
+                        _ => {}
+                    }
+                    j += 1;
+                }
+
+                // j is now one past the ']'
+                if depth == 0 && j < len {
+                    if bytes[j] == b'(' {
+                        // Inline link: [text](url)
+                        let url_start = j;
+                        let mut paren_depth: u32 = 1;
+                        let mut k = j + 1;
+                        while k < len && paren_depth > 0 {
+                            match bytes[k] {
+                                b'\\' => {
+                                    k += 1; // skip escaped char
+                                }
+                                b'(' => paren_depth += 1,
+                                b')' => paren_depth -= 1,
+                                _ => {}
+                            }
+                            k += 1;
+                        }
+
+                        if paren_depth == 0 {
+                            if pos > url_start && pos < k {
+                                return true;
+                            }
+                            i = k;
+                            continue;
+                        }
+                    } else if bytes[j] == b'[' {
+                        // Reference link: [text][ref]
+                        let ref_start = j;
+                        let mut ref_depth: u32 = 1;
+                        let mut k = j + 1;
+                        while k < len && ref_depth > 0 {
+                            match bytes[k] {
+                                b'\\' => {
+                                    k += 1;
+                                }
+                                b'[' => ref_depth += 1,
+                                b']' => ref_depth -= 1,
+                                _ => {}
+                            }
+                            k += 1;
+                        }
+
+                        if ref_depth == 0 {
+                            if pos > ref_start && pos < k {
+                                return true;
+                            }
+                            i = k;
                             continue;
                         }
                     }

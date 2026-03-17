@@ -152,7 +152,7 @@ async def graphql(
             if callable(validation_rules):
                 validation_rules = cast(
                     Collection[type[ASTValidationRule]] | None,
-                    validation_rules(context_value, document, data),
+                    validation_rules(context_value, document, data),  # ty: ignore
                 )
 
             validation_errors = validate_query(
@@ -340,7 +340,7 @@ def graphql_sync(
             if callable(validation_rules):
                 validation_rules = cast(
                     Collection[type[ASTValidationRule]] | None,
-                    validation_rules(context_value, document, data),
+                    validation_rules(context_value, document, data),  # ty: ignore
                 )
 
             validation_errors = validate_query(
@@ -509,7 +509,7 @@ async def subscribe(
         if callable(validation_rules):
             validation_rules = cast(
                 Collection[type[ASTValidationRule]] | None,
-                validation_rules(context_value, document, data),
+                validation_rules(context_value, document, data),  # ty: ignore
             )
 
         validation_errors = validate_query(
@@ -567,7 +567,7 @@ def handle_query_result(
         if result.errors:
             extension_manager.has_errors(result.errors)
         add_extensions_to_response(extension_manager, response)
-    return True, response
+    return not result.errors, response
 
 
 def handle_graphql_errors(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import random
 import string
@@ -41,6 +40,7 @@ from anyscale.sdk.anyscale_client.models.sort_by_clause_jobs_sort_field import (
     SortByClauseJobsSortField,
 )
 from anyscale.sdk.anyscale_client.models.sort_order import SortOrder
+from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
 from anyscale.util import (
     get_endpoint,
     is_anyscale_workspace,
@@ -511,7 +511,7 @@ class JobController(BaseController):
                 next_page_token,
                 cluster_journal_events_start_line,
                 job_finished,
-            ) = asyncio.run(
+            ) = run_sync(
                 _get_job_logs_from_storage_bucket_streaming(
                     self._api_client,
                     self.log,
@@ -548,7 +548,7 @@ class JobController(BaseController):
                 next_page_token,
                 cluster_journal_events_start_line,
                 job_finished,
-            ) = asyncio.run(
+            ) = run_sync(
                 _get_job_logs_from_storage_bucket_streaming(
                     self._api_client,
                     self.log,

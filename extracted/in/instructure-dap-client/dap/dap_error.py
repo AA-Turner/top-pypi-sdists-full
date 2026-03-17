@@ -66,6 +66,14 @@ class AccountUnderMaintenanceError(OperationError):
     type: Literal["AccountUnderMaintenance"]
 
 
+class RequestTypeForbiddenError(OperationError):
+    """
+    Raised when a request type (e.g. snapshot or incremental) is forbidden.
+    """
+
+    type: Literal["RequestTypeForbidden"]
+
+
 @dataclass(frozen=True)
 class Location:
     """

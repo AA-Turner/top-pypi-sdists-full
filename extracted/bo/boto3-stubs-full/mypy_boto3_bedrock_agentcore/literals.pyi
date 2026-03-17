@@ -26,6 +26,7 @@ __all__ = (
     "BedrockAgentCoreServiceName",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
+    "CommandExecutionStatusType",
     "ContentBlockTypeType",
     "ExtractionJobStatusType",
     "ListActorsPaginatorName",
@@ -52,6 +53,7 @@ __all__ = (
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
+CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
 ExtractionJobStatusType = Literal["FAILED"]
 ListActorsPaginatorName = Literal["list_actors"]

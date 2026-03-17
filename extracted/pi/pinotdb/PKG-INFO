@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pinotdb
-Version: 9.1.0
+Version: 9.1.1
 Summary: Python DB-API and SQLAlchemy dialect for Pinot.
 License: MIT
 License-File: LICENSE

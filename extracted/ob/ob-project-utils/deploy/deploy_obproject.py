@@ -945,6 +945,8 @@ def register_assets():
     data_folder = obproject_dirs.get("data", "data")
 
     def ensure_types(d):
+        if d is None:
+            return None
         for k, v in d.items():
             if not (isinstance(k, str) and isinstance(v, str)):
                 raise AttributeError(
@@ -975,9 +977,9 @@ def register_assets():
                 register_func(
                     config["id"],
                     kind=config.get("kind", asset_type.strip("s")),
-                    blobs=config.get("blobs", []),
-                    tags=ensure_types(config.get("tags", {})),
-                    annotations=ensure_types(config.get("properties", {})),
+                    blobs=config.get("blobs", None),
+                    tags=ensure_types(config.get("tags", None)),
+                    annotations=ensure_types(config.get("properties", None)),
                 )
                 # pass down information for the spec
                 yield {

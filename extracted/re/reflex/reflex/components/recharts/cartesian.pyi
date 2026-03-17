@@ -22,8 +22,8 @@ class Axis(Recharts):
         hide: Var[bool] | bool | None = None,
         width: Var[int | str] | int | str | None = None,
         height: Var[int | str] | int | str | None = None,
-        type_: Literal["category", "number"]
-        | Var[Literal["category", "number"]]
+        type_: Literal["auto", "category", "number"]
+        | Var[Literal["auto", "category", "number"]]
         | None = None,
         interval: Literal[
             "equidistantPreserveStart",
@@ -195,8 +195,8 @@ class XAxis(Axis):
         hide: Var[bool] | bool | None = None,
         width: Var[int | str] | int | str | None = None,
         height: Var[int | str] | int | str | None = None,
-        type_: Literal["category", "number"]
-        | Var[Literal["category", "number"]]
+        type_: Literal["auto", "category", "number"]
+        | Var[Literal["auto", "category", "number"]]
         | None = None,
         interval: Literal[
             "equidistantPreserveStart",
@@ -371,8 +371,8 @@ class YAxis(Axis):
         hide: Var[bool] | bool | None = None,
         width: Var[int | str] | int | str | None = None,
         height: Var[int | str] | int | str | None = None,
-        type_: Literal["category", "number"]
-        | Var[Literal["category", "number"]]
+        type_: Literal["auto", "category", "number"]
+        | Var[Literal["auto", "category", "number"]]
         | None = None,
         interval: Literal[
             "equidistantPreserveStart",
@@ -664,8 +664,8 @@ class Brush(Recharts):
 
         Args:
             *children: The children of the component.
-            stroke: The stroke color of brush
-            fill: The fill color of brush
+            stroke: Stroke color. Default: rx.color("gray", 9)
+            fill: The fill color of brush. Default: rx.color("gray", 2)
             data_key: The key of data displayed in the axis.
             x: The x-coordinate of brush. Default: 0
             y: The y-coordinate of brush. Default: 0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs-ext
-Version: 5.2.9
+Version: 6.0.0
 Summary: Monkey-patching and extensions for django-stubs
 Author: Simula Proxy
 License-Expression: MIT
@@ -10,11 +10,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Requires-Dist: django
 Requires-Dist: typing-extensions
 Maintainer: Marti Raudsepp, Nikita Sobolev, Petter Friberg, Adam Johnson

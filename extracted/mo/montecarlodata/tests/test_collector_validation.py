@@ -78,9 +78,7 @@ class CollectorValidationServiceTest(TestCase):
             user_service=self._user_service_mock,
         )
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -100,9 +98,7 @@ class CollectorValidationServiceTest(TestCase):
         called_integration = mock_run_integration.call_args[0][1]
         self.assertEqual(called_integration["name"], "active-warehouse")
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -122,9 +118,7 @@ class CollectorValidationServiceTest(TestCase):
         called_integration = mock_run_integration.call_args[0][1]
         self.assertEqual(called_integration["name"], "active-warehouse")
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -147,9 +141,7 @@ class CollectorValidationServiceTest(TestCase):
         called_integration = mock_run_integration.call_args[0][1]
         self.assertEqual(called_integration["name"], "active-warehouse")
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -204,9 +196,7 @@ class CollectorValidationServiceTest(TestCase):
         self.assertIn("active-bi", called_names)
         self.assertIn("active-etl", called_names)
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -246,9 +236,7 @@ class CollectorValidationServiceTest(TestCase):
         self.assertEqual(len(called_integration["connections"]), 1)
         self.assertTrue(called_integration["connections"][0].get("isActive"))
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -292,9 +280,7 @@ class CollectorValidationServiceTest(TestCase):
         self.assertEqual(len(called_integration["connections"]), 1)
         self.assertTrue(called_integration["connections"][0].get("isActive"))
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",
@@ -338,9 +324,7 @@ class CollectorValidationServiceTest(TestCase):
         self.assertEqual(len(called_integration["connections"]), 1)
         self.assertTrue(called_integration["connections"][0].get("isActive"))
 
-    @patch.object(
-        CollectorValidationService, "_run_storage_access_validation", return_value=0
-    )
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
     @patch.object(
         CollectorValidationService,
         "_run_validations_for_integration",

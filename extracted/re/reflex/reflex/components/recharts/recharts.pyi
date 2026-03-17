@@ -139,7 +139,7 @@ LiteralScale = Literal[
 ]
 LiteralTextAnchor = Literal["start", "middle", "end"]
 LiteralLayout = Literal["horizontal", "vertical"]
-LiteralPolarRadiusType = Literal["number", "category"]
+LiteralPolarRadiusType = Literal["auto", "number", "category"]
 LiteralGridType = Literal["polygon", "circle"]
 LiteralPosition = Literal[
     "top",

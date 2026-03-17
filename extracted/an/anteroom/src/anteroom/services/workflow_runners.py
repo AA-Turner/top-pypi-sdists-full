@@ -98,6 +98,8 @@ async def execute_agent_runner(
     tool_executor: Any | None = None,
     tools_openai: list[dict[str, Any]] | None = None,
     pause_signal: Any | None = None,
+    confirm_callback: Any | None = None,
+    model: str | None = None,
 ) -> RunnerResult:
     """Execute an agent runner step through Anteroom's agent loop.
 
@@ -122,14 +124,25 @@ async def execute_agent_runner(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
+    # Wrap tool_executor to inject confirm_callback if provided (#950)
+    actual_executor = tool_executor
+    if confirm_callback is not None:
+
+        async def _wrapped_executor(name: str, args: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+            return await tool_executor(name, args, confirm_callback=confirm_callback, **kwargs)
+
+        actual_executor = _wrapped_executor
+
     assistant_content = ""
     tool_outputs: list[dict[str, Any]] = []
     paused = False
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
 
     async for event in run_agent_loop(
         ai_service=ai_service,
         messages=messages,
-        tool_executor=tool_executor,
+        tool_executor=actual_executor,
         tools_openai=tools_openai,
         serialize_tools=True,
         pause_signal=pause_signal,
@@ -139,6 +152,10 @@ async def execute_agent_runner(
             assistant_content += event.data.get("content", "")
         elif event.kind == "tool_call_end":
             tool_outputs.append(event.data)
+        elif event.kind == "usage":
+            # Capture token usage events for budget tracking (#967)
+            total_prompt_tokens += event.data.get("prompt_tokens", 0)
+            total_completion_tokens += event.data.get("completion_tokens", 0)
         elif event.kind == "workflow_pause":
             paused = True
             break
@@ -164,6 +181,10 @@ async def execute_agent_runner(
         summary=assistant_content[:2000] if assistant_content else "Agent completed",
         artifacts={
             "tool_call_count": len(tool_outputs),
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "total_tokens": total_prompt_tokens + total_completion_tokens,
+            "model": model or "",
         },
         findings=[{"tool": tc.get("tool_name", ""), "status": tc.get("status", "")} for tc in tool_outputs],
         duration_ms=duration_ms,

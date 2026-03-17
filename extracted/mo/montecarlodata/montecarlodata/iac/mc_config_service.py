@@ -109,6 +109,7 @@ class MonteCarloConfigService:
         skip_confirmation: bool = False,
         abort_on_error=True,
         create_non_ingested_tables: bool = False,
+        sql_validation: bool = True,
     ):
         """
         Compile configuration.
@@ -128,6 +129,7 @@ class MonteCarloConfigService:
                 dry_run=True,
                 misconfigured_as_warning=True,
                 create_non_ingested_tables=create_non_ingested_tables,
+                sql_validation=sql_validation,
             )
             assert response is not None
             self._check_apply_errors(response, abort_on_error)
@@ -181,6 +183,7 @@ class MonteCarloConfigService:
                         dry_run=False,
                         misconfigured_as_warning=True,
                         create_non_ingested_tables=create_non_ingested_tables,
+                        sql_validation=sql_validation,
                     )
                     assert response is not None
                     success = self._check_apply_errors(response, abort_on_error)

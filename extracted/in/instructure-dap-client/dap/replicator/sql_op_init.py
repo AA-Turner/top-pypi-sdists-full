@@ -57,7 +57,9 @@ class SqlOpInit(SqlOp):
         logger.debug(f"fetching meta-data about table {self.table_name}")
         record = await get_table_meta_record(self.conn, self.namespace, self.table_name)
         if record:
-            raise ValueError("Table already initialized. Please run syncdb to update it.")
+            raise ValueError(
+                "Table already initialized. Please run syncdb to update it."
+            )
 
         logger.debug("fetching data for table from DAP API")
         table_data = await self.session.get_table_data(
@@ -103,10 +105,11 @@ class SqlOpInit(SqlOp):
         total_files = len(file_names)
         total_inserted_records = 0
 
-        with ui.JobProgress("Inserting data from files into database table...",
-                            total_steps=total_files) as progress:
+        with ui.JobProgress(
+            "Inserting data from files into database table...", total_steps=total_files
+        ) as progress:
             for index, filename in enumerate(file_names):
-                logger.debug(f"processing file {index+1} of {total_files}")
+                logger.debug(f"processing file {index + 1} of {total_files}")
 
                 filepath = os.path.join(temp_dir, filename)
 
@@ -116,23 +119,27 @@ class SqlOpInit(SqlOp):
                     columns, field_types = reader.columns, reader.field_types
                     records = reader.records()
 
-                    logger.debug(f"insert/update data from {filepath} into database table")
+                    logger.debug(
+                        f"insert/update data from {filepath} into database table"
+                    )
                     table = conn.get_table(entity_type)
 
                     records_with_counter = AsyncCountingIterator(records)
-                    operation = conn.upsert_rows if self.use_upsert else conn.insert_rows
+                    operation = (
+                        conn.upsert_rows if self.use_upsert else conn.insert_rows
+                    )
                     await operation(
                         table,
-                        field_names=tuple(
-                            mapping.labels_to_fields[c] for c in columns
-                        ),
+                        field_names=tuple(mapping.labels_to_fields[c] for c in columns),
                         field_types=field_types,
                         records=records_with_counter,
                     )
                     total_inserted_records += records_with_counter.count
                 progress.update(advance=1)
         if total_inserted_records > 0:
-            total_inserted_str = f"inserted [bold]{total_inserted_records}[/bold] records"
+            total_inserted_str = (
+                f"inserted [bold]{total_inserted_records}[/bold] records"
+            )
         else:
             total_inserted_str = "no records inserted"
         ui.info(f"Data import completed successfully, {total_inserted_str}")
@@ -147,4 +154,3 @@ class SqlOpInit(SqlOp):
             labels_to_fields={"meta.ts": ""},
         )
         return SqlOp.get_tabular_mapping(entity_type, mapping)
-

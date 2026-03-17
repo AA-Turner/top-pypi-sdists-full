@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Test util helpers."""
 
 import getpass
@@ -25,7 +23,7 @@ def wait_for_svc_ready_state(
     max_conn_attempts=40,
     reconnect_attempt_delay=_DEFAULT_RECONNECT_ATTEMPT_DELAY,
 ):
-    """Verify that the serivce is up and running.
+    """Verify that the service is up and running.
 
     :param host: Hostname.
     :type host: str
@@ -44,32 +42,42 @@ def wait_for_svc_ready_state(
 
     # noqa: DAR401
     """
-    cmd = [  # noqa: WPS317
+    cmd = [
         '/usr/bin/ssh',
-        '-l', getpass.getuser(),
-        '-i', str(clientkey_path),
-        '-p', str(port),
-        '-o', 'UserKnownHostsFile=/dev/null',
-        '-o', 'StrictHostKeyChecking=no',
+        '-F/dev/null',  # or -Fnone
+        '-oConnectTimeout=1',
+        '-oIdentitiesOnly=yes',
+        '-oIdentityAgent=/dev/null',
+        f'-oIdentityFile={clientkey_path!s}',
+        '-oPasswordAuthentication=no',
+        f'-oPort={port!s}',
+        '-oPreferredAuthentications=publickey',
+        '-oStrictHostKeyChecking=no',
+        f'-oUser={getpass.getuser()!s}',
+        '-oUserKnownHostsFile=/dev/null',
         host,
-        '--', 'exit 0',
+        '--',
+        'exit 0',
     ]
 
     attempts = 0
     rc = -1
     while attempts < max_conn_attempts and rc != 0:
-        check_result = subprocess.run(cmd)
+        check_result = subprocess.run(cmd, check=False)
         rc = check_result.returncode
         if rc != 0:
             time.sleep(reconnect_attempt_delay)
 
     if rc != 0:
-        raise TimeoutError('Timed out waiting for a successful connection')
+        timeout_msg = 'Timed out waiting for a successful connection'
+        raise TimeoutError(timeout_msg)
 
 
-def ensure_ssh_session_connected(  # noqa: WPS317
-        ssh_session, sshd_addr, ssh_clientkey_path,  # noqa: WPS318
-        ssh_session_retries=0,
+def ensure_ssh_session_connected(
+    ssh_session,
+    sshd_addr,
+    ssh_clientkey_path,
+    ssh_session_retries=0,
 ):
     """Attempt connecting to the SSH server until successful.
 

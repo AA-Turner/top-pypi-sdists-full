@@ -1110,7 +1110,13 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         cloud_id: Optional[str] = None,
     ) -> str:
         # Only pass cloud_id for Azure deployments.
-        if self.get_deployment_infra_provider() != "azure":
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
             cloud_id = None
 
         self.last_build_from_image_uri_cloud_id = cloud_id

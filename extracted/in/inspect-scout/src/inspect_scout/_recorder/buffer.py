@@ -50,10 +50,11 @@ class RecorderBuffer:
         normalized = normalize_for_hashing(scan_location)
         return scan_buffer_dir / f"{mm3_hash(normalized)}"
 
-    def __init__(self, scan_location: str, spec: ScanSpec):
+    def __init__(self, scan_location: str, spec: ScanSpec, *, pool_dedup: bool = True):
         self._buffer_dir = RecorderBuffer.buffer_dir(scan_location)
         self._buffer_dir.mkdir(parents=True, exist_ok=True)
         self._spec = spec
+        self._pool_dedup = pool_dedup
 
         # establish scan summary if required
         scan_summary_file = self._buffer_dir.joinpath(SCAN_SUMMARY)
@@ -158,7 +159,7 @@ class RecorderBuffer:
                     "scanner_params": self._spec.scanners[scanner].params,
                 },
             )
-            | result.to_df_columns()
+            | result.to_df_columns(pool_dedup=self._pool_dedup)
             | {"timestamp": datetime.now().astimezone().isoformat()}
             for result in results
         ]
@@ -442,7 +443,26 @@ def _records_to_arrow(records: list[dict[str, Any]]) -> "pa.Table":
                     if col in record and record[col] is not None:
                         record[col] = str(record[col])
 
-    return pa.Table.from_pylist(norm)
+    # Build arrays column-wise so string columns can use large_string offsets.
+    # This avoids the ~2GB limit of Arrow's default string offset type.
+    columns: list[str] = []
+    seen_columns: set[str] = set()
+    for record in norm:
+        for key in record:
+            if key not in seen_columns:
+                seen_columns.add(key)
+                columns.append(key)
+
+    arrays: dict[str, pa.Array[Any]] = {}
+    for column in columns:
+        values = [record.get(column) for record in norm]
+        non_null_values = [value for value in values if value is not None]
+        if non_null_values and all(isinstance(value, str) for value in non_null_values):
+            arrays[column] = pa.array(values, type=pa.large_string())
+        else:
+            arrays[column] = pa.array(values)
+
+    return pa.table(arrays)
 
 
 def read_scan_errors(error_file: str) -> list[Error]:

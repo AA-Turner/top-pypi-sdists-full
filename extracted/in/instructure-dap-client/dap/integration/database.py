@@ -14,7 +14,7 @@ from pysqlsync.formation.mutation import MutatorOptions
 from pysqlsync.formation.py_to_sql import StructMode
 
 from .. import ui
-from ..replicator import canvas, canvas_logs, catalog, meta_schema
+from ..replicator import canvas, canvas_logs, catalog, meta_schema, new_quizzes
 from .database_errors import DatabaseConnectionError
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ class DatabaseConnection:
                     canvas: "canvas",
                     canvas_logs: "canvas_logs",
                     catalog: "catalog",
+                    new_quizzes: "new_quizzes",
                 },
                 synchronization=MutatorOptions(
                     allow_drop_enum=False,
@@ -124,9 +125,12 @@ class DatabaseConnection:
                 signature=tuple[str, str],
                 statement=f"SELECT datcollate, datctype FROM pg_database WHERE datname = '{self._params.database}'",
             )
-            if not collation.lower().endswith(".utf8") or not ctype.lower().endswith(
-                ".utf8"
-            ):
+
+            def _is_utf8(s: str) -> bool:
+                s = s.lower()
+                return s.endswith(".utf8") or s.endswith(".utf-8")
+
+            if not _is_utf8(collation) or not _is_utf8(ctype):
                 utf8_warn_str = f"The database collation '{collation}' and ctype '{ctype}' should use UTF-8. Text fields may be incorrectly stored. Please consider using a UTF-8 collation and ctype, e.g. en_US.UTF8."
         elif self.dialect == "mysql":
             charset, collation = await conn_ctx.query_one(

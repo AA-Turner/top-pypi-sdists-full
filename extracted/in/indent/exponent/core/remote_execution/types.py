@@ -263,23 +263,21 @@ class GitCommitMetadata(BaseModel):
 
 
 class ChatMode(str, Enum):
-    DEFAULT = "DEFAULT"  # chat just with model
     CLI = "CLI"
     CLOUD = "CLOUD"  # chat with cloud devbox
-    CLOUD_SETUP = "CLOUD_SETUP"  # cloud environment setup
-    CLOUD_SETUP_AUTO = "CLOUD_SETUP_AUTO"  # autonomous cloud environment setup
+    CLOUD_SETUP = "CLOUD_SETUP"  # deprecated, kept for DB backward compat
+    CLOUD_SETUP_AUTO = "CLOUD_SETUP_AUTO"  # deprecated, kept for DB backward compat
     CODEBASE = "CODEBASE"  # chat with codebase
     DATABASE = "DATABASE"  # chat with database connection
     WORKFLOW = "WORKFLOW"
     PLAYGROUND = "PLAYGROUND"  # playground mode with MCP tools only
     ONCALL = "ONCALL"  # incident response mode with auto-configured Datadog/Sentry/Sandbox
+    ENVIRONMENT_SETUP = "ENVIRONMENT_SETUP"  # environment setup chat for configuring repository environments
 
     @classmethod
     def requires_cli(cls, mode: "ChatMode") -> bool:
         return mode not in [
             cls.DATABASE,
-            cls.CLOUD_SETUP,
-            cls.CLOUD_SETUP_AUTO,
             cls.PLAYGROUND,
         ]
 

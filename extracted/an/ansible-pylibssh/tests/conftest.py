@@ -1,24 +1,35 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=redefined-outer-name
 
 """Pytest plugins and fixtures configuration."""
 
-import logging
 import shutil
 import socket
 import subprocess
 from functools import partial
 
 import pytest
-from _service_utils import (  # noqa: WPS436
-    ensure_ssh_session_connected, wait_for_svc_ready_state,
+from _service_utils import (
+    ensure_ssh_session_connected,
+    wait_for_svc_ready_state,
 )
 
 from pylibsshext.session import Session
 
+from pylibsshext import __libssh_version__
+
 
 _DIR_PRIV_RW_OWNER = 0o700
 _FILE_PRIV_RW_OWNER = 0o600
+
+
+@pytest.fixture
+def libssh_version_tuple():
+    """
+    Get the libssh version as a tuple of (major, minor, patch).
+
+    This is useful for simple comparison and conditioning tests based on this value.
+    """
+    return tuple(map(int, (__libssh_version__.split('.'))))
 
 
 @pytest.fixture
@@ -93,13 +104,14 @@ def ssh_clientkey_path(sshd_path):
     # noqa: DAR101
     """
     path = sshd_path / 'ssh_client_ecdsa_key'
-    keygen_cmd = (  # noqa: WPS317
+    keygen_cmd = (
         'ssh-keygen',
-        '-t', 'ecdsa',
-        '-b', '256',
-        '-C', 'ansible-pylibssh integration tests key',
-        '-N', '',
-        '-f', str(path),
+        '-tecdsa',
+        '-b256',
+        '-Cansible-pylibssh integration tests key',
+        '-N',
+        '',  # empty string for no password
+        f'-f{path!s}',
     )
     subprocess.check_call(keygen_cmd)
     path.chmod(_FILE_PRIV_RW_OWNER)
@@ -116,8 +128,6 @@ def ssh_client_session(ssh_session_connect):
     # noqa: DAR101
     """
     ssh_session = Session()
-    # TODO Adjust when #597 will be merged
-    ssh_session.set_log_level(logging.CRITICAL)
     ssh_session_connect(ssh_session)
     try:  # noqa: WPS501
         yield ssh_session
@@ -131,7 +141,7 @@ def ssh_session_connect_retries(sshd_addr, ssh_clientkey_path):
     """
     Authenticate existing session object against SSHD with a private SSH key.
 
-    This sets ``open_session_retries=100`` and it returns a function
+    This sets ``open_session_retries=1000`` and it returns a function
     that takes session as parameter.
 
     :returns: Function that will connect the session.
@@ -141,7 +151,7 @@ def ssh_session_connect_retries(sshd_addr, ssh_clientkey_path):
         ensure_ssh_session_connected,
         sshd_addr=sshd_addr,
         ssh_clientkey_path=ssh_clientkey_path,
-        ssh_session_retries=100,
+        ssh_session_retries=1000,
     )
 
 
@@ -179,7 +189,13 @@ def ssh_authorized_keys_path(sshd_path, ssh_clientkey_path):
 
 
 @pytest.fixture
-def sshd_addr(free_port_num, ssh_authorized_keys_path, sshd_hostkey_path, sshd_path, ssh_clientkey_path):
+def sshd_addr(
+    free_port_num,
+    ssh_authorized_keys_path,
+    sshd_hostkey_path,
+    sshd_path,
+    ssh_clientkey_path,
+):
     """Spawn an instance of sshd on a free port.
 
     :raises RuntimeError: If spawning SSHD failed.
@@ -190,40 +206,38 @@ def sshd_addr(free_port_num, ssh_authorized_keys_path, sshd_hostkey_path, sshd_p
     # noqa: DAR101
     """
     hostname = '127.0.0.1'
-    opt = '-o'
-    cmd = (  # noqa: WPS317
+    cmd = (
         '/usr/sbin/sshd',
         '-D',
-        '-f', '/dev/null',
-        '-E', '/dev/stderr',
-        opt, 'LogLevel=DEBUG3',
-        opt, 'HostKey={key!s}'.format(key=sshd_hostkey_path),
-        opt, 'PidFile={pid!s}'.format(pid=sshd_path / 'sshd.pid'),
-
+        '-f/dev/null',
+        '-E/dev/stderr',
+        '-oLogLevel=DEBUG3',
+        f'-oHostKey={sshd_hostkey_path!s}',
+        '-oPidFile={pid!s}'.format(pid=sshd_path / 'sshd.pid'),
         # NOTE: 'UsePAM no' is not supported on Fedora.
         # Ref: https://bugzilla.redhat.com/show_bug.cgi?id=770756#c1
-        opt, 'UsePAM=yes',
-        opt, 'PasswordAuthentication=no',
-        opt, 'ChallengeResponseAuthentication=no',
-        opt, 'GSSAPIAuthentication=no',
-
-        opt, 'StrictModes=no',
-        opt, 'PermitEmptyPasswords=yes',
-        opt, 'PermitRootLogin=yes',
-        opt, 'HostbasedAuthentication=no',
-        opt, 'IgnoreUserKnownHosts=yes',
-        opt, 'Port={port:d}'.format(port=free_port_num),  # port before addr
-        opt, 'ListenAddress={host!s}'.format(host=hostname),  # addr after port
-        opt, 'AuthorizedKeysFile={auth_keys!s}'.format(auth_keys=ssh_authorized_keys_path),
-        opt, 'AcceptEnv=LANG LC_*',
-        opt, 'Subsystem=sftp internal-sftp',
+        '-oUsePAM=yes',
+        '-oPasswordAuthentication=no',
+        '-oChallengeResponseAuthentication=no',
+        '-oGSSAPIAuthentication=no',
+        '-oStrictModes=no',
+        '-oPermitEmptyPasswords=yes',
+        '-oPermitRootLogin=yes',
+        '-oHostbasedAuthentication=no',
+        '-oIgnoreUserKnownHosts=yes',
+        f'-oPort={free_port_num:d}',  # port before addr
+        f'-oListenAddress={hostname!s}',  # addr after port
+        f'-oAuthorizedKeysFile={ssh_authorized_keys_path!s}',
+        '-oAcceptEnv=LANG LC_*',
+        '-oSubsystem=sftp internal-sftp',
     )
     proc = subprocess.Popen(cmd)
 
     wait_for_svc_ready_state(hostname, free_port_num, ssh_clientkey_path)
 
     if proc.returncode:
-        raise RuntimeError('sshd boom 💣')
+        boom_msg = 'sshd boom 💣'
+        raise RuntimeError(boom_msg)
     try:  # noqa: WPS501
         yield hostname, free_port_num
     finally:

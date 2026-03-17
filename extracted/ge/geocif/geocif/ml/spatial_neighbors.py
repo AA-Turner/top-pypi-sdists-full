@@ -124,6 +124,9 @@ def build_neighbor_graph(
     return graph
 
 
+_N_FALLBACK_YEARS = 5
+
+
 def add_neighbor_features(
     df: pd.DataFrame,
     neighbor_graph: Dict[str, List[Tuple[str, float]]],
@@ -138,6 +141,12 @@ def add_neighbor_features(
     For each (region, year), computes weighted mean of neighbors' features
     using the yield-correlation edge weights from the neighbor graph.
 
+    When a neighbor has no data for the target year (e.g. forecast year),
+    falls back to the average of the neighbor's last 5 available years.
+
+    Uses vectorized numpy operations for speed — results are accumulated
+    in pre-allocated arrays and assigned to the DataFrame in bulk.
+
     Args:
         df: DataFrame to augment (train or test).
         neighbor_graph: Output of build_neighbor_graph.
@@ -151,102 +160,112 @@ def add_neighbor_features(
         DataFrame with nbr_* columns appended.
     """
     df = df.copy()
+    n_rows = len(df)
+    n_feat = len(feature_cols)
 
-    nbr_cols = [f"{prefix}{c}" for c in feature_cols]
-    new_cols = {col: np.nan for col in nbr_cols}
-    new_cols[f"{prefix}mean_yield_hist"] = np.nan
-    new_cols[f"{prefix}yield_corr_mean"] = np.nan
-    new_cols["n_neighbors"] = 0
-    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
+    # Pre-allocate numpy output arrays (avoid per-group .loc writes)
+    out_features = np.full((n_rows, n_feat), np.nan)
+    out_yield_hist = np.full(n_rows, np.nan)
+    out_corr_mean = np.zeros(n_rows)
+    out_n_neighbors = np.zeros(n_rows, dtype=int)
 
-    # Pre-index: {(region, year): row_indices}
+    # Pre-build feature matrix for O(1) row lookups
+    feat_matrix = df[feature_cols].values.astype(float)
+
+    # Pre-index: {(region, year): row_indices} and first-row lookup
     grouped_idx = df.groupby([admin_col, year_col]).indices
+    first_row = {}
+    for (r, y), idx in grouped_idx.items():
+        first_row[(r, y)] = idx[0]
 
-    # Pre-compute per-region yield medians for nbr_mean_yield_hist
-    yield_medians = df.groupby(admin_col)[yield_col].median()
+    # Pre-compute per-region yield medians
+    yield_medians = df.groupby(admin_col)[yield_col].median().to_dict()
+
+    # Pre-compute last-N-year feature averages per region (numpy arrays)
+    region_avg = {}
+    for region in neighbor_graph:
+        region_rows = df[df[admin_col] == region].sort_values(year_col, ascending=False)
+        recent = region_rows.drop_duplicates(subset=[year_col]).head(_N_FALLBACK_YEARS)
+        if not recent.empty:
+            region_avg[region] = recent[feature_cols].values.astype(float).mean(axis=0)
+
+    # Pre-compute per-region mean correlation and active edges
+    region_meta = {}
+    for region, edges in neighbor_graph.items():
+        active = [(nbr, w) for nbr, w in edges if w > 0]
+        mean_corr = np.mean([w for _, w in edges]) if edges else 0.0
+        region_meta[region] = (active, mean_corr)
 
     for (region, year), indices in tqdm(grouped_idx.items(), desc="Neighbor features", leave=False):
-        edges = neighbor_graph.get(region, [])
-        active_edges = [(nbr, w) for nbr, w in edges if w > 0]
-        n_nbrs = len(active_edges)
-        df.loc[df.index[indices], "n_neighbors"] = n_nbrs
+        meta = region_meta.get(region)
+        if meta is None:
+            out_yield_hist[indices] = yield_medians.get(region, np.nan)
+            continue
 
-        # Mean edge weight for this region
-        if edges:
-            mean_corr = np.mean([w for _, w in edges])
-        else:
-            mean_corr = 0.0
-        df.loc[df.index[indices], f"{prefix}yield_corr_mean"] = mean_corr
+        active_edges, mean_corr = meta
+        out_n_neighbors[indices] = len(active_edges)
+        out_corr_mean[indices] = mean_corr
 
         if not active_edges:
-            # Self-loop fallback: use own feature values
-            for fi, fc in enumerate(feature_cols):
-                df.loc[df.index[indices], nbr_cols[fi]] = df.loc[
-                    df.index[indices], fc
-                ].values
-
-            # Own median yield
-            own_med = yield_medians.get(region, np.nan)
-            df.loc[df.index[indices], f"{prefix}mean_yield_hist"] = own_med
+            out_yield_hist[indices] = yield_medians.get(region, np.nan)
             continue
 
-        # Collect neighbor feature values for this year
-        nbr_values = []
-        nbr_weights = []
-        nbr_yield_meds = []
+        # Collect neighbor feature vectors
+        nbr_vals_list = []
+        nbr_w_list = []
+        nbr_med_list = []
 
         for nbr, w in active_edges:
-            nbr_idx = grouped_idx.get((nbr, year))
-            if nbr_idx is None or len(nbr_idx) == 0:
-                continue
-            nbr_row = df.iloc[nbr_idx[0]]
-            nbr_values.append(nbr_row[feature_cols].values.astype(float))
-            nbr_weights.append(w)
-            nbr_yield_meds.append(yield_medians.get(nbr, np.nan))
+            fr = first_row.get((nbr, year))
+            if fr is not None:
+                nbr_vals_list.append(feat_matrix[fr])
+            else:
+                avg = region_avg.get(nbr)
+                if avg is None:
+                    continue
+                nbr_vals_list.append(avg)
+            nbr_w_list.append(w)
+            nbr_med_list.append(yield_medians.get(nbr, np.nan))
 
-        if not nbr_values:
-            # No neighbors found for this year — self-loop
-            for fi, fc in enumerate(feature_cols):
-                df.loc[df.index[indices], nbr_cols[fi]] = df.loc[
-                    df.index[indices], fc
-                ].values
-            own_med = yield_medians.get(region, np.nan)
-            df.loc[df.index[indices], f"{prefix}mean_yield_hist"] = own_med
+        if not nbr_vals_list:
+            out_yield_hist[indices] = yield_medians.get(region, np.nan)
             continue
 
-        vals = np.array(nbr_values)  # (n_neighbors, n_features)
-        weights = np.array(nbr_weights)  # (n_neighbors,)
+        vals = np.array(nbr_vals_list)    # (k, n_feat)
+        weights = np.array(nbr_w_list)    # (k,)
 
-        # Weighted mean per feature, skipping NaN
-        for fi in range(len(feature_cols)):
-            col_vals = vals[:, fi]
-            valid = ~np.isnan(col_vals)
-            if valid.any():
-                w_valid = weights[valid]
-                w_sum = w_valid.sum()
-                if w_sum > 0:
-                    wmean = np.average(col_vals[valid], weights=w_valid)
-                else:
-                    wmean = np.nanmean(col_vals)
-                df.loc[df.index[indices], nbr_cols[fi]] = wmean
-            else:
-                # All neighbors NaN — use own value
-                df.loc[df.index[indices], nbr_cols[fi]] = df.loc[
-                    df.index[indices], feature_cols[fi]
-                ].values
+        # Vectorized weighted mean per feature, handling NaN
+        valid_mask = ~np.isnan(vals)       # (k, n_feat)
+        # Broadcast weights to (k, n_feat) and zero out NaN positions
+        w_broad = np.where(valid_mask, weights[:, None], 0.0)
+        w_sums = w_broad.sum(axis=0)       # (n_feat,)
 
-        # Weighted mean of neighbors' historical median yield
-        med_arr = np.array(nbr_yield_meds)
+        # Weighted mean where weights exist, else NaN
+        has_valid = w_sums > 0
+        wmean = np.where(
+            has_valid,
+            np.where(valid_mask, vals * weights[:, None], 0.0).sum(axis=0) / np.where(has_valid, w_sums, 1.0),
+            np.nan,
+        )
+        out_features[indices] = wmean
+
+        # Weighted mean of neighbor median yields
+        med_arr = np.array(nbr_med_list)
         valid_med = ~np.isnan(med_arr)
         if valid_med.any():
             w_valid = weights[valid_med]
             w_sum = w_valid.sum()
-            if w_sum > 0:
-                nbr_med = np.average(med_arr[valid_med], weights=w_valid)
-            else:
-                nbr_med = np.nanmean(med_arr)
+            nbr_med = np.average(med_arr[valid_med], weights=w_valid) if w_sum > 0 else np.nanmean(med_arr)
         else:
             nbr_med = yield_medians.get(region, np.nan)
-        df.loc[df.index[indices], f"{prefix}mean_yield_hist"] = nbr_med
+        out_yield_hist[indices] = nbr_med
+
+    # Bulk assignment to DataFrame
+    nbr_cols = [f"{prefix}{c}" for c in feature_cols]
+    for fi, col in enumerate(nbr_cols):
+        df[col] = out_features[:, fi]
+    df[f"{prefix}mean_yield_hist"] = out_yield_hist
+    df[f"{prefix}yield_corr_mean"] = out_corr_mean
+    df["n_neighbors"] = out_n_neighbors
 
     return df

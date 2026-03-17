@@ -47,6 +47,7 @@ from anyscale.util import (
     SharedStorageType,
     validate_non_negative_arg,
 )
+from anyscale.utils.azure_util import disabled_on_azure
 from anyscale.utils.cloud_utils import validate_aws_credentials
 from anyscale.utils.imports.gcp import (
     try_import_gcp_managed_setup_utils,
@@ -237,6 +238,7 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Don't ask for confirmation."
 )
+@disabled_on_azure("cloud delete")
 def cloud_delete(
     cloud_name: Optional[str], name: Optional[str], cloud_id: Optional[str], yes: bool
 ) -> None:
@@ -400,6 +402,7 @@ def default_region(provider: str) -> str:
         "Use this to create a cloud record first and add resources later."
     ),
 )
+@disabled_on_azure("cloud setup")
 def setup_cloud(  # noqa: PLR0913
     provider: str,
     region: str,
@@ -657,6 +660,7 @@ def cloud_config_group() -> None:
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
+@disabled_on_azure("cloud resource create")
 def cloud_resource_create(
     cloud: Optional[str],
     cloud_id: Optional[str],
@@ -770,6 +774,7 @@ def cloud_resource_create(
     show_default=True,
     help="The type of shared storage to use. Use 'object-storage' for cloud bucket-based storage (e.g., S3, GCS), or 'nfs' for network file systems. (VM)",
 )
+@disabled_on_azure("cloud resource setup")
 def cloud_resource_setup(  # noqa: PLR0913
     provider: str,
     region: str,
@@ -853,6 +858,7 @@ def cloud_resource_setup(  # noqa: PLR0913
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
+@disabled_on_azure("cloud resource delete")
 def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
     try:
         CloudController().remove_cloud_resource(cloud, resource, yes)
@@ -1490,6 +1496,7 @@ def cloud_config_update(  # noqa: PLR0913
     required=False,
     type=str,
 )
+@disabled_on_azure("cloud register")
 def register_cloud(  # noqa: PLR0913, PLR0912, C901
     provider: str,
     region: str,

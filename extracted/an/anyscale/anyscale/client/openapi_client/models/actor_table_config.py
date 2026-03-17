@@ -40,7 +40,8 @@ class ActorTableConfig(object):
         'states': 'list[ActorState]',
         'job_id': 'str',
         'text': 'str',
-        'node_id': 'str'
+        'node_id': 'str',
+        'data_operator_id': 'str'
     }
 
     attribute_map = {
@@ -51,10 +52,11 @@ class ActorTableConfig(object):
         'states': 'states',
         'job_id': 'job_id',
         'text': 'text',
-        'node_id': 'node_id'
+        'node_id': 'node_id',
+        'data_operator_id': 'data_operator_id'
     }
 
-    def __init__(self, offset=None, page_size=None, actor_id=None, name=None, states=[], job_id=None, text=None, node_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, offset=None, page_size=None, actor_id=None, name=None, states=[], job_id=None, text=None, node_id=None, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
         """ActorTableConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class ActorTableConfig(object):
         self._job_id = None
         self._text = None
         self._node_id = None
+        self._data_operator_id = None
         self.discriminator = None
 
         if offset is not None:
@@ -86,6 +89,8 @@ class ActorTableConfig(object):
             self.text = text
         if node_id is not None:
             self.node_id = node_id
+        if data_operator_id is not None:
+            self.data_operator_id = data_operator_id
 
     @property
     def offset(self):
@@ -254,6 +259,27 @@ class ActorTableConfig(object):
         """
 
         self._node_id = node_id
+
+    @property
+    def data_operator_id(self):
+        """Gets the data_operator_id of this ActorTableConfig.  # noqa: E501
+
+
+        :return: The data_operator_id of this ActorTableConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._data_operator_id
+
+    @data_operator_id.setter
+    def data_operator_id(self, data_operator_id):
+        """Sets the data_operator_id of this ActorTableConfig.
+
+
+        :param data_operator_id: The data_operator_id of this ActorTableConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._data_operator_id = data_operator_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

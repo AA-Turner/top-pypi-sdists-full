@@ -17,8 +17,8 @@ from strong_typing.core import JsonType, Schema
 from strong_typing.inspection import DataclassInstance, dataclass_fields
 
 from ..api import DAPSession, logger
-from ..dap_types import (VersionedSchema)
-from ..replicator import canvas, canvas_logs, catalog, meta_schema
+from ..dap_types import VersionedSchema
+from ..replicator import canvas, canvas_logs, catalog, meta_schema, new_quizzes
 
 DEFAULT_DOWNLOAD_DIR: str = "instructure_dap_temp"
 UTC_TIMEZONE = datetime.timezone.utc
@@ -36,12 +36,15 @@ str_to_namespace = {
     "catalog": catalog,
     "canvas_logs": canvas_logs,
     "meta_schema": meta_schema,
+    "new_quizzes": new_quizzes,
 }
 
 
 def get_module_for_namespace(namespace: str) -> types.ModuleType:
     if namespace not in str_to_namespace:
-        raise ValueError(f"Namespace '{namespace}' is not supported. Please check the available namespaces.")
+        raise ValueError(
+            f"Namespace '{namespace}' is not supported. Please check the available namespaces."
+        )
     return str_to_namespace[namespace]
 
 
@@ -69,8 +72,7 @@ class SqlOp(abc.ABC):
         self.namespace_module = get_module_for_namespace(namespace)
 
     @abc.abstractmethod
-    async def run(self) -> None:
-        ...
+    async def run(self) -> None: ...
 
     @staticmethod
     def get_tabular_mapping(
@@ -142,6 +144,7 @@ def create_table_dataclass(
 
 
 T = TypeVar("T")
+
 
 class AsyncCountingIterator(AsyncIterator[T]):
     def __init__(self, async_iter: AsyncIterator[T]):

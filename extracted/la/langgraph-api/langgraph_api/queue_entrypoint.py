@@ -53,9 +53,10 @@ async def health_and_metrics_server():
     port = int(os.getenv("PORT", "8080"))
     host = os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0")
 
-    async def health_endpoint(request):
-        # if db or redis is not healthy, this will raise an exception
-        await healthcheck()
+    async def health_endpoint(request: Request):
+        check_db = int(request.query_params.get("check_db", "1"))
+
+        await healthcheck(check_db=bool(check_db))
         return JSONResponse({"status": "ok"})
 
     async def metrics_endpoint(request: Request):

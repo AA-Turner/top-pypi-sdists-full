@@ -23,9 +23,7 @@ async def get_table_names_in_namespace_from_meta(
     meta_table = conn.get_table(meta_schema.table_sync)
     records = await conn.query_all(
         str,
-        "SELECT source_table\n"
-        f"FROM {meta_table.name}\n"
-        f"WHERE source_namespace = {quote(namespace)}",
+        f"SELECT source_table\nFROM {meta_table.name}\nWHERE source_namespace = {quote(namespace)}",
     )
     return records
 
@@ -88,7 +86,9 @@ async def sync_upsert_table_metadata(
 ) -> None:
     logger.debug(f"update meta-data about table {table_name} that has been replicated")
     if table_meta is None:
-        raise AssertionError("Internal error: ‘table_meta’ must not be null. Please report this issue.")
+        raise AssertionError(
+            "Internal error: 'table_meta' must not be null. Please report this issue."
+        )
 
     await conn.upsert_data(
         meta_schema.table_sync,

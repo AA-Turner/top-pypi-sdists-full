@@ -1734,3 +1734,387 @@ fn test_md032_mixed_ordered_parent_unordered_nested_continuation() {
             .collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn test_md032_indented_table_in_unordered_list_with_nested_item() {
+    // Issue #533: indented table as list continuation content should not break list detection
+    let content = r#"---
+title: Level 1 heading
+---
+
+- List item 1.
+  - Nested list item
+
+  | Table col 1 | Table col 2 |
+  |:------------|:------------|
+  | Table row 1 | Table row 1 |
+
+- List item 2.
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Indented table within list continuation should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_top_level_table_breaks_list_no_blank_line() {
+    // A non-indented table directly after a list item (no blank line) SHOULD trigger MD032
+    let content = r#"- Item 1
+| Col1 | Col2 |
+|------|------|
+| A    | B    |
+
+- Item 2
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert!(
+        !warnings.is_empty(),
+        "List without blank line before table should trigger MD032"
+    );
+}
+
+#[test]
+fn test_md032_top_level_table_between_lists_with_blanks() {
+    // A non-indented table between list items WITH blank lines should NOT trigger
+    // Each sub-list is properly surrounded by blank lines
+    let content = r#"- Item 1
+
+| Col1 | Col2 |
+|------|------|
+| A    | B    |
+
+- Item 2
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Top-level table between lists with blank lines should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_indented_table_under_top_level_list_item() {
+    // Table indented under a top-level (non-nested) list item
+    let content = r#"- Item 1
+
+  | Col1 | Col2 |
+  |------|------|
+  | A    | B    |
+
+- Item 2
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Indented table under top-level list item should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_multiple_tables_in_list() {
+    let content = r#"- Item 1
+
+  | A | B |
+  |---|---|
+  | 1 | 2 |
+
+- Item 2
+
+  | C | D |
+  |---|---|
+  | 3 | 4 |
+
+- Item 3
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Multiple indented tables in list items should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_ordered_list_with_indented_table() {
+    // Ordered list variant of issue #533
+    let content = r#"1. First item
+
+   | Col1 | Col2 |
+   |------|------|
+   | A    | B    |
+
+2. Second item
+
+   | Col3 | Col4 |
+   |------|------|
+   | C    | D    |
+
+3. Third item
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Ordered list with indented tables should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_deeply_nested_list_with_table() {
+    let content = r#"- Level 1
+  - Level 2
+    - Level 3
+
+    | A | B |
+    |---|---|
+    | 1 | 2 |
+
+    - Level 3 again
+
+- Level 1 again
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Deeply nested list with indented table should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_k8s_real_world_ordered_list_with_table() {
+    // Real-world pattern found in kubernetes/website (for-approvers.md)
+    let content = r#"1. Close the issue if stale.
+
+2. Add a priority label
+
+   Label | Description
+   :------------|:------------------
+   `critical` | Do this right now.
+   `important` | Do this within 3 months.
+
+   At your discretion, take ownership of an issue.
+
+3. Do other things.
+"#;
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "K8s-style ordered list with indented table should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_ordered_list_table_at_2space_indent_is_continuation() {
+    // Table at 2-space indent under ordered list with "1. " marker.
+    // While CommonMark content column is 3, the permissive merge threshold
+    // treats 2-space indent as continuation (matching markdownlint-cli behavior).
+    let content = "1. First item\n\n  | Col 1 | Col 2 |\n  |-------|-------|\n  | A     | B     |\n\n2. Second item\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Table at 2-space indent under ordered list should be treated as continuation. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_ordered_list_table_at_exact_continuation_indent() {
+    // Table at exactly 3-space indent under ordered list (matching "1. " content column)
+    // This table IS properly indented as continuation content
+    let content =
+        "1. First item\n\n   | Col 1 | Col 2 |\n   |-------|-------|\n   | A     | B     |\n\n2. Second item\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Table at 3-space indent under ordered list should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_wide_ordered_marker_with_table() {
+    // "10. " requires 4-space continuation indent; table at 4 spaces is valid
+    let content =
+        "10. First item\n\n    | Col 1 | Col 2 |\n    |-------|-------|\n    | A     | B     |\n\n11. Second item\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Table at 4-space indent under wide ordered marker (10.) should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_wide_ordered_marker_table_at_3space_indent_is_continuation() {
+    // "10. " marker has len=3; permissive threshold treats 3-space indent as continuation
+    let content =
+        "10. First item\n\n   | Col 1 | Col 2 |\n   |-------|-------|\n   | A     | B     |\n\n11. Second item\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Table at 3-space indent under wide marker (10.) should be treated as continuation. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_md032_wide_ordered_marker_table_at_1space_indent_breaks_list() {
+    // Table at 1-space indent is clearly not continuation content for "10."
+    let content = "10. First item\n\n | Col 1 | Col 2 |\n |-------|-------|\n | A     | B     |\n11. Second item\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert!(
+        !warnings.is_empty(),
+        "Table at 1-space indent under wide marker (10.) should trigger MD032",
+    );
+}
+
+#[test]
+fn test_md032_table_without_leading_pipe() {
+    // Tables without leading pipe: "col1 | col2 |" — is_table_line matches via trailing |
+    let content = "- Item 1\n\n  Col 1 | Col 2 |\n  :-----|:------|\n  A     | B     |\n\n- Item 2\n";
+
+    let config = Config::default();
+    let all_rules = rules::all_rules(&config);
+    let md032_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD032").collect();
+
+    let warnings = rumdl_lib::lint(content, &md032_rules, false, MarkdownFlavor::Standard, None, None).unwrap();
+
+    assert_eq!(
+        warnings.len(),
+        0,
+        "Pipe-less header table indented as list content should not trigger MD032. Found: {:?}",
+        warnings
+            .iter()
+            .map(|w| format!("Line {}: {}", w.line, w.message))
+            .collect::<Vec<_>>()
+    );
+}

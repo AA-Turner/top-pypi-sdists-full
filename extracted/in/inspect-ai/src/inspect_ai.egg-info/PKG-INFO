@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.195
+Version: 0.3.197
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -53,7 +53,7 @@ Requires-Dist: sniffio
 Requires-Dist: tenacity
 Requires-Dist: textual>=2.1.0
 Requires-Dist: tiktoken>=0.12.0
-Requires-Dist: typing_extensions>=4.9.0
+Requires-Dist: typing_extensions>=4.14.0
 Requires-Dist: universal-pathlib>=0.2.6
 Requires-Dist: zipfile-zstd>=0.0.4; python_version < "3.14"
 Requires-Dist: zipp>=3.19.1
@@ -64,7 +64,7 @@ Requires-Dist: anthropic>=0.80.0; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
-Requires-Dist: google-genai>=1.56.0; extra == "dev"
+Requires-Dist: google-genai>=1.62.0; extra == "dev"
 Requires-Dist: griffe<=1.14.0; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"

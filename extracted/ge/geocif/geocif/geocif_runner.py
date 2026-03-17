@@ -28,21 +28,7 @@ _console.print(Panel(_table, title="[bold bright_white]GeoCIF ML Runner[/]", bor
 
 
 def _loop_execute(logger, parser, project_name, country, crop, season, model, index):
-    """
-
-    Args:
-        logger:
-        parser:
-        project_name:
-        country:
-        crop:
-        season:
-        model:
-        index:
-
-    Returns:
-
-    """
+    """Execute ML pipeline for a single country/crop/season/model combination."""
     obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
     obj.read_data(country, crop, season)
 
@@ -60,60 +46,49 @@ def _loop_execute(logger, parser, project_name, country, crop, season, model, in
         obj.execute()
 
 
+def _loop_execute_pooled(logger, parser, project_name, countries, crop, season, model, index):
+    """Execute ML pipeline with pooled data from multiple countries."""
+    obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
+    obj.read_data_pooled(countries, crop, season)
+
+    if not hasattr(obj, 'df_inputs') or obj.df_inputs is None:
+        return
+
+    if index == 0:
+        output.config_to_db(obj.db_path, obj.parser, obj.today)
+
+    obj.setup_pooled(countries, season, model)
+    if obj.simulation_stages:
+        obj.execute()
+
+
 def loop_execute(inputs):
-    """
-
-    Args:
-        inputs:
-
-    Returns:
-
-    """
-    enable_pycallgraph = False
+    """Unpack inputs and run single-country ML pipeline."""
     project_name, country, crop, season, model, logger, parser, index = inputs
 
     logger.info("=====================================================")
     logger.info(f"\tStarting GEOCIF: {country} {crop} {season} {model}")
     logger.info("=====================================================")
 
-    if enable_pycallgraph:
-        import warnings
-        warnings.simplefilter(action="ignore", category=FutureWarning)
+    _loop_execute(logger, parser, project_name, country, crop, season, model, index)
 
-        from pycallgraph2 import Config, PyCallGraph, GlobbingFilter
-        from pycallgraph2.output import GraphvizOutput
 
-        graphviz = GraphvizOutput()
-        graphviz.output_file = "geocif_visualization.png"
-        plt.rcParams["figure.dpi"] = 600
-        config = Config(max_depth=5)
-        config.trace_filter = GlobbingFilter(
-            exclude=[
-                "pycallgraph.*",
-            ]
-        )
+def loop_execute_pooled(inputs):
+    """Unpack inputs and run pooled multi-country ML pipeline."""
+    project_name, countries, crop, season, model, logger, parser, index = inputs
 
-        with PyCallGraph(output=graphviz, config=config):
-            _loop_execute(
-                logger, parser, project_name, country, crop, season, model, index
-            )
-    else:
-        _loop_execute(logger, parser, project_name, country, crop, season, model, index)
+    logger.info("=====================================================")
+    logger.info(f"\tStarting GEOCIF (pooled): {countries} {crop} {season} {model}")
+    logger.info("=====================================================")
+
+    _loop_execute_pooled(logger, parser, project_name, countries, crop, season, model, index)
 
 
 def gather_inputs(parser):
-    """
-
-    Args:
-        parser:
-
-    Returns:
-
-    """
+    """Build list of [project_name, country, crop, season, model] tuples."""
     project_name = parser.get("DEFAULT", "project_name")
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
 
-    """ Create a list of parameters over which to run the model"""
     all_inputs = []
     for country in countries:
         for crop in ast.literal_eval(parser.get(country, "crops")):
@@ -124,7 +99,26 @@ def gather_inputs(parser):
     return all_inputs
 
 
-def execute_models(inputs, logger, parser):
+def gather_pooled_inputs(parser):
+    """Group inputs by (crop, season, model) for cross-country pooling.
+
+    Returns list of [project_name, [country1, ...], crop, season, model].
+    """
+    project_name = parser.get("DEFAULT", "project_name")
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+
+    groups = {}
+    for country in countries:
+        for crop in ast.literal_eval(parser.get(country, "crops")):
+            for season in ast.literal_eval(parser.get(country, "forecast_seasons")):
+                for model in ast.literal_eval(parser.get(country, "models")):
+                    groups.setdefault((crop, season, model), []).append(country)
+
+    return [[project_name, clist, crop, season, model]
+            for (crop, season, model), clist in groups.items()]
+
+
+def execute_models(inputs, logger, parser, loop_fn=None):
     """
     Executes the model either in parallel or serially based on configuration.
 
@@ -132,14 +126,12 @@ def execute_models(inputs, logger, parser):
         inputs (list): The input data for model execution.
         logger (logging.Logger): Logger for tracking execution details
         parser (configparser.ConfigParser): Configuration file parser
-
-    Returns:
-
+        loop_fn (callable): Function to call per input. Defaults to loop_execute.
     """
-    if parser.has_option("DEFAULT", "do_parallel_ml"):
-        do_parallel = parser.getboolean("DEFAULT", "do_parallel_ml")
-    else:
-        do_parallel = False
+    if loop_fn is None:
+        loop_fn = loop_execute
+
+    do_parallel = parser.getboolean("DEFAULT", "do_parallel_ml", fallback=False)
 
     # Add logger and parser to each element in inputs
     inputs = [item + [logger, parser, idx] for idx, item in enumerate(inputs)]
@@ -149,13 +141,14 @@ def execute_models(inputs, logger, parser):
         cpu_count = int(mp.cpu_count() * fraction_cpus)
 
         with mp.Pool(cpu_count) as pool:
-            pool.map(loop_execute, inputs)
+            pool.map(loop_fn, inputs)
     else:
         pbar = tqdm(inputs, desc="Executing ML models")
-        for inputs in pbar:
-            country, crop, season = inputs[1], inputs[2], inputs[3]
-            pbar.set_description(f"{country} {crop} {season}")
-            loop_execute(inputs)
+        for item in pbar:
+            crop, season = item[2], item[3]
+            label = item[1] if isinstance(item[1], str) else "pooled"
+            pbar.set_description(f"{label} {crop} {season}")
+            loop_fn(item)
 
     logger.info("======================================")
     logger.info("\tCompleted all model executions")
@@ -172,11 +165,20 @@ def _build_summary_params(parser, inputs):
 
     # Collect unique crops, seasons, models per country
     country_details = {}
-    for _, country, crop, season, model in inputs:
-        info = country_details.setdefault(country, {"crops": set(), "seasons": set(), "models": set()})
-        info["crops"].add(crop)
-        info["seasons"].add(str(season))
-        info["models"].add(model)
+    for item in inputs:
+        _, country_or_list, crop, season, model = item[:5]
+        # In pooled mode, country_or_list is a list of countries
+        if isinstance(country_or_list, list):
+            for c in country_or_list:
+                info = country_details.setdefault(c, {"crops": set(), "seasons": set(), "models": set()})
+                info["crops"].add(crop)
+                info["seasons"].add(str(season))
+                info["models"].add(model)
+        else:
+            info = country_details.setdefault(country_or_list, {"crops": set(), "seasons": set(), "models": set()})
+            info["crops"].add(crop)
+            info["seasons"].add(str(season))
+            info["models"].add(model)
 
     params = [("Countries", countries)]
     for country, info in country_details.items():
@@ -203,7 +205,7 @@ def _build_summary_params(parser, inputs):
             params.append((key, parser.get(section, key)))
 
     # Per-model use_ceis (show from first model)
-    first_model = inputs[0][4] if inputs else None
+    first_model = inputs[0][4] if inputs else None  # index 4 = model name
     if first_model and parser.has_option(first_model, "use_ceis"):
         params.append(("use_ceis", parser.get(first_model, "use_ceis")))
 
@@ -218,24 +220,22 @@ def _build_summary_params(parser, inputs):
 
 
 def main(logger, parser):
-    """
-
-    Args:
-        logger:
-        parser:
-
-    Returns:
-
-    """
+    """Run the GeoCIF ML pipeline."""
     from geocif.data import ensure_metadata
     ensure_metadata(parser)
 
-    inputs = gather_inputs(parser)
+    pool_countries = parser.getboolean("ML", "pool_countries", fallback=False)
 
-    params = _build_summary_params(parser, inputs)
-    ut.display_run_summary("GeoCIF ML Runner", params, wait=20)
-
-    execute_models(inputs, logger, parser)
+    if pool_countries:
+        inputs = gather_pooled_inputs(parser)
+        params = _build_summary_params(parser, inputs)
+        ut.display_run_summary("GeoCIF ML Runner (Pooled)", params, wait=20)
+        execute_models(inputs, logger, parser, loop_fn=loop_execute_pooled)
+    else:
+        inputs = gather_inputs(parser)
+        params = _build_summary_params(parser, inputs)
+        ut.display_run_summary("GeoCIF ML Runner", params, wait=20)
+        execute_models(inputs, logger, parser)
 
 
 def run(path_config_files=[Path("../config/geocif.txt")]):

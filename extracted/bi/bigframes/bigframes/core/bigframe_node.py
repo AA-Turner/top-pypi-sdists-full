@@ -330,20 +330,30 @@ class BigFrameNode:
         """
         Perform a top-down transformation of the BigFrameNode tree.
         """
-        to_process = [self]
         results: Dict[BigFrameNode, BigFrameNode] = {}
+        # Each stack entry is (node, t_node). t_node is None until transform(node) is called.
+        stack: list[tuple[BigFrameNode, typing.Optional[BigFrameNode]]] = [(self, None)]
 
-        while to_process:
-            item = to_process.pop()
-            if item not in results.keys():
-                item_result = transform(item)
-                results[item] = item_result
-                to_process.extend(item_result.child_nodes)
+        while stack:
+            node, t_node = stack[-1]
 
-        to_process = [self]
-        # for each processed item, replace its children
-        for item in reversed(list(results.keys())):
-            results[item] = results[item].transform_children(lambda x: results[x])
+            if t_node is None:
+                if node in results:
+                    stack.pop()
+                    continue
+                t_node = transform(node)
+                stack[-1] = (node, t_node)
+
+            all_done = True
+            for child in reversed(t_node.child_nodes):
+                if child not in results:
+                    stack.append((child, None))
+                    all_done = False
+                    break
+
+            if all_done:
+                results[node] = t_node.transform_children(lambda x: results[x])
+                stack.pop()
 
         return results[self]
 

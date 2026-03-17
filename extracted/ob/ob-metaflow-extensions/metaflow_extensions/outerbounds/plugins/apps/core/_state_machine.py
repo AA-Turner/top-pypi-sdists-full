@@ -281,24 +281,28 @@ class DEPLOYMENT_READY_CONDITIONS:
         """
         _worker_readiness_check = True
         _readiness_condition_satisfied = False
+        _ready_to_serve_traffic = capsule_status.get("readyToServeTraffic", False)
         if readiness_condition == cls.ATLEAST_ONE_RUNNING:
             _readiness_condition_satisfied = (
                 worker_semantic_status["status"]["at_least_one_running"]
                 and not capsule_status["updateInProgress"]
+                and _ready_to_serve_traffic
             )
         elif readiness_condition == cls.ALL_RUNNING:
             _readiness_condition_satisfied = (
                 worker_semantic_status["status"]["all_running"]
                 and not capsule_status["updateInProgress"]
+                and _ready_to_serve_traffic
             )
         elif readiness_condition == cls.FULLY_FINISHED:
             # We dont wait for updateInProgress in this condition since
             # UpdateInProgress can switch to false when users scale all replicas down to 0.
             # So for this condition to satisfy we will only rely on the worker semantic status.
             # ie. the thing actually tracking what is running and what is not.
-            _readiness_condition_satisfied = worker_semantic_status["status"][
-                "fully_finished"
-            ]
+            _readiness_condition_satisfied = (
+                worker_semantic_status["status"]["fully_finished"]
+                and _ready_to_serve_traffic
+            )
         elif readiness_condition == cls.ASYNC:
             # The async readiness condition is satisfied immediately after the server responds
             # with the URL.

@@ -42,6 +42,10 @@ def conversation_history_path(chat_uuid: str) -> tuple[str, str]:
     return _paths(chat_uuid, CONVERSATION_HISTORY_FILENAME)
 
 
+def s3_artifact_key(filename: str) -> str:
+    return f"{ARTIFACTS_DIR}/{filename}"
+
+
 def s3_artifact_history_key(filename: str, version: int) -> str:
     return f"{ARTIFACTS_HISTORY_DIR}/{filename}/{version}"
 

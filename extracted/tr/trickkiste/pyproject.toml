@@ -1,6 +1,6 @@
 [project]
 name = "trickkiste"
-version = "0.3.6"
+version = "0.3.7"
 description = "Random useful stuff"
 authors = [{name = "Frans Fürst", email = "frans.fuerst+om-office@protonmail.com"}]
 readme = "Readme.md"

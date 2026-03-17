@@ -1,7 +1,7 @@
 [project]
 name = "agent-lifecycle-toolkit"
 requires-python = ">=3.10"
-version = "0.10.0"
+version = "0.10.1"
 classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -33,11 +33,7 @@ dependencies = [
     "langchain-text-splitters>=1.0.0",
     "nltk>=3.9.1",
     "scipy>=1.15.3",
-    "pytest>=8.2.1",
-    "pytest-json-report>=1.5.0",
-    "pyright>=1.1.406",
-    "datamodel-code-generator>=0.34.0",
-    "mellea~=0.0.6",
+    "onnxruntime==1.23.2 ; python_version == '3.10'", # last version that supports python3.10
 ]
 
 description = "The Agent Lifecycle Toolkit (ALTK) is a library of components to help agent builders improve their agent with minimal integration effort and setup."
@@ -92,7 +88,6 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.14.1",
     "ruff>=0.13.2",
-    "mellea~=0.0.6",
     "mypy>=1.18.2",
     "langchain_ibm>=0.3.6",
     "langgraph>=0.2.74",
@@ -134,6 +129,10 @@ spotlight = [
     "transformers>=4.53.3",
 ]
 
+toolguard = [
+    "toolguard>=0.2.9",
+]
+
 refraction = [
     "nl2flow>=0.1.2; sys_platform != 'win32'",
     "sentence-transformers>=5.0.0",
@@ -142,6 +141,7 @@ refraction = [
 
 routing = [
     "pymilvus[milvus-lite,model]>=2.6.2",
+    "milvus-lite>=2.5.2rc1", # necessary due to pkg_resources being removed
     "pydash>=8.0.5",
     "bertopic>=0.17.3",
     "scikit-learn>=1.7.1",

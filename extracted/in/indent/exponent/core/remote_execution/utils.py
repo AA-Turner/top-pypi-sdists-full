@@ -9,7 +9,6 @@ from typing import (
     TypeVar,
 )
 
-import websockets
 import websockets.exceptions
 from anyio import Path as AsyncPath
 from bs4 import UnicodeDammit

@@ -19,8 +19,13 @@ class CustomExponentialRetry(ExponentialRetry):
             exceptions={aiohttp.ServerDisconnectedError},
         )
 
-    def get_timeout(self, attempt: int, response: aiohttp.ClientResponse | None = None) -> float:
-        if response is not None and response.status == HTTPStatus.TOO_MANY_REQUESTS.value:
+    def get_timeout(
+        self, attempt: int, response: aiohttp.ClientResponse | None = None
+    ) -> float:
+        if (
+            response is not None
+            and response.status == HTTPStatus.TOO_MANY_REQUESTS.value
+        ):
             timeout = 30
             retry_after = response.headers.get("Retry-After")
             if retry_after is not None:
@@ -31,7 +36,9 @@ class CustomExponentialRetry(ExponentialRetry):
                         f'Invalid "Retry-After" header value: {retry_after}, using default timeout {timeout} seconds'
                     )
 
-            logger.debug(f'Received error "Too Many Requests", retrying after {timeout} seconds')
+            logger.debug(
+                f'Received error "Too Many Requests", retrying after {timeout} seconds'
+            )
             return timeout
 
         return super().get_timeout(attempt, response)

@@ -75,7 +75,7 @@ async def _gather_n(
     coroutines: Iterable[Invokable[T]],
     *,
     concurrency: int,
-    return_exceptions: bool = False
+    return_exceptions: bool = False,
 ) -> Iterable[T]:
     """
     Invokes coroutine objects, with at most the specified degree of concurrency.
@@ -132,8 +132,7 @@ async def _gather_n(
 @overload
 async def gather_n(
     coroutines: List[Invokable[T]], *, concurrency: int, return_exceptions: bool = False
-) -> List[T]:
-    ...
+) -> List[T]: ...
 
 
 @overload
@@ -141,9 +140,8 @@ async def gather_n(
     coroutines: Tuple[Invokable[T1], Invokable[T2]],
     *,
     concurrency: int,
-    return_exceptions: bool = False
-) -> Tuple[T1, T2]:
-    ...
+    return_exceptions: bool = False,
+) -> Tuple[T1, T2]: ...
 
 
 @overload
@@ -151,9 +149,8 @@ async def gather_n(
     coroutines: Tuple[Invokable[T1], Invokable[T2], Invokable[T3]],
     *,
     concurrency: int,
-    return_exceptions: bool = False
-) -> Tuple[T1, T2, T3]:
-    ...
+    return_exceptions: bool = False,
+) -> Tuple[T1, T2, T3]: ...
 
 
 @overload
@@ -161,16 +158,15 @@ async def gather_n(
     coroutines: Tuple[Invokable[T1], Invokable[T2], Invokable[T3], Invokable[T4]],
     *,
     concurrency: int,
-    return_exceptions: bool = False
-) -> Tuple[T1, T2, T3, T4]:
-    ...
+    return_exceptions: bool = False,
+) -> Tuple[T1, T2, T3, T4]: ...
 
 
 async def gather_n(
     coroutines: Iterable[Invokable[T]],
     *,
     concurrency: int,
-    return_exceptions: bool = False
+    return_exceptions: bool = False,
 ) -> Iterable[T]:
     """
     Runs awaitable objects, with at most the specified degree of concurrency.

@@ -159,7 +159,11 @@ AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
     "TESTING",
 ]
 AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
-    "GENERATE_FIDELITY_REPORT", "IMPORT_POLICY", "INGEST_CONTENT", "REFINE_POLICY"
+    "GENERATE_FIDELITY_REPORT",
+    "GENERATE_POLICY_SCENARIOS",
+    "IMPORT_POLICY",
+    "INGEST_CONTENT",
+    "REFINE_POLICY",
 ]
 AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
 AutomatedReasoningPolicyTestRunStatusType = Literal[
@@ -669,6 +673,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

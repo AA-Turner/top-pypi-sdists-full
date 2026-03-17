@@ -276,22 +276,23 @@ class FileRecorder(ScanRecorder):
                     ),
                 )
 
-            def get_field(
-                self, scanner: str, id_column: str, id_value: Any, target_column: str
-            ) -> "Scalar[Any]":
+            def _get_dataset(self, scanner: str) -> "ds.Dataset":
                 scan_path = UPath(scan_location)
                 scanner_path = scan_path / f"{scanner}.parquet"
                 scanner_path_str = scanner_path.as_posix()
 
                 # For remote filesystems, pre-fetch the file into memory
-                dataset: ds.Dataset
                 if scanner_path_str.startswith(("s3://", "gs://", "az://", "abfs://")):
                     with file(scanner_path_str, "rb") as f:
                         file_bytes = f.read()
                     table = pq.read_table(io.BytesIO(file_bytes))
-                    dataset = ds.dataset(table)
-                else:
-                    dataset = ds.dataset(str(scanner_path), format="parquet")
+                    return ds.dataset(table)
+                return ds.dataset(str(scanner_path), format="parquet")
+
+            def get_field(
+                self, scanner: str, id_column: str, id_value: Any, target_column: str
+            ) -> "Scalar[Any]":
+                dataset = self._get_dataset(scanner)
 
                 table = dataset.to_table(
                     columns=[target_column],
@@ -307,6 +308,40 @@ class FileRecorder(ScanRecorder):
                     )
 
                 return cast("Scalar[Any]", table[target_column][0])
+
+            def get_fields(
+                self,
+                scanner: str,
+                id_column: str,
+                id_value: Any,
+                target_columns: list[str],
+            ) -> dict[str, Any]:
+                """Fetch multiple columns for a single row in one parquet scan.
+
+                Missing columns (e.g. in old parquet files) return None.
+                """
+                dataset = self._get_dataset(scanner)
+                schema_names = set(dataset.schema.names)
+                present = [c for c in target_columns if c in schema_names]
+                missing = [c for c in target_columns if c not in schema_names]
+
+                table = dataset.to_table(
+                    columns=present,
+                    filter=(pc.field(id_column) == id_value),
+                )
+
+                if len(table) == 0:
+                    raise KeyError(f"{id_value!r} not found in {id_column}")
+
+                if len(table) > 1:
+                    raise ValueError(
+                        f"Multiple rows found for {id_column}={id_value!r}"
+                    )
+
+                result = {c: table[c][0].as_py() for c in present}
+                for c in missing:
+                    result[c] = None
+                return result
 
         # get the status
         status = await FileRecorder.status(scan_location)
@@ -498,7 +533,7 @@ def _create_expanded_view_sql(
     1. Passes through non-resultset rows as-is
     2. Unnests resultset rows using json_extract and UNNEST
     3. Extracts Result fields into columns
-    4. Applies type casting to the value column
+    4. Extracts value as string (typed conversion handled downstream)
 
     Args:
         conn: DuckDB connection to query schema
@@ -558,19 +593,10 @@ def _create_expanded_view_sql(
         if col not in result_fields and col not in scan_execution_fields
     ]
 
-    # Type casting expression for the extracted value
-    # elem will be a JSON string from UNNEST, need to cast it first
-    cast_value_expr = """CASE
-            WHEN COALESCE(json_extract_string(CAST(elem AS JSON), '$.type'), 'null') = 'boolean'
-            THEN CASE
-                WHEN json_extract_string(CAST(elem AS JSON), '$.value') IN ('true', 'True') THEN TRUE
-                WHEN json_extract_string(CAST(elem AS JSON), '$.value') IN ('false', 'False') THEN FALSE
-                ELSE NULL
-            END
-            WHEN COALESCE(json_extract_string(CAST(elem AS JSON), '$.type'), 'null') = 'number'
-            THEN TRY_CAST(json_extract_string(CAST(elem AS JSON), '$.value') AS DOUBLE)
-            ELSE json_extract(CAST(elem AS JSON), '$.value')
-        END"""
+    # Extract value as string — downstream _cast_value_column() (Python) and
+    # castValue() (TypeScript) handle typed conversion. Kept as string to avoid
+    # DuckDB 1.5 mixed-type CASE expression errors.
+    cast_value_expr = "json_extract_string(CAST(elem AS JSON), '$.value')"
 
     # Build column selects for expanded query in the same order as all_columns
     expanded_col_selects = []

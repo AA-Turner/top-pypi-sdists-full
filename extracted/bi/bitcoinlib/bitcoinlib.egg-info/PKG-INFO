@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: bitcoinlib
-Version: 0.7.7
+Version: 0.7.8
 Summary: Bitcoin cryptocurrency Library
 Home-page: http://github.com/1200wd/bitcoinlib
 Author: 1200wd
@@ -23,6 +23,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Office/Business :: Financial :: Accounting
@@ -32,8 +34,6 @@ Requires-Dist: fastecdsa>=2.3.0; platform_system != "Windows"
 Requires-Dist: ecdsa>=0.18; platform_system == "Windows"
 Requires-Dist: pycryptodome>=3.19.0
 Requires-Dist: SQLAlchemy>=2.0.20
-Requires-Dist: numpy==1.24.4; python_version < "3.9"
-Requires-Dist: numpy>=1.26; python_version >= "3.9"
 Provides-Extra: dev
 Requires-Dist: scrypt>=0.8.20; platform_system != "Windows" and extra == "dev"
 Requires-Dist: sphinx>=7.1.0; python_version < "3.9" and extra == "dev"

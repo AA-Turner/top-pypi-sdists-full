@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ansible-pylibssh
-Version: 1.3.0
+Version: 1.4.0
 Summary: Python bindings for libssh client specific to Ansible use case
 Home-page: https://github.com/ansible/pylibssh
 Author: Ansible, Inc.
@@ -21,12 +21,15 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Security
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/ansible-pylibssh.svg?logo=Python&logoColor=white
    :target: https://pypi.org/project/ansible-pylibssh
@@ -155,6 +158,300 @@ Changelog
     WARNING: Don't drop the next directive!
 
 .. towncrier release notes start
+
+v1.4.0
+======
+
+*(2026-03-15)*
+
+
+Bug fixes
+---------
+
+- Fixed the log level mapping to cover the entire ``libssh`` range
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Previously it was not possible to set the most verbose ``libssh`` log level
+  ``SSH_LOG_TRACE`` to get the most verbose log messages useful for debugging
+  connection issues.
+
+  *Related issues and pull requests on GitHub:*
+  `#597 <https://github.com/ansible/pylibssh/issues/597>`__.
+
+
+Features
+--------
+
+- Made ``libssh`` use the Python :external+python``logging`` system
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Previously the underlying ``libssh`` library was writing its logs directly
+  from the C-level into ``stderr``, which caused inconsistent behavior.
+
+  The default log level is now set to ``ANSIBLE_PYLIBSSH_TRACE``
+  and the downstream loggers are able to trim the verbosity down.
+  If you need performance, it is possible to disable logging on the ``libssh``
+  side at the source by setting a lower logging value, for example:
+
+  .. code-block:: python
+
+     ssh_session.set_log_level(ANSIBLE_PYLIBSSH_NOLOG)
+
+  Additionally, the log level can be now be set also through the session initializer:
+
+  .. code-block:: python
+
+     ssh = Session(log_verbosity=ANSIBLE_PYLIBSSH_TRACE)
+
+
+  or the ``connect()`` method arguments:
+
+  .. code-block:: python
+
+     ssh.connect(log_verbosity=ANSIBLE_PYLIBSSH_TRACE)
+
+  Setting any levels imported from :external+python``!logging`` is also supported.
+
+  *Related issues and pull requests on GitHub:*
+  `#597 <https://github.com/ansible/pylibssh/issues/597>`__.
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- Started shipping binary ``armv7l`` wheels -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#648 <https://github.com/ansible/pylibssh/issues/648>`__.
+
+- Upgrading ``cibuildwheel`` to v2.22.0 also picked up Python 3.13
+  and enabled respective wheels to be built -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#648 <https://github.com/ansible/pylibssh/issues/648>`__.
+
+- The CI/CD/packaging infrastructure has been updated to produce
+  :external+packaging``source distribution``
+  file names consistent with the requirement of uploading artifacts
+  compliant with the core packaging metadata 2.2 or newer to PyPI and
+  TestPyPI -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Along with that, the infrastructure has been adjusted to expect
+  `PEP 625 <https://peps.python.org/pep-625>`__-conforming names in its guard rails checks
+  -- with some `@cidrblock <https://github.com/sponsors/cidrblock>`__\ s help.
+
+  *Related issues and pull requests on GitHub:*
+  `#808 <https://github.com/ansible/pylibssh/issues/808>`__, `#809 <https://github.com/ansible/pylibssh/issues/809>`__.
+
+- Upgrading ``cibuildwheel`` to v3.1.0 also picked up Python 3.14
+  and enabled respective wheels to be built -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Building the free-threaded wheels remains disabled, though.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#823 <https://github.com/ansible/pylibssh/issues/823>`__.
+
+- While upgrading ``cibuildwheel`` to v3.1.4, its defaults changed to
+  attempt building wheels for the RISC-V architecture. This target is now
+  disabled explicitly due to the lack of infrastructure
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  We may enable it at a later time as a separate dedicated effort.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#824 <https://github.com/ansible/pylibssh/issues/824>`__.
+
+- Due to ``cibuildwheel`` to v3 bundling ``delocate`` 0.13.0 that
+  enforces deployment-target consistency with the brew-installed copy of
+  the ``libssh`` in the build jobs, the macOS wheels we build now require
+  macOS version 15.0 or newer.
+
+  -- by `@cidrblock <https://github.com/sponsors/cidrblock>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#824 <https://github.com/ansible/pylibssh/issues/824>`__.
+
+- The core packaging metadata now reflects that we test the project under
+  Python 3.13 and 3.14 (with GIL enabled)
+  -- by `@cidrblock <https://github.com/sponsors/cidrblock>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#825 <https://github.com/ansible/pylibssh/issues/825>`__.
+
+- The pre-cached ``armv7l`` images we build for the packaging
+  infrastructure are now correctly tagged with the ``linux/arm/v7``
+  OCI platform tag -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#810 <https://github.com/ansible/pylibssh/issues/810>`__.
+
+- The build backend configuration no longer sets the deprecated
+  ``bdist_wheel.universal`` setting -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  This does not influence the packaging artifacts in any way.
+
+  *Related issues and pull requests on GitHub:*
+  `#811 <https://github.com/ansible/pylibssh/issues/811>`__.
+
+- The build backend has been configured to exclude
+  ``.git_archival.txt`` from source distributions built from Git
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  This reduces the number of false positive warning the backend outputs.
+
+  *Related issues and pull requests on GitHub:*
+  `#811 <https://github.com/ansible/pylibssh/issues/811>`__.
+
+
+Contributor-facing changes
+--------------------------
+
+- The repository is now set up to auto-format Python files with Ruff.
+  Cython keeps being formatted by ``cython-lint``.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related commits on GitHub:*
+  `234a2d34 <https://github.com/ansible/pylibssh/commit/234a2d34>`__, `a63b6028 <https://github.com/ansible/pylibssh/commit/a63b6028>`__, `0e385696 <https://github.com/ansible/pylibssh/commit/0e385696>`__.
+
+- The linting configuration now uses Ruff to run additional checks on
+  pure Python modules -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related commits on GitHub:*
+  `817095443f6afa4b3822780110712db148693075 <https://github.com/ansible/pylibssh/commit/817095443f6afa4b3822780110712db148693075>`__.
+
+- ``cibuildwheel`` started making use of the ``armv7l`` container image
+  following its upgrade to v2.22.0 -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#648 <https://github.com/ansible/pylibssh/issues/648>`__.
+
+- Increased the amount of retries in test to avoid possible timeouts
+  on slower systems -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#777 <https://github.com/ansible/pylibssh/issues/777>`__.
+
+- The SSHD start probe client command is now shielded from external
+  environmnent and will no longer attempt using an SSH agent on the
+  machine where the tests are involved, nor will it use alternative
+  authentication methods -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#782 <https://github.com/ansible/pylibssh/issues/782>`__.
+
+- Now that the ``macos-13`` runner VM image has been decommissioned, the CI and CD jobs have been migrated to use ``macos-15-intel`` -- by `@komaldesai13 <https://github.com/sponsors/komaldesai13>`__.
+
+  This includes giving the macOS build job more time to complete as the new version is a little slower.
+
+  *Related issues and pull requests on GitHub:*
+  `#791 <https://github.com/ansible/pylibssh/issues/791>`__.
+
+- Updated the version of ``libssh`` to the latest release v0.12.0
+  in the cached ``manylinux`` build environment container images
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#797 <https://github.com/ansible/pylibssh/issues/797>`__.
+
+- Updated the bundled version of libssh to 0.12.0 in platform-specific
+  wheels published on PyPI -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#798 <https://github.com/ansible/pylibssh/issues/798>`__.
+
+- Added Fedora and ubi9 images to CI/CD pipeline that are relevant in 2026
+  and removed EOL Fedora versions -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#801 <https://github.com/ansible/pylibssh/issues/801>`__.
+
+- The ``pre-commit`` framework configuration has been updated to be in
+  sync with ``awx-plugins`` and other projects. It now has a few
+  additional linters and a workaround for the outdated ones.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#803 <https://github.com/ansible/pylibssh/issues/803>`__.
+
+- The standalone mentions of ``pylibssh`` have been replaced with
+  ``ansible-pylibssh`` in file license headers -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#804 <https://github.com/ansible/pylibssh/issues/804>`__.
+
+- The CI/CD/packaging infrastructure has been updated to produce
+  :external+packaging``source distribution``
+  file names consistent with the requirement of uploading artifacts
+  compliant with the core packaging metadata 2.2 or newer to PyPI and
+  TestPyPI -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Along with that, the infrastructure has been adjusted to expect
+  `PEP 625 <https://peps.python.org/pep-625>`__-conforming names in its guard rails checks
+  -- with some `@cidrblock <https://github.com/sponsors/cidrblock>`__\ s help.
+
+  *Related issues and pull requests on GitHub:*
+  `#808 <https://github.com/ansible/pylibssh/issues/808>`__, `#809 <https://github.com/ansible/pylibssh/issues/809>`__.
+
+- ``cibuildwheel`` has been upgraded to v3.1.4 -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#820 <https://github.com/ansible/pylibssh/issues/820>`__, `#821 <https://github.com/ansible/pylibssh/issues/821>`__, `#823 <https://github.com/ansible/pylibssh/issues/823>`__, `#824 <https://github.com/ansible/pylibssh/issues/824>`__.
+
+- The coverage measurement infrastructure now uses the ``ctrace``
+  :external+coveragepy``measurement core``
+  across all the Python versions consistently -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#825 <https://github.com/ansible/pylibssh/issues/825>`__.
+
+- The CI now tests wheels built for Python 3.13 and 3.14
+  -- by `@cidrblock <https://github.com/sponsors/cidrblock>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#809 <https://github.com/ansible/pylibssh/issues/809>`__, `#825 <https://github.com/ansible/pylibssh/issues/825>`__.
+
+- The pre-cached ``armv7l`` images we build for the packaging
+  infrastructure are now correctly tagged with the ``linux/arm/v7``
+  OCI platform tag -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#810 <https://github.com/ansible/pylibssh/issues/810>`__.
+
+- The build backend configuration no longer sets the deprecated
+  ``bdist_wheel.universal`` setting -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  This does not influence the packaging artifacts in any way.
+
+  *Related issues and pull requests on GitHub:*
+  `#811 <https://github.com/ansible/pylibssh/issues/811>`__.
+
+- The CI/CD infrastructure has been set up to avoid parts of the template
+  injection problem in GitHub Actions workflow definitions. The shell
+  entry point has been set to bash for any scripts with extra strictness
+  enabled.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#816 <https://github.com/ansible/pylibssh/issues/816>`__.
+
+- The CI/CD and packaging infrastructure now sources the PyPI project name
+  from ``setup.cfg`` rather than hardcoding it -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#817 <https://github.com/ansible/pylibssh/issues/817>`__.
+
+- The documentation building infrastructure now integrates GitHub-related
+  RST roles using the ``sphinx-issues`` extension -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#818 <https://github.com/ansible/pylibssh/issues/818>`__.
+
+
+----
+
 
 v1.3.0
 ======
@@ -871,8 +1168,7 @@ Packaging updates and notes for downstreams
 
 - The ``setuptools-scm`` build dependency CI pin was updated to 8.1.0 —
   this version fixes a date parsing incompatibility introduced by Git 2.45.0
-  (GitHub: ``pypa/setuptools_scm#1038``,
-  GitHub: ``pypa/setuptools_scm#1039``)
+  (`#pypa/setuptools_scm#1038 <https://github.com/ansible/pylibssh/issues/pypa/setuptools_scm#1038>`__, `PR #pypa/setuptools_scm#1039 <https://github.com/ansible/pylibssh/pull/pypa/setuptools_scm#1039>`__)
   -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
 
   *Related issues and pull requests on GitHub:*
@@ -975,8 +1271,7 @@ Contributor-facing changes
 
 - The ``setuptools-scm`` build dependency CI pin was updated to 8.1.0 —
   this version fixes a date parsing incompatibility introduced by Git 2.45.0
-  (GitHub: ``pypa/setuptools_scm#1039``,
-  GitHub: ``pypa/setuptools_scm#1038``)
+  (`#pypa/setuptools_scm#1038 <https://github.com/ansible/pylibssh/issues/pypa/setuptools_scm#1038>`__, `PR #pypa/setuptools_scm#1039 <https://github.com/ansible/pylibssh/pull/pypa/setuptools_scm#1039>`__)
   -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
 
   *Related issues and pull requests on GitHub:*
@@ -1030,7 +1325,7 @@ Miscellaneous
   -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__ and `@TomasTomecek <https://github.com/sponsors/TomasTomecek>`__
   (`#227 <https://github.com/ansible/pylibssh/issues/227>`__,
   `#246 <https://github.com/ansible/pylibssh/issues/246>`__)
-- Removed the remains of Python 2 compatiblity code from the in-tree `PEP 517 <https://peps.python.org/pep-517>`__ build backend -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+- Removed the remains of Python 2 compatibility code from the in-tree `PEP 517 <https://peps.python.org/pep-517>`__ build backend -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
   (`#377 <https://github.com/ansible/pylibssh/issues/377>`__)
 - Fixed removing ``expandvars`` from ``pyproject.toml``
   in an RPM spec -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
@@ -1067,7 +1362,7 @@ Miscellaneous
 
 - Reworked build scripts to fix manylinux container generation -- by `@Qalthos <https://github.com/sponsors/Qalthos>`__
   (`#321 <https://github.com/ansible/pylibssh/issues/321>`__)
-- Reenable CI building on s390x -- by `@Qalthos <https://github.com/sponsors/Qalthos>`__
+- Re-enable CI building on s390x -- by `@Qalthos <https://github.com/sponsors/Qalthos>`__
   (`#322 <https://github.com/ansible/pylibssh/issues/322>`__)
 
 
@@ -1259,7 +1554,7 @@ Features
   API's initial commit -- by `@ganeshrn <https://github.com/sponsors/ganeshrn>`__
   (`#1 <https://github.com/ansible/pylibssh/issues/1>`__)
 - Added proxycommand support for session and
-  update session exeception to ``LibsshSessionException`` -- by `@ganeshrn <https://github.com/sponsors/ganeshrn>`__
+  update session exception to ``LibsshSessionException`` -- by `@ganeshrn <https://github.com/sponsors/ganeshrn>`__
   (`#10 <https://github.com/ansible/pylibssh/issues/10>`__)
 - Added support for host key checking with
   authentication -- by `@ganeshrn <https://github.com/sponsors/ganeshrn>`__

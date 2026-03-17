@@ -48,6 +48,7 @@ from anyscale.service.models import (
     TracingConfig,
 )
 from anyscale.shared_anyscale_utils.constants import SERVICE_VERSION_ID_TRUNCATED_LEN
+from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
 from anyscale.utils.runtime_env import parse_requirements_file
 from anyscale.utils.workspace_notification import (
     WorkspaceNotification,
@@ -1092,7 +1093,7 @@ class PrivateServiceSDK(WorkloadSDK):
         self, name: str, *, cloud: Optional[str] = None, project: Optional[str] = None
     ) -> ServiceStatus:
         model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
-        return asyncio.run(self._service_model_to_status_async(model))
+        return run_sync(self._service_model_to_status_async(model))
 
     def list(  # noqa: PLR0912, PLR0913
         self,

@@ -167,7 +167,18 @@ class Workspace:
             logger.info("Moving %d items from %s into FUSE overlay", len(contents), self.path)
             for item in contents:
                 dest = overlay_dir / item.name
-                os.rename(str(item), str(dest))
+                try:
+                    os.rename(str(item), str(dest))
+                except OSError:
+                    # Cross-device rename — fall back to copy + remove
+                    import shutil
+
+                    if item.is_dir():
+                        shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                        shutil.rmtree(str(item))
+                    else:
+                        shutil.copy2(str(item), str(dest))
+                        item.unlink()
 
         mount = await mount_lazy(self.path, empty_manifest, s3_config, cache_dir)
         self._lazy_mounts[dir_name] = mount
@@ -263,6 +274,7 @@ class Workspace:
         self._last_restored_source_ref_public_id = ref.get("ref_public_id", "")
 
         dvc_files = ref.get("dvc_files", {})
+        self._last_restored_dvc_files = dvc_files
         if not dvc_files:
             logger.info("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
             self._last_ref_step = step_name

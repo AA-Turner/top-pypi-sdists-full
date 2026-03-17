@@ -26,6 +26,7 @@ from random import choice
 from textwrap import dedent
 from time import sleep, time
 from urllib.parse import parse_qs, unquote, urlparse
+import warnings
 
 from cli_helpers.tabular_output import TabularOutputFormatter, preprocessors
 from cli_helpers.tabular_output.output_formatter import MISSING_VALUE as DEFAULT_MISSING_VALUE
@@ -58,8 +59,17 @@ import pymysql
 from pymysql.constants.CR import CR_SERVER_LOST
 from pymysql.constants.ER import ACCESS_DENIED_ERROR, HANDSHAKE_ERROR
 from pymysql.cursors import Cursor
-import sqlglot
 import sqlparse
+
+with warnings.catch_warnings():
+    # for sqlglot v29.0.1
+    warnings.filterwarnings(
+        'ignore',
+        message=r'sqlglot\[rs\] is deprecated',
+        category=UserWarning,
+        module='sqlglot',
+    )
+    import sqlglot
 
 from mycli import __version__
 from mycli.clibuffer import cli_is_multiline
@@ -1702,6 +1712,8 @@ class MyCli:
         if re.match(r'^[\d\.]+$', short_prompt_host):
             short_prompt_host = prompt_host
         now = datetime.now()
+        backslash_placeholder = '\ufffc_backslash'
+        string = string.replace('\\\\', backslash_placeholder)
         string = string.replace("\\u", sqlexecute.user or "(none)")
         string = string.replace("\\h", prompt_host or "(none)")
         string = string.replace("\\H", short_prompt_host or "(none)")
@@ -1721,6 +1733,7 @@ class MyCli:
         string = string.replace("\\K", sqlexecute.socket or str(sqlexecute.port))
         string = string.replace("\\A", self.dsn_alias or "(none)")
         string = string.replace("\\_", " ")
+        string = string.replace(backslash_placeholder, '\\')
 
         # jump through hoops for the test environment, and for efficiency
         if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:

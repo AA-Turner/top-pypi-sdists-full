@@ -10,6 +10,7 @@ from pydantic import (
     AliasChoices,
     Discriminator,
     Field,
+    SerializeAsAny,
     Tag,
     ValidationError,
     ValidationInfo,
@@ -30,6 +31,7 @@ from idf_component_tools.constants import (
     COMPILED_GIT_URL_RE,
     DEFAULT_NAMESPACE,
     IDF_COMPONENT_REGISTRY_URL,
+    KCONFIG_VAR_REGEX,
 )
 from idf_component_tools.debugger import KCONFIG_CONTEXT
 from idf_component_tools.errors import (
@@ -49,10 +51,8 @@ from idf_component_tools.utils import (
     BOOL_MARKER,
     DICT_MARKER,
     STR_MARKER,
-    Annotated,
     BaseModel,
     ComponentVersion,
-    Literal,
     UniqueStrListField,
     UniqueTagListField,
     UrlField,
@@ -63,7 +63,7 @@ from idf_component_tools.utils import (
     validation_error_to_str,
 )
 
-from .constants import COMPILED_FULL_SLUG_REGEX, known_targets
+from .constants import COMPILED_FULL_SLUG_REGEX
 from .if_parser import IfClause, parse_if_clause
 
 
@@ -108,6 +108,21 @@ class OptionalDependency(BaseModel):
 class OptionalRequirement(BaseModel):
     matches: t.List[OptionalDependency] = []
     rules: t.List[OptionalDependency] = []
+
+    @property
+    def has_kconfig_option(self) -> bool:
+        """
+        Check if any of the matches contain KConfig options.
+
+        KConfig options are identified by the pattern $CONFIG{...}
+
+        :return: True if any match or rule contains a KConfig option, False otherwise
+        """
+        for optional_dependency in self.matches:
+            if KCONFIG_VAR_REGEX.search(optional_dependency.if_clause):
+                return True
+
+        return False
 
     def version_spec_if_meet_conditions(self, default_version_spec: str) -> t.Optional[str]:
         """
@@ -164,10 +179,10 @@ class DependencyItem(BaseModel):
     rules: t.List[OptionalDependency] = None  # type: ignore
     matches: t.List[OptionalDependency] = None  # type: ignore
     override_path: str = None  # type: ignore
-    require: Annotated[
+    require: t.Annotated[
         t.Union[
-            Annotated[Literal['public', 'private', 'no'], Tag(STR_MARKER)],
-            Annotated[Literal[False], Tag(BOOL_MARKER)],
+            t.Annotated[t.Literal['public', 'private', 'no'], Tag(STR_MARKER)],
+            t.Annotated[t.Literal[False], Tag(BOOL_MARKER)],
         ],
         Discriminator(
             bool_str_discriminator,
@@ -373,7 +388,7 @@ class FilesField(BaseModel):
 
 
 class RepositoryInfoField(BaseModel):
-    commit_sha: Annotated[str, Field(pattern=COMMIT_ID_RE)] = None  # type: ignore
+    commit_sha: t.Annotated[str, Field(pattern=COMMIT_ID_RE)] = None  # type: ignore
     path: str = None  # type: ignore
 
 
@@ -393,7 +408,7 @@ def _check_git_url(v: str) -> str:
     raise ValueError('Invalid git URL: {}'.format(v))
 
 
-GIT_URL_FIELD = Annotated[str, AfterValidator(_check_git_url)]
+GIT_URL_FIELD = t.Annotated[str, AfterValidator(_check_git_url)]
 
 
 class Manifest(BaseModel):
@@ -406,10 +421,10 @@ class Manifest(BaseModel):
     tags: UniqueTagListField = []
     dependencies: t.Dict[
         str,
-        Annotated[
+        t.Annotated[
             t.Union[
-                Annotated[str, Tag(STR_MARKER)],
-                Annotated[DependencyItem, Tag(DICT_MARKER)],
+                t.Annotated[str, Tag(STR_MARKER)],
+                t.Annotated[DependencyItem, Tag(DICT_MARKER)],
             ],
             Discriminator(
                 str_dict_discriminator,
@@ -538,12 +553,6 @@ class Manifest(BaseModel):
                 'Must follow semantic versioning while uploading component to the registry'
             )
 
-        unknown_targets = sorted(set(self.targets) - set(known_targets()))
-        if unknown_targets:
-            raise ValueError(
-                f'Invalid field "targets". Unknown targets: "{",".join(unknown_targets)}"'
-            )
-
     @classmethod
     def validate_manifest(
         cls,
@@ -665,7 +674,9 @@ class Manifest(BaseModel):
 class SolvedComponent(BaseModel):
     name: str
     component_hash: t.Optional[str] = None  # type: ignore # idf is now using None
-    source: BaseSource
+    source: SerializeAsAny[
+        BaseSource
+    ]  # use runtime type instead of declared (e.g. LocalSource, GitSource, etc.)
     version: ComponentVersion
     dependencies: t.List[ComponentRequirement] = None  # type: ignore
     targets: UniqueStrListField = None  # type: ignore
@@ -701,16 +712,13 @@ class SolvedComponent(BaseModel):
         return v
 
     @model_serializer(mode='wrap')
-    def serialize_model(self, handler: SerializerFunctionWrapHandler) -> t.Dict[str, t.Any]:
+    def serialize_model(
+        self,
+        handler: SerializerFunctionWrapHandler,
+    ) -> t.Dict[str, t.Any]:
         # serialize from flat dict to {'name': {...}}
         d = handler(self)
-
-        # handler doesn't handle nested model correctly
-        # ATTENTION!!! it's not a clean solution
-        # nested model should be handled by handler
-        d['source'] = self.source.model_dump()
         d['version'] = str(self.version)
-
         name = d.pop('name')
         return {name: d}
 
@@ -739,7 +747,7 @@ class SolvedComponent(BaseModel):
 class SolvedManifest(BaseModel):
     direct_dependencies: UniqueStrListField = None  # type: ignore
     dependencies: t.List[SolvedComponent] = []
-    manifest_hash: Annotated[str, Field(min_length=64, max_length=64)] = None  # type: ignore
+    manifest_hash: t.Annotated[str, Field(min_length=64, max_length=64)] = None  # type: ignore
     target: str = None  # type: ignore
 
     @field_validator('dependencies')
@@ -749,11 +757,12 @@ class SolvedManifest(BaseModel):
 
     @model_serializer(mode='wrap')
     def serialize_model(self, handler: SerializerFunctionWrapHandler) -> t.Dict[str, t.Any]:
-        d = {}
-        for dep in self.dependencies:
-            d.update(dep.model_dump())
-
         original_d = handler(self)
+
+        d = {}
+        for dep in original_d['dependencies']:
+            d.update(dep)
+
         original_d['dependencies'] = d
         return original_d
 

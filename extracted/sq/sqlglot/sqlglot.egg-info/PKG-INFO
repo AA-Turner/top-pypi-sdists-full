@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlglot
-Version: 29.0.1
+Version: 30.0.1
 Summary: An easily customizable SQL parser and transpiler
 Author-email: Toby Mao <toby.mao@gmail.com>
 License-Expression: MIT
@@ -19,22 +19,24 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: duckdb>=0.6; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: sqlglot-mypy>=1.19.1.post1; extra == "dev"
+Requires-Dist: setuptools_scm; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: python-dateutil; extra == "dev"
 Requires-Dist: pytz; extra == "dev"
 Requires-Dist: pdoc; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: ruff==0.7.2; extra == "dev"
+Requires-Dist: ruff==0.15.6; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-pytz; extra == "dev"
 Requires-Dist: typing_extensions; extra == "dev"
 Requires-Dist: pyperf; extra == "dev"
 Provides-Extra: c
-Requires-Dist: sqlglotc; extra == "c"
+Requires-Dist: sqlglotc==30.0.1; extra == "c"
 Provides-Extra: rs
 Requires-Dist: sqlglotrs==0.13.0; extra == "rs"
+Requires-Dist: sqlglotc==30.0.1; extra == "rs"
 Dynamic: license-file
 Dynamic: provides-extra
 
@@ -582,14 +584,28 @@ To deploy a new SQLGlot version, follow these steps:
 
 ## Benchmarks
 
-[Benchmarks](https://github.com/tobymao/sqlglot/blob/main/benchmarks/parse.py) run on Python 3.13.11 in seconds.
+[Benchmarks](https://github.com/tobymao/sqlglot/blob/main/benchmarks/parse.py) run on Python 3.14.3 in seconds.
 
-|           Query |         sqlglot |      sqlglot[c] |        sqlfluff |         sqltree |        sqlparse |  moz_sql_parser |        sqloxide |
-| --------------- | --------------- | --------------- | --------------- | --------------- | --------------- | --------------- | --------------- |
-|            tpch |  0.00444 (1.0)  | 0.00287 (0.646) | 0.25600 (57.66) | 0.00242 (0.545) | 0.01520 (3.423) | 0.02720 (6.126) | 0.00056 (0.126) |
-|           short |  0.00037 (1.0)  | 0.00026 (0.707) | 0.04200 (114.1) | 0.00022 (0.587) | 0.00097 (2.638) | 0.00212 (5.761) | 0.00004 (0.106) |
-|            long |  0.00428 (1.0)  | 0.00268 (0.626) | 0.31800 (74.30) | 0.00220 (0.514) | 0.01360 (3.178) | 0.02660 (6.215) | 0.00052 (0.121) |
-|           crazy |  0.01300 (1.0)  | 0.00941 (0.724) | 1.45000 (111.5) | 0.00836 (0.643) |             N/A | 0.43800 (33.69) | 0.00280 (0.215) |
+sqlglot, sqltree, sqlparse, and sqlfluff are python based whereas sqloxide and polyglot-sql are rust bindings.
+
+|             Query |         sqlglot |      sqlglot[c] |         sqltree |         sqlparse |          sqlfluff |        sqloxide |    polyglot-sql |
+| ----------------- | --------------- | --------------- | --------------- | ---------------- | ----------------- | --------------- | --------------- |
+|              tpch | 0.002986 (1.00) | 0.000946 (0.32) | 0.002173 (0.73) |  0.014071 (4.71) |  0.240238 (80.45) | 0.000566 (0.19) | 0.000613 (0.21) |
+|             short | 0.000257 (1.00) | 0.000092 (0.36) | 0.000169 (0.66) |  0.000889 (3.45) | 0.034076 (132.35) | 0.000036 (0.14) | 0.000098 (0.38) |
+|   deep_arithmetic | 0.007875 (1.00) | 0.002343 (0.30) | 0.006065 (0.77) |              N/A | 1.361707 (172.90) | 0.003295 (0.42) | 0.002896 (0.37) |
+|          large_in | 0.441550 (1.00) | 0.126875 (0.29) | 0.482375 (1.09) |              N/A |               N/A | 0.122851 (0.28) | 0.135547 (0.31) |
+|            values | 0.520747 (1.00) | 0.140796 (0.27) | 0.566855 (1.09) |              N/A |               N/A | 0.118219 (0.23) | 0.128448 (0.25) |
+|        many_joins | 0.015098 (1.00) | 0.004023 (0.27) | 0.010876 (0.72) |  0.060144 (3.98) |  1.250214 (82.81) | 0.002953 (0.20) | 0.002926 (0.19) |
+|       many_unions | 0.056118 (1.00) | 0.012016 (0.21) | 0.039004 (0.70) |              N/A |  1.838802 (32.77) | 0.013354 (0.24) |             N/A |
+| nested_subqueries | 0.001643 (1.00) | 0.000285 (0.17) |             N/A |  0.003768 (2.29) |  0.090923 (55.35) | 0.000215 (0.13) | 0.000246 (0.15) |
+|      many_columns | 0.013389 (1.00) | 0.003844 (0.29) | 0.012286 (0.92) | 0.238084 (17.78) |  1.057274 (78.96) | 0.002520 (0.19) | 0.004034 (0.30) |
+|        large_case | 0.037965 (1.00) | 0.010664 (0.28) | 0.035426 (0.93) |              N/A | 4.165526 (109.72) | 0.008970 (0.24) | 0.010843 (0.29) |
+|     complex_where | 0.030109 (1.00) | 0.007886 (0.26) |             N/A |  0.133731 (4.44) |  2.497400 (82.95) | 0.005788 (0.19) | 0.008039 (0.27) |
+|         many_ctes | 0.021528 (1.00) | 0.004891 (0.23) | 0.013173 (0.61) |  0.125813 (5.84) |  0.683930 (31.77) | 0.004004 (0.19) | 0.003397 (0.16) |
+|      many_windows | 0.024819 (1.00) | 0.006944 (0.28) |             N/A |  0.207969 (8.38) |  1.409374 (56.79) | 0.003544 (0.14) | 0.004391 (0.18) |
+|  nested_functions | 0.001483 (1.00) | 0.000327 (0.22) | 0.000665 (0.45) |  0.005086 (3.43) |  0.092523 (62.37) | 0.000170 (0.11) | 0.000215 (0.14) |
+|     large_strings | 0.005686 (1.00) | 0.001612 (0.28) | 0.014111 (2.48) |  0.049465 (8.70) |  0.329009 (57.86) | 0.001463 (0.26) | 0.002308 (0.41) |
+|      many_numbers | 0.107281 (1.00) | 0.030352 (0.28) | 0.120840 (1.13) |              N/A |               N/A | 0.027484 (0.26) | 0.032682 (0.30) |
 
 ```
 make bench            # Run parsing benchmark

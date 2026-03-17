@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "cua-agent"
-version = "0.7.34"
+version = "0.7.35"
 description = "Cua (Computer Use) Agent for AI-driven computer interaction"
 readme = "README.md"
 authors = [
@@ -84,6 +84,13 @@ hud = [
 ]
 gemini = [
     "google-genai>=1.41.0",
+]
+cloud = [
+    "google-genai>=1.41.0",
+    "yaspin>=3.1.0",
+    "qwen-agent",
+    "qwen-vl-utils",
+    "Pillow>=10.0.0",
 ]
 all = [
     "mlx-vlm>=0.1.27; sys_platform == 'darwin'",

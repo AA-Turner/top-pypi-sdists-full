@@ -6,6 +6,30 @@ requires = [
   "translate-toolkit"
 ]
 
+[dependency-groups]
+build = [
+  "translate-toolkit==3.19.3"
+]
+dev = [
+  {include-group = "build"},
+  {include-group = "lint"},
+  {include-group = "test"},
+  {include-group = "types"}
+]
+lint = [
+  {include-group = "pre-commit"}
+]
+pre-commit = [
+  "prek==0.3.6"
+]
+test = [
+]
+types = [
+  "django-types==0.23.0",
+  "mypy==1.19.1",
+  "types-setuptools==82.0.0.20260210"
+]
+
 [project]
 authors = [
   {email = "michal@weblate.org", name = "Michal Čihař"}
@@ -16,12 +40,10 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Localization",
@@ -39,25 +61,12 @@ keywords = [
 license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
-requires-python = ">=3.9"
-version = "2026.3"
+requires-python = ">=3.11"
+version = "2026.6"
 
 [project.optional-dependencies]
-dev = [
-  "translate-toolkit==3.19.0",
-  "weblate-language-data[lint,test,types]"
-]
 django = [
   "Django"
-]
-lint = [
-  "prek==0.3.3"
-]
-test = [
-]
-types = [
-  "django-stubs==5.2.9",
-  "mypy==1.19.1"
 ]
 
 [project.readme]
@@ -102,7 +111,7 @@ ignore-bad-ideas = [
 
 [tool.codespell]
 builtin = "clear,rare,informal,usage"
-skip = '*.po,*.pot,*.csv,weblate_language_data/aliases.py,weblate_language_data/population.py,weblate_language_data/plurals.py,weblate_language_data/language_codes.py,weblate_language_data/languages.py,weblate_language_data/check_languages.py,weblate_language_data/plural_tags.py,PLURALS_DIFF.md,weblate_language_data/case_insensitive.py,weblate_language_data/country_codes.py'
+skip = '*.po,*.pot,*.csv,weblate_language_data/aliases.py,weblate_language_data/population.py,weblate_language_data/plurals.py,weblate_language_data/language_codes.py,weblate_language_data/languages.py,weblate_language_data/check_languages.py,weblate_language_data/plural_tags.py,PLURALS_DIFF.md,weblate_language_data/case_insensitive.py,weblate_language_data/country_codes.py,weblate_language_data/rtl.py'
 
 [tool.isort]
 profile = "black"

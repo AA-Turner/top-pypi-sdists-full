@@ -28,7 +28,7 @@ DEFAULT_MIRROR = "https://pypi.org/simple"
 CURRENT_PYTHON_MM = sys.version_info[:2]
 UV_CUTOFF = (3, 8)
 USE_UV = CURRENT_PYTHON_MM >= UV_CUTOFF  # Default to `uv` for python versions >= this
-KNOWN_ENTRYPOINTS = {PICKLEY: (PICKLEY,), "tox": ("tox",), "uv": ("uv", "uvx")}
+KNOWN_ENTRYPOINTS = {PICKLEY: (PICKLEY,), "tox": ("tox",), "tox-uv": ("tox",), "uv": ("uv", "uvx")}
 
 
 class _Reporter:
@@ -118,7 +118,7 @@ class Bootstrap:
             uv_bootstrap.auto_bootstrap_uv()
             uv_path = uv_bootstrap.uv_path
 
-        run_program(uv_path, "venv", "-p", sys.executable, venv_folder)
+        run_program(uv_path, "venv", "--clear", "-p", sys.executable, venv_folder)
         env = dict(os.environ)
         env["VIRTUAL_ENV"] = venv_folder
         args = []

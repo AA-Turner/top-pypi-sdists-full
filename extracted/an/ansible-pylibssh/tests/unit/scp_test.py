@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Tests suite for scp."""
 
 import os
@@ -32,11 +30,13 @@ def transmit_payload(request: pytest.FixtureRequest):
     The choice 32 is arbitrary small value.
 
     The choice SCP_CHUNK_SIZE + 1 (64kB + 1B) is meant to be 1B larger than the chunk
-    size used in :file:`scp.pyx` to make sure we excercise at least two rounds of
+    size used in :file:`scp.pyx` to make sure we exercise at least two rounds of
     reading/writing.
     """
     payload_len = request.param
-    random_bytes = [ord(random.choice(string.printable)) for _ in range(payload_len)]
+    random_bytes = [
+        ord(random.choice(string.printable)) for _ in range(payload_len)
+    ]
     return bytes(random_bytes)
 
 
@@ -83,7 +83,10 @@ def path_to_non_existent_src_file(tmp_path):
     return path
 
 
-def test_copy_from_non_existent_remote_path(path_to_non_existent_src_file, ssh_scp):
+def test_copy_from_non_existent_remote_path(
+    path_to_non_existent_src_file,
+    ssh_scp,
+):
     """Check that SCP file download raises exception if the remote file is missing."""
     error_msg = '^Error receiving information about file:'
     with pytest.raises(LibsshSCPException, match=error_msg):
@@ -98,7 +101,12 @@ def pre_existing_file_path(tmp_path):
     return path
 
 
-def test_get_existing_local(pre_existing_file_path, src_path, ssh_scp, transmit_payload):
+def test_get_existing_local(
+    pre_existing_file_path,
+    src_path,
+    ssh_scp,
+    transmit_payload,
+):
     """Check that SCP file download works and overwrites local file if it exists."""
     ssh_scp.get(str(src_path), str(pre_existing_file_path))
     assert pre_existing_file_path.read_bytes() == transmit_payload

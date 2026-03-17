@@ -1384,9 +1384,9 @@ class Feature(Generic[_TPrim, _TRich]):
         except NameError as ne:
             object_str = ne.name
             assert self.features_cls is not None
-            assert self.features_cls.__chalk_source_info__.filename is not None
-            if object_str in get_type_checking_imports(self.features_cls.__chalk_source_info__.filename):
-                filename_only = os.path.basename(self.features_cls.__chalk_source_info__.filename)
+            assert self.features_cls.__chalk_filename__ is not None
+            if object_str in get_type_checking_imports(self.features_cls.__chalk_filename__):
+                filename_only = os.path.basename(self.features_cls.__chalk_filename__)
                 self.lsp_error_builder.add_diagnostic(
                     message=(
                         f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
@@ -1406,7 +1406,7 @@ class Feature(Generic[_TPrim, _TRich]):
                     message=(
                         f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
                         f"has a join lambda function that is incorrectly configured. "
-                        f"Object '{object_str}' is not imported in the file '{self.features_cls.__chalk_source_info__.filename}'. "
+                        f"Object '{object_str}' is not imported in the file '{self.features_cls.__chalk_filename__}'. "
                     ),
                     label="invalid join",
                     range=self.lsp_error_builder.property_value_range(self.attribute_name)

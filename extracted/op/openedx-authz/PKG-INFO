@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-authz
-Version: 0.23.0
+Version: 1.0.0
 Summary: Open edX AuthZ provides the architecture and foundations of the authorization framework.
 Home-page: https://github.com/openedx/openedx-authz
 Author: Open edX Project
@@ -15,9 +15,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 License-File: LICENSE
 Requires-Dist: Django
 Requires-Dist: attrs

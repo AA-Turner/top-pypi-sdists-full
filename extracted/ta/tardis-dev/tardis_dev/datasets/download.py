@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import random
+import re
 import secrets
 import urllib
 from datetime import datetime, timedelta
@@ -19,8 +20,12 @@ logger = logging.getLogger(__name__)
 default_timeout = aiohttp.ClientTimeout(total=30 * 60)
 
 
+def _sanitize_for_filename(s: str) -> str:
+    return re.sub(r'[\\/?*<>|"]', '-', s)
+
+
 def default_file_name(exchange: str, data_type: str, date: datetime, symbol: str, format: str):
-    return f"{exchange}_{data_type}_{date.strftime('%Y-%m-%d')}_{symbol}.{format}.gz"
+    return f"{exchange}_{data_type}_{date.strftime('%Y-%m-%d')}_{_sanitize_for_filename(symbol)}.{format}.gz"
 
 
 def download(
@@ -89,7 +94,7 @@ async def download_async(
                         # need to check the result that may throw if task finished with an error
                         done.pop().result()
 
-                    url = f"https://{download_url_base}/v1/{exchange}/{data_type}/{current_date.strftime('%Y/%m/%d')}/{symbol}.{format}.gz"
+                    url = f"https://{download_url_base}/v1/{exchange}/{data_type}/{current_date.strftime('%Y/%m/%d')}/{urllib.parse.quote(symbol, safe='')}.{format}.gz"
 
                     download_path = f"{download_dir}/{get_filename(exchange,data_type,current_date,symbol,format)}"
 

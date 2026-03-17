@@ -1,5 +1,8 @@
 import unittest
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from unittest.mock import MagicMock, patch
+
+from watchdog.events import FileModifiedEvent, FileMovedEvent
 
 from abstra_internals.services.file_watcher import FileWatcher
 
@@ -288,6 +291,126 @@ class TestFileWatcherShouldIgnorePath(unittest.TestCase):
         # Windows-style path with forward slashes (also valid on Windows)
         win_path_forward = PureWindowsPath("C:/project/.git/config.lock")
         self.assertTrue(self.watcher.should_ignore_path(win_path_forward))
+
+
+class TestFileWatcherDispatch(unittest.TestCase):
+    """Test suite for FileWatcher.dispatch method, especially for move events."""
+
+    def setUp(self):
+        """Set up a FileWatcher instance with a mock handler for testing."""
+        self.handler_called = False
+        self.handler_filepath = None
+        self.handler_event_type = None
+
+        def mock_handler(filepath, event_type, content):
+            self.handler_called = True
+            self.handler_filepath = filepath
+            self.handler_event_type = event_type
+
+        self.watcher = FileWatcher(handlers=[mock_handler])
+
+    def test_move_from_ignored_to_non_ignored_should_trigger_handler(self):
+        """
+        Test that moving a file from an ignored path (.abstra/temp/) to a non-ignored
+        path (abstra.json) triggers the handler.
+
+        This is the bug fix for: os.replace() from .abstra/temp/file.tmp to abstra.json
+        was being ignored because only src_path was checked.
+        """
+        # Create a move event from .abstra/temp/ to abstra.json
+        event = FileMovedEvent(
+            src_path="/project/.abstra/temp/abstra.json.abc123.tmp",
+            dest_path="/project/abstra.json",
+        )
+
+        # Mock Timer to execute immediately instead of with delay
+        with patch("threading.Timer") as mock_timer:
+            mock_timer_instance = MagicMock()
+            mock_timer.return_value = mock_timer_instance
+
+            self.watcher.dispatch(event)
+
+            # Timer should have been started
+            mock_timer.assert_called_once()
+            # Get the function that was passed to Timer
+            timer_func = mock_timer.call_args[1]["function"]
+            # Execute the handler function
+            timer_func()
+
+        # Handler should have been called
+        self.assertTrue(self.handler_called)
+        # Filepath should be the destination path
+        self.assertEqual(str(self.handler_filepath), "/project/abstra.json")
+        self.assertEqual(self.handler_event_type, "moved")
+
+    def test_move_within_ignored_path_should_not_trigger_handler(self):
+        """
+        Test that moving a file within ignored paths does NOT trigger the handler.
+        """
+        # Create a move event within .abstra/
+        event = FileMovedEvent(
+            src_path="/project/.abstra/temp/file1.tmp",
+            dest_path="/project/.abstra/temp/file2.tmp",
+        )
+
+        with patch("threading.Timer") as mock_timer:
+            self.watcher.dispatch(event)
+            # Timer should NOT have been started
+            mock_timer.assert_not_called()
+
+    def test_move_from_non_ignored_to_ignored_should_trigger_handler(self):
+        """
+        Test that moving a file from a non-ignored path to an ignored path
+        still triggers the handler (for the source path).
+        """
+        # Create a move event from a normal file to .abstra/
+        event = FileMovedEvent(
+            src_path="/project/some_file.py",
+            dest_path="/project/.abstra/backup/some_file.py",
+        )
+
+        with patch("threading.Timer") as mock_timer:
+            mock_timer_instance = MagicMock()
+            mock_timer.return_value = mock_timer_instance
+
+            self.watcher.dispatch(event)
+
+            # Timer should have been started
+            mock_timer.assert_called_once()
+            # Get the function that was passed to Timer
+            timer_func = mock_timer.call_args[1]["function"]
+            # Execute the handler function
+            timer_func()
+
+        # Handler should have been called
+        self.assertTrue(self.handler_called)
+        self.assertEqual(self.handler_event_type, "moved")
+
+    def test_modified_event_on_ignored_path_should_not_trigger_handler(self):
+        """
+        Test that a modified event on an ignored path does NOT trigger the handler.
+        """
+        event = FileModifiedEvent(src_path="/project/.abstra/settings.json")
+
+        with patch("threading.Timer") as mock_timer:
+            self.watcher.dispatch(event)
+            # Timer should NOT have been started
+            mock_timer.assert_not_called()
+
+    def test_modified_event_on_non_ignored_path_should_trigger_handler(self):
+        """
+        Test that a modified event on a non-ignored path triggers the handler.
+        """
+        event = FileModifiedEvent(src_path="/project/main.py")
+
+        with patch("threading.Timer") as mock_timer:
+            mock_timer_instance = MagicMock()
+            mock_timer.return_value = mock_timer_instance
+
+            self.watcher.dispatch(event)
+
+            # Timer should have been started
+            mock_timer.assert_called_once()
 
 
 if __name__ == "__main__":

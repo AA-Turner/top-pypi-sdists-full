@@ -694,14 +694,14 @@ async fn run_hooks(
     }
 
     if !success && show_diff_on_failure && file_modified {
-        if EnvVars::is_set(EnvVars::CI) {
+        if EnvVars::is_under_ci() {
             writeln!(
                 printer.stdout(),
                 "{}",
                 indoc::formatdoc! {
                     "\n{}: Some hooks made changes to the files.
                     If you are seeing this message in CI, reproduce locally with: `{}`
-                    To run prek as part of git workflow, use `{}` to set up git hooks.\n",
+                    To run prek as part of Git workflow, use `{}` to set up Git shims.\n",
                     "hint".yellow().bold(),
                     "prek run --all-files".cyan(),
                     "prek install".cyan()

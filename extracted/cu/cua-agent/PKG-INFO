@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-agent
-Version: 0.7.34
+Version: 0.7.35
 Summary: Cua (Computer Use) Agent for AI-driven computer interaction
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.12
@@ -60,6 +60,12 @@ Provides-Extra: hud
 Requires-Dist: hud-python==0.4.52; extra == "hud"
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.41.0; extra == "gemini"
+Provides-Extra: cloud
+Requires-Dist: google-genai>=1.41.0; extra == "cloud"
+Requires-Dist: yaspin>=3.1.0; extra == "cloud"
+Requires-Dist: qwen-agent; extra == "cloud"
+Requires-Dist: qwen-vl-utils; extra == "cloud"
+Requires-Dist: Pillow>=10.0.0; extra == "cloud"
 Provides-Extra: all
 Requires-Dist: mlx-vlm>=0.1.27; sys_platform == "darwin" and extra == "all"
 Requires-Dist: accelerate; extra == "all"

@@ -129,14 +129,18 @@ class RegistrationInlineHookRequest(BaseModel):
         """Create an instance of RegistrationInlineHookRequest from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
+        # Import from okta.models to ensure class identity consistency with lazy imports
+        models = import_module("okta.models")
         if object_type == "RegistrationInlineHookPPData":
-            return import_module(
-                "okta.models.registration_inline_hook_pp_data"
-            ).RegistrationInlineHookPPData.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.RegistrationInlineHookPPData.from_dict(obj)
         if object_type == "RegistrationInlineHookSSRData":
-            return import_module(
-                "okta.models.registration_inline_hook_ssr_data"
-            ).RegistrationInlineHookSSRData.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.RegistrationInlineHookSSRData.from_dict(obj)
 
         raise ValueError(
             "RegistrationInlineHookRequest failed to lookup discriminator value from "

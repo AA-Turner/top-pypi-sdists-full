@@ -28,7 +28,7 @@ pub(crate) async fn install(
     includes: Vec<String>,
     skips: Vec<String>,
     hook_types: Vec<HookType>,
-    install_hook_environments: bool,
+    prepare_hooks: bool,
     overwrite: bool,
     allow_missing_config: bool,
     refresh: bool,
@@ -93,14 +93,14 @@ pub(crate) async fn install(
         )?;
     }
 
-    if install_hook_environments {
-        install_hooks(store, config, includes, skips, refresh, printer).await?;
+    if prepare_hooks {
+        self::prepare_hooks(store, config, includes, skips, refresh, printer).await?;
     }
 
     Ok(ExitStatus::Success)
 }
 
-pub(crate) async fn install_hooks(
+pub(crate) async fn prepare_hooks(
     store: &Store,
     config: Option<PathBuf>,
     includes: Vec<String>,
@@ -391,7 +391,7 @@ pub(crate) async fn uninstall(
 
     for hook_type in get_hook_types(hook_types, project.as_ref(), config.as_deref()) {
         let hook_path = hooks_path.join(hook_type.as_ref());
-        let legacy_path = hooks_path.join(format!("{hook_type}.legacy"));
+        let legacy_path = hook_path.with_added_extension("legacy");
 
         if is_our_script(&legacy_path).unwrap_or(false) {
             fs_err::remove_file(&legacy_path)?;

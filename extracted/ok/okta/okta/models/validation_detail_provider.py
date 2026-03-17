@@ -117,10 +117,13 @@ class ValidationDetailProvider(BaseModel):
         """Create an instance of ValidationDetailProvider from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
+        # Import from okta.models to ensure class identity consistency with lazy imports
+        models = import_module("okta.models")
         if object_type == "WorkflowsValidationDetailProvider":
-            return import_module(
-                "okta.models.workflows_validation_detail_provider"
-            ).WorkflowsValidationDetailProvider.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.WorkflowsValidationDetailProvider.from_dict(obj)
 
         raise ValueError(
             "ValidationDetailProvider failed to lookup discriminator value from "

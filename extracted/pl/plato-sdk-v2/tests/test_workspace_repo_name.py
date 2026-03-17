@@ -144,6 +144,37 @@ class TestWorkspaceSpecsNormalization:
         world._workspaces["recordings"].restore.assert_called_once_with("step.1.stage.annotate")
 
     @pytest.mark.asyncio
+    async def test_resume_forwards_dvc_files_to_input_ref(self):
+        """When resuming from another session, dvc_files from the restored ref must be forwarded."""
+        world = self._make_world_with_workspaces(
+            "stripe",
+            {"webclone/stripe/recordings": "source-session:step.1.stage.ingest_recordings"},
+        )
+        world._download_state = AsyncMock(return_value=None)
+
+        fake_dvc_files = {"recordings": "outs:\n- md5: abc123\n  path: recordings\n"}
+
+        ws = world._workspaces["recordings"]
+
+        # Simulate restore setting _last_restored_dvc_files (as the real Workspace does)
+        async def fake_restore(step_name):
+            ws._last_restored_dvc_files = fake_dvc_files
+            ws._last_restored_source_ref_public_id = ""
+            return True
+
+        ws.restore = AsyncMock(side_effect=fake_restore)
+        ws._record_workspace_ref = AsyncMock()
+
+        result = await world.load_state()
+        assert result is True
+
+        # The input ref must carry the dvc_files, not an empty dict
+        ws._record_workspace_ref.assert_called_once()
+        call_args = ws._record_workspace_ref.call_args
+        recorded_dvc_files = call_args[0][2]  # 3rd positional arg
+        assert recorded_dvc_files == fake_dvc_files, f"Expected dvc_files to be forwarded but got: {recorded_dvc_files}"
+
+    @pytest.mark.asyncio
     async def test_short_field_name_keys_raise_error(self):
         """Config with short field names (code) should raise an error."""
         world = self._make_world_with_workspaces(

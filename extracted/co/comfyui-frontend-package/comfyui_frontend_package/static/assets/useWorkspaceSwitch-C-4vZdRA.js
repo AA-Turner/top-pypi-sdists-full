@@ -1,2 +1,0 @@
-import"./rolldown-runtime-DIIn1E2Q.js";import{l as e}from"./vendor-vue-core-DO0afONr.js";import{Oi as t}from"./dialogService-Cm1GEBK8.js";function useWorkspaceSwitch(){let n=t(),{activeWorkspace:r}=e(n);async function switchWorkspace(e){if(r.value?.id===e)return!0;try{return await n.switchWorkspace(e),!0}catch{return!1}}return{switchWorkspace}}export{useWorkspaceSwitch as t};
-//# sourceMappingURL=useWorkspaceSwitch-C-4vZdRA.js.map

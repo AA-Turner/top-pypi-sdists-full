@@ -55,19 +55,31 @@ class FileWatcher(FileSystemEventHandler):
         filepath = Path(event.src_path).absolute()
         filepath_str = str(filepath)
 
-        if self.should_ignore_path(filepath):
-            return
-
         content = None
         if isinstance(event, (FileCreatedEvent, DirCreatedEvent)):
             event_type = "created"
+            if self.should_ignore_path(filepath):
+                return
         elif isinstance(event, (FileDeletedEvent, DirDeletedEvent)):
             event_type = "deleted"
+            if self.should_ignore_path(filepath):
+                return
         elif isinstance(event, (FileMovedEvent, DirMovedEvent)):
             event_type = "moved"
+            # For move events, check both src_path and dest_path
+            # If the destination is not ignored, we should process the event
+            # This handles cases like os.replace() from .abstra/temp/ to abstra.json
+            dest_path = Path(event.dest_path).absolute()
+            if self.should_ignore_path(filepath) and self.should_ignore_path(dest_path):
+                return
+            # Use dest_path for the filepath since that's the relevant file after the move
+            if not self.should_ignore_path(dest_path):
+                filepath = dest_path
+                filepath_str = str(filepath)
         elif isinstance(event, FileModifiedEvent):
             event_type = "changed"
-
+            if self.should_ignore_path(filepath):
+                return
         else:
             return
 

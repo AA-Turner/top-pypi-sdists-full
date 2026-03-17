@@ -4,15 +4,17 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain, cycle, islice
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 import pytest
+from huggingface_hub import HfFileSystemResolvedPath
+from packaging import version
 
-from datasets import Dataset, load_dataset
+from datasets import Dataset, config, load_dataset
 from datasets.combine import concatenate_datasets, interleave_datasets
 from datasets.distributed import split_dataset_by_node
 from datasets.features import (
@@ -63,6 +65,15 @@ from .utils import (
     require_torchdata_stateful_dataloader,
 )
 
+
+if config.HF_HUB_VERSION >= version.parse("1.6.0"):
+    from huggingface_hub.errors import BucketNotFoundError
+    from huggingface_hub.hf_file_system import HfFileSystemResolvedBucketPath, HfFileSystemResolvedRepositoryPath
+
+else:
+    BucketNotFoundError = None
+    HfFileSystemResolvedBucketPath = None
+    HfFileSystemResolvedRepositoryPath = HfFileSystemResolvedPath
 
 SAMPLE_DATASET_IDENTIFIER = "hf-internal-testing/dataset_with_data_files"
 
@@ -1328,10 +1339,10 @@ def test_no_iter_arrow(ex_iterable: _BaseExamplesIterable):
     [
         ArrowExamplesIterable(generate_tables_fn, {}),
         SelectColumnsIterable(ArrowExamplesIterable(generate_tables_fn, {}), ["id"]),
-        # StepExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 2, 0),  # not implemented
+        StepExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 2, 0),
         # CyclingMultiSourcesExamplesIterable([ArrowExamplesIterable(generate_tables_fn, {})]),  # not implemented
         VerticallyConcatenatedMultiSourcesExamplesIterable([ArrowExamplesIterable(generate_tables_fn, {})]),
-        # HorizontallyConcatenatedMultiSourcesExamplesIterable([ArrowExamplesIterable(generate_tables_fn, {})]),  # not implemented
+        HorizontallyConcatenatedMultiSourcesExamplesIterable([ArrowExamplesIterable(generate_tables_fn, {})]),
         # RandomlyCyclingMultiSourcesExamplesIterable([ArrowExamplesIterable(generate_tables_fn, {})], np.random.default_rng(42)),  # not implemented
         MappedExamplesIterable(
             RebatchedArrowExamplesIterable(ExamplesIterable(generate_examples_fn, {}), batch_size=1),
@@ -1354,8 +1365,8 @@ def test_no_iter_arrow(ex_iterable: _BaseExamplesIterable):
             formatting=FormattingConfig(format_type="arrow"),
         ),
         # BufferShuffledExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 10, np.random.default_rng(42)),  # not implemented
-        # SkipExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 10),  # not implemented
-        # TakeExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 10),  # not implemented
+        SkipExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 10),
+        TakeExamplesIterable(ArrowExamplesIterable(generate_tables_fn, {}), 10),
         FormattedExamplesIterable(
             ArrowExamplesIterable(generate_tables_fn, {}), None, Features({"id": Value("int32")}), token_per_repo_id={}
         ),
@@ -1380,6 +1391,147 @@ def test_iterable_dataset():
     expected = [x for _, x in generate_examples_fn()]
     assert next(iter(dataset)) == expected[0]
     assert list(dataset) == expected
+
+
+def test_iterable_dataset_push_to_hub_max_shard_size_and_num_shards_are_mutually_exclusive():
+    dataset = IterableDataset.from_generator(lambda: iter([{"id": 0}]))
+    with pytest.raises(ValueError, match="either max_shard_size or num_shards"):
+        dataset.push_to_hub("user/dataset", max_shard_size="1MB", num_shards=2)
+
+
+def test_iterable_dataset_push_to_hub_single_shard_disables_multiprocessing():
+    dataset = IterableDataset.from_generator(lambda: iter([{"id": 0}]))
+    mock_context = MagicMock()
+    mock_pool = MagicMock()
+    mock_pool_cls = MagicMock(return_value=mock_pool)
+    mock_context.Pool = mock_pool_cls
+    with (
+        patch("multiprocess.get_context", return_value=mock_context),
+        patch.object(
+            IterableDataset,
+            "_push_parquet_shards_to_hub_single",
+            return_value=iter([(0, True, ([], [], Features(), 0, 1))]),
+        ),
+    ):
+        additions, new_parquet_paths, features, spit_info, uploaded_size = dataset._push_parquet_shards_to_hub(
+            resolved_output_path=HfFileSystemResolvedRepositoryPath(
+                repo_type="dataset", repo_id="user/dataset", revision="main", path_in_repo=""
+            ),
+            data_dir="data",
+            split="train",
+            token=None,
+            create_pr=False,
+            max_shard_size=None,
+            num_shards=1,
+            embed_external_files=False,
+            num_proc=4,
+        )
+    mock_pool.assert_not_called()
+    assert additions == []
+    assert new_parquet_paths == []
+    assert features == Features()
+    assert spit_info.name == "train"
+    assert spit_info.num_bytes == 0
+    assert spit_info.num_examples == 1
+    assert uploaded_size == 0
+
+
+def test_iterable_dataset_push_to_hub_default_num_shards_uses_dataset_num_shards():
+    def gen(shard_names):
+        for shard_name in shard_names:
+            yield {"shard_name": shard_name}
+
+    dataset = IterableDataset.from_generator(gen, gen_kwargs={"shard_names": ["train-0", "train-1", "train-2"]})
+    captured_num_shards = {}
+
+    def mock_push_single(**kwargs):
+        captured_num_shards["value"] = kwargs["num_shards"]
+        return iter([(0, True, ([], [], Features(), 0, 0))])
+
+    with patch.object(IterableDataset, "_push_parquet_shards_to_hub_single", side_effect=mock_push_single):
+        dataset._push_parquet_shards_to_hub(
+            resolved_output_path=HfFileSystemResolvedRepositoryPath(
+                repo_type="dataset", repo_id="user/dataset", revision="main", path_in_repo=""
+            ),
+            data_dir="data",
+            split="train",
+            token=None,
+            create_pr=False,
+            max_shard_size=None,
+            num_shards=None,
+            embed_external_files=False,
+            num_proc=None,
+        )
+
+    assert captured_num_shards["value"] == dataset.num_shards
+
+
+def test_iterable_dataset_push_to_hub_max_shard_size_computes_num_shards_from_estimated_size():
+    dataset = Dataset.from_dict({"id": list(range(16)), "text": ["value"] * 16}).to_iterable_dataset()
+    estimated_nbytes = sum(
+        table.nbytes for table in dataset.with_format("arrow").iter(batch_size=config.DEFAULT_MAX_BATCH_SIZE)
+    )
+    max_shard_size = max(1, estimated_nbytes // 2)
+    expected_num_shards = max(int(estimated_nbytes / max_shard_size) + 1, 1)
+    captured_num_shards = {}
+
+    def mock_push_single(**kwargs):
+        captured_num_shards["value"] = kwargs["num_shards"]
+        return iter([(0, True, ([], [], Features(), 0, 0))])
+
+    with patch.object(IterableDataset, "_push_parquet_shards_to_hub_single", side_effect=mock_push_single):
+        dataset._push_parquet_shards_to_hub(
+            resolved_output_path=HfFileSystemResolvedRepositoryPath(
+                repo_type="dataset", repo_id="user/dataset", revision="main", path_in_repo=""
+            ),
+            data_dir="data",
+            split="train",
+            token=None,
+            create_pr=False,
+            max_shard_size=max_shard_size,
+            num_shards=None,
+            embed_external_files=False,
+            num_proc=None,
+        )
+
+    assert captured_num_shards["value"] == expected_num_shards
+
+
+def test_iterable_dataset_push_to_hub_max_shard_size_respects_num_proc_floor():
+    dataset = IterableDataset.from_generator(
+        lambda shard_names: ({"shard_name": shard_name} for shard_name in shard_names),
+        gen_kwargs={"shard_names": ["train-0", "train-1", "train-2"]},
+    )
+    estimated_nbytes = sum(
+        table.nbytes for table in dataset.with_format("arrow").iter(batch_size=config.DEFAULT_MAX_BATCH_SIZE)
+    )
+    requested_num_proc = dataset.num_shards
+    max_shard_size = max(estimated_nbytes * 2, 1)
+    expected_num_shards = max(int(estimated_nbytes / max_shard_size) + 1, requested_num_proc)
+
+    with (
+        patch(
+            "datasets.iterable_dataset.iflatmap_unordered",
+            return_value=iter([(0, True, ([], [], Features(), 0, 0))]),
+        ) as mock_iflatmap_unordered,
+    ):
+        dataset._push_parquet_shards_to_hub(
+            resolved_output_path=HfFileSystemResolvedRepositoryPath(
+                repo_id="user/dataset", path_in_repo="", revision="main", repo_type="dataset"
+            ),
+            data_dir="data",
+            split="train",
+            token=None,
+            create_pr=False,
+            max_shard_size=max_shard_size,
+            num_shards=None,
+            embed_external_files=False,
+            num_proc=requested_num_proc,
+        )
+
+    kwargs_iterable = mock_iflatmap_unordered.call_args.kwargs["kwargs_iterable"]
+    assert len(kwargs_iterable) == requested_num_proc
+    assert {job_kwargs["num_shards"] for job_kwargs in kwargs_iterable} == {expected_num_shards}
 
 
 def test_iterable_dataset_from_generator():
@@ -1408,6 +1560,43 @@ def test_iterable_dataset_from_generator_with_shards():
     dataset = IterableDataset.from_generator(gen, gen_kwargs={"shard_names": shard_names})
     assert isinstance(dataset, IterableDataset)
     assert dataset.num_shards == len(shard_names)
+
+
+def test_iterable_dataset_to_pandas_preserves_declared_features():
+    features = Features({"col": Value("int32")})
+    dataset = Dataset.from_dict({"col": [0, None]}, features=features).to_iterable_dataset()
+
+    df = dataset.to_pandas()
+    assert list(df.columns) == ["col"]
+    assert df["col"].iloc[0] == 0
+    assert pd.isna(df["col"].iloc[1])
+
+    batches = list(dataset.to_pandas(batch_size=1, batched=True))
+    assert len(batches) == 2
+    assert batches[0]["col"].iloc[0] == 0
+    assert pd.isna(batches[1]["col"].iloc[0])
+
+
+def test_iterable_dataset_to_pandas_casts_when_schema_mismatch():
+    from datasets.table import cast_table_to_features as original_cast_table_to_features
+
+    features = Features({"col": Value("int32")})
+    dataset = IterableDataset(
+        ExamplesIterable(lambda: iter([("0", {"col": 0}), ("1", {"col": 1})]), {}),
+        info=DatasetInfo(features=features),
+    )
+
+    with patch(
+        "datasets.iterable_dataset.cast_table_to_features",
+        wraps=original_cast_table_to_features,
+    ) as mock_cast:
+        df = dataset.to_pandas()
+        batches = list(dataset.to_pandas(batch_size=1, batched=True))
+
+    assert mock_cast.call_count >= 1
+    assert list(df.columns) == ["col"]
+    assert df["col"].iloc[0] == 0
+    assert len(batches) == 2
 
 
 @require_numpy1_on_windows

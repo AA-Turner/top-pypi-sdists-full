@@ -935,14 +935,20 @@ class CapsuleDeployer:
         # then adding them as a part of a state-machine that helps track transitions and
         # helps derive terminal states.
         # We will first keep checking for terminal conditions or outright failure conditions
-        # If we reach a teminal condition like described in `DEPLOYMENT_READY_CONDITIONS`, then
+        # If we reach a terminal condition like described in `DEPLOYMENT_READY_CONDITIONS`, then
         # we will further check for readiness conditions.
+        # The readiness conditions in DEPLOYMENT_READY_CONDITIONS also account for
+        # readyToServeTraffic from the backend, so there is no separate phase for
+        # waiting on traffic readiness.
         _timed_out = False
+        _logged_waiting_for_traffic = False
         for i in range(self._create_timeout):
             time.sleep(STATE_REFRESH_FREQUENCY)
             capsule_response, _ = self._update_capsule_and_worker_sm(  # [2 API calls]
                 state_machine, workers_state_machine, logger
             )
+
+            # Check worker readiness and failure conditions.
             # Deployment readiness checks will determine what is the terminal state
             # of the workerstate machine. If we detect a terminal state in the workers,
             # then even if the capsule upgrade is still in progress we will end up crashing
@@ -1019,17 +1025,31 @@ class CapsuleDeployer:
                             logs=logs,
                         )
 
-                if state_machine.ready_to_serve_traffic:
-                    logger(
-                        "💊 %s %s is ready to serve traffic on the URL: %s"
-                        % (
-                            self.capsule_type,
-                            self.identifier,
-                            state_machine.out_of_cluster_url,
-                        ),
-                    )
-
+                # capsule_ready includes readyToServeTraffic check,
+                # so we can break directly.
+                logger(
+                    "💊 %s %s is ready to serve traffic on the URL: %s"
+                    % (
+                        self.capsule_type,
+                        self.identifier,
+                        state_machine.out_of_cluster_url,
+                    ),
+                )
                 break
+
+            # Log once when workers are running but capsule is not yet ready
+            # to serve traffic (e.g. health checks, routing propagation).
+            worker_status = workers_state_machine.current_version_deployment_status()
+            if (
+                not _logged_waiting_for_traffic
+                and worker_status["status"]["at_least_one_running"]
+                and not state_machine.ready_to_serve_traffic
+            ):
+                logger(
+                    "💊 Workers are running. Waiting for %s to be ready to serve traffic..."
+                    % self.capsule_type.lower()
+                )
+                _logged_waiting_for_traffic = True
 
             self._publish_capsule_debug_info(
                 state_machine, workers_state_machine, capsule_response

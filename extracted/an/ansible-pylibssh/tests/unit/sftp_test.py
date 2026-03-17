@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Tests suite for sftp."""
 
 import random
@@ -32,11 +30,13 @@ def transmit_payload(request: pytest.FixtureRequest) -> bytes:
     The choice 32 is arbitrary small value.
 
     The choice SFTP_MAX_CHUNK + 1 (32kB + 1B) is meant to be 1B larger than the chunk
-    size used in :file:`sftp.pyx` to make sure we excercise at least two rounds of
+    size used in :file:`sftp.pyx` to make sure we exercise at least two rounds of
     reading/writing.
     """
     payload_len = request.param
-    random_bytes = [ord(random.choice(string.printable)) for _ in range(payload_len)]
+    random_bytes = [
+        ord(random.choice(string.printable)) for _ in range(payload_len)
+    ]
     return bytes(random_bytes)
 
 
@@ -67,7 +67,7 @@ def dst_path(file_paths_pair):
 def other_payload():
     """Generate a binary test payload."""
     uuid_name = uuid.uuid4()
-    return 'Original content: {name!s}'.format(name=uuid_name).encode()
+    return f'Original content: {uuid_name!s}'.encode()
 
 
 @pytest.fixture
@@ -95,13 +95,23 @@ def test_get(dst_path, src_path, sftp_session, transmit_payload):
     assert dst_path.read_bytes() == transmit_payload
 
 
-def test_get_existing(pre_existing_dst_path, src_path, sftp_session, transmit_payload):
+def test_get_existing(
+    pre_existing_dst_path,
+    src_path,
+    sftp_session,
+    transmit_payload,
+):
     """Check that SFTP file download works when target file exists."""
     sftp_session.get(str(src_path), str(pre_existing_dst_path))
     assert pre_existing_dst_path.read_bytes() == transmit_payload
 
 
-def test_put_existing(pre_existing_dst_path, src_path, sftp_session, transmit_payload):
+def test_put_existing(
+    pre_existing_dst_path,
+    src_path,
+    sftp_session,
+    transmit_payload,
+):
     """Check that SFTP file upload works when target file exists."""
     sftp_session.put(str(src_path), str(pre_existing_dst_path))
     assert pre_existing_dst_path.read_bytes() == transmit_payload

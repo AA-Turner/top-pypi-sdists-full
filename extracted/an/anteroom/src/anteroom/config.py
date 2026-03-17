@@ -798,6 +798,32 @@ class ComplianceConfig:
 
 
 @dataclass
+class WorkflowCredentialConfig:
+    """A named credential reference for workflow steps (#970).
+
+    Each credential is either an env var lookup or a shell command.
+    Raw secret values are never stored in config — only references.
+    """
+
+    name: str
+    env_var: str | None = None
+    command: str | None = None
+    allowed_runners: list[str] | None = None  # None = all; ["shell"] = restrict
+
+
+@dataclass
+class WorkflowBudgetConfig:
+    """Per-run budget ceilings for workflow execution (#967).
+
+    Zero means unlimited for that dimension.
+    """
+
+    max_duration_seconds: int = 0
+    max_steps: int = 0
+    max_tokens: int = 0
+
+
+@dataclass
 class WorkflowConfig:
     """Workflow automation and orchestration settings."""
 
@@ -809,6 +835,8 @@ class WorkflowConfig:
     approval_timeout: int = 300
     registry_enabled: bool = True
     registry_heartbeat_interval: int = 30
+    budget: WorkflowBudgetConfig = field(default_factory=WorkflowBudgetConfig)
+    credentials: list[WorkflowCredentialConfig] = field(default_factory=list)
 
     _MIN_STEP_TIMEOUT: int = field(default=10, init=False, repr=False)
     _MAX_STEP_TIMEOUT: int = field(default=3600, init=False, repr=False)
@@ -2155,6 +2183,74 @@ def load_config(
         )
     compliance_config = ComplianceConfig(rules=compliance_rules)
 
+    # --- Workflow config -------------------------------------------------------
+    workflow_raw = raw.get("workflow", {})
+    if not isinstance(workflow_raw, dict):
+        workflow_raw = {}
+    budget_raw = workflow_raw.get("budget", {})
+    if not isinstance(budget_raw, dict):
+        budget_raw = {}
+    try:
+        budget_max_dur = max(0, int(budget_raw.get("max_duration_seconds", 0)))
+    except (ValueError, TypeError):
+        budget_max_dur = 0
+    try:
+        budget_max_steps = max(0, int(budget_raw.get("max_steps", 0)))
+    except (ValueError, TypeError):
+        budget_max_steps = 0
+    try:
+        budget_max_tokens = max(0, int(budget_raw.get("max_tokens", 0)))
+    except (ValueError, TypeError):
+        budget_max_tokens = 0
+    workflow_budget = WorkflowBudgetConfig(
+        max_duration_seconds=budget_max_dur,
+        max_steps=budget_max_steps,
+        max_tokens=budget_max_tokens,
+    )
+    workflow_kwargs: dict[str, Any] = {"budget": workflow_budget}
+    for wf_key, wf_default in [
+        ("enabled", True),
+        ("max_review_rounds", 2),
+        ("step_timeout", 300),
+        ("heartbeat_interval", 30),
+        ("stale_threshold", 60),
+        ("approval_timeout", 300),
+        ("registry_enabled", True),
+        ("registry_heartbeat_interval", 30),
+    ]:
+        val = workflow_raw.get(wf_key, wf_default)
+        if isinstance(wf_default, bool):
+            if isinstance(val, bool):
+                workflow_kwargs[wf_key] = val
+            else:
+                workflow_kwargs[wf_key] = str(val).lower() in ("true", "1", "yes")
+        elif isinstance(wf_default, int):
+            try:
+                workflow_kwargs[wf_key] = int(val)
+            except (ValueError, TypeError):
+                workflow_kwargs[wf_key] = wf_default
+    # Parse workflow credentials
+    creds_raw = workflow_raw.get("credentials", [])
+    if not isinstance(creds_raw, list):
+        creds_raw = []
+    workflow_creds: list[WorkflowCredentialConfig] = []
+    for cred_entry in creds_raw:
+        if not isinstance(cred_entry, dict):
+            continue
+        cred_name = str(cred_entry.get("name", "")).strip()
+        if not cred_name:
+            continue
+        workflow_creds.append(
+            WorkflowCredentialConfig(
+                name=cred_name,
+                env_var=cred_entry.get("env_var"),
+                command=cred_entry.get("command"),
+                allowed_runners=cred_entry.get("allowed_runners"),
+            )
+        )
+    workflow_kwargs["credentials"] = workflow_creds
+    workflow_config = WorkflowConfig(**workflow_kwargs)
+
     pack_sources_raw = raw.get("pack_sources", [])
     if not isinstance(pack_sources_raw, list):
         pack_sources_raw = []
@@ -2211,6 +2307,7 @@ def load_config(
             rate_limit=rate_limit_config,
             audit=audit_config,
             compliance=compliance_config,
+            workflow=workflow_config,
             pack_sources=pack_sources_list,
         ),
         enforced_fields,

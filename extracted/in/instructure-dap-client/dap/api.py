@@ -36,6 +36,7 @@ from .dap_error import (
     AccountDisabledError,
     AccountNotOnboardedError,
     AccountUnderMaintenanceError,
+    RequestTypeForbiddenError,
     AuthenticationError,
     NotFoundError,
     OperationError,
@@ -122,11 +123,15 @@ class DAPClient:
         if credentials is None:
             client_id = os.getenv("DAP_CLIENT_ID")
             if not client_id:
-                raise DAPClientError("Missing DAP client ID. Please provide the client ID before proceeding. Obtain it from identity.instructure.com")
+                raise DAPClientError(
+                    "Missing DAP client ID. Please provide the client ID before proceeding. Obtain it from identity.instructure.com"
+                )
 
             client_secret = os.getenv("DAP_CLIENT_SECRET")
             if not client_secret:
-                raise DAPClientError("Missing DAP client secret. Please provide the client secret before proceeding. Obtain it from identity.instructure.com")
+                raise DAPClientError(
+                    "Missing DAP client secret. Please provide the client secret before proceeding. Obtain it from identity.instructure.com"
+                )
 
             credentials = Credentials.create(
                 client_id=client_id, client_secret=client_secret
@@ -148,8 +153,14 @@ class DAPClient:
         session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=30 * 60, connect=30),
         )
-        tracking_data = TrackingData(client_id=self._credentials.client_id) if self._tracking else None
-        self._session = DAPSession(session, self._base_url, self._credentials, tracking_data)
+        tracking_data = (
+            TrackingData(client_id=self._credentials.client_id)
+            if self._tracking
+            else None
+        )
+        self._session = DAPSession(
+            session, self._base_url, self._credentials, tracking_data
+        )
         return self._session
 
     async def __aexit__(
@@ -222,7 +233,11 @@ class DAPSession:
         return f"00-{trace_id}-{span_id}-{trace_flags}"
 
     def __init__(
-        self, session: aiohttp.ClientSession, base_url: str, credentials: Credentials, tracking_data: Optional[TrackingData] = None
+        self,
+        session: aiohttp.ClientSession,
+        base_url: str,
+        credentials: Credentials,
+        tracking_data: Optional[TrackingData] = None,
     ) -> None:
         """
         Creates a new logical session by encapsulating a network connection.
@@ -277,7 +292,7 @@ class DAPSession:
         ) as response:
             return await self._process(response, response_type)
 
-    @typing.no_type_check # mypy shits itself on Union type used in json_to_object
+    @typing.no_type_check  # mypy shits itself on Union type used in json_to_object
     def _map_to_error_type(
         self, status_code: int, response_body: Any
     ) -> Union[
@@ -305,15 +320,26 @@ class DAPSession:
                 return json_to_object(AuthenticationError, response_body_error)
             elif status_code == HTTPStatus.FORBIDDEN.value:
                 return json_to_object(
-                    Union[AccountDisabledError, AccountNotOnboardedError, AccountUnderMaintenanceError],
+                    Union[
+                        AccountDisabledError,
+                        AccountNotOnboardedError,
+                        AccountUnderMaintenanceError,
+                        RequestTypeForbiddenError,
+                    ],
                     response_body_error,
                 )
             else:
                 return json_to_object(
-                    Union[ValidationError, NotFoundError, OutOfRangeError, SnapshotRequiredError, ProcessingError],
+                    Union[
+                        ValidationError,
+                        NotFoundError,
+                        OutOfRangeError,
+                        SnapshotRequiredError,
+                        ProcessingError,
+                    ],
                     response_body_error,
                 )
-        except:
+        except Exception:
             return ServerError(response_body_error)
 
     async def _post(self, path: str, request_data: Any, response_type: Type[T]) -> T:
@@ -372,9 +398,13 @@ class DAPSession:
         else:
             response_text = await response.text()
             if response_text:
-                logger.error(f"Unexpected response from server. Unable to parse the HTTP response. \n{response_text}")
+                logger.error(
+                    f"Unexpected response from server. Unable to parse the HTTP response. \n{response_text}"
+                )
 
-            raise DAPClientError("Unexpected response from server. Unable to parse the HTTP response.")
+            raise DAPClientError(
+                "Unexpected response from server. Unable to parse the HTTP response."
+            )
 
         if not suppress_output:
             logger.debug(f"GET/POST response payload:\n{repr(response_payload)}")
@@ -465,7 +495,9 @@ class DAPSession:
             ui.error(err_str)
             logger.error(err_str)
         elif isinstance(e, (asyncio.exceptions.CancelledError, KeyboardInterrupt)):
-            err_str = f"Operation {operation_name} was interrupted: {e.__class__.__name__}"
+            err_str = (
+                f"Operation {operation_name} was interrupted: {e.__class__.__name__}"
+            )
             ui.warning(err_str)
             logger.error(err_str)
         else:
@@ -497,18 +529,22 @@ class DAPSession:
         exceptions: list[BaseException] = []
         for idx, table in enumerate(table_list):
             if idx > 0:
-                print() # empty lines between tables for better readability
+                print()  # empty lines between tables for better readability
             tables_idx_progress_str = ""
             if len(table_list) > 1:
                 tables_idx_progress_str = f" ({idx + 1} of {len(table_list)})"
             try:
-                ui.title(f"Executing [bold]{operation_name}[/bold] on table [bold]{table}[/bold]{tables_idx_progress_str}")
+                ui.title(
+                    f"Executing [bold]{operation_name}[/bold] on table [bold]{table}[/bold]{tables_idx_progress_str}"
+                )
                 logger.info(
                     f"Starting {operation_name} of table '{table}'{tables_idx_progress_str}"
                 )
                 result = await operation(namespace, table)
-                ui.success(f"Operation [bold]{operation_name}[/bold] completed successfully "
-                           f"on table [bold]{table}[/bold]{tables_idx_progress_str}")
+                ui.success(
+                    f"Operation [bold]{operation_name}[/bold] completed successfully "
+                    f"on table [bold]{table}[/bold]{tables_idx_progress_str}"
+                )
                 logger.info(
                     f"Finished {operation_name} of table '{table}'{tables_idx_progress_str}"
                 )
@@ -526,7 +562,9 @@ class DAPSession:
                 KeyboardInterrupt,
             ) as e:
                 self._log_error(operation_name, e)
-                ui.error(f"Operation [bold]{operation_name}[/bold] failed for table [bold]{table}[/bold]{tables_idx_progress_str}")
+                ui.error(
+                    f"Operation [bold]{operation_name}[/bold] failed for table [bold]{table}[/bold]{tables_idx_progress_str}"
+                )
                 logger.error(
                     f"Operation {operation_name} failed for table '{table}'{tables_idx_progress_str}"
                 )
@@ -534,7 +572,9 @@ class DAPSession:
                 break
             except Exception as e:
                 self._log_error(operation_name, e)
-                ui.error(f"Operation [bold]{operation_name}[/bold] failed for table [bold]{table}[/bold]{tables_idx_progress_str}")
+                ui.error(
+                    f"Operation [bold]{operation_name}[/bold] failed for table [bold]{table}[/bold]{tables_idx_progress_str}"
+                )
                 logger.error(
                     f"Operation {operation_name} failed for table '{table}'{tables_idx_progress_str}"
                 )
@@ -543,7 +583,9 @@ class DAPSession:
             self.tracking_data.set_cmd_info(operation_name, namespace, tables)
         skipped_table_count = len(table_list) - (len(results) + len(exceptions))
         if len(exceptions) > 0:
-            skipped_tables_str = f", {skipped_table_count} skipped" if skipped_table_count > 0 else ""
+            skipped_tables_str = (
+                f", {skipped_table_count} skipped" if skipped_table_count > 0 else ""
+            )
             raise BaseExceptionGroup(
                 f"Operation {operation_name} completed with issues: {len(exceptions)} failed{skipped_tables_str} out of {len(table_list)} table(s).",
                 exceptions,
@@ -558,7 +600,8 @@ class DAPSession:
             )
 
         await self.execute_operation_on_tables(
-            namespace, tables,
+            namespace,
+            tables,
             "snapshot" if isinstance(query, SnapshotQuery) else "incremental",
             download_fn,
         )
@@ -717,8 +760,9 @@ class DAPSession:
         :param decompress: If True, the file will be decompressed after downloading. Default is False.
         :returns: A list of paths to files saved in the local file system.
         """
-        with ui.JobProgress("Downloading files from server...",
-                            total_steps=len(objects)) as progress:
+        with ui.JobProgress(
+            "Downloading files from server...", total_steps=len(objects)
+        ) as progress:
             downloads = [
                 self.download_object(object, output_directory, decompress, progress)
                 for object in objects
@@ -728,7 +772,11 @@ class DAPSession:
         return local_files
 
     async def download_object(
-        self, object: Object, output_directory: str, decompress: bool, progress: ui.JobProgress | None = None
+        self,
+        object: Object,
+        output_directory: str,
+        decompress: bool,
+        progress: ui.JobProgress | None = None,
     ) -> str:
         """
         Save a single remote file to a local directory.
@@ -761,7 +809,9 @@ class DAPSession:
             str(resource.url), headers=self._headers
         ) as response:
             if not response.ok:
-                raise DownloadError(f"Request failed with HTTP status code: {response.status}")
+                raise DownloadError(
+                    f"Request failed with HTTP status code: {response.status}"
+                )
 
             yield response.content
 
@@ -856,7 +906,9 @@ class DAPSession:
 
         # fail early if query format is Parquet and decompression is requested
         if decompress and query.format == Format.Parquet:
-            raise DAPClientError("Decompression is not supported for ‘parquet’ format. Please use another format.")
+            raise DAPClientError(
+                "Decompression is not supported for 'parquet' format. Please use another format."
+            )
 
         # fail early if output directory does not exist and cannot be created
         os.makedirs(output_directory, exist_ok=True)
@@ -864,14 +916,20 @@ class DAPSession:
         job = await self.execute_job(namespace, table, query)
 
         if job.status is not JobStatus.Complete:
-            raise DAPClientError(f"Query job ended with status: {job.status.value}. Please review the job logs.")
+            raise DAPClientError(
+                f"Query job ended with status: {job.status.value}. Please review the job logs."
+            )
 
         objects = await self.get_objects(job.id)
         directory = os.path.join(output_directory, f"job_{job.id}")
 
         downloaded_files = await self.download_objects(objects, directory, decompress)
-        file_count_str = f"{len(downloaded_files)} files" if len(downloaded_files) > 1 else "file"
-        ui.info(f"Downloaded {file_count_str} to [underline]{directory}[/underline]", )
+        file_count_str = (
+            f"{len(downloaded_files)} files" if len(downloaded_files) > 1 else "file"
+        )
+        ui.info(
+            f"Downloaded {file_count_str} to [underline]{directory}[/underline]",
+        )
         logger.info(f"Files from server downloaded to folder: {directory}")
 
         if isinstance(job, CompleteSnapshotJob):
@@ -889,7 +947,9 @@ class DAPSession:
                 job.schema_version, job.until, job.id, downloaded_files
             )
         else:
-            raise DAPClientError(f"Unexpected job type: {type(job)}. Please verify the input.")
+            raise DAPClientError(
+                f"Unexpected job type: {type(job)}. Please verify the input."
+            )
 
     async def get_table_data(
         self, namespace: str, table: str, query: Query
@@ -920,10 +980,14 @@ class DAPSession:
                 )
 
             else:
-                raise DAPClientError(f"Unexpected job type: {type(job)}. Please verify the input.")
+                raise DAPClientError(
+                    f"Unexpected job type: {type(job)}. Please verify the input."
+                )
 
         else:
-            raise DAPClientError(f"Query job ended with status: {job.status.value}. Please review the job logs.")
+            raise DAPClientError(
+                f"Query job ended with status: {job.status.value}. Please review the job logs."
+            )
 
 
 class DownloadError(DAPClientError):

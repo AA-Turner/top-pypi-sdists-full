@@ -219,9 +219,7 @@ async def start_chat_turn(api_key: str, base_api_url: str, base_ws_url: str, cha
     result = await graphql_client.start_chat_turn(
         chat_uuid=chat_uuid,
         prompt=prompt,
-        parent_uuid=None,
         require_confirmation=False,
-        read_only=False,
         depth_limit=20,
     )
 
@@ -267,7 +265,13 @@ async def start_client(
         base_ws_url=base_ws_url,
         working_directory=os.getcwd(),
     ) as client:
-        main_coro = client.run_connection(chat_uuid, connection_tracker, timeout_seconds)
+        terminal_controller_socket = os.environ.get("INDENT_TERMINAL_CONTROLLER_SOCKET")
+        main_coro = client.run_connection(
+            chat_uuid,
+            connection_tracker,
+            timeout_seconds,
+            terminal_controller_socket_path=terminal_controller_socket,
+        )
         aux_coros: list[Coroutine[Any, Any, None]] = []
 
         if prompt:

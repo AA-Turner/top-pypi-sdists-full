@@ -15,6 +15,8 @@ _BUILTIN_PLATFORMS: Dict[str, tuple] = {
     "discord": ("praisonai.bots.discord", "DiscordBot"),
     "slack": ("praisonai.bots.slack", "SlackBot"),
     "whatsapp": ("praisonai.bots.whatsapp", "WhatsAppBot"),
+    "email": ("praisonai.bots.email", "EmailBot"),
+    "agentmail": ("praisonai.bots.agentmail", "AgentMailBot"),
 }
 
 # Custom platforms registered at runtime

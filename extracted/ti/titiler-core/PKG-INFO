@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: titiler-core
-Version: 1.2.1
+Version: 2.0.0
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
@@ -28,9 +28,8 @@ Requires-Dist: morecantile
 Requires-Dist: numpy
 Requires-Dist: pydantic~=2.0
 Requires-Dist: rasterio
-Requires-Dist: rio-tiler<9.0,>=8.0
+Requires-Dist: rio-tiler<10.0,>=9.0
 Requires-Dist: simplejson
-Requires-Dist: typing-extensions>=4.6.1
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == 'telemetry'
 Requires-Dist: opentelemetry-exporter-otlp; extra == 'telemetry'

@@ -10,7 +10,6 @@ class AgentSubtype(str, Enum):
 
 
 class ChatMode(str, Enum):
-    DEFAULT = "DEFAULT"
     CLI = "CLI"
     CLOUD = "CLOUD"
     CLOUD_SETUP = "CLOUD_SETUP"
@@ -20,6 +19,7 @@ class ChatMode(str, Enum):
     WORKFLOW = "WORKFLOW"
     PLAYGROUND = "PLAYGROUND"
     ONCALL = "ONCALL"
+    ENVIRONMENT_SETUP = "ENVIRONMENT_SETUP"
 
 
 class ModelName(str, Enum):
@@ -69,6 +69,7 @@ class ModelName(str, Enum):
     GEMINI_20_FLASH_EXP = "GEMINI_20_FLASH_EXP"
     GEMINI_2_5_PRO = "GEMINI_2_5_PRO"
     GEMINI_3_PRO = "GEMINI_3_PRO"
+    GEMINI_3_1_PRO = "GEMINI_3_1_PRO"
     DEEPSEEK_2_POINT_5 = "DEEPSEEK_2_POINT_5"
     DEEPSEEK_V3 = "DEEPSEEK_V3"
     DEEPSEEK_R1 = "DEEPSEEK_R1"

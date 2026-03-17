@@ -476,8 +476,8 @@ class PolarRadiusAxis(Recharts):
         cls,
         *children,
         angle: Var[int] | int | None = None,
-        type_: Literal["category", "number"]
-        | Var[Literal["category", "number"]]
+        type_: Literal["auto", "category", "number"]
+        | Var[Literal["auto", "category", "number"]]
         | None = None,
         allow_duplicated_category: Var[bool] | bool | None = None,
         cx: Var[int] | int | None = None,

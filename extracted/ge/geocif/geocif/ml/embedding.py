@@ -18,6 +18,42 @@ from scipy.stats import pearsonr
 from tqdm import tqdm
 
 
+def _ccc_series(x: pd.Series, y: pd.Series) -> float:
+    """Lin's Concordance Correlation Coefficient between two series."""
+    mask = x.notna() & y.notna()
+    if mask.sum() < 3:
+        return np.nan
+    x_m, y_m = x[mask], y[mask]
+    mx, my = x_m.mean(), y_m.mean()
+    sx, sy = x_m.std(ddof=0), y_m.std(ddof=0)
+    if sx == 0 or sy == 0:
+        return np.nan
+    r = np.corrcoef(x_m, y_m)[0, 1]
+    cb = 2 * sx * sy / (sx**2 + sy**2 + (mx - my)**2)
+    return round(r * cb, 3)
+
+
+def _ccc_corrwith(df: pd.DataFrame, y: pd.Series) -> pd.Series:
+    """CCC of each column in df against y (replaces corrwith)."""
+    results = {}
+    y_vals = y.values.astype(float)
+    for col in df.columns:
+        x_vals = df[col].values.astype(float)
+        mask = ~(np.isnan(x_vals) | np.isnan(y_vals))
+        n = mask.sum()
+        if n < 3:
+            continue
+        xm, ym = x_vals[mask], y_vals[mask]
+        mx, my = xm.mean(), ym.mean()
+        sx, sy = xm.std(ddof=0), ym.std(ddof=0)
+        if sx == 0 or sy == 0:
+            continue
+        r = np.corrcoef(xm, ym)[0, 1]
+        cb = 2 * sx * sy / (sx**2 + sy**2 + (mx - my)**2)
+        results[col] = round(r * cb, 3)
+    return pd.Series(results, dtype=float)
+
+
 def extract_regions(
     X: pd.DataFrame, 
     y: pd.Series, 
@@ -114,11 +150,9 @@ def _compute_correlations_fast(X: pd.DataFrame, y: pd.Series) -> pd.Series:
     if numeric_df.empty:
         return pd.Series(dtype=float)
     
-    # Use pandas corrwith for vectorized correlation
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        correlations = numeric_df.corrwith(y).round(3)
-    
+    # Use CCC (Lin's Concordance Correlation Coefficient) instead of Pearson
+    correlations = _ccc_corrwith(numeric_df, y)
+
     return correlations.dropna()
 
 
@@ -222,10 +256,8 @@ def get_all_features_correlation(
     frames: list[pd.DataFrame] = []
 
     for region_id, group in tqdm(df_all.groupby("Region", sort=False), leave=False):
-        # Vectorized correlation computation
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            correlations = group[numeric_cols].corrwith(group["__target__"]).round(3).dropna()
+        # CCC computation (replaces Pearson corrwith)
+        correlations = _ccc_corrwith(group[numeric_cols], group["__target__"]).dropna()
         
         if correlations.empty:
             continue
@@ -300,9 +332,7 @@ def compute_feature_importance_by_correlation(
     target = df[target_col]
     features_df = df[feature_cols]
     
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        correlations = features_df.corrwith(target).round(3)
+    correlations = _ccc_corrwith(features_df, target)
     
     result = pd.DataFrame({
         'Feature': correlations.index,

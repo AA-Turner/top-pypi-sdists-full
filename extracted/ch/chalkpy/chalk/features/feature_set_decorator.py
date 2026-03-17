@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-import ast
 import builtins
 import collections
 import copy
 import inspect
 import re
 import sys
-import textwrap
 import types
 import typing
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
 
 import pyarrow as pa
 
@@ -29,6 +28,7 @@ from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.namespace_context import build_namespaced_name
 from chalk.features.tag import Tags
 from chalk.features.underscore import Underscore
+from chalk.parsed.ast_context import get_project_ast_context
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.streams import Windowed
 from chalk.streams._windows import GroupByWindowed, get_name_with_duration
@@ -46,6 +46,9 @@ from chalk.features.feature_cache_strategy import (
     get_cache_settings_from_strategy,
     get_cache_strategy_from_cache_settings,
 )
+
+if TYPE_CHECKING:
+    from chalk_rs import FeatureFieldAST
 
 T = TypeVar("T")
 
@@ -237,7 +240,7 @@ def features(
             and source_info.tree is not None
             and previous_features_class.__chalk_source_info__.tree is not None
             and (
-                source_info.filename != previous_features_class.__chalk_source_info__.filename
+                source_info.filename != previous_features_class.__chalk_filename__
                 or source_info.tree.lineno != previous_features_class.__chalk_source_info__.tree.lineno
                 or source_info.class_source != previous_features_class.__chalk_source_info__.class_source
             )
@@ -404,18 +407,11 @@ def _init_fn(
     _init.__name__ = "__init__"
     return _init
 
-
-def _parse_tags(ts: str) -> List[str]:
-    ts = re.sub(",", " ", ts)
-    ts = re.sub(" +", " ", ts.strip())
-    return [xx.strip() for xx in ts.split(" ")]
-
-
 def _get_field(
     cls: Type,
     error_builder: FeatureClassErrorBuilder,
     annotation_name: str,
-    comments: Mapping[str, str],
+    comment_metadata: Mapping[str, FeatureFieldAST],
     class_owner: Optional[str],
     class_tags: Optional[Tuple[str, ...]],
     class_etl_offline_to_online: bool,
@@ -512,7 +508,7 @@ def _get_field(
 
     _process_field(
         f=f,
-        comments=comments,
+        comment_metadata=comment_metadata,
         class_owner=class_owner,
         class_tags=class_tags,
         class_etl_offline_to_online=class_etl_offline_to_online,
@@ -525,7 +521,7 @@ def _get_field(
 
 def _process_field(
     f: Feature,
-    comments: Mapping[str, str],
+    comment_metadata: Mapping[str, FeatureFieldAST],
     class_owner: Optional[str],
     class_tags: Optional[Tuple[str, ...]],
     class_etl_offline_to_online: bool,
@@ -533,35 +529,19 @@ def _process_field(
     error_builder: FeatureClassErrorBuilder,
     class_cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Feature:
-    comment_for_feature = comments.get(f.attribute_name)
-    comment_based_description = None
-    comment_based_owner = None
-    comment_based_tags = None
-
-    if comment_for_feature is not None:
-        comment_lines = []
-        for line in comment_for_feature.splitlines():
-            stripped_line = line.strip()
-            if stripped_line.startswith(":owner:"):
-                comment_based_owner = stripped_line.removeprefix(":owner:").strip()
-            elif stripped_line.startswith(":tags:"):
-                parsed = _parse_tags(stripped_line.removeprefix(":tags:"))
-                if len(parsed) > 0:
-                    if comment_based_tags is None:
-                        comment_based_tags = parsed
-                    else:
-                        comment_based_tags.extend(parsed)
-            else:
-                comment_lines.append(line)
-
-        comment_based_description = "\n".join(comment_lines)
+    field_comment_metadata = comment_metadata.get(f.attribute_name)
+    comment_based_description = field_comment_metadata and field_comment_metadata.description
+    comment_based_owner = field_comment_metadata and field_comment_metadata.owner
+    comment_based_tags = (
+        tuple(field_comment_metadata.tags) if field_comment_metadata and field_comment_metadata.tags else None
+    )
 
     if f.description is None and comment_based_description:
         f.description = comment_based_description
 
     if comment_based_tags is not None:
         if f.tags is None:
-            f.tags = comment_based_tags
+            f.tags = list(comment_based_tags)
         else:
             f.tags.extend(comment_based_tags)
 
@@ -663,40 +643,19 @@ def _iter_fn(self: Features):
 
 _iter_fn.__name__ = "__iter__"
 
+def _expand_windowed_comment_metadata(
+    metadata_by_field: Mapping[str, FeatureFieldAST],
+    cls_annotations: Dict[str, Any],
+) -> Dict[str, FeatureFieldAST]:
+    expanded_metadata = dict(metadata_by_field)
 
-def _parse_annotation_comments(source_info: ClassSource, cls_annotations: Dict[str, Any]) -> Mapping[str, str]:
-    if source_info.tree is None or source_info.dedent_source is None:
-        return {}
-
-    source_lines = source_info.dedent_source.splitlines()
-    """ Get rid of the decorator, if exists (python 3.8 won't have one)"""
-    for i, line in enumerate(source_lines):
-        if line.lstrip().startswith("class "):
-            source_lines = source_lines[i:]
-            break
-
-    comments_for_annotations: Dict[str, str] = {}
-
-    for stmt in source_info.tree.body:
-        if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-            line = stmt.lineno - source_info.tree.lineno - 1
-            comments: List[str] = []
-            while line >= 0 and source_lines[line].strip().startswith("#"):
-                comment = source_lines[line].strip().lstrip("#").strip()
-                comments.insert(0, comment)
-                line -= 1
-
-            if len(comments) > 0:
-                comments_for_annotations[stmt.target.id] = textwrap.dedent("\n".join(comments))
-
-    """Attach the same comments to windowed features as well"""
     for annotation, feature_type in cls_annotations.items():
-        if annotation in comments_for_annotations and isinstance(feature_type, Windowed):
+        if annotation in metadata_by_field and isinstance(feature_type, Windowed):
             for bucket_size in feature_type.buckets_seconds:
                 pseudofeature_name = get_name_with_duration(annotation, bucket_size)
-                comments_for_annotations[pseudofeature_name] = comments_for_annotations[annotation]
+                expanded_metadata[pseudofeature_name] = metadata_by_field[annotation]
 
-    return comments_for_annotations
+    return expanded_metadata
 
 
 CHALK_SINGLETON_VALUE = 111
@@ -1270,6 +1229,12 @@ def _process_class(
         cls=cls, name="__chalk_online_store_config__", value=(online_store_config and online_store_config.id)
     )
     set_new_attribute(cls=cls, name="__chalk_error_builder__", value=error_builder)
+    cls_filename: str | None = None
+    module = getattr(cls, "__module__", None)
+    if module:
+        cls_filename = getattr(sys.modules.get(module), "__file__", None)
+    set_new_attribute(cls=cls, name="__chalk_filename__", value=cls_filename)
+    set_new_attribute(cls=cls, name="__chalk_source__", value=source_info.dedent_source)
     set_new_attribute(cls=cls, name="__chalk_source_info__", value=source_info)
     set_new_attribute(cls=cls, name="__chalk_materialized_windows__", value=materialized_windows)
     set_new_attribute(cls=cls, name="__chalk_group_by_materialized_windows__", value=group_by_materialized_windows)
@@ -1371,7 +1336,7 @@ def _process_class(
         _process_field(
             f=ts_feature,
             error_builder=error_builder,
-            comments={},
+            comment_metadata={},
             class_owner=cls.__chalk_owner__,
             class_tags=tuple(cls.__chalk_tags__),
             class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,
@@ -1420,16 +1385,16 @@ def _process_class(
         value=etl_offline_to_online,
     )
 
+    comment_metadata: Mapping[str, FeatureFieldAST] = {}
+    ast_index = get_project_ast_context()
+    if cls_filename is not None:
+        file_path = Path(cls_filename).resolve()
+        feature_class_ast = ast_index.feature_class_ast_in_file(str(file_path), cls.__name__)
+        if feature_class_ast is not None:
+            comment_metadata = _expand_windowed_comment_metadata(feature_class_ast.fields, cls.__annotations__)
 
     # Moving this line lower causes all kinds of problems.
     cls = classproperty_support(cls)
-
-    comments = {}
-    try:
-        # If we pass this function something that isn't a class, it could raise
-        comments = _parse_annotation_comments(source_info, cls.__annotations__)
-    except:
-        pass
 
     # Parse the fields after we have the correct `cls` set
     cls_fields.extend(
@@ -1437,7 +1402,7 @@ def _process_class(
             cls=cls,
             error_builder=error_builder,
             annotation_name=name,
-            comments=comments,
+            comment_metadata=comment_metadata,
             class_owner=owner,
             class_tags=tags,
             class_etl_offline_to_online=etl_offline_to_online,
@@ -1516,7 +1481,7 @@ def _process_class(
                 f_i.is_singleton = f.is_singleton
                 _process_field(
                     f=f_i,
-                    comments=comments,
+                    comment_metadata=comment_metadata,
                     class_owner=owner,
                     class_tags=tags,
                     class_etl_offline_to_online=etl_offline_to_online,
@@ -1739,7 +1704,7 @@ def _class_setattr(
     _process_field(
         f=f,
         error_builder=cls.__chalk_error_builder__,
-        comments={},
+        comment_metadata={},
         class_owner=cls.__chalk_owner__,
         class_tags=tuple(cls.__chalk_tags__),
         class_etl_offline_to_online=cls.__chalk_etl_offline_to_online__,

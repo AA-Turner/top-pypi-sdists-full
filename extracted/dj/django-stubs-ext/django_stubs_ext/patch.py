@@ -31,6 +31,7 @@ from django.utils.functional import classproperty
 from django.views.generic.detail import SingleObjectMixin
 from django.views.generic.edit import DeletionMixin, FormMixin
 from django.views.generic.list import MultipleObjectMixin
+from typing_extensions import override
 
 __all__ = ["monkeypatch"]
 
@@ -55,6 +56,7 @@ class MPGeneric(Generic[_T]):
         self.version = version
         self.cls = cls
 
+    @override
     def __repr__(self) -> str:
         """Better representation in tests and debug."""
         return "<MPGeneric: {}, versions={}>".format(self.cls, self.version or "all")
@@ -101,6 +103,23 @@ _need_generic: list[MPGeneric[Any]] = [
     MPGeneric(Prefetch),
     MPGeneric(SessionStore),
 ]
+
+if VERSION >= (6, 0):
+    from django.core.paginator import AsyncPage, AsyncPaginator, BasePaginator
+    from django.tasks import Task, TaskContext, TaskResult
+    from django.utils.datastructures import DeferredSubDict
+
+    _need_generic.extend(
+        [
+            MPGeneric(Task),
+            MPGeneric(TaskContext),
+            MPGeneric(TaskResult),
+            MPGeneric(BasePaginator),
+            MPGeneric(AsyncPaginator),
+            MPGeneric(AsyncPage),
+            MPGeneric(DeferredSubDict),
+        ]
+    )
 
 
 def monkeypatch(extra_classes: Iterable[type] | None = None, include_builtins: bool = True) -> None:

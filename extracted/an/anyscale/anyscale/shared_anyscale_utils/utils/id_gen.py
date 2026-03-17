@@ -128,6 +128,7 @@ class IDTypes(Enum):
     connection_configs = "ccfg"
     entra_user_mappings = "eum"
     entra_oauth_sessions = "eos"
+    workspace_blocked_users = "wbu"
 
 
 _default_id_length: int = 26

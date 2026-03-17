@@ -368,7 +368,7 @@ async def execute_shell_streaming(
         # event loop closes before garbage collection runs on the transport.
         # Note: _transport is a private API but there's no public way to close it.
         if hasattr(process, "_transport") and process._transport:
-            process._transport.close()  # type: ignore[union-attr]
+            process._transport.close()  # ty: ignore[unresolved-attribute]
 
         # Cancel any remaining tasks
         tasks_to_cancel: list[asyncio.Task[Any]] = []

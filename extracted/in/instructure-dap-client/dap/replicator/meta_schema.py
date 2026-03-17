@@ -46,4 +46,5 @@ class database_version:
 
     :param version: The version of the database schema.
     """
+
     version: PrimaryKey[Identity[int]]

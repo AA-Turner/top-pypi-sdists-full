@@ -1,4 +1,4 @@
-from sqlglot import exp
+from sqlglot import exp, transpile, UnsupportedError, ErrorLevel
 from tests.dialects.test_dialect import Validator
 
 
@@ -20,6 +20,17 @@ class TestExasol(Validator):
         self.validate_identity("SELECT CURRENT_USER", "SELECT CURRENT_USER")
         self.validate_identity("CURRENT_SCHEMA").assert_is(exp.CurrentSchema)
         self.validate_identity("SELECT NOW()", "SELECT CURRENT_TIMESTAMP()")
+        self.validate_identity("SELECT FROM_POSIX_TIME(1234567890)")
+        self.validate_all(
+            "SELECT FROM_POSIX_TIME(col)",
+            read={
+                "mysql": "SELECT FROM_UNIXTIME(col)",
+            },
+            write={
+                "exasol": "SELECT FROM_POSIX_TIME(col)",
+                "mysql": "SELECT FROM_UNIXTIME(col)",
+            },
+        )
 
     def test_exasol_keywords(self):
         keywords = ["CS", "ADD", "BOOLEAN", "CALL", "CONTROL"]
@@ -299,6 +310,12 @@ class TestExasol(Validator):
         )
         self.validate_identity("SELECT TO_CHAR(12345.6789) AS TO_CHAR")
         self.validate_identity("SELECT TO_CHAR(-12345.67890, '000G000G000D000000MI') AS TO_CHAR")
+        self.validate_all(
+            "SELECT TO_CHAR(CAST('2009-10-04 22:23:00' AS TIMESTAMP), 'DAY MONTH YYYY')",
+            read={
+                "mysql": "SELECT DATE_FORMAT('2009-10-04 22:23:00', '%W %M %Y')",
+            },
+        )
 
         self.validate_identity(
             "SELECT id, department, hire_date, GROUP_CONCAT(id ORDER BY hire_date SEPARATOR ',') OVER (PARTITION BY department rows between 1 preceding and 1 following) GROUP_CONCAT_RESULT from employee_table ORDER BY department, hire_date",
@@ -839,6 +856,24 @@ class TestExasol(Validator):
                     write={"exasol": exasol_sql, "databricks": dbx_sql},
                 )
 
+    def test_regexp_like(self):
+        # Exasol uses binary predicate syntax: col REGEXP_LIKE pattern
+        self.validate_identity("SELECT x REGEXP_LIKE '.*pattern.*'")
+
+        # Cross-dialect: partial match semantics from other dialects get .* wrapping
+        self.validate_all(
+            "SELECT a REGEXP_LIKE '.*x.*'",
+            read={
+                "hive": "SELECT a RLIKE 'x'",
+                "presto": "SELECT REGEXP_LIKE(a, 'x')",
+            },
+            write={
+                "exasol": "SELECT a REGEXP_LIKE '.*x.*'",
+                "hive": "SELECT a RLIKE '.*x.*'",
+                "presto": "SELECT REGEXP_LIKE(a, '.*x.*')",
+            },
+        )
+
     def test_json(self):
         self.validate_identity("""SELECT JSON_VALUE('{"d":"a"}', '$.d' NULL ON ERROR) AS x""")
         self.validate_all(
@@ -848,3 +883,70 @@ class TestExasol(Validator):
                 "trino": """SELECT JSON_VALUE('{"d":"a"}', '$.d' NULL ON ERROR) AS x""",
             },
         )
+        self.validate_identity(
+            """SELECT JSON_EXTRACT('{"firstname" : "Ann", "surname" : "Smith", "age" : 29}', '$.firstname', '$.surname', '$.age') EMITS (firstname VARCHAR(100), surname VARCHAR(100), age INT)"""
+        )
+
+    def test_group_by_all(self):
+        self.validate_all(
+            "SELECT id, city, COUNT(*) FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT id, city, COUNT(*) FROM dealer GROUP BY 1, 2",
+                "databricks": "SELECT id, city, COUNT(*) FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT car_model, COUNT(DISTINCT city) FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT car_model, COUNT(DISTINCT city) FROM dealer GROUP BY 1",
+                "databricks": "SELECT car_model, COUNT(DISTINCT city) FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT car_model, city FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT car_model, city FROM dealer GROUP BY 1, 2",
+                "databricks": "SELECT car_model, city FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT COUNT(*) FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT COUNT(*) FROM dealer",
+                "databricks": "SELECT COUNT(*) FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT UPPER(city), COUNT(*) FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT UPPER(city), COUNT(*) FROM dealer GROUP BY 1",
+                "databricks": "SELECT UPPER(city), COUNT(*) FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT city AS c, COUNT(*) + 1 FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT city AS c, COUNT(*) + 1 FROM dealer GROUP BY 1",
+                "databricks": "SELECT city AS c, COUNT(*) + 1 FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT city, COUNT(*) OVER () FROM dealer GROUP BY ALL",
+            write={
+                "exasol": "SELECT city, COUNT(*) OVER () FROM dealer GROUP BY 1",
+                "databricks": "SELECT city, COUNT(*) OVER () FROM dealer GROUP BY ALL",
+            },
+        )
+        self.validate_all(
+            "SELECT * FROM t GROUP BY ALL",
+            write={
+                "exasol": "SELECT DISTINCT * FROM t",
+                "databricks": "SELECT * FROM t GROUP BY ALL",
+            },
+        )
+        with self.assertRaises(UnsupportedError):
+            transpile(
+                "SELECT *, COUNT(*) FROM t GROUP BY ALL",
+                write="exasol",
+                unsupported_level=ErrorLevel.RAISE,
+            )

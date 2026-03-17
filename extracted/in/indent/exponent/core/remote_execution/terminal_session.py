@@ -46,6 +46,8 @@ class TerminalSession:
         self.pid: int | None = None
         self._running = False
         self._read_task: asyncio.Task[None] | None = None
+        self._decoder: codecs.IncrementalDecoder | None = None
+        self._eof_event: asyncio.Event | None = None
 
     def _queue_message(self, message: TerminalMessage) -> None:
         """Helper to queue terminal messages with error handling."""
@@ -249,55 +251,46 @@ class TerminalSession:
                 )
             )
 
+    def _read_callback(self) -> None:
+        if self.master_fd is None:
+            return
+        try:
+            data = os.read(self.master_fd, 4096)
+            if data:
+                decoded = self._decoder.decode(data, final=False)  # type: ignore[union-attr]
+                if decoded:
+                    self._queue_message(
+                        TerminalOutput(
+                            session_id=self.session_id,
+                            data=decoded,
+                            timestamp=time.time(),
+                        )
+                    )
+            else:
+                self._eof_event.set()  # type: ignore[union-attr]
+        except OSError as e:
+            if e.errno == 11:  # EAGAIN
+                pass
+            else:
+                self._eof_event.set()  # type: ignore[union-attr]
+        except Exception:
+            logger.error("Unexpected error in PTY read callback")
+            self._eof_event.set()  # type: ignore[union-attr]
+
     async def _read_from_pty(self) -> None:
-        """Continuously read from PTY using event loop's add_reader (non-blocking)"""
         if self.master_fd is None:
             return
 
         loop = asyncio.get_event_loop()
-        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        eof_event = asyncio.Event()
+        self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        self._eof_event = asyncio.Event()
 
-        def read_callback() -> None:
-            """Called by event loop when data is available on the FD"""
-            if self.master_fd is None:
-                return
-            try:
-                data = os.read(self.master_fd, 4096)
-                if data:
-                    # Decode and queue output directly
-                    decoded = decoder.decode(data, final=False)
-                    if decoded:
-                        self._queue_message(
-                            TerminalOutput(
-                                session_id=self.session_id,
-                                data=decoded,
-                                timestamp=time.time(),
-                            )
-                        )
-                else:
-                    # EOF - PTY closed
-                    eof_event.set()
-            except OSError as e:
-                if e.errno == 11:  # EAGAIN - shouldn't happen with add_reader
-                    pass
-                else:
-                    eof_event.set()
-            except Exception:
-                logger.error(
-                    "Unexpected error in PTY read callback",
-                )
-                eof_event.set()
-
-        # Register the FD with the event loop
-        loop.add_reader(self.master_fd, read_callback)
+        loop.add_reader(self.master_fd, self._read_callback)
 
         try:
-            # Wait for EOF
-            await eof_event.wait()
+            await self._eof_event.wait()
 
-            # Flush any remaining bytes in decoder
-            final = decoder.decode(b"", final=True)
+            final = self._decoder.decode(b"", final=True)
             if final:
                 self._queue_message(
                     TerminalOutput(
@@ -307,7 +300,6 @@ class TerminalSession:
                     )
                 )
         finally:
-            # Unregister the FD from the event loop
             loop.remove_reader(self.master_fd)
 
             # If we got stopped by stop we don't need to emit an exit again

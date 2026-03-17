@@ -12,8 +12,6 @@ from io import StringIO as _StringIO
 from .messages import E as _E
 from .messages import Messages as _Messages
 
-Comments: _t.TypeAlias = _t.List["Comment"]
-
 
 class Comment(_Messages):
     """Represents a comment directive.
@@ -74,6 +72,10 @@ class Comment(_Messages):
         return None
 
 
+class Comments(_t.List[Comment]):
+    """List of comments."""
+
+
 class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
     """Data for directives:
 
@@ -100,7 +102,7 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
         """
         directives = cls()
         fin = _StringIO(text)
-        comments: Comments = []
+        comments = Comments()
         for line in _tokenize.generate_tokens(fin.readline):
             # do nothing for these line types
             if line.type in (_tokenize.NAME, _tokenize.OP, _tokenize.DEDENT):
@@ -110,8 +112,8 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
             # scope, but do not update the global comments and messages
             # unless it is confirmed that the comment is a module level
             # directive
-            scoped_comments: Comments = list(comments)
-            scoped_messages = list(messages)
+            scoped_comments = Comments(comments)
+            scoped_messages = _Messages(messages)
             lineno, col = line.start
             if line.type == _tokenize.COMMENT:
                 comment = Comment.parse(line.string, col)
@@ -120,7 +122,7 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
                     if comment.disable:
                         scoped_messages.extend(comment)
                     elif comment.enable:
-                        scoped_messages = list(
+                        scoped_messages = _Messages(
                             i for i in messages if i not in comment
                         )
 

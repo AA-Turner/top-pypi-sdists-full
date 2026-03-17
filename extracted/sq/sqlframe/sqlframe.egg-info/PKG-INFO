@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 3.49.0
+Version: 4.0.0
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
@@ -34,7 +34,7 @@ Requires-Dist: pandas<4,>=2; extra == "dev"
 Requires-Dist: pandas-stubs<4,>=2; extra == "dev"
 Requires-Dist: psycopg<4,>=3.1; extra == "dev"
 Requires-Dist: pyarrow<24,>=10; extra == "dev"
-Requires-Dist: pyspark<3.6,>=2; extra == "dev"
+Requires-Dist: pyspark<4.2,>=4; extra == "dev"
 Requires-Dist: pytest<9.1,>=8.2.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: pytest-postgresql<9,>=6; extra == "dev"
@@ -63,7 +63,7 @@ Requires-Dist: redshift_connector<2.2.0,>=2.1.1; extra == "redshift"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[secure-local-storage]<4.4,>=3.10.0; extra == "snowflake"
 Provides-Extra: spark
-Requires-Dist: pyspark<3.6,>=2; extra == "spark"
+Requires-Dist: pyspark<4.2,>=4; extra == "spark"
 Dynamic: license-file
 
 <div align="center">

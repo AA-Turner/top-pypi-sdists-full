@@ -94,7 +94,7 @@ class ToolApprovalRequest(_message.Message):
     def __init__(self, tool_approvals: _Optional[_Iterable[_Union[ToolApprovalResult, _Mapping]]] = ...) -> None: ...
 
 class StreamChatRequest(_message.Message):
-    __slots__ = ("conversation_rid", "message", "images", "tool_approvals", "retry", "user_prompt", "tool_approval", "workbook")
+    __slots__ = ("conversation_rid", "message", "images", "tool_approvals", "retry", "user_prompt", "tool_approval", "workbook", "checklist")
     CONVERSATION_RID_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
@@ -104,6 +104,7 @@ class StreamChatRequest(_message.Message):
     TOOL_APPROVAL_FIELD_NUMBER: _ClassVar[int]
     WORKBOOK_FIELD_NUMBER: _ClassVar[int]
     GLOBAL_FIELD_NUMBER: _ClassVar[int]
+    CHECKLIST_FIELD_NUMBER: _ClassVar[int]
     conversation_rid: str
     message: UserModelMessage
     images: _containers.RepeatedCompositeFieldContainer[ImagePart]
@@ -112,7 +113,8 @@ class StreamChatRequest(_message.Message):
     user_prompt: UserPromptRequest
     tool_approval: ToolApprovalRequest
     workbook: WorkbookContext
-    def __init__(self, conversation_rid: _Optional[str] = ..., message: _Optional[_Union[UserModelMessage, _Mapping]] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ..., tool_approvals: _Optional[_Iterable[_Union[ToolApprovalResult, _Mapping]]] = ..., retry: _Optional[_Union[RetryRequest, _Mapping]] = ..., user_prompt: _Optional[_Union[UserPromptRequest, _Mapping]] = ..., tool_approval: _Optional[_Union[ToolApprovalRequest, _Mapping]] = ..., workbook: _Optional[_Union[WorkbookContext, _Mapping]] = ..., **kwargs) -> None: ...
+    checklist: ChecklistContext
+    def __init__(self, conversation_rid: _Optional[str] = ..., message: _Optional[_Union[UserModelMessage, _Mapping]] = ..., images: _Optional[_Iterable[_Union[ImagePart, _Mapping]]] = ..., tool_approvals: _Optional[_Iterable[_Union[ToolApprovalResult, _Mapping]]] = ..., retry: _Optional[_Union[RetryRequest, _Mapping]] = ..., user_prompt: _Optional[_Union[UserPromptRequest, _Mapping]] = ..., tool_approval: _Optional[_Union[ToolApprovalRequest, _Mapping]] = ..., workbook: _Optional[_Union[WorkbookContext, _Mapping]] = ..., checklist: _Optional[_Union[ChecklistContext, _Mapping]] = ..., **kwargs) -> None: ...
 
 class WorkbookContext(_message.Message):
     __slots__ = ("workbook_rid", "user_presence")
@@ -121,6 +123,18 @@ class WorkbookContext(_message.Message):
     workbook_rid: str
     user_presence: WorkbookUserPresence
     def __init__(self, workbook_rid: _Optional[str] = ..., user_presence: _Optional[_Union[WorkbookUserPresence, _Mapping]] = ...) -> None: ...
+
+class ChecklistContext(_message.Message):
+    __slots__ = ("checklist_rid", "branch_name", "asset", "run")
+    CHECKLIST_RID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    ASSET_FIELD_NUMBER: _ClassVar[int]
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    checklist_rid: str
+    branch_name: str
+    asset: str
+    run: str
+    def __init__(self, checklist_rid: _Optional[str] = ..., branch_name: _Optional[str] = ..., asset: _Optional[str] = ..., run: _Optional[str] = ...) -> None: ...
 
 class GlobalContext(_message.Message):
     __slots__ = ()

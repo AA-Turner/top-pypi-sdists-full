@@ -28,6 +28,7 @@ _VALID_RUN_STATUSES = frozenset(
         "running",
         "paused",
         "waiting_for_approval",
+        "waiting_for_input",
         "blocked",
         "completed",
         "failed",
@@ -50,6 +51,10 @@ _ALLOWED_RUN_UPDATE_COLUMNS: set[str] = {
     "started_at",
     "completed_at",
     "heartbeat_at",
+    "definition_hash",
+    "definition_content",
+    "budget_json",
+    "budget_usage_json",
 }
 
 
@@ -67,16 +72,49 @@ def create_workflow_run(
     target_ref: str,
     inputs: dict[str, Any] | None = None,
     space_id: str | None = None,
+    definition_hash: str | None = None,
+    definition_content: str | None = None,
+    budget: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rid = _uuid()
     now = _now()
     inputs_json = json.dumps(inputs) if inputs else None
+    budget_json = json.dumps(budget) if budget else None
+    budget_usage_json = (
+        json.dumps(
+            {
+                "elapsed_seconds": 0,
+                "steps_completed": 0,
+                "total_tokens": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+            }
+        )
+        if budget
+        else None
+    )
     db.execute(
         "INSERT INTO workflow_runs"
         " (id, workflow_id, workflow_version, status, target_kind, target_ref,"
-        "  inputs_json, space_id, created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (rid, workflow_id, workflow_version, "pending", target_kind, target_ref, inputs_json, space_id, now, now),
+        "  inputs_json, space_id, definition_hash, definition_content,"
+        "  budget_json, budget_usage_json, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            rid,
+            workflow_id,
+            workflow_version,
+            "pending",
+            target_kind,
+            target_ref,
+            inputs_json,
+            space_id,
+            definition_hash,
+            definition_content,
+            budget_json,
+            budget_usage_json,
+            now,
+            now,
+        ),
     )
     db.commit()
     return {
@@ -95,6 +133,10 @@ def create_workflow_run(
         "updated_at": now,
         "started_at": None,
         "completed_at": None,
+        "definition_hash": definition_hash,
+        "definition_content": definition_content,
+        "budget": budget,
+        "budget_usage": json.loads(budget_usage_json) if budget_usage_json else None,
     }
 
 
@@ -102,10 +144,21 @@ def get_workflow_run(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | 
     row = db.execute_fetchone("SELECT * FROM workflow_runs WHERE id = ?", (run_id,))
     if not row:
         return None
-    result = dict(row)
-    raw = result.pop("inputs_json", None)
-    result["inputs"] = json.loads(raw) if raw else None
-    return result
+    return _deserialize_run(dict(row))
+
+
+def _deserialize_run(d: dict[str, Any]) -> dict[str, Any]:
+    raw_inputs = d.pop("inputs_json", None)
+    d["inputs"] = json.loads(raw_inputs) if raw_inputs else None
+    raw_budget = d.pop("budget_json", None)
+    d["budget"] = json.loads(raw_budget) if raw_budget else None
+    raw_usage = d.pop("budget_usage_json", None)
+    d["budget_usage"] = json.loads(raw_usage) if raw_usage else None
+    # definition_hash and definition_content are plain text, no deserialization
+    return d
+
+
+_JSON_RUN_COLUMNS = frozenset({"budget_json", "budget_usage_json"})
 
 
 def update_workflow_run(
@@ -121,6 +174,9 @@ def update_workflow_run(
     for col, val in updates.items():
         if col not in _ALLOWED_RUN_UPDATE_COLUMNS:
             raise ValueError(f"Column {col!r} not in allowed workflow_runs update columns")
+        # Auto-serialize dict/list values for JSON columns
+        if col in _JSON_RUN_COLUMNS and isinstance(val, (dict, list)):
+            val = json.dumps(val)
         parts.append(f"{col} = ?")
         params.append(val)
     params.append(run_id)
@@ -161,9 +217,8 @@ def list_workflow_runs(
     )
     results = []
     for r in rows:
-        d = dict(r)
-        raw = d.pop("inputs_json", None)
-        d["inputs"] = json.loads(raw) if raw else None
+        d = _deserialize_run(dict(r))
+        d.pop("definition_content", None)  # Exclude bulky content from list
         results.append(d)
     return results
 
@@ -189,13 +244,7 @@ def find_stale_runs(
         "SELECT * FROM workflow_runs WHERE status = 'running' AND (heartbeat_at IS NULL OR heartbeat_at < ?)",
         (cutoff,),
     )
-    results = []
-    for r in rows:
-        d = dict(r)
-        raw = d.pop("inputs_json", None)
-        d["inputs"] = json.loads(raw) if raw else None
-        results.append(d)
-    return results
+    return [_deserialize_run(dict(r)) for r in rows]
 
 
 def find_running_steps(
@@ -227,6 +276,9 @@ def list_completed_step_ids(
 # ---------------------------------------------------------------------------
 
 
+_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish"})
+
+
 def create_workflow_step(
     db: ThreadSafeConnection,
     *,
@@ -236,6 +288,8 @@ def create_workflow_step(
     runner_type: str | None = None,
     attempt: int = 1,
 ) -> dict[str, Any]:
+    if step_type not in _VALID_STEP_TYPES:
+        raise ValueError(f"Invalid step_type: {step_type!r}")
     sid = _uuid()
     now = _now()
     db.execute(
@@ -293,6 +347,8 @@ def update_workflow_step(
     duration_ms: int | None = None,
     started_at: str | None = None,
     completed_at: str | None = None,
+    approval_request_id: str | None = None,
+    decision_id: str | None = None,
 ) -> dict[str, Any] | None:
     parts: list[str] = []
     params: list[Any] = []
@@ -323,6 +379,12 @@ def update_workflow_step(
     if completed_at is not None:
         parts.append("completed_at = ?")
         params.append(completed_at)
+    if approval_request_id is not None:
+        parts.append("approval_request_id = ?")
+        params.append(approval_request_id)
+    if decision_id is not None:
+        parts.append("decision_id = ?")
+        params.append(decision_id)
     if not parts:
         return get_workflow_step(db, step_record_id)
     params.append(step_record_id)
@@ -529,3 +591,116 @@ def get_lock(
         (target_kind, target_ref),
     )
     return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Human Decisions (#955)
+# ---------------------------------------------------------------------------
+
+
+def create_human_decision(
+    db: ThreadSafeConnection,
+    *,
+    run_id: str,
+    step_id: str,
+    prompt: str,
+    context: str | None = None,
+    options: list[dict[str, Any]],
+    timeout_at: str | None = None,
+) -> dict[str, Any]:
+    did = _uuid()
+    now = _now()
+    db.execute(
+        "INSERT INTO workflow_human_decisions"
+        " (id, run_id, step_id, status, prompt, context_json, options_json, timeout_at, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (did, run_id, step_id, "pending", prompt, context, json.dumps(options), timeout_at, now),
+    )
+    db.commit()
+    return {
+        "id": did,
+        "run_id": run_id,
+        "step_id": step_id,
+        "status": "pending",
+        "prompt": prompt,
+        "context": context,
+        "options": options,
+        "selected_option": None,
+        "resolved_by": None,
+        "resolved_at": None,
+        "timeout_at": timeout_at,
+        "created_at": now,
+    }
+
+
+def get_human_decision(db: ThreadSafeConnection, decision_id: str) -> dict[str, Any] | None:
+    row = db.execute_fetchone("SELECT * FROM workflow_human_decisions WHERE id = ?", (decision_id,))
+    if not row:
+        return None
+    return _deserialize_decision(dict(row))
+
+
+def get_pending_decision(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
+    row = db.execute_fetchone(
+        "SELECT * FROM workflow_human_decisions WHERE run_id = ? AND status = 'pending' ORDER BY created_at DESC",
+        (run_id,),
+    )
+    if not row:
+        return None
+    return _deserialize_decision(dict(row))
+
+
+def resolve_human_decision(
+    db: ThreadSafeConnection,
+    decision_id: str,
+    *,
+    selected_option: str,
+    resolved_by: str | None = None,
+) -> dict[str, Any] | None:
+    now = _now()
+    cursor = db.execute(
+        "UPDATE workflow_human_decisions SET status = 'resolved', selected_option = ?,"
+        " resolved_by = ?, resolved_at = ? WHERE id = ? AND status = 'pending'",
+        (selected_option, resolved_by, now, decision_id),
+    )
+    db.commit()
+    if cursor.rowcount == 0:
+        existing = get_human_decision(db, decision_id)
+        if existing and existing["status"] != "pending":
+            raise ValueError(
+                f"Human decision {decision_id} already resolved as {existing['status']!r}; cannot resolve again"
+            )
+        return None
+    return get_human_decision(db, decision_id)
+
+
+def check_approval_timeouts(db: ThreadSafeConnection) -> int:
+    """Check and expire pending approval requests past their timeout. Returns count."""
+    now = _now()
+    cursor = db.execute(
+        "UPDATE workflow_approval_requests SET status = 'expired', resolved_by = 'timeout',"
+        " resolved_at = ? WHERE status = 'pending' AND timeout_at IS NOT NULL AND timeout_at < ?",
+        (now, now),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+def check_decision_timeouts(db: ThreadSafeConnection) -> int:
+    """Check and expire pending human decisions past their timeout. Returns count."""
+    now = _now()
+    cursor = db.execute(
+        "UPDATE workflow_human_decisions SET status = 'expired',"
+        " resolved_at = ? WHERE status = 'pending' AND timeout_at IS NOT NULL AND timeout_at < ?",
+        (now, now),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+def _deserialize_decision(d: dict[str, Any]) -> dict[str, Any]:
+    raw_ctx = d.pop("context_json", None)
+    d["context"] = raw_ctx  # context is stored as plain text, not JSON
+    raw_opts = d.pop("options_json", None)
+    d["options"] = json.loads(raw_opts) if raw_opts else []
+    return d

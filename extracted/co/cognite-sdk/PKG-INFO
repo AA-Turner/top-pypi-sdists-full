@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite-sdk
-Version: 8.0.1
+Version: 8.0.2
 Summary: Cognite Python SDK
 License: Apache-2.0
 License-File: LICENSE

@@ -101,15 +101,18 @@ class Geoanalysis:
         try:
             self.df_analysis = pd.read_sql_query(query, con)
 
-            # Select just Country and Crop
-            self.df_analysis = self.df_analysis[
-                (self.df_analysis["Country"] == self.country)
-                & (self.df_analysis["Crop"] == self.crop)
-                & (self.df_analysis["Model"] == self.model)
-            ]
-
-            # Drop columns that are empty
-            # self.df_analysis = self.df_analysis.dropna(axis=1, how="all")
+            # For pooled tables, don't filter by country (results have per-row Country)
+            if self.country == "pooled":
+                self.df_analysis = self.df_analysis[
+                    (self.df_analysis["Crop"] == self.crop)
+                    & (self.df_analysis["Model"] == self.model)
+                ]
+            else:
+                self.df_analysis = self.df_analysis[
+                    (self.df_analysis["Country"] == self.country)
+                    & (self.df_analysis["Crop"] == self.crop)
+                    & (self.df_analysis["Model"] == self.model)
+                ]
         except Exception as e:
             pass
 
@@ -128,9 +131,12 @@ class Geoanalysis:
             return pd.Series()
 
         # Compute metrics
+        from geocif.ml.embedding import _ccc_series
+
         rmse = np.sqrt(mean_squared_error(df[self.observed], df[self.predicted]))
         nse = utils.nse(df[self.observed], df[self.predicted])
         r2 = scipy.stats.pearsonr(df[self.observed], df[self.predicted])[0] ** 2
+        ccc = _ccc_series(df[self.observed], df[self.predicted])
         mae = mean_absolute_error(df[self.observed], df[self.predicted])
         mape = utils.mape(df[self.observed], df[self.predicted])
         pbias = utils.pbias(df[self.observed], df[self.predicted])
@@ -140,6 +146,7 @@ class Geoanalysis:
             "Root Mean Square Error": rmse,
             "Nash-Sutcliff Efficiency": nse,
             "$r^2$": r2,
+            "CCC": ccc,
             "Mean Absolute Error": mae,
             "Mean Absolute\nPercentage Error": mape,
             "Percentage Bias": pbias,
@@ -197,6 +204,8 @@ class Geoanalysis:
         self._plot_national_yield(df_national_yield)
         self._plot_regional_yield_scatter(df)
         self._plot_scatter_by_region(df)
+        if self.country == "pooled":
+            self._plot_scatter_by_country(df)
         self._plot_mape_by_region(df_regional_metrics)
 
         return df_metrics, df_regional_metrics, df_national_yield
@@ -240,6 +249,7 @@ class Geoanalysis:
         metrics = [
             "Root Mean Square Error",
             "$r^2$",
+            "CCC",
             "Mean Absolute Error",
             "Mean Absolute\nPercentage Error",
             "Percentage Bias",
@@ -550,6 +560,79 @@ class Geoanalysis:
         fig.savefig(self.dir_analysis / fname, dpi=250)
         plt.close(fig)
 
+    def _plot_scatter_by_country(self, df):
+        """Small-multiples scatter plot: observed vs predicted yield per country (pooled mode)."""
+        import math
+        from sklearn.metrics import (
+            mean_squared_error,
+            r2_score,
+            mean_absolute_percentage_error,
+        )
+
+        countries = sorted(df["Country"].unique())
+        n = len(countries)
+        if n == 0:
+            return
+
+        ncols = min(4, n)
+        nrows = math.ceil(n / ncols)
+
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=(4 * ncols, 4 * nrows),
+            squeeze=False,
+        )
+
+        for idx, country in enumerate(countries):
+            row, col = divmod(idx, ncols)
+            ax = axes[row][col]
+
+            sub = df[df["Country"] == country]
+            obs = sub["Observed Yield (tn per ha)"]
+            pred = sub["Predicted Yield (tn per ha)"]
+
+            valid = obs.notna() & pred.notna()
+            obs, pred = obs[valid], pred[valid]
+
+            if len(obs) < 2:
+                ax.set_title(country, fontsize=9)
+                ax.text(0.5, 0.5, "Insufficient data", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=8)
+                continue
+
+            ax.scatter(obs, pred, s=20, alpha=0.7)
+
+            max_val = max(obs.max(), pred.max()) * 1.15
+            ax.plot([0, max_val], [0, max_val], color="gray", linestyle="--", linewidth=0.8)
+            ax.set_xlim(0, max_val)
+            ax.set_ylim(0, max_val)
+            ax.set_aspect("equal", adjustable="box")
+
+            rmse = np.sqrt(mean_squared_error(obs, pred))
+            r2 = r2_score(obs, pred)
+            mape = mean_absolute_percentage_error(obs, pred)
+
+            ax.set_title(country, fontsize=9, fontweight="bold")
+            ax.annotate(
+                f"R²={r2:.2f}\nRMSE={rmse:.2f}\nMAPE={mape:.1%}",
+                xy=(0.05, 0.95), xycoords="axes fraction",
+                fontsize=7, verticalalignment="top",
+            )
+            ax.tick_params(labelsize=7)
+
+        for idx in range(n, nrows * ncols):
+            row, col = divmod(idx, ncols)
+            axes[row][col].set_visible(False)
+
+        fig.supxlabel("Observed Yield (tn/ha)", fontsize=10)
+        fig.supylabel("Predicted Yield (tn/ha)", fontsize=10)
+        fig.suptitle(f"Pooled — {self.crop}", fontsize=12, fontweight="bold")
+        plt.tight_layout()
+
+        fname = f"scatter_by_country_{self.crop}.png"
+        fig.savefig(self.dir_analysis / fname, dpi=250)
+        plt.close(fig)
+
     def _plot_mape_by_region(self, df_regional_metrics):
         """Horizontal bar chart of average MAPE by region."""
         if df_regional_metrics.empty or "MAPE" not in df_regional_metrics.columns:
@@ -673,11 +756,16 @@ class Geoanalysis:
 
     def get_historic_production(self):
         # Read in historic production data
-        dir_statistics = self.dir_out / "cid" / "indices" / self.method / "global"
-        country = self.country.title().replace("_", " ")
-        crop = self.crop.title().replace("_", " ")
-        file = dir_statistics / f"{country}_{crop}_statistics_{self.method}.csv"
-        df_all = pd.read_csv(file)
+        if self.country == "pooled":
+            frames = []
+            for c in self.countries:
+                f = utils.statistics_file_path(self.dir_out, self.method, c, self.crop)
+                if f.exists():
+                    frames.append(pd.read_csv(f))
+            df_all = pd.concat(frames, ignore_index=True)
+        else:
+            file = utils.statistics_file_path(self.dir_out, self.method, self.country, self.crop)
+            df_all = pd.read_csv(file)
 
         # Keep only the relevant columns and drop NaNs
         df_all = df_all[["Region", "Harvest Year", "Yield (tn per ha)"]].dropna()
@@ -1183,6 +1271,11 @@ class Geoanalysis:
             df_ml[df_ml["Option"] == "countries"]["Value"].values[0]
         )
         all_shapefiles = []
+        pool_countries = False
+        pool_countries_rows = df_ml[df_ml["Option"] == "pool_countries"]
+        if not pool_countries_rows.empty:
+            pool_countries = pool_countries_rows["Value"].values[0].lower() in ("true", "1", "yes")
+
         for country in self.countries:
             df = self.df_config[self.df_config["Section"] == country]
 
@@ -1202,6 +1295,32 @@ class Geoanalysis:
                         "models": models,
                         "admin_zone": admin_zone,
                         "name_shapefile": name_shapefile,
+                    }
+
+        # Check for pooled tables (pooled_{crop})
+        if pool_countries:
+            all_crops = set()
+            for country in self.countries:
+                df = self.df_config[self.df_config["Section"] == country]
+                crops = ast.literal_eval(df[df["Option"] == "crops"]["Value"].values[0])
+                all_crops.update(crops)
+
+            # Use first country's config for shared settings
+            df_first = self.df_config[self.df_config["Section"] == self.countries[0]]
+            first_method = df_first[df_first["Option"] == "method"]["Value"].values[0]
+            first_models = ast.literal_eval(df_first[df_first["Option"] == "models"]["Value"].values[0])
+            first_admin = df_first[df_first["Option"] == "admin_level"]["Value"].values[0]
+            first_shp = df_first[df_first["Option"] == "boundary_file"]["Value"].values[0]
+
+            for crop in all_crops:
+                table = f"pooled_{crop}"
+                if self.table_exists(self.db_path, table):
+                    self.dict_config[f"pooled_{crop}"] = {
+                        "method": first_method,
+                        "crops": crop,
+                        "models": first_models,
+                        "admin_zone": first_admin,
+                        "name_shapefile": first_shp,
                     }
 
             # Load this country's shapefile

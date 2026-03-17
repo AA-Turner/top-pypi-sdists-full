@@ -1,21 +1,36 @@
 # fmt: off
 
-# from __future__ import annotations
+from __future__ import annotations
 
 import os
+import typing as _t  # noqa: WPS111
 from contextlib import contextmanager
 from pathlib import Path
 from sys import version_info as _python_version_tuple
 
 from expandvars import expandvars
 
-from ._compat import load_toml_from_string  # noqa: WPS436
-from ._transformers import (  # noqa: WPS436
-    get_cli_kwargs_from_config, get_enabled_cli_flags_from_config,
+from ._compat import load_toml_from_string
+from ._transformers import (
+    get_cli_kwargs_from_config,
+    get_enabled_cli_flags_from_config,
 )
 
 
-def get_local_cython_config() -> dict:
+if _t.TYPE_CHECKING:
+    import collections.abc as _c  # noqa: WPS111, WPS301
+
+
+class Config(_t.TypedDict):
+    """Data structure for the TOML config."""
+
+    env: dict[str, str]
+    flags: dict[str, bool]
+    kwargs: dict[str, str | dict[str, str]]
+    src: list[str]
+
+
+def get_local_cython_config() -> Config:
     """Grab optional build dependencies from pyproject.toml config.
 
     :returns: config section from ``pyproject.toml``
@@ -69,10 +84,10 @@ def get_local_cython_config() -> dict:
     """
     config_toml_txt = (Path.cwd().resolve() / 'pyproject.toml').read_text()
     config_mapping = load_toml_from_string(config_toml_txt)
-    return config_mapping['tool']['local']['cython']
+    return config_mapping['tool']['local']['cython']  # type: ignore[no-any-return]
 
 
-def get_local_cythonize_config() -> dict:
+def get_local_cythonize_config() -> Config:
     """Grab optional build dependencies from pyproject.toml config.
 
     :returns: config section from ``pyproject.toml``
@@ -126,12 +141,14 @@ def get_local_cythonize_config() -> dict:
     """
     config_toml_txt = (Path.cwd().resolve() / 'pyproject.toml').read_text()
     config_mapping = load_toml_from_string(config_toml_txt)
-    return config_mapping['tool']['local']['cythonize']
+    return config_mapping['tool']['local']['cythonize']  # type: ignore[no-any-return]
 
 
-def make_cythonize_cli_args_from_config(config: dict) -> 'list[str]':
+def make_cythonize_cli_args_from_config(
+    config: Config,
+) -> list[str]:
     """Compose ``cythonize`` CLI args from config."""
-    py_ver_arg = f'-{_python_version_tuple.major!s}'  # noqa: WPS305
+    py_ver_arg = f'-{_python_version_tuple.major!s}'
 
     cli_flags = get_enabled_cli_flags_from_config(config['flags'])
     cli_kwargs = get_cli_kwargs_from_config(config['kwargs'])
@@ -140,7 +157,11 @@ def make_cythonize_cli_args_from_config(config: dict) -> 'list[str]':
 
 
 @contextmanager
-def patched_env(env: 'dict[str, str]', cython_line_tracing_requested: bool):
+def patched_env(
+    env: dict[str, str],
+    *,
+    cython_line_tracing_requested: bool,
+) -> _c.Iterator[None]:
     """Temporary set given env vars.
 
     :param env: tmp env vars to set
@@ -149,7 +170,7 @@ def patched_env(env: 'dict[str, str]', cython_line_tracing_requested: bool):
     :yields: None
     """
     orig_env = os.environ.copy()
-    expanded_env = {name: expandvars(var_val) for name, var_val in env.items()}
+    expanded_env = {name: expandvars(var_val) for name, var_val in env.items()}  # type: ignore[no-untyped-call]
     os.environ.update(expanded_env)
 
     if cython_line_tracing_requested:

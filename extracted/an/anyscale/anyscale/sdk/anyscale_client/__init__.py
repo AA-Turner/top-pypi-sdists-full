@@ -51,6 +51,7 @@ from anyscale_client.models.cloud_status import CloudStatus
 from anyscale_client.models.cloud_types import CloudTypes
 from anyscale_client.models.cloud_version import CloudVersion
 from anyscale_client.models.clouds_query import CloudsQuery
+from anyscale_client.models.clouds_sort_field import CloudsSortField
 from anyscale_client.models.cluster import Cluster
 from anyscale_client.models.cluster_compute import ClusterCompute
 from anyscale_client.models.cluster_compute_config import ClusterComputeConfig
@@ -178,6 +179,7 @@ from anyscale_client.models.session_starting_up_data import SessionStartingUpDat
 from anyscale_client.models.session_state import SessionState
 from anyscale_client.models.session_state_data import SessionStateData
 from anyscale_client.models.session_stopping_data import SessionStoppingData
+from anyscale_client.models.sort_by_clause_clouds_sort_field import SortByClauseCloudsSortField
 from anyscale_client.models.sort_by_clause_cluster_computes_sort_field import SortByClauseClusterComputesSortField
 from anyscale_client.models.sort_by_clause_jobs_sort_field import SortByClauseJobsSortField
 from anyscale_client.models.sort_order import SortOrder

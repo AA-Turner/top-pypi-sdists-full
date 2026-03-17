@@ -203,14 +203,18 @@ class ServiceAccount(BaseModel):
         """Create an instance of ServiceAccount from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
+        # Import from okta.models to ensure class identity consistency with lazy imports
+        models = import_module("okta.models")
         if object_type == "ServiceAccountDetailsAppAccount":
-            return import_module(
-                "okta.models.service_account_details_app_account"
-            ).ServiceAccountDetailsAppAccount.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.ServiceAccountDetailsAppAccount.from_dict(obj)
         if object_type == "ServiceAccountDetailsOktaUserAccount":
-            return import_module(
-                "okta.models.service_account_details_okta_user_account"
-            ).ServiceAccountDetailsOktaUserAccount.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.ServiceAccountDetailsOktaUserAccount.from_dict(obj)
 
         raise ValueError(
             "ServiceAccount failed to lookup discriminator value from "

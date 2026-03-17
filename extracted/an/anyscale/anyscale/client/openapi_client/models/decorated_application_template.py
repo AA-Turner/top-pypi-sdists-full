@@ -44,6 +44,7 @@ class DecoratedApplicationTemplate(object):
         'archiver_id': 'str',
         'archived_at': 'datetime',
         'is_default': 'bool',
+        'is_experimental': 'bool',
         'anonymous': 'bool',
         'cloud_id': 'str',
         'creator': 'MiniUser',
@@ -62,13 +63,14 @@ class DecoratedApplicationTemplate(object):
         'archiver_id': 'archiver_id',
         'archived_at': 'archived_at',
         'is_default': 'is_default',
+        'is_experimental': 'is_experimental',
         'anonymous': 'anonymous',
         'cloud_id': 'cloud_id',
         'creator': 'creator',
         'latest_build': 'latest_build'
     }
 
-    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, anonymous=False, cloud_id=None, creator=None, latest_build=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, is_experimental=False, anonymous=False, cloud_id=None, creator=None, latest_build=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedApplicationTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,6 +87,7 @@ class DecoratedApplicationTemplate(object):
         self._archiver_id = None
         self._archived_at = None
         self._is_default = None
+        self._is_experimental = None
         self._anonymous = None
         self._cloud_id = None
         self._creator = None
@@ -107,6 +110,8 @@ class DecoratedApplicationTemplate(object):
             self.archived_at = archived_at
         if is_default is not None:
             self.is_default = is_default
+        if is_experimental is not None:
+            self.is_experimental = is_experimental
         if anonymous is not None:
             self.anonymous = anonymous
         if cloud_id is not None:
@@ -379,6 +384,29 @@ class DecoratedApplicationTemplate(object):
         """
 
         self._is_default = is_default
+
+    @property
+    def is_experimental(self):
+        """Gets the is_experimental of this DecoratedApplicationTemplate.  # noqa: E501
+
+        True if this image is experimental.  # noqa: E501
+
+        :return: The is_experimental of this DecoratedApplicationTemplate.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_experimental
+
+    @is_experimental.setter
+    def is_experimental(self, is_experimental):
+        """Sets the is_experimental of this DecoratedApplicationTemplate.
+
+        True if this image is experimental.  # noqa: E501
+
+        :param is_experimental: The is_experimental of this DecoratedApplicationTemplate.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_experimental = is_experimental
 
     @property
     def anonymous(self):

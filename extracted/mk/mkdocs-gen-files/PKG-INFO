@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-gen-files
-Version: 0.6.0
+Version: 0.6.1
 Summary: MkDocs plugin to programmatically generate documentation pages during the build
 Project-URL: Documentation, https://oprypin.github.io/mkdocs-gen-files/
 Project-URL: Source, https://github.com/oprypin/mkdocs-gen-files
@@ -27,7 +27,8 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
-Requires-Dist: mkdocs>=1.4.1
+Requires-Dist: mkdocs<=1.6.1,>=1.4.1
+Requires-Dist: properdocs>=1.6.5
 Description-Content-Type: text/markdown
 
 # mkdocs-gen-files

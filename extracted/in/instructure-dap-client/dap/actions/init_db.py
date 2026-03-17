@@ -23,4 +23,6 @@ async def init_db(
         async def replicate_table_fn(namespace: str, table: str) -> None:
             await sql_replicator.initialize(namespace, table)
 
-        await session.execute_operation_on_tables(namespace, table_names, "initdb", replicate_table_fn)
+        await session.execute_operation_on_tables(
+            namespace, table_names, "initdb", replicate_table_fn
+        )

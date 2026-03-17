@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     workflow_id TEXT NOT NULL,
     workflow_version TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN (
-        'pending', 'running', 'paused', 'waiting_for_approval',
+        'pending', 'running', 'paused', 'waiting_for_approval', 'waiting_for_input',
         'blocked', 'completed', 'failed', 'cancelled'
     )),
     target_kind TEXT NOT NULL,
@@ -311,14 +311,18 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     updated_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
-    heartbeat_at TEXT
+    heartbeat_at TEXT,
+    definition_hash TEXT,
+    definition_content TEXT,
+    budget_json TEXT,
+    budget_usage_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS workflow_steps (
     id TEXT PRIMARY KEY,
     run_id TEXT NOT NULL,
     step_id TEXT NOT NULL,
-    step_type TEXT NOT NULL CHECK(step_type IN ('runner', 'gate', 'loop')),
+    step_type TEXT NOT NULL CHECK(step_type IN ('runner', 'gate', 'loop', 'human_gate', 'publish')),
     runner_type TEXT,
     status TEXT NOT NULL CHECK(status IN (
         'pending', 'running', 'completed', 'failed', 'interrupted', 'skipped'
@@ -333,6 +337,24 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
+    approval_request_id TEXT,
+    decision_id TEXT,
+    FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS workflow_human_decisions (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'resolved', 'expired')),
+    prompt TEXT NOT NULL,
+    context_json TEXT,
+    options_json TEXT NOT NULL,
+    selected_option TEXT,
+    resolved_by TEXT,
+    resolved_at TEXT,
+    timeout_at TEXT,
+    created_at TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
 );
 
@@ -599,6 +621,12 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflow_approval_requests_status ON workflow_approval_requests(status)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflow_human_decisions_run_id ON workflow_human_decisions(run_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflow_human_decisions_status ON workflow_human_decisions(status)"
         )
     except sqlite3.OperationalError:
         pass
@@ -1347,7 +1375,11 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 updated_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
-                heartbeat_at TEXT
+                heartbeat_at TEXT,
+                definition_hash TEXT,
+                definition_content TEXT,
+                budget_json TEXT,
+                budget_usage_json TEXT
             )"""
         )
     if "workflow_steps" not in wf_tables:
@@ -1356,7 +1388,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 id TEXT PRIMARY KEY,
                 run_id TEXT NOT NULL,
                 step_id TEXT NOT NULL,
-                step_type TEXT NOT NULL CHECK(step_type IN ('runner', 'gate', 'loop')),
+                step_type TEXT NOT NULL CHECK(step_type IN ('runner', 'gate', 'loop', 'human_gate', 'publish')),
                 runner_type TEXT,
                 status TEXT NOT NULL CHECK(status IN (
                     'pending', 'running', 'completed', 'failed', 'interrupted', 'skipped'
@@ -1371,6 +1403,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 created_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
+                approval_request_id TEXT,
+                decision_id TEXT,
                 FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
             )"""
         )
@@ -1415,11 +1449,88 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             )"""
         )
 
-    # Add heartbeat_at column to workflow_runs if missing (#949)
+    # Add heartbeat_at + drift + budget columns to workflow_runs if missing
     if "workflow_runs" in wf_tables:
         wf_run_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)").fetchall()}
         if "heartbeat_at" not in wf_run_cols:
             conn.execute("ALTER TABLE workflow_runs ADD COLUMN heartbeat_at TEXT DEFAULT NULL")
+        if "definition_hash" not in wf_run_cols:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN definition_hash TEXT DEFAULT NULL")
+        if "definition_content" not in wf_run_cols:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN definition_content TEXT DEFAULT NULL")
+        if "budget_json" not in wf_run_cols:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN budget_json TEXT DEFAULT NULL")
+        if "budget_usage_json" not in wf_run_cols:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN budget_usage_json TEXT DEFAULT NULL")
+
+    # Add approval_request_id and decision_id to workflow_steps if missing (#950, #955)
+    if "workflow_steps" in wf_tables:
+        wf_step_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_steps)").fetchall()}
+        if "approval_request_id" not in wf_step_cols:
+            conn.execute("ALTER TABLE workflow_steps ADD COLUMN approval_request_id TEXT DEFAULT NULL")
+        if "decision_id" not in wf_step_cols:
+            conn.execute("ALTER TABLE workflow_steps ADD COLUMN decision_id TEXT DEFAULT NULL")
+
+    # Add workflow_human_decisions table if missing (#955)
+    if "workflow_human_decisions" not in wf_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS workflow_human_decisions (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('pending', 'resolved', 'expired')),
+                prompt TEXT NOT NULL,
+                context_json TEXT,
+                options_json TEXT NOT NULL,
+                selected_option TEXT,
+                resolved_by TEXT,
+                resolved_at TEXT,
+                timeout_at TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+            )"""
+        )
+
+    # Migrate workflow_steps CHECK constraint to include 'publish' step type (#966)
+    if "workflow_steps" in wf_tables:
+        create_sql_row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='workflow_steps'"
+        ).fetchone()
+        if create_sql_row and "'publish'" not in (create_sql_row[0] or ""):
+            logger.info("Rebuilding workflow_steps table to add 'publish' step type")
+            conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute(
+                """CREATE TABLE workflow_steps_v2 (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    step_id TEXT NOT NULL,
+                    step_type TEXT NOT NULL CHECK(step_type IN ('runner', 'gate', 'loop', 'human_gate', 'publish')),
+                    runner_type TEXT,
+                    status TEXT NOT NULL CHECK(status IN (
+                        'pending', 'running', 'completed', 'failed', 'interrupted', 'skipped'
+                    )),
+                    attempt INTEGER NOT NULL DEFAULT 1,
+                    result_status TEXT,
+                    result_summary TEXT,
+                    result_artifacts_json TEXT,
+                    result_findings_json TEXT,
+                    raw_output_path TEXT,
+                    duration_ms INTEGER,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    approval_request_id TEXT,
+                    decision_id TEXT,
+                    FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+                )"""
+            )
+            conn.execute("INSERT INTO workflow_steps_v2 SELECT * FROM workflow_steps")
+            conn.execute("DROP TABLE workflow_steps")
+            conn.execute("ALTER TABLE workflow_steps_v2 RENAME TO workflow_steps")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_wf_steps_run ON workflow_steps(run_id)")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.commit()
+            logger.info("workflow_steps table rebuilt with 'publish' step type")
 
     # Add message-level and source-chunk-level FTS5 tables for hybrid search (#810)
     try:

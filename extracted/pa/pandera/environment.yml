@@ -34,7 +34,7 @@ dependencies:
   - protobuf
 
   # geopandas extra
-  - geopandas < 1.1.0
+  - geopandas
   - shapely
 
   # fastapi extra
@@ -81,7 +81,7 @@ dependencies:
   - asv >= 0.5.1
 
   # optional
-  - pre_commit
+  - prek
 
   - pip:
       # dask extra

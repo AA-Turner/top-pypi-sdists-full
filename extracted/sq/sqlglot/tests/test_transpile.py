@@ -964,16 +964,30 @@ ORDER BY
             "SELECT\n  '1\n2'",
         )
 
+    def test_sql_security(self):
+        sqlglot_sql = "CREATE VIEW v SQL SECURITY INVOKER AS SELECT 1"
+
+        for dialect, sql in [
+            ("clickhouse", "CREATE VIEW v SQL SECURITY INVOKER AS SELECT 1"),
+            ("trino", "CREATE VIEW v SECURITY INVOKER AS SELECT 1"),
+            ("presto", "CREATE VIEW v SECURITY INVOKER AS SELECT 1"),
+            ("starrocks", "CREATE VIEW v SECURITY INVOKER AS SELECT 1"),
+            ("mysql", "CREATE SQL SECURITY INVOKER VIEW v AS SELECT 1"),
+        ]:
+            with self.subTest(dialect):
+                self.validate(sql, read=dialect, identity=False, target=sqlglot_sql)
+                self.validate(sql, write=dialect, identity=False, target=sql)
+
     @mock.patch("sqlglot.parser.logger")
     def test_error_level(self, logger):
         invalid = "x + 1. ("
         expected_messages = [
-            "Required keyword: 'expressions' missing for <class 'sqlglot.expressions.Aliases'>. Line 1, Col: 8.\n  x + 1. \033[4m(\033[0m",
+            "Required keyword: 'expressions' missing for <class 'sqlglot.expressions.core.Aliases'>. Line 1, Col: 8.\n  x + 1. \033[4m(\033[0m",
             "Expecting ). Line 1, Col: 8.\n  x + 1. \033[4m(\033[0m",
         ]
         expected_errors = [
             {
-                "description": "Required keyword: 'expressions' missing for <class 'sqlglot.expressions.Aliases'>",
+                "description": "Required keyword: 'expressions' missing for <class 'sqlglot.expressions.core.Aliases'>",
                 "line": 1,
                 "col": 8,
                 "start_context": "x + 1. ",
@@ -1010,14 +1024,14 @@ ORDER BY
 
         more_than_max_errors = "(((("
         expected_messages = (
-            "Required keyword: 'this' missing for <class 'sqlglot.expressions.Paren'>. Line 1, Col: 4.\n  (((\033[4m(\033[0m\n\n"
+            "Required keyword: 'this' missing for <class 'sqlglot.expressions.core.Paren'>. Line 1, Col: 4.\n  (((\033[4m(\033[0m\n\n"
             "Expecting ). Line 1, Col: 4.\n  (((\033[4m(\033[0m\n\n"
             "Expecting ). Line 1, Col: 4.\n  (((\033[4m(\033[0m\n\n"
             "... and 2 more"
         )
         expected_errors = [
             {
-                "description": "Required keyword: 'this' missing for <class 'sqlglot.expressions.Paren'>",
+                "description": "Required keyword: 'this' missing for <class 'sqlglot.expressions.core.Paren'>",
                 "line": 1,
                 "col": 4,
                 "start_context": "(((",

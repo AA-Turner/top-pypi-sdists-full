@@ -69,6 +69,7 @@ async def get_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
     """Get detailed status of a workflow run including step history."""
     from ..services.workflow_storage import (
         get_pending_approval,
+        get_pending_decision,
         list_workflow_steps,
     )
     from ..services.workflow_storage import (
@@ -81,12 +82,17 @@ async def get_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Run not found")
 
     steps = list_workflow_steps(db, run_id)
-    pending = get_pending_approval(db, run_id)
+    pending_approval = get_pending_approval(db, run_id)
+    pending_decision = get_pending_decision(db, run_id)
+
+    # Strip definition_content to prevent info disclosure (#970)
+    run.pop("definition_content", None)
 
     return {
         **run,
         "steps": steps,
-        "pending_approval": pending,
+        "pending_approval": pending_approval,
+        "pending_decision": pending_decision,
     }
 
 

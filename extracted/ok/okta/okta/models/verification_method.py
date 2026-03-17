@@ -123,18 +123,23 @@ class VerificationMethod(BaseModel):
         """Create an instance of VerificationMethod from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
+        # Import from okta.models to ensure class identity consistency with lazy imports
+        models = import_module("okta.models")
         if object_type == "AssuranceMethod":
-            return import_module(
-                "okta.models.assurance_method"
-            ).AssuranceMethod.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.AssuranceMethod.from_dict(obj)
         if object_type == "AuthenticationMethodChainMethod":
-            return import_module(
-                "okta.models.authentication_method_chain_method"
-            ).AuthenticationMethodChainMethod.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.AuthenticationMethodChainMethod.from_dict(obj)
         if object_type == "IdProofingMethod":
-            return import_module(
-                "okta.models.id_proofing_method"
-            ).IdProofingMethod.from_dict(obj)
+            # Check if the discriminator maps to the same class to avoid infinite recursion
+            if object_type == cls.__name__:
+                return cls.model_validate(obj)
+            return models.IdProofingMethod.from_dict(obj)
 
         raise ValueError(
             "VerificationMethod failed to lookup discriminator value from "

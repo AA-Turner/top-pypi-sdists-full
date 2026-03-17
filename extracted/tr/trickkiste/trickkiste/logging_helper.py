@@ -58,7 +58,7 @@ def apply_common_logging_cli_args(parser: ArgumentParser) -> ArgumentParser:
         choices=LOG_LEVELS,
         help="Sets the logging level - ALL_DEBUG sets all other loggers to DEBUG, too",
         type=str.upper,
-        default="INFO",
+        default="WARNING",
     )
     parser.add_argument(
         "--log-file",
@@ -140,7 +140,7 @@ def logger_levelname_filter(record: logging.LogRecord) -> bool:
 def setup_logging(  # pylint: disable=too-many-arguments
     logger: logging.Logger | str,
     *,
-    level: str | int = "INFO",
+    level: str | int = "WARNING",
     show_level: bool = True,
     show_time: bool = True,
     show_name: bool | int = True,
@@ -186,7 +186,7 @@ def setup_logging(  # pylint: disable=too-many-arguments
 
     set_log_levels((logger, level))
 
-    logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 def setup_logging_handler(
@@ -301,7 +301,7 @@ def set_log_levels(
         ),
         "trickkiste": logging.DEBUG
         if "ALL_DEBUG" in levels_spec.values()
-        else logging.INFO,
+        else logging.WARNING,
         **{
             logger_name: level_of(level_spec)
             for logger_name, level_spec in levels_spec.items()

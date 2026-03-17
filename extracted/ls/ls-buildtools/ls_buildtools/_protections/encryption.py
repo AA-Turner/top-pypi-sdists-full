@@ -1,5 +1,5 @@
 _A=True
-import os,re,shutil
+import os,re
 from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp,tempdir
@@ -24,4 +24,3 @@ class Encryption(Protection):
 		D+=b'\x00'*(A.AES_BLOCK_SIZE-len(D)%A.AES_BLOCK_SIZE);E=A.cipher.encryptor();H=E.update(D)+E.finalize()
 		with open(C,'w+b')as F:F.write(H);F.flush()
 		I=B.with_name(f"{B.name}.enc");return C,I
-	def finalize(A):shutil.rmtree(A.encrypted_directory)

@@ -29,16 +29,12 @@ get_scm_version = partial(get_version, root=PROJECT_ROOT_DIR)
 
 # -- Project information -----------------------------------------------------
 
-github_url = 'https://github.com'
 github_repo_org = 'ansible'
 github_repo_name = 'pylibssh'
-github_repo_slug = f'{github_repo_org}/{github_repo_name}'
-github_repo_url = f'{github_url}/{github_repo_slug}'
-github_sponsors_url = f'{github_url}/sponsors'
 
 project = f'{github_repo_org}-{github_repo_name}'
 author = 'Ansible, Inc.'
-copyright = f'2020, {author}'  # noqa: WPS125
+copyright = f'2020, {author}'  # noqa: A001  # builtin-variable-shadowing
 
 # The short X.Y version
 version = '.'.join(
@@ -73,14 +69,15 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosectionlabel',  # autocreate section targets for refs
     'sphinx.ext.doctest',
-    'sphinx.ext.extlinks',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
+    # Third-party extensions:
     # 'sphinxcontrib.apidoc',
     'sphinxcontrib.towncrier',  # provides `towncrier-draft-entries` directive
     'myst_parser',  # extended markdown; https://pypi.org/project/myst-parser/
+    'sphinx_issues',  # implements `:issue:`, `:pr:` and other GH-related roles
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -125,7 +122,6 @@ html_context = {
     'current_version': version,
     'latest_version': 'latest',
     'available_versions': ('latest',),
-    'css_files': [],  # https://github.com/sphinx-doc/sphinx/issues/8889
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -138,19 +134,11 @@ master_doc = 'index'
 
 # -- Extension configuration -------------------------------------------------
 
-# -- Options for extlinks extension ---------------------------------------
-extlinks = {
-    'issue': (f'{github_repo_url}/issues/%s', '#%s'),  # noqa: WPS323
-    'pr': (f'{github_repo_url}/pull/%s', 'PR #%s'),  # noqa: WPS323
-    'commit': (f'{github_repo_url}/commit/%s', '%s'),  # noqa: WPS323
-    'gh': (f'{github_url}/%s', 'GitHub: %s'),  # noqa: WPS323
-    'user': (f'{github_sponsors_url}/%s', '@%s'),  # noqa: WPS323
-}
-
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
+    'coveragepy': ('https://coverage.readthedocs.io/en/latest', None),
     'cython': ('https://cython.readthedocs.io/en/latest', None),
     'packaging': ('https://packaging.python.org', None),
     'pip': ('https://pip.pypa.io/en/latest', None),
@@ -176,7 +164,6 @@ linkcheck_ignore = [
     r'http://localhost:\d+/',  # local URLs
     r'https://codecov\.io/gh/ansible/pylibssh/branch/devel/graph/badge\.svg',
     r'https://github\.com/ansible/pylibssh/actions',  # 404 if no auth
-
     # Too many links to GitHub so they cause "429 Client Error:
     # too many requests for url"
     # Ref: https://github.com/sphinx-doc/sphinx/issues/7388
@@ -184,7 +171,6 @@ linkcheck_ignore = [
     r'https://github\.com/ansible/pylibssh/pull',
     r'https://github\.com/ansible/ansible/issues',
     r'https://github\.com/ansible/ansible/pull',
-
     # Requires a more liberal 'Accept: ' HTTP request header:
     # Ref: https://github.com/sphinx-doc/sphinx/issues/7247
     r'https://github\.com/ansible/pylibssh/workflows/[^/]+/badge\.svg',
@@ -197,9 +183,17 @@ linkcheck_workers = 25
 # https://www.sphinx-doc.org/en/master/usage/extensions/autosectionlabel.html
 autosectionlabel_maxdepth = 2  # mitigate Towncrier nested subtitles collision
 
+# -- Options for sphinx_issues extension -------------------------------------
+
+# https://github.com/sloria/sphinx-issues#installation-and-configuration
+
+issues_github_path = f'{github_repo_org}/{github_repo_name}'
+
 # -- Options for towncrier_draft extension -----------------------------------
 
-towncrier_draft_autoversion_mode = 'draft'  # or: 'sphinx-version', 'sphinx-release'
+towncrier_draft_autoversion_mode = (
+    'draft'  # or: 'sphinx-version', 'sphinx-release'
+)
 towncrier_draft_include_empty = True
 towncrier_draft_working_directory = PROJECT_ROOT_DIR
 towncrier_draft_config_path = 'pyproject.toml'  # relative to cwd

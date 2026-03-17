@@ -72,7 +72,6 @@ from .cmake_component_requirements import (
     CMakeRequirementsManager,
     ComponentName,
     RequirementsProcessingError,
-    check_requirements_name_collisions,
     handle_project_requirements,
 )
 from .core_utils import (
@@ -82,8 +81,11 @@ from .core_utils import (
     check_examples_folder,
     dist_name,
     get_validated_manifest,
+    load_project_description_file,
     parse_example,
     raise_component_modified_error,
+    try_remove_dependency_with_fallback,
+    validate_project_description_version,
 )
 from .dependencies import download_project_dependencies
 from .local_component_list import parse_component_list
@@ -132,7 +134,7 @@ class ComponentManager:
         path: str,
         lock_path: t.Optional[str] = None,
         manifest_path: t.Optional[str] = None,
-        interface_version: int = 0,
+        interface_version: int = 4,
         sdkconfig_json_file: t.Optional[str] = None,
     ) -> None:
         # Working directory
@@ -731,6 +733,7 @@ class ComponentManager:
             for component in local_components
             if os.path.isfile(os.path.join(component['path'], 'CMakeLists.txt'))
             and os.path.isfile(os.path.join(component['path'], MANIFEST_FILENAME))
+            and component.get('source', '') != 'project_managed_components'
         ]
 
         downloaded_components = set()
@@ -763,7 +766,7 @@ class ComponentManager:
         downloaded_components = sorted(downloaded_components)
 
         with open(managed_components_list_file, mode='w', encoding='utf-8') as file:
-            # Set versions for manifests in requierements too
+            # Set versions for manifests in requirements too
             # It's useful in the case when the component was moved from `managed_components`
             # to `components`
             for requirement in manifests:
@@ -821,7 +824,6 @@ class ComponentManager:
                 'Please make sure this script is executed from CMake'
             )
 
-        add_all_components_to_main = False
         for component in components_with_manifests:
             component = component.strip()
             name = os.path.basename(component)
@@ -853,34 +855,7 @@ class ComponentManager:
                 managed_requirement_key = f'MANAGED_{requirement_key}'
                 add_req(managed_requirement_key)
 
-                # In interface v0, component_requires_file contains also common requirements
-                if self.interface_version == 0 and name_key == ComponentName('idf', 'main'):
-                    add_all_components_to_main = True
-
-        # If there are dependencies added to the `main` component,
-        # and common components were included to the requirements file
-        # then add every other component to it dependencies
-        # to reproduce convenience behavior
-        # for the standard project defined in IDF's `project.cmake`
-        # For ESP-IDF < 5.0 (Remove after ESP-IDF 4.4 EOL)
-        if add_all_components_to_main:
-            main_reqs = requirements[ComponentName('idf', 'main')]['REQUIRES']
-            for requirement in requirements.keys():
-                name = requirement.name
-                if name not in main_reqs and name != 'main' and isinstance(main_reqs, list):
-                    main_reqs.append(name)
-
-        if self.interface_version >= 3:
-            new_requirements = self._override_requirements_by_component_sources(requirements)
-        else:
-            new_requirements = requirements
-            # we still use this function to check name collisions before 5.2
-            # The behavior is different when
-            #   two components with the same name but have different namespaces
-            # before IDF interface 3, we consider them acceptable, and choose the first one
-            # after IDF interface 3, we raise an requirement conflict error
-            #   if they are under the same component type
-            check_requirements_name_collisions(new_requirements)
+        new_requirements = self._override_requirements_by_component_sources(requirements)
 
         handle_project_requirements(new_requirements)
         requirements_manager.dump(new_requirements)
@@ -1003,7 +978,7 @@ class ComponentManager:
                         f'Requirement {name_matched_before.name} and requirement {comp_name.name} are both added as {props["__COMPONENT_SOURCE"]}. '
                         "Can't decide which one to pick."
                     )
-                # Give user an info when same name components got overriden
+                # Give user an info when same name components got overridden
                 else:
                     notice(
                         '{} overrides {} since {} type got higher priority than {}'.format(
@@ -1050,3 +1025,25 @@ class ComponentManager:
                 recursive=recursive,
                 resolution=resolution,
             )
+
+
+def remove_dependency_from_project(build_path: Path, dependency_name: str):
+    project_description = load_project_description_file(build_path)
+    validate_project_description_version(project_description)
+
+    if not project_description.get('all_component_info'):
+        raise FatalError(
+            'Project description file is missing required key "all_component_info". '
+            'This may indicate an unsupported format version.'
+        )
+
+    removed_from_paths = try_remove_dependency_with_fallback(
+        project_description['all_component_info'].values(), dependency_name
+    )
+
+    if removed_from_paths:
+        joined_paths = '\n'.join(str(path) for path in removed_from_paths)
+        notice(f'Successfully removed dependency "{dependency_name}" from: \n{joined_paths}')
+        return
+
+    notice(f'Dependency "{dependency_name}" not found in any component')

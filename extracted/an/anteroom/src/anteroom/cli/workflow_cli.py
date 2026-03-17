@@ -23,6 +23,25 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+def _format_tokens(n: int) -> str:
+    """Format token count as human-readable (e.g. 23K, 1.2M)."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f}K"
+    return str(n)
+
+
+def _format_duration(seconds: int) -> str:
+    """Format duration as MM:SS or H:MM:SS."""
+    if seconds >= 3600:
+        h, remainder = divmod(seconds, 3600)
+        m, s = divmod(remainder, 60)
+        return f"{h}:{m:02d}:{s:02d}"
+    m, s = divmod(seconds, 60)
+    return f"{m}:{s:02d}"
+
+
 def _resolve_workflow_path(workflow_id: str) -> Path | None:
     """Resolve a workflow definition by ID or path.
 
@@ -58,8 +77,12 @@ def _resolve_workflow_path(workflow_id: str) -> Path | None:
     return None
 
 
-def _create_engine(config: AppConfig, db: Any) -> tuple[Any, Any]:
-    """Create a WorkflowEngine with AI service and event bus wired in.
+def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -> tuple[Any, Any]:
+    """Create a WorkflowEngine with AI service, credential resolver, and registries.
+
+    When space_id is provided, ArtifactRegistry and SkillRegistry are scoped
+    to that space. For resume, pass the run's stored space_id to guarantee
+    the same artifact/skill resolution as the original run.
 
     Returns (engine, event_bus) — caller must call event_bus.stop_polling()
     when done to avoid asyncio task leak warnings on exit.
@@ -87,9 +110,6 @@ def _create_engine(config: AppConfig, db: Any) -> tuple[Any, Any]:
         )
 
     # Create event bus backed by DB change_log for cross-process SSE delivery.
-    # CLI only needs to WRITE events to change_log (for the web app's poller).
-    # We set _db_manager directly without start_polling() to avoid creating a
-    # background asyncio.Task that causes warnings on process exit.
     event_bus = None
     try:
         from ..db import DatabaseManager
@@ -101,6 +121,28 @@ def _create_engine(config: AppConfig, db: Any) -> tuple[Any, Any]:
         event_bus._db_manager = db_manager  # Write-only: no poll loop needed
     except Exception as exc:
         logger.warning("Could not initialize event bus: %s", exc)
+
+    # Build credential resolver (#970)
+    credential_resolver = None
+    if config.workflow.credentials:
+        from ..services.workflow_credentials import CredentialResolver
+
+        credential_resolver = CredentialResolver(config.workflow.credentials)
+
+    # Build artifact and skill registries, scoped by space_id (#957)
+    artifact_registry = None
+    skill_registry = None
+    try:
+        from ..cli.skills import SkillRegistry
+        from ..services.artifact_registry import ArtifactRegistry
+
+        artifact_registry = ArtifactRegistry()
+        artifact_registry.load_from_db(db, space_id=space_id)
+        skill_registry = SkillRegistry()
+        skill_registry.load()
+        skill_registry.load_from_artifacts(artifact_registry)
+    except Exception as exc:
+        logger.debug("Could not initialize artifact/skill registries: %s", exc)
 
     registry = create_default_registry()
     engine = WorkflowEngine(
@@ -114,6 +156,10 @@ def _create_engine(config: AppConfig, db: Any) -> tuple[Any, Any]:
         event_bus=event_bus,
         egress_allowed_domains=list(config.ai.allowed_domains) if config.ai.allowed_domains else [],
         egress_block_localhost=config.ai.block_localhost_api,
+        credential_resolver=credential_resolver,
+        artifact_registry=artifact_registry,
+        skill_registry=skill_registry,
+        model_costs=config.cli.usage.model_costs,
     )
     return engine, event_bus
 
@@ -172,7 +218,22 @@ def _print_run_progress(db: Any, run: dict[str, Any]) -> None:
     elif run_status == "blocked":
         console.print(f"\n[yellow]Workflow blocked:[/yellow] {run.get('stop_reason', 'unknown')}")
     elif run_status == "failed":
-        console.print(f"\n[red]Workflow failed:[/red] {run.get('stop_reason', 'unknown')}")
+        stop_reason = run.get("stop_reason", "unknown")
+        if stop_reason.startswith("budget_exceeded:"):
+            dim = stop_reason.split(":", 1)[1]
+            console.print(f"\n[red]Workflow stopped:[/red] Budget exceeded ({dim})")
+            budget_usage = run.get("budget_usage")
+            budget = run.get("budget")
+            if budget_usage and budget:
+                console.print(
+                    f"  Steps: {budget_usage.get('steps_completed', 0)}/{budget.get('max_steps', 0)}, "
+                    f"Tokens: {_format_tokens(budget_usage.get('total_tokens', 0))}"
+                    f"/{_format_tokens(budget.get('max_tokens', 0))}, "
+                    f"Duration: {_format_duration(budget_usage.get('elapsed_seconds', 0))}"
+                    f"/{_format_duration(budget.get('max_duration_seconds', 0))}"
+                )
+        else:
+            console.print(f"\n[red]Workflow failed:[/red] {stop_reason}")
     else:
         console.print(f"\n[dim]Workflow status:[/dim] {run_status}")
 
@@ -181,7 +242,7 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
     """Dispatch `aroom workflow` subcommands."""
     action = getattr(args, "workflow_action", None)
     if not action:
-        console.print("Usage: aroom workflow {run,status,list,history,resume,cancel}")
+        console.print("Usage: aroom workflow {run,status,list,history,resume,cancel,approve,deny,respond}")
         return
 
     from ..db import get_db
@@ -200,6 +261,12 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
         _handle_resume(config, db, args)
     elif action == "cancel":
         _handle_cancel(db, args)
+    elif action == "approve":
+        _handle_approve(db, args)
+    elif action == "deny":
+        _handle_deny(db, args)
+    elif action == "respond":
+        _handle_respond(db, args)
     else:
         console.print(f"Unknown workflow action: {action}")
 
@@ -259,8 +326,19 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
 
     register_builtin_gates()
 
-    # Create engine with AI service dependencies
-    engine, _event_bus = _create_engine(config, db)
+    # Resolve current space for artifact/skill scoping (#957)
+    current_space_id: str | None = None
+    try:
+        from ..services.space_storage import resolve_space_by_cwd
+
+        space = resolve_space_by_cwd(db, str(Path.cwd()))
+        if space:
+            current_space_id = space["id"]
+    except Exception:
+        pass
+
+    # Create engine with AI service dependencies, scoped to current space
+    engine, _event_bus = _create_engine(config, db, space_id=current_space_id)
 
     # Set up real-time progress callback for live CLI output
     def _on_progress(event_type: str, step_id: str | None, payload: dict) -> None:
@@ -293,6 +371,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
                 target_kind=target_kind,
                 target_ref=target_ref,
                 inputs=inputs,
+                space_id=current_space_id,
             )
         )
     except (ValueError, RuntimeError) as exc:
@@ -329,7 +408,40 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
         console.print(f"[bold]Stop reason:[/bold] {run['stop_reason']}")
     if run.get("current_step_id"):
         console.print(f"[bold]Current step:[/bold] {run['current_step_id']}")
+    if run.get("definition_hash"):
+        console.print(f"[bold]Definition hash:[/bold] {run['definition_hash'][:12]}...")
     console.print(f"[bold]Created:[/bold] {run['created_at']}")
+
+    # Usage and budget display (#963, #967)
+    budget = run.get("budget")
+    budget_usage = run.get("budget_usage")
+    if budget:
+        parts = []
+        usage = budget_usage or {}
+        if budget.get("max_steps"):
+            parts.append(f"{usage.get('steps_completed', 0)}/{budget['max_steps']} steps")
+        if budget.get("max_tokens"):
+            used_t = usage.get("total_tokens", 0)
+            max_t = budget["max_tokens"]
+            parts.append(f"{_format_tokens(used_t)}/{_format_tokens(max_t)} tokens")
+        if budget.get("max_duration_seconds"):
+            elapsed = usage.get("elapsed_seconds", 0)
+            max_d = budget["max_duration_seconds"]
+            parts.append(f"{_format_duration(elapsed)}/{_format_duration(max_d)}")
+        if parts:
+            console.print(f"[bold]Budget:[/bold] {', '.join(parts)}")
+    if budget_usage:
+        usage = budget_usage
+        total_t = usage.get("total_tokens", 0)
+        if total_t and not budget:
+            console.print(
+                f"[bold]Tokens:[/bold] {_format_tokens(total_t)} "
+                f"({_format_tokens(usage.get('prompt_tokens', 0))} in / "
+                f"{_format_tokens(usage.get('completion_tokens', 0))} out)"
+            )
+        cost = usage.get("estimated_cost_usd", 0.0)
+        if cost > 0:
+            console.print(f"[bold]Est. cost:[/bold] ${cost:.4f}")
 
     steps = list_workflow_steps(db, run["id"])
     if steps:
@@ -354,7 +466,11 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
 
 def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow list`."""
-    from ..services.workflow_storage import list_workflow_runs
+    from ..services.workflow_storage import check_approval_timeouts, check_decision_timeouts, list_workflow_runs
+
+    # On-demand timeout checks
+    check_approval_timeouts(db)
+    check_decision_timeouts(db)
 
     # Recover stale runs before listing (on-demand recovery)
     engine, _event_bus = _create_engine(config, db)
@@ -425,9 +541,12 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
         table.add_column("Status")
         table.add_column("Result")
         table.add_column("Duration")
+        table.add_column("Tokens")
         table.add_column("Summary", max_width=50)
         for step in steps:
             dur = f"{step['duration_ms']}ms" if step.get("duration_ms") else "-"
+            artifacts = step.get("result_artifacts") or {}
+            tokens = _format_tokens(artifacts["total_tokens"]) if artifacts.get("total_tokens") else "-"
             table.add_row(
                 step["step_id"],
                 step["step_type"],
@@ -435,6 +554,7 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
                 step["status"],
                 step.get("result_status") or "-",
                 dur,
+                tokens,
                 (step.get("result_summary") or "")[:50],
             )
         console.print(table)
@@ -460,25 +580,31 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
 def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow resume <run_id>`."""
     from ..services.workflow_engine import load_definition
-    from ..services.workflow_storage import get_workflow_run
+    from ..services.workflow_storage import check_approval_timeouts, check_decision_timeouts, get_workflow_run
 
     run_id = getattr(args, "run_id", None)
     if not run_id:
         console.print("[red]Error:[/red] run_id is required")
         return
 
-    # Create engine with full AI/tool wiring (same as _handle_run)
-    engine, _event_bus = _create_engine(config, db)
+    # On-demand timeout checks
+    check_approval_timeouts(db)
+    check_decision_timeouts(db)
 
-    # Recover any stale runs first (on-demand recovery)
-    asyncio.run(engine.recover_interrupted_runs())
-
+    # Load run FIRST to extract space_id for scoped registry rebuild (#957)
     run = get_workflow_run(db, run_id)
     if not run:
         console.print(f"[red]Error:[/red] Run not found: {run_id}")
         return
 
-    if run["status"] not in ("paused", "waiting_for_approval"):
+    # Create engine scoped to the run's space_id (#957 resume stability)
+    run_space_id = run.get("space_id")
+    engine, _event_bus = _create_engine(config, db, space_id=run_space_id)
+
+    # Recover any stale runs first (on-demand recovery)
+    asyncio.run(engine.recover_interrupted_runs())
+
+    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input"):
         console.print(
             f"[red]Error:[/red] Run is not resumable (status: {run['status']}). "
             "Only paused or waiting_for_approval runs can be resumed."
@@ -508,6 +634,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         return
 
     from_step = getattr(args, "from_step", None)
+    force = getattr(args, "force", False)
 
     # Register gates
     from ..workflows.gates import register_builtin_gates
@@ -518,6 +645,8 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     console.print(f"[bold]Run:[/bold] {run_id[:12]}...")
     if from_step:
         console.print(f"[bold]From step:[/bold] {from_step}")
+    if force:
+        console.print("[yellow]Force mode: definition drift will be overridden[/yellow]")
 
     try:
         result = asyncio.run(
@@ -525,6 +654,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
                 run_id,
                 definition,
                 from_step=from_step,
+                force=force,
             )
         )
     except (ValueError, RuntimeError) as exc:
@@ -562,7 +692,7 @@ def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
         )
         return
 
-    if run["status"] not in ("paused", "waiting_for_approval"):
+    if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input"):
         console.print(
             f"[red]Error:[/red] Run is not cancellable (status: {run['status']}). "
             "Only paused or waiting_for_approval runs can be cancelled."
@@ -578,3 +708,133 @@ def _handle_cancel(db: Any, args: argparse.Namespace) -> None:
         payload={"cancelled_from_status": run["status"]},
     )
     console.print(f"[green]Run {run_id[:12]}... cancelled[/green]")
+
+
+def _handle_approve(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow approve <run_id>`. Approve a pending tool approval request."""
+    from ..services.workflow_storage import (
+        check_approval_timeouts,
+        get_pending_approval,
+        get_workflow_run,
+        resolve_approval_request,
+    )
+
+    run_id = getattr(args, "run_id", None)
+    if not run_id:
+        console.print("[red]Error:[/red] run_id is required")
+        return
+
+    check_approval_timeouts(db)
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Error:[/red] Run not found: {run_id}")
+        return
+
+    pending = get_pending_approval(db, run_id)
+    if not pending:
+        console.print(f"[yellow]No pending approval request for run {run_id[:12]}...[/yellow]")
+        return
+
+    console.print("\n[bold]Pending tool approval:[/bold]")
+    console.print(f"  Tool: {pending['tool_name']}")
+    console.print(f"  Risk tier: {pending['risk_tier']}")
+    if pending.get("tool_args"):
+        import json
+
+        console.print(f"  Args: {json.dumps(pending['tool_args'], indent=2)[:200]}")
+
+    resolved = resolve_approval_request(db, pending["id"], status="approved", resolved_by="operator")
+    if resolved:
+        console.print(f"\n[green]Approved.[/green] Use 'aroom workflow resume {run_id}' to continue.")
+    else:
+        console.print("[red]Error:[/red] Could not resolve approval request.")
+
+
+def _handle_deny(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow deny <run_id>`. Deny a pending tool approval request."""
+    from ..services.workflow_storage import (
+        check_approval_timeouts,
+        get_pending_approval,
+        get_workflow_run,
+        resolve_approval_request,
+        update_workflow_run,
+    )
+
+    run_id = getattr(args, "run_id", None)
+    if not run_id:
+        console.print("[red]Error:[/red] run_id is required")
+        return
+
+    check_approval_timeouts(db)
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Error:[/red] Run not found: {run_id}")
+        return
+
+    pending = get_pending_approval(db, run_id)
+    if not pending:
+        console.print(f"[yellow]No pending approval request for run {run_id[:12]}...[/yellow]")
+        return
+
+    reason = getattr(args, "reason", None) or "denied by operator"
+    resolve_approval_request(db, pending["id"], status="denied", resolved_by="operator")
+    update_workflow_run(db, run_id, status="paused", stop_reason=f"approval_denied: {reason}")
+    console.print(f"[yellow]Denied.[/yellow] Run {run_id[:12]}... moved to paused.")
+
+
+def _handle_respond(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow respond <run_id>`. Respond to a human gate decision."""
+    from ..services.workflow_storage import (
+        check_decision_timeouts,
+        get_pending_decision,
+        get_workflow_run,
+        resolve_human_decision,
+    )
+
+    run_id = getattr(args, "run_id", None)
+    if not run_id:
+        console.print("[red]Error:[/red] run_id is required")
+        return
+
+    check_decision_timeouts(db)
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Error:[/red] Run not found: {run_id}")
+        return
+
+    pending = get_pending_decision(db, run_id)
+    if not pending:
+        console.print(f"[yellow]No pending human decision for run {run_id[:12]}...[/yellow]")
+        return
+
+    console.print("\n[bold]Pending decision:[/bold]")
+    console.print(f"  {pending['prompt']}")
+    if pending.get("context"):
+        console.print(f"\n  [dim]Context:[/dim]\n  {pending['context'][:300]}")
+    console.print("\n[bold]Options:[/bold]")
+    options = pending.get("options", [])
+    for i, opt in enumerate(options, 1):
+        console.print(f"  {i}. [{opt.get('id')}] {opt.get('label')}")
+
+    option_id = getattr(args, "option", None)
+    if not option_id:
+        console.print(
+            f"\nPass --option <option_id> to respond."
+            f" Example: aroom workflow respond {run_id} --option {options[0]['id'] if options else 'approve'}"
+        )
+        return
+
+    valid_ids = {o["id"] for o in options}
+    if option_id not in valid_ids:
+        console.print(f"[red]Error:[/red] Invalid option '{option_id}'. Valid: {', '.join(valid_ids)}")
+        return
+
+    resolved = resolve_human_decision(db, pending["id"], selected_option=option_id, resolved_by="operator")
+    if resolved:
+        console.print(f"\n[green]Decision recorded: {option_id}[/green]")
+        console.print(f"Use 'aroom workflow resume {run_id}' to continue.")
+    else:
+        console.print("[red]Error:[/red] Could not resolve decision.")

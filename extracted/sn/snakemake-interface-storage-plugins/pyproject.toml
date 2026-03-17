@@ -1,13 +1,13 @@
 [project]
 name = "snakemake-interface-storage-plugins"
-version = "4.3.3"
+version = "4.4.1"
 description = "This package provides a stable interface for interactions between Snakemake and its storage plugins."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
   "snakemake-interface-common>=1.12.0",
   "wrapt>=1.15.0",
-  "reretry>=0.11.8",
+  "tenacity>=9.1.4,<10.0",
   "throttler>=1.2.2",
   "humanfriendly>=10.0,<11",
 ]

@@ -14,8 +14,7 @@ import typing as t
 from pathlib import Path
 
 from idf_component_manager.core import ComponentManager
-from idf_component_tools import error, notice, setup_logging, warn
-from idf_component_tools.build_system_tools import get_idf_version
+from idf_component_tools import error, setup_logging, warn
 from idf_component_tools.debugger import KCONFIG_CONTEXT
 from idf_component_tools.errors import FatalError
 from idf_component_tools.manifest import ComponentRequirement
@@ -70,6 +69,10 @@ def _get_ppid_file_path(local_component_list_file: t.Optional[str]) -> Path:
     return Path(f'{local_component_list_file}.{get_cmake_pid()}')
 
 
+def _get_build_dir(args) -> str:
+    return args.build_dir or os.path.dirname(args.managed_components_list_file)
+
+
 def _copyfile_or_raise(
     src: t.Union[str, Path],
     dst: t.Union[str, Path],
@@ -82,22 +85,22 @@ def _copyfile_or_raise(
         raise FatalError(f"Failed to {action} '{src}' → '{dst}': {e}") from e
 
 
-def _get_build_dir(args) -> str:
-    return args.build_dir or os.path.dirname(args.managed_components_list_file)
-
-
-def _get_component_list_file(local_components_list_file):
+def _get_component_list_file(local_components_list_file, interface_version):
     """
     Get the appropriate component list file, preferring the PPID version
     if it exists from a parent CMake run.
 
     Args:
         args: Command line arguments containing local_components_list_file
+
     Returns:
         Path to the component list file to use, or None if not configured
     """
     if not local_components_list_file:
         return None
+
+    if interface_version != 4:
+        return local_components_list_file
 
     component_list_parent_pid = _get_ppid_file_path(local_components_list_file)
     # Always use local component list file from the first execution of the component manager
@@ -143,7 +146,9 @@ def prepare_dep_dirs(args):
     if sdk_config_json_path and should_load_sdkconfig_json(args, build_dir, sdk_config_json_path):
         KCONFIG_CONTEXT.get().update_from_file(sdk_config_json_path)  # type: ignore
 
-    local_components_list_file = _get_component_list_file(args.local_components_list_file)
+    local_components_list_file = _get_component_list_file(
+        args.local_components_list_file, args.interface_version
+    )
 
     ComponentManager(
         args.project_dir,
@@ -169,37 +174,32 @@ def prepare_dep_dirs(args):
             for req in reqs:
                 debug_strs.add(f'    {key}, {debug_message(req)}')
 
-        _nl = '\n'
-
         # Only print the warning in these cases:
         # - interface version 4 and Component Manager is running the 3rd time (or later)
-        # - CMake build system v2
-        if (args.interface_version == 4 and RunCounter(build_dir).value >= 2) or CMAKEV2:
+        # - interface version 5 (warning printing is controlled outside of python for v5)
+        if (
+            (args.interface_version == 4 and RunCounter(build_dir).value >= 2)
+            or args.interface_version == 5
+            or CMAKEV2
+        ):
+            _nl = '\n'
             warn(
                 f'The following Kconfig variables were used in "if" clauses, '
                 f'but not found in any Kconfig file:\n'
                 f'{_nl.join(sorted(debug_strs))}\n'
             )
 
-        if args.interface_version < 4:
-            notice(
-                f'The following Kconfig variables were used in "if" clauses, '
-                f'but not supported by your ESP-IDF version {get_idf_version()}. '
-                f'Ignoring these if-clauses:\n'
-                f'{_nl.join(sorted(debug_strs))}\n'
-            )
-            return
+        if args.interface_version == 4:
+            # Copy local component list file for next run of CMake before exiting
+            if args.local_components_list_file:
+                ppid_file = _get_ppid_file_path(args.local_components_list_file)
 
-        # Copy local component list file for next run of CMake before exiting
-        if args.local_components_list_file:
-            ppid_file = _get_ppid_file_path(args.local_components_list_file)
-
-            if not Path(ppid_file).exists():
-                _copyfile_or_raise(
-                    args.local_components_list_file,
-                    ppid_file,
-                    action='copy',
-                )
+                if not Path(ppid_file).exists():
+                    _copyfile_or_raise(
+                        args.local_components_list_file,
+                        ppid_file,
+                        action='copy',
+                    )
 
         # Exiting with code 10 to signal CMake to re-run component discovery due to missing KConfig options
         sys.exit(10)
@@ -234,7 +234,7 @@ def inject_requirements(args):
     # -> Clean up CM Run counter
     # -> Clean up the sdkconfig.cm backup
     # If we're running CMakeV2, do not take counter into consideration
-    if not CMAKEV2:
+    if args.interface_version == 4 and not CMAKEV2:
         if not Path(
             _get_ppid_file_path(f'{args.build_dir}/local_components_list.temp.yml')
         ).exists():
@@ -261,18 +261,15 @@ def main():
     parser.add_argument('--project_dir', help='Project directory')
 
     # Interface versions support:
-    # *0* supports ESP-IDF <=4.4
-    # *1* starting ESP-IDF 5.0
-    # *2* starting ESP-IDF 5.1
-    # *3* starting ESP-IDF 5.2
     # *4* starting ESP-IDF 6.0
+    # *5* starting ESP-IDF 6.0.1
 
     parser.add_argument(
         '--interface_version',
         help='Version of ESP-IDF build system integration',
-        default=0,
+        default=4,
         type=int,
-        choices=[0, 1, 2, 3, 4],
+        choices=[4, 5],
     )
 
     parser.add_argument('--lock_path', help='lock file path relative to the project path')
@@ -280,6 +277,9 @@ def main():
         '--sdkconfig_json_file',
         required=False,
         help='Path to file with sdkconfig.json, used for parsing kconfig in if clauses',
+    )
+    parser.add_argument(
+        '--use_sdk_json', required=False, help='Flag whether the solver should load sdkconfig.json'
     )
     subparsers = parser.add_subparsers(dest='step')
     subparsers.required = True

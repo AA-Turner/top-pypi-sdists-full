@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
 
 import pyarrow as pa
 
@@ -36,6 +36,7 @@ from chalk.features.underscore import (
     UnderscoreRoot,
 )
 from chalk.gitignore.helper import IgnoreConfig, get_default_combined_ignore_config
+from chalk.parsed.ast_context import set_project_ast_context
 from chalk.parsed.duplicate_input_gql import (
     DiagnosticGQL,
     DiagnosticSeverityGQL,
@@ -925,7 +926,7 @@ def import_all_files(
 
 
 def import_sql_file_resolvers(
-    path: Path,
+    path: Optional[Path],
     file_allowlist: Optional[List[str]] = None,
     has_import_errors: bool = False,
     override: bool = False,
@@ -935,6 +936,7 @@ def import_sql_file_resolvers(
             sources=[*BaseSQLSource.registry, *SQLSourceGroup.registry],
             paths=file_allowlist,
             has_import_errors=has_import_errors,
+            filter_generated_by_directory=path,
         )
     else:
         sql_resolver_results = get_sql_file_resolvers(
@@ -992,52 +994,6 @@ def get_resolver(
     if maybe_resolver is not None:
         return maybe_resolver
     raise ValueError(f"No resolver with fqn or name {resolver_fqn_or_name} found")
-
-
-def _get_py_files_fast(
-    resolved_root: Path,
-    venv_path: Optional[Path],
-    ignore_config: Optional[IgnoreConfig],
-) -> Iterable[Path]:
-    """
-    Gets all the .py files in the resolved_root directory and its subdirectories.
-    Faster than the old method we were using because we are skipping the entire
-    directory if the directory is determined to be ignored. But if any .gitignore
-    or any .chalkignore file has negation, we revert to checking every filepath
-    against each .*ignore file.
-
-    Parameters
-    ----------
-    resolved_root
-        Project root absolute path.
-    venv_path
-        Path of the venv folder to skip importing from.
-    ignore_config
-        An optional CombinedIgnoreConfig object. If `None`, we simply don't check for ignores.
-
-    Returns
-    -------
-    Iterable[Path]
-        An iterable of `Path`, each representing a `.py` file.
-    """
-
-    for dirpath_str, dirnames, filenames in os.walk(resolved_root):
-        dirpath = Path(dirpath_str).resolve()
-
-        if (venv_path is not None and venv_path.samefile(dirpath)) or (
-            ignore_config
-            and not ignore_config.has_negation
-            and ignore_config.ignored(os.path.join(str(dirpath), "#"))
-            # Hack to make "dir/**" match "/Users/home/dir"
-        ):
-            dirnames.clear()  # Skip subdirectories
-            continue  # Skip files
-
-        for filename in filenames:
-            if filename.endswith(".py"):
-                filepath = dirpath / filename
-                if not ignore_config or not ignore_config.ignored(filepath):
-                    yield filepath
 
 
 CHALK_IMPORT_FLAG: ContextVar[bool] = ContextVar("CHALK_IMPORT_FLAG", default=False)
@@ -1254,6 +1210,33 @@ class ChalkImporter:
 CHALK_IMPORTER = ChalkImporter()
 
 
+def _get_py_files_fast(
+    project_root: Path,
+    venv_path: Optional[Path],
+    ignore_config: Optional[IgnoreConfig],
+) -> List[Path]:
+    resolved_root = project_root.resolve()
+    repo_files: List[Path] = []
+
+    for dirpath_str, dirnames, filenames in os.walk(resolved_root):
+        dirpath = Path(dirpath_str).resolve()
+
+        if (venv_path is not None and venv_path.samefile(dirpath)) or (
+            ignore_config and not ignore_config.has_negation and ignore_config.ignored(os.path.join(str(dirpath), "#"))
+        ):
+            dirnames.clear()
+            continue
+
+        for filename in filenames:
+            if filename.endswith(".py"):
+                filepath = dirpath / filename
+                if not ignore_config or not ignore_config.ignored(filepath):
+                    repo_files.append(filepath)
+
+    repo_files.sort()
+    return repo_files
+
+
 def import_all_python_files_from_dir(
     project_root: Path,
     check_ignores: bool = True,
@@ -1282,17 +1265,18 @@ def import_all_python_files_from_dir(
     }
     token = CHALK_IMPORT_FLAG.set(True)
     try:
-        venv = os.environ.get("VIRTUAL_ENV")
         if file_allowlist is not None:
-            repo_files = sorted(file_allowlist)
+            repo_files = sorted(
+                path.resolve() if path.is_absolute() else (resolved_root / path).resolve() for path in file_allowlist
+            )
         else:
+            venv = os.environ.get("VIRTUAL_ENV")
             venv_path = None if venv is None else Path(venv)
             ignore_config = get_default_combined_ignore_config(resolved_root) if check_ignores else None
-            repo_files = sorted(
-                list(_get_py_files_fast(resolved_root=resolved_root, venv_path=venv_path, ignore_config=ignore_config))
-            )
+            repo_files = _get_py_files_fast(resolved_root, venv_path, ignore_config)
 
         CHALK_IMPORTER.add_repo_files(repo_files)
+        set_project_ast_context(resolved_root, repo_files)
         for filename in repo_files:
             # we want resolved_root in case repo_root contains a symlink
             if filename in already_imported_files:

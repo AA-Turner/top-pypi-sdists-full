@@ -1,21 +1,72 @@
 Metadata-Version: 2.4
 Name: borb
-Version: 3.0.6
+Version: 3.0.7
 Summary: borb is a library for reading, creating and manipulating PDF files in python.
-Home-page: https://github.com/jorisschellekens/borb
+Home-page: https://github.com/borb-pdf/borb
 Author: Joris Schellekens
 Author-email: joris.schellekens.1989@gmail.com
+License: AGPL-3.0-or-later
+Project-URL: Source, https://github.com/borb-pdf/borb
+Project-URL: Tracker, https://github.com/borb-pdf/borb/issues
+Keywords: pdf,pdf-generation,pdf-processing,borb
+Classifier: Development Status :: 6 - Mature
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Artistic Software
+Classifier: Topic :: File Formats
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Multimedia :: Graphics
+Classifier: Topic :: Multimedia
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: setuptools>=51.1.1
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pydocstyle; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Provides-Extra: genai
+Requires-Dist: openai; extra == "genai"
+Provides-Extra: image
+Requires-Dist: matplotlib; extra == "image"
+Requires-Dist: Pillow; extra == "image"
+Requires-Dist: python-barcode; extra == "image"
+Requires-Dist: py_avataaars; extra == "image"
+Requires-Dist: requests; extra == "image"
+Requires-Dist: segno; extra == "image"
+Provides-Extra: text
+Requires-Dist: fonttools; extra == "text"
+Requires-Dist: requests; extra == "text"
+Provides-Extra: full
+Requires-Dist: Pillow; extra == "full"
+Requires-Dist: fonttools; extra == "full"
+Requires-Dist: matplotlib; extra == "full"
+Requires-Dist: openai; extra == "full"
+Requires-Dist: py_avataaars; extra == "full"
+Requires-Dist: python-barcode; extra == "full"
+Requires-Dist: requests; extra == "full"
+Requires-Dist: segno; extra == "full"
 Dynamic: author
 Dynamic: author-email
+Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
+Dynamic: project-url
+Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary
 

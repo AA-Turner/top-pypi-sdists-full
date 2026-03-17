@@ -1,23 +1,51 @@
 ---
 
 ci:
-  autoupdate_schedule: quarterly
+  autoupdate_schedule: quarterly  # low frequency to reduce maintenance noise
 
 repos:
+- repo: https://github.com/Kludex/no-optional.git
+  rev: 0.4.0
+  hooks:
+  - id: no_optional
+
+- repo: https://github.com/astral-sh/ruff-pre-commit.git
+  rev: v0.14.10
+  hooks:
+  - id: ruff-check
+    args:
+    # Ref: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    - --exit-non-zero-on-fix
+    - --fix  # NOTE: When `--fix` is used, linting should be before ruff-format
+    - --show-fixes
+
+- repo: https://github.com/astral-sh/ruff-pre-commit.git
+  rev: v0.14.10
+  hooks:
+  - id: ruff-format  # Cython imports are handled by `isort`
+    alias: ruff-format-first-pass
+    name: ruff-format (first pass)
+
 - repo: https://github.com/asottile/add-trailing-comma.git
-  rev: v3.2.0
+  rev: v4.0.0
   hooks:
   - id: add-trailing-comma
 
+- repo: https://github.com/astral-sh/ruff-pre-commit.git
+  rev: v0.14.10
+  hooks:
+  - id: ruff-format  # Cython imports are handled by `isort`
+    alias: ruff-format-second-pass
+    name: ruff-format (second pass)
+
 - repo: https://github.com/PyCQA/isort.git
-  rev: 6.0.1
+  rev: 7.0.0
   hooks:
   - id: isort
     args:
     - --honor-noqa
-    files: >-
-      ^.*\.p(xd|y|yx)$
-    types: [file]
+    types_or:
+    - cython  # Python is handled by Ruff
 
 - repo: https://github.com/Lucas-C/pre-commit-hooks.git
   rev: v1.5.5
@@ -25,7 +53,7 @@ repos:
   - id: remove-tabs
 
 - repo: https://github.com/python-jsonschema/check-jsonschema.git
-  rev: 0.33.2
+  rev: 0.36.0
   hooks:
   - id: check-github-workflows
     files: ^\.github/workflows/[^/]+$
@@ -51,13 +79,14 @@ repos:
   - id: rst-backticks
 
 - repo: https://github.com/pre-commit/pre-commit-hooks.git
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   # Side-effects:
   - id: trailing-whitespace
   - id: check-merge-conflict
   - id: double-quote-string-fixer
   - id: end-of-file-fixer
+  - id: fix-byte-order-marker
   - id: requirements-txt-fixer
     exclude: >-
       ^(docs/requirements|requirements-build)\.txt$
@@ -67,7 +96,6 @@ repos:
     files: >-
       ^tests/[^_].*\.py$
   - id: check-added-large-files
-  - id: check-byte-order-marker
   - id: check-case-conflict
   # disabled due to pre-commit/pre-commit-hooks#159
   # - id: check-docstring-first
@@ -84,65 +112,94 @@ repos:
     exclude: >-
       ^docs/_samples/.*\.py$
 
-- repo: https://github.com/PyCQA/pydocstyle.git
-  rev: 6.3.0
+- repo: https://github.com/codespell-project/codespell.git
+  rev: v2.4.1
   hooks:
-  - id: pydocstyle
+  - id: codespell
     exclude: >-
-      ^docs/_samples/.*\.py$
+      ^\.github/\.json-schemas/.*\.json$
 
 - repo: https://github.com/adrienverge/yamllint.git
   rev: v1.37.1
   hooks:
   - id: yamllint
-    files: \.(yaml|yml)$
-    types: [file, yaml]
+    types:
+    - file
+    - yaml
     args:
     - --strict
 
+- repo: https://github.com/openstack/bashate.git
+  rev: 2.1.1
+  hooks:
+  - id: bashate
+    exclude: >-  # FIXME: drop this
+      (?x)
+      ^
+        build-scripts/manylinux-container-image/(
+          install_libffi
+          |install_openssl
+          |make-static-deps-dir
+          |install_libssh
+          |install-userspace-tools
+          |openssl-version
+          |install_perl
+          |install_zlib
+        )\.sh
+      $
+
+- repo: https://github.com/shellcheck-py/shellcheck-py.git
+  rev: v0.11.0.1
+  hooks:
+  - id: shellcheck
+    exclude: >-  # FIXME: drop this
+      (?x)
+      ^
+        build-scripts/manylinux-container-image/(
+          build_utils
+          |install_libffi
+          |install_openssl
+          |install_libssh
+          |install-userspace-tools
+          |openssl-version
+          |install_perl
+          |install_zlib
+        )\.sh
+      $
+
 - repo: https://github.com/PyCQA/flake8.git
   rev: 7.3.0
   hooks:
   - id: flake8
-    alias: flake8-no-wps
-    name: flake8 WPS-excluded
     additional_dependencies:
     - flake8-2020 ~= 1.7.0
-    - flake8-length ~= 0.3.0
-    - flake8-logging-format ~= 0.7.5
-    - flake8-pytest-style ~= 1.6.0
+    - flake8-annotations ~= 3.2.0
+    - flake8-comprehensions ~= 3.17.0
+    - flake8-cognitive-complexity ~= 0.1.0
+    - flake8-docstrings ~= 1.7.0
+    - flake8-length ~= 0.3.1
+    - flake8-logging ~= 1.8.0
+    # NOTE: `flake8-logging-format` hasn't had updates since 2024 and
+    # NOTE: thus gained an unresolved incompatibility with Python 3.14.
+    - flake8-logging-format ~= 2024.24.12; python_version < "3.14"
+    - flake8-pytest-style ~= 2.2.0
+    # NOTE: `setuptools` provides `pkg_resources` needed by
+    # NOTE: `flake8-logging-format`. `setuptools` stopped being bundled
+    # NOTE: in CPython starting Python 3.12. The latest version of
+    # NOTE: `setuptools` that's a part of Python 3.11.14 is v79.0.1.
+    - setuptools < 81; python_version < "3.14"
+    - wemake-python-styleguide ~= 1.5.0
     exclude: >-
       ^docs/_samples/.*\.py$
-    files: >-
-      ^.*\.p(xd|y|yx)$
     language_version: python3
-    types:
-    - file
-
-- repo: https://github.com/PyCQA/flake8.git
-  rev: 7.3.0
-  hooks:
-  - id: flake8
-    alias: flake8-only-wps
-    name: flake8 WPS-only
-    args:
-    # https://wemake-python-stylegui.de/en/latest/pages/usage/formatter.html
-    - --format
-    - wemake
-    - --select
-    - WPS
-    additional_dependencies:
-    - wemake-python-styleguide ~= 0.19.2
-    exclude: >-
-      ^docs/_samples/.*\.py$
-    files: >-
-      ^.*\.p(xd|y|yx)$
-    language_version: python3.11  # flake8-commas doesn't work w/ Python 3.12
-    types:
-    - file
+    types_or:
+    - cython
+    - python
+    - pyi
+    - jupyter
 
 - repo: https://github.com/MarcoGorelli/cython-lint.git
-  rev: v0.16.7
+  rev: v0.18.1
   hooks:
   - id: cython-lint
     # NOTE: This linter does not have a config file so it's set up below.

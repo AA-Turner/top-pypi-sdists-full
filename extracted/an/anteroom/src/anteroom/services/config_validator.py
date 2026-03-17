@@ -89,6 +89,7 @@ _KNOWN_TOP_LEVEL = {
     "rate_limit",
     "audit",
     "compliance",
+    "workflow",
     "pack_sources",
 }
 
@@ -270,6 +271,23 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "events",
     },
     "compliance": {"rules"},
+    "workflow": {
+        "enabled",
+        "max_review_rounds",
+        "step_timeout",
+        "heartbeat_interval",
+        "stale_threshold",
+        "approval_timeout",
+        "registry_enabled",
+        "registry_heartbeat_interval",
+        "budget",
+        "credentials",
+    },
+    "workflow.budget": {
+        "max_duration_seconds",
+        "max_steps",
+        "max_tokens",
+    },
 }
 
 # Int fields: (section_path, key, min, max, default)
@@ -312,6 +330,15 @@ _INT_FIELDS: list[tuple[str, str, int, int, int]] = [
     ("storage", "retention_days", 0, 36500, 0),
     ("storage", "retention_check_interval", 60, 86400, 3600),
     ("safety.prompt_injection", "canary_length", 8, 64, 16),
+    ("workflow", "max_review_rounds", 1, 100, 2),
+    ("workflow", "step_timeout", 10, 3600, 300),
+    ("workflow", "heartbeat_interval", 5, 300, 30),
+    ("workflow", "stale_threshold", 10, 600, 60),
+    ("workflow", "approval_timeout", 10, 3600, 300),
+    ("workflow", "registry_heartbeat_interval", 5, 300, 30),
+    ("workflow.budget", "max_duration_seconds", 0, 86400, 0),
+    ("workflow.budget", "max_steps", 0, 10000, 0),
+    ("workflow.budget", "max_tokens", 0, 100_000_000, 0),
 ]
 
 # Float fields: (section_path, key, min, max, default)
@@ -644,6 +671,46 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
                         severity="error",
                     )
                 )
+
+    # Validate workflow credentials
+    workflow_section = _get_section(raw, "workflow")
+    if workflow_section is not None:
+        creds = workflow_section.get("credentials")
+        if creds is not None:
+            if not isinstance(creds, list):
+                result.errors.append(
+                    ConfigError(
+                        path="workflow.credentials",
+                        message=f"expected list, got {type(creds).__name__}",
+                        severity="error",
+                    )
+                )
+            else:
+                for i, cred in enumerate(creds):
+                    prefix = f"workflow.credentials[{i}]"
+                    if not isinstance(cred, dict):
+                        result.errors.append(ConfigError(path=prefix, message="credential entry must be a mapping"))
+                        continue
+                    if not cred.get("name"):
+                        result.errors.append(
+                            ConfigError(path=f"{prefix}.name", message="credential entry missing required 'name' field")
+                        )
+                    if not cred.get("env_var") and not cred.get("command"):
+                        result.errors.append(
+                            ConfigError(
+                                path=prefix,
+                                message="credential must have either 'env_var' or 'command'",
+                                severity="warning",
+                            )
+                        )
+                    if cred.get("env_var") and cred.get("command"):
+                        result.errors.append(
+                            ConfigError(
+                                path=prefix,
+                                message="credential should have only one of 'env_var' or 'command'",
+                                severity="warning",
+                            )
+                        )
 
     # Validate proxy origins format
     proxy = raw.get("proxy", {})

@@ -14,9 +14,10 @@ from abstra_internals.contracts_generated import (
     AbstraLibApiEditorCodebaseSettingsGetResponse,
     CommonFileNode,
 )
+from abstra_internals.controllers.codebase import CodebaseController
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.server.routes.codebase import get_editor_bp
-from abstra_internals.settings import Settings
+from abstra_internals.settings import Settings, SettingsController
 
 
 class TestCodebaseRoutes(unittest.TestCase):
@@ -185,6 +186,54 @@ class TestCodebaseRoutes(unittest.TestCase):
             self.assertTrue(resp.json["success"])
             self.assertEqual(resp.json["stdout"], "ok")
             self.assertEqual(resp.json["stderr"], "")
+
+
+class TestCodebaseControllerListFiles(unittest.TestCase):
+    """Unit tests for CodebaseController.list_files logic."""
+
+    def setUp(self):
+        self.original_root_path = SettingsController._root_path
+        SettingsController._root_path = Path("/tmp/foo")
+
+        mock_project = MagicMock()
+        mock_project.get_stages_by_file_path.return_value = []
+
+        self.repos = MagicMock()
+        self.repos.project.load.return_value = mock_project
+
+        self.controller = CodebaseController(self.repos)
+
+    def tearDown(self):
+        SettingsController._root_path = self.original_root_path
+
+    @patch("abstra_internals.controllers.codebase.FileSystemService")
+    def test_list_files_skips_paths_outside_root(self, mock_fs):
+        """Regression: list_files must not crash when FileSystemService returns
+        paths outside the project root (e.g. resolved symlinks like /tmp/.wsdl)."""
+        mock_fs.list_files.return_value = [
+            Path("/tmp/foo/form.py"),  # inside root → included
+            Path("/tmp/.wsdl"),  # outside root → must be skipped, not crash
+        ]
+
+        result = self.controller.list_files(None)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].file.path_parts, ["form.py"])
+
+    @patch("abstra_internals.controllers.codebase.FileSystemService")
+    def test_list_files_does_not_raise_for_outside_root_paths(self, mock_fs):
+        """Before the fix, calling relative_to() on a path outside root raised ValueError."""
+        mock_fs.list_files.return_value = [
+            Path("/tmp/.wsdl"),
+            Path("/etc/passwd"),
+        ]
+
+        try:
+            result = self.controller.list_files(None)
+        except ValueError as e:
+            self.fail(f"list_files raised ValueError: {e}")
+
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":

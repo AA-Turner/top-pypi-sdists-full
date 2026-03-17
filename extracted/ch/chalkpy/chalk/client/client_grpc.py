@@ -1765,7 +1765,7 @@ class ChalkGRPCClient:
         except grpc.RpcError as e:
             raise RuntimeError(f"Could not register model. {e.details()}")
 
-    def _get_model_artifact_presigned_s3(self, model_paths: List[str]) -> ModelUploadUrlResponse:
+    def _get_model_artifact_presigned(self, model_paths: List[str]) -> ModelUploadUrlResponse:
         try:
             resp: GetModelArtifactUploadUrlsResponse = self._stub_refresher.call_model_stub(
                 lambda x: x.GetModelArtifactUploadUrls(GetModelArtifactUploadUrlsRequest(file_names=model_paths))
@@ -1775,7 +1775,7 @@ class ChalkGRPCClient:
                 model_artifact_id=resp.model_artifact_id,
             )
         except grpc.RpcError as e:
-            raise RuntimeError(f"Could not get presigned S3 URLs for file upload: {e.details()}")
+            raise RuntimeError(f"Could not get presigned URLs for file upload: {e.details()}")
 
     def register_model_version(
         self,
@@ -1951,7 +1951,7 @@ class ChalkGRPCClient:
                     model_paths, additional_files
                 )
 
-                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(
                     model_paths=list(all_files_to_process.keys())
                 )
 
@@ -2114,7 +2114,7 @@ class ChalkGRPCClient:
                     [model_tmp_path], additional_files
                 )
 
-                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(
                     model_paths=list(all_files_to_process.keys())
                 )
 

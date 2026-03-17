@@ -107,19 +107,27 @@ class GetUsageRequest(google.protobuf.message.Message):
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
     START_FIELD_NUMBER: builtins.int
     END_FIELD_NUMBER: builtins.int
+    CATEGORIES_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     @property
     def start(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
     def end(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def categories(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[sentry_protos.billing.v1.data_category_pb2.DataCategory.ValueType]:
+        """Optional filter for specific data categories.
+        When empty, usage for all categories is returned.
+        """
+
     def __init__(
         self,
         *,
         organization_id: builtins.int = ...,
         start: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         end: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        categories: collections.abc.Iterable[sentry_protos.billing.v1.data_category_pb2.DataCategory.ValueType] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["end", b"end", "start", b"start"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["end", b"end", "organization_id", b"organization_id", "start", b"start"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["categories", b"categories", "end", b"end", "organization_id", b"organization_id", "start", b"start"]) -> None: ...
 
 global___GetUsageRequest = GetUsageRequest

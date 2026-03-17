@@ -1,4 +1,5 @@
 from sqlglot import exp, ParseError, parse_one, transpile
+from sqlglot.optimizer.annotate_types import annotate_types
 from tests.dialects.test_dialect import Validator
 
 
@@ -759,6 +760,26 @@ FROM (
                 "redshift": "SELECT * FROM t LIMIT 1",
                 "postgres": "SELECT * FROM t FETCH FIRST 1 ROWS ONLY",
             },
+        )
+
+    def test_to_timestamp(self):
+        # Redshift's TO_TIMESTAMP returns TIMESTAMPTZ
+        # https://docs.aws.amazon.com/redshift/latest/dg/r_TO_TIMESTAMP.html
+        expr = annotate_types(
+            parse_one("SELECT TO_TIMESTAMP('2023-01-01', 'YYYY-MM-DD')", dialect="redshift"),
+            dialect="redshift",
+        )
+        self.assertEqual(expr.expressions[0].type.this, exp.DataType.Type.TIMESTAMPTZ)
+
+        self.validate_identity("SELECT LAG(x) IGNORE NULLS OVER (PARTITION BY y ORDER BY z)")
+        self.validate_identity("SELECT LAG(x) RESPECT NULLS OVER (PARTITION BY y ORDER BY z)")
+        self.validate_identity(
+            "SELECT LAG(x IGNORE NULLS) OVER (PARTITION BY y ORDER BY z)",
+            "SELECT LAG(x) IGNORE NULLS OVER (PARTITION BY y ORDER BY z)",
+        )
+        self.validate_identity(
+            "SELECT LAG(x RESPECT NULLS) OVER (PARTITION BY y ORDER BY z)",
+            "SELECT LAG(x) RESPECT NULLS OVER (PARTITION BY y ORDER BY z)",
         )
 
     def test_regexp_extract(self):

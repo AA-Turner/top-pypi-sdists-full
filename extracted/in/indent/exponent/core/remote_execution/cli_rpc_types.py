@@ -240,14 +240,22 @@ class BashToolInput(ToolInput, tag=BASH_TOOL_NAME):
     description: str | None = None
     background: bool = False
     bash_id: str | None = None
+    agent_cli: str | None = None
+    is_read_only: bool | None = None
+
+    def to_llm(self) -> dict[str, Any]:
+        result = msgspec.to_builtins(self)
+        result.pop("agent_cli", None)
+        result.pop("is_read_only", None)
+        return result
 
 
-class PartialBashToolResult(PartialToolResult, tag=BASH_TOOL_NAME):
-    shell_output: str | None = None
+class PartialBashToolResult(PartialToolResult, tag=BASH_TOOL_NAME, rename={"output": "shell_output"}):
+    output: str | None = None
 
 
-class BashToolResult(ToolResult, tag=BASH_TOOL_NAME):
-    shell_output: str
+class BashToolResult(ToolResult, tag=BASH_TOOL_NAME, rename={"output": "shell_output"}):
+    output: str
     duration_ms: int
     exit_code: int | None
     timed_out: bool

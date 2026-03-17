@@ -3,10 +3,9 @@ __copyright__ = "Copyright 2023, Christopher Tomkins-Tinch, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import abstractmethod
 import re
-from typing import Dict
-
+from abc import abstractmethod
+from typing import Dict, Optional
 
 WILDCARD_REGEX = re.compile(
     r"""
@@ -26,7 +25,7 @@ WILDCARD_REGEX = re.compile(
 )
 
 
-def get_constant_prefix(pattern: str, strip_incomplete_parts: bool = False):
+def get_constant_prefix(pattern: str, strip_incomplete_parts: bool = False) -> str:
     """Return constant prefix of a pattern, removing everything from the first
     wildcard on.
 
@@ -54,23 +53,28 @@ def get_constant_prefix(pattern: str, strip_incomplete_parts: bool = False):
 class Mtime:
     __slots__ = ["_local", "_local_target", "_storage"]
 
-    def __init__(self, local=None, local_target=None, storage=None):
+    def __init__(
+        self,
+        local: Optional[float] = None,
+        local_target: Optional[float] = None,
+        storage: Optional[float] = None,
+    ) -> None:
         self._local = local
         self._local_target = local_target
         self._storage = storage
 
-    def local_or_storage(self, follow_symlinks=False):
+    def local_or_storage(self, follow_symlinks: bool = False) -> Optional[float]:
         if self._storage is not None:
             return self._storage
         return self.local(follow_symlinks=follow_symlinks)
 
-    def storage(
-        self,
-    ):
+    def storage(self) -> Optional[float]:
         return self._storage
 
-    def local(self, follow_symlinks=False):
+    def local(self, follow_symlinks: bool = False) -> Optional[float]:
         if follow_symlinks and self._local_target is not None:
+            if self._local is not None:
+                return max(self._local, self._local_target)
             return self._local_target
         return self._local
 
@@ -91,3 +95,7 @@ class IOCacheStorageInterface:
     @property
     @abstractmethod
     def size(self) -> Dict[str, int]: ...
+
+    @property
+    @abstractmethod
+    def checksum(self) -> Dict[str, Optional[str]]: ...

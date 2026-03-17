@@ -3,7 +3,7 @@ import asyncio
 
 import pytest
 
-from shared_anyscale_utils.utils.asyncio import chain_future, create_future
+from shared_anyscale_utils.utils.asyncio import chain_future, create_future, run_sync
 
 
 @pytest.mark.parametrize("result", [42, Exception("failed!")])
@@ -39,3 +39,34 @@ async def test_chain_future_cancellation():
     e = (await asyncio.gather(other, return_exceptions=True))[0]
 
     assert type(e) is asyncio.CancelledError
+
+
+def test_run_sync_no_loop():
+    """run_sync works from a plain synchronous context (no running loop)."""
+
+    async def add(a, b):
+        return a + b
+
+    assert run_sync(add(1, 2)) == 3
+
+
+def test_run_sync_inside_running_loop():
+    """run_sync works when called from inside a running event loop."""
+
+    async def double(x):
+        return x * 2
+
+    async def outer():
+        return run_sync(double(21))
+
+    assert asyncio.run(outer()) == 42
+
+
+def test_run_sync_propagates_exceptions():
+    """Exceptions raised in the coroutine propagate through run_sync."""
+
+    async def fail():
+        raise ValueError("boom")
+
+    with pytest.raises(ValueError, match="boom"):
+        run_sync(fail())

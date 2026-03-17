@@ -6,7 +6,7 @@ import typing as t
 from pathlib import Path
 
 from pydantic import model_serializer
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from idf_component_tools.constants import MANIFEST_FILENAME
 from idf_component_tools.errors import InternalError, SourceError
@@ -16,7 +16,6 @@ from idf_component_tools.messages import warn
 from idf_component_tools.utils import (
     ComponentWithVersions,
     HashedComponentVersion,
-    Literal,
     subst_vars_in_str,
 )
 
@@ -36,7 +35,7 @@ class SourcePathError(SourceError):
 
 
 class LocalSource(BaseSource):
-    type: Literal['local'] = 'local'  # type: ignore
+    type: t.Literal['local'] = 'local'  # type: ignore
     path: t.Optional[str] = None
     override_path: t.Optional[str] = None
 
@@ -51,15 +50,28 @@ class LocalSource(BaseSource):
         return build_name_to_namespace_name(name)
 
     @model_serializer(mode='wrap')
-    def serialize_model(self, handler: SerializerFunctionWrapHandler) -> t.Dict[str, t.Any]:
+    def serialize_model(
+        self,
+        handler: SerializerFunctionWrapHandler,
+        info: SerializationInfo,
+    ) -> t.Dict[str, t.Any]:
         # serialize from flat dict to {'name': {...}}
         d = handler(self)
+
+        # If dependencies lock path is set, try to use it as a base for relative path
+        lock_path = info.context.get('lock_path') if info.context else None
 
         # only use path in the lock file
         # turn override path into path
         # the dir may not exist
-        d['path'] = str(self._get_raw_path())  # type: ignore
+        d['path'] = str(self._get_raw_path(lock_path))  # type: ignore
         d.pop('override_path', None)
+
+        # If both use_relative_path and lock_path are set, make path relative to lock_path
+        use_relative_path = info.context.get('use_relative_path', False) if info.context else False
+
+        if use_relative_path and lock_path:
+            d['path'] = os.path.relpath(d['path'], str(lock_path))
 
         return d
 
@@ -67,7 +79,7 @@ class LocalSource(BaseSource):
     def is_overrider(self) -> bool:
         return bool(self.override_path)
 
-    def _get_raw_path(self) -> Path:
+    def _get_raw_path(self, lock_path: t.Optional[Path] = None) -> Path:
         if self.override_path:
             if self.path:
                 warn('Both "path" and "override_path" are set. "override_path" will be used.')
@@ -84,6 +96,8 @@ class LocalSource(BaseSource):
             path = path.resolve()
         elif self._manifest_manager:
             path = (Path(self._manifest_manager.path).parent / path).resolve()
+        elif lock_path:
+            path = (lock_path / path).resolve()
         else:
             raise ManifestContextError(
                 "Can't reliably evaluate relative path without context: {}".format(str(path))
@@ -100,7 +114,7 @@ class LocalSource(BaseSource):
         else:
             field_name = 'path'
 
-        if not path.is_dir():  # for Python > 3.6, where .resolve(strict=False)
+        if not path.is_dir():
             raise SourcePathError(
                 f'The "{field_name}" field in the manifest file "{path / MANIFEST_FILENAME}" '
                 'does not point to a directory. '

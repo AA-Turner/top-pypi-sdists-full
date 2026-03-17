@@ -19,10 +19,11 @@ export declare class ModalView extends BkColumnView {
     model: Modal;
     modal: A11yDialogView;
     close_button: HTMLButtonElement;
+    content: HTMLElement;
     connect_signals(): void;
     render(): void;
     stylesheets(): StyleSheetLike[];
-    update_children(): Promise<void>;
+    get self_target(): HTMLElement;
     create_modal(): void;
     update_close_button(): void;
 }

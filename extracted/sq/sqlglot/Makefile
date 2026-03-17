@@ -1,4 +1,4 @@
-.PHONY: install install-dev install-devc install-pre-commit bench bench-parse bench-optimize test test-fast unit testc unitc style check docs docs-serve hidec showc clean
+.PHONY: install install-dev install-devc install-devc-release install-pre-commit bench bench-parse bench-optimize test test-fast unit testc unitc style check docs docs-serve hidec showc clean resolve-integration-conflicts
 
 ifdef UV
     PIP := uv pip
@@ -7,27 +7,49 @@ else
 endif
 
 SO_BACKUP := /tmp/sqlglot_so_backup
+FIND_SO := find . -name "*.so" -not -path "*/build/*" -not -path "*/site-packages/*"
 
 hidec:
-	mkdir -p $(SO_BACKUP) && mv -f sqlglot/*.so $(SO_BACKUP)/ 2>/dev/null; true
+	rm -rf $(SO_BACKUP) && $(FIND_SO) | tar cf $(SO_BACKUP) -T - 2>/dev/null && $(FIND_SO) -delete; true
 
 showc:
-	mv -f $(SO_BACKUP)/*.so sqlglot/ 2>/dev/null; true
+	tar xf $(SO_BACKUP) 2>/dev/null; rm -f $(SO_BACKUP); true
 
 clean:
-	rm -rf sqlglot/*.so sqlglotc/build sqlglotc/dist sqlglotc/*.egg-info sqlglotc/sqlglot
+	rm -rf build sqlglotc/build sqlglotc/dist sqlglotc/*.egg-info sqlglotc/sqlglot
+	$(FIND_SO) -delete 2>/dev/null; true
 
 install:
 	$(PIP) install -e .
 
 install-dev:
 	$(PIP) install -e ".[dev]"
+	git submodule update --init 2>/dev/null || true
+	@if ! command -v gh >/dev/null 2>&1; then \
+		echo ""; \
+		echo "gh (GitHub CLI) is not installed. It is needed to auto-create PRs for integration tests."; \
+		printf "Install it via brew? [y/N] "; \
+		read answer; \
+		if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
+			brew install gh; \
+		else \
+			echo "Skipping. You can install it later: https://cli.github.com/"; \
+		fi; \
+	fi
 
-install-devc: clean
-	cd sqlglotc && pip install -e .
+install-devc:
+	cd sqlglotc && MYPYC_OPT=0 python setup.py build_ext --inplace
+
+install-devc-release: clean
+	cd sqlglotc && $(PIP) install -e .
 
 install-pre-commit:
 	pre-commit install
+	pre-commit install --hook-type post-checkout
+	pre-commit install --hook-type pre-push
+	pre-commit install --hook-type post-merge
+	@printf '#!/bin/bash\n.github/scripts/integration_tests_sync.sh post-commit\n' > .git/hooks/post-commit
+	@chmod +x .git/hooks/post-commit
 
 bench: bench-parse bench-optimize
 
@@ -62,3 +84,6 @@ docs:
 
 docs-serve:
 	python pdoc/cli.py --port 8002
+
+resolve-integration-conflicts:
+	cd sqlglot-integration-tests && git pull --rebase --autostash

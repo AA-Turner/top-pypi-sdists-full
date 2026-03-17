@@ -440,3 +440,320 @@ fn test_html_comments_multiline_with_backticks() {
     assert_eq!(result.len(), 1, "Should only flag bare name in multi-line HTML comment");
     assert_eq!(result[0].line, 4);
 }
+
+#[test]
+fn test_html_comments_inline_link_url_skipped() {
+    // Issue #532: inline link URLs in HTML comments should not be flagged
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\nThis is a Test.\n\n<!-- For more information, see the [relevant page](test.md). -->\n<!-- For more information, see `test.md` -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Line 3: "Test" is already correct
+    // Line 5: "test" in (test.md) is a URL -> skipped
+    // Line 6: "test" in `test.md` is code -> skipped
+    assert_eq!(
+        result.len(),
+        0,
+        "Should not flag names inside link URLs in HTML comments. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_inline_link_text_still_flagged() {
+    // Link text IS prose and should be checked for proper names
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- See the [test page](docs.md) for details -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // "test" in link text [test page] should still be flagged
+    assert_eq!(
+        result.len(),
+        1,
+        "Should flag improper name in link text within HTML comments. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_multiple_inline_links() {
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- [a](test.md) and [b](test2.md) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in multiple link URLs. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_link_with_title() {
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- [page](test.md \"test title\") -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Both "test" in URL and "test" in title are within the (...) portion
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in link URL with title. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_relative_link_paths() {
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- See [page](../test/file.md) and [other](./test.md) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in relative link paths. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_block_inline_link_url_skipped() {
+    // Same behavior in HTML blocks, not just comments
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<div>\nSee [relevant page](test.md) for details.\n</div>";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in link URLs inside HTML blocks. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_regular_markdown_link_url_still_handled() {
+    // Regular Markdown links (outside HTML comments) are handled by is_in_link()
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\nSee [relevant page](test.md) for details.";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Regular Markdown link URLs should still be skipped. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_not_a_link() {
+    // Bare text that looks like it could be a link part shouldn't be skipped
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- test is mentioned here -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Bare name in HTML comment should still be flagged. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_inline_link_autofix() {
+    // Autofix should fix link text but leave URL alone
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- See the [test page](test.md) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+
+    // "test" in link text should be fixed; "test" in URL should remain
+    assert_eq!(fixed, "# Heading\n\n<!-- See the [Test page](test.md) -->",);
+}
+
+#[test]
+fn test_html_comments_image_link_url_skipped() {
+    // Image URLs in HTML comments should also be skipped
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- ![screenshot](test-screenshot.png) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in image URLs in HTML comments. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_multiline_with_link() {
+    // Multi-line HTML comment with inline link
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!--\nFor details, see [the guide](test.md).\n-->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in link URLs in multi-line HTML comments. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_link_with_nested_brackets() {
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- [see [this] page](test.md) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should handle nested brackets in link text and skip URL. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_link_with_balanced_parens_in_url() {
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- [page](https://example.com/test_(section)) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should handle balanced parentheses in URLs. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_reference_link_skipped() {
+    // Reference-style links [text][ref] in HTML comments: ref portion should be skipped
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- See the [relevant page][test-ref] for details -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in reference link labels in HTML comments. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_reference_link_text_still_flagged() {
+    // Reference link text IS prose and should be checked
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- See the [test page][ref] for details -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Should flag improper name in reference link text. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_mixed_link_styles() {
+    // Both inline and reference links in one comment
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- [page](test.md) and [other][test-ref] -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in both inline and reference link URLs. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_frontmatter_inline_link_url_skipped() {
+    // YAML frontmatter can contain markdown-like link syntax in values
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "---\ndescription: See [relevant page](test.md) for details\n---\n\n# Heading\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in link URLs within frontmatter. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_frontmatter_link_text_still_flagged() {
+    // Link text in frontmatter IS prose and should be checked
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "---\ndescription: See [test page](example.md) for details\n---\n\n# Heading\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Should flag improper name in link text within frontmatter. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_comments_double_escaped_bracket_link() {
+    // \\[text](url) — the backslash is escaped, so [ starts a real link
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<!-- \\\\[page](test.md) -->";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in link URLs even with double-escaped preceding backslash. Got: {result:?}",
+    );
+}
+
+#[test]
+fn test_html_block_reference_link_url_skipped() {
+    // Reference link inside an HTML block
+    let names = vec!["Test".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "# Heading\n\n<div>\n[relevant page][test-ref]\n</div>\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        0,
+        "Should skip names in reference link labels in HTML blocks. Got: {result:?}",
+    );
+}

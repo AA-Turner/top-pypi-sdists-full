@@ -1,9 +1,9 @@
-import asyncclick as click
 import logging
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Optional, Type
 
+import asyncclick as click
 
 from .. import ui
 from ..actions.download_incremental import download_incremental
@@ -11,6 +11,7 @@ from ..actions.download_schema import download_schema
 from ..actions.download_snapshot import download_snapshot
 from ..actions.drop_db import drop_db
 from ..actions.init_db import init_db
+from ..actions.list_db import list_db
 from ..actions.list_tables import list_tables
 from ..actions.sync_db import sync_db
 from ..dap_types import Credentials, Format
@@ -347,6 +348,50 @@ async def syncdb(
         namespace=namespace,
         table_names=table,
         tracking=global_options.tracking,
+    )
+
+
+@dap_command("Lists table information stored in the local database.")
+@pass_global_options
+@namespace_option
+@connection_string_option
+@click.option(
+    "--omit-not-replicated",
+    is_flag=True,
+    default=False,
+    help="Omit tables that have not been replicated locally.",
+)
+@click.option(
+    "--omit-record-count",
+    is_flag=True,
+    default=False,
+    help="Skip querying record counts for each local table.",
+)
+async def listdb(
+    global_options: GlobalOptions,
+    namespace: str,
+    connection_string: str,
+    omit_not_replicated: bool,
+    omit_record_count: bool,
+) -> None:
+    logger.debug(
+        "Running listdb command with parameters: namespace=%s, connection_string=%s, omit_not_replicated=%s, omit_record_count=%s",
+        namespace,
+        connection_string,
+        omit_not_replicated,
+        omit_record_count,
+    )
+    await list_db(
+        base_url=global_options.base_url,
+        credentials=Credentials.create(
+            client_id=global_options.client_id,
+            client_secret=global_options.client_secret,
+        ),
+        namespace=namespace,
+        connection_string=connection_string,
+        tracking=global_options.tracking,
+        omit_not_replicated=omit_not_replicated,
+        omit_record_count=omit_record_count,
     )
 
 

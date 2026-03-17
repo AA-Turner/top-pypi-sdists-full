@@ -171,8 +171,8 @@ class ParsedAnnotation:
                     # If there was an issue with THAT, we'll try to import files specified by
                     # TYPE_CHECKING only imports, and augment the globals again
                     tree: ast.Module | None = None
-                    if self._features_cls.__chalk_source_info__.filename is not None:
-                        tree = import_only_type_checking_imports(self._features_cls.__chalk_source_info__.filename)
+                    if self._features_cls.__chalk_filename__ is not None:
+                        tree = import_only_type_checking_imports(self._features_cls.__chalk_filename__)
                     existing_globalns.update(self._get_globals_for_forward_references())
                     try:
                         hints = cached_get_type_hints(
@@ -237,7 +237,7 @@ class ParsedAnnotation:
                                                 range=builder.annotation_range(attribute_name),
                                             )
                             raise TypeError(
-                                f"Could not get type hints of feature class '{self._features_cls}' from filename {self._features_cls.__chalk_source_info__.filename}: {str(e)}"
+                                f"Could not get type hints of feature class '{self._features_cls}' from filename {self._features_cls.__chalk_filename__}: {str(e)}"
                             ) from e
 
             parsed_annotation = hints[self._attribute_name]

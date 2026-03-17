@@ -11,12 +11,14 @@ logger = logging.getLogger("dap")
 
 is_cli_mode: bool = False
 
+
 def executing_in_cli_mode() -> None:
     global is_cli_mode
     is_cli_mode = True
 
+
 class TrackingData:
-    exec_mode: str # execution as "cli" or "lib"
+    exec_mode: str  # execution as "cli" or "lib"
     client_id: str
     dap_version: str
     python_version: str
@@ -32,18 +34,24 @@ class TrackingData:
         self.client_id = client_id
         self.dap_version = __version__
         self.python_version = platform.python_version()
-        self.os_version = f"{platform.system()} {platform.release()} {platform.machine()}"
+        self.os_version = (
+            f"{platform.system()} {platform.release()} {platform.machine()}"
+        )
 
-    def set_cmd_info(self, command: str | None, namespace: str, table: str | None) -> None:
+    def set_cmd_info(
+        self, command: str | None, namespace: str, table: str | None
+    ) -> None:
         self.command = command
         self.namespace = namespace
         self.table = table
 
     def __str__(self) -> str:
-        return (f"exec_mode={self.exec_mode}, client_id={self.client_id}, dap_version={self.dap_version}, "
-                f"python_version={self.python_version}, os_version={self.os_version}, "
-                f"db_dialect={self.db_dialect}, db_version={self.db_version}, command={self.command}, "
-                f"namespace={self.namespace}, table={self.table}")
+        return (
+            f"exec_mode={self.exec_mode}, client_id={self.client_id}, dap_version={self.dap_version}, "
+            f"python_version={self.python_version}, os_version={self.os_version}, "
+            f"db_dialect={self.db_dialect}, db_version={self.db_version}, command={self.command}, "
+            f"namespace={self.namespace}, table={self.table}"
+        )
 
 
 PENDO_URL = "https://data.pendo.io/data/track"
@@ -59,12 +67,17 @@ def reduce_to_valid_size(properties: dict) -> dict:
     https://support.pendo.io/hc/en-us/articles/360032294291-Configure-Track-Events
     """
     # versions should be short but some DBs/OSs might return a long string
-    properties["os_version"] = properties.get("os_version", "")[:32]
-    properties["db_version"] = properties.get("db_version", "")[:16]
+    if properties.get("os_version") is not None:
+        properties["os_version"] = properties["os_version"][:32]
+    if properties.get("db_version") is not None:
+        properties["db_version"] = properties["db_version"][:16]
     # user provided properties can be anything
-    properties["namespace"] = properties.get("namespace", "")[:32]
+    if properties.get("namespace") is not None:
+        properties["namespace"] = properties["namespace"][:32]
     props_len = len(json.dumps({"properties": properties}))
-    if (props_len > PENDO_MAX_PROPS_JSON_SIZE) and ("table" in properties): # all other properties are short
+    if (props_len > PENDO_MAX_PROPS_JSON_SIZE) and properties.get(
+        "table"
+    ) is not None:  # all other properties are short
         table_count = len(properties["table"].split(","))
         properties["table"] = f"{table_count} tables"
     return properties
@@ -91,17 +104,24 @@ async def send_tracking_data(tracking_data: TrackingData) -> None:
             }
             async with session.post(
                 PENDO_URL,
-                headers={ PENDO_KEY_NAME: PENDO_KEY_VALUE },
+                headers={PENDO_KEY_NAME: PENDO_KEY_VALUE},
                 json={
                     "type": PENDO_EVENT_TYPE,
                     "event": "execution",
                     "visitorId": tracking_data.client_id,
                     "timestamp": int(time.time() * 1000),
                     "properties": reduce_to_valid_size(properties),
-                }) as response:
+                },
+            ) as response:
                 if response.status != 200:
-                    logger.warning(f"Failed to send usage tracking data, response status: {response.status}, message: {await response.text()}")
+                    logger.warning(
+                        f"Failed to send usage tracking data, response status: {response.status}, message: {await response.text()}"
+                    )
                 else:
-                    logger.debug(f"Usage tracking data sent to pendo.io: {tracking_data}")
-        except Exception as e: # tracking failure should not disrupt the main functionality
+                    logger.debug(
+                        f"Usage tracking data sent to pendo.io: {tracking_data}"
+                    )
+        except (
+            Exception
+        ) as e:  # tracking failure should not disrupt the main functionality
             logger.warning(f"Error sending usage tracking data: {e}")

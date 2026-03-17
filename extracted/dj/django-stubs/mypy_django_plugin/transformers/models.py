@@ -29,6 +29,7 @@ from mypy.typeanal import TypeAnalyser
 from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
 from mypy.types import Type as MypyType
 from mypy.typevars import fill_typevars, fill_typevars_with_any
+from typing_extensions import override
 
 from mypy_django_plugin.config import DjangoPluginConfig
 from mypy_django_plugin.django.context import DjangoContext
@@ -213,10 +214,17 @@ class AddAnnotateUtilities(ModelClassInitializer):
             ...
     """
 
+    @override
     def run(self) -> None:
         annotations = self.lookup_typeinfo_or_incomplete_defn_error("django_stubs_ext.Annotations")
-        object_does_not_exist = self.lookup_typeinfo_or_incomplete_defn_error(fullnames.OBJECT_DOES_NOT_EXIST)
-        multiple_objects_returned = self.lookup_typeinfo_or_incomplete_defn_error(fullnames.MULTIPLE_OBJECTS_RETURNED)
+        exception_bases = {
+            model_exc_name: self.lookup_typeinfo_or_incomplete_defn_error(base_exc_name)
+            for model_exc_name, base_exc_name in [
+                ("DoesNotExist", fullnames.OBJECT_DOES_NOT_EXIST),
+                ("NotUpdated", fullnames.OBJECT_NOT_UPDATED),
+                ("MultipleObjectsReturned", fullnames.MULTIPLE_OBJECTS_RETURNED),
+            ]
+        }
         annotated_model_name = self.model_classdef.info.name + "@AnnotatedWith"
         annotated_model = self.lookup_typeinfo(self.model_classdef.info.module_name + "." + annotated_model_name)
         if annotated_model is None:
@@ -235,12 +243,12 @@ class AddAnnotateUtilities(ModelClassInitializer):
                 # explicit ABCMeta if not all abstract attributes are implemented i.e.
                 # class is kept abstract. So we add the attributes to get mypy off our
                 # back
-                helpers.add_new_sym_for_info(
-                    annotated_model, "DoesNotExist", TypeType(Instance(object_does_not_exist, []))
-                )
-                helpers.add_new_sym_for_info(
-                    annotated_model, "MultipleObjectsReturned", TypeType(Instance(multiple_objects_returned, []))
-                )
+                for model_exc_name, base_exc_type in exception_bases.items():
+                    helpers.add_new_sym_for_info(
+                        annotated_model,
+                        model_exc_name,
+                        TypeType(Instance(base_exc_type, [])),
+                    )
 
 
 class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
@@ -260,6 +268,7 @@ class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
     to get around incompatible Meta inner classes for different models.
     """
 
+    @override
     def run(self) -> None:
         meta_node = helpers.get_nested_meta_node_for_current_class(self.model_classdef.info)
         if meta_node is None:
@@ -274,6 +283,7 @@ class InjectAnyAsBaseForNestedMeta(ModelClassInitializer):
 
 
 class AddDefaultPrimaryKey(ModelClassInitializer):
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         auto_field = model_cls._meta.auto_field
         if auto_field:
@@ -303,6 +313,7 @@ class AddDefaultPrimaryKey(ModelClassInitializer):
 
 
 class AddPrimaryKeyAlias(AddDefaultPrimaryKey):
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         # We also need to override existing `pk` definition from `stubs`:
         auto_field = model_cls._meta.pk
@@ -315,6 +326,7 @@ class AddPrimaryKeyAlias(AddDefaultPrimaryKey):
 
 
 class AddRelatedModelsId(ModelClassInitializer):
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         for field in self.django_context.get_model_foreign_keys(model_cls):
             try:
@@ -373,6 +385,7 @@ class AddManagers(ModelClassInitializer):
         manager_type = helpers.fill_manager(manager_info, Instance(self.model_classdef.info, []))
         self.add_new_node_to_model_class(manager_name, manager_type, is_classvar=True)
 
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         manager_info: TypeInfo | None
 
@@ -421,7 +434,7 @@ class AddManagers(ModelClassInitializer):
                 manager_fullname = f"{self.model_classdef.fullname}.{manager_name}"
                 self.api.fail(
                     f'Could not resolve manager type for "{manager_fullname}"',
-                    manager_expr if manager_expr else self.ctx.cls,
+                    manager_expr or self.ctx.cls,
                     code=MANAGER_MISSING,
                 )
 
@@ -472,6 +485,7 @@ class AddManagers(ModelClassInitializer):
 
 
 class AddDefaultManagerAttribute(ModelClassInitializer):
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         if "_default_manager" in self.model_classdef.info.names:
             return None
@@ -605,6 +619,7 @@ class AddReverseLookups(ModelClassInitializer):
             fullname=new_related_manager_info.fullname,
         )
 
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         # add related managers etc.
         processing_incomplete = False
@@ -619,6 +634,7 @@ class AddReverseLookups(ModelClassInitializer):
 
 
 class AddExtraFieldMethods(ModelClassInitializer):
+    @override
     def run_with_model_cls(self, model_cls: type[Model]) -> None:
         # get_FOO_display for choices
         for field in self.django_context.get_model_fields(model_cls):
@@ -698,6 +714,7 @@ class ProcessManyToManyFields(ModelClassInitializer):
                     model_bases.append(base.type.defn)
                     processed_models.add(base.type.fullname)
 
+    @override
     def run(self) -> None:
         if self.is_model_abstract:
             # TODO: Create abstract through models?
@@ -1010,7 +1027,7 @@ class MetaclassAdjustments(ModelClassInitializer):
         if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME:
             return
 
-        for attr_name in ["DoesNotExist", "MultipleObjectsReturned", "objects"]:
+        for attr_name in ["DoesNotExist", "NotUpdated", "MultipleObjectsReturned", "objects"]:
             attr = ctx.cls.info.names.get(attr_name)
             if attr is not None and isinstance(attr.node, Var) and not attr.plugin_generated:
                 del ctx.cls.info.names[attr_name]
@@ -1035,50 +1052,38 @@ class MetaclassAdjustments(ModelClassInitializer):
 
     def add_exception_classes(self) -> None:
         """
-        Adds exception classes 'DoesNotExist' and 'MultipleObjectsReturned' to a model
-        type, aligned with how the model metaclass does it runtime.
+        Adds exception classes `DoesNotExist`, `NotUpdated`,  and `MultipleObjectsReturned` to a
+        model type, aligned with how the model metaclass does it runtime.
 
         If the model is abstract, exceptions will be added as abstract attributes.
         """
-        if "DoesNotExist" not in self.model_classdef.info.names:
-            object_does_not_exist = self.lookup_typeinfo_or_incomplete_defn_error(fullnames.OBJECT_DOES_NOT_EXIST)
-            does_not_exist: Var | TypeInfo
+        for model_exc_name, base_exc_name in [
+            ("DoesNotExist", fullnames.OBJECT_DOES_NOT_EXIST),
+            ("NotUpdated", fullnames.OBJECT_NOT_UPDATED),
+            ("MultipleObjectsReturned", fullnames.MULTIPLE_OBJECTS_RETURNED),
+        ]:
+            if model_exc_name in self.model_classdef.info.names:
+                continue
+
+            base_exc_type = self.lookup_typeinfo_or_incomplete_defn_error(base_exc_name)
+            base_exc_inst = Instance(base_exc_type, [])
+            model_exc_type: Var | TypeInfo
+
             if self.is_model_abstract:
-                does_not_exist = self.create_new_var("DoesNotExist", TypeType(Instance(object_does_not_exist, [])))
-                does_not_exist.is_abstract_var = True
+                model_exc_type = self.create_new_var(model_exc_name, TypeType(base_exc_inst))
+                model_exc_type.is_abstract_var = True
             else:
-                does_not_exist = helpers.create_type_info(
-                    "DoesNotExist",
+                model_exc_type = helpers.create_type_info(
+                    model_exc_name,
                     self.model_classdef.info.fullname,
-                    self.get_exception_bases("DoesNotExist") or [Instance(object_does_not_exist, [])],
+                    self.get_exception_bases(model_exc_name) or [base_exc_inst],
                 )
-            self.model_classdef.info.names[does_not_exist.name] = SymbolTableNode(
-                MDEF, does_not_exist, plugin_generated=True
+
+            self.model_classdef.info.names[model_exc_type.name] = SymbolTableNode(
+                MDEF, model_exc_type, plugin_generated=True
             )
 
-        if "MultipleObjectsReturned" not in self.model_classdef.info.names:
-            django_multiple_objects_returned = self.lookup_typeinfo_or_incomplete_defn_error(
-                fullnames.MULTIPLE_OBJECTS_RETURNED
-            )
-            multiple_objects_returned: Var | TypeInfo
-            if self.is_model_abstract:
-                multiple_objects_returned = self.create_new_var(
-                    "MultipleObjectsReturned", TypeType(Instance(django_multiple_objects_returned, []))
-                )
-                multiple_objects_returned.is_abstract_var = True
-            else:
-                multiple_objects_returned = helpers.create_type_info(
-                    "MultipleObjectsReturned",
-                    self.model_classdef.info.fullname,
-                    (
-                        self.get_exception_bases("MultipleObjectsReturned")
-                        or [Instance(django_multiple_objects_returned, [])]
-                    ),
-                )
-            self.model_classdef.info.names[multiple_objects_returned.name] = SymbolTableNode(
-                MDEF, multiple_objects_returned, plugin_generated=True
-            )
-
+    @override
     def run(self) -> None:
         self.add_exception_classes()
 

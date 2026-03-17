@@ -53,6 +53,7 @@ dependencies = [
 plato = "plato.cli:main"
 plato-world-runner = "plato.worlds.runner:main"
 plato-agent-runner = "plato.agents.runner:main"
+plato-verifier-runner = "plato.verifiers.runner:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "ruff>=0.1", "basedpyright>=1.18"]

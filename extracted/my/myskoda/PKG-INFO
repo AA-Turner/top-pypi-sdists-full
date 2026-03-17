@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myskoda
-Version: 2.7.1
+Version: 2.7.2
 Summary: Library for interaction with the MySkoda APIs.
 Author-email: Frederick Gnodtke <frederick@gnodtke.net>, WebSpider <bacardicoke@gmail.com>, Fabrice Devaux <fabrice.devaux@gmail.com>
 License-File: LICENSE
@@ -9,7 +9,7 @@ Requires-Dist: aiohttp~=3.11
 Requires-Dist: aiomqtt~=2.2
 Requires-Dist: asyncio~=3.4
 Requires-Dist: mashumaro[orjson]~=3.13
-Requires-Dist: pyjwt~=2.10
+Requires-Dist: pyjwt~=2.12
 Requires-Dist: pyyaml~=6.0
 Provides-Extra: cli
 Requires-Dist: asyncclick~=8.1; extra == 'cli'
@@ -20,7 +20,7 @@ Requires-Dist: termcolor~=3.0; extra == 'cli'
 Provides-Extra: docs
 Requires-Dist: mkdocs-gen-files~=0.5; extra == 'docs'
 Requires-Dist: mkdocs-literate-nav~=0.6; extra == 'docs'
-Requires-Dist: mkdocstrings[python]<0.30.0,>=0.26.1; extra == 'docs'
+Requires-Dist: mkdocstrings[python]<1.1.0,>=0.26.1; extra == 'docs'
 Requires-Dist: mkdocs~=1.6; extra == 'docs'
 Description-Content-Type: text/markdown
 

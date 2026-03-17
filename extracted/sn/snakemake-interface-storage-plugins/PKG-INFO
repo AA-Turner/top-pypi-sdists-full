@@ -1,19 +1,20 @@
 Metadata-Version: 2.4
 Name: snakemake-interface-storage-plugins
-Version: 4.3.3
+Version: 4.4.1
 Summary: This package provides a stable interface for interactions between Snakemake and its storage plugins.
 License-File: LICENSE
 Author: Johannes Koester
 Author-email: johannes.koester@uni-due.de
-Requires-Python: >=3.11
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: humanfriendly (>=10.0,<11)
-Requires-Dist: reretry (>=0.11.8)
 Requires-Dist: snakemake-interface-common (>=1.12.0)
+Requires-Dist: tenacity (>=9.1.4,<10.0)
 Requires-Dist: throttler (>=1.2.2)
 Requires-Dist: wrapt (>=1.15.0)
 Project-URL: Homepage, https://github.com/snakemake/snakemake-interface-storage-plugins
@@ -215,6 +216,11 @@ class StorageObject(
     @retry_decorator
     def size(self) -> int:
         # return the size in bytes
+        ...
+
+    @retry_decorator
+    def checksum(self) -> Optional[str]:
+        # return a checksum if metadata provides it
         ...
 
     @retry_decorator

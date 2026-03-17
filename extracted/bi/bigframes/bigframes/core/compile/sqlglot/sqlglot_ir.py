@@ -21,14 +21,12 @@ import typing
 
 import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
-from google.cloud import bigquery
-import numpy as np
-import pandas as pd
 import pyarrow as pa
 
 from bigframes import dtypes
-from bigframes.core import guid, local_data, schema, utils
-from bigframes.core.compile.sqlglot.expressions import constants, typed_expr
+from bigframes.core import guid, local_data, schema
+from bigframes.core.compile.sqlglot import sql
+from bigframes.core.compile.sqlglot.expressions import typed_expr
 import bigframes.core.compile.sqlglot.sqlglot_types as sgt
 
 # shapely.wkt.dumps was moved to shapely.io.to_wkt in 2.0.
@@ -40,21 +38,57 @@ except ImportError:
     to_wkt = dumps
 
 
+class SelectFragment:
+    def __init__(self, select_expr: sge.Select):
+        self.select_expr = select_expr
+
+    def as_select_all(self) -> sge.Select:
+        return self.select_expr
+
+    def select(self, *items: sge.Expression) -> sge.Select:
+        return sge.Select().select(*items).from_(self.select_expr.subquery())
+
+    def as_from_item(self) -> sge.Expression:
+        return self.select_expr.subquery()
+
+
+class TableFragment:
+    def __init__(self, table: sge.Table | sge.Unnest):
+        self.table = table
+
+    def as_select_all(self) -> sge.Select:
+        return sge.Select().select(sge.Star()).from_(self.table)
+
+    def select(self, *items: sge.Expression) -> sge.Select:
+        return sge.Select().select(*items).from_(self.table)
+
+    def as_from_item(self) -> sge.Expression:
+        return self.table
+
+
+class DeferredSelectFragment:
+    def __init__(self, select_supplier: typing.Callable[[sge.Select], sge.Select]):
+        self.select_supplier = select_supplier
+
+    def as_select_all(self) -> sge.Select:
+        return self.select_supplier(sge.Select().select(sge.Star()))
+
+    def select(self, *items: sge.Expression) -> sge.Select:
+        return self.select_supplier(sge.Select().select(*items))
+
+    def as_from_item(self) -> sge.Expression:
+        return self.select_supplier(sge.Select().select(sge.Star())).subquery()
+
+
+ExprT = SelectFragment | TableFragment | DeferredSelectFragment
+
+
 @dataclasses.dataclass(frozen=True)
 class SQLGlotIR:
     """Helper class to build SQLGlot Query and generate SQL string."""
 
-    expr: typing.Union[sge.Select, sge.Table] = sg.select()
+    expr: ExprT
     """The SQLGlot expression representing the query."""
-
-    dialect = sg.dialects.bigquery.BigQuery
-    """The SQL dialect used for generation."""
-
-    quoted: bool = True
-    """Whether to quote identifiers in the generated SQL."""
-
-    pretty: bool = True
-    """Whether to pretty-print the generated SQL."""
 
     uid_gen: guid.SequentialUIDGenerator = guid.SequentialUIDGenerator()
     """Generator for unique identifiers."""
@@ -62,7 +96,34 @@ class SQLGlotIR:
     @property
     def sql(self) -> str:
         """Generate SQL string from the given expression."""
-        return self.expr.sql(dialect=self.dialect, pretty=self.pretty)
+        return sql.to_sql(self.expr.as_select_all())
+
+    @classmethod
+    def empty(
+        cls, uid_gen: guid.SequentialUIDGenerator = guid.SequentialUIDGenerator()
+    ) -> SQLGlotIR:
+        return cls(expr=SelectFragment(sge.select()), uid_gen=uid_gen)
+
+    @classmethod
+    def from_expr(
+        cls,
+        expr: sge.Expression,
+        uid_gen: guid.SequentialUIDGenerator = guid.SequentialUIDGenerator(),
+    ) -> SQLGlotIR:
+        if isinstance(expr, sge.Select):
+            return cls(expr=SelectFragment(expr), uid_gen=uid_gen)
+        elif isinstance(expr, (sge.Table, sge.Unnest)):
+            return cls(expr=TableFragment(expr), uid_gen=uid_gen)
+        else:
+            raise ValueError(f"Unsupported expression type: {type(expr)}")
+
+    @classmethod
+    def from_func(
+        cls,
+        select_handler: typing.Callable[[sge.Select], sge.Select],
+        uid_gen: guid.SequentialUIDGenerator = guid.SequentialUIDGenerator(),
+    ):
+        return cls(expr=DeferredSelectFragment(select_handler), uid_gen=uid_gen)
 
     @classmethod
     def from_pyarrow(
@@ -89,7 +150,7 @@ class SQLGlotIR:
         data_expr = [
             sge.Struct(
                 expressions=tuple(
-                    _literal(
+                    sql.literal(
                         value=value,
                         dtype=field.dtype,
                     )
@@ -108,7 +169,7 @@ class SQLGlotIR:
                 ),
             ],
         )
-        return cls(expr=sg.select(sge.Star()).from_(expr), uid_gen=uid_gen)
+        return cls.from_expr(expr=expr, uid_gen=uid_gen)
 
     @classmethod
     def from_table(
@@ -143,20 +204,31 @@ class SQLGlotIR:
         )
         table_alias = next(uid_gen.get_uid_stream("bft_"))
         table_expr = sge.Table(
-            this=sg.to_identifier(table_id, quoted=cls.quoted),
-            db=sg.to_identifier(dataset_id, quoted=cls.quoted),
-            catalog=sg.to_identifier(project_id, quoted=cls.quoted),
+            this=sql.identifier(table_id),
+            db=sql.identifier(dataset_id),
+            catalog=sql.identifier(project_id),
             version=version,
-            alias=sge.Identifier(this=table_alias, quoted=cls.quoted),
+            alias=sql.identifier(table_alias),
         )
         if sql_predicate:
             select_expr = sge.Select().select(sge.Star()).from_(table_expr)
             select_expr = select_expr.where(
-                sg.parse_one(sql_predicate, dialect=cls.dialect), append=False
+                sg.parse_one(sql_predicate, dialect=sql.base.DIALECT), append=False
             )
-            return cls(expr=select_expr, uid_gen=uid_gen)
+            return cls.from_expr(expr=select_expr, uid_gen=uid_gen)
 
-        return cls(expr=table_expr, uid_gen=uid_gen)
+        return cls.from_expr(expr=table_expr, uid_gen=uid_gen)
+
+    @classmethod
+    def from_cte_ref(
+        cls,
+        cte_ref: str,
+        uid_gen: guid.SequentialUIDGenerator,
+    ) -> SQLGlotIR:
+        table_expr = sge.Table(
+            this=sql.identifier(cte_ref),
+        )
+        return cls.from_expr(expr=table_expr, uid_gen=uid_gen)
 
     def select(
         self,
@@ -166,27 +238,22 @@ class SQLGlotIR:
         limit: typing.Optional[int] = None,
     ) -> SQLGlotIR:
         # TODO: Explicitly insert CTEs into plan
-        if isinstance(self.expr, sge.Select):
-            new_expr, _ = self._select_to_cte()
-        else:
-            new_expr = sge.Select().from_(self.expr)
-
-        if len(sorting) > 0:
-            new_expr = new_expr.order_by(*sorting)
-
         if len(selections) > 0:
             to_select = [
                 sge.Alias(
                     this=expr,
-                    alias=sge.to_identifier(id, quoted=self.quoted),
+                    alias=sql.identifier(id),
                 )
                 if expr.alias_or_name != id
                 else expr
                 for id, expr in selections
             ]
-            new_expr = new_expr.select(*to_select, append=False)
+            new_expr = self.expr.select(*to_select)
         else:
-            new_expr = new_expr.select(sge.Star(), append=False)
+            new_expr = self.expr.as_select_all()
+
+        if len(sorting) > 0:
+            new_expr = new_expr.order_by(*sorting)
 
         if len(predicates) > 0:
             condition = _and(predicates)
@@ -194,10 +261,10 @@ class SQLGlotIR:
         if limit is not None:
             new_expr = new_expr.limit(limit)
 
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     @classmethod
-    def from_query_string(
+    def from_unparsed_query(
         cls,
         query_string: str,
     ) -> SQLGlotIR:
@@ -205,16 +272,14 @@ class SQLGlotIR:
         in a CTE can avoid the query parsing issue for unsupported syntax in
         SQLGlot."""
         uid_gen: guid.SequentialUIDGenerator = guid.SequentialUIDGenerator()
-        cte_name = sge.to_identifier(
-            next(uid_gen.get_uid_stream("bfcte_")), quoted=cls.quoted
-        )
+        cte_name = sql.identifier(next(uid_gen.get_uid_stream("bfcte_")))
         cte = sge.CTE(
             this=query_string,
             alias=cte_name,
         )
         select_expr = sge.Select().select(sge.Star()).from_(sge.Table(this=cte_name))
         select_expr = _set_query_ctes(select_expr, [cte])
-        return cls(expr=select_expr, uid_gen=uid_gen)
+        return cls.from_expr(expr=select_expr, uid_gen=uid_gen)
 
     @classmethod
     def from_union(
@@ -227,21 +292,8 @@ class SQLGlotIR:
         assert (
             len(list(selects)) >= 2
         ), f"At least two select expressions must be provided, but got {selects}."
-
-        existing_ctes: list[sge.CTE] = []
-        union_selects: list[sge.Select] = []
-        for select in selects:
-            assert isinstance(
-                select, sge.Select
-            ), f"All provided expressions must be of type sge.Select, but got {type(select)}"
-
-            select_expr = select.copy()
-            select_expr, select_ctes = _pop_query_ctes(select_expr)
-            existing_ctes = _merge_ctes(existing_ctes, select_ctes)
-            union_selects.append(select_expr)
-
-        union_expr: sge.Query = union_selects[0].subquery()
-        for select in union_selects[1:]:
+        union_expr: sge.Query = selects[0].subquery()
+        for select in selects[1:]:
             union_expr = sge.Union(
                 this=union_expr,
                 expression=select.subquery(),
@@ -251,16 +303,15 @@ class SQLGlotIR:
 
         selections = [
             sge.Alias(
-                this=sge.to_identifier(old_name, quoted=cls.quoted),
-                alias=sge.to_identifier(new_name, quoted=cls.quoted),
+                this=sql.identifier(old_name),
+                alias=sql.identifier(new_name),
             )
             for old_name, new_name in output_aliases
         ]
         final_select_expr = (
             sge.Select().select(*selections).from_(union_expr.subquery())
         )
-        final_select_expr = _set_query_ctes(final_select_expr, existing_ctes)
-        return cls(expr=final_select_expr, uid_gen=uid_gen)
+        return cls.from_expr(expr=final_select_expr, uid_gen=uid_gen)
 
     def join(
         self,
@@ -271,12 +322,8 @@ class SQLGlotIR:
         joins_nulls: bool = True,
     ) -> SQLGlotIR:
         """Joins the current query with another SQLGlotIR instance."""
-        left_select, left_cte_name = self._select_to_cte()
-        right_select, right_cte_name = right._select_to_cte()
-
-        left_select, left_ctes = _pop_query_ctes(left_select)
-        right_select, right_ctes = _pop_query_ctes(right_select)
-        merged_ctes = _merge_ctes(left_ctes, right_ctes)
+        left_from = self.expr.as_from_item()
+        right_from = right.expr.as_from_item()
 
         join_on = _and(
             tuple(
@@ -285,15 +332,12 @@ class SQLGlotIR:
         )
 
         join_type_str = join_type if join_type != "outer" else "full outer"
-        new_expr = (
-            sge.Select()
-            .select(sge.Star())
-            .from_(sge.Table(this=left_cte_name))
-            .join(sge.Table(this=right_cte_name), on=join_on, join_type=join_type_str)
+        return SQLGlotIR.from_func(
+            lambda select: select.from_(left_from).join(
+                right_from, on=join_on, join_type=join_type_str
+            ),
+            uid_gen=self.uid_gen,
         )
-        new_expr = _set_query_ctes(new_expr, merged_ctes)
-
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
 
     def isin_join(
         self,
@@ -303,55 +347,58 @@ class SQLGlotIR:
         joins_nulls: bool = True,
     ) -> SQLGlotIR:
         """Joins the current query with another SQLGlotIR instance."""
-        left_select, left_cte_name = self._select_to_cte()
-        # Prefer subquery over CTE for the IN clause's right side to improve SQL readability.
-        right_select = right._as_select()
-
-        left_select, left_ctes = _pop_query_ctes(left_select)
-        right_select, right_ctes = _pop_query_ctes(right_select)
-        merged_ctes = _merge_ctes(left_ctes, right_ctes)
-
-        left_condition = typed_expr.TypedExpr(
-            sge.Column(this=conditions[0].expr, table=left_cte_name),
-            conditions[0].dtype,
-        )
+        left_from = self.expr.as_from_item()
 
         new_column: sge.Expression
         if joins_nulls:
-            right_table_name = sge.to_identifier(
-                next(self.uid_gen.get_uid_stream("bft_")), quoted=self.quoted
+            force_float_domain = False
+            if (
+                conditions[0].dtype == dtypes.FLOAT_DTYPE
+                or conditions[1].dtype == dtypes.FLOAT_DTYPE
+            ):
+                force_float_domain = True
+            part1_id = sql.identifier("bfpart1")
+            part2_id = sql.identifier("bfpart2")
+            left_expr1, left_expr2 = _value_to_non_null_identity(
+                conditions[0], force_float_domain
             )
-            right_condition = typed_expr.TypedExpr(
-                sge.Column(this=conditions[1].expr, table=right_table_name),
-                conditions[1].dtype,
+            left_as_struct = sge.Struct(
+                expressions=[
+                    sge.PropertyEQ(this=part1_id, expression=left_expr1),
+                    sge.PropertyEQ(this=part2_id, expression=left_expr2),
+                ]
             )
-            new_column = sge.Exists(
-                this=sge.Select()
-                .select(sge.convert(1))
-                .from_(sge.Alias(this=right_select.subquery(), alias=right_table_name))
-                .where(
-                    _join_condition(left_condition, right_condition, joins_nulls=True)
-                )
+            right_expr1, right_expr2 = _value_to_non_null_identity(
+                conditions[1], force_float_domain
+            )
+            right_select = right.expr.select(
+                *[
+                    sge.Struct(
+                        expressions=[
+                            sge.PropertyEQ(this=part1_id, expression=right_expr1),
+                            sge.PropertyEQ(this=part2_id, expression=right_expr2),
+                        ]
+                    )
+                ],
+            )
+
+            new_column = sge.In(
+                this=left_as_struct,
+                expressions=[right_select.subquery()],
             )
         else:
             new_column = sge.In(
-                this=left_condition.expr,
-                expressions=[right_select.subquery()],
+                this=conditions[0].expr,
+                expressions=[right._as_subquery()],
             )
 
         new_column = sge.Alias(
             this=new_column,
-            alias=sge.to_identifier(indicator_col, quoted=self.quoted),
+            alias=sql.identifier(indicator_col),
         )
 
-        new_expr = (
-            sge.Select()
-            .select(sge.Column(this=sge.Star(), table=left_cte_name), new_column)
-            .from_(sge.Table(this=left_cte_name))
-        )
-        new_expr = _set_query_ctes(new_expr, merged_ctes)
-
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
+        new_expr = sge.Select().select(sge.Star(), new_column).from_(left_from)
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     def explode(
         self,
@@ -370,11 +417,11 @@ class SQLGlotIR:
         """Uniform samples a fraction of the rows."""
         condition = sge.LT(
             this=sge.func("RAND"),
-            expression=_literal(fraction, dtypes.FLOAT_DTYPE),
+            expression=sql.literal(fraction, dtypes.FLOAT_DTYPE),
         )
 
-        new_expr = self._select_to_cte()[0].where(condition, append=False)
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
+        new_expr = self.expr.as_select_all().where(condition, append=False)
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     def aggregate(
         self,
@@ -392,15 +439,12 @@ class SQLGlotIR:
         aggregations_expr = [
             sge.Alias(
                 this=expr,
-                alias=sge.to_identifier(id, quoted=self.quoted),
+                alias=sql.identifier(id),
             )
             for id, expr in aggregations
         ]
 
-        new_expr, _ = self._select_to_cte()
-        new_expr = new_expr.group_by(*by_cols).select(
-            *[*by_cols, *aggregations_expr], append=False
-        )
+        new_expr = self.expr.select(*[*by_cols, *aggregations_expr]).group_by(*by_cols)
 
         condition = _and(
             tuple(
@@ -410,7 +454,21 @@ class SQLGlotIR:
         )
         if condition is not None:
             new_expr = new_expr.where(condition, append=False)
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
+
+    def with_ctes(
+        self,
+        ctes: tuple[tuple[str, SQLGlotIR], ...],
+    ) -> SQLGlotIR:
+        sge_ctes = [
+            sge.CTE(
+                this=cte.expr.as_select_all(),
+                alias=sql.identifier(cte_name),
+            )
+            for cte_name, cte in ctes
+        ]
+        select_expr = _set_query_ctes(self.expr.as_select_all(), sge_ctes)
+        return SQLGlotIR.from_expr(expr=select_expr, uid_gen=self.uid_gen)
 
     def resample(
         self,
@@ -420,83 +478,42 @@ class SQLGlotIR:
         stop_expr: sge.Expression,
         step_expr: sge.Expression,
     ) -> SQLGlotIR:
-        # Get identifier for left and right by pushing them to CTEs
-        left_select, left_id = self._select_to_cte()
-        right_select, right_id = right._select_to_cte()
+        generate_array = sge.func(
+            "GENERATE_ARRAY",
+            start_expr,
+            stop_expr,
+            step_expr,
+        )
 
-        # Extract all CTEs from the returned select expressions
-        _, left_ctes = _pop_query_ctes(left_select)
-        _, right_ctes = _pop_query_ctes(right_select)
-        merged_ctes = _merge_ctes(left_ctes, right_ctes)
-
-        generate_array = sge.func("GENERATE_ARRAY", start_expr, stop_expr, step_expr)
-
-        unnested_column_alias = sge.to_identifier(
-            next(self.uid_gen.get_uid_stream("bfcol_")), quoted=self.quoted
+        unnested_column_alias = sql.identifier(
+            next(self.uid_gen.get_uid_stream("bfcol_"))
         )
         unnest_expr = sge.Unnest(
             expressions=[generate_array],
             alias=sge.TableAlias(columns=[unnested_column_alias]),
         )
 
-        final_col_id = sge.to_identifier(array_col_name, quoted=self.quoted)
+        final_col_id = sql.identifier(array_col_name)
 
         # Build final expression by joining everything directly in a single SELECT
         new_expr = (
             sge.Select()
             .select(unnested_column_alias.as_(final_col_id))
-            .from_(sge.Table(this=left_id))
-            .join(sge.Table(this=right_id), join_type="cross")
+            .from_(self.expr.as_from_item())
+            .join(right.expr.as_from_item(), join_type="cross")
             .join(unnest_expr, join_type="cross")
         )
-        new_expr = _set_query_ctes(new_expr, merged_ctes)
 
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
-
-    def insert(
-        self,
-        destination: bigquery.TableReference,
-    ) -> str:
-        """Generates an INSERT INTO SQL statement from the current SELECT clause."""
-        return sge.insert(self._as_from_item(), _table(destination)).sql(
-            dialect=self.dialect, pretty=self.pretty
-        )
-
-    def replace(
-        self,
-        destination: bigquery.TableReference,
-    ) -> str:
-        """Generates a MERGE statement to replace the destination table's contents.
-        by the current SELECT clause.
-        """
-        # Workaround for SQLGlot breaking change:
-        # https://github.com/tobymao/sqlglot/pull/4495
-        whens_expr = [
-            sge.When(matched=False, source=True, then=sge.Delete()),
-            sge.When(matched=False, then=sge.Insert(this=sge.Var(this="ROW"))),
-        ]
-        whens_str = "\n".join(
-            when_expr.sql(dialect=self.dialect, pretty=self.pretty)
-            for when_expr in whens_expr
-        )
-
-        merge_str = sge.Merge(
-            this=_table(destination),
-            using=self._as_from_item(),
-            on=_literal(False, dtypes.BOOL_DTYPE),
-        ).sql(dialect=self.dialect, pretty=self.pretty)
-        return f"{merge_str}\n{whens_str}"
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     def _explode_single_column(
         self, column_name: str, offsets_col: typing.Optional[str]
     ) -> SQLGlotIR:
         """Helper method to handle the case of exploding a single column."""
-        offset = (
-            sge.to_identifier(offsets_col, quoted=self.quoted) if offsets_col else None
-        )
-        column = sge.to_identifier(column_name, quoted=self.quoted)
-        unnested_column_alias = sge.to_identifier(
-            next(self.uid_gen.get_uid_stream("bfcol_")), quoted=self.quoted
+        offset = sql.identifier(offsets_col) if offsets_col else None
+        column = sql.identifier(column_name)
+        unnested_column_alias = sql.identifier(
+            next(self.uid_gen.get_uid_stream("bfcol_"))
         )
         unnest_expr = sge.Unnest(
             expressions=[column],
@@ -505,12 +522,9 @@ class SQLGlotIR:
         )
         selection = sge.Star(replace=[unnested_column_alias.as_(column)])
 
-        new_expr, _ = self._select_to_cte()
         # Use LEFT JOIN to preserve rows when unnesting empty arrays.
-        new_expr = new_expr.select(selection, append=False).join(
-            unnest_expr, join_type="LEFT"
-        )
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
+        new_expr = self.expr.select(selection).join(unnest_expr, join_type="LEFT")
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     def _explode_multiple_columns(
         self,
@@ -518,27 +532,19 @@ class SQLGlotIR:
         offsets_col: typing.Optional[str],
     ) -> SQLGlotIR:
         """Helper method to handle the case of exploding multiple columns."""
-        offset = (
-            sge.to_identifier(offsets_col, quoted=self.quoted) if offsets_col else None
-        )
-        columns = [
-            sge.to_identifier(column_name, quoted=self.quoted)
-            for column_name in column_names
-        ]
+        offset = sql.identifier(offsets_col) if offsets_col else None
+        columns = [sql.identifier(column_name) for column_name in column_names]
 
         # If there are multiple columns, we need to unnest by zipping the arrays:
         # https://cloud.google.com/bigquery/docs/arrays#zipping_arrays
-        column_lengths = [
-            sge.func("ARRAY_LENGTH", sge.to_identifier(column, quoted=self.quoted)) - 1
-            for column in columns
-        ]
+        column_lengths = [sge.func("ARRAY_LENGTH", column) - 1 for column in columns]
         generate_array = sge.func(
             "GENERATE_ARRAY",
             sge.convert(0),
             sge.func("LEAST", *column_lengths),
         )
-        unnested_offset_alias = sge.to_identifier(
-            next(self.uid_gen.get_uid_stream("bfcol_")), quoted=self.quoted
+        unnested_offset_alias = sql.identifier(
+            next(self.uid_gen.get_uid_stream("bfcol_"))
         )
         unnest_expr = sge.Unnest(
             expressions=[generate_array],
@@ -556,147 +562,13 @@ class SQLGlotIR:
                 for column in columns
             ]
         )
-        new_expr, _ = self._select_to_cte()
         # Use LEFT JOIN to preserve rows when unnesting empty arrays.
-        new_expr = new_expr.select(selection, append=False).join(
-            unnest_expr, join_type="LEFT"
-        )
-        return SQLGlotIR(expr=new_expr, uid_gen=self.uid_gen)
-
-    def _as_from_item(self) -> typing.Union[sge.Table, sge.Subquery]:
-        if isinstance(self.expr, sge.Select):
-            return self.expr.subquery()
-        else:  # table
-            return self.expr
-
-    def _as_select(self) -> sge.Select:
-        if isinstance(self.expr, sge.Select):
-            return self.expr
-        else:  # table
-            return sge.Select().from_(self.expr)
+        new_expr = self.expr.select(selection).join(unnest_expr, join_type="LEFT")
+        return SQLGlotIR.from_expr(expr=new_expr, uid_gen=self.uid_gen)
 
     def _as_subquery(self) -> sge.Subquery:
-        return self._as_select().subquery()
-
-    def _select_to_cte(self) -> tuple[sge.Select, sge.Identifier]:
-        """Transforms a given sge.Select query by pushing its main SELECT statement
-        into a new CTE and then generates a 'SELECT * FROM new_cte_name'
-        for the new query."""
-        cte_name = sge.to_identifier(
-            next(self.uid_gen.get_uid_stream("bfcte_")), quoted=self.quoted
-        )
-        select_expr = self._as_select().copy()
-        select_expr, existing_ctes = _pop_query_ctes(select_expr)
-        new_cte = sge.CTE(
-            this=select_expr,
-            alias=cte_name,
-        )
-        new_select_expr = (
-            sge.Select().select(sge.Star()).from_(sge.Table(this=cte_name))
-        )
-        new_select_expr = _set_query_ctes(new_select_expr, [*existing_ctes, new_cte])
-        return new_select_expr, cte_name
-
-
-def identifier(id: str) -> str:
-    """Return a string representing column reference in a SQL."""
-    return sge.to_identifier(id, quoted=SQLGlotIR.quoted).sql(dialect=SQLGlotIR.dialect)
-
-
-def _escape_chars(value: str):
-    """Escapes all special characters"""
-    # TODO: Reuse _literal's escaping logic instead of re-implementing it here.
-    # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#string_and_bytes_literals
-    trans_table = str.maketrans(
-        {
-            "\a": r"\a",
-            "\b": r"\b",
-            "\f": r"\f",
-            "\n": r"\n",
-            "\r": r"\r",
-            "\t": r"\t",
-            "\v": r"\v",
-            "\\": r"\\",
-            "?": r"\?",
-            '"': r"\"",
-            "'": r"\'",
-            "`": r"\`",
-        }
-    )
-    return value.translate(trans_table)
-
-
-def _is_null_literal(expr: sge.Expression) -> bool:
-    """Checks if the given expression is a NULL literal."""
-    if isinstance(expr, sge.Null):
-        return True
-    if isinstance(expr, sge.Cast) and isinstance(expr.this, sge.Null):
-        return True
-    return False
-
-
-def _literal(value: typing.Any, dtype: dtypes.Dtype) -> sge.Expression:
-    sqlglot_type = sgt.from_bigframes_dtype(dtype) if dtype else None
-    if sqlglot_type is None:
-        if not pd.isna(value):
-            raise ValueError(f"Cannot infer SQLGlot type from None dtype: {value}")
-        return sge.Null()
-
-    if value is None:
-        return _cast(sge.Null(), sqlglot_type)
-    if dtypes.is_struct_like(dtype):
-        items = [
-            _literal(value=value[field_name], dtype=field_dtype).as_(
-                field_name, quoted=True
-            )
-            for field_name, field_dtype in dtypes.get_struct_fields(dtype).items()
-        ]
-        return sge.Struct.from_arg_list(items)
-    elif dtypes.is_array_like(dtype):
-        value_type = dtypes.get_array_inner_type(dtype)
-        values = sge.Array(
-            expressions=[_literal(value=v, dtype=value_type) for v in value]
-        )
-        return values if len(value) > 0 else _cast(values, sqlglot_type)
-    elif pd.isna(value) or (isinstance(value, pa.Scalar) and not value.is_valid):
-        return _cast(sge.Null(), sqlglot_type)
-    elif dtype == dtypes.JSON_DTYPE:
-        return sge.ParseJSON(this=sge.convert(str(value)))
-    elif dtype == dtypes.BYTES_DTYPE:
-        return _cast(str(value), sqlglot_type)
-    elif dtypes.is_time_like(dtype):
-        if isinstance(value, str):
-            return _cast(sge.convert(value), sqlglot_type)
-        if isinstance(value, np.generic):
-            value = value.item()
-        return _cast(sge.convert(value.isoformat()), sqlglot_type)
-    elif dtype in (dtypes.NUMERIC_DTYPE, dtypes.BIGNUMERIC_DTYPE):
-        return _cast(sge.convert(value), sqlglot_type)
-    elif dtypes.is_geo_like(dtype):
-        wkt = value if isinstance(value, str) else to_wkt(value)
-        return sge.func("ST_GEOGFROMTEXT", sge.convert(wkt))
-    elif dtype == dtypes.TIMEDELTA_DTYPE:
-        return sge.convert(utils.timedelta_to_micros(value))
-    elif dtype == dtypes.FLOAT_DTYPE:
-        if np.isinf(value):
-            return constants._INF if value > 0 else constants._NEG_INF
-        return sge.convert(value)
-    else:
-        if isinstance(value, np.generic):
-            value = value.item()
-        return sge.convert(value)
-
-
-def _cast(arg: typing.Any, to: str) -> sge.Cast:
-    return sge.Cast(this=arg, to=to)
-
-
-def _table(table: bigquery.TableReference) -> sge.Table:
-    return sge.Table(
-        this=sg.to_identifier(table.table_id, quoted=True),
-        db=sg.to_identifier(table.dataset_id, quoted=True),
-        catalog=sg.to_identifier(table.project, quoted=True),
-    )
+        # Sometimes explicitly need a subquery, e.g. for IN expressions.
+        return self.expr.as_select_all().subquery()
 
 
 def _and(conditions: tuple[sge.Expression, ...]) -> typing.Optional[sge.Expression]:
@@ -729,77 +601,57 @@ def _join_condition(
         joins_nulls: If True, generates complex logic to handle nulls/NaNs.
             Otherwise, uses a simple equality check where appropriate.
     """
-    is_floating_types = (
-        left.dtype == dtypes.FLOAT_DTYPE and right.dtype == dtypes.FLOAT_DTYPE
-    )
-    if not is_floating_types and not joins_nulls:
+    if not joins_nulls:
         return sge.EQ(this=left.expr, expression=right.expr)
 
-    is_numeric_types = dtypes.is_numeric(
-        left.dtype, include_bool=False
-    ) and dtypes.is_numeric(right.dtype, include_bool=False)
-    if is_numeric_types:
-        return _join_condition_for_numeric(left, right)
-    else:
-        return _join_condition_for_others(left, right)
-
-
-def _join_condition_for_others(
-    left: typed_expr.TypedExpr,
-    right: typed_expr.TypedExpr,
-) -> sge.And:
-    """Generates a join condition for non-numeric types to match pandas's
-    null-handling logic.
-    """
-    left_str = _cast(left.expr, "STRING")
-    right_str = _cast(right.expr, "STRING")
-    left_0 = sge.func("COALESCE", left_str, _literal("0", dtypes.STRING_DTYPE))
-    left_1 = sge.func("COALESCE", left_str, _literal("1", dtypes.STRING_DTYPE))
-    right_0 = sge.func("COALESCE", right_str, _literal("0", dtypes.STRING_DTYPE))
-    right_1 = sge.func("COALESCE", right_str, _literal("1", dtypes.STRING_DTYPE))
+    force_float_domain = False
+    if left.dtype == dtypes.FLOAT_DTYPE or right.dtype == dtypes.FLOAT_DTYPE:
+        force_float_domain = True
+    left_expr1, left_expr2 = _value_to_non_null_identity(left, force_float_domain)
+    right_expr1, right_expr2 = _value_to_non_null_identity(right, force_float_domain)
     return sge.And(
-        this=sge.EQ(this=left_0, expression=right_0),
-        expression=sge.EQ(this=left_1, expression=right_1),
+        this=sge.EQ(this=left_expr1, expression=right_expr1),
+        expression=sge.EQ(this=left_expr2, expression=right_expr2),
     )
 
 
-def _join_condition_for_numeric(
-    left: typed_expr.TypedExpr,
-    right: typed_expr.TypedExpr,
-) -> sge.And:
-    """Generates a join condition for non-numeric types to match pandas's
-    null-handling logic. Specifically for FLOAT types, Pandas treats NaN aren't
-    equal so need to coalesce as well with different constants.
-    """
-    is_floating_types = (
-        left.dtype == dtypes.FLOAT_DTYPE and right.dtype == dtypes.FLOAT_DTYPE
-    )
-    left_0 = sge.func("COALESCE", left.expr, _literal(0, left.dtype))
-    left_1 = sge.func("COALESCE", left.expr, _literal(1, left.dtype))
-    right_0 = sge.func("COALESCE", right.expr, _literal(0, right.dtype))
-    right_1 = sge.func("COALESCE", right.expr, _literal(1, right.dtype))
-    if not is_floating_types:
-        return sge.And(
-            this=sge.EQ(this=left_0, expression=right_0),
-            expression=sge.EQ(this=left_1, expression=right_1),
+def _value_to_non_null_identity(
+    value: typed_expr.TypedExpr, force_float_domain: bool = False
+) -> tuple[sge.Expression, sge.Expression]:
+    # normal_value -> (normal_value, normal_value)
+    # null_value -> (0, 1)
+    # nan_value -> (2, 3)
+    if dtypes.is_numeric(value.dtype, include_bool=False):
+        dtype = dtypes.FLOAT_DTYPE if force_float_domain else value.dtype
+        expr1 = sge.func(
+            "COALESCE", value.expr, sql.literal(0.0 if force_float_domain else 0, dtype)
         )
-
-    left_2 = sge.If(
-        this=sge.IsNan(this=left.expr), true=_literal(2, left.dtype), false=left_0
-    )
-    left_3 = sge.If(
-        this=sge.IsNan(this=left.expr), true=_literal(3, left.dtype), false=left_1
-    )
-    right_2 = sge.If(
-        this=sge.IsNan(this=right.expr), true=_literal(2, right.dtype), false=right_0
-    )
-    right_3 = sge.If(
-        this=sge.IsNan(this=right.expr), true=_literal(3, right.dtype), false=right_1
-    )
-    return sge.And(
-        this=sge.EQ(this=left_2, expression=right_2),
-        expression=sge.EQ(this=left_3, expression=right_3),
-    )
+        expr2 = sge.func(
+            "COALESCE", value.expr, sql.literal(1.0 if force_float_domain else 1, dtype)
+        )
+        if value.dtype == dtypes.FLOAT_DTYPE:
+            expr1 = sge.If(
+                this=sge.IsNan(this=value.expr),
+                true=sql.literal(2.0, value.dtype),
+                false=expr1,
+            )
+            expr2 = sge.If(
+                this=sge.IsNan(this=value.expr),
+                true=sql.literal(3, value.dtype),
+                false=expr2,
+            )
+    else:  # general case, convert to string and coalesce
+        expr1 = sge.func(
+            "COALESCE",
+            sql.cast(value.expr, "STRING"),
+            sql.literal("0", dtypes.STRING_DTYPE),
+        )
+        expr2 = sge.func(
+            "COALESCE",
+            sql.cast(value.expr, "STRING"),
+            sql.literal("1", dtypes.STRING_DTYPE),
+        )
+    return expr1, expr2
 
 
 def _set_query_ctes(
@@ -817,26 +669,3 @@ def _set_query_ctes(
     else:
         raise ValueError("The expression does not support CTEs.")
     return new_expr
-
-
-def _merge_ctes(ctes1: list[sge.CTE], ctes2: list[sge.CTE]) -> list[sge.CTE]:
-    """Merges two lists of CTEs, de-duplicating by alias name."""
-    seen = {cte.alias: cte for cte in ctes1}
-    for cte in ctes2:
-        if cte.alias not in seen:
-            seen[cte.alias] = cte
-    return list(seen.values())
-
-
-def _pop_query_ctes(
-    expr: sge.Select,
-) -> tuple[sge.Select, list[sge.CTE]]:
-    """Pops the CTEs of a given sge.Select expression."""
-    if "with" in expr.arg_types.keys():
-        expr_ctes = expr.args.pop("with", [])
-        return expr, expr_ctes
-    elif "with_" in expr.arg_types.keys():
-        expr_ctes = expr.args.pop("with_", [])
-        return expr, expr_ctes
-    else:
-        raise ValueError("The expression does not support CTEs.")

@@ -31,12 +31,11 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "okta"
-PYTHON_REQUIRES = ">=3.9"
+PYTHON_REQUIRES = ">=3.10"
 REQUIRES = [
     "aenum >= 3.1.11",
     "aiohttp >= 3.12.14",
     "blinker >= 1.9.0",
-    "flatdict >= 4.0.1",
     'jwcrypto >= 1.5.6',
     "pycryptodomex >= 3.23.0",
     "pydantic >= 2.11.3",
@@ -71,7 +70,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     name=NAME,
-    version="3.1.0",
+    version="3.2.0",
     description="Python SDK for the Okta Management API",
     author="Okta, Inc.",
     author_email="developer-community-products@okta.com",

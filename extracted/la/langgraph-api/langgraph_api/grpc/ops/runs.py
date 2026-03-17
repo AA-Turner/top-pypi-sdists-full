@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from contextlib import asynccontextmanager
 from datetime import UTC
@@ -35,7 +36,7 @@ from langgraph_grpc_common.proto import (
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
-from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
+from langgraph_api.asyncio import ValueEvent
 from langgraph_api.auth.custom import handle_event as auth_handle_event
 from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.graph import SYSTEM_ASSISTANT_IDS
@@ -983,84 +984,91 @@ class Runs(Authenticated):
             )
             enter_stream = client.runs.Enter(enter_request)
 
-            async with SimpleTaskGroup(cancel=True, taskgroup_name="Runs.enter") as tg:
-                # Background task to listen for control signals from the stream
-                async def listen_for_signals():
-                    try:
-                        async for event in enter_stream:
-                            if event.action == enum_control_signal.interrupt:
-                                logger.info(
-                                    "Received interrupt signal from gRPC stream",
-                                    run_id=run_id,
-                                    thread_id=thread_id,
-                                )
-                                done.set(UserInterrupt())
-                                break
-                            elif event.action == enum_control_signal.rollback:
-                                logger.info(
-                                    "Received rollback signal from gRPC stream",
-                                    run_id=run_id,
-                                    thread_id=thread_id,
-                                )
-                                done.set(UserRollback())
-                                break
-                    except Exception as exc:
-                        logger.exception(
-                            "listen_for_signals failed",
-                            run_id=run_id,
-                            thread_id=thread_id,
-                            exc_info=exc,
-                        )
-                        done.set(
-                            GrpcRetryableException(
-                                f"listen_for_signals failed. \nError: {exc!r}"
-                            )
-                        )
-                        raise
-
-                tg.create_task(listen_for_signals())
-
+            # Background task to listen for control signals from the stream
+            async def listen_for_signals():
                 try:
-                    yield done
-                    # Signal done via gRPC (stops heartbeat and cleanup on server)
-                    await Runs.mark_done(
-                        run_id=run_id, thread_id=thread_id, resumable=resumable
-                    )
-                except GrpcRetryableException:
-                    logger.info(
-                        "Retriable exception, will not signal done",
-                        run_id=run_id,
-                        thread_id=thread_id,
-                    )
-                except RETRIABLE_EXCEPTIONS:
-                    logger.info(
-                        "Retriable exception, will not signal done",
-                        run_id=run_id,
-                        thread_id=thread_id,
-                    )
-                except AioRpcError as e:
-                    if e.code() in GRPC_RETRIABLE_STATUS_CODES:
-                        logger.info(
-                            "Retriable gRPC error, will not signal done",
-                            run_id=run_id,
-                            thread_id=thread_id,
-                            grpc_code=e.code().name,
-                        )
-                    else:
-                        logger.exception(
-                            "Non-retriable gRPC error when marking run as done",
-                            run_id=run_id,
-                            thread_id=thread_id,
-                            grpc_code=e.code().name,
-                        )
-                        raise
-                except BaseException:
+                    async for event in enter_stream:
+                        if event.action == enum_control_signal.interrupt:
+                            logger.info(
+                                "Received interrupt signal from gRPC stream",
+                                run_id=run_id,
+                                thread_id=thread_id,
+                            )
+                            done.set(UserInterrupt())
+                            break
+                        elif event.action == enum_control_signal.rollback:
+                            logger.info(
+                                "Received rollback signal from gRPC stream",
+                                run_id=run_id,
+                                thread_id=thread_id,
+                            )
+                            done.set(UserRollback())
+                            break
+                except Exception as exc:
                     logger.exception(
-                        "Non-retriable exception when marking run as done",
+                        "listen_for_signals failed",
                         run_id=run_id,
                         thread_id=thread_id,
+                        exc_info=exc,
+                    )
+                    done.set(
+                        GrpcRetryableException(
+                            f"listen_for_signals failed. \nError: {exc!r}"
+                        )
                     )
                     raise
+
+            listener: asyncio.Task | None = None
+            try:
+                listener = asyncio.create_task(listen_for_signals())
+                yield done
+                # Signal done via gRPC (stops heartbeat and cleanup on server)
+                await Runs.mark_done(
+                    run_id=run_id, thread_id=thread_id, resumable=resumable
+                )
+            except GrpcRetryableException:
+                logger.info(
+                    "Retriable exception, will not signal done",
+                    run_id=run_id,
+                    thread_id=thread_id,
+                )
+            except RETRIABLE_EXCEPTIONS:
+                logger.info(
+                    "Retriable exception, will not signal done",
+                    run_id=run_id,
+                    thread_id=thread_id,
+                )
+            except AioRpcError as e:
+                if e.code() in GRPC_RETRIABLE_STATUS_CODES:
+                    logger.info(
+                        "Retriable gRPC error, will not signal done",
+                        run_id=run_id,
+                        thread_id=thread_id,
+                        grpc_code=e.code().name,
+                    )
+                else:
+                    logger.exception(
+                        "Non-retriable gRPC error when marking run as done",
+                        run_id=run_id,
+                        thread_id=thread_id,
+                        grpc_code=e.code().name,
+                    )
+                    raise
+            except BaseException:
+                logger.exception(
+                    "Non-retriable exception when marking run as done",
+                    run_id=run_id,
+                    thread_id=thread_id,
+                )
+                raise
+            finally:
+                # Quiet teardown: cancel listener first, then close stream.
+                if listener is not None:
+                    listener.cancel()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await listener
+                if not enter_stream.done():
+                    enter_stream.cancel()
 
         return _enter_impl()
 

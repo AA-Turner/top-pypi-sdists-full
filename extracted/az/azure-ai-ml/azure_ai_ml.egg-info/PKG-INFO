@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-ml
-Version: 1.31.0
+Version: 1.32.0
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -239,12 +239,20 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
-## 1.31.0 (2025-12-30)
+## 1.32.0 (2026-03-04)
+
+### Bugs Fixed
+
+- Skip _list_secrets for identity-based datastores to prevent noisy telemetry traces.
+
+## 1.31.0 (2025-12-18)
 
 ### Features Added
 
 - Added support for `default_deployment_template` property in Model entity, allowing models to specify a default deployment template for online deployments.
 - Online deployments now display informational messages when deploying models with configured default deployment templates.
+
+### Bugs Fixed
 
 ### Other Changes
 

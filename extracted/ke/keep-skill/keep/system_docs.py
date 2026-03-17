@@ -289,10 +289,13 @@ def migrate_system_documents(keeper: "Keeper", progress=None) -> dict:
                 prev_hash = existing_doc.tags.get("bundled_hash")
                 if isinstance(prev_hash, list):
                     prev_hash = prev_hash[0] if prev_hash else None
-                if prev_hash == bundled_hash:
-                    # Content unchanged — skip to avoid creating spurious versions
+                # Verify actual content matches — guard against stale hash
+                # tags from prior tag-wipe bugs
+                actual_hash = _content_hash(existing_doc.summary)
+                if prev_hash == bundled_hash and actual_hash == bundled_hash:
+                    # Content truly matches bundled file — skip
                     continue
-                if prev_hash and existing_doc.content_hash != prev_hash:
+                if prev_hash and prev_hash != bundled_hash and actual_hash != prev_hash:
                     # User has modified the doc — update the archived base
                     # version so reverting restores the latest bundled content.
                     base_ver = keeper._document_store.find_version_by_content_hash(
@@ -390,10 +393,11 @@ def reset_system_documents(keeper: "Keeper") -> dict:
     stats = {"reset": 0, "versions_deleted": 0}
     doc_coll = keeper._resolve_doc_collection()
 
-    for path in SYSTEM_DOC_DIR.glob("*.md"):
-        if path.name == "__init__.py":
+    # Iterate all system docs including subdirectory fragments
+    for rel_path, new_id in sorted(SYSTEM_DOC_IDS.items()):
+        path = SYSTEM_DOC_DIR / rel_path
+        if not path.exists():
             continue
-        new_id = _filename_to_id(path.name)
 
         try:
             content, tags = _load_frontmatter(path)

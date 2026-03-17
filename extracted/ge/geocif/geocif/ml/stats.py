@@ -195,6 +195,7 @@ def add_statistics(
     method,
     target_col="Yield (tn per ha)",
     parser=None,
+    label="",
 ):
     """
 
@@ -343,8 +344,9 @@ def add_statistics(
 
         # Process each group with a progress bar
         results = []
+        stats_desc = f"Adding yield/area/production stats ({label})" if label else "Adding yield/area/production stats"
         for keys, group in tqdm(
-            groups, total=len(groups), desc="Adding yield/area/production stats", leave=False
+            groups, total=len(groups), desc=stats_desc, leave=False
         ):
             if has_season:
                 region, harvest_year, season = keys

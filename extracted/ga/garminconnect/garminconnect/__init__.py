@@ -208,6 +208,9 @@ class Garmin:
         self.garmin_connect_endurance_score_url = (
             "/metrics-service/metrics/endurancescore"
         )
+        self.garmin_connect_running_tolerance_url = (
+            "/metrics-service/metrics/runningtolerance/stats"
+        )
         self.garmin_connect_menstrual_calendar_url = (
             "/periodichealth-service/menstrualcycle/calendar"
         )
@@ -279,6 +282,21 @@ class Garmin:
 
         self.garmin_workouts_schedule_url = f"{self.garmin_workouts}/schedule"
 
+        self.garmin_nutrition = "/nutrition-service"
+
+        self.garmin_connect_nutrition_daily_food_logs = (
+            f"{self.garmin_nutrition}/food/logs"
+        )
+        self.garmin_connect_nutrition_daily_meals = f"{self.garmin_nutrition}/meals"
+        self.garmin_connect_nutrition_daily_settings = (
+            f"{self.garmin_nutrition}/settings"
+        )
+
+        self.garmin_golf = "/proxy/gcs-golfcommunity/api/v2"
+        self.garmin_golf_scorecard_summary = f"{self.garmin_golf}/scorecard/summary"
+        self.garmin_golf_scorecard_detail = f"{self.garmin_golf}/scorecard/detail"
+        self.garmin_golf_shot = f"{self.garmin_golf}/shot/scorecard"
+
         self.garmin_connect_delete_activity_url = "/activity-service/activity"
 
         self.garmin_graphql_endpoint = "graphql-gateway/graphql"
@@ -344,6 +362,34 @@ class Garmin:
             raise GarminConnectConnectionError(f"HTTP error: {e}") from e
         except Exception as e:
             logger.exception("Connection error during connectapi path=%s", path)
+            raise GarminConnectConnectionError(f"Connection error: {e}") from e
+
+    def connectwebproxy(self, path: str, **kwargs: Any) -> Any:
+        """Wrapper for web proxy requests to connect.garmin.com with error handling."""
+        try:
+            return self.garth.request("GET", "connect", path, **kwargs).json()
+        except GarthHTTPError as e:
+            status = getattr(getattr(e.error, "response", None), "status_code", None)
+            logger.exception(
+                "API call failed for web proxy path '%s' (status=%s)",
+                path,
+                status,
+            )
+            if status == 401:
+                raise GarminConnectAuthenticationError(
+                    f"Web proxy auth error: {e}"
+                ) from e
+            if status == 429:
+                raise GarminConnectTooManyRequestsError(
+                    f"Web proxy rate limit: {e}"
+                ) from e
+            if status and 400 <= status < 500:
+                raise GarminConnectConnectionError(
+                    f"Web proxy client error ({status}): {e}"
+                ) from e
+            raise GarminConnectConnectionError(f"Web proxy error: {e}") from e
+        except Exception as e:
+            logger.exception("Connection error during web proxy path=%s", path)
             raise GarminConnectConnectionError(f"Connection error: {e}") from e
 
     def download(self, path: str, **kwargs: Any) -> Any:
@@ -1541,6 +1587,41 @@ class Garmin:
 
         return self.connectapi(url, params=params)
 
+    def get_running_tolerance(
+        self, startdate: str, enddate: str, aggregation: str = "weekly"
+    ) -> list[dict[str, Any]]:
+        """Return running tolerance data for date range.
+
+        Args:
+            startdate: Start date in 'YYYY-MM-DD' format.
+            enddate: End date in 'YYYY-MM-DD' format.
+            aggregation: 'daily' or 'weekly' (default: 'weekly').
+
+        Returns:
+            List of running tolerance data points.
+
+        """
+        startdate = _validate_date_format(startdate, "startdate")
+        enddate = _validate_date_format(enddate, "enddate")
+        if aggregation not in ("daily", "weekly"):
+            raise ValueError(
+                f"Invalid aggregation '{aggregation}'. Must be 'daily' or 'weekly'."
+            )
+        url = self.garmin_connect_running_tolerance_url
+        params = {
+            "startDate": str(startdate),
+            "endDate": str(enddate),
+            "aggregation": aggregation,
+        }
+        logger.debug(
+            "Requesting running tolerance data (%s) from %s to %s",
+            aggregation,
+            startdate,
+            enddate,
+        )
+
+        return self.connectapi(url, params=params)
+
     def get_race_predictions(
         self,
         startdate: str | None = None,
@@ -1876,6 +1957,102 @@ class Garmin:
             raise GarminConnectInvalidFileFormatError(
                 f"Invalid file format '{file_extension}'. Allowed formats: {allowed_formats}"
             )
+
+    def import_activity(self, activity_path: str) -> dict[str, Any]:
+        """Upload activity as an import (not re-exported to third parties like Strava).
+
+        Uses the Garmin import endpoint with headers matching Garmin Connect
+        Mobile, so imported activities are treated as imports rather than
+        device-synced activities.
+
+        Args:
+            activity_path: Path to the activity file (FIT, TCX, or GPX).
+
+        Returns:
+            Dictionary containing the DetailedImportResult with successes,
+            failures, and activity IDs.
+
+        Raises:
+            FileNotFoundError: If the activity file does not exist.
+            GarminConnectInvalidFileFormatError: If the file format is invalid.
+            GarminConnectConnectionError: If the upload fails.
+
+        """
+        if not activity_path:
+            raise ValueError("activity_path cannot be empty")
+
+        if not isinstance(activity_path, str):
+            raise ValueError("activity_path must be a string")
+
+        p = Path(activity_path)
+        if not p.exists():
+            raise FileNotFoundError(f"File not found: {activity_path}")
+
+        if not p.is_file():
+            raise ValueError(f"path is not a file: {activity_path}")
+
+        file_base_name = p.name
+        if not file_base_name:
+            raise ValueError("invalid file path - no filename found")
+
+        file_parts = file_base_name.split(".")
+        if len(file_parts) < 2:
+            raise GarminConnectInvalidFileFormatError(
+                f"File has no extension: {activity_path}"
+            )
+
+        file_extension = file_parts[-1].lower()
+        if file_extension.upper() not in Garmin.ActivityUploadFormat.__members__:
+            allowed_formats = ", ".join(Garmin.ActivityUploadFormat.__members__.keys())
+            raise GarminConnectInvalidFileFormatError(
+                f"Invalid file format '{file_extension}'. "
+                f"Allowed formats: {allowed_formats}"
+            )
+
+        url = f"{self.garmin_connect_upload}/{file_extension}"
+        headers = {
+            "NK": "NT",
+            "origin": "https://sso.garmin.com",
+            "User-Agent": "GCM-iOS-5.7.2.1",
+        }
+
+        try:
+            with p.open("rb") as file_handle:
+                files = {
+                    "file": (
+                        f'"{file_base_name}"',
+                        file_handle,
+                        "application/octet-stream",
+                    )
+                }
+                logger.debug("Importing activity file %s via %s", file_base_name, url)
+                response = self.garth.post(
+                    "connectapi", url, files=files, headers=headers, api=True
+                )
+                if hasattr(response, "json"):
+                    result: dict[str, Any] = response.json()
+                    return result
+                return {"status": "uploaded", "fileName": file_base_name}
+        except (HTTPError, GarthHTTPError) as e:
+            if isinstance(e, GarthHTTPError):
+                status = getattr(
+                    getattr(e.error, "response", None), "status_code", None
+                )
+            else:
+                status = getattr(getattr(e, "response", None), "status_code", None)
+            if status == 409:
+                logger.info("Activity already exists (duplicate): %s", file_base_name)
+                raise GarminConnectConnectionError(
+                    f"Activity already exists (duplicate): {file_base_name}"
+                ) from e
+            logger.exception(
+                "Import failed for '%s' (status=%s)", activity_path, status
+            )
+            raise GarminConnectConnectionError(f"Import error: {e}") from e
+        except OSError as e:
+            raise GarminConnectConnectionError(
+                f"Failed to read file {activity_path}: {e}"
+            ) from e
 
     def delete_activity(self, activity_id: str) -> Any:
         """Delete activity with specified id."""
@@ -2316,7 +2493,7 @@ class Garmin:
 
         return self.garth.post("connectapi", url, api=True).json()
 
-    def get_workouts(self, start: int = 0, limit: int = 100) -> dict[str, Any]:
+    def get_workouts(self, start: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         """Return workouts starting at offset `start` with at most `limit` results."""
         url = f"{self.garmin_workouts}/workouts"
         start = _validate_non_negative_integer(start, "start")
@@ -2512,6 +2689,21 @@ class Garmin:
         logger.debug("Requesting scheduled workout by id %d", scheduled_workout_id)
         return self.connectapi(url)
 
+    def schedule_workout(self, workout_id: int | str, date_str: str) -> dict[str, Any]:
+        """Schedule a workout on a specific date in the Garmin calendar.
+
+        Args:
+            workout_id: The workout ID returned after uploading.
+            date_str: Target date in YYYY-MM-DD format.
+
+        """
+        workout_id = _validate_positive_integer(int(workout_id), "workout_id")
+        date_str = _validate_date_format(date_str, "date_str")
+        url = f"{self.garmin_workouts_schedule_url}/{workout_id}"
+        logger.debug("Scheduling workout %s for %s", workout_id, date_str)
+        payload = {"date": date_str}
+        return self.garth.post("connectapi", url, json=payload, api=True).json()
+
     def get_menstrual_data_for_date(self, fordate: str) -> dict[str, Any]:
         """Return menstrual data for date."""
         fordate = _validate_date_format(fordate, "fordate")
@@ -2593,6 +2785,91 @@ class Garmin:
 
         logger.debug("Requesting adaptive training plan details for %s", plan_id)
         return self.connectapi(url)
+
+    def get_nutrition_daily_food_log(self, cdate: str) -> dict[str, Any]:
+        """Return food log summary for 'cdate' format 'YYYY-MM-DD'."""
+        cdate = _validate_date_format(cdate, "cdate")
+        url = f"{self.garmin_connect_nutrition_daily_food_logs}/{cdate}"
+        logger.debug("Requesting nutrition food log data for date %s", cdate)
+        return self.connectapi(url)
+
+    def get_nutrition_daily_meals(self, cdate: str) -> dict[str, Any]:
+        """Return meals summary for 'cdate' format 'YYYY-MM-DD'."""
+        cdate = _validate_date_format(cdate, "cdate")
+        url = f"{self.garmin_connect_nutrition_daily_meals}/{cdate}"
+        logger.debug("Requesting nutrition meals data for date %s", cdate)
+        return self.connectapi(url)
+
+    def get_nutrition_daily_settings(self, cdate: str) -> dict[str, Any]:
+        """Return nutrition settings for 'cdate' format 'YYYY-MM-DD'."""
+        cdate = _validate_date_format(cdate, "cdate")
+        url = f"{self.garmin_connect_nutrition_daily_settings}/{cdate}"
+        logger.debug("Requesting nutrition settings data for date %s", cdate)
+        return self.connectapi(url)
+
+    def get_golf_summary(
+        self, start: int = 0, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Return golf scorecard summary.
+
+        Args:
+            start: Starting offset for pagination.
+            limit: Maximum number of results to return.
+
+        Returns:
+            List of golf scorecard summaries.
+
+        """
+        start = _validate_non_negative_integer(start, "start")
+        limit = _validate_positive_integer(limit, "limit")
+        url = f"{self.garmin_golf_scorecard_summary}"
+        params = {"per-page": str(limit), "start": str(start)}
+        logger.debug("Requesting golf summary with limit %d", limit)
+        return self.connectwebproxy(url, params=params)
+
+    def get_golf_scorecard(self, scorecard_id: int | str) -> dict[str, Any]:
+        """Return golf scorecard detail by scorecard ID.
+
+        Args:
+            scorecard_id: The scorecard ID to retrieve.
+
+        Returns:
+            Dictionary containing the golf scorecard detail.
+
+        """
+        scorecard_id = _validate_positive_integer(int(scorecard_id), "scorecard_id")
+        url = f"{self.garmin_golf_scorecard_detail}"
+        params = {
+            "scorecard-ids": str(scorecard_id),
+            "include-longest-shot-distance": "true",
+        }
+        logger.debug("Requesting golf scorecard %d", scorecard_id)
+        return self.connectwebproxy(url, params=params)
+
+    def get_golf_shot_data(
+        self,
+        scorecard_id: int | str,
+        hole_numbers: str = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+    ) -> dict[str, Any]:
+        """Return golf shot data for a scorecard and specific holes.
+
+        Args:
+            scorecard_id: The scorecard ID to get shot data for.
+            hole_numbers: Comma-separated hole numbers (default: all 18).
+
+        Returns:
+            Dictionary containing shot data per hole.
+
+        """
+        scorecard_id = _validate_positive_integer(int(scorecard_id), "scorecard_id")
+        url = f"{self.garmin_golf_shot}/{scorecard_id}/hole"
+        params = {"hole-numbers": hole_numbers}
+        logger.debug(
+            "Requesting golf shot data for scorecard %d, holes %s",
+            scorecard_id,
+            hole_numbers,
+        )
+        return self.connectwebproxy(url, params=params)
 
 
 class GarminConnectConnectionError(Exception):

@@ -112,6 +112,21 @@ class SlackNotificationConfig(BaseModel):
     bot_token_env: str = "SLACK_BOT_TOKEN"
 
 
+class PreviewConfig(BaseModel):
+    """Configuration for world preview mode.
+
+    Preview restores workspaces and calls the world's preview() method
+    instead of the normal reset/step loop, then idles until timeout.
+    """
+
+    enabled: bool = False
+    timeout_seconds: int = Field(
+        default=600,
+        ge=1,
+        description="Preview lifetime in seconds (default: 10 minutes).",
+    )
+
+
 # =============================================================================
 # Agent Configuration
 # =============================================================================
@@ -232,6 +247,9 @@ class RunConfig(BaseModel):
 
     # Slack notifications on session completion
     slack_notifications: SlackNotificationConfig = Field(default_factory=SlackNotificationConfig)
+
+    # Preview mode settings
+    preview: PreviewConfig = Field(default_factory=PreviewConfig)
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
     tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)

@@ -143,7 +143,7 @@
 # %% [markdown]
 # # About the game
 #
-# CogsGuard is a cooperative territory-control game. Teams of AI agents ("Cogs") work together to capture and defend
+# CvC is a cooperative territory-control game. Teams of AI agents ("Cogs") work together to capture and defend
 # junctions against automated opponents ("Clips") by:
 #
 # * gathering resources and depositing them at controlled junctions
@@ -155,12 +155,12 @@
 # Read [MISSION.md](MISSION.md) for a thorough description of the game mechanics.
 #
 # <p align="center">
-#   <img src="assets/cvc-reel.gif" alt="CogsGuard reel">
-# </p>
+#   <img src="assets/cvc-reel.gif" alt="CvC reel">
+# <br>
 #
 # There are many mission configurations available, with different map sizes, junction layouts, and game rules.
 #
-# Overall, CogsGuard aims to present rich environments with:
+# Overall, CvC aims to present rich environments with:
 #
 # - **Territory control**: Capture and defend junctions to score points each tick
 # - **Role specialization**: Four roles (Miner, Aligner, Scrambler, Scout) with distinct capabilities and dependencies
@@ -237,7 +237,6 @@
 #
 # - Use a mission name from the registry given by `cogames missions` (e.g. `training_facility_1`).
 # - Use a path to a mission configuration file (e.g. `path/to/mission.yaml`).
-# - Alternatively, specify a set of missions with `--mission-set`.
 #
 # To specify a `POLICY`, use one of two formats:
 #

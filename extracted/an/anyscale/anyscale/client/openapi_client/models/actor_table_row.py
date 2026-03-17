@@ -47,7 +47,9 @@ class ActorTableRow(object):
         'exit_detail_serialized': 'str',
         'transition_timestamp': 'int',
         'ray_session_name': 'str',
-        'exit_message': 'str'
+        'exit_message': 'str',
+        'num_restarts': 'int',
+        'data_operator_id': 'str'
     }
 
     attribute_map = {
@@ -65,10 +67,12 @@ class ActorTableRow(object):
         'exit_detail_serialized': 'exit_detail_serialized',
         'transition_timestamp': 'transition_timestamp',
         'ray_session_name': 'ray_session_name',
-        'exit_message': 'exit_message'
+        'exit_message': 'exit_message',
+        'num_restarts': 'num_restarts',
+        'data_operator_id': 'data_operator_id'
     }
 
-    def __init__(self, id=None, name=None, job_id=None, class_name=None, serialized_runtime_env=None, required_resources_serialized=None, placement_group_id=None, label_selector_serialized=None, state=None, node_id=None, worker_id=None, exit_detail_serialized=None, transition_timestamp=None, ray_session_name=None, exit_message=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, job_id=None, class_name=None, serialized_runtime_env=None, required_resources_serialized=None, placement_group_id=None, label_selector_serialized=None, state=None, node_id=None, worker_id=None, exit_detail_serialized=None, transition_timestamp=None, ray_session_name=None, exit_message=None, num_restarts=0, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
         """ActorTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +93,8 @@ class ActorTableRow(object):
         self._transition_timestamp = None
         self._ray_session_name = None
         self._exit_message = None
+        self._num_restarts = None
+        self._data_operator_id = None
         self.discriminator = None
 
         self.id = id
@@ -119,6 +125,10 @@ class ActorTableRow(object):
         self.ray_session_name = ray_session_name
         if exit_message is not None:
             self.exit_message = exit_message
+        if num_restarts is not None:
+            self.num_restarts = num_restarts
+        if data_operator_id is not None:
+            self.data_operator_id = data_operator_id
 
     @property
     def id(self):
@@ -438,6 +448,48 @@ class ActorTableRow(object):
         """
 
         self._exit_message = exit_message
+
+    @property
+    def num_restarts(self):
+        """Gets the num_restarts of this ActorTableRow.  # noqa: E501
+
+
+        :return: The num_restarts of this ActorTableRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._num_restarts
+
+    @num_restarts.setter
+    def num_restarts(self, num_restarts):
+        """Sets the num_restarts of this ActorTableRow.
+
+
+        :param num_restarts: The num_restarts of this ActorTableRow.  # noqa: E501
+        :type: int
+        """
+
+        self._num_restarts = num_restarts
+
+    @property
+    def data_operator_id(self):
+        """Gets the data_operator_id of this ActorTableRow.  # noqa: E501
+
+
+        :return: The data_operator_id of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._data_operator_id
+
+    @data_operator_id.setter
+    def data_operator_id(self, data_operator_id):
+        """Sets the data_operator_id of this ActorTableRow.
+
+
+        :param data_operator_id: The data_operator_id of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._data_operator_id = data_operator_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

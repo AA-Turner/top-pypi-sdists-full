@@ -11,7 +11,7 @@ from exponent.core.remote_execution.languages.shell_streaming import (
 from exponent.core.remote_execution.languages.types import StreamedOutputPiece
 from exponent.core.remote_execution.truncation import (
     BASH_CHARACTER_LIMIT,
-    _write_full_output_to_file,
+    write_full_output_to_file,
 )
 
 EMPTY_OUTPUT_STRING = "(No output)"
@@ -23,7 +23,7 @@ def _truncate_shell_output(content: str, chat_uuid: str) -> tuple[str, bool, str
     Returns:
         Tuple of (content, was_truncated, output_file_path)
     """
-    file_path = _write_full_output_to_file(content, chat_uuid)
+    file_path = write_full_output_to_file(content, chat_uuid)
 
     if len(content) <= BASH_CHARACTER_LIMIT:
         return content, False, file_path

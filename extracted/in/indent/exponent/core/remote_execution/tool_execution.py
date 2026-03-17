@@ -464,7 +464,7 @@ async def execute_bash_tool(
 
     bash_id = tool_input.bash_id or generate_bash_id()
     return BashToolResult(
-        shell_output=result.content,
+        output=result.content,
         exit_code=result.exit_code,
         duration_ms=int((time() - start_time) * 1000),
         timed_out=result.cancelled_for_timeout,
@@ -510,7 +510,7 @@ async def execute_bash_tool_background(
         os.close(output_fd)
 
     result = BashToolResult(
-        shell_output=f"Background process started. Output is being written to: {output_file}",
+        output=f"Background process started. Output is being written to: {output_file}",
         duration_ms=int((time() - start_time) * 1000),
         exit_code=None,
         timed_out=False,

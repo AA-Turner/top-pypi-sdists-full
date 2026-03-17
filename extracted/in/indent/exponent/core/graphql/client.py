@@ -60,12 +60,9 @@ class GraphQLClient:
         return await self._typed_client.create_cloud_chat_from_repository(
             resource_config=ChatResourceConfigInput(
                 mode=ChatMode.CLOUD,
-                repositories=[
-                    RepositoryResourceConfigInput(  # ty: ignore[missing-argument]
-                        repository_uuid=uuid.UUID(repository_uuid),  # ty: ignore[unknown-argument]
-                        is_primary=True,
-                    )
-                ],
+                primary_repository=RepositoryResourceConfigInput(  # ty: ignore[missing-argument]
+                    repository_uuid=uuid.UUID(repository_uuid),  # ty: ignore[unknown-argument]
+                ),
             ),
         )
 
@@ -80,12 +77,9 @@ class GraphQLClient:
         self,
         chat_uuid: str,
         prompt: str,
-        parent_uuid: uuid.UUID | None = None,
         require_confirmation: bool = False,
-        read_only: bool = False,
         depth_limit: int = 20,
     ) -> StartChatTurn:
-        """Start a chat turn with proper typing."""
         chat_input = ChatInput(
             prompt_input=PromptInput(message=prompt, attachments=[]),
         )
@@ -94,13 +88,11 @@ class GraphQLClient:
         chat_config = ChatConfigInput(  # ty: ignore[missing-argument]
             chat_uuid=chat_uuid,  # ty: ignore[unknown-argument]
             require_confirmation=require_confirmation,
-            read_only=read_only,
             depth_limit=depth_limit,
         )
         return await self._typed_client.start_chat_turn(
             chat_input=chat_input,
             chat_config=chat_config,
-            parent_uuid=parent_uuid,
         )
 
     def get_transport(self, timeout: float | None = None) -> HTTPXAsyncTransport:

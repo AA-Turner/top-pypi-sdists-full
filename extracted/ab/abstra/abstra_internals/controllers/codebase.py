@@ -136,7 +136,9 @@ class CodebaseController:
                 recursive=False,
                 allowed_suffixes=allowed_suffixes,
             )
-            if child_path != full_path and child_path.name not in ALWAYS_HIDDEN
+            if child_path != full_path
+            and child_path.name not in ALWAYS_HIDDEN
+            and child_path.is_relative_to(Settings.root_path)
         ]
 
     def init_file(self, path: str, type: str):
@@ -264,13 +266,20 @@ class CodebaseController:
 
     def get_file(self, path):
         if isinstance(path, str):
-            path = Path(path).absolute()
-        elif isinstance(path, Path):
-            path = path.absolute()
+            path = Path(path)
         elif not isinstance(path, Path):
             raise ValueError(f"Invalid path: {path}")
-        mtype, _ = mimetypes.guess_type(path)
-        return flask.send_file(path, mimetype=mtype)
+        resolved = (
+            (Settings.root_path / path).resolve()
+            if not path.is_absolute()
+            else path.resolve()
+        )
+        if not resolved.is_relative_to(Settings.root_path.resolve()):
+            flask.abort(403)
+        if not resolved.exists():
+            flask.abort(404)
+        mtype, _ = mimetypes.guess_type(resolved)
+        return flask.send_file(resolved, mimetype=mtype)
 
     def mkdir(
         self, path: Union[str, Path, List[str]]

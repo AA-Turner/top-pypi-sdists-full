@@ -765,6 +765,16 @@ CHAT_MODEL_TABLE = {
         supports_structured_output=True,
         supports_tools=True,
     ),
+    "nvidia/nemotron-3-super-120b-a12b": Model(
+        id="nvidia/nemotron-3-super-120b-a12b",
+        model_type="chat",
+        client="ChatNVIDIA",
+        supports_tools=True,
+        supports_structured_output=True,
+        supports_thinking=True,
+        thinking_param_enable={"chat_template_kwargs": {"enable_thinking": True}},
+        thinking_param_disable={"chat_template_kwargs": {"enable_thinking": False}},
+    ),
 }
 
 QA_MODEL_TABLE = {
@@ -847,6 +857,15 @@ VLM_MODEL_TABLE = {
         id="mistralai/mistral-large-3-675b-instruct-2512",
         model_type="vlm",
         client="ChatNVIDIA",
+    ),
+    "moonshotai/kimi-k2.5": Model(
+        id="moonshotai/kimi-k2.5",
+        model_type="vlm",
+        client="ChatNVIDIA",
+        supports_tools=True,
+        supports_thinking=True,
+        thinking_param_enable={"chat_template_kwargs": {"thinking": True}},
+        thinking_param_disable={"chat_template_kwargs": {"thinking": False}},
     ),
 }
 

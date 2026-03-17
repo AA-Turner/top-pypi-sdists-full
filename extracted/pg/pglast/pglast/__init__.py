@@ -7,6 +7,7 @@
 #
 
 from collections import namedtuple
+from typing import Any
 
 from . import enums
 from .error import Error
@@ -18,14 +19,14 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 # This is injected automatically at release time
-__version__ = 'v7.11'
+__version__ = 'v7.12'
 "Package's version."
 
 __author__ = 'Lele Gaifax <lele@metapensiero.it>'
 "Package's author."
 
 
-def parse_plpgsql(statement):
+def parse_plpgsql(statement: str) -> list[dict[str, Any]]:
     """Parse the given ``PLPGSQL`` `statement` and return its tokens stream.
 
    .. note:: This is currently somewhat of limited usefulness, because neither ``libpg_query``
@@ -156,14 +157,14 @@ Comment = namedtuple('Comment', ('location', 'text', 'at_start_of_line', 'contin
 "A structure to carry information about a single SQL comment."
 
 
-def _extract_comments(statement):
-    lines = []
+def _extract_comments(statement: str) -> list['Comment']:
+    lines: list[tuple[int, int, str]] = []
     lofs = 0
     for line in statement.splitlines(True):
         llen = len(line)
         lines.append((lofs, lofs+llen, line))
         lofs += llen
-    comments = []
+    comments: list[Comment] = []
     continue_previous = False
     for token in scan(statement):
         if token.name in ('C_COMMENT', 'SQL_COMMENT'):
@@ -181,7 +182,7 @@ def _extract_comments(statement):
     return comments
 
 
-def prettify(statement, safety_belt=False, preserve_comments=False, **options):
+def prettify(statement: str, safety_belt: bool = False, preserve_comments: bool = False, **options: Any) -> str:
     r"""Render given `statement` into a prettified format.
 
     :param str statement: the SQL statement(s)

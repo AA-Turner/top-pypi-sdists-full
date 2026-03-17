@@ -125,6 +125,14 @@ dict_growth_stages_monthly_end = {
 }
 
 
+def statistics_file_path(dir_out, method, country, crop):
+    """Build path to the per-country statistics CSV."""
+    dir_statistics = dir_out / "cid" / "indices" / method / "global"
+    country_str = country.title().replace("_", " ")
+    crop_str = crop.title().replace("_", " ")
+    return dir_statistics / f"{country_str}_{crop_str}_statistics_{method}.csv"
+
+
 def remove_last_part(s):
     # Function to remove the part after the last underscore, including the last underscore
     # e.g. 'MIN_ESI4WK_33' will return 'MIN_ESI4WK'

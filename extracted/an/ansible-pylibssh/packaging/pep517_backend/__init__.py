@@ -1,1 +1,1 @@
-"""PEP 517 build backend package pre-building Cython exts before setuptools."""
+"""PEP 517 build backend for optionally pre-building Cython."""

@@ -62,6 +62,7 @@ def _load_shapefiles(parser):
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     dir_boundary_files = Path(parser.get("PATHS", "dir_boundary_files"))
+    pool_countries = parser.getboolean("ML", "pool_countries", fallback=False)
 
     dict_config = {}
     all_shapefiles = []
@@ -102,6 +103,23 @@ def _load_shapefiles(parser):
             dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")
 
         all_shapefiles.append(dg_country)
+
+    # Add pooled table entries when pool_countries is enabled
+    if pool_countries:
+        all_crops = set()
+        for country in countries:
+            crops = ast.literal_eval(parser.get(country, "crops"))
+            all_crops.update(crops)
+        first_models = ast.literal_eval(parser.get(countries[0], "models"))
+        first_method = parser.get(countries[0], "method")
+        first_admin = parser.get(countries[0], "admin_level")
+        for crop in all_crops:
+            dict_config[f"pooled_{crop}"] = {
+                "method": first_method,
+                "crops": crop,
+                "models": first_models,
+                "admin_zone": first_admin,
+            }
 
     dg = pd.concat(all_shapefiles, ignore_index=True)
 
@@ -335,7 +353,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         orig_parallel = parser.get("DEFAULT", "do_parallel_ml", fallback=None)
         parser.set("DEFAULT", "do_parallel_ml", "False")
 
-        inputs = gc.gather_inputs(parser)
+        pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
+        if pool_countries_flag:
+            inputs = gc.gather_pooled_inputs(parser)
+        else:
+            inputs = gc.gather_inputs(parser)
 
         params = [
             ("Countries", countries),
@@ -343,12 +365,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Lookback years", str(n_years)),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
+            ("Pooled", str(pool_countries_flag)),
             ("DB", parser.get("DEFAULT", "db")),
             ("Total combinations", str(len(inputs))),
         ]
         ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)
 
-        gc.execute_models(inputs, logger_obj, parser)
+        if pool_countries_flag:
+            gc.execute_models(inputs, logger_obj, parser, loop_fn=gc.loop_execute_pooled)
+        else:
+            gc.execute_models(inputs, logger_obj, parser)
 
         # Restore original config values
         for country, orig in originals.items():
@@ -380,6 +406,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     for country_crop, config in dict_config.items():
         crop = config["crops"]
         country = country_crop.replace(f"_{crop}", "")
+        is_pooled = country == "pooled"
         models = config["models"]
 
         for model in models:
@@ -399,9 +426,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 )
                 continue
 
-            annotate = parser.getboolean(
-                country, "annotate_regions", fallback=False
-            )
+            if is_pooled:
+                annotate = False
+                map_countries = countries
+            else:
+                annotate = parser.getboolean(
+                    country, "annotate_regions", fallback=False
+                )
+                map_countries = [country]
 
             # Compute outlook index
             df_outlook = _compute_outlook_index(
@@ -440,7 +472,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             _generate_outlook_map(
                 dg,
                 df_outlook,
-                [country],
+                map_countries,
                 crop,
                 model,
                 current_year,

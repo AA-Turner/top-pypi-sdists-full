@@ -70,6 +70,10 @@ __all__ = [
 ]
 
 
+ANY_STATE = "*"
+ANY_OTHER_STATE = "+"
+
+
 class TransitionNotAllowed(Exception):  # noqa: N818
     """Raised when a transition is not allowed"""
 
@@ -190,9 +194,9 @@ class FSMMeta:
     def get_transition(self, source: _StateValue) -> Transition | None:
         transition = self.transitions.get(source, None)
         if transition is None:
-            transition = self.transitions.get("*", None)
+            transition = self.transitions.get(ANY_STATE, None)
         if transition is None:
-            transition = self.transitions.get("+", None)
+            transition = self.transitions.get(ANY_OTHER_STATE, None)
         return transition
 
     def add_transition(
@@ -225,10 +229,13 @@ class FSMMeta:
         if state in self.transitions:
             return True
 
-        if "*" in self.transitions:
+        if ANY_STATE in self.transitions:
             return True
 
-        if "+" in self.transitions and self.transitions["+"].target != state:
+        if (
+            ANY_OTHER_STATE in self.transitions
+            and self.transitions[ANY_OTHER_STATE].target != state
+        ):
             return True
 
         return False
@@ -642,7 +649,7 @@ class ConcurrentTransitionMixin(FSMModelMixin):
 
 def transition(
     field: FSMFieldMixin | str,
-    source: _StateValue | typing.Sequence[_StateValue] = "*",
+    source: _StateValue | typing.Sequence[_StateValue] = ANY_STATE,
     target: _StateValue | State | None = None,
     on_error: _StateValue | None = None,
     conditions: list[_Condition] | None = None,
@@ -751,7 +758,7 @@ class RETURN_VALUE(State):  # noqa: N801
         args: typing.Sequence[typing.Any] | None = None,
         kwargs: dict[str, typing.Any] | None = None,
     ) -> typing.Any:
-        if self.allowed_states is not None and result not in self.allowed_states:
+        if self.allowed_states and result not in self.allowed_states:
             raise InvalidResultState(
                 f"{result} is not in list of allowed states\n{self.allowed_states}"
             )
@@ -780,7 +787,7 @@ class GET_STATE(State):  # noqa: N801
         if kwargs is None:
             kwargs = {}
         result_state = self.func(model, *args, **kwargs)
-        if self.allowed_states is not None and result_state not in self.allowed_states:
+        if self.allowed_states and result_state not in self.allowed_states:
             raise InvalidResultState(
                 f"{result_state} is not in list of allowed states\n{self.allowed_states}"
             )

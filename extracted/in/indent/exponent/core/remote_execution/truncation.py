@@ -25,7 +25,7 @@ DEFAULT_LIST_ITEM_LIMIT = 1000
 DEFAULT_LIST_PREVIEW_ITEMS = 10
 
 
-def _write_full_output_to_file(output: str, chat_uuid: str) -> str | None:
+def write_full_output_to_file(output: str, chat_uuid: str) -> str | None:
     try:
         if len(output) > MAX_FILE_CHARS:
             output = output[-MAX_FILE_CHARS:]
@@ -264,7 +264,7 @@ TRUNCATION_REGISTRY: dict[type[ToolResult], TruncationStrategy[Any]] = {
     WriteToolResult: StringFieldTruncation("message"),
     GrepToolResult: StringListTruncation("matches"),
     GlobToolResult: StringListTruncation("filenames", max_item_length=4096),
-    BashToolResult: TailTruncation("shell_output", character_limit=BASH_CHARACTER_LIMIT),
+    BashToolResult: TailTruncation("output", character_limit=BASH_CHARACTER_LIMIT),
 }
 
 

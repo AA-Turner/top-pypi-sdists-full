@@ -12,7 +12,7 @@ PG_VERSION_MAJOR = $(call word-dot,$(PG_VERSION),1)
 PG_VERSION_NUM = 170007
 PROTOC_VERSION = 25.1
 
-VERSION = 6.2.0
+VERSION = 6.2.2
 VERSION_MAJOR = $(call word-dot,$(VERSION),1)
 VERSION_MINOR = $(call word-dot,$(VERSION),2)
 VERSION_PATCH = $(call word-dot,$(VERSION),3)
@@ -237,7 +237,7 @@ examples/normalize_error: examples/normalize_error.c $(ARLIB)
 examples/simple_plpgsql: examples/simple_plpgsql.c $(ARLIB)
 	$(CC) $(TEST_CFLAGS) -o $@ -g examples/simple_plpgsql.c $(ARLIB) $(TEST_LDFLAGS)
 
-TESTS = test/complex test/concurrency test/deparse test/fingerprint test/fingerprint_opts test/normalize test/normalize_utility test/parse test/parse_opts test/parse_protobuf test/parse_protobuf_opts test/parse_plpgsql test/scan test/split test/summary test/summary_truncate
+TESTS = test/complex test/concurrency test/deparse test/fingerprint test/fingerprint_opts test/is_utility_stmt test/normalize test/normalize_utility test/parse test/parse_opts test/parse_protobuf test/parse_protobuf_opts test/parse_plpgsql test/scan test/split test/summary test/summary_truncate
 test: $(TESTS)
 ifeq ($(VALGRIND),1)
 	$(VALGRIND_MEMCHECK) test/complex || (cat test/valgrind.log && false)
@@ -245,6 +245,7 @@ ifeq ($(VALGRIND),1)
 	$(VALGRIND_MEMCHECK) test/deparse || (cat test/valgrind.log && false)
 	$(VALGRIND_MEMCHECK) test/fingerprint || (cat test/valgrind.log && false)
 	$(VALGRIND_MEMCHECK) test/fingerprint_opts || (cat test/valgrind.log && false)
+	$(VALGRIND_MEMCHECK) test/is_utility_stmt || (cat test/valgrind.log && false)
 	$(VALGRIND_MEMCHECK) test/normalize || (cat test/valgrind.log && false)
 	$(VALGRIND_MEMCHECK) test/normalize_utility || (cat test/valgrind.log && false)
 	$(VALGRIND_MEMCHECK) test/parse || (cat test/valgrind.log && false)
@@ -264,6 +265,7 @@ else
 	test/deparse
 	test/fingerprint
 	test/fingerprint_opts
+	test/is_utility_stmt
 	test/normalize
 	test/normalize_utility
 	test/parse
@@ -296,6 +298,10 @@ test/fingerprint: test/fingerprint.c test/fingerprint_tests.c $(ARLIB)
 test/fingerprint_opts: test/fingerprint_opts.c test/fingerprint_opts_tests.c $(ARLIB)
 	# We have "-Isrc/" because this test uses pg_query_fingerprint_with_opts
 	$(CC) $(TEST_CFLAGS) -o $@ -Isrc/ test/fingerprint_opts.c $(ARLIB) $(TEST_LDFLAGS)
+
+test/is_utility_stmt: test/framework/main.c test/is_utility_stmt.c $(ARLIB)
+	# We have "-Isrc/postgres/include" because this test uses pg_query_summary_direct
+	$(CC) $(TEST_CFLAGS) -o $@ -Isrc/postgres/include test/framework/main.c test/is_utility_stmt.c $(ARLIB) $(TEST_LDFLAGS)
 
 test/normalize: test/normalize.c test/normalize_tests.c $(ARLIB)
 	$(CC) $(TEST_CFLAGS) -o $@ test/normalize.c $(ARLIB) $(TEST_LDFLAGS)
@@ -344,4 +350,5 @@ install: $(ARLIB) $(SOLIB)
 	$(LN_S) $(SOLIBVER) "$(DESTDIR)"$(libdir)/$(SOLIB)
 	$(INSTALL) -d "$(DESTDIR)"$(includedir)/$(TARGET)
 	$(INSTALL) -m 644 pg_query.h "$(DESTDIR)"$(includedir)/pg_query.h
+	$(INSTALL) -m 644 postgres_deparse.h "$(DESTDIR)"$(includedir)/postgres_deparse.h
 	$(INSTALL) -m 644 protobuf/pg_query.proto "$(DESTDIR)"$(includedir)/$(TARGET)/pg_query.proto

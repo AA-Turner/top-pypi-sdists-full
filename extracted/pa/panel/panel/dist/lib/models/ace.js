@@ -118,9 +118,15 @@ export class AcePlotView extends HTMLBoxView {
     _update_language() {
         if (this.model.language != null) {
             this._editor.session.setMode(`ace/mode/${this.model.language}`);
+            // Re-apply annotations after mode change, since setMode may
+            // spawn a new worker that would overwrite user annotations.
+            this._add_annotations();
         }
     }
     _add_annotations() {
+        // Toggle the Ace worker BEFORE setting annotations, because
+        // disabling the worker clears the session's annotations.
+        this._editor.session.setUseWorker(this.model.annotations.length === 0);
         this._editor.session.setAnnotations(this.model.annotations);
     }
     after_layout() {

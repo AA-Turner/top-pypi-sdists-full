@@ -67,8 +67,8 @@ class CustomGroup(click.Group):
 
 @click.group(
     help="Invokes the DAP API to fetch table snapshots and incremental updates. "
-         "You can opt out of analytics tracking at any time by using the DAP CLI (Data Access Platform Command Line Interface). "
-         "Please refer to the documentation for instructions on how to disable analytics through the CLI.",
+    "You can opt out of analytics tracking at any time by using the DAP CLI (Data Access Platform Command Line Interface). "
+    "Please refer to the documentation for instructions on how to disable analytics through the CLI.",
     cls=CustomGroup,
     context_settings={
         "obj": GlobalOptions,
@@ -83,6 +83,7 @@ class CustomGroup(click.Group):
         "initdb": commands.initdb,
         "syncdb": commands.syncdb,
         "dropdb": commands.dropdb,
+        "listdb": commands.listdb,
     },
     epilog="Try 'dap COMMAND --help' to get more information about a specific command.",
 )

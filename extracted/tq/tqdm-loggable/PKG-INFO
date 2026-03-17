@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tqdm-loggable
-Version: 0.4
+Version: 0.4.1
 Summary: TQDM progress bar helpers for logging and other headless application
 License: MIT
 Keywords: logging,tqdm,sentry,logstash,progress bar,datadog,new relic

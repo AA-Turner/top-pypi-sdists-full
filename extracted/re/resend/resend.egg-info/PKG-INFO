@@ -1,11 +1,13 @@
 Metadata-Version: 2.1
 Name: resend
-Version: 2.23.0
+Version: 2.24.0
 Summary: Resend Python SDK
 Home-page: https://github.com/resendlabs/resend-python
 Author: Derich Pacheco
 Author-email: carlosderich@gmail.com
+License: UNKNOWN
 Keywords: email,email platform
+Platform: UNKNOWN
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
@@ -18,8 +20,6 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: requests>=2.31.0
-Requires-Dist: typing_extensions>=4.4.0
 
 # Resend Python SDK
 
@@ -78,3 +78,5 @@ params: resend.Emails.SendParams = {
 email: resend.Emails.SendResponse = resend.Emails.send(params)
 print(email)
 ```
+
+

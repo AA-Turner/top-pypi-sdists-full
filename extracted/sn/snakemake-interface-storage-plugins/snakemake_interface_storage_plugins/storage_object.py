@@ -4,27 +4,30 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+import copy
+import logging
 import os
+import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-import shutil
 from typing import Iterable, Optional
 
-from wrapt import ObjectProxy
-from reretry import retry
 from humanfriendly import format_size, format_timespan
-import copy
-
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_common.logging import get_logger
-from snakemake_interface_storage_plugins.common import Operation, get_disk_free
+from tenacity import after_log, retry, stop_after_attempt, wait_exponential
+from wrapt import ObjectProxy
 
+from snakemake_interface_storage_plugins.common import Operation, get_disk_free
 from snakemake_interface_storage_plugins.exceptions import FileOrDirectoryNotFoundError
 from snakemake_interface_storage_plugins.io import IOCacheStorageInterface
 from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 
-
-retry_decorator = retry(tries=3, delay=3, backoff=2, logger=get_logger())
+retry_decorator = retry(
+    wait=wait_exponential(multiplier=3),
+    stop=stop_after_attempt(3),
+    after=after_log(get_logger(), logging.WARNING),
+)
 
 
 class StaticStorageObjectProxy(ObjectProxy):
@@ -150,6 +153,14 @@ class StorageObjectRead(StorageObjectBase):
         """Size of the object in bytes. Should return 0 for directories."""
         ...
 
+    def checksum(self) -> Optional[str]:
+        """Checksum of the object if available from metadata.
+
+        Should have the form {algorithm}:{checksum}, like sha256:xxx.
+        Defaults to None for backwards compatibility.
+        """
+        return None
+
     def local_footprint(self) -> int:
         """local footprint is the size of the object on the local disk
         For directories, this should return the recursive sum of the
@@ -185,6 +196,14 @@ class StorageObjectRead(StorageObjectBase):
         except Exception as e:
             self._raise_object_not_found_if_not_exists()
             raise WorkflowError(f"Failed to get size of {self.print_query}", e)
+
+    async def managed_checksum(self) -> Optional[str]:
+        try:
+            async with self._rate_limiter(Operation.SIZE):
+                return self.checksum()
+        except Exception as e:
+            self._raise_object_not_found_if_not_exists()
+            raise WorkflowError(f"Failed to get checksum of {self.print_query}", e)
 
     async def managed_mtime(self) -> float:
         try:
@@ -257,12 +276,19 @@ class StorageObjectRead(StorageObjectBase):
                 disk_free = get_disk_free(self.local_path())
 
         if size > disk_free:
-            raise WorkflowError(
-                f"Cannot store {self.local_path()} "
-                f"({format_size(size)} > {format_size(disk_free)}), "
-                f"waited {format_timespan(self.provider.wait_for_free_local_storage)} "
-                "for more space."
-            )
+            if wait_time is not None:
+                raise WorkflowError(
+                    f"Cannot store {self.local_path()} "
+                    f"({format_size(size)} > {format_size(disk_free)}), "
+                    f"waited {format_timespan(wait_time)} "
+                    "for more space."
+                )
+            else:
+                raise WorkflowError(
+                    f"Cannot store {self.local_path()} "
+                    f"({format_size(size)} > {format_size(disk_free)}), "
+                    "no waiting since no wait time was configured with --wait-for-free-local-storage."
+                )
 
 
 class StorageObjectWrite(StorageObjectBase):

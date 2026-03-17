@@ -141,6 +141,7 @@ _REGISTER_ARG_DOCSTRINGS = {
     "name": "Name for the container image. If the name already exists, a new version will be built. Otherwise, a new container image will be created.",
     "ray_version": "The Ray version (X.Y.Z) specified for this image specified by either an image URI or a containerfile. If you don't specify a Ray version, Anyscale defaults to the latest Ray version available at the time of the Anyscale CLI/SDK release.",
     "registry_login_secret": "Name or identifier of the secret containing credentials to authenticate to the docker registry hosting the image.",  # pragma: allowlist secret
+    "cloud_id": "The ID of the Anyscale Cloud to associate this image with. Required for Azure Control Plane only.",
 }
 
 
@@ -156,6 +157,7 @@ def register(
     name: str,
     ray_version: Optional[str] = None,
     registry_login_secret: Optional[str] = None,
+    cloud_id: Optional[str] = None,
     _private_sdk: Optional[PrivateImageSDK] = None,
 ) -> str:
     """
@@ -168,6 +170,7 @@ def register(
         registry_login_secret=registry_login_secret,
         ray_version=ray_version,
         name=name,
+        cloud_id=cloud_id,
     )
 
 

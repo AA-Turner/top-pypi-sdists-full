@@ -28,6 +28,7 @@ from .literals import (
     AutomationStreamStatusType,
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
+    CommandExecutionStatusType,
     ContentBlockTypeType,
     MemoryRecordStatusType,
     Oauth2FlowTypeType,
@@ -72,6 +73,8 @@ __all__ = (
     "CompleteResourceTokenAuthRequestTypeDef",
     "ConflictExceptionTypeDef",
     "ContentBlockTypeDef",
+    "ContentDeltaEventTypeDef",
+    "ContentStopEventTypeDef",
     "ContentTypeDef",
     "ContextTypeDef",
     "ConversationalTypeDef",
@@ -117,6 +120,10 @@ __all__ = (
     "GetWorkloadAccessTokenResponseTypeDef",
     "InputContentBlockTypeDef",
     "InternalServerExceptionTypeDef",
+    "InvokeAgentRuntimeCommandRequestBodyTypeDef",
+    "InvokeAgentRuntimeCommandRequestTypeDef",
+    "InvokeAgentRuntimeCommandResponseTypeDef",
+    "InvokeAgentRuntimeCommandStreamOutputTypeDef",
     "InvokeAgentRuntimeRequestTypeDef",
     "InvokeAgentRuntimeResponseTypeDef",
     "InvokeCodeInterpreterRequestTypeDef",
@@ -167,11 +174,13 @@ __all__ = (
     "ResourceContentTypeDef",
     "ResourceLocationTypeDef",
     "ResourceNotFoundExceptionTypeDef",
+    "ResponseChunkTypeDef",
     "ResponseMetadataTypeDef",
     "RetrieveMemoryRecordsInputPaginateTypeDef",
     "RetrieveMemoryRecordsInputTypeDef",
     "RetrieveMemoryRecordsOutputTypeDef",
     "RightExpressionTypeDef",
+    "RuntimeClientErrorTypeDef",
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
@@ -332,6 +341,16 @@ ResourceContentTypeDef = TypedDict(
 )
 
 
+class ContentDeltaEventTypeDef(TypedDict):
+    stdout: NotRequired[str]
+    stderr: NotRequired[str]
+
+
+class ContentStopEventTypeDef(TypedDict):
+    exitCode: int
+    status: CommandExecutionStatusType
+
+
 class ContentTypeDef(TypedDict):
     text: NotRequired[str]
 
@@ -458,6 +477,15 @@ class GetWorkloadAccessTokenForUserIdRequestTypeDef(TypedDict):
 
 class GetWorkloadAccessTokenRequestTypeDef(TypedDict):
     workloadName: str
+
+
+class InvokeAgentRuntimeCommandRequestBodyTypeDef(TypedDict):
+    command: str
+    timeout: NotRequired[int]
+
+
+class RuntimeClientErrorTypeDef(TypedDict):
+    message: NotRequired[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -778,6 +806,12 @@ ContentBlockTypeDef = TypedDict(
 )
 
 
+class ResponseChunkTypeDef(TypedDict):
+    contentStart: NotRequired[dict[str, Any]]
+    contentDelta: NotRequired[ContentDeltaEventTypeDef]
+    contentStop: NotRequired[ContentStopEventTypeDef]
+
+
 class ConversationalTypeDef(TypedDict):
     content: ContentTypeDef
     role: RoleType
@@ -816,6 +850,20 @@ class StartMemoryExtractionJobInputTypeDef(TypedDict):
     memoryId: str
     extractionJob: ExtractionJobTypeDef
     clientToken: NotRequired[str]
+
+
+class InvokeAgentRuntimeCommandRequestTypeDef(TypedDict):
+    agentRuntimeArn: str
+    body: InvokeAgentRuntimeCommandRequestBodyTypeDef
+    contentType: NotRequired[str]
+    accept: NotRequired[str]
+    runtimeSessionId: NotRequired[str]
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    traceState: NotRequired[str]
+    baggage: NotRequired[str]
+    qualifier: NotRequired[str]
+    accountId: NotRequired[str]
 
 
 class ListActorsInputPaginateTypeDef(TypedDict):
@@ -1035,6 +1083,17 @@ class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
 
+class InvokeAgentRuntimeCommandStreamOutputTypeDef(TypedDict):
+    chunk: NotRequired[ResponseChunkTypeDef]
+    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
+    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
+    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+    runtimeClientError: NotRequired[RuntimeClientErrorTypeDef]
+
+
 class ProxyOutputTypeDef(TypedDict):
     externalProxy: NotRequired[ExternalProxyOutputTypeDef]
 
@@ -1098,6 +1157,18 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     jobs: list[ExtractionJobMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class InvokeAgentRuntimeCommandResponseTypeDef(TypedDict):
+    runtimeSessionId: str
+    traceId: str
+    traceParent: str
+    traceState: str
+    baggage: str
+    contentType: str
+    statusCode: int
+    stream: EventStream[InvokeAgentRuntimeCommandStreamOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ProxyConfigurationOutputTypeDef(TypedDict):

@@ -47391,6 +47391,29 @@ scout_compute_api_BatchComputeWithUnitsResponse.__qualname__ = "BatchComputeWith
 scout_compute_api_BatchComputeWithUnitsResponse.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_BatchKillRequestsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'request_ids': ConjureFieldDefinition('requestIds', List[str])
+        }
+
+    __slots__: List[str] = ['_request_ids']
+
+    def __init__(self, request_ids: List[str]) -> None:
+        self._request_ids = request_ids
+
+    @builtins.property
+    def request_ids(self) -> List[str]:
+        return self._request_ids
+
+
+scout_compute_api_BatchKillRequestsRequest.__name__ = "BatchKillRequestsRequest"
+scout_compute_api_BatchKillRequestsRequest.__qualname__ = "BatchKillRequestsRequest"
+scout_compute_api_BatchKillRequestsRequest.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_BinaryArithmeticOperation(ConjureEnumType):
 
     ATAN2 = 'ATAN2'
@@ -49497,18 +49520,18 @@ class scout_compute_api_ComputeNodeRequest(ConjureBeanType):
             'end': ConjureFieldDefinition('end', api_Timestamp),
             'context': ConjureFieldDefinition('context', scout_compute_api_Context),
             'source_rid': ConjureFieldDefinition('sourceRid', OptionalTypeWrapper[str]),
-            'query_id': ConjureFieldDefinition('queryId', OptionalTypeWrapper[str])
+            'request_id': ConjureFieldDefinition('requestId', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_node', '_start', '_end', '_context', '_source_rid', '_query_id']
+    __slots__: List[str] = ['_node', '_start', '_end', '_context', '_source_rid', '_request_id']
 
-    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", start: "api_Timestamp", query_id: Optional[str] = None, source_rid: Optional[str] = None) -> None:
+    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", start: "api_Timestamp", request_id: Optional[str] = None, source_rid: Optional[str] = None) -> None:
         self._node = node
         self._start = start
         self._end = end
         self._context = context
         self._source_rid = source_rid
-        self._query_id = query_id
+        self._request_id = request_id
 
     @builtins.property
     def node(self) -> "scout_compute_api_ComputableNode":
@@ -49538,10 +49561,10 @@ Used for observability only — trusted as-is, no permission checks are performe
         return self._source_rid
 
     @builtins.property
-    def query_id(self) -> Optional[str]:
+    def request_id(self) -> Optional[str]:
         """Optional UUID to provide as a handle to selectively cancel the execution of this compute request.
         """
-        return self._query_id
+        return self._request_id
 
 
 scout_compute_api_ComputeNodeRequest.__name__ = "ComputeNodeRequest"
@@ -50549,6 +50572,39 @@ noUnitAvailable, and if the computation was not successful, corresponding errors
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_compute_api_ComputeWithUnitsResponse, self._return_none_for_unknown_union_types)
+
+    def batch_kill_requests(self, auth_header: str, request: "scout_compute_api_BatchKillRequestsRequest") -> None:
+        """Best-effort cancellation of active compute requests. Each ID should be the request ID that
+the client originally passed when starting the request. A single request may correspond to
+one or more underlying operations, all of which will be cancelled.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/compute/v2/compute/batch/kill'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
 
 
 scout_compute_api_ComputeService.__name__ = "ComputeService"
@@ -87966,6 +88022,159 @@ scout_jobs_api_JobService.__qualname__ = "JobService"
 scout_jobs_api_JobService.__module__ = "nominal_api.scout_jobs_api"
 
 
+class scout_layout_api_CanvasLayout(ConjureBeanType):
+    """A layout of objects freely placed on a canvas.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'objects': ConjureFieldDefinition('objects', Dict[str, scout_layout_api_CanvasObject])
+        }
+
+    __slots__: List[str] = ['_objects']
+
+    def __init__(self, objects: Dict[str, "scout_layout_api_CanvasObject"]) -> None:
+        self._objects = objects
+
+    @builtins.property
+    def objects(self) -> Dict[str, "scout_layout_api_CanvasObject"]:
+        return self._objects
+
+
+scout_layout_api_CanvasLayout.__name__ = "CanvasLayout"
+scout_layout_api_CanvasLayout.__qualname__ = "CanvasLayout"
+scout_layout_api_CanvasLayout.__module__ = "nominal_api.scout_layout_api"
+
+
+class scout_layout_api_CanvasObject(ConjureUnionType):
+    _panel: Optional["scout_layout_api_CanvasPanel"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'panel': ConjureFieldDefinition('panel', scout_layout_api_CanvasPanel)
+        }
+
+    def __init__(
+            self,
+            panel: Optional["scout_layout_api_CanvasPanel"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (panel is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if panel is not None:
+                self._panel = panel
+                self._type = 'panel'
+
+        elif type_of_union == 'panel':
+            if panel is None:
+                raise ValueError('a union value must not be None')
+            self._panel = panel
+            self._type = 'panel'
+
+    @builtins.property
+    def panel(self) -> Optional["scout_layout_api_CanvasPanel"]:
+        return self._panel
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_layout_api_CanvasObjectVisitor):
+            raise ValueError('{} is not an instance of scout_layout_api_CanvasObjectVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'panel' and self.panel is not None:
+            return visitor._panel(self.panel)
+
+
+scout_layout_api_CanvasObject.__name__ = "CanvasObject"
+scout_layout_api_CanvasObject.__qualname__ = "CanvasObject"
+scout_layout_api_CanvasObject.__module__ = "nominal_api.scout_layout_api"
+
+
+class scout_layout_api_CanvasObjectVisitor:
+
+    @abstractmethod
+    def _panel(self, panel: "scout_layout_api_CanvasPanel") -> Any:
+        pass
+
+
+scout_layout_api_CanvasObjectVisitor.__name__ = "CanvasObjectVisitor"
+scout_layout_api_CanvasObjectVisitor.__qualname__ = "CanvasObjectVisitor"
+scout_layout_api_CanvasObjectVisitor.__module__ = "nominal_api.scout_layout_api"
+
+
+class scout_layout_api_CanvasPanel(ConjureBeanType):
+    """A standard workbook panel placed on a canvas.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rect': ConjureFieldDefinition('rect', scout_layout_api_CanvasRect),
+            'hide_legend': ConjureFieldDefinition('hideLegend', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_rect', '_hide_legend']
+
+    def __init__(self, rect: "scout_layout_api_CanvasRect", hide_legend: Optional[bool] = None) -> None:
+        self._rect = rect
+        self._hide_legend = hide_legend
+
+    @builtins.property
+    def rect(self) -> "scout_layout_api_CanvasRect":
+        return self._rect
+
+    @builtins.property
+    def hide_legend(self) -> Optional[bool]:
+        return self._hide_legend
+
+
+scout_layout_api_CanvasPanel.__name__ = "CanvasPanel"
+scout_layout_api_CanvasPanel.__qualname__ = "CanvasPanel"
+scout_layout_api_CanvasPanel.__module__ = "nominal_api.scout_layout_api"
+
+
+class scout_layout_api_CanvasRect(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', float),
+            'y': ConjureFieldDefinition('y', float),
+            'width': ConjureFieldDefinition('width', float),
+            'height': ConjureFieldDefinition('height', float)
+        }
+
+    __slots__: List[str] = ['_x', '_y', '_width', '_height']
+
+    def __init__(self, height: float, width: float, x: float, y: float) -> None:
+        self._x = x
+        self._y = y
+        self._width = width
+        self._height = height
+
+    @builtins.property
+    def x(self) -> float:
+        return self._x
+
+    @builtins.property
+    def y(self) -> float:
+        return self._y
+
+    @builtins.property
+    def width(self) -> float:
+        return self._width
+
+    @builtins.property
+    def height(self) -> float:
+        return self._height
+
+
+scout_layout_api_CanvasRect.__name__ = "CanvasRect"
+scout_layout_api_CanvasRect.__qualname__ = "CanvasRect"
+scout_layout_api_CanvasRect.__module__ = "nominal_api.scout_layout_api"
+
+
 class scout_layout_api_ChartPanel(ConjureUnionType):
     _v1: Optional["scout_layout_api_ChartPanelV1"] = None
 
@@ -88142,6 +88351,7 @@ class scout_layout_api_Panel(ConjureUnionType):
     _empty: Optional["scout_layout_api_EmptyPanel"] = None
     _split: Optional["scout_layout_api_SplitPanel"] = None
     _tabbed: Optional["scout_layout_api_TabbedPanel"] = None
+    _canvas: Optional["scout_layout_api_CanvasLayout"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -88150,7 +88360,8 @@ class scout_layout_api_Panel(ConjureUnionType):
             'chart': ConjureFieldDefinition('chart', scout_layout_api_ChartPanel),
             'empty': ConjureFieldDefinition('empty', scout_layout_api_EmptyPanel),
             'split': ConjureFieldDefinition('split', scout_layout_api_SplitPanel),
-            'tabbed': ConjureFieldDefinition('tabbed', scout_layout_api_TabbedPanel)
+            'tabbed': ConjureFieldDefinition('tabbed', scout_layout_api_TabbedPanel),
+            'canvas': ConjureFieldDefinition('canvas', scout_layout_api_CanvasLayout)
         }
 
     def __init__(
@@ -88160,10 +88371,11 @@ class scout_layout_api_Panel(ConjureUnionType):
             empty: Optional["scout_layout_api_EmptyPanel"] = None,
             split: Optional["scout_layout_api_SplitPanel"] = None,
             tabbed: Optional["scout_layout_api_TabbedPanel"] = None,
+            canvas: Optional["scout_layout_api_CanvasLayout"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (viz is not None) + (chart is not None) + (empty is not None) + (split is not None) + (tabbed is not None) != 1:
+            if (viz is not None) + (chart is not None) + (empty is not None) + (split is not None) + (tabbed is not None) + (canvas is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if viz is not None:
@@ -88181,6 +88393,9 @@ class scout_layout_api_Panel(ConjureUnionType):
             if tabbed is not None:
                 self._tabbed = tabbed
                 self._type = 'tabbed'
+            if canvas is not None:
+                self._canvas = canvas
+                self._type = 'canvas'
 
         elif type_of_union == 'viz':
             if viz is None:
@@ -88207,6 +88422,11 @@ class scout_layout_api_Panel(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._tabbed = tabbed
             self._type = 'tabbed'
+        elif type_of_union == 'canvas':
+            if canvas is None:
+                raise ValueError('a union value must not be None')
+            self._canvas = canvas
+            self._type = 'canvas'
 
     @builtins.property
     def viz(self) -> Optional["scout_layout_api_VizPanel"]:
@@ -88228,6 +88448,10 @@ class scout_layout_api_Panel(ConjureUnionType):
     def tabbed(self) -> Optional["scout_layout_api_TabbedPanel"]:
         return self._tabbed
 
+    @builtins.property
+    def canvas(self) -> Optional["scout_layout_api_CanvasLayout"]:
+        return self._canvas
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_layout_api_PanelVisitor):
             raise ValueError('{} is not an instance of scout_layout_api_PanelVisitor'.format(visitor.__class__.__name__))
@@ -88241,6 +88465,8 @@ class scout_layout_api_Panel(ConjureUnionType):
             return visitor._split(self.split)
         if self._type == 'tabbed' and self.tabbed is not None:
             return visitor._tabbed(self.tabbed)
+        if self._type == 'canvas' and self.canvas is not None:
+            return visitor._canvas(self.canvas)
 
 
 scout_layout_api_Panel.__name__ = "Panel"
@@ -88268,6 +88494,10 @@ class scout_layout_api_PanelVisitor:
 
     @abstractmethod
     def _tabbed(self, tabbed: "scout_layout_api_TabbedPanel") -> Any:
+        pass
+
+    @abstractmethod
+    def _canvas(self, canvas: "scout_layout_api_CanvasLayout") -> Any:
         pass
 
 
@@ -88618,6 +88848,8 @@ scout_layout_api_VizPanelVisitor.__module__ = "nominal_api.scout_layout_api"
 
 
 class scout_layout_api_VizPanelV1(ConjureBeanType):
+    """Deprecated - use ChartPanel instead
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -88723,6 +88955,8 @@ class scout_layout_api_WorkbookLayoutV1(ConjureBeanType):
 
     @builtins.property
     def root_panel(self) -> "scout_layout_api_Panel":
+        """Only TabbedPanel supported.
+        """
         return self._root_panel
 
 

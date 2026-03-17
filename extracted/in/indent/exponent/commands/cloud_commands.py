@@ -128,9 +128,7 @@ async def start_chat_turn_with_prompt(
     result = await graphql_client.start_chat_turn(
         chat_uuid=chat_uuid,
         prompt=prompt,
-        parent_uuid=None,
         require_confirmation=False,
-        read_only=False,
         depth_limit=20,
     )
 

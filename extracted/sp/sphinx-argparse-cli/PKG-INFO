@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-argparse-cli
-Version: 1.21.1
+Version: 1.21.2
 Summary: render CLI arguments (sub-commands friendly) defined by argparse module
 Project-URL: Documentation, https://github.com/tox-dev/sphinx-argparse-cli#sphinx-argparse-cli
 Project-URL: Homepage, https://github.com/tox-dev/sphinx-argparse-cli

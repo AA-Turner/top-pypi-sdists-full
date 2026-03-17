@@ -17,9 +17,6 @@ TEMPLATE = "{ref}: {description} ({symbolic})"
 FLAKE8 = "{ref} {description} ({symbolic})"
 
 
-Messages: _t.TypeAlias = _t.List["Message"]
-
-
 class Message(_t.NamedTuple):
     """Represents an error message."""
 
@@ -57,6 +54,10 @@ class Message(_t.NamedTuple):
         )
 
 
+class Messages(_t.List[Message]):
+    """List of messages."""
+
+
 class MessageMap(_t.Dict[int, Message]):
     """Messages mapped under an integer version of their codes."""
 
@@ -78,12 +79,12 @@ class MessageMap(_t.Dict[int, Message]):
         :param refs: List of codes or symbolic references.
         :return: List of message types.
         """
-        return list(self.from_ref(i) for i in refs)
+        return Messages(self.from_ref(i) for i in refs)
 
     @property
     def all(self) -> Messages:
         """Get all messages that aren't a config error."""
-        return list(v for k, v in self.items() if len(str(k)) > 1)
+        return Messages(v for k, v in self.items() if len(str(k)) > 1)
 
 
 # SIGxxx: Error
@@ -142,7 +143,7 @@ E = MessageMap(
             "parameters missing",
             "params-missing",
         ),
-        #: SIG3xx Parameters
+        #: SIG3xx Description
         301: Message(
             "SIG301",
             "description missing from parameter",
@@ -169,7 +170,7 @@ E = MessageMap(
             "description does not begin with a capital letter",
             "description-not-capitalized",
         ),
-        #: SIG4xx Description
+        #: SIG4xx Parameters
         401: Message(
             "SIG401",
             "param not indented correctly",

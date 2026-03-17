@@ -423,11 +423,18 @@ def list(  # noqa: A001, PLR0913
     type=str,
     default=None,
 )
+@click.option(
+    "--cloud-id",
+    help="The ID of the Anyscale Cloud to associate this image with. Required for Azure Control Plane only.",
+    type=str,
+    default=None,
+)
 def register(
     image_uri: str,
     name: str,
     ray_version: Optional[str] = None,
     registry_login_secret: Optional[str] = None,
+    cloud_id: Optional[str] = None,
 ) -> None:
     try:
         built_image_uri = anyscale.image.register(
@@ -435,6 +442,7 @@ def register(
             registry_login_secret=registry_login_secret,
             ray_version=ray_version,
             name=name,
+            cloud_id=cloud_id,
         )
         print(f"Image registered successfully with URI: {built_image_uri}")
     except ValueError as e:

@@ -1,36 +1,43 @@
-# -*- coding: utf-8 -*-
-
 """Data conversion helpers for the in-tree PEP 517 build backend."""
 
+from __future__ import annotations
+
+import typing as _t  # noqa: WPS111
 from itertools import chain
 from re import sub as _substitute_with_regexp
 
 
-def _emit_opt_pairs(opt_pair):
+if _t.TYPE_CHECKING:
+    import collections.abc as _c  # noqa: WPS111, WPS301
+
+
+def _emit_opt_pairs(
+    opt_pair: tuple[str, dict[str, str] | str],
+) -> _c.Iterator[str]:
     flag, flag_value = opt_pair
-    flag_opt = '--{name!s}'.format(name=flag)
+    flag_opt = f'--{flag!s}'
     if isinstance(flag_value, dict):
-        sub_pairs = flag_value.items()
+        sub_pairs: _c.Iterable[tuple[str, ...]] = flag_value.items()
     else:
         sub_pairs = ((flag_value,),)
 
-    yield from (
-        '='.join(map(str, (flag_opt,) + pair))
-        for pair in sub_pairs
-    )
+    for pair in sub_pairs:
+        yield '='.join(map(str, (flag_opt, *pair)))
 
 
-def get_cli_kwargs_from_config(kwargs_map):
+def get_cli_kwargs_from_config(
+    kwargs_map: dict[str, str | dict[str, str]],
+) -> list[str]:
     """Make a list of options with values from config."""
     return list(chain.from_iterable(map(_emit_opt_pairs, kwargs_map.items())))
 
 
-def get_enabled_cli_flags_from_config(flags_map):
+def get_enabled_cli_flags_from_config(
+    flags_map: _c.Mapping[str, bool],
+) -> list[str]:
     """Make a list of enabled boolean flags from config."""
     return [
-        '--{flag}'.format(flag=flag)
-        for flag, is_enabled in flags_map.items()
-        if is_enabled
+        f'--{flag}' for flag, is_enabled in flags_map.items() if is_enabled
     ]
 
 
@@ -78,9 +85,7 @@ def sanitize_rst_roles(rst_source_text: str) -> str:  # noqa: WPS210
     gh_role_regex = r"""(?x)
         :gh:`(?P<gh_slug>[^`<]+)(?:\s+([^`]*))?`
     """
-    gh_substitution_pattern = (
-        r'GitHub: ``\g<gh_slug>``'
-    )
+    gh_substitution_pattern = r'GitHub: ``\g<gh_slug>``'
 
     meth_role_regex = r"""(?x)
         (?::py)?:meth:`~?(?P<rendered_text>[^`<]+)(?:\s+([^`]*))?`

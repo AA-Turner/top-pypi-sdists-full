@@ -34,10 +34,10 @@ import cogames.policy.starter_agent as starter_agent
 import cogames.policy.trainable_policy_template as trainable_policy_template
 from cogames import diagnose as diagnose_module
 from cogames import evaluate as evaluate_module
-from cogames import game, verbose
 from cogames import pickup as pickup_module
 from cogames import play as play_module
 from cogames import train as train_module
+from cogames import verbose
 from cogames.cli.auth import CoGamesAuthenticator, auth_app
 from cogames.cli.base import console, emit_json
 from cogames.cli.client import SeasonDetail, TournamentServerClient
@@ -56,6 +56,9 @@ from cogames.cli.mission import (
     list_evals,
     list_missions,
     list_variants,
+    print_mission_dependencies,
+    print_variant_graph,
+    save_mission_config,
 )
 from cogames.cli.policy import (
     _translate_error,
@@ -75,8 +78,8 @@ from cogames.cli.submit import (
     upload_policy,
     validate_bundle_docker,
 )
-from cogames.curricula import make_rotation
 from cogames.device import resolve_training_device
+from cogames.games.cogs_vs_clips.train.curricula import make_rotation
 from cogames.seed import seed_rollout_rng
 from mettagrid.mapgen.mapgen import MapGen
 from mettagrid.policy.loader import discover_and_register_policies
@@ -118,17 +121,13 @@ def _register_policies() -> None:
     discover_and_register_policies()
 
 
-def _register_policies_callback() -> None:
-    _register_policies()
-
-
 app = typer.Typer(
     help="CoGames - Multi-agent cooperative and competitive games.",
     context_settings={"help_option_names": ["-h", "--help"]},
     no_args_is_help=True,
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False,
-    callback=_register_policies_callback,
+    callback=_register_policies,
 )
 
 tutorial_app = typer.Typer(
@@ -179,11 +178,11 @@ def tutorial_cmd(
     Prompt.ask("[dim]Press Enter to launch tutorial[/dim]", default="", show_default=False)
     console.print("[dim]Initializing Mettascope...[/dim]")
 
-    # Load tutorial mission (CogsGuard)
-    from cogames.cogs_vs_clips.missions import make_cogsguard_mission  # noqa: PLC0415
+    # Load tutorial mission (CvC)
+    from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission  # noqa: PLC0415
 
     # Create environment config
-    env_cfg = make_cogsguard_mission(num_agents=1, max_steps=1000).make_env()
+    env_cfg = make_machina1_mission(num_agents=1, max_steps=1000).make_env()
     console.print("[dim]Tutorial phases appear in-game. Press Enter or click Next to advance.[/dim]")
     console.print("[dim]Close the Mettascope window to exit.[/dim]")
 
@@ -202,21 +201,21 @@ def tutorial_cmd(
 
 
 @tutorial_app.command(
-    name="cogsguard",
-    help="Interactive CogsGuard tutorial - learn roles and territory control.",
+    name="cvc",
+    help="Interactive CvC tutorial - learn roles and territory control.",
     rich_help_panel="Tutorial",
 )
-def cogsguard_tutorial_cmd(
+def cvc_tutorial_cmd(
     ctx: typer.Context,
 ) -> None:
-    """Run the CogsGuard tutorial."""
+    """Run the CvC tutorial."""
     # Suppress logs during tutorial to keep output focused.
     logging.getLogger().setLevel(logging.ERROR)
     os.environ["METTASCOPE_SHOW_VALIDATION"] = "0"
 
     console.print(
         Panel.fit(
-            "[bold cyan]CogsGuard Tutorial[/bold cyan]\n\n"
+            "[bold cyan]CvC Tutorial[/bold cyan]\n\n"
             "Mission: outscore Clips by sustaining junction control under pressure.\n"
             "Guidance appears in-game. Press Enter or click Next to advance each tutorial phase.",
             title="Tutorial Briefing",
@@ -227,11 +226,10 @@ def cogsguard_tutorial_cmd(
     Prompt.ask("[dim]Press Enter to launch tutorial[/dim]", default="", show_default=False)
     console.print("[dim]Initializing Mettascope...[/dim]")
 
-    # Load CogsGuard tutorial mission
-    from cogames.cogs_vs_clips.tutorials.cogsguard_tutorial import CogsGuardTutorialMission  # noqa: PLC0415
+    # Load CvC tutorial mission
+    from cogames.games.cogs_vs_clips.missions.tutorial import make_tutorial_mission  # noqa: PLC0415
 
-    # Create environment config
-    env_cfg = CogsGuardTutorialMission.make_env()
+    env_cfg = make_tutorial_mission().make_env()
     console.print("[dim]Tutorial phases appear in-game. Press Enter or click Next to advance.[/dim]")
     console.print("[dim]Close the Mettascope window to exit.[/dim]")
 
@@ -240,13 +238,13 @@ def cogsguard_tutorial_cmd(
         play_module.play(
             console,
             env_cfg=env_cfg,
-            policy_spec=get_policy_spec(ctx, "class=tutorial_noop,kw.tutorial=cogsguard"),
-            game_name="cogsguard_tutorial",
+            policy_spec=get_policy_spec(ctx, "class=tutorial_noop,kw.tutorial=cvc"),
+            game_name="tutorial",
             render_mode="gui",
             autostart=False,
         )
     except KeyboardInterrupt:
-        logger.info("CogsGuard tutorial interrupted; exiting.")
+        logger.info("CvC tutorial interrupted; exiting.")
 
 
 app.add_typer(tutorial_app, name="tutorial", rich_help_panel="Tutorials")
@@ -266,22 +264,18 @@ def _help_callback(ctx: typer.Context, value: bool) -> None:
     name="missions",
     help="""List available missions.
 
-This command has three modes:
+This command has two modes:
 
-[bold]1. List sites:[/bold] Run with no arguments to see all available sites.
+[bold]1. List missions:[/bold] Run with no arguments to see all available missions.
 
-[bold]2. List missions at a site:[/bold] Pass a site name (e.g., 'cogsguard_machina_1') to see its missions.
-
-[bold]3. Describe a mission:[/bold] Use -m to describe a specific mission. Only in this mode do \
+[bold]2. Describe a mission:[/bold] Use -m to describe a specific mission. Only in this mode do \
 --cogs, --variant, --format, and --save have any effect.""",
     rich_help_panel="Missions",
     epilog="""[dim]Examples:[/dim]
 
-  [cyan]cogames missions[/cyan]                                    List all sites
+  [cyan]cogames missions[/cyan]                                    List all missions
 
-  [cyan]cogames missions cogsguard_machina_1[/cyan]                     List missions at site
-
-  [cyan]cogames missions -m cogsguard_machina_1.basic[/cyan]           Describe a mission
+  [cyan]cogames missions -m machina_1[/cyan]                       Describe a mission
 
   [cyan]cogames missions -m arena --format json[/cyan]             Output as JSON""",
     add_help_option=False,
@@ -293,8 +287,8 @@ def games_cmd(
     # --- List ---
     site: Optional[str] = typer.Argument(
         None,
-        metavar="SITE",
-        help="Filter by site (e.g., cogsguard_machina_1).",
+        metavar="FILTER",
+        help="Filter missions by name.",
     ),
     # --- Describe (requires -m) ---
     mission: Optional[str] = typer.Option(
@@ -320,13 +314,6 @@ def games_cmd(
         help="Apply variant (requires -m, repeatable).",
         rich_help_panel="Describe",
     ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events (requires -m).",
-        rich_help_panel="Describe",
-    ),
     format_: Optional[Literal["yaml", "json"]] = typer.Option(
         None,
         "--format",
@@ -340,6 +327,12 @@ def games_cmd(
         metavar="PATH",
         help="Save config to file (requires -m).",
         rich_help_panel="Describe",
+    ),
+    # --- Dependencies ---
+    dependencies: bool = typer.Option(
+        False,
+        "--dependencies",
+        help="Show variant dependencies for each mission.",
     ),
     # --- Debug ---
     print_cvc_config: bool = typer.Option(
@@ -366,7 +359,12 @@ def games_cmd(
     ),
 ) -> None:
     if mission is None:
-        list_missions(site)
+        if dependencies:
+            from cogames.game import get_game  # noqa: PLC0415
+
+            print_mission_dependencies(get_game("cogs_vs_clips"), console)
+        else:
+            list_missions(site)
         return
 
     try:
@@ -375,7 +373,6 @@ def games_cmd(
             mission,
             variants_arg=variant,
             cogs=cogs,
-            difficulty=difficulty,
         )
     except typer.Exit as exc:
         if exc.exit_code != 1:
@@ -391,7 +388,7 @@ def games_cmd(
 
     if save is not None:
         try:
-            game.save_mission_config(env_cfg, save)
+            save_mission_config(env_cfg, save)
             console.print(f"[green]Mission configuration saved to: {save}[/green]")
         except ValueError as exc:  # pragma: no cover - user input
             console.print(f"[red]Error saving configuration: {exc}[/red]")
@@ -423,8 +420,15 @@ def evals_cmd() -> None:
 
 
 @app.command("variants", help="List all available mission variants.", rich_help_panel="Missions")
-def variants_cmd() -> None:
-    list_variants()
+def variants_cmd(
+    dependencies: bool = typer.Option(False, "--dependencies", help="Print the variant dependency graph."),
+) -> None:
+    if dependencies:
+        from cogames.game import get_game  # noqa: PLC0415
+
+        print_variant_graph(get_game("cogs_vs_clips"), console)
+    else:
+        list_variants()
 
 
 @app.command(
@@ -433,7 +437,7 @@ def variants_cmd() -> None:
     rich_help_panel="Missions",
     epilog="""[dim]Examples:[/dim]
 
-  [cyan]cogames describe cogsguard_machina_1.basic[/cyan]             Describe mission
+  [cyan]cogames describe machina_1.basic[/cyan]             Describe mission
 
   [cyan]cogames describe arena -c 4 -v dark_side[/cyan]               With 4 cogs and variant""",
     add_help_option=False,
@@ -443,7 +447,7 @@ def describe_cmd(
     mission: str = typer.Argument(
         ...,
         metavar="MISSION",
-        help="Mission name (e.g., cogsguard_machina_1.basic).",
+        help="Mission name (e.g., machina_1.basic).",
     ),
     cogs: Optional[int] = typer.Option(
         None,
@@ -458,13 +462,6 @@ def describe_cmd(
         "-v",
         metavar="VARIANT",
         help="Apply variant (repeatable).",
-        rich_help_panel="Configuration",
-    ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events.",
         rich_help_panel="Configuration",
     ),
     _help: bool = typer.Option(
@@ -482,7 +479,6 @@ def describe_cmd(
         mission,
         variants_arg=variant,
         cogs=cogs,
-        difficulty=difficulty,
     )
     describe_mission(resolved_mission, env_cfg, mission_cfg)
 
@@ -503,20 +499,27 @@ Log mode is non-interactive and doesn't support manual control.
 """,
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames play -m cogsguard_machina_1.basic[/cyan]                        Interactive
+[cyan]cogames play -m machina_1.basic[/cyan]                        Interactive
 
-[cyan]cogames play -m cogsguard_machina_1.basic -p class=random[/cyan]        Random policy
+[cyan]cogames play -m machina_1.basic -p class=random[/cyan]        Random policy
 
-[cyan]cogames play -m cogsguard_machina_1.basic -c 4 -p class=baseline[/cyan] Baseline, 4 cogs
+[cyan]cogames play -m machina_1.basic -c 4 -p class=baseline[/cyan] Baseline, 4 cogs
 
-[cyan]cogames play -m cogsguard_machina_1.basic --save-replay-file ./latest.json.z[/cyan] Overwrite fixed replay file
+[cyan]cogames play -m machina_1.basic --save-replay-file ./latest.json.z[/cyan] Overwrite fixed replay file
 
-[cyan]cogames play -m cogsguard_machina_1 -r unicode[/cyan]                   Terminal mode""",
+[cyan]cogames play -m machina_1 -r unicode[/cyan]                   Terminal mode""",
     add_help_option=False,
 )
 def play_cmd(
     ctx: typer.Context,
     # --- Game Setup ---
+    game: str = typer.Option(
+        "cogs_vs_clips",
+        "--game",
+        metavar="GAME",
+        help="Game to play (default: cogs_vs_clips).",
+        rich_help_panel="Game Setup",
+    ),
     mission: Optional[str] = typer.Option(
         None,
         "--mission",
@@ -531,13 +534,6 @@ def play_cmd(
         "-v",
         metavar="VARIANT",
         help="Apply variant modifier (repeatable).",
-        rich_help_panel="Game Setup",
-    ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events.",
         rich_help_panel="Game Setup",
     ),
     cogs: Optional[int] = typer.Option(
@@ -649,7 +645,7 @@ def play_cmd(
         console.print("[red]Error: Use only one of --save-replay-dir or --save-replay-file.[/red]")
         raise typer.Exit(1)
 
-    explicit_steps = ctx.get_parameter_source("steps") in (
+    _explicit_steps = ctx.get_parameter_source("steps") in (
         ParameterSource.COMMANDLINE,
         ParameterSource.ENVIRONMENT,
         ParameterSource.PROMPT,
@@ -658,10 +654,10 @@ def play_cmd(
     resolved_mission, env_cfg, mission_cfg = get_mission_name_and_config(
         ctx,
         mission,
+        game_name=game,
         variants_arg=variant,
         cogs=cogs,
-        steps=steps if explicit_steps else None,
-        difficulty=difficulty,
+        steps=steps if _explicit_steps else None,
     )
 
     if print_cvc_config or print_mg_config:
@@ -842,7 +838,7 @@ def make_mission(
         _ = Simulator().new_simulation(env_cfg)
 
         if output:
-            game.save_mission_config(env_cfg, output)
+            save_mission_config(env_cfg, output)
             console.print(f"[green]Modified {resolved_mission} configuration saved to: {output}[/green]")
         else:
             console.print("\n[yellow]To save this configuration, use the --output option.[/yellow]")
@@ -852,7 +848,7 @@ def make_mission(
         raise typer.Exit(1) from exc
 
 
-# TODO (cogsguard migration): Verify make-policy templates work with CogsGuard game mechanics
+# TODO: Verify make-policy templates work with CvC game mechanics
 @tutorial_app.command(
     name="make-policy",
     help="Create a new policy from a template. Requires --trainable or --scripted.",
@@ -935,13 +931,12 @@ def make_policy(
 
         if trainable:
             console.print(
-                "[dim]Train with: cogames tutorial train -m cogsguard_machina_1.basic -p class="
+                "[dim]Train with: cogames tutorial train -m machina_1.basic -p class="
                 f"{dest_path.stem}.{policy_class}[/dim]"
             )
         else:
             console.print(
-                "[dim]Play with: cogames play -m cogsguard_machina_1.basic -p class="
-                f"{dest_path.stem}.{policy_class}[/dim]"
+                f"[dim]Play with: cogames play -m machina_1.basic -p class={dest_path.stem}.{policy_class}[/dim]"
             )
 
     except Exception as exc:  # pragma: no cover - user input
@@ -968,9 +963,9 @@ Use wildcards (*) in mission names to match multiple missions at once.""",
     rich_help_panel="Tutorial",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames tutorial train -m cogsguard_machina_1.basic[/cyan]                   Basic training
+[cyan]cogames tutorial train -m machina_1.basic[/cyan]                   Basic training
 
-[cyan]cogames tutorial train -m cogsguard_machina_1.basic -p class=baseline[/cyan]
+[cyan]cogames tutorial train -m machina_1.basic -p class=baseline[/cyan]
                                                                  Train baseline policy
 
 [cyan]cogames tutorial train -p ./train_dir/my_run:v5[/cyan]                  Continue from checkpoint
@@ -1014,13 +1009,6 @@ def train_cmd(
         "-v",
         metavar="VARIANT",
         help="Mission variant (repeatable).",
-        rich_help_panel="Mission Setup",
-    ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events.",
         rich_help_panel="Mission Setup",
     ),
     # --- Policy ---
@@ -1130,7 +1118,6 @@ def train_cmd(
         missions,
         variants_arg=variant,
         cogs=cogs,
-        difficulty=difficulty,
     )
     if len(selected_missions) == 1:
         mission_name, env_cfg = selected_missions[0]
@@ -1188,15 +1175,13 @@ With one policy, this command is equivalent to `cogames scrimmage`.
     rich_help_panel="Evaluate",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames run -m cogsguard_machina_1.basic -p lstm[/cyan]               Evaluate single policy
+[cyan]cogames run -m machina_1.basic -p lstm[/cyan]               Evaluate single policy
 
-[cyan]cogames run -m cogsguard_machina_1 -p ./train_dir/my_run:v5[/cyan]     Evaluate a checkpoint bundle
-
-[cyan]cogames run -S integrated_evals -p ./train_dir/my_run:v5[/cyan]    Evaluate on mission set
+[cyan]cogames run -m machina_1 -p ./train_dir/my_run:v5[/cyan]     Evaluate a checkpoint bundle
 
 [cyan]cogames run -m 'arena.*' -p lstm -p random -e 20[/cyan]            Evaluate multiple policies together
 
-[cyan]cogames run -m cogsguard_machina_1 -p ./train_dir/my_run:v5,proportion=3 -p class=random,proportion=5[/cyan]
+[cyan]cogames run -m machina_1 -p ./train_dir/my_run:v5,proportion=3 -p class=random,proportion=5[/cyan]
                                                              Evaluate policies in 3:5 mix""",
     add_help_option=False,
 )
@@ -1225,14 +1210,6 @@ def run_cmd(
         help="Missions to evaluate (supports wildcards).",
         rich_help_panel="Mission",
     ),
-    mission_set: Optional[str] = typer.Option(
-        None,
-        "--mission-set",
-        "-S",
-        metavar="SET",
-        help="Predefined set: integrated_evals, spanning_evals, diagnostic_evals, all.",
-        rich_help_panel="Mission",
-    ),
     cogs: Optional[int] = typer.Option(
         None,
         "--cogs",
@@ -1247,13 +1224,6 @@ def run_cmd(
         "-v",
         metavar="VARIANT",
         help="Mission variant (repeatable).",
-        rich_help_panel="Mission",
-    ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events.",
         rich_help_panel="Mission",
     ),
     # --- Policy ---
@@ -1347,33 +1317,12 @@ def run_cmd(
     # so only clean JSON/YAML appears on stdout.
     out = Console(stderr=True) if format_ else console
 
-    # Handle mission set expansion
-    if mission_set and missions:
-        out.print("[red]Error: Cannot use both --mission-set and --mission[/red]")
-        raise typer.Exit(1)
-
-    if mission_set:
-        from cogames.cli.mission import load_mission_set  # noqa: PLC0415
-
-        try:
-            mission_objs = load_mission_set(mission_set)
-            missions = [m.full_name() for m in mission_objs]
-            out.print(f"[cyan]Using mission set '{mission_set}' ({len(missions)} missions)[/cyan]")
-        except ValueError as e:
-            out.print(f"[red]{e}[/red]")
-            raise typer.Exit(1) from e
-
-        # Default to 4 cogs for mission sets unless explicitly specified
-        if cogs is None:
-            cogs = 4
-
     selected_missions = get_mission_names_and_configs(
         ctx,
         missions,
         variants_arg=variant,
         cogs=cogs,
         steps=steps,
-        difficulty=difficulty,
     )
 
     # Optional MapGen seed override for procedural maps.
@@ -1425,7 +1374,7 @@ def pickup_cmd(
     ctx: typer.Context,
     # --- Mission ---
     mission: str = typer.Option(
-        "cogsguard_machina_1.basic",
+        "machina_1.basic",
         "--mission",
         "-m",
         metavar="MISSION",
@@ -1447,13 +1396,6 @@ def pickup_cmd(
         "-v",
         metavar="VARIANT",
         help="Mission variant (repeatable).",
-        rich_help_panel="Mission",
-    ),
-    difficulty: Optional[str] = typer.Option(
-        None,
-        "--difficulty",
-        metavar="LEVEL",
-        help="Difficulty (easy, medium, hard) controlling clips events.",
         rich_help_panel="Mission",
     ),
     # --- Policy ---
@@ -1559,7 +1501,6 @@ def pickup_cmd(
         variants_arg=variant,
         cogs=cogs,
         steps=steps,
-        difficulty=difficulty,
     )
 
     candidate_label = policy
@@ -1686,7 +1627,7 @@ app.command(
 
 [cyan]cogames submissions[/cyan]                         All your uploads
 
-[cyan]cogames submissions --season beta-cogsguard[/cyan]           Submissions in a season
+[cyan]cogames submissions --season beta-cvc[/cyan]           Submissions in a season
 
 [cyan]cogames submissions -p my-policy[/cyan]            Info on a specific policy""",
     add_help_option=False,
@@ -1745,7 +1686,7 @@ app.command(
     rich_help_panel="Evaluate",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames diagnose ./train_dir/my_run[/cyan]                         Default CogsGuard evals
+[cyan]cogames diagnose ./train_dir/my_run[/cyan]                         Default CvC evals
 
 [cyan]cogames diagnose lstm --scripted-baseline-policy scripted.basic[/cyan]   Compare against scripted baseline
 
@@ -1917,6 +1858,14 @@ def _parse_init_kwarg(value: str) -> tuple[str, str]:
     return key.replace("-", "_"), val
 
 
+def _parse_secret_env(value: str) -> tuple[str, str]:
+    """Parse KEY=VALUE into a tuple for secret environment variables."""
+    if "=" not in value:
+        raise typer.BadParameter(f"Expected KEY=VALUE format, got: {value}")
+    key, _, val = value.partition("=")
+    return key, val
+
+
 @app.command(
     name="upload",
     help="Upload a policy to CoGames.",
@@ -1975,6 +1924,14 @@ def upload_cmd(
         metavar="PATH",
         help="Python setup script to run before loading the policy.",
         rich_help_panel="Files",
+    ),
+    # --- Secrets ---
+    secret_env: Optional[list[str]] = typer.Option(  # noqa: B008
+        None,
+        "--secret-env",
+        metavar="KEY=VALUE",
+        help="Secret environment variable for policy execution (can be repeated). Stored in AWS Secrets Manager.",
+        rich_help_panel="Secrets",
     ),
     # --- Tournament ---
     season: Optional[str] = typer.Option(
@@ -2051,6 +2008,12 @@ def upload_cmd(
             init_kwargs[key] = val
 
     submitting = not no_submit
+    parsed_secret_env: dict[str, str] = {}
+    if secret_env:
+        for kv in secret_env:
+            key, val = _parse_secret_env(kv)
+            parsed_secret_env[key] = val
+
     result = upload_policy(
         ctx=ctx,
         policy=policy,
@@ -2064,6 +2027,7 @@ def upload_cmd(
         setup_script=setup_script,
         season=season_info.name if submitting else None,
         image=image,
+        secret_env=parsed_secret_env if parsed_secret_env else None,
     )
 
     if result:
@@ -2349,7 +2313,7 @@ def docs_cmd(
     package_root = Path(__file__).parent.parent.parent
     docs_map: dict[str, tuple[Path, str]] = {
         "readme": (package_root / "README.md", "CoGames overview and documentation"),
-        "mission": (package_root / "MISSION.md", "Mission briefing for CogsGuard Deployment"),
+        "mission": (package_root / "MISSION.md", "Mission briefing for CvC Deployment"),
         "technical_manual": (package_root / "TECHNICAL_MANUAL.md", "Technical manual for Cogames"),
         "scripted_agent": (
             Path(__file__).parent / "docs" / "SCRIPTED_AGENT.md",

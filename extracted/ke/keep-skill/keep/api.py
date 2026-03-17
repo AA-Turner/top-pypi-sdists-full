@@ -1490,20 +1490,22 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             user_tags = casefold_tags(filter_non_system_tags(tags))
             # Validate constrained tags (only user-provided, not existing/env)
             self._validate_constrained_tags(user_tags)
-            # Singular enforcement: clear existing values so merge replaces
+            # Validate constrained tags
             singular_keys = self._get_singular_keys(
                 k for k in user_tags if tag_values(user_tags, k) != [""]
             )
             if singular_keys:
                 self._validate_singular_tags(user_tags, singular_keys)
+            # Replace semantics: new tag values replace existing, not accumulate
             for key in user_tags:
                 values = tag_values(user_tags, key)
                 if values == [""]:
                     merged_tags.pop(key, None)
                 else:
-                    if key in singular_keys:
-                        merged_tags.pop(key, None)
-                    _merge_tags_additive(merged_tags, {key: values})
+                    set_tag_values(merged_tags, key, values)
+
+        # Track content length as a system tag (always updated)
+        system_tags["_content_length"] = str(len(content))
 
         _merge_tags_additive(merged_tags, system_tags, replace_system=True)
 
@@ -1520,6 +1522,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             existing_doc is not None
             and _user_tags_changed(existing_doc.tags, merged_tags)
         )
+
+        # Backfill system tags for items stored before they were tracked
+        if existing_doc is not None:
+            backfill_tags = {}
+            for sys_key in ("_content_type", "_content_length"):
+                if sys_key in merged_tags and sys_key not in existing_doc.tags:
+                    backfill_tags[sys_key] = merged_tags[sys_key]
+            if backfill_tags:
+                self._document_store.patch_head_tags(doc_coll, id, backfill_tags)
 
         # Early return: content and tags unchanged.
         # Still dispatch after-write flow — it will no-op if processing
@@ -1780,6 +1791,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     if (existing
                             and existing.tags.get("_file_mtime_ns") == str(st.st_mtime_ns)
                             and existing.tags.get("_file_size") == str(st.st_size)):
+                        # Backfill _content_type for items stored before it was tracked
+                        if "_content_type" not in existing.tags:
+                            from .providers.documents import FileDocumentProvider
+                            ct = FileDocumentProvider.EXTENSION_TYPES.get(fpath.suffix.lower())
+                            if ct:
+                                self._document_store.patch_head_tags(
+                                    doc_coll, doc_id, {"_content_type": ct},
+                                )
                         # File stat unchanged — check if tags would also be unchanged
                         if not tags or not _user_tags_changed(
                                 existing.tags,
@@ -1849,6 +1868,22 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         birthtime, tz=timezone.utc
                     ).isoformat()
 
+            # Email threading: if the email has a thread ID, use it as the
+            # item ID.  Each message becomes a version of the thread item.
+            # Use the email Date header as created_at for version ordering.
+            thread_id = (doc.tags or {}).get("_thread_id")
+            if thread_id and doc.content_type == "message/rfc822" and id is None:
+                # Strip angle brackets from Message-ID for valid keep ID
+                clean_thread_id = thread_id.strip("<>")
+                doc_id = normalize_id(f"thread:{clean_thread_id}")
+                # Use email Date as created_at for chronological version ordering
+                email_date = (merged_tags or {}).get("date") or (doc.tags or {}).get("date")
+                if email_date and created_at is None:
+                    created_at = email_date
+                # No special tag handling needed — replace semantics in _upsert
+                # means each message's tags replace the previous, and the
+                # version archive preserves per-message tags independently.
+
             # Store source URI as system tag when using custom ID
             if doc_id != uri:
                 system_tags["_source_uri"] = uri
@@ -1863,6 +1898,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
 
             ocr_pages = (doc.metadata or {}).get("_ocr_pages")
+            doc_links = (doc.metadata or {}).get("_links")
 
             if capture_write_context:
                 self._store_write_context(
@@ -1887,6 +1923,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     tags=merged_tags,
                     summary=summary,
                     ocr_pages=ocr_pages,
+                    doc_links=doc_links,
                 )
 
             # Process email attachments as child items with edges
@@ -1974,7 +2011,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if not att_path:
                 continue
 
-            child_id = f"{parent_id}#att-{i}"
+            # Use MIME Content-ID as fragment if available, else att-{N}
+            content_id = att.get("content_id")
+            fragment = content_id if content_id else f"att-{i}"
+            child_id = f"{parent_id}#{fragment}"
             filename = att.get("filename", f"attachment-{i}")
 
             # Inherit key context tags from the parent email

@@ -188,6 +188,8 @@ class FeaturesImpl(metaclass=FeaturesMeta):
     features: ClassVar[List[Feature]]
     __chalk_features_raw__: ClassVar[List[Feature]]
     __chalk_source_info__: "ClassVar[ClassSource]"
+    __chalk_filename__: "ClassVar[str | None]"
+    __chalk_source__: "ClassVar[str | None]"
     __chalk_is_loaded_from_notebook__: ClassVar[bool] = False
     """True if loaded on a branch server from a pickle"""
     __chalk_materialized_windows__: ClassVar[List[Feature]]

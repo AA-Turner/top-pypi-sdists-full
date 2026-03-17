@@ -34,15 +34,17 @@ class CloudsQuery(object):
     """
     openapi_types = {
         'name': 'TextQuery',
-        'paging': 'PageQuery'
+        'paging': 'PageQuery',
+        'sort_by_clauses': 'list[SortByClauseCloudsSortField]'
     }
 
     attribute_map = {
         'name': 'name',
-        'paging': 'paging'
+        'paging': 'paging',
+        'sort_by_clauses': 'sort_by_clauses'
     }
 
-    def __init__(self, name=None, paging=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, paging=None, sort_by_clauses=None, local_vars_configuration=None):  # noqa: E501
         """CloudsQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,12 +52,15 @@ class CloudsQuery(object):
 
         self._name = None
         self._paging = None
+        self._sort_by_clauses = None
         self.discriminator = None
 
         if name is not None:
             self.name = name
         if paging is not None:
             self.paging = paging
+        if sort_by_clauses is not None:
+            self.sort_by_clauses = sort_by_clauses
 
     @property
     def name(self):
@@ -102,6 +107,29 @@ class CloudsQuery(object):
         """
 
         self._paging = paging
+
+    @property
+    def sort_by_clauses(self):
+        """Gets the sort_by_clauses of this CloudsQuery.  # noqa: E501
+
+        The order used to specify results.  # noqa: E501
+
+        :return: The sort_by_clauses of this CloudsQuery.  # noqa: E501
+        :rtype: list[SortByClauseCloudsSortField]
+        """
+        return self._sort_by_clauses
+
+    @sort_by_clauses.setter
+    def sort_by_clauses(self, sort_by_clauses):
+        """Sets the sort_by_clauses of this CloudsQuery.
+
+        The order used to specify results.  # noqa: E501
+
+        :param sort_by_clauses: The sort_by_clauses of this CloudsQuery.  # noqa: E501
+        :type: list[SortByClauseCloudsSortField]
+        """
+
+        self._sort_by_clauses = sort_by_clauses
 
     def to_dict(self):
         """Returns the model properties as a dict"""

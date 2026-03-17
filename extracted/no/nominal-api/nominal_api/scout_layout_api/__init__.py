@@ -1,5 +1,10 @@
 # coding=utf-8
 from .._impl import (
+    scout_layout_api_CanvasLayout as CanvasLayout,
+    scout_layout_api_CanvasObject as CanvasObject,
+    scout_layout_api_CanvasObjectVisitor as CanvasObjectVisitor,
+    scout_layout_api_CanvasPanel as CanvasPanel,
+    scout_layout_api_CanvasRect as CanvasRect,
     scout_layout_api_ChartPanel as ChartPanel,
     scout_layout_api_ChartPanelV1 as ChartPanelV1,
     scout_layout_api_ChartPanelVisitor as ChartPanelVisitor,
@@ -28,6 +33,11 @@ from .._impl import (
 )
 
 __all__ = [
+    'CanvasLayout',
+    'CanvasObject',
+    'CanvasObjectVisitor',
+    'CanvasPanel',
+    'CanvasRect',
     'ChartPanel',
     'ChartPanelVisitor',
     'ChartPanelV1',

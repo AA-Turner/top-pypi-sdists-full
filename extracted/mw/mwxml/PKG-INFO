@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: mwxml
-Version: 0.3.6
+Version: 0.3.7
 Summary: A set of utilities for processing MediaWiki XML dump data.
 Home-page: https://github.com/mediawiki-utilities/python-mwxml
 Author: Aaron Halfaker

@@ -1048,6 +1048,17 @@ TBLPROPERTIES (
             },
         )
 
+        self.validate_all(
+            "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values) SELECT n FROM t",
+            read={
+                "spark": "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values) SELECT n FROM t",
+                "databricks": "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values) SELECT n FROM t",
+            },
+            write={
+                "databricks": "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values) SELECT n FROM t",
+            },
+        )
+
     def test_bool_or(self):
         self.validate_all(
             "SELECT a, LOGICAL_OR(b) FROM table GROUP BY a",
@@ -1319,3 +1330,55 @@ TBLPROPERTIES (
         self.validate_identity("DECLARE VARIABLE myvar INT DEFAULT 5", "DECLARE myvar INT = 5")
         self.validate_identity("DECLARE x, y, z INT DEFAULT 1", "DECLARE x, y, z INT = 1")
         self.validate_identity("DECLARE x INT = 5")
+        self.validate_identity("DECLARE five = 5")
+        self.validate_identity("DECLARE OR REPLACE five = 55")
+        self.validate_identity("DECLARE VARIABLE size DEFAULT 6", "DECLARE size = 6")
+        self.validate_identity("DECLARE some_var STRING")
+
+    def test_set_variable(self):
+        self.validate_all(
+            "SET VAR v = 5",
+            write={
+                "spark": "SET VARIABLE v = 5",
+                "databricks": "SET VARIABLE v = 5",
+            },
+        )
+        self.validate_all(
+            "SET VARIABLE v = 5",
+            write={
+                "spark": "SET VARIABLE v = 5",
+                "databricks": "SET VARIABLE v = 5",
+            },
+        )
+
+        self.validate_all(
+            "SET VARIABLE v = (SELECT MAX(c1) FROM VALUES (1), (2) AS T(c1))",
+            write={
+                "spark": "SET VARIABLE v = (SELECT MAX(c1) FROM VALUES (1), (2) AS T(c1))",
+                "databricks": "SET VARIABLE v = (SELECT MAX(c1) FROM VALUES (1), (2) AS T(c1))",
+            },
+        )
+
+        self.validate_all(
+            "SET VARIABLE v = DEFAULT",
+            write={
+                "spark": "SET VARIABLE v = DEFAULT",
+                "databricks": "SET VARIABLE v = DEFAULT",
+            },
+        )
+
+        self.validate_all(
+            "SET VARIABLE v1 = 1, v2 = '2'",
+            write={
+                "spark": "SET VARIABLE v1 = 1, v2 = '2'",
+                "databricks": "SET VARIABLE v1 = 1, v2 = '2'",
+            },
+        )
+
+        self.validate_all(
+            "SET VARIABLE (v1, v2) = (SELECT 1, 2)",
+            write={
+                "spark": "SET VARIABLE (v1, v2) = (SELECT 1, 2)",
+                "databricks": "SET VARIABLE (v1, v2) = (SELECT 1, 2)",
+            },
+        )

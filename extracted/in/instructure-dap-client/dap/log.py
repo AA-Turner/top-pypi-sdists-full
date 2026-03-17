@@ -74,18 +74,25 @@ class JsonFormatter(Formatter):
         return json.dumps(log_record_dict)
 
 
-def create_dap_logger_factory(global_options: GlobalOptions) -> Callable[..., logging.LogRecord]:
+def create_dap_logger_factory(
+    global_options: GlobalOptions,
+) -> Callable[..., logging.LogRecord]:
     """
     Create a custom log record factory where we add custom attributes to the log record.
     """
     default_factory = logging.getLogRecordFactory()
-    def dap_record_factory(*args: tuple[Any, ...], **kwargs: dict[str, Any]) -> logging.LogRecord:
+
+    def dap_record_factory(
+        *args: tuple[Any, ...], **kwargs: dict[str, Any]
+    ) -> logging.LogRecord:
         record = default_factory(*args, **kwargs)
         record.dap_namespace = _namespace
         record.dap_table = _table
         record.dap_client_id = getattr(global_options, "client_id", None)
         return record
+
     return dap_record_factory
+
 
 def create_log_formatter(global_options: GlobalOptions) -> logging.Formatter:
     if global_options.logformat == "json":
@@ -100,9 +107,12 @@ def create_log_formatter(global_options: GlobalOptions) -> logging.Formatter:
             }
         )
 
+
 def setup_logging(global_options: GlobalOptions) -> None:
     logging.setLogRecordFactory(create_dap_logger_factory(global_options))
-    logging.basicConfig(level=getattr(logging, global_options.loglevel.upper(), logging.INFO))
+    logging.basicConfig(
+        level=getattr(logging, global_options.loglevel.upper(), logging.INFO)
+    )
     log_formatter = create_log_formatter(global_options)
     root_logger = logging.getLogger()
     if root_logger.hasHandlers():
@@ -117,17 +127,35 @@ def setup_logging(global_options: GlobalOptions) -> None:
         file_handler.setFormatter(log_formatter)
         root_logger.addHandler(file_handler)
 
-def configure_logging(level: str = "INFO", format: str = "plain",
-                      file: str | None = None, log_to_console: bool = True,
-                      namespace: str | None = None, table: str | None = None, client_id: str | None = None) -> None:
-    setup_logging(GlobalOptions(loglevel=level, logformat=format, logfile=file, log_to_console=log_to_console,
-                                namespace=namespace, table=table, client_id=client_id))
+
+def configure_logging(
+    level: str = "INFO",
+    format: str = "plain",
+    file: str | None = None,
+    log_to_console: bool = True,
+    namespace: str | None = None,
+    table: str | None = None,
+    client_id: str | None = None,
+) -> None:
+    setup_logging(
+        GlobalOptions(
+            loglevel=level,
+            logformat=format,
+            logfile=file,
+            log_to_console=log_to_console,
+            namespace=namespace,
+            table=table,
+            client_id=client_id,
+        )
+    )
 
 
 def log_system_info() -> None:
     logger = logging.getLogger("dap")
     logger.info(f"Python version: {sys.version}")
-    logger.info(f"Platform: {platform.uname().system} {platform.uname().release} {platform.uname().machine}")
+    logger.info(
+        f"Platform: {platform.uname().system} {platform.uname().release} {platform.uname().machine}"
+    )
     installed_packages = importlib.metadata.distributions()
     filter_packages = [
         "instructure-dap-client",

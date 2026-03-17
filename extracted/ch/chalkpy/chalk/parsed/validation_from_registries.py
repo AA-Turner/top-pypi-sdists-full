@@ -88,10 +88,10 @@ def validate_all_from_registries(
         """Tracks line numbers of feature field definitions. This is relative
         to the class, and not to the original file."""
 
-        if features_cls.__chalk_source_info__.dedent_source:
+        if features_cls.__chalk_source__:
             cls_ast = None
             try:
-                cls_ast = ast.parse(features_cls.__chalk_source_info__.dedent_source)
+                cls_ast = ast.parse(features_cls.__chalk_source__)
             except Exception:
                 pass
 

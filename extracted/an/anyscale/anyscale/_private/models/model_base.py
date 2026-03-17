@@ -23,6 +23,8 @@ from typing import (
 
 import yaml
 
+from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
+
 
 # In Python 3.11 there is a 'Self' introduced, but this is the
 # workaround before that: https://peps.python.org/pep-0673/.
@@ -342,7 +344,7 @@ class ResultIterator(Generic[RT]):
 
             # 5) Parse—sync or async
             if self._aparse:
-                processed = asyncio.run(
+                processed = run_sync(
                     ResultIterator._process_items_async(raw_results, self._aparse)
                 )
                 self._buffer.extend(processed)

@@ -19,16 +19,16 @@ from ._stub import RetType as _RetType
 from ._stub import Signature as _Signature
 from .messages import Messages as _Messages
 
-_Imports: _t.TypeAlias = dict[str, str]
-_Overloads: _t.TypeAlias = _t.Dict[str, "Function"]
-_Children: _t.TypeAlias = _t.List[_t.Union["Parent", "Function"]]
-
 
 class Error(_Enum):
     """Represents an unrecoverable error."""
 
     SYNTAX = 1
     UNICODE = 2
+
+
+class _Imports(_t.Dict[str, str]):
+    """Represents python imports."""
 
 
 class Parent:  # pylint: disable=too-many-instance-attributes
@@ -66,21 +66,20 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         error: Error | None = None,
     ) -> None:
         super().__init__()
+        self._name = "module"
         self._error = error
-        self._directives = directives or _Directives()
         self._ignore_args = ignore_args
         self._ignore_kwargs = ignore_kwargs
         self._check_class_constructor = check_class_constructor
-        self._children: _Children = []
-        self._imports: _Imports = imports or {}
-        self._overloads: _Overloads = {}
+        self._children = _Children()
+        self._imports = imports or _Imports()
+        self._overloads = _Overloads()
         if node is None:
-            self._name = "module"
             if not isinstance(self, Function) and error is not None:
                 self._children.append(Function(path, error=error))
         else:
             self._name = node.name
-            self._parse_ast(node, path)
+            self._parse_ast(node, directives or _Directives(), path)
 
     def _parse_ast(
         self,
@@ -90,20 +89,21 @@ class Parent:  # pylint: disable=too-many-instance-attributes
             | _ast.nodes.FunctionDef
             | _ast.nodes.NodeNG
         ),
+        directives: _Directives,
         path: _Path | None = None,
     ) -> None:
         # need to keep track of `comments` as, even though they are
         # resolved in the directive object, they are needed to notify
         # the user in the case that they are invalid
-        parent_comments, parent_disabled = self._directives.get(
+        parent_comments, parent_disabled = directives.get(
             node.lineno,
-            ([], []),
+            (_Comments(), _Messages()),
         )
         if hasattr(node, "body"):
             for subnode in node.body:
-                comments, disabled = self._directives.get(
+                comments, disabled = directives.get(
                     subnode.lineno,
-                    ([], []),
+                    (_Comments(), _Messages()),
                 )
                 comments.extend(parent_comments)
                 disabled.extend(parent_disabled)
@@ -118,7 +118,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                     func = Function(
                         subnode,
                         comments,
-                        self._directives,
+                        directives,
                         disabled,
                         path,
                         self._ignore_args,
@@ -144,7 +144,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                     self._children.append(
                         Parent(
                             subnode,
-                            self._directives,
+                            directives,
                             path,
                             self._ignore_args,
                             self._ignore_kwargs,
@@ -153,7 +153,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                         ),
                     )
                 else:
-                    self._parse_ast(subnode, path)
+                    self._parse_ast(subnode, directives, path)
 
     @property
     def isprotected(self) -> bool:
@@ -211,8 +211,8 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
             check_class_constructor,
             imports,
         )
-        self._comments = comments or []
-        self._messages = messages or []
+        self._comments = comments or _Comments()
+        self._messages = messages or _Messages()
         self._parent = None
         self._decorators = None
         self._signature = _Signature()
@@ -366,3 +366,11 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
         :param rettype: The return type of the overloaded signature.
         """
         self._signature.overload(rettype)
+
+
+class _Overloads(_t.Dict[str, Function]):
+    """Represents overloaded methods."""
+
+
+class _Children(_t.List[_t.Union[Parent, Function]]):
+    """Represents children of an object."""

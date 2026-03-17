@@ -35,16 +35,18 @@ class SupportedBaseImageMetadata(object):
     openapi_types = {
         'docker_image_name': 'str',
         'ray_version': 'str',
-        'python_version': 'str'
+        'python_version': 'str',
+        'is_experimental': 'bool'
     }
 
     attribute_map = {
         'docker_image_name': 'docker_image_name',
         'ray_version': 'ray_version',
-        'python_version': 'python_version'
+        'python_version': 'python_version',
+        'is_experimental': 'is_experimental'
     }
 
-    def __init__(self, docker_image_name=None, ray_version=None, python_version=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, docker_image_name=None, ray_version=None, python_version=None, is_experimental=False, local_vars_configuration=None):  # noqa: E501
         """SupportedBaseImageMetadata - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +55,14 @@ class SupportedBaseImageMetadata(object):
         self._docker_image_name = None
         self._ray_version = None
         self._python_version = None
+        self._is_experimental = None
         self.discriminator = None
 
         self.docker_image_name = docker_image_name
         self.ray_version = ray_version
         self.python_version = python_version
+        if is_experimental is not None:
+            self.is_experimental = is_experimental
 
     @property
     def docker_image_name(self):
@@ -133,6 +138,29 @@ class SupportedBaseImageMetadata(object):
             raise ValueError("Invalid value for `python_version`, must not be `None`")  # noqa: E501
 
         self._python_version = python_version
+
+    @property
+    def is_experimental(self):
+        """Gets the is_experimental of this SupportedBaseImageMetadata.  # noqa: E501
+
+        True if this image is experimental.  # noqa: E501
+
+        :return: The is_experimental of this SupportedBaseImageMetadata.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_experimental
+
+    @is_experimental.setter
+    def is_experimental(self, is_experimental):
+        """Sets the is_experimental of this SupportedBaseImageMetadata.
+
+        True if this image is experimental.  # noqa: E501
+
+        :param is_experimental: The is_experimental of this SupportedBaseImageMetadata.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_experimental = is_experimental
 
     def to_dict(self):
         """Returns the model properties as a dict"""

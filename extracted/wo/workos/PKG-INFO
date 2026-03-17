@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workos
-Version: 5.45.0
+Version: 5.46.0
 Summary: WorkOS Python Client
 Author: WorkOS
 Author-email: WorkOS <team@workos.com>
@@ -8,7 +8,7 @@ License-Expression: MIT
 Requires-Dist: cryptography>=44.0.2
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: pydantic>=2.10.4
-Requires-Dist: pyjwt>=2.10.0 ; python_full_version >= '3.9'
+Requires-Dist: pyjwt>=2.12.0 ; python_full_version >= '3.9'
 Requires-Dist: pyjwt>=2.9.0,<2.10 ; python_full_version == '3.8.*'
 Requires-Python: >=3.8
 Project-URL: Changelog, https://workos.com/docs/sdks/python

@@ -62,6 +62,40 @@ class TestSQLite(Validator):
             "SELECT LIKE('%y%', 'xyz', '')", write={"sqlite": "SELECT 'xyz' LIKE '%y%' ESCAPE ''"}
         )
         self.validate_all(
+            "SELECT MIN(a, b) FROM t",
+            read={
+                "postgres": "SELECT LEAST(a, b) FROM t",
+                "sqlite": "SELECT MIN(a, b) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT MAX(a, b) FROM t",
+            read={
+                "postgres": "SELECT GREATEST(a, b) FROM t",
+                "sqlite": "SELECT MAX(a, b) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT JSON_GROUP_ARRAY(name) FROM t",
+            read={
+                "postgres": "SELECT JSON_AGG(name) FROM t",
+                "sqlite": "SELECT JSON_GROUP_ARRAY(name) FROM t",
+            },
+            write={
+                "postgres": "SELECT JSON_AGG(name) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT JSON_GROUP_OBJECT(name, value) FROM t",
+            read={
+                "postgres": "SELECT JSON_OBJECT_AGG(name, value) FROM t",
+                "sqlite": "SELECT JSON_GROUP_OBJECT(name, value) FROM t",
+            },
+            write={
+                "postgres": "SELECT JSON_OBJECT_AGG(name, value) FROM t",
+            },
+        )
+        self.validate_all(
             "CURRENT_DATE",
             read={
                 "": "CURRENT_DATE",
@@ -113,6 +147,7 @@ class TestSQLite(Validator):
             },
         )
         self.validate_all("x", read={"snowflake": "LEAST(x)"})
+        self.validate_all("x", read={"postgres": "GREATEST(x)"})
         self.validate_all("MIN(x)", read={"snowflake": "MIN(x)"}, write={"snowflake": "MIN(x)"})
         self.validate_all(
             "MIN(x, y, z)",

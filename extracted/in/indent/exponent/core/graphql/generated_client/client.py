@@ -221,17 +221,11 @@ class IndentGraphQLClient(AsyncBaseClient):
         return SetLoginComplete.model_validate(data)
 
     async def start_chat_turn(
-        self,
-        chat_input: ChatInput,
-        chat_config: ChatConfigInput,
-        parent_uuid: Union[Optional[UUID], UnsetType] = UNSET,
-        **kwargs: Any
+        self, chat_input: ChatInput, chat_config: ChatConfigInput, **kwargs: Any
     ) -> StartChatTurn:
         query = gql("""
-            mutation StartChatTurn($chatInput: ChatInput!, $parentUuid: UUID, $chatConfig: ChatConfigInput!) {
-              startChatTurn(
-                input: {chatInput: $chatInput, parentUuid: $parentUuid, chatConfigInput: $chatConfig}
-              ) {
+            mutation StartChatTurn($chatInput: ChatInput!, $chatConfig: ChatConfigInput!) {
+              startChatTurn(input: {chatInput: $chatInput, chatConfigInput: $chatConfig}) {
                 __typename
                 ... on Chat {
                   chatUuid
@@ -241,7 +235,6 @@ class IndentGraphQLClient(AsyncBaseClient):
             """)
         variables: dict[str, object] = {
             "chatInput": chat_input,
-            "parentUuid": parent_uuid,
             "chatConfig": chat_config,
         }
         response = await self.execute(

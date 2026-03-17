@@ -21,7 +21,7 @@ def test_select_suggests_cols_with_visible_table_scope():
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -31,7 +31,7 @@ def test_select_suggests_cols_with_qualified_table_scope():
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [("sch", "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -55,7 +55,7 @@ def test_where_suggests_columns_functions(expression):
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -67,7 +67,7 @@ def test_where_equals_suggests_enum_values_first():
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -84,7 +84,7 @@ def test_where_in_suggests_columns(expression):
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -95,8 +95,20 @@ def test_where_equals_any_suggests_columns_or_keywords():
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
+
+
+def test_where_convert_using_suggests_character_set():
+    text = 'SELECT * FROM tabl WHERE CONVERT(foo USING '
+    suggestions = suggest_type(text, text)
+    assert suggestions == [{"type": "character_set"}]
+
+
+def test_where_cast_character_set_suggests_character_set():
+    text = 'SELECT * FROM tabl WHERE CAST(foo AS CHAR CHARACTER SET '
+    suggestions = suggest_type(text, text)
+    assert suggestions == [{"type": "character_set"}]
 
 
 def test_lparen_suggests_cols():
@@ -114,13 +126,34 @@ def test_operand_inside_function_suggests_cols2():
     assert suggestion == [{"type": "column", "tables": [(None, "tbl", None)]}]
 
 
+def test_operand_inside_function_suggests_cols3():
+    suggestion = suggest_type("SELECT MAX(col1 ||  FROM tbl", "SELECT MAX(col1 || ")
+    assert suggestion == [{"type": "column", "tables": [(None, "tbl", None)]}]
+
+
+def test_operand_inside_function_suggests_cols4():
+    suggestion = suggest_type("SELECT MAX(col1 LIKE  FROM tbl", "SELECT MAX(col1 LIKE ")
+    assert suggestion == [{"type": "column", "tables": [(None, "tbl", None)]}]
+
+
+def test_operand_inside_function_suggests_cols5():
+    suggestion = suggest_type("SELECT MAX(col1 DIV  FROM tbl", "SELECT MAX(col1 DIV ")
+    assert suggestion == [{"type": "column", "tables": [(None, "tbl", None)]}]
+
+
+@pytest.mark.xfail
+def test_arrow_op_inside_function_suggests_nothing():
+    suggestion = suggest_type("SELECT MAX(col1->  FROM tbl", "SELECT MAX(col1->")
+    assert suggestion == []
+
+
 def test_select_suggests_cols_and_funcs():
     suggestions = suggest_type("SELECT ", "SELECT ")
     assert sorted_dicts(suggestions) == sorted_dicts([
         {"type": "alias", "aliases": []},
         {"type": "column", "tables": []},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -193,7 +226,7 @@ def test_col_comma_suggests_cols():
         {"type": "alias", "aliases": ["tbl"]},
         {"type": "column", "tables": [(None, "tbl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -236,7 +269,7 @@ def test_partially_typed_col_name_suggests_col_names():
         {"type": "alias", "aliases": ["tabl"]},
         {"type": "column", "tables": [(None, "tabl", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -331,7 +364,7 @@ def test_sub_select_col_name_completion():
         {"type": "alias", "aliases": ["abc"]},
         {"type": "column", "tables": [(None, "abc", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -341,7 +374,7 @@ def test_sub_select_multiple_col_name_completion():
     assert sorted_dicts(suggestions) == sorted_dicts([
         {"type": "column", "tables": [(None, "abc", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -406,6 +439,8 @@ def test_join_alias_dot_suggests_cols2(sql):
     [
         "select a.x, b.y from abc a join bcd b on ",
         "select a.x, b.y from abc a join bcd b on a.id = b.id OR ",
+        "select a.x, b.y from abc a join bcd b on a.id = b.id + ",
+        "select a.x, b.y from abc a join bcd b on a.id = b.id < ",
     ],
 )
 def test_on_suggests_aliases(sql):
@@ -485,7 +520,7 @@ def test_2_statements_2nd_current():
         {"type": "alias", "aliases": ["b"]},
         {"type": "column", "tables": [(None, "b", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
     # Should work even if first statement is invalid
@@ -510,7 +545,7 @@ def test_2_statements_1st_current():
         {"type": "alias", "aliases": ["a"]},
         {"type": "column", "tables": [(None, "a", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 
@@ -527,7 +562,7 @@ def test_3_statements_2nd_current():
         {"type": "alias", "aliases": ["b"]},
         {"type": "column", "tables": [(None, "b", None)]},
         {"type": "function", "schema": []},
-        {"type": "introducer", "schema": []},
+        {"type": "introducer"},
     ])
 
 

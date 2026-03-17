@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 4.7.0
+Version: 4.8.2
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -28,13 +28,13 @@ License-File: AUTHORS
 Requires-Dist: filelock
 Requires-Dist: numpy>=1.17
 Requires-Dist: pyarrow>=21.0.0
-Requires-Dist: dill<0.4.1,>=0.3.0
+Requires-Dist: dill<0.4.2,>=0.3.0
 Requires-Dist: pandas
 Requires-Dist: requests>=2.32.2
 Requires-Dist: httpx<1.0.0
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
-Requires-Dist: multiprocess<0.70.19
+Requires-Dist: multiprocess<0.70.20
 Requires-Dist: fsspec[http]<=2026.2.0,>=2023.1.0
 Requires-Dist: huggingface-hub<2.0,>=0.25.0
 Requires-Dist: packaging
@@ -254,7 +254,7 @@ For more details on installation, check the installation page in the documentati
 
 ## Installation to use with Machine Learning & Data frameworks frameworks
 
-If you plan to use 🤗 Datasets with PyTorch (2.0+), TensorFlow (2.6+) or JAX (3.14+) you should also install PyTorch, TensorFlow or JAX.
+If you plan to use 🤗 Datasets with PyTorch (2.0+), TensorFlow (2.6+) or JAX (0.4+) you should also install PyTorch, TensorFlow or JAX.
 🤗 Datasets is also well integrated with data frameworks like PyArrow, Pandas, Polars and Spark, which should be installed separately.
 
 For more details on using the library with these frameworks, check the quick start page in the documentation: https://huggingface.co/docs/datasets/quickstart

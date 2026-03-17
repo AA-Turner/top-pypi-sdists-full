@@ -322,11 +322,13 @@ class GeneralizedLinearRegressorBase(skl.base.RegressorMixin, skl.base.BaseEstim
         df = nw.from_native(df)
 
         if hasattr(self, "categorical_levels_"):
+            logs_emitted = getattr(self, "_align_info_logs_emitted", None)
             df = align_df_categories(
                 df,
                 self.categorical_levels_,
                 getattr(self, "has_missing_category_", {}),
                 cat_missing_method_after_alignment,
+                logs_emitted=logs_emitted,
             )
             if cat_missing_method_after_alignment == "convert":
                 df = add_missing_categories(
@@ -335,6 +337,7 @@ class GeneralizedLinearRegressorBase(skl.base.RegressorMixin, skl.base.BaseEstim
                     feature_names=self.feature_names_,
                     cat_missing_name=self.cat_missing_name,
                     categorical_format=self.categorical_format,
+                    logs_emitted=logs_emitted,
                 )
                 # there should be no missing categories after this
                 cat_missing_method_after_alignment = "fail"
@@ -886,20 +889,22 @@ class GeneralizedLinearRegressorBase(skl.base.RegressorMixin, skl.base.BaseEstim
             )
 
         if alpha_index is None:
-            coef = coef_path
-            intercept = intercept_path
+            xb = X @ coef_path + intercept_path
+            if offset is not None:
+                xb += offset
+        elif np.isscalar(alpha_index):  # `None` doesn't qualify
+            xb = X @ coef_path[alpha_index] + intercept_path[alpha_index]  # type: ignore
+            if offset is not None:
+                xb += offset
         else:
-            scalar = np.isscalar(alpha_index)
-            alpha_index = np.atleast_1d(alpha_index)  # type: ignore[assignment]
-            coef = coef_path[alpha_index]  # type: ignore
-            intercept = intercept_path[alpha_index]  # type: ignore
+            _xb = []
+            for idx in alpha_index:  # type: ignore
+                _xb.append(X @ coef_path[idx] + intercept_path[idx])  # type: ignore
+            xb = np.stack(_xb, axis=1)
+            if offset is not None:
+                xb += np.asanyarray(offset)[:, np.newaxis]
 
-        xb = X @ coef.T + intercept
-        if offset is not None:
-            offset = np.asanyarray(offset)
-            xb += offset if xb.ndim == 1 else offset[:, np.newaxis]  # type: ignore[call-overload]
-
-        return xb.squeeze() if alpha_index is None or scalar else xb
+        return xb
 
     def predict(
         self,
@@ -2648,6 +2653,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         """
 
         self._validate_hyperparameters()
+        self._align_info_logs_emitted: set[str] = set()
 
         # NOTE: This function checks if all the entries in X and y are
         # finite. That can be expensive. But probably worthwhile.

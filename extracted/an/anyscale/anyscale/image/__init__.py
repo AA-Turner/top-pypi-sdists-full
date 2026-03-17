@@ -97,6 +97,7 @@ class ImageSDK:
         name: str,
         ray_version: Optional[str] = None,
         registry_login_secret: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
         """
         Register a BYOD image with a container image name.
@@ -106,6 +107,7 @@ class ImageSDK:
             registry_login_secret=registry_login_secret,
             ray_version=ray_version,
             name=name,
+            cloud_id=cloud_id,
         )
 
     @sdk_docs(

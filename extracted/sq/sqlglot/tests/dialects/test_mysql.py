@@ -221,6 +221,10 @@ class TestMySQL(Validator):
         self.validate_identity(
             "CREATE TABLE employees (id INT, store_id INT) PARTITION BY LIST (store_id) (PARTITION pNorth VALUES IN (3, 5, 6), PARTITION pSouth VALUES IN (1, 2, 10))"
         )
+        self.validate_identity(
+            "CREATE FUNCTION f () RETURNS VARCHAR LANGUAGE SQL SQL SECURITY INVOKER SELECT 'abc'",
+            "CREATE FUNCTION f() RETURNS TEXT LANGUAGE SQL SQL SECURITY INVOKER AS SELECT 'abc'",
+        )
 
     def test_identity(self):
         self.validate_identity("SELECT HIGH_PRIORITY STRAIGHT_JOIN SQL_CALC_FOUND_ROWS * FROM t")
@@ -650,6 +654,7 @@ class TestMySQL(Validator):
             write={
                 "mysql": "SELECT DATE_FORMAT('2017-06-15', '%Y')",
                 "snowflake": "SELECT TO_CHAR(CAST('2017-06-15' AS TIMESTAMP), 'yyyy')",
+                "exasol": "SELECT TO_CHAR(CAST('2017-06-15' AS TIMESTAMP), 'YYYY')",
             },
         )
         self.validate_all(
@@ -671,6 +676,7 @@ class TestMySQL(Validator):
             write={
                 "mysql": "SELECT DATE_FORMAT('2017-06-15', '%Y-%m-%d')",
                 "snowflake": "SELECT TO_CHAR(CAST('2017-06-15' AS TIMESTAMP), 'yyyy-mm-DD')",
+                "exasol": "SELECT TO_CHAR(CAST('2017-06-15' AS TIMESTAMP), 'YYYY-MM-DD')",
             },
         )
         self.validate_all(
@@ -706,6 +712,7 @@ class TestMySQL(Validator):
             write={
                 "mysql": "SELECT DATE_FORMAT('2007-10-04 22:23:00', '%T')",
                 "snowflake": "SELECT TO_CHAR(CAST('2007-10-04 22:23:00' AS TIMESTAMP), 'hh24:mi:ss')",
+                "exasol": "SELECT TO_CHAR(CAST('2007-10-04 22:23:00' AS TIMESTAMP), 'HH:MI:SS')",
             },
         )
         self.validate_all(
@@ -729,10 +736,12 @@ class TestMySQL(Validator):
         self.validate_all(
             "SELECT DATEDIFF(x, y)",
             read={
+                "exasol": "SELECT DAYS_BETWEEN(x, y)",
                 "presto": "SELECT DATE_DIFF('DAY', y, x)",
                 "redshift": "SELECT DATEDIFF(DAY, y, x)",
             },
             write={
+                "exasol": "SELECT DAYS_BETWEEN(x, y)",
                 "mysql": "SELECT DATEDIFF(x, y)",
                 "presto": "SELECT DATE_DIFF('DAY', y, x)",
                 "redshift": "SELECT DATEDIFF(DAY, y, x)",

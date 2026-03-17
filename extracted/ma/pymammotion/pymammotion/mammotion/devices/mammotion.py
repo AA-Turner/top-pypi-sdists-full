@@ -314,8 +314,8 @@ class Mammotion:
             mammotion_cloud = MammotionCloud(
                 MammotionMQTT(
                     records=mammotion_http.device_records.records,
-                    mammotion_http=mammotion_http,
                     mqtt_connection=mammotion_http.mqtt_credentials,
+                    mammotion_http=mammotion_http,
                 ),
                 cloud_client,
             )

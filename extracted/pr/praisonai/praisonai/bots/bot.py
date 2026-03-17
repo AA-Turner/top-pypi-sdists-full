@@ -45,12 +45,23 @@ _TOKEN_ENV_MAP = {
     "discord": "DISCORD_BOT_TOKEN",
     "slack": "SLACK_BOT_TOKEN",
     "whatsapp": "WHATSAPP_ACCESS_TOKEN",
+    "email": "EMAIL_APP_PASSWORD",
+    "agentmail": "AGENTMAIL_API_KEY",
 }
 
-# Slack also needs an app token
+# Platform-specific extra env vars
 _EXTRA_ENV_MAP = {
     "slack": {"app_token": "SLACK_APP_TOKEN"},
     "whatsapp": {"phone_number_id": "WHATSAPP_PHONE_NUMBER_ID"},
+    "email": {
+        "email_address": "EMAIL_ADDRESS",
+        "imap_server": "EMAIL_IMAP_SERVER",
+        "smtp_server": "EMAIL_SMTP_SERVER",
+    },
+    "agentmail": {
+        "inbox_id": "AGENTMAIL_INBOX_ID",
+        "domain": "AGENTMAIL_DOMAIN",
+    },
 }
 
 

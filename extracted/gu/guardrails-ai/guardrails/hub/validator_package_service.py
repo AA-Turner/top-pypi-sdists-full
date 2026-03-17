@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import json
 import os
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ import sysconfig
 
 from typing import List, Literal, Optional
 from types import ModuleType
+from guardrails.hub.registry import get_registry_path
 from packaging.utils import canonicalize_name  # PEP 503
 
 from guardrails.logger import logger as guardrails_logger
@@ -23,6 +25,7 @@ from guardrails.cli.hub.utils import (
 from guardrails_hub_types import Manifest
 from guardrails.cli.server.hub_client import get_validator_manifest
 from guardrails.settings import settings
+from guardrails.types.validator_registry import ValidatorRegistry
 
 
 json_format: Literal["json"] = "json"
@@ -73,11 +76,6 @@ class ValidatorPackageService:
         return "pip"
 
     @staticmethod
-    def get_registry_path() -> Path:
-        """Return the project-level registry path."""
-        return Path(os.getcwd()) / ".guardrails" / "hub_registry.json"
-
-    @staticmethod
     def get_manifest_and_site_packages(module_name: str) -> tuple[Manifest, str]:
         module_manifest = get_validator_manifest(module_name)
         site_packages = ValidatorPackageService.get_site_packages_location()
@@ -97,6 +95,7 @@ class ValidatorPackageService:
                 importlib.reload(sys.modules["guardrails.hub"])
             if module_path not in sys.modules:
                 # Import the module if it has not been imported yet
+                importlib.invalidate_caches()
                 reloaded_module = importlib.import_module(module_path)
                 sys.modules[module_path] = reloaded_module
             else:
@@ -131,9 +130,27 @@ class ValidatorPackageService:
         return ValidatorPackageService.reload_module(import_line)
 
     @staticmethod
+    def rewrite_stub_file(registry: ValidatorRegistry):
+        stub_file = (
+            Path(ValidatorPackageService.get_site_packages_location())
+            / "guardrails"
+            / "hub"
+            / "__init__.pyi"
+        )
+
+        import_statements = []
+        for v in registry.validators.values():
+            if v.exports and v.import_path and importlib.util.find_spec(v.import_path):
+                import_statements.extend(
+                    [f"from {v.import_path} import {e} as {e}" for e in v.exports]
+                )
+
+        stub_file.write_text("\n".join(import_statements))
+
+    @staticmethod
     def register_validator(manifest: Manifest):
         """Register a validator in the project-level JSON registry."""
-        registry_file = ValidatorPackageService.get_registry_path()
+        registry_file = get_registry_path()
         registry_file.parent.mkdir(parents=True, exist_ok=True)
 
         registry = {"version": 1, "validators": {}}
@@ -166,6 +183,35 @@ class ValidatorPackageService:
         }
 
         registry_file.write_text(json.dumps(registry, indent=2))
+
+        ValidatorPackageService.rewrite_stub_file(
+            ValidatorRegistry.model_validate(registry)
+        )
+
+    @staticmethod
+    def unregister_validator(validator_id: str):
+        """Remove a validator from the project-level JSON registry."""
+        registry_file = get_registry_path()
+        if not registry_file.exists():
+            return
+
+        try:
+            registry = json.loads(registry_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            guardrails_logger.debug(
+                "Registry at %s is unreadable; skipping unregister",
+                registry_file,
+            )
+            return
+
+        validators = registry.get("validators", {})
+        if validator_id in validators:
+            del validators[validator_id]
+            registry["validators"] = validators
+            registry_file.write_text(json.dumps(registry, indent=2))
+            ValidatorPackageService.rewrite_stub_file(
+                ValidatorRegistry.model_validate(registry)
+            )
 
     @staticmethod
     def add_to_hub_inits(manifest: Manifest, site_packages: str):

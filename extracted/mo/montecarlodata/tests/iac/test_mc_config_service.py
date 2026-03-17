@@ -508,6 +508,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -527,6 +528,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -596,6 +598,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -637,6 +640,7 @@ class MonteCarloConfigServiceTest(TestCase):
                 misconfiguredAsWarning=True,
                 resource=None,
                 createNonIngestedTables=False,
+                sqlValidation=True,
             ),
         )
 
@@ -730,6 +734,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -749,6 +754,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -856,6 +862,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(
@@ -875,6 +882,7 @@ class MonteCarloConfigServiceTest(TestCase):
                         misconfiguredAsWarning=True,
                         resource=None,
                         createNonIngestedTables=False,
+                        sqlValidation=True,
                     ),
                 ),
                 call(

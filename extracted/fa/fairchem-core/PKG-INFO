@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fairchem-core
-Version: 2.17.0
+Version: 2.18.0
 Summary: Machine learning models for chemistry and materials science by the FAIR Chemistry team
 Project-URL: repository, https://github.com/facebookresearch/fairchem
 Project-URL: home, https://opencatalystproject.org/
@@ -16,7 +16,7 @@ Requires-Dist: hydra-core
 Requires-Dist: lmdb<=1.7.3,>=1.6.2
 Requires-Dist: monty>=v2025.1.3
 Requires-Dist: numba>=0.62.0
-Requires-Dist: numpy<2.4,>=2.0
+Requires-Dist: numpy<2.5,>=2.0
 Requires-Dist: orjson
 Requires-Dist: pyyaml
 Requires-Dist: ray[serve]>=2.53.0
@@ -52,11 +52,13 @@ Requires-Dist: torch-dftd; extra == 'docs'
 Requires-Dist: umap-learn; extra == 'docs'
 Requires-Dist: vdict; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: nvalchemi-toolkit-ops; extra == 'extras'
+Requires-Dist: nvalchemi-toolkit-ops==0.2.0; extra == 'extras'
 Requires-Dist: pandas; extra == 'extras'
 Requires-Dist: pyarrow; extra == 'extras'
 Requires-Dist: pymatgen; extra == 'extras'
 Requires-Dist: quacc[phonons]>=0.15.3; extra == 'extras'
+Provides-Extra: torchsim
+Requires-Dist: torch-sim-atomistic>=0.5.2; (python_version >= '3.12') and extra == 'torchsim'
 Description-Content-Type: text/markdown
 
 [//]: # (<h1 align="center">)

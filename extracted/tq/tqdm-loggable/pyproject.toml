@@ -8,7 +8,7 @@ name = "tqdm-loggable"
 packages = [{include = "tqdm_loggable"}]
 readme = "README.md"
 repository = "https://github.com/tradingstrategy-ai/tqdm-loggable"
-version = "0.4"
+version = "0.4.1"
 
 # See PyPi for supported links https://github.com/pypi/warehouse/blob/main/warehouse/templates/packaging/detail.html
 # https://stackoverflow.com/a/74394591/315168

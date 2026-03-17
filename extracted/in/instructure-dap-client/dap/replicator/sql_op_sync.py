@@ -68,7 +68,9 @@ class SqlOpSync(SqlOp):
         )
 
         async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
-            await self.session.download_objects(result.objects, temp_dir, decompress=True)
+            await self.session.download_objects(
+                result.objects, temp_dir, decompress=True
+            )
             ui.info(f"Downloaded data for table [bold]{self.table_name}[/bold]")
             await self.sync_insert_data_from_files_to_db(
                 self.conn, entity_type, temp_dir
@@ -101,10 +103,11 @@ class SqlOpSync(SqlOp):
         total_files = len(file_names)
         total_upserted_records = 0
 
-        with ui.JobProgress("Inserting data from files into database table...",
-                            total_steps=total_files) as progress:
+        with ui.JobProgress(
+            "Inserting data from files into database table...", total_steps=total_files
+        ) as progress:
             for index, filename in enumerate(file_names):
-                logger.debug(f"processing file {index+1} of {total_files}")
+                logger.debug(f"processing file {index + 1} of {total_files}")
 
                 filepath = os.path.join(temp_dir, filename)
 
@@ -114,9 +117,13 @@ class SqlOpSync(SqlOp):
                     columns, field_types = reader.columns, reader.field_types
                     records = reader.records()
 
-                    logger.debug(f"inserting/updating data from {filepath} into database table")
+                    logger.debug(
+                        f"inserting/updating data from {filepath} into database table"
+                    )
                     records_with_counter = AsyncCountingIterator(records)
-                    async for recordBatch in SqlOpSync._getRecordBatches(records_with_counter):
+                    async for recordBatch in SqlOpSync._getRecordBatches(
+                        records_with_counter
+                    ):
                         await SqlOpSync.upsert_rows(
                             columns=columns,
                             conn=conn,
@@ -129,7 +136,9 @@ class SqlOpSync(SqlOp):
                     total_upserted_records += records_with_counter.count
                 progress.update(advance=1)
         if total_upserted_records > 0:
-            total_upserted_str = f"upserted [bold]{total_upserted_records}[/bold] records"
+            total_upserted_str = (
+                f"upserted [bold]{total_upserted_records}[/bold] records"
+            )
         else:
             total_upserted_str = "no records upserted"
         ui.info(f"Data import completed successfully, {total_upserted_str}")
@@ -157,19 +166,19 @@ class SqlOpSync(SqlOp):
         update_rows = [row for row in rows if row[meta_action_index] == "U"]
         # delete from each row the column which index is meta_action_index
         delete_rows = [
-            row[:meta_action_index] + row[meta_action_index + 1:]
+            row[:meta_action_index] + row[meta_action_index + 1 :]
             for row in delete_rows
         ]
         update_rows = [
-            row[:meta_action_index] + row[meta_action_index + 1:]
+            row[:meta_action_index] + row[meta_action_index + 1 :]
             for row in update_rows
         ]
         # delete meta_action_index from field_names and field_types
         field_names = (
-            field_names[:meta_action_index] + field_names[meta_action_index + 1:]
+            field_names[:meta_action_index] + field_names[meta_action_index + 1 :]
         )
         field_types = (
-            field_types[:meta_action_index] + field_types[meta_action_index + 1:]
+            field_types[:meta_action_index] + field_types[meta_action_index + 1 :]
         )
         # get the key type and key values of the table and the key values of the rows
         primary_name, primary_type = get_primary_key_name_type(entity_type)
@@ -196,9 +205,11 @@ class SqlOpSync(SqlOp):
             labels_to_fields={"meta.ts": "", "meta.action": META_ACTION_NAME},
         )
         return SqlOp.get_tabular_mapping(entity_type, mapping)
-    
+
     @staticmethod
-    async def _getRecordBatches(records: AsyncIterator[tuple]) -> AsyncIterator[list[tuple]]:
+    async def _getRecordBatches(
+        records: AsyncIterator[tuple],
+    ) -> AsyncIterator[list[tuple]]:
         batch = []
         async for record in records:
             batch.append(record)

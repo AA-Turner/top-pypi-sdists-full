@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenFisca-France
-Version: 175.0.22
+Version: 175.0.23
 Summary: OpenFisca Rules as Code model for France.
 Author-email: OpenFisca Team <contact@openfisca.fr>
 Project-URL: Homepage, https://github.com/openfisca/openfisca-france
@@ -28,13 +28,6 @@ Provides-Extra: inversion-revenus
 Requires-Dist: scipy<2.0,>=1.10.1; extra == "inversion-revenus"
 Provides-Extra: de-net-a-brut
 Requires-Dist: scipy<2.0,>=1.10.1; extra == "de-net-a-brut"
-Provides-Extra: taxipp
-Requires-Dist: pandas<2.0,>=1.5.3; extra == "taxipp"
-Provides-Extra: casd-dev
-Requires-Dist: autopep8<3.0,>=2.0.2; extra == "casd-dev"
-Requires-Dist: pytest; extra == "casd-dev"
-Requires-Dist: requests<3.0,>=2.28.2; extra == "casd-dev"
-Requires-Dist: scipy<2.0,>=1.10.1; extra == "casd-dev"
 Dynamic: license-file
 
 # OpenFisca-France

@@ -3,7 +3,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
     ... on EventHistory {
       events {
         ... on UserEvent {
-          uuid: eventUuid
+          uuid
           parentUuid
           isSidechain
           version
@@ -32,7 +32,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
               text
               resultData {
                 ... on BashToolResult {
-                  shellOutput
+                  output
                   exitCode
                 }
                 ... on ReadToolResult {
@@ -43,7 +43,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           }
         }
         ... on SyntheticUserEvent {
-          uuid: eventUuid
+          uuid
           parentUuid
           isSidechain
           version
@@ -72,7 +72,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
               text
               resultData {
                 ... on BashToolResult {
-                  shellOutput
+                  output
                   exitCode
                 }
                 ... on ReadToolResult {
@@ -83,7 +83,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           }
         }
         ... on AssistantEvent {
-          uuid: eventUuid
+          uuid
           parentUuid
           isSidechain
           version
@@ -109,7 +109,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           }
         }
         ... on SystemEvent {
-          uuid: eventUuid
+          uuid
           parentUuid
           isSidechain
           version
@@ -135,7 +135,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
               text
               resultData {
                 ... on BashToolResult {
-                  shellOutput
+                  output
                   exitCode
                 }
                 ... on ReadToolResult {

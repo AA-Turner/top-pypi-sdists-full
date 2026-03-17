@@ -5,7 +5,7 @@ from tqdm import tqdm
 from geocif import utils
 
 
-def add_stage_information(df, method):
+def add_stage_information(df, method, label=""):
     """
 
     Args:
@@ -60,7 +60,8 @@ def add_stage_information(df, method):
     grouped = df.groupby(["Region", "Harvest Year"])
 
     # Loop through groups with tqdm
-    for (region, year), group in tqdm(grouped, desc="Computing Percentage Season"):
+    desc = f"Computing Percentage Season ({label})" if label else "Computing Percentage Season"
+    for (region, year), group in tqdm(grouped, desc=desc):
         idx = group.index
         n = len(group)
         df.loc[idx, "Percentage Season"] = [i * 100.0 / n for i in range(n)]

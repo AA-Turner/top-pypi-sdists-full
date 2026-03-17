@@ -234,6 +234,15 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         """Execute one step of the world."""
         pass
 
+    async def preview(self) -> Observation:
+        """Run the world in preview mode.
+
+        Override this to provide custom preview behavior. The default
+        raises NotImplementedError so preview-only launches don't
+        silently run the normal reset/step loop.
+        """
+        raise NotImplementedError(f"World '{self.name}' does not implement preview mode")
+
     async def close(self) -> None:
         """Cleanup resources. Called after run completes."""
         await self._cleanup_tailscale()
@@ -681,18 +690,21 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                     workspace._sts_expires_at = 0
 
                 if should_record_resume_input:
+                    # Forward the DVC files from the restored ref so downstream
+                    # sessions can resume from *this* session's input ref.
+                    restored_dvc_files = getattr(workspace, "_last_restored_dvc_files", None) or {}
                     if source_ref_public_id:
                         await workspace._record_workspace_ref(
                             exact_step,
                             "input",
-                            {},
+                            restored_dvc_files,
                             source_ref_public_id=source_ref_public_id,
                         )
                     elif source_session_public_id and source_repo_name:
                         await workspace._record_workspace_ref(
                             exact_step,
                             "input",
-                            {},
+                            restored_dvc_files,
                             source_session_public_id=source_session_public_id,
                             source_repo_name=source_repo_name,
                             source_step_name=exact_step,
@@ -1014,7 +1026,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             root_span.set_attribute("plato.phase", "world_start")
 
             try:
-                await self._run_loop(tracer)
+                if self.config.preview.enabled:
+                    await self._run_preview_loop(tracer)
+                else:
+                    await self._run_loop(tracer)
             except Exception as e:
                 run_error = e
                 if isinstance(e, RequiresHumanAnnotation):
@@ -1304,6 +1319,60 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 self.logger.debug("Tailscale /etc/hosts entries: %s", ", ".join(hosts_lines))
             except Exception as e:
                 self.logger.warning(f"Failed to update /etc/hosts: {e}")
+
+    async def _run_preview_loop(self, tracer: Any) -> None:
+        """Execute the preview entrypoint after restoring runtime state."""
+        if self.session.otel_url and self.session.session_id:
+            instrument_system_metrics(
+                otlp_endpoint=self.session.otel_url,
+                session_id=self.session.session_id,
+                env_alias="world",
+                job_id=os.environ.get("JOB_ID", ""),
+            )
+
+        await self._init_declared_workspaces()
+        await self._setup_tailscale()
+
+        resumed = await self._try_resume()
+        if resumed:
+            self.logger.info("Resumed from saved state for preview")
+
+        await self._start_transport()
+
+        with tracer.start_as_current_span("preview") as preview_span:
+            preview_span.set_attribute("plato.phase", "preview")
+            preview_span.set_attribute("plato.world.name", self.name)
+            preview_span.set_attribute("plato.preview.timeout_seconds", self.config.preview.timeout_seconds)
+            obs = await self.preview()
+            obs_data = obs.model_dump()
+            preview_span.set_attribute("plato.preview.observation", json.dumps(obs_data, default=str))
+            preview_url = (
+                obs_data.get("data", {}).get("preview_url") if isinstance(obs_data.get("data"), dict) else None
+            )
+            if preview_url:
+                preview_span.set_attribute("plato.preview.url", preview_url)
+
+        self._final_result = obs_data
+        self.logger.info("Preview loop complete, proceeding to finalize")
+
+    async def wait_for_preview_timeout(self) -> int:
+        """Keep the preview session alive until the configured timeout elapses.
+
+        Call this at the end of your preview() implementation to idle.
+        """
+        timeout_seconds = self.config.preview.timeout_seconds
+        elapsed = 0
+        interval = 60
+        self.logger.info("Preview mode active — %d seconds remaining", timeout_seconds)
+        while elapsed < timeout_seconds:
+            wait = min(interval, timeout_seconds - elapsed)
+            await asyncio.sleep(wait)
+            elapsed += wait
+            remaining = timeout_seconds - elapsed
+            if remaining > 0:
+                self.logger.info("Preview: %d seconds remaining", remaining)
+        self.logger.info("Preview timeout reached, shutting down")
+        return timeout_seconds
 
     async def _run_loop(self, tracer: Any) -> None:
         """Execute the reset → step → checkpoint loop."""

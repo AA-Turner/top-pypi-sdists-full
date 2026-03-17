@@ -211,7 +211,7 @@ class Geocif:
     def setup(self, forecast_season: int, model: str):
         """
         Setup for a specific country/crop/season/model combination.
-        
+
         Args:
             forecast_season: Year to forecast
             model: Model name to use
@@ -222,20 +222,38 @@ class Geocif:
         self._setup_seasons_and_stages()
         self._setup_geodata()
 
+    def setup_pooled(self, countries: list, forecast_season: int, model: str):
+        """Setup for pooled cross-country execution.
+
+        Args:
+            countries: List of country names being pooled
+            forecast_season: Year to forecast
+            model: Model name to use
+        """
+        self.countries_pooled = countries
+        self._config_country = countries[0]
+        self._setup_basic_parameters(forecast_season, model)
+        self._validate_model_configuration()
+        self._setup_model_specific_flags()
+        self._setup_seasons_and_stages()
+        self._setup_geodata_pooled(countries)
+
     def _setup_basic_parameters(self, forecast_season: int, model: str):
         """Setup basic parameters for the run."""
         _str = f"{self.country} {self.crop} {model} {forecast_season}"
         self.logger.info(f"Setup {_str}")
-        
+
         self.forecast_season = forecast_season
         self.model_name = model
         self.experiment_name = self.parser.get("ML", "experiment_name")
         self.ml_model = self.parser.getboolean(self.model_name, "ML_model")
         self.select_cei_by = self.parser.get(self.model_name, "select_cei_by")
         self.use_ceis = ast.literal_eval(self.parser.get(self.model_name, "use_ceis"))
-        self.model_names = ast.literal_eval(self.parser.get(self.country, "models"))
-        self.optimize = self.parser.getboolean(self.country, "optimize")
-        self.fraction_loocv = self.parser.getfloat(self.country, "fraction_loocv")
+        # In pooled mode, use _config_country for per-country config lookups
+        _cc = getattr(self, '_config_country', self.country)
+        self.model_names = ast.literal_eval(self.parser.get(_cc, "models"))
+        self.optimize = self.parser.getboolean(_cc, "optimize")
+        self.fraction_loocv = self.parser.getfloat(_cc, "fraction_loocv")
         self.all_seasons = self.df_inputs["Harvest Year"].unique()
 
     def _validate_model_configuration(self):
@@ -414,12 +432,46 @@ class Geocif:
 
         self.dg["Country Region"] = self.dg["Country Region"].str.lower()
 
-    def _filter_to_country(self): 
+    def _filter_to_country(self):
         """Filter geodata to current country."""
         self.dg_country = self.dg[
             self.dg["ADM0_NAME"].str.lower().str.replace(" ", "_") == self.country
         ]
         self.dg_country = self.dg_country.drop_duplicates(subset=["Country Region"])
+
+    def _setup_geodata_pooled(self, countries: list):
+        """Load and concatenate shapefiles for multiple countries."""
+        from geoprepare.georegion import get_boundary_col_mapping
+
+        all_gdf = []
+        for country in countries:
+            shp_file = self.parser.get(country, "boundary_file")
+            dg = gp.read_file(
+                self.dir_boundary_files / shp_file, engine="pyogrio"
+            )
+            rename = get_boundary_col_mapping(self.parser, shp_file)
+            adm0_src = next(
+                (k for k, v in rename.items() if v == "ADM0_NAME"), "ADM0_NAME"
+            )
+            if adm0_src in dg.columns:
+                dg[adm0_src] = dg[adm0_src].replace(
+                    "Tanzania", "United Republic of Tanzania"
+                )
+            targets = set(rename.values())
+            sources = set(rename.keys())
+            conflicting = [
+                c for c in dg.columns if c in targets and c not in sources
+            ]
+            if conflicting:
+                dg = dg.drop(columns=conflicting)
+            dg = dg.rename(columns=rename)
+            all_gdf.append(dg)
+
+        self.dg = pd.concat(all_gdf, ignore_index=True)
+        self.admin_zone = self.parser.get(countries[0], "admin_level")
+        self._add_country_region_column()
+        # Keep all countries (don't filter to single country)
+        self.dg_country = self.dg.drop_duplicates(subset=["Country Region"])
 
     # ============================================================================
     # DATA READING AND PREPARATION
@@ -455,14 +507,9 @@ class Geocif:
 
     def _get_statistics_file_path(self, country: str, crop: str) -> Path:
         """Get path to statistics file."""
-        admin_zone = self.parser.get(country, "admin_level")
-        country_str = country.title().replace("_", " ")
-        crop_str = crop.title().replace("_", " ")
-
-        dir_statistics = self.dir_output / "cid" / "indices" / self.method / "global"
-        dir_statistics.mkdir(parents=True, exist_ok=True)
-
-        return dir_statistics / f"{country_str}_{crop_str}_statistics_{self.method}.csv"
+        path = utils.statistics_file_path(self.dir_output, self.method, country, crop)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
 
     def _create_statistics_file(self, country: str, crop: str, file_path: Path):
         """Create statistics file by combining CEI data with yield statistics."""
@@ -499,18 +546,68 @@ class Geocif:
             [self.target] + self.statistics_columns,
             self.method,
             parser=self.parser,
+            label=f"{country} {crop}",
         )
         
         self.logger.info("Adding starting and ending time period for each stage")
-        self.df_inputs = stages.add_stage_information(self.df_inputs, self.method)
+        self.df_inputs = stages.add_stage_information(
+            self.df_inputs, self.method,
+            label=f"{country} {crop}",
+        )
         
         self.logger.info("Writing input file to disk")
         self.df_inputs.to_csv(file_path, index=False)
 
+    def read_data_pooled(self, countries: list, crop: str, season: int):
+        """Read and concatenate data from multiple countries for the same crop.
+
+        Args:
+            countries: List of country names to pool
+            crop: Crop name
+            season: Season/year (unused here, kept for API symmetry)
+        """
+        self.logger.info(f"Reading pooled data for {countries} {crop}")
+        self.crop = crop
+        self.country = "pooled"
+        self.countries_pooled = countries
+
+        frames = []
+        for country in countries:
+            file_path = self._get_statistics_file_path(country, crop)
+            if not file_path.exists() or self.update_input_file:
+                try:
+                    self._create_statistics_file(country, crop, file_path)
+                    frames.append(self.df_inputs)
+                except FileNotFoundError as e:
+                    self.logger.warning(f"Skipping {country} {crop}: {e}")
+                    continue
+            else:
+                frames.append(pd.read_csv(file_path))
+
+        if not frames:
+            self.df_inputs = None
+            return
+
+        self.df_inputs = pd.concat(frames, ignore_index=True)
+
+        # Add disambiguated region column for use as cat feature
+        self.df_inputs["Country__Region"] = (
+            self.df_inputs["Country"].str.strip()
+            + "__"
+            + self.df_inputs["Region"].str.strip()
+        )
+
+        # Ensure Country__Region survives the pivot
+        if "Country__Region" not in self.fixed_columns:
+            self.fixed_columns.append("Country__Region")
+
+        if self.rename_target:
+            self._rename_target_column()
+
     def _rename_target_column(self):
         """Rename target column if configured."""
         self.df_inputs.rename(
-            columns={self.target: self.new_name_target}, 
+            columns={self.target: self.new_name_target},
             inplace=True
         )
         self.target = self.new_name_target
@@ -733,6 +830,9 @@ class Geocif:
         if not self.use_spatial_neighbors:
             return
 
+        # In pooled mode, use Country__Region to avoid name collisions
+        admin_col = "Country__Region" if getattr(self, 'countries_pooled', None) else "Region"
+
         # Prefer detrended yield for correlation if available
         detrended_col = f"Detrended {self.target}"
         yield_col_for_corr = (
@@ -744,7 +844,7 @@ class Geocif:
 
         self.neighbor_graph = sn.build_neighbor_graph(
             self.df_train,
-            admin_col="Region",
+            admin_col=admin_col,
             lat_col="lat",
             lon_col="lon",
             yield_col=yield_col_for_corr,
@@ -770,12 +870,12 @@ class Geocif:
 
         self.df_train = sn.add_neighbor_features(
             self.df_train, self.neighbor_graph, feature_cols,
-            admin_col="Region", year_col="Harvest Year",
+            admin_col=admin_col, year_col="Harvest Year",
             yield_col=self.target, prefix="nbr_",
         )
         self.df_test = sn.add_neighbor_features(
             self.df_test, self.neighbor_graph, feature_cols,
-            admin_col="Region", year_col="Harvest Year",
+            admin_col=admin_col, year_col="Harvest Year",
             yield_col=self.target, prefix="nbr_",
         )
 
@@ -962,9 +1062,12 @@ class Geocif:
         for col in df.columns:
             if "_" not in col:
                 continue
-            
-            mon = stages.get_stage_information_dict(col, self.method).get("Starting Stage")
-            
+
+            try:
+                mon = stages.get_stage_information_dict(col, self.method).get("Starting Stage")
+            except (ValueError, IndexError, KeyError):
+                continue
+
             if mon == current_month and current_day < 25:
                 cols_to_drop.append(col)
         
@@ -1011,8 +1114,11 @@ class Geocif:
     def _add_region_clusters(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add Region_ID column based on clustering strategy."""
         df["Region"] = df["Region"].astype("category")
-        
-        if self.cluster_strategy == "single":
+
+        if getattr(self, 'countries_pooled', None):
+            # Pooled mode: true pooling — one model on all data
+            df["Region_ID"] = 1
+        elif self.cluster_strategy == "single":
             df["Region_ID"] = 1
         elif self.cluster_strategy == "individual":
             df["Region_ID"] = df["Region"].cat.codes
@@ -1022,14 +1128,33 @@ class Geocif:
             df["Region_ID"] = df["Region_ID"].astype("category")
         else:
             raise ValueError(f"Unsupported cluster strategy {self.cluster_strategy}")
-        
+
         return df
 
     def get_cei_column_names(self, df: pd.DataFrame) -> List[str]:
-        """Get list of CEI column names (excluding fixed/target columns)."""
+        """Get list of CEI column names (excluding fixed/target/meta/engineered columns)."""
+        exclude = set(
+            self.fixed_columns
+            + [self.target]
+            + self.statistics_columns
+            + [
+                f"{self.target}_class",
+                "Region_ID", "lat", "lon", "Country Region", "Country__Region",
+                f"Detrended {self.target}", "Detrended Model", "Detrended Model Type",
+                "Stage Names", "Stage_ID", "Stage Range", "Starting Stage", "Ending Stage",
+                "Percentage Season",
+                "Analogous Year", "Analogous Year Yield",
+            ]
+        )
+        skip_prefixes = (
+            f"Median {self.target}",
+            f"Last Year {self.target}",
+            "t - ",
+            "nbr_",
+        )
         return [
             col for col in df.columns
-            if col not in self.fixed_columns + [self.target] + self.statistics_columns
+            if col not in exclude and not col.startswith(skip_prefixes)
         ]
 
     # ============================================================================
@@ -1204,8 +1329,11 @@ class Geocif:
         
         if self.check_yield_trend:
             y_pred = self._retrend_predictions(y_pred, df_region)
-        
-        experiment_id = f"{self.country}_{self.crop}"
+
+        if getattr(self, 'countries_pooled', None):
+            experiment_id = f"pooled_{self.crop}"
+        else:
+            experiment_id = f"{self.country}_{self.crop}"
         df_result = self._build_results_dataframe(
             df_region, X_test, y_test, y_pred, y_pred_ci, 
             best_hyperparameters, experiment_id
@@ -1443,12 +1571,18 @@ class Geocif:
         
         ape = self._compute_ape(y_pred, y_test, shp)
         
+        # In pooled mode, pull Country from data (per-row); otherwise use self.country
+        if getattr(self, 'countries_pooled', None):
+            country_vals = df_region["Country"].values
+        else:
+            country_vals = np.full(shp, self.country)
+
         return pd.DataFrame({
             "Experiment_ID": np.full(shp, experiment_id),
             "Experiment Name": np.full(shp, self.experiment_name),
             "Date": np.full(shp, self.today),
             "Time": np.full(shp, now),
-            "Country": np.full(shp, self.country),
+            "Country": country_vals,
             "Crop": np.full(shp, self.crop),
             "Cluster Strategy": np.full(shp, self.cluster_strategy),
             "Frequency": np.full(shp, self.method),
@@ -1654,7 +1788,12 @@ class Geocif:
         elif self.model_name.startswith("cumulative_"):
             self.create_feature_names(stages, {})
         elif self.ml_model:
-            self.create_feature_names(stages, dict_selected_features[region_id])
+            selected = dict_selected_features.get(region_id)
+            if selected is not None and not selected.empty:
+                self.create_feature_names(stages, selected)
+            else:
+                # No correlation-based selection — use all CEI features
+                self.feature_names = self.get_cei_column_names(self.df_train)
         elif self.model_name == "median":
             self.feature_names = [f"Median {self.target}"]
             self.last_year_yield_as_feature = False

@@ -5,6 +5,15 @@ import pathlib
 import mkdocs.config.config_options
 import mkdocs.plugins
 import mkdocs.structure.files
+import properdocs.replacement_warning
+
+try:
+    import properdocs.replacement_warning
+
+    # Warn when this plugin is being used from the mkdocs executable.
+    properdocs.replacement_warning.setup()
+except ImportError:
+    pass
 
 
 class SameDirPlugin(mkdocs.plugins.BasePlugin):
@@ -15,7 +24,8 @@ class SameDirPlugin(mkdocs.plugins.BasePlugin):
         with contextlib.suppress(AttributeError):
             mkdocs.config.config_options.DocsDir.post_validation = _replace_validation
 
-    def on_files(self, files, config):
+    @classmethod
+    def on_files(cls, files, config):
         result = []
         for f in files:
             # Exclude everything under site_dir.

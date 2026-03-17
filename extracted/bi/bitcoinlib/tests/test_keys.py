@@ -469,28 +469,28 @@ class TestHDKeysChildKeyDerivation(unittest.TestCase):
                                   '784817e7b7875726f6c696663605d5a5754514e4b484542', witness_type='legacy')
 
     def test_hdkey_path_m_0h(self):
-        sk = self.k.subkey_for_path('m/0H')
+        sk = self.k.key_for_path('m/0H')
         self.assertEqual('xprv9uHRZZhk6KAJC1avXpDAp4MDc3sQKNxDiPvvkX8Br5ngLNv1TxvUxt4cV1rGL5hj6KCesnDYUhd7oWgT11eZG7'
                          'XnxHrnYeSvkzY7d2bhkJ7', sk.wif(is_private=True))
         self.assertEqual('xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9x'
                          'v5ski8PX9rL2dZXvgGDnw', sk.wif())
 
     def test_hdkey_path_m_0h_1(self):
-        sk = self.k.subkey_for_path('m/0H/1')
+        sk = self.k.key_for_path('m/0H/1')
         self.assertEqual('xprv9wTYmMFdV23N2TdNG573QoEsfRrWKQgWeibmLntzniatZvR9BmLnvSxqu53Kw1UmYPxLgboyZQaXwTCg8MSY3H'
                          '2EU4pWcQDnRnrVA1xe8fs', sk.wif(is_private=True))
         self.assertEqual('xpub6ASuArnXKPbfEwhqN6e3mwBcDTgzisQN1wXN9BJcM47sSikHjJf3UFHKkNAWbWMiGj7Wf5uMash7SyYq527Hqc'
                          'k2AxYysAA7xmALppuCkwQ', sk.wif())
 
     def test_hdkey_path_m_0h_1_2h(self):
-        sk = self.k.subkey_for_path('m/0h/1/2h')
+        sk = self.k.key_for_path('m/0h/1/2h')
         self.assertEqual('xprv9z4pot5VBttmtdRTWfWQmoH1taj2axGVzFqSb8C9xaxKymcFzXBDptWmT7FwuEzG3ryjH4ktypQSAewRiNMjAN'
                          'TtpgP4mLTj34bhnZX7UiM', sk.wif(is_private=True))
         self.assertEqual('xpub6D4BDPcP2GT577Vvch3R8wDkScZWzQzMMUm3PWbmWvVJrZwQY4VUNgqFJPMM3No2dFDFGTsxxpG5uJh7n7epu4'
                          'trkrX7x7DogT5Uv6fcLW5', sk.wif())
 
     def test_hdkey_path_m_0h_1_2h_1000000000(self):
-        sk = self.k.subkey_for_path('m/0h/1/2h/2/1000000000')
+        sk = self.k.key_for_path('m/0h/1/2h/2/1000000000')
         self.assertEqual('xprvA41z7zogVVwxVSgdKUHDy1SKmdb533PjDz7J6N6mV6uS3ze1ai8FHa8kmHScGpWmj4WggLyQjgPie1rFSruoUi'
                          'hUZREPSL39UNdE3BBDu76', sk.wif(is_private=True))
         self.assertEqual('xpub6H1LXWLaKsWFhvm6RVpEL9P4KfRZSW7abD2ttkWP3SSQvnyA8FSVqNTEcYFgJS2UaFcxupHiYkro49S8yGasTv'
@@ -498,7 +498,7 @@ class TestHDKeysChildKeyDerivation(unittest.TestCase):
                          sk.wif_public())
 
     def test_hdkey_path_key2(self):
-        sk = self.k2.subkey_for_path('m/0/2147483647h/1/2147483646h/2')
+        sk = self.k2.key_for_path('m/0/2147483647h/1/2147483646h/2')
         self.assertEqual('xprvA2nrNbFZABcdryreWet9Ea4LvTJcGsqrMzxHx98MMrotbir7yrKCEXw7nadnHM8Dq38EGfSh6dqA9QWTyefMLEc'
                          'BYJUuekgW4BYPJcr9E7j',
                          sk.wif(is_private=True))
@@ -507,17 +507,17 @@ class TestHDKeysChildKeyDerivation(unittest.TestCase):
                          sk.wif_public())
 
     def test_hdkey_path_M_0_1_public(self):
-        sk = self.k.subkey_for_path('M/0/1')
+        sk = self.k.key_for_path('M/0/1')
         self.assertEqual('xpub6AvUGrnEpfvJBbfx7sQ89Q8hEMPM65UteqEX4yUbUiES2jHfjexmfJoxCGSwFMZiPBaKQT1RiKWrKfuDV4vpgVs'
                          '4Xn8PpPTR2i79rwHd4Zr', sk.wif())
 
     def test_hdkey_path_invalid(self):
         with self.assertRaises(BKeyError):
-            self.k2.subkey_for_path('m/0/').wif()
+            self.k2.key_for_path('m/0/').wif()
 
     def test_hdkey_path_invalid2(self):
         with self.assertRaises(BKeyError):
-            self.k2.subkey_for_path('m/-1').wif()
+            self.k2.key_for_path('m/-1').wif()
 
     def test_hdkey_bip44_account(self):
         pk = 'tprv8ZgxMBicQKsPdvHCP6VxtFgowj2k7nBJnuRiVWE4DReDFojkLjyqdT8mtR6XJK9dRBcaa3RwvqiKFjsEQVhKfQmHZCCYf4jRTWv' \
@@ -563,7 +563,7 @@ class TestHDKeysPublicChildKeyDerivation(unittest.TestCase):
         self.k2 = HDKey('xprv9s21ZrQH143K31AgNK5pyVvW23gHnkBq2wh5aEk6g1s496M8ZMjxncCKZKgb5j'
                         'ZoY5eSJMJ2Vbyvi2hbmQnCuHBujZ2WXGTux1X2k9Krdtq')
         self.assertEqual('xprv9wTErTSu5AWGkDeUPmqBcbZWX1xq85ZNX9iQRQW9DXwygFp7iRGJo79dsVctcsCHsnZ3XU3DhsuaGZbDh8iDkB'
-                         'N45k67UKsJUXM1JfRCdn1', str(self.k2.subkey_for_path('3/2H').wif(is_private=True)))
+                         'N45k67UKsJUXM1JfRCdn1', str(self.k2.key_for_path('3/2H').wif(is_private=True)))
 
     def test_hdkey_litecoin(self):
         k = HDKey('Ltpv71G8qDifUiNetj2H4no6Q4oB8o2eUH8tSU2BsJDGyKTyMJ6ejPDXHWtQeTzKQdEeEexxyw3vSAYtxnAz3qYZc'
@@ -572,7 +572,7 @@ class TestHDKeysPublicChildKeyDerivation(unittest.TestCase):
         self.assertEqual('LfH72Fgeikvhu1y5rtMAkQ5SS5aJJUafLX', k.child_public(100).address())
         self.assertEqual('T65a5dNtdayWp9F638f8fokiyixCA4fhyzb7FWFYXjejqjaxKRSc', k.child_private(6).wif_key())
         self.assertEqual('Ltpv75tiiksDF3fUqK8jkAfwY1h3zDLs3oCFQa5wXDNh981n6LDJZ6juFWUJwwkN3pKbr3diSdMkZfYAhwhkhjP9qG'
-                         'wviSbMXtEJYxoH2m3FbDQ', str(k.subkey_for_path('3H/1').wif(is_private=True)))
+                         'wviSbMXtEJYxoH2m3FbDQ', str(k.key_for_path('3H/1').wif(is_private=True)))
 
 
 class TestHDKeys(unittest.TestCase):
@@ -1078,13 +1078,6 @@ class TestKeysSignatures(unittest.TestCase):
         sig2 = Signature.parse_hex('3045022100b5ce13dc408c65208cf475b44b2012845d4d3fb7a2cacfa35f6b5143761f976f02207d8'
                                    '581d6004779c7f168e90496d544407d5f0e2eecd44c50fcef1006a86731ec01')
         self.assertEqual(len(sig1), 72)
-        # self.assertEqual(sig1 + sig2, sig1.as_der_encoded() + sig2.as_der_encoded())
-        # self.assertEqual(sig1 + sig2, b'0E\x02!\x00\xc9I\xa4e\xa0W\xf3\xca} \xe8\x05\x11\xe9=\x0b\xe2\x1e>'
-        #                               b'\xfb\xeb\x87 \xca>\n\xdf\xbc\xe6\x88=\n\x02 p\xb2\xc6\xbe\xe1'
-        #                               b'\x01\xa4\xff\xcb\x85K\xae4\xdb\xd1\xf3\\1\x14\nFU\x91H\xa1\xfa\x88>\xed'
-        #                               b'\xed\xe04\x010E\x02!\x00\xb5\xce\x13\xdc@\x8ce \x8c\xf4u\xb4K \x12\x84]M?'
-        #                               b'\xb7\xa2\xca\xcf\xa3_kQCv\x1f\x97o\x02 }\x85\x81\xd6\x00Gy\xc7\xf1'
-        #                               b'h\xe9\x04\x96\xd5D@}_\x0e.\xec\xd4LP\xfc\xef\x10\x06\xa8g1\xec\x01')
         self.assertEqual(str(sig1), '3045022100c949a465a057f3ca7d20e80511e93d0be21e3efbeb8720ca3e0adfbce6883d0a0220'
                                     '70b2c6bee101a4ffcb854bae34dbd1f35c31140a46559148a1fa883eedede03401')
         self.assertEqual(bytes(sig1), b'0E\x02!\x00\xc9I\xa4e\xa0W\xf3\xca} \xe8\x05\x11\xe9=\x0b\xe2\x1e>'
@@ -1105,6 +1098,25 @@ class TestKeysSignatures(unittest.TestCase):
         sig2 = pk2.sign_message(message)
 
         self.assertEqual(sig1, sig2)
+
+    def test_signatures_invalid(self):
+        sig_bytes = (b'4\x1b\xe66\xacHD~\xe5\xa7\x81\x8e\x13\xe3\x9a(\x80\x0e;3\xfc\xc4\xc9\xc3x\x15\xd7\x81S\xcb\xc8'
+                     b'\x96\xf0\x14E\xdf\xa4+\xa9\xe7\x0b\xc3\xd2\xf3\x02\x80\x918\xb9\xc4\xd8I&;\xdbc\xa3*\xc2/:\x95'
+                     b'X\xeb`')
+        self.assertRaisesRegex(BKeyError,
+                               "Invalid signature, please provide valid DER encoded string or 64 bytes string",
+                               Signature.parse_bytes, sig_bytes)
+        if sys.version_info < (3, 14):
+            self.assertRaisesRegex(TypeError,
+                                   "argument must be str, not bytes",
+                                   Signature.parse_hex, sig_bytes)
+        else:
+            self.assertRaisesRegex(ValueError,
+                                   "non-hexadecimal number found",
+                                   Signature.parse_hex, sig_bytes)
+        self.assertRaisesRegex(BKeyError,
+                               "Unrecognised base64, DER encoded or bytes signature",
+                               Signature.parse, sig_bytes)
 
 
 class TestKeysTaproot(unittest.TestCase):

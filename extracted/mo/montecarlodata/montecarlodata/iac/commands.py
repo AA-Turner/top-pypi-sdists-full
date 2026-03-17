@@ -90,6 +90,12 @@ def compile(ctx, project_dir, namespace, dbt_manifest):
     is_flag=True,
     help="force create non-ingested tables if they don't exist.",
 )
+@click.option(
+    "--sql-validation/--no-sql-validation",
+    default=True,
+    show_default=True,
+    help="Enable or disable SQL syntax validation during apply.",
+)
 @click.pass_obj
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
 def apply(
@@ -100,6 +106,7 @@ def apply(
     dbt_manifest,
     auto_yes,
     create_non_ingested_tables,
+    sql_validation,
 ):
     MonteCarloConfigService(
         config=ctx["config"],
@@ -112,6 +119,7 @@ def apply(
         dry_run=dry_run,
         skip_confirmation=auto_yes,
         create_non_ingested_tables=create_non_ingested_tables,
+        sql_validation=sql_validation,
     )
 
 

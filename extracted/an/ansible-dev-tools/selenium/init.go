@@ -68,6 +68,7 @@ func printSeleniumCombinedOutput(seleniumStdout io.ReadCloser) {
 
 func startSelenium() *exec.Cmd {
     fmt.Println("Starting selenium standalone")
+    configPath := os.Getenv("SELENIUM_HOME") + "/selenium-node.toml"
     selenium := exec.Command(
         "java",
         "-Dwebdriver.http.factory=jdk-http-client",
@@ -76,16 +77,37 @@ func startSelenium() *exec.Cmd {
         "--ext",
         os.Getenv("SELENIUM_HTTP_JDK_CLIENT_PATH"),
         "standalone",
+        "--allow-cors",
+        "true",
+        "--host",
+        "0.0.0.0", // Allow remote access (containers too)
         "--port",
         os.Getenv("SELENIUM_PORT"),
         "--session-timeout",
         os.Getenv("SELENIUM_SESSION_TIMEOUT"),
+        "--config",
+        configPath,
     )
     seleniumStdout, _ := selenium.StdoutPipe()
     selenium.Stderr = selenium.Stdout
     go printSeleniumCombinedOutput(seleniumStdout)
     selenium.Start()
     return selenium
+}
+
+func installVsixExtension() {
+    vsixPath := "/data/ansible-latest.vsix"
+    if _, err := os.Stat(vsixPath); os.IsNotExist(err) {
+        fmt.Println("No VSIX found at", vsixPath, "- skipping extension install")
+        return
+    }
+    fmt.Println("Installing ansible extension from", vsixPath)
+    cmd := exec.Command("code-server", "--install-extension", vsixPath)
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    if err := cmd.Run(); err != nil {
+        fmt.Println("Warning: failed to install extension:", err)
+    }
 }
 
 func startCodeServer() *exec.Cmd {
@@ -104,6 +126,7 @@ func startProcesses() (*exec.Cmd, *exec.Cmd, *exec.Cmd, *exec.Cmd) {
     xvnc := startXvnc()
     waitForPort()
     fluxbox := startFluxbox()
+    installVsixExtension()
     selenium := startSelenium()
     vscode := startCodeServer()
     return xvnc, fluxbox, selenium, vscode

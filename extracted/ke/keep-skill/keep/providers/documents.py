@@ -94,6 +94,35 @@ class FileDocumentProvider:
         ".py": "text/x-python",
         ".js": "text/javascript",
         ".ts": "text/typescript",
+        ".tsx": "text/typescript",
+        ".jsx": "text/javascript",
+        ".go": "text/x-go",
+        ".rs": "text/x-rust",
+        ".java": "text/x-java",
+        ".kt": "text/x-kotlin",
+        ".kts": "text/x-kotlin",
+        ".scala": "text/x-scala",
+        ".c": "text/x-c",
+        ".h": "text/x-c",
+        ".cpp": "text/x-c++",
+        ".cxx": "text/x-c++",
+        ".cc": "text/x-c++",
+        ".hpp": "text/x-c++",
+        ".cs": "text/x-csharp",
+        ".rb": "text/x-ruby",
+        ".swift": "text/x-swift",
+        ".sh": "text/x-shell",
+        ".bash": "text/x-shell",
+        ".zsh": "text/x-shell",
+        ".lua": "text/x-lua",
+        ".pl": "text/x-perl",
+        ".pm": "text/x-perl",
+        ".r": "text/x-r",
+        ".R": "text/x-r",
+        ".ex": "text/x-elixir",
+        ".exs": "text/x-elixir",
+        ".php": "text/x-php",
+        ".sql": "text/x-sql",
         ".json": "text/json",
         ".yaml": "text/yaml",
         ".yml": "text/yaml",
@@ -190,9 +219,11 @@ class FileDocumentProvider:
         extracted_tags: dict[str, str] | None = None
         ocr_pages: list[int] | None = None
         email_attachments: list[dict] | None = None
+        extracted_links: list[str] | None = None
         try:
             if suffix == ".pdf":
                 content, ocr_pages = self._extract_pdf_text(path)
+                extracted_links = self._extract_pdf_links(path)
                 if not content and ocr_pages:
                     # Fully scanned PDF — placeholder until background OCR
                     content = (
@@ -201,10 +232,13 @@ class FileDocumentProvider:
                     )
             elif suffix in (".html", ".htm"):
                 content = self._extract_html_text(path)
+                extracted_links = self._extract_html_links(path)
             elif suffix in (".docx",):
                 content, extracted_tags = self._extract_docx(path)
+                extracted_links = self._extract_docx_links(path)
             elif suffix in (".pptx",):
                 content, extracted_tags = self._extract_pptx(path)
+                extracted_links = self._extract_pptx_links(path)
             elif content_type and content_type.startswith("application/vnd.apple."):
                 content, extracted_tags = self._extract_iwork_metadata(path, content_type)
             elif suffix == ".svg":
@@ -256,6 +290,10 @@ class FileDocumentProvider:
         # Signal email attachments to the caller (for child item creation)
         if email_attachments:
             metadata["_attachments"] = email_attachments
+
+        # Pre-extracted links from document structure (PDF annotations, DOCX hyperlinks, etc.)
+        if extracted_links:
+            metadata["_links"] = extracted_links
 
         return Document(
             uri=f"file://{path.resolve()}",  # Normalize to absolute
@@ -827,6 +865,99 @@ class FileDocumentProvider:
             raise IOError(f"Failed to extract text from HTML {path}: {e}")
 
     @staticmethod
+    def _extract_pdf_links(path: Path) -> list[str] | None:
+        """Extract hyperlink URLs from PDF annotations."""
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            return None
+        try:
+            reader = PdfReader(path)
+            urls: list[str] = []
+            seen: set[str] = set()
+            for page in reader.pages:
+                annotations = page.get("/Annots")
+                if not annotations:
+                    continue
+                for annot in annotations:
+                    obj = annot.get_object() if hasattr(annot, "get_object") else annot
+                    if obj.get("/Subtype") != "/Link":
+                        continue
+                    action = obj.get("/A")
+                    if action and action.get("/S") == "/URI":
+                        uri = str(action.get("/URI", ""))
+                        if uri and uri not in seen:
+                            seen.add(uri)
+                            urls.append(uri)
+            return urls or None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_html_links(path: Path) -> list[str] | None:
+        """Extract href URLs from HTML anchor tags."""
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return None
+        try:
+            html = path.read_text(encoding="utf-8")
+            soup = BeautifulSoup(html, "html.parser")
+            urls: list[str] = []
+            seen: set[str] = set()
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if href and href.startswith(("http://", "https://")) and href not in seen:
+                    seen.add(href)
+                    urls.append(href)
+            return urls or None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_docx_links(path: Path) -> list[str] | None:
+        """Extract hyperlink URLs from DOCX document relationships."""
+        try:
+            from docx import Document as DocxDocument
+        except ImportError:
+            return None
+        try:
+            doc = DocxDocument(path)
+            urls: list[str] = []
+            seen: set[str] = set()
+            for rel in doc.part.rels.values():
+                if rel.reltype == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink":
+                    url = str(rel.target_ref)
+                    if url and url.startswith(("http://", "https://")) and url not in seen:
+                        seen.add(url)
+                        urls.append(url)
+            return urls or None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_pptx_links(path: Path) -> list[str] | None:
+        """Extract hyperlink URLs from PPTX slide relationships."""
+        try:
+            from pptx import Presentation
+        except ImportError:
+            return None
+        try:
+            prs = Presentation(path)
+            urls: list[str] = []
+            seen: set[str] = set()
+            for slide in prs.slides:
+                for rel in slide.part.rels.values():
+                    if rel.reltype == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink":
+                        url = str(rel.target_ref)
+                        if url and url.startswith(("http://", "https://")) and url not in seen:
+                            seen.add(url)
+                            urls.append(url)
+            return urls or None
+        except Exception:
+            return None
+
+    @staticmethod
     def _detect_email(content: str) -> bool:
         """Check if text content looks like an RFC 822 email message.
 
@@ -916,11 +1047,13 @@ class FileDocumentProvider:
                 safe_name = Path(filename).name  # strip directory components
                 att_path = att_dir / safe_name
                 att_path.write_bytes(payload_bytes)
+                content_id = part.get("Content-ID", "").strip().strip("<>") or None
                 attachments.append({
                     "path": str(att_path),
                     "filename": filename,
                     "content_type": ct,
                     "size": len(payload_bytes),
+                    "content_id": content_id,
                 })
 
         # Extract headers as tags
@@ -984,6 +1117,33 @@ class FileDocumentProvider:
         msg_id = msg.get('Message-ID', '')
         if msg_id:
             tags['message-id'] = msg_id.strip()
+
+        # Threading: In-Reply-To and References
+        in_reply_to = msg.get('In-Reply-To', '').strip()
+        if in_reply_to:
+            tags['in-reply-to'] = in_reply_to
+
+        references_header = msg.get('References', '')
+        if references_header:
+            # References is a space-separated list of Message-IDs
+            refs = references_header.split()
+            refs = [r.strip() for r in refs if r.strip()]
+            if refs:
+                tags['_references'] = refs if len(refs) > 1 else refs[0]
+
+        # Compute thread ID: first Message-ID in References chain,
+        # or In-Reply-To, or own Message-ID (new thread)
+        thread_id = None
+        if references_header:
+            refs = references_header.split()
+            if refs:
+                thread_id = refs[0].strip()
+        if not thread_id and in_reply_to:
+            thread_id = in_reply_to
+        if not thread_id and msg_id:
+            thread_id = msg_id.strip()
+        if thread_id:
+            tags['_thread_id'] = thread_id
 
         return content, tags or None, attachments or None
 

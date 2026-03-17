@@ -2598,8 +2598,22 @@ def main() -> None:
     workflow_resume_parser.add_argument("run_id", help="Run identifier")
     workflow_resume_parser.add_argument("--from-step", help="Override resume point (step ID)")
     workflow_resume_parser.add_argument("--definition", help="Path to workflow YAML (for custom workflows)")
+    workflow_resume_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Force resume even if definition has changed (drift override)",
+    )
     workflow_cancel_parser = workflow_subparsers.add_parser("cancel", help="Cancel a paused workflow run")
     workflow_cancel_parser.add_argument("run_id", help="Run identifier")
+    workflow_approve_parser = workflow_subparsers.add_parser("approve", help="Approve a pending tool request")
+    workflow_approve_parser.add_argument("run_id", help="Run identifier")
+    workflow_deny_parser = workflow_subparsers.add_parser("deny", help="Deny a pending tool request")
+    workflow_deny_parser.add_argument("run_id", help="Run identifier")
+    workflow_deny_parser.add_argument("--reason", help="Denial reason")
+    workflow_respond_parser = workflow_subparsers.add_parser("respond", help="Respond to a human decision")
+    workflow_respond_parser.add_argument("run_id", help="Run identifier")
+    workflow_respond_parser.add_argument("--option", help="Option ID to select")
 
     # `aroom start` subcommand
     start_parser = subparsers.add_parser("start", help="Start the web UI server in the background")

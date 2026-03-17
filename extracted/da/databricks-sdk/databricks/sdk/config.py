@@ -53,6 +53,15 @@ class ConfigAttribute:
         return f"<ConfigAttribute '{self.name}' {self.transform.__name__}>"
 
 
+def _parse_cloud(value) -> Optional[Cloud]:
+    """Parse a cloud value from string or Cloud instance; returns None for unknown or empty."""
+    if value is None:
+        return None
+    if isinstance(value, Cloud):
+        return value
+    return Cloud.parse(str(value))
+
+
 def _parse_scopes(value):
     """Parse scopes into a deduplicated, sorted list."""
     if value is None:
@@ -84,6 +93,10 @@ class Config:
     # Experimental flag to indicate if the host is a unified host (supports both workspace and account APIs)
     experimental_is_unified_host: bool = ConfigAttribute(env="DATABRICKS_EXPERIMENTAL_IS_UNIFIED_HOST")
 
+    # [Experimental] Cloud provider. When set, is_aws/is_azure/is_gcp use this value directly
+    # instead of inferring from hostname. Populated automatically from /.well-known/databricks-config.
+    cloud: Cloud = ConfigAttribute(env="DATABRICKS_CLOUD", transform=_parse_cloud)
+
     # [Experimental] OpenID Connect discovery URL. When set, OIDC endpoints are fetched directly
     # from this URL instead of the default host-type-based well-known endpoint logic.
     discovery_url: str = ConfigAttribute(env="DATABRICKS_DISCOVERY_URL")
@@ -93,7 +106,7 @@ class Config:
 
     # Audience for OIDC ID token source accepting an audience as a parameter.
     # For example, the GitHub action ID token source.
-    token_audience: str = ConfigAttribute(env="DATABRICKS_TOKEN_AUDIENCE", auth="github-oidc")
+    token_audience: str = ConfigAttribute(env="DATABRICKS_TOKEN_AUDIENCE")
 
     # Environment variable for OIDC token.
     oidc_token_env: str = ConfigAttribute(env="DATABRICKS_OIDC_TOKEN_ENV", auth="env-oidc")
@@ -243,6 +256,10 @@ class Config:
     # is hit first will stop the retry loop.
     experimental_files_ext_cloud_api_max_retries: int = 3
 
+    # Whether to enable the storage proxy for file operations.
+    # When enabled, the SDK will probe the storage proxy and use it if available.
+    experimental_files_ext_enable_storage_proxy: bool = False
+
     def __init__(
         self,
         *,
@@ -380,14 +397,20 @@ class Config:
     def is_azure(self) -> bool:
         if self.azure_workspace_resource_id:
             return True
+        if self.cloud:
+            return self.cloud == Cloud.AZURE
         return self.environment.cloud == Cloud.AZURE
 
     @property
     def is_gcp(self) -> bool:
+        if self.cloud:
+            return self.cloud == Cloud.GCP
         return self.environment.cloud == Cloud.GCP
 
     @property
     def is_aws(self) -> bool:
+        if self.cloud:
+            return self.cloud == Cloud.AWS
         return self.environment.cloud == Cloud.AWS
 
     @property
@@ -651,8 +674,20 @@ class Config:
         if not self.discovery_url and meta.oidc_endpoint:
             if "{account_id}" in meta.oidc_endpoint and not self.account_id:
                 raise ValueError("account_id is required to resolve discovery_url from host metadata")
-            logger.debug(f"Resolved discovery_url from host metadata: {meta.oidc_endpoint}")
-            self.discovery_url = meta.oidc_endpoint.replace("{account_id}", self.account_id or "")
+            # Metadata oidc_endpoint is the root for OIDC. Append the well-known path to form the full discovery URL.
+            base = meta.oidc_endpoint.replace("{account_id}", self.account_id or "").rstrip("/")
+            self.discovery_url = f"{base}/.well-known/oauth-authorization-server"
+            logger.debug(f"Resolved discovery_url from host metadata: {self.discovery_url}")
+        if not self.cloud and meta.cloud:
+            logger.debug(f"Resolved cloud from host metadata: {meta.cloud.value}")
+            self.cloud = meta.cloud
+        # Account hosts use account_id as the OIDC token audience instead of the token endpoint.
+        # This is a special case: when the metadata has no workspace_id, the host is acting as an
+        # account-level endpoint and the audience must be scoped to the account.
+        # TODO: Add explicit audience to the metadata discovery endpoint.
+        if not self.token_audience and not meta.workspace_id and self.account_id:
+            logger.debug(f"Setting token_audience to account_id for account host: {self.account_id}")
+            self.token_audience = self.account_id
 
     def _fix_host_if_needed(self):
         updated_host = _fix_host_if_needed(self.host)
@@ -724,16 +759,26 @@ class Config:
         ini_file.read(config_path)
         profile = self.profile
         has_explicit_profile = self.profile is not None
+        has_default_profile_setting = False
         # In Go SDK, we skip merging the profile with DEFAULT section, though Python's ConfigParser.items()
         # is returning profile key-value pairs _including those from DEFAULT_. This is not what we expect
         # from Unified Auth test suite at the moment. Hence, the private variable access.
         # See: https://docs.python.org/3/library/configparser.html#mapping-protocol-access
-        if not has_explicit_profile and not ini_file.defaults():
-            logger.debug(f"{config_path} has no DEFAULT profile configured")
-            return
         if not has_explicit_profile:
-            profile = "DEFAULT"
-        profiles = ini_file._sections
+            # Check [__settings__].default_profile before falling back to [DEFAULT].
+            settings = ini_file._sections.get("__settings__", {})
+            default_profile = settings.get("default_profile", "").strip()
+            if default_profile:
+                profile = default_profile
+                has_default_profile_setting = True
+            elif ini_file.defaults():
+                profile = "DEFAULT"
+            else:
+                logger.debug(f"{config_path} has no DEFAULT profile configured")
+                return
+        profiles = {name: values for name, values in ini_file._sections.items()}
+        # [__settings__] is not a profile; exclude it from the profile map.
+        profiles.pop("__settings__", None)
         if ini_file.defaults():
             profiles["DEFAULT"] = ini_file.defaults()
         if profile not in profiles:
@@ -745,6 +790,8 @@ class Config:
                 # don't overwrite a value previously set
                 continue
             self.__setattr__(k, v)
+        if has_default_profile_setting:
+            self.profile = profile
 
     def _validate(self):
         auths_used = set()

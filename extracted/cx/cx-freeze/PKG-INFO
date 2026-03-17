@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cx_Freeze
-Version: 8.6.0
+Version: 8.6.1
 Summary: Create standalone executables from Python scripts
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, Anthony Tuininga <anthony.tuininga@gmail.com>
 License-Expression: PSF-2.0
@@ -30,9 +30,9 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: freeze-core>=0.6.0
+Requires-Dist: freeze-core>=0.6.1
 Requires-Dist: packaging>=25.0
-Requires-Dist: setuptools<=82.0,>=78.1.1
+Requires-Dist: setuptools<83.0,>=78.1.1
 Requires-Dist: tomli>=2.0.1; python_version == "3.10"
 Requires-Dist: filelock>=3.20.3; sys_platform == "linux"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "x86_64"
@@ -42,8 +42,7 @@ Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_mach
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "ppc64le"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "s390x"
 Requires-Dist: dmgbuild>=1.6.1; sys_platform == "darwin"
-Requires-Dist: lief<=0.17.3,>=0.15.1; sys_platform == "win32" and platform_machine != "ARM64"
-Requires-Dist: lief<=0.17.3,>=0.15.1; sys_platform == "win32" and platform_machine == "ARM64" and python_version <= "3.13"
+Requires-Dist: lief<=0.17.5,>=0.15.1; sys_platform == "win32"
 Requires-Dist: python-msilib>=0.4.1; sys_platform == "win32" and python_version >= "3.13"
 Dynamic: license-file
 

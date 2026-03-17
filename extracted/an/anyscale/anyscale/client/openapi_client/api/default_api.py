@@ -2790,6 +2790,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put(self, block_workspace_usage_request, **kwargs):  # noqa: E501
+        """Block Workspace Usage  # noqa: E501
+
+        Blocks a user from creating workspaces in the organization. Idempotent.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put(block_workspace_usage_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param BlockWorkspaceUsageRequest block_workspace_usage_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put_with_http_info(block_workspace_usage_request, **kwargs)  # noqa: E501
+
+    def block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put_with_http_info(self, block_workspace_usage_request, **kwargs):  # noqa: E501
+        """Block Workspace Usage  # noqa: E501
+
+        Blocks a user from creating workspaces in the organization. Idempotent.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put_with_http_info(block_workspace_usage_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param BlockWorkspaceUsageRequest block_workspace_usage_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'block_workspace_usage_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'block_workspace_usage_request' is set
+        if self.api_client.client_side_validation and ('block_workspace_usage_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['block_workspace_usage_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `block_workspace_usage_request` when calling `block_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'block_workspace_usage_request' in local_var_params:
+            body_params = local_var_params['block_workspace_usage_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organization_collaborators/block_workspace_usage', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def bulk_delete_lineage_artifacts_api_v2_lineage_artifacts_bulk_delete_post(self, bulk_delete_artifacts_request, **kwargs):  # noqa: E501
         """Bulk Delete Lineage Artifacts  # noqa: E501
 
@@ -31846,6 +31964,9 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
+        :param str name: name to filter by
+        :param CloudsSortField sort_field: field to sort by
+        :param SortOrder sort_order: sort direction, ignored if sort_field is absent
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -31871,6 +31992,9 @@ class DefaultApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
+        :param str name: name to filter by
+        :param CloudsSortField sort_field: field to sort by
+        :param SortOrder sort_order: sort direction, ignored if sort_field is absent
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -31890,6 +32014,9 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
+            'name',
+            'sort_field',
+            'sort_order',
             'paging_token',
             'count'
         ]
@@ -31920,6 +32047,12 @@ class DefaultApi(object):
         path_params = {}
 
         query_params = []
+        if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
+            query_params.append(('name', local_var_params['name']))  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
+            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
@@ -37244,6 +37377,111 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DatacatalogvolumeListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get(self, **kwargs):  # noqa: E501
+        """List Workspace Blocked Users  # noqa: E501
+
+        Lists all users blocked from creating workspaces in the organization  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkspaceblockeduserresponseListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Workspace Blocked Users  # noqa: E501
+
+        Lists all users blocked from creating workspaces in the organization  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkspaceblockeduserresponseListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_workspace_blocked_users_api_v2_organization_collaborators_block_workspace_usage_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organization_collaborators/block_workspace_usage', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkspaceblockeduserresponseListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -46740,6 +46978,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='TryloginworkosresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete(self, user_email, **kwargs):  # noqa: E501
+        """Unblock Workspace Usage  # noqa: E501
+
+        Unblocks a user from creating workspaces in the organization. Idempotent.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete(user_email, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str user_email: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete_with_http_info(user_email, **kwargs)  # noqa: E501
+
+    def unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete_with_http_info(self, user_email, **kwargs):  # noqa: E501
+        """Unblock Workspace Usage  # noqa: E501
+
+        Unblocks a user from creating workspaces in the organization. Idempotent.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete_with_http_info(user_email, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str user_email: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'user_email'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'user_email' is set
+        if self.api_client.client_side_validation and ('user_email' not in local_var_params or  # noqa: E501
+                                                        local_var_params['user_email'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `user_email` when calling `unblock_workspace_usage_api_v2_organization_collaborators_block_workspace_usage_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'user_email' in local_var_params and local_var_params['user_email'] is not None:  # noqa: E501
+            query_params.append(('user_email', local_var_params['user_email']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organization_collaborators/block_workspace_usage', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

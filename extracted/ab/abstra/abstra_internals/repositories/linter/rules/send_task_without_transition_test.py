@@ -292,3 +292,67 @@ send_task("error_b", {})  # No matching transition
         self.assertTrue(any("error_a" in label for label in task_types_in_issues))
         self.assertTrue(any("error_b" in label for label in task_types_in_issues))
         self.assertFalse(any("'success'" in label for label in task_types_in_issues))
+
+    def test_issue_resolved_after_adding_transition(self):
+        """
+        This test simulates the user scenario:
+        1. Create a stage with send_task but no transition -> linter reports issue
+        2. Add a matching transition -> linter should NOT report issue anymore
+        """
+        # Step 1: Create a stage with send_task but no transition
+        project = self.project_repository.load()
+        target_script = ScriptStage(
+            id="target_script",
+            file="target.py",
+            title="Target Script",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+        )
+        script = ScriptStage(
+            id="script",
+            file="script.py",
+            title="Script",
+            workflow_position=(0, 0),
+            workflow_transitions=[],  # No transitions initially
+        )
+        project.scripts.append(script)
+        project.scripts.append(target_script)
+        self.project_repository.save(project)
+
+        # Create script files
+        (self.root / "script.py").write_text(
+            'from abstra.tasks import send_task\nsend_task("my_task", {})'
+        )
+        (self.root / "target.py").write_text("print('target')")
+
+        # Verify linter reports the issue
+        rule = SendTaskWithoutTransition()
+        issues = rule.find_issues()
+        self.assertEqual(len(issues), 1)
+        self.assertIn("my_task", issues[0].label)
+
+        # Step 2: Add a matching transition
+        project = self.project_repository.load()
+        source_stage = None
+        for stage in project.scripts:
+            if stage.id == "script":
+                source_stage = stage
+                break
+
+        self.assertIsNotNone(source_stage)
+        assert source_stage is not None  # for type narrowing
+        source_stage.workflow_transitions.append(
+            WorkflowTransition(
+                id="1",
+                target_type="script",
+                target_id="target_script",
+                type="task",
+                task_type="my_task",
+            )
+        )
+        self.project_repository.save(project)
+
+        # Verify linter NO LONGER reports the issue
+        rule = SendTaskWithoutTransition()
+        issues = rule.find_issues()
+        self.assertEqual(len(issues), 0)

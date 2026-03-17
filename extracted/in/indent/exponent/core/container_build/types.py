@@ -20,7 +20,7 @@ class BuildLogStatus(msgspec.Struct, tag="container_build_log_status"):
     """Status update for a container build."""
 
     container_image_uuid: str
-    status: Literal["started", "completed", "failed"]
+    status: Literal["started", "completed", "failed", "cancelled"]
     timestamp: float
     message: str | None = None
 

@@ -78,6 +78,7 @@ from exponent.core.remote_execution.session import (
     get_session,
     send_exception_log,
 )
+from exponent.core.remote_execution.terminal_controller import TerminalControllerServer
 from exponent.core.remote_execution.terminal_session import TerminalSessionManager
 from exponent.core.remote_execution.terminal_types import TerminalMessage
 from exponent.core.remote_execution.tool_execution import (
@@ -123,6 +124,7 @@ class RemoteExecutionClient:
         self._websocket: ClientConnection | None = None
 
         self._background_tracker = BackgroundProcessTracker(on_complete=self._on_background_process_complete)
+        self._terminal_controller: TerminalControllerServer | None = None
 
     @property
     def working_directory(self) -> str:
@@ -169,6 +171,8 @@ class RemoteExecutionClient:
         truncated: bool,
         duration_ms: int,
     ) -> None:
+        if self._terminal_controller is not None:
+            await self._terminal_controller.handle_bg_process_completed(str(tracked.pid), exit_code)
         notification = BackgroundProcessCompletedNotification(
             pid=tracked.pid,
             command=tracked.command,
@@ -540,6 +544,7 @@ class RemoteExecutionClient:
         results: asyncio.Queue[CliRpcResponse],
         terminal_output_queue: asyncio.Queue[TerminalMessage],
         terminal_session_manager: TerminalSessionManager,
+        terminal_controller: TerminalControllerServer | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO:
         pending: set[asyncio.Task[object]] = set()
         try:
@@ -581,9 +586,13 @@ class RemoteExecutionClient:
 
                 if get_terminal_output in done:
                     terminal_message = get_terminal_output.result()
-                    data = msgspec.to_builtins(terminal_message)
-                    msg = json.dumps({"type": "terminal_message", "data": data})
-                    await websocket.send(msg)
+
+                    if terminal_controller is not None:
+                        await terminal_controller.handle_terminal_message(terminal_message)
+                    else:
+                        data = msgspec.to_builtins(terminal_message)
+                        msg = json.dumps({"type": "terminal_message", "data": data})
+                        await websocket.send(msg)
 
                     get_terminal_output = asyncio.create_task(terminal_output_queue.get())
                     pending.add(get_terminal_output)
@@ -602,6 +611,7 @@ class RemoteExecutionClient:
         results: asyncio.Queue[CliRpcResponse],
         terminal_output_queue: asyncio.Queue[TerminalMessage],
         terminal_session_manager: TerminalSessionManager,
+        terminal_controller: TerminalControllerServer | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO | None:
         if connection_tracker is not None:
             await connection_tracker.set_connected(True)
@@ -616,6 +626,7 @@ class RemoteExecutionClient:
                 results,
                 terminal_output_queue,
                 terminal_session_manager,
+                terminal_controller,
             )
         except asyncio.CancelledError:
             raise
@@ -669,6 +680,7 @@ class RemoteExecutionClient:
         chat_uuid: str,
         connection_tracker: ConnectionTracker | None = None,
         timeout_seconds: int | None = None,
+        terminal_controller_socket_path: str | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO:
         self.current_session.set_chat_uuid(chat_uuid)
         ensure_chat_directories(chat_uuid)
@@ -681,6 +693,29 @@ class RemoteExecutionClient:
         terminal_output_queue: asyncio.Queue[TerminalMessage] = asyncio.Queue()
 
         terminal_session_manager = TerminalSessionManager(terminal_output_queue)
+
+        terminal_controller: TerminalControllerServer | None = None
+        if terminal_controller_socket_path:
+
+            async def _on_input(session_id: str, data: str) -> None:
+                await terminal_session_manager.send_input(session_id, data)
+
+            async def _on_resize(session_id: str, cols: int, rows: int) -> None:
+                await terminal_session_manager.resize_terminal(session_id, rows=rows, cols=cols)
+
+            async def _on_start_terminal(session_id: str, cols: int, rows: int) -> None:
+                await terminal_session_manager.start_session(
+                    websocket=None, session_id=session_id, cols=cols, rows=rows
+                )
+
+            terminal_controller = TerminalControllerServer(
+                terminal_controller_socket_path,
+                on_input=_on_input,
+                on_resize=_on_resize,
+                on_start_terminal=_on_start_terminal,
+            )
+            await terminal_controller.start()
+        self._terminal_controller = terminal_controller
 
         executors = await self._setup_tasks(beats, requests, results)
 
@@ -698,6 +733,7 @@ class RemoteExecutionClient:
                                 results,
                                 terminal_output_queue,
                                 terminal_session_manager,
+                                terminal_controller,
                             )
                         ),
                         asyncio.create_task(self._timeout_monitor(timeout_seconds)),
@@ -715,6 +751,9 @@ class RemoteExecutionClient:
 
             return WSDisconnected(error_message="Could not establish websocket connection")
         finally:
+            if terminal_controller is not None:
+                await terminal_controller.stop()
+
             await terminal_session_manager.stop_all_sessions()
 
             await self._background_tracker.stop_all()
@@ -825,6 +864,12 @@ class RemoteExecutionClient:
                             command=request.request.tool_input.command,
                             correlation_id=request.request_id,
                         )
+                        if self._terminal_controller is not None and bash_result.process.pid is not None:
+                            await self._terminal_controller.handle_bg_process_started(
+                                str(bash_result.process.pid),
+                                request.request.tool_input.command,
+                                bash_result.result.output_file or "",
+                            )
                         raw_result = bash_result.result
                     else:
                         raw_result = bash_result
@@ -859,10 +904,7 @@ class RemoteExecutionClient:
                     else:
                         coros.append(execute_tool(tool_input, self.working_directory, self))
 
-                gathered_results = await asyncio.gather(*coros, return_exceptions=True)
-                results_list: list[ToolResultType | BackgroundBashResult | BaseException] = cast(
-                    list[ToolResultType | BackgroundBashResult | BaseException], gathered_results
-                )
+                results_list = await asyncio.gather(*coros, return_exceptions=True)
 
                 processed_results: list[ToolResultType] = []
                 for i, result in enumerate(results_list):
@@ -877,6 +919,12 @@ class RemoteExecutionClient:
                             command=tool_input.command,
                             correlation_id=f"{request.request_id}_{i}",
                         )
+                        if self._terminal_controller is not None and result.process.pid is not None:
+                            await self._terminal_controller.handle_bg_process_started(
+                                str(result.process.pid),
+                                tool_input.command,
+                                result.result.output_file or "",
+                            )
                         processed_results.append(truncate_result(result.result))
                     else:
                         processed_results.append(truncate_result(result))
@@ -964,7 +1012,7 @@ class RemoteExecutionClient:
                 else:
                     yield 2.0
 
-        asyncio_websockets_client.backoff = custom_backoff  # type: ignore[attr-defined, assignment]
+        asyncio_websockets_client.backoff = custom_backoff  # ty: ignore[invalid-assignment]
 
         conn = connect(url, additional_headers=headers, open_timeout=10, ping_timeout=10)
 

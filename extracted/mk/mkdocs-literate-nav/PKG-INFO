@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-literate-nav
-Version: 0.6.2
+Version: 0.6.3
 Summary: MkDocs plugin to specify the navigation in Markdown instead of YAML
 Project-URL: Documentation, https://oprypin.github.io/mkdocs-literate-nav/
 Project-URL: Source, https://github.com/oprypin/mkdocs-literate-nav
@@ -27,7 +27,8 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
-Requires-Dist: mkdocs>=1.4.1
+Requires-Dist: mkdocs<=1.6.1,>=1.4.1
+Requires-Dist: properdocs>=1.6.5
 Description-Content-Type: text/markdown
 
 # mkdocs-literate-nav

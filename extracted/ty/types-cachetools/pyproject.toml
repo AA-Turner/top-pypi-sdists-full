@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-cachetools"
-version = "6.2.0.20251022"
+version = "6.2.0.20260317"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cachetools"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.406
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`a205439338a4ad3debec1eeae7d300e3781c066d`](https://github.com/python/typeshed/commit/a205439338a4ad3debec1eeae7d300e3781c066d).
+[`143d22ce2bd8580a141083ac7930f3bdc707113d`](https://github.com/python/typeshed/commit/143d22ce2bd8580a141083ac7930f3bdc707113d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['cachetools-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'cachetools-stubs' = ['__init__.pyi', 'func.pyi', 'keys.pyi', 'METADATA.toml', 'py.typed']

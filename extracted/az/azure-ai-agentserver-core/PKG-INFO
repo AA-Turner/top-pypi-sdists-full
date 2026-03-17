@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 1.0.0b16
+Version: 1.0.0b17
 Summary: Agents server adapter for Azure AI
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT

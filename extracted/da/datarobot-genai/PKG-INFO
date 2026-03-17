@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.6.19
+Version: 0.7.1
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
 Project-URL: Homepage, https://github.com/datarobot-oss/datarobot-genai
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.14,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
@@ -60,6 +60,7 @@ Requires-Dist: pyarrow==21.0.0; extra == "langgraph"
 Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.12; extra == "langgraph"
 Requires-Dist: langgraph<1.1.0,>=1.0.0; extra == "langgraph"
 Requires-Dist: langgraph-prebuilt<1.1.0,>=1.0.0; extra == "langgraph"
+Requires-Dist: nvidia-nat-langchain==1.4.1; extra == "langgraph"
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "langgraph"
 Provides-Extra: llamaindex
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "llamaindex"
@@ -81,6 +82,7 @@ Requires-Dist: llama-index-llms-langchain<0.8.0,>=0.6.1; extra == "llamaindex"
 Requires-Dist: llama-index-llms-litellm<0.7.0,>=0.4.1; extra == "llamaindex"
 Requires-Dist: llama-index-llms-openai<0.7.0,>=0.6.0; extra == "llamaindex"
 Requires-Dist: llama-index-tools-mcp<0.5.0,>=0.1.0; extra == "llamaindex"
+Requires-Dist: nvidia-nat-llama-index==1.4.1; extra == "llamaindex"
 Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == "llamaindex"
 Requires-Dist: pypdf<7.0.0,>=6.0.0; extra == "llamaindex"
 Provides-Extra: nat
@@ -97,17 +99,11 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "na
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "nat"
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.9; extra == "nat"
 Requires-Dist: pyarrow==21.0.0; extra == "nat"
-Requires-Dist: nvidia-nat==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: nvidia-nat-a2a==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: nvidia-nat-opentelemetry==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: nvidia-nat-langchain==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: nvidia-nat-llama-index==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: nvidia-nat-mcp==1.4.1; python_version >= "3.11" and extra == "nat"
-Requires-Dist: crewai>=1.1.0; python_version >= "3.11" and extra == "nat"
-Requires-Dist: llama-index-llms-litellm<0.7.0,>=0.4.1; extra == "nat"
-Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == "nat"
-Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == "nat"
-Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == "nat"
+Requires-Dist: nvidia-nat==1.4.1; extra == "nat"
+Requires-Dist: nvidia-nat-a2a==1.4.1; extra == "nat"
+Requires-Dist: nvidia-nat-opentelemetry==1.4.1; extra == "nat"
+Requires-Dist: nvidia-nat-langchain==1.4.1; extra == "nat"
+Requires-Dist: nvidia-nat-mcp==1.4.1; extra == "nat"
 Requires-Dist: anyio==4.11.0; extra == "nat"
 Provides-Extra: auth
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "auth"
@@ -171,9 +167,12 @@ Requires-Dist: opentelemetry-instrumentation-openai<1.0.0,>=0.40.5; extra == "dr
 Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == "dragent"
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.9; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
-Requires-Dist: nvidia-nat==1.4.1; python_version >= "3.11" and extra == "dragent"
-Requires-Dist: nvidia-nat-a2a==1.4.1; python_version >= "3.11" and extra == "dragent"
-Requires-Dist: nvidia-nat-opentelemetry==1.4.1; python_version >= "3.11" and extra == "dragent"
+Requires-Dist: nvidia-nat==1.4.1; extra == "dragent"
+Requires-Dist: nvidia-nat-a2a==1.4.1; extra == "dragent"
+Requires-Dist: nvidia-nat-opentelemetry==1.4.1; extra == "dragent"
+Requires-Dist: nvidia-nat-langchain==1.4.1; extra == "dragent"
+Requires-Dist: nvidia-nat-mcp==1.4.1; extra == "dragent"
+Requires-Dist: anyio==4.11.0; extra == "dragent"
 Provides-Extra: memory
 Requires-Dist: mem0ai<2.0.0,>=1.0.4; python_version < "3.13" and extra == "memory"
 Dynamic: license-file

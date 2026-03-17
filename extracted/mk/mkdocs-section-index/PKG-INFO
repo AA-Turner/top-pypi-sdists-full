@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-section-index
-Version: 0.3.10
+Version: 0.3.11
 Summary: MkDocs plugin to allow clickable sections that lead to an index page
 Project-URL: Documentation, https://oprypin.github.io/mkdocs-section-index/
 Project-URL: Source, https://github.com/oprypin/mkdocs-section-index
@@ -27,7 +27,8 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
-Requires-Dist: mkdocs>=1.2
+Requires-Dist: mkdocs<=1.6.1,>=1.2
+Requires-Dist: properdocs>=1.6.5
 Description-Content-Type: text/markdown
 
 # mkdocs-section-index

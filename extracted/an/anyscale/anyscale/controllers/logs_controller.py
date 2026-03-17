@@ -25,6 +25,7 @@ from anyscale.client.openapi_client.models import (
 from anyscale.controllers.base_controller import BaseController
 from anyscale.sdk.anyscale_client.models.cluster import Cluster
 from anyscale.sdk.anyscale_client.models.session_state import SessionState
+from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
 from anyscale.utils.logs_utils import LogGroup
 
 
@@ -398,7 +399,7 @@ class LogsController(BaseController):
 
             with tempfile.TemporaryDirectory(dir=final_download_dir) as tmp_dir:
                 # Download all files to a temporary directory.
-                asyncio.run(
+                run_sync(
                     # TODO (shomilj): Add efficient tailing method here.
                     self._download_files(
                         base_folder=tmp_dir,

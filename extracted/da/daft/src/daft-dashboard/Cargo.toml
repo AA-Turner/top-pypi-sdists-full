@@ -29,3 +29,4 @@ workspace = true
 name = "daft-dashboard"
 edition.workspace = true
 version.workspace = true
+readme = "README.md"

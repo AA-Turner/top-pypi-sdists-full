@@ -15,6 +15,7 @@ import pandera.api.extensions as pa_ext
 import pandera.typing as pat
 from pandera.api.pandas.container import DataFrameSchema
 from pandera.engines import pandas_engine
+from pandera.engines.utils import pandas_version
 
 try:
     from pandera import io
@@ -33,6 +34,10 @@ else:
 
 
 SKIP_YAML_TESTS = PYYAML_VERSION is None or PYYAML_VERSION.release < (5, 1, 0)  # type: ignore
+
+PANDAS_3_0_0_PLUS = pandas_version().release >= (3, 0, 0)
+
+_PANDERA_STR_DTYPE = str(pandas_engine.Engine.dtype(pandera.String))
 
 
 # skip all tests in module if "io" depends aren't installed
@@ -180,7 +185,7 @@ columns:
   str_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
     - value:
@@ -246,7 +251,7 @@ columns:
   optional_props_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: true
     checks:
     - min_value: 1
@@ -365,7 +370,7 @@ columns:
   str_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
       isin:
@@ -430,7 +435,7 @@ columns:
   optional_props_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: true
     checks:
       str_length:
@@ -530,7 +535,7 @@ columns:
       options:
         check_name: in_range
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
     - value:
@@ -569,7 +574,7 @@ columns:
         min_value: -10
         max_value: 20
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
       isin:
@@ -614,7 +619,7 @@ columns:
   float_column:
     dtype: float64
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
   object_column:
     dtype: object
 checks: null
@@ -633,7 +638,7 @@ columns:
   float_column:
     dtype: float64
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
   object_column:
     dtype: object
 checks:
@@ -655,7 +660,7 @@ columns:
   float_column:
     dtype: float64
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
   object_column:
     dtype: object
 checks:
@@ -681,7 +686,7 @@ columns:
   float_column:
     dtype: float64
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
   object_column:
     dtype: object
 index: null
@@ -702,7 +707,7 @@ columns:
   float_column:
     dtype: float64
   str_column:
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
   object_column:
     dtype: object
 index: null
@@ -774,7 +779,7 @@ columns:
   str_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
     - value:
@@ -840,7 +845,7 @@ columns:
   optional_props_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: true
     checks:
     - min_value: 1
@@ -959,7 +964,7 @@ columns:
   str_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: false
     checks:
       isin:
@@ -1024,7 +1029,7 @@ columns:
   optional_props_column:
     title: null
     description: null
-    dtype: str
+    dtype: {_PANDERA_STR_DTYPE}
     nullable: true
     checks:
       str_length:
@@ -1706,7 +1711,7 @@ FRICTIONLESS_JSON = {
 
 # pandas dtype aliases to support testing across multiple pandas versions:
 STR_DTYPE = pandas_engine.Engine.dtype("string")
-STR_DTYPE_ALIAS = str(pandas_engine.Engine.dtype("string"))
+STR_DTYPE_ALIAS = pandas_engine.Engine.dtype("string").type
 INT_DTYPE = pandas_engine.Engine.dtype("int")
 INT_DTYPE_ALIAS = str(pandas_engine.Engine.dtype("int"))
 
@@ -1937,34 +1942,38 @@ def test_frictionless_schema_parses_correctly(frictionless_schema):
     with pytest.raises(pandera.errors.SchemaErrors) as err:
         schema.validate(INVALID_FRICTIONLESS_DF, lazy=True)
     # check we're capturing all errors according to the frictionless schema:
-    assert err.value.failure_cases[["check", "failure_case"]].fillna(
-        "NaN"
-    ).to_dict(orient="records") == [
-        {"check": "column_in_dataframe", "failure_case": "date_col"},
-        {"check": "column_in_schema", "failure_case": "unexpected_column"},
-        {"check": "coerce_dtype('float64')", "failure_case": "a"},
-        {"check": "str_length(3, None)", "failure_case": "1A"},
-        {"check": "isin([1.0, 2.0, 3.0])", "failure_case": 3.8},
-        {"check": "isin([1.0, 2.0, 3.0])", "failure_case": 1.1},
-        {"check": "not_nullable", "failure_case": "NaN"},
-        {"check": "str_length(None, 3)", "failure_case": "123A"},
-        {
-            "check": "str_matches('^\\d{3}[A-Z]$')",
-            "failure_case": "789c",
-        },
-        {"check": "field_uniqueness", "failure_case": 12},
-        {
-            "check": "str_length(3, 80)",
-            "failure_case": "dddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    # Convert failure cases to a set of tuples for order-independent comparison
+    actual_failure_cases = {
+        (row["check"], row["failure_case"])
+        for row in err.value.failure_cases[["check", "failure_case"]]
+        .fillna("NaN")
+        .to_dict(orient="records")
+    }
+    expected_failure_cases = {
+        ("column_in_dataframe", "date_col"),
+        ("column_in_schema", "unexpected_column"),
+        ("coerce_dtype('float64')", "a"),
+        ("dtype('float64')", "a"),
+        ("str_length(3, None)", "1A"),
+        ("isin([1.0, 2.0, 3.0])", 3.8),
+        ("isin([1.0, 2.0, 3.0])", 1.1),
+        ("not_nullable", "NaN"),
+        ("str_length(None, 3)", "123A"),
+        ("str_matches('^\\d{3}[A-Z]$')", "789c"),
+        ("field_uniqueness", 12),
+        (
+            "str_length(3, 80)",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddd"
             "dddddddddddddddddddddddddddddddddddddddddddddddd",
-        },
-        {"check": "str_length(3, 80)", "failure_case": "a"},
-        {"check": "less_than_or_equal_to(30)", "failure_case": 113},
-        {"check": "in_range(10, 99)", "failure_case": 180},
-        {"check": "in_range(10, 99)", "failure_case": 1},
-        {"check": "field_uniqueness", "failure_case": 12},
-        {"check": "dtype('float64')", "failure_case": "object"},
-    ], "validation failure cases not as expected"
+        ),
+        ("str_length(3, 80)", "a"),
+        ("less_than_or_equal_to(30)", 113),
+        ("in_range(10, 99)", 180),
+        ("in_range(10, 99)", 1),
+    }
+    assert actual_failure_cases == expected_failure_cases, (
+        "validation failure cases not as expected"
+    )
 
 
 @pytest.mark.parametrize(

@@ -18,6 +18,7 @@ from ._stub import Param as _Param
 from ._stub import Params as _Params
 from ._stub import RetType as _RetType
 from ._utils import almost_equal as _almost_equal
+from ._utils import has_bad_return as _has_bad_return
 from ._utils import sentence_tokenizer as _sentence_tokenizer
 from .messages import E as _E
 from .messages import Message as _Message
@@ -25,9 +26,6 @@ from .messages import Messages as _Messages
 
 _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
-
-
-Failures: _t.TypeAlias = _t.List["Failure"]
 
 
 class Failed(_t.NamedTuple):
@@ -58,9 +56,19 @@ class Failure(_t.List[Failed]):
         super().__init__()
         self._retcode = 0
         self._func = func
+        self._docstring_len = len(self._func.docstring.args)
         if target:
             self._func.messages.extend(i for i in _E.all if i not in target)
 
+        self._name = self._func.name
+        if (
+            self._func.parent is not None
+            and self._func.parent.name
+            and not isinstance(self._func.parent, _scoped_nodes.Module)
+        ):
+            self._name = f"{self._func.parent.name}.{self._func.name}"
+
+        self._check_property_returns = check_property_returns
         if self._func.error is not None:
             self._sig9xx_error()
         else:
@@ -75,23 +83,18 @@ class Failure(_t.List[Failed]):
                     sig = self._func.signature.args.get(index)
                     self._sig4xx_parameters(doc, sig)
 
-                self._sig5xx_returns(check_property_returns)
+                self._sig5xx_returns()
 
         self.sort()
 
-    def _add(
-        self,
-        value: _Message,
-        hint: bool = False,
-        **kwargs: _t.Any,
-    ) -> None:
+    def _add(self, value: _Message, hint: bool = False, **kwargs) -> None:
         self._retcode = 1
         failed = Failed(
-            self.name,
+            self._name,
             value.ref,
             value.description.format(**kwargs),
             value.symbolic,
-            self.lineno,
+            self._func.lineno,
             value.hint if hint else None,
         )
         if value not in self._func.messages and failed not in self:
@@ -216,9 +219,9 @@ class Failure(_t.List[Failed]):
             # bad-closing-token
             self._add(_E[304], token=doc.closing_token, hint=True)
         if doc.description is not None and not all(
-            i.strip()[0].isupper()
+            stripped[0].isupper()
             for i in _sentence_tokenizer(doc.description)
-            if i and not any(i.startswith(x) for x in (":", ".", "`"))
+            if i and (stripped := i.strip())[0].isalpha()
         ):
             # description is not capitalized
             self._add(_E[305])
@@ -231,7 +234,7 @@ class Failure(_t.List[Failed]):
             if (
                 sig.name in self._func.docstring.args.names
                 or doc.name in self._func.signature.args.names
-            ) and len(self._func.docstring.args) > 1:
+            ) and self._docstring_len > 1:
                 # params-out-of-order
                 self._add(_E[402])
             elif (
@@ -246,9 +249,9 @@ class Failure(_t.List[Failed]):
                     # param-not-equal-to-arg
                     self._add(_E[404])
 
-    def _sig5xx_returns(self, check_property_returns: bool) -> None:
+    def _sig5xx_returns(self) -> None:
         if not self._func.isinit and not (
-            self._func.isproperty and not check_property_returns
+            self._func.isproperty and not self._check_property_returns
         ):
             # no types, cannot know either way
             if self._func.signature.rettype == _RetType.UNTYPED:
@@ -264,14 +267,9 @@ class Failure(_t.List[Failed]):
             # return-type is some, so return should be documented
             elif self._func.signature.returns:
                 # return-missing
-                lines = str(self._func.docstring.string).splitlines()
                 self._add(
                     _E[503],
-                    hint=(
-                        len(lines) > 1
-                        and "return" in lines[-1]
-                        and ":param" not in lines[-1]
-                    ),
+                    hint=_has_bad_return(str(self._func.docstring.string)),
                 )
         elif self._func.docstring.returns:
             # this method is init, so no return should be documented
@@ -279,7 +277,7 @@ class Failure(_t.List[Failed]):
                 # class-return-documented
                 self._add(_E[504], hint=True)
             # method is property and not set to document property
-            elif self._func.isproperty and not check_property_returns:
+            elif self._func.isproperty and not self._check_property_returns:
                 # return-documented-for-property
                 self._add(_E[505], hint=True)
 
@@ -294,14 +292,7 @@ class Failure(_t.List[Failed]):
     @property
     def name(self) -> str:
         """Function name."""
-        if (
-            self._func.parent is not None
-            and self._func.parent.name
-            and not isinstance(self._func.parent, _scoped_nodes.Module)
-        ):
-            return f"{self._func.parent.name}.{self._func.name}"
-
-        return self._func.name
+        return self._name
 
     @property
     def lineno(self) -> int:
@@ -312,3 +303,7 @@ class Failure(_t.List[Failed]):
     def retcode(self) -> int:
         """How to exit the program."""
         return self._retcode
+
+
+class Failures(_t.List[Failure]):
+    """Sequence of failed functions."""

@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: pipx
-Version: 1.8.0
+Version: 1.9.0
 Summary: Install and Run Python Applications in Isolated Environments
-Project-URL: Bug Tracker, https://github.com/pypa/pipx/issues
-Project-URL: Documentation, https://pipx.pypa.io
-Project-URL: Homepage, https://pipx.pypa.io
+Project-URL: Issue Tracker, https://github.com/pypa/pipx/issues
 Project-URL: Release Notes, https://pipx.pypa.io/latest/changelog/
 Project-URL: Source Code, https://github.com/pypa/pipx
+Project-URL: Documentation, https://pipx.pypa.io
+Project-URL: Homepage, https://pipx.pypa.io
 Author-email: Chad Smith <chadsmith.software@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: Virtual Environment,cli,install,pip,workflow
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -19,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Requires-Dist: argcomplete>=1.9.4
 Requires-Dist: colorama>=0.4.4; sys_platform == 'win32'
@@ -279,7 +280,7 @@ pipx install "git+https://github.com/psf/black.git#egg=black[jupyter]"
 
 ### Inject a package
 
-If an application installed by pipx requires additional packages, you can add them with pipx inject. For example, if you have ```ipython``` installed and want to add the ```matplotlib``` package to it, you would use:
+If an application installed by pipx requires additional packages, you can add them with pipx inject. For example, if you have `ipython` installed and want to add the `matplotlib` package to it, you would use:
 
 ```
 pipx inject ipython matplotlib
@@ -294,6 +295,18 @@ pipx inject ipython matplotlib pandas
 # or:
 pipx inject ipython -r useful-packages.txt
 ```
+
+### Pin installed packages
+
+Use `pipx pin` when you need to hold an installation at its current version. Pinned packages are skipped by `pipx upgrade`, `pipx upgrade-all`, and `pipx reinstall`, so the environment keeps its existing app and dependency versions until you unpin it.
+
+- `pipx pin PACKAGE` pins the main package and any injected packages in that virtual environment.
+- `pipx pin PACKAGE --injected-only` leaves the main package upgradable but pins every injected package instead.
+- `pipx pin PACKAGE --skip PKG_A PKG_B` pins injected packages except the ones you list (the flag implies `--injected-only`).
+- `pipx unpin PACKAGE` re-enables upgrades for the package and anything that was pinned with it.
+- `pipx list --pinned` shows every pinned environment; add `--include-injected` to see pinned injected packages.
+
+pipx tracks the main package and any injected packages. It does not record individual transitive dependencies, so there is no way to pin a single dependency in isolation. Pinning the main package protects its dependency set because pipx skips running `pip install --upgrade` for that environment.
 
 ### Walkthrough: Running an Application in a Temporary Virtual Environment
 
@@ -370,8 +383,7 @@ usage: pipx run [-h] [--no-cache] [--pypackages] [--spec SPEC] [--verbose] [--py
 pipx run: error: ambiguous option: --py could match --pypackages, --python
 ```
 
-To prevent this put double dash `--` before APP. It will make pipx to forward the arguments to the right verbatim to the
-application:
+To prevent this, put double dash `--` before APP. It will make pipx forward the arguments to the application verbatim:
 
 ```
 > pipx run -- pycowsay --py

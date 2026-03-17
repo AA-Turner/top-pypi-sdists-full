@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-cachetools
-Version: 6.2.0.20251022
+Version: 6.2.0.20260317
 Summary: Typing stubs for cachetools
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.406
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`a205439338a4ad3debec1eeae7d300e3781c066d`](https://github.com/python/typeshed/commit/a205439338a4ad3debec1eeae7d300e3781c066d).
+[`143d22ce2bd8580a141083ac7930f3bdc707113d`](https://github.com/python/typeshed/commit/143d22ce2bd8580a141083ac7930f3bdc707113d).

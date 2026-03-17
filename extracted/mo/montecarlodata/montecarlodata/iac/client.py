@@ -29,6 +29,7 @@ class MonteCarloConfigTemplateClient:
         dry_run: bool = False,
         misconfigured_as_warning: bool = False,
         create_non_ingested_tables: bool = False,
+        sql_validation: bool = True,
     ) -> Optional[ConfigTemplateUpdateState]:
         response = self.apply_config_template_async(
             namespace=namespace,
@@ -37,6 +38,7 @@ class MonteCarloConfigTemplateClient:
             dry_run=dry_run,
             misconfigured_as_warning=misconfigured_as_warning,
             create_non_ingested_tables=create_non_ingested_tables,
+            sql_validation=sql_validation,
         )
 
         if response.errors:
@@ -71,6 +73,7 @@ class MonteCarloConfigTemplateClient:
         dry_run: bool = False,
         misconfigured_as_warning: bool = False,
         create_non_ingested_tables: bool = False,
+        sql_validation: bool = True,
     ) -> ConfigTemplateUpdateAsyncResponse:
         response = self._gql_wrapper.make_request_v2(
             query=CREATE_OR_UPDATE_MONTE_CARLO_CONFIG_TEMPLATE_ASYNC,
@@ -83,6 +86,7 @@ class MonteCarloConfigTemplateClient:
                 misconfiguredAsWarning=misconfigured_as_warning,
                 resource=resource,
                 createNonIngestedTables=create_non_ingested_tables,
+                sqlValidation=sql_validation,
             ),
         )
         assert response.data is not None

@@ -180,8 +180,10 @@ class TestOptimizer(unittest.TestCase):
                     )
                 if dialect:
                     func_kwargs["dialect"] = dialect
-                if canonicalize_table_aliases:
-                    func_kwargs["canonicalize_table_aliases"] = canonicalize_table_aliases
+                if canonicalize_table_aliases is not None:
+                    func_kwargs["canonicalize_table_aliases"] = string_to_bool(
+                        canonicalize_table_aliases
+                    )
 
                 future = pool.submit(parse_and_optimize, func, sql, dialect, **func_kwargs)
                 results[future] = (
@@ -204,7 +206,7 @@ class TestOptimizer(unittest.TestCase):
                 )
                 for expression in optimized.walk():
                     for arg_key, arg in expression.args.items():
-                        if isinstance(arg, exp.Expression):
+                        if isinstance(arg, exp.Expr):
                             self.assertEqual(arg_key, arg.arg_key)
                             self.assertIs(arg.parent, expression)
 
@@ -218,7 +220,7 @@ class TestOptimizer(unittest.TestCase):
 
     @patch("sqlglot.generator.logger")
     def test_optimize(self, logger):
-        self.assertEqual(optimizer.optimize("x = 1 + 1", identify=None).sql(), "x = 2")
+        self.assertEqual(optimizer.optimize("x = 1 + 1", identify=False).sql(), "x = 2")
 
         schema = {
             "x": {"a": "INT", "b": "INT"},
@@ -596,6 +598,16 @@ class TestOptimizer(unittest.TestCase):
                 dialect="bigquery",
             ).sql(dialect="bigquery"),
             "SELECT (SELECT `col_st`.`value` AS `value` FROM UNNEST(`b`.`col_st`) AS `col_st`) AS `vcol1` FROM `t` AS `b`",
+        )
+
+        # Schema-qualified table joined twice (once unaliased, once aliased) should resolve correctly
+        self.assertEqual(
+            optimizer.qualify.qualify(
+                parse_one(
+                    "SELECT 1 FROM dbo.a JOIN dbo.b ON dbo.b.id = dbo.a.id JOIN dbo.b AS x ON x.id = dbo.a.id"
+                ),
+            ).sql(),
+            'SELECT 1 AS "1" FROM "dbo"."a" AS "a" JOIN "dbo"."b" AS "b" ON "b"."id" = "a"."id" JOIN "dbo"."b" AS "x" ON "x"."id" = "a"."id"',
         )
 
     def test_validate_columns(self):
@@ -1936,7 +1948,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             self.assertIsInstance(optimizer.simplify.gen(func()), str)
 
     def test_normalization_distance(self):
-        def gen_expr(depth: int) -> exp.Expression:
+        def gen_expr(depth: int) -> exp.Expr:
             return parse_one(" OR ".join("a AND b" for _ in range(depth)))
 
         self.assertEqual(4, normalization_distance(gen_expr(2), max_=100))
@@ -1963,7 +1975,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         dialect = "bigquery"
         schema = {"d": {"s": {"t": {"c1": "int64", "c2": "struct<f1 int64, f2 string>"}}}}
 
-        def _annotate(query: str) -> exp.Expression:
+        def _annotate(query: str) -> exp.Expr:
             expression = parse_one(query, dialect=dialect)
             qual = optimizer.qualify.qualify(expression, schema=schema, dialect=dialect)
             return optimizer.annotate_types.annotate_types(qual, schema=schema, dialect=dialect)
@@ -2182,7 +2194,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             }
         }
 
-        def _parse_and_optimize(query: str, dialect: str) -> exp.Expression:
+        def _parse_and_optimize(query: str, dialect: str) -> exp.Expr:
             query = parse_one(query, dialect=dialect)
             optimized = optimizer.optimize(query, schema=schema, dialect=dialect)
             return optimized.sql(dialect=dialect)

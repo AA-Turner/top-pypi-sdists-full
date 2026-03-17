@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-kafka-schemas
-Version: 2.1.25
+Version: 2.1.26
 Summary: Kafka topics and schemas for Sentry
 Home-page: https://github.com/getsentry/sentry-kafka-schemas
 Author: Sentry
@@ -11,7 +11,7 @@ Requires-Dist: PyYAML<7.0,>=5.4
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: fastjsonschema>=2.16.2
 Requires-Dist: msgpack>=1.0.4
-Requires-Dist: sentry-protos>=0.2.0
+Requires-Dist: sentry-protos>=0.8.4
 Dynamic: author
 Dynamic: author-email
 Dynamic: home-page

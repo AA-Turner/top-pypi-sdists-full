@@ -1,4 +1,4 @@
-from typing import TypedDict, Dict, Required, List, Any, Union
+from typing import Required, Any, TypedDict, List, Union, Dict
 
 
 class _Root(TypedDict, total=False):

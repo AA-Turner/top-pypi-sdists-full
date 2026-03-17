@@ -78,6 +78,7 @@ class ApiKeyScopeResource(str, Enum):
     COUPON = "COUPON"
     CUSTOMER = "CUSTOMER"
     ENVIRONMENT = "ENVIRONMENT"
+    EVENT_QUEUE = "EVENT_QUEUE"
     SUBSCRIPTION = "SUBSCRIPTION"
 
 

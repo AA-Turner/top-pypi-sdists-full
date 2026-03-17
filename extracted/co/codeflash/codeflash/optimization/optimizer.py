@@ -42,8 +42,8 @@ if TYPE_CHECKING:
     from codeflash.code_utils.checkpoint import CodeflashRunCheckpoint
     from codeflash.discovery.functions_to_optimize import FunctionToOptimize
     from codeflash.languages.base import DependencyResolver
+    from codeflash.languages.function_optimizer import FunctionOptimizer
     from codeflash.models.models import BenchmarkKey, FunctionCalledInTest, ValidCode
-    from codeflash.optimization.function_optimizer import FunctionOptimizer
 
 
 class Optimizer:
@@ -630,7 +630,9 @@ class Optimizer:
             # Python patterns
             r"test.*__perf_test_\d?\.py|test_.*__unit_test_\d?\.py|test_.*__perfinstrumented\.py|test_.*__perfonlyinstrumented\.py|"
             # JavaScript/TypeScript patterns (new naming with .test/.spec preserved)
-            r".*__perfinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)|.*__perfonlyinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)"
+            r".*__perfinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)|.*__perfonlyinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)|"
+            # Java patterns
+            r".*__perfinstrumented(?:_\d+)?\.java|.*__perfonlyinstrumented(?:_\d+)?\.java"
             r")$"
         )
 

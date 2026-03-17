@@ -442,6 +442,17 @@ class TenK(CompanyReport):
                     if text and text.strip():
                         return text
 
+                # PRIORITY 1.5: Try combined-items keys (e.g., "Items 1 and 2. Business and Properties")
+                # Some filings (energy, MLP, REIT) combine items under a single heading.
+                # Match whether the item is the first or second number: items_1_and_2 or items_2_and_3
+                inum = re.escape(item_num)
+                combined_pattern = re.compile(rf'part_[iv]+_items_(?:{inum}_and_\d+|\d+_and_{inum})')
+                for key in self.sections:
+                    if combined_pattern.match(key):
+                        text = self.sections[key].text()
+                        if text and text.strip():
+                            return text
+
             # PRIORITY 2: Direct key lookup (e.g., 'Item 1', 'business' if pattern-based)
             if item_or_part in self.sections:
                 return self.sections[item_or_part].text()

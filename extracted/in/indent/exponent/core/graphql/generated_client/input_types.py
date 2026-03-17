@@ -17,6 +17,23 @@ from .enums import (
 )
 
 
+class AcceptPlanInput(BaseModel):
+    tool_use_id: str = Field(alias="toolUseId")
+    clear_context: bool = Field(alias="clearContext")
+
+
+class AskUserQuestionAnswerInput(BaseModel):
+    question: str
+    selected_options: list[str] = Field(alias="selectedOptions")
+    custom_answer: Optional[str] = Field(alias="customAnswer", default=None)
+
+
+class AskUserQuestionInput(BaseModel):
+    answers: list["AskUserQuestionAnswerInput"]
+    skip: bool = False
+    tool_use_id: Optional[str] = Field(alias="toolUseId", default=None)
+
+
 class AttachmentInput(BaseModel):
     file_attachment: Optional["FileAttachmentInput"] = Field(
         alias="fileAttachment", default=None
@@ -44,24 +61,34 @@ class ChatConfigInput(BaseModel):
     require_confirmation: Optional[bool] = Field(
         alias="requireConfirmation", default=False
     )
-    read_only: Optional[bool] = Field(alias="readOnly", default=False)
     depth_limit: int = Field(alias="depthLimit", default=6)
     reasoning_level: ReasoningLevel = Field(
-        alias="reasoningLevel", default=ReasoningLevel.LOW
+        alias="reasoningLevel", default=ReasoningLevel.MEDIUM
     )
     internal_settings: Optional[Any] = Field(alias="internalSettings", default=None)
 
 
 class ChatInput(BaseModel):
-    prompt: Optional["PromptInput"] = None
     prompt_input: Optional["PromptInput"] = Field(alias="promptInput", default=None)
     client_sourced_event_uuid: Optional[UUID] = Field(
         alias="clientSourcedEventUuid", default=None
     )
-    permission_status: Optional[ToolPermissionStatus] = Field(
-        alias="permissionStatus", default=None
+    permission_response: Optional["PermissionResponseInput"] = Field(
+        alias="permissionResponse", default=None
     )
-    planning_required: Optional[bool] = Field(alias="planningRequired", default=None)
+    accept_plan_input: Optional["AcceptPlanInput"] = Field(
+        alias="acceptPlanInput", default=None
+    )
+    enter_plan_mode: Optional[bool] = Field(alias="enterPlanMode", default=None)
+    exit_plan_mode_without_plan: Optional[bool] = Field(
+        alias="exitPlanModeWithoutPlan", default=None
+    )
+    environment_variable_response: Optional["EnvironmentVariableResponseInput"] = Field(
+        alias="environmentVariableResponse", default=None
+    )
+    ask_user_question: Optional["AskUserQuestionInput"] = Field(
+        alias="askUserQuestion", default=None
+    )
     timezone: Optional[str] = None
     mcp_server_configs: Optional["McpServerConfigsInput"] = Field(
         alias="mcpServerConfigs", default=None
@@ -69,15 +96,29 @@ class ChatInput(BaseModel):
     database_resource_configs: Optional[list["DatabaseResourceConfigInput"]] = Field(
         alias="databaseResourceConfigs", default=None
     )
-    repository_resource_config: Optional["RepositoryResourceConfigInput"] = Field(
-        alias="repositoryResourceConfig", default=None
+    repository_resource_configs: Optional[list["RepositoryResourceConfigInput"]] = (
+        Field(alias="repositoryResourceConfigs", default=None)
+    )
+    include_datadog_tools: Optional[bool] = Field(
+        alias="includeDatadogTools", default=None
+    )
+    include_sentry_tools: Optional[bool] = Field(
+        alias="includeSentryTools", default=None
+    )
+    enabled_skill_ids: Optional[list[str]] = Field(
+        alias="enabledSkillIds", default=None
     )
 
 
 class ChatResourceConfigInput(BaseModel):
     mode: ChatMode
-    repositories: Optional[list["RepositoryResourceConfigInput"]] = None
-    databases: Optional[list["DatabaseResourceConfigInput"]] = None
+    primary_repository: Optional["RepositoryResourceConfigInput"] = Field(
+        alias="primaryRepository", default=None
+    )
+    additional_repositories: Optional[list["RepositoryResourceConfigInput"]] = Field(
+        alias="additionalRepositories", default=None
+    )
+    database: Optional["DatabaseResourceConfigInput"] = None
     mcp_server_configs: Optional["McpServerConfigsInput"] = Field(
         alias="mcpServerConfigs", default=None
     )
@@ -94,6 +135,17 @@ class ChatResourceConfigInput(BaseModel):
 
 class DatabaseResourceConfigInput(BaseModel):
     database_config_uuid: UUID = Field(alias="databaseConfigUuid")
+
+
+class EnvironmentVariableResponseEntry(BaseModel):
+    key: str
+    value: str
+
+
+class EnvironmentVariableResponseInput(BaseModel):
+    variables: list["EnvironmentVariableResponseEntry"]
+    tool_use_id: str = Field(alias="toolUseId")
+    skipped_keys: list[str] = Field(alias="skippedKeys", default_factory=lambda: [])
 
 
 class FileAttachmentInput(BaseModel):
@@ -118,6 +170,11 @@ class McpServerConfigsInput(BaseModel):
     )
 
 
+class PermissionResponseInput(BaseModel):
+    permission_status: ToolPermissionStatus = Field(alias="permissionStatus")
+    tool_use_id: str = Field(alias="toolUseId")
+
+
 class PromptAttachmentInput(BaseModel):
     prompt_name: str = Field(alias="promptName")
     prompt_content: str = Field(alias="promptContent")
@@ -135,7 +192,6 @@ class RepositoryInput(BaseModel):
 
 class RepositoryResourceConfigInput(BaseModel):
     repository_uuid: UUID = Field(alias="repositoryUuid")
-    is_primary: bool = Field(alias="isPrimary", default=False)
 
 
 class SQLAttachmentInput(BaseModel):
@@ -164,9 +220,11 @@ class URLAttachmentInput(BaseModel):
     content: str
 
 
+AskUserQuestionInput.model_rebuild()
 AttachmentInput.model_rebuild()
 ChatInput.model_rebuild()
 ChatResourceConfigInput.model_rebuild()
+EnvironmentVariableResponseInput.model_rebuild()
 FileAttachmentInput.model_rebuild()
 McpServerConfigsInput.model_rebuild()
 PromptInput.model_rebuild()

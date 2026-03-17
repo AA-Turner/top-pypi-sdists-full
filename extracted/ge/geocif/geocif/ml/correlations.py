@@ -264,7 +264,7 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
         ax_empty.axis("off")
 
     # Style the heatmap
-    cbar_ax.set_title("Correlation Coefficient", loc="left", size="small")
+    cbar_ax.set_title("Concordance Correlation Coefficient", loc="left", size="small")
     ax_heatmap.set_xticklabels(
         ax_heatmap.get_xticklabels(), size="x-small", rotation=0, fontsize=5
     )

@@ -16,14 +16,21 @@ class ImBuf:
     channels: int
     """ Number of color channels."""
 
-    filepath: str
+    compress: int
+    """ Compression level for formats that support lossless compression levels (0 - 100, clamped)."""
+
+    filepath: bytes | str
     """ Filepath associated with this image."""
 
     planes: int
-    """ Number of bits per pixel."""
+    """ Number of bits per pixel for the byte buffer.
+Used when reading and writing image files."""
 
     ppm: tuple[float, float]
     """ Pixels per meter."""
+
+    quality: int
+    """ Quality for formats that support lossy compression (0 - 100, clamped)."""
 
     size: tuple[int, int]
     """ Size of the image in pixels."""

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Tests suite for channel."""
 
 import gc
@@ -78,8 +76,8 @@ def exec_second_command(ssh_channel):
     """Check the standard output of ``exec_command()`` as a string."""
     u_cmd = ssh_channel.exec_command('echo -n Hello Again')
     assert u_cmd.returncode == 0
-    assert u_cmd.stderr.decode() == ''  # noqa: WPS302
-    assert u_cmd.stdout.decode() == u'Hello Again'  # noqa: WPS302
+    assert u_cmd.stderr.decode() == ''
+    assert u_cmd.stdout.decode() == 'Hello Again'
 
 
 def test_exec_command(ssh_channel):
@@ -87,7 +85,7 @@ def test_exec_command(ssh_channel):
     u_cmd = ssh_channel.exec_command('echo -n Hello World')
     assert u_cmd.returncode == 0
     assert u_cmd.stderr.decode() == ''
-    assert u_cmd.stdout.decode() == u'Hello World'  # noqa: WPS302
+    assert u_cmd.stdout.decode() == 'Hello World'
     # Test that repeated calls to exec_command do not segfault.
 
     # NOTE: Call `exec_command()` once again from another function to
@@ -102,7 +100,7 @@ def test_exec_command_stderr(ssh_channel):
     """Test getting the stderr of a remotely executed command."""
     u_cmd = ssh_channel.exec_command('echo -n Hello World 1>&2')
     assert u_cmd.returncode == 0
-    assert u_cmd.stderr.decode() == u'Hello World'  # noqa: WPS302
+    assert u_cmd.stderr.decode() == 'Hello World'
     assert u_cmd.stdout.decode() == ''
 
 
@@ -131,7 +129,7 @@ def test_read_bulk_response(ssh_client_session):
         if timeout == COMMAND_TIMEOUT:
             break
 
-    assert b'Hello World' in response  # noqa: WPS302
+    assert b'Hello World' in response
 
 
 def test_request_exec(ssh_channel):
@@ -159,7 +157,9 @@ def test_send_eof(ssh_channel):
 
 def test_send_signal(ssh_channel):
     """Test send_signal correctly forwards signal to the process."""
-    ssh_channel.request_exec('bash -c \'trap "exit 1" SIGUSR1; echo ready; sleep 5; exit 0\'')
+    ssh_channel.request_exec(
+        'bash -c \'trap "exit 1" SIGUSR1; echo ready; sleep 5; exit 0\'',
+    )
 
     # Wait until the process is ready to receive signal
     output = ''
@@ -203,6 +203,7 @@ def test_destructor(ssh_session_connect):
 
     Test that this event does not cause a segfault in channels destructor.
     """
+
     def _do_not_crash():  # noqa: WPS430  # required to create a garbage-collection scope
         ssh_session = Session()
         ssh_session_connect(ssh_session)
@@ -211,7 +212,7 @@ def test_destructor(ssh_session_connect):
     # Without fix, garbage collector first deletes session and we segfault
     # in channel destructor when trying to access low-level C session object.
     gc.disable()
-    try:  # noqa: WPS229, WPS501  # we need to reenable gc if anything happens
+    try:  # noqa: WPS229, WPS501  # we need to re-enable gc if anything happens
         gc.collect()
         _do_not_crash()
         gc.collect(0)  # the test will segfault without the fix

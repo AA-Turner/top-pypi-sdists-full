@@ -33,10 +33,13 @@ def load_from_buffer(buffer) -> imbuf.types.ImBuf:
     :return: The newly loaded image.
     """
 
-def new(size: tuple[int, int]) -> imbuf.types.ImBuf:
+def new(
+    size: tuple[int, int], *, planes: typing.Literal[8, 16, 24, 32] = 32
+) -> imbuf.types.ImBuf:
     """Create a new image.
 
     :param size: The size of the image in pixels.
+    :param planes: Number of bits per pixel.
     :return: The newly created image.
     """
 
@@ -47,4 +50,11 @@ def write(
 
     :param image: The image to write.
     :param filepath: Optional filepath of the image (fallback to the images file path).
+    """
+
+def write_to_buffer(image: imbuf.types.ImBuf, file) -> None:
+    """Write an image to a file-like object.
+
+    :param image: The image to write.
+    :param file: A writable file-like object (e.g. `io.BytesIO`).
     """

@@ -10,7 +10,6 @@ import { div, button } from "@bokehjs/core/dom";
 import { ModelEvent, server_event } from "@bokehjs/core/bokeh_events";
 import { UIElementView } from "@bokehjs/models/ui/ui_element";
 import { isNumber } from "@bokehjs/core/util/types";
-import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import modal_css from "../styles/models/modal.css";
 let ModalDialogEvent = class ModalDialogEvent extends ModelEvent {
     static { ModalDialogEvent_1 = this; }
@@ -40,6 +39,7 @@ export class ModalView extends BkColumnView {
     static __name__ = "ModalView";
     modal;
     close_button;
+    content;
     connect_signals() {
         super.connect_signals();
         const { show_close_button } = this.model.properties;
@@ -56,8 +56,12 @@ export class ModalView extends BkColumnView {
     stylesheets() {
         return [...super.stylesheets(), modal_css];
     }
-    async update_children() {
-        await LayoutDOMView.prototype.update_children.call(this);
+    // Route child views into the dialog content container instead of
+    // shadow_el. The inherited update_children() matching optimization
+    // scans shadow_el.children so it won't find existing modal children,
+    // but this is harmless for the small number of children a modal holds.
+    get self_target() {
+        return this.content ?? this.shadow_el;
     }
     create_modal() {
         const dialog = div({
@@ -84,8 +88,9 @@ export class ModalView extends BkColumnView {
                 overflow: "auto",
             },
         });
+        this.content = content;
         for (const child_view of this.child_views) {
-            const target = child_view.rendering_target() ?? content;
+            const target = child_view.rendering_target() ?? this.content;
             child_view.render_to(target);
         }
         this.close_button = button({

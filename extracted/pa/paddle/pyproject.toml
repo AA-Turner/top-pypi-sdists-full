@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paddle"
-version = "1.2.14"
+version = "1.3.0"
 description = "Python Atmospheric Dynamics: Discovery and Learning about Exoplanets. An open-source, user-friendly python frontend of canoe"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -50,3 +50,6 @@ Issues = "https://github.com/elijah-mullens/paddle/issues"
 [project.scripts]
 paddle = "paddle.__main__:main"
 paddle-cs-remap = "paddle.cubed_sphere_remap:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

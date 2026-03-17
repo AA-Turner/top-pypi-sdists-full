@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate-language-data
-Version: 2026.3
+Version: 2026.6
 Summary: Language definitions for Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -18,30 +18,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Provides-Extra: dev
-Requires-Dist: translate-toolkit==3.19.0; extra == "dev"
-Requires-Dist: weblate-language-data[lint,test,types]; extra == "dev"
 Provides-Extra: django
 Requires-Dist: Django; extra == "django"
-Provides-Extra: lint
-Requires-Dist: prek==0.3.3; extra == "lint"
-Provides-Extra: test
-Provides-Extra: types
-Requires-Dist: django-stubs==5.2.9; extra == "types"
-Requires-Dist: mypy==1.19.1; extra == "types"
 Dynamic: license-file
 
 .. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png

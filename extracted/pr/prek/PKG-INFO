@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.3.5
+Version: 0.3.6
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -22,14 +22,12 @@ Project-URL: Repository, https://github.com/j178/prek
 
 <div align="center">
 
-<h1>
-  <img width="180" alt="prek" src="https://raw.githubusercontent.com/j178/prek/master/docs/assets/logo.webp" />
-  <br/>prek
-</h1>
+<img width="180" alt="prek" src="https://raw.githubusercontent.com/j178/prek/master/docs/assets/logo.webp" />
+<h1>prek</h1>
 
 [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
+[![PyPI version](https://img.shields.io/pypi/v/prek.svg)](https://pypi.python.org/pypi/prek)
 [![codecov](https://codecov.io/github/j178/prek/graph/badge.svg?token=MP6TY24F43)](https://codecov.io/github/j178/prek)
-[![GitHub Downloads](https://img.shields.io/github/downloads/j178/prek/total?logo=github)](https://github.com/j178/prek/releases)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/prek?logo=python)](https://pepy.tech/projects/prek)
 [![Discord](https://img.shields.io/discord/1403581202102878289?logo=discord)](https://discord.gg/3NRJUqJz86)
 
@@ -85,7 +83,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.5/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.6/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -95,7 +93,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.5/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.6/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -352,7 +350,7 @@ prek self update
 ## Quick start
 
 - **I already use pre-commit:** follow the short migration checklist in the [quickstart guide](https://prek.j178.dev/quickstart/#already-using-pre-commit) to swap in `prek` safely.
-- **I'm new to pre-commit-style tools:** learn the basics—creating a config, running hooks, and installing git hooks—in the [beginner quickstart walkthrough](https://prek.j178.dev/quickstart/#new-to-pre-commit-style-workflows).
+- **I'm new to pre-commit-style tools:** learn the basics—creating a config, running hooks, and installing Git shims—in the [beginner quickstart walkthrough](https://prek.j178.dev/quickstart/#new-to-pre-commit-style-workflows).
 
 <!-- --8<-- [start: why] -->
 
@@ -397,6 +395,7 @@ prek is pretty new, but it is already being used or recommend by some projects a
 - [astral-sh/ty](https://github.com/astral-sh/ty/pull/2469)
 - [openclaw/openclaw](https://github.com/openclaw/openclaw/pull/1720)
 - [home-assistant/core](https://github.com/home-assistant/core/pull/160427)
+- [python-telegram-bot/python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot/pull/5142)
 - [DetachHead/basedpyright](https://github.com/DetachHead/basedpyright/pull/1413)
 - [OpenLineage/OpenLineage](https://github.com/OpenLineage/OpenLineage/pull/3965)
 - [authlib/authlib](https://github.com/authlib/authlib/pull/804)

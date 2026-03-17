@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-fsm-2
-Version: 4.2.3
+Version: 4.2.4
 Summary: Django friendly finite state machine support.
 Project-URL: Homepage, http://github.com/django-commons/django-fsm-2
 Project-URL: Repository, http://github.com/django-commons/django-fsm-2
@@ -231,8 +231,8 @@ model.refresh_from_db()  # Works
 `source` accepts a list of states, a single state, or a `django_fsm.State`
 implementation.
 
-- `source='*'` allows switching to `target` from any state.
-- `source='+'` allows switching to `target` from any state except `target`.
+- `source="*"` allows switching to `target` from any state (accessible as ANY_STATE constant).
+- `source="+"` allows switching to `target` from any state except `target`(accessible as ANY_OTHER_STATE constant).
 
 `target` can be a specific state or a `django_fsm.State` implementation.
 

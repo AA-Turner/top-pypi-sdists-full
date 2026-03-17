@@ -1,11 +1,12 @@
-# -*- coding: utf-8 -*-
-
 """Tests for the version info representation."""
 
 import pytest
 
 from pylibsshext import (
-    __full_version__, __libssh_version__, __version__, __version_info__,
+    __full_version__,
+    __libssh_version__,
+    __version__,
+    __version_info__,
 )
 
 
@@ -21,10 +22,7 @@ def test_dunder_version_info():
     """Check that the version info tuple looks legitimate."""
     assert isinstance(__version_info__, tuple)
     assert len(__version_info__) >= 3
-    assert all(
-        isinstance(digit, int)
-        for digit in __version_info__[:2]
-    )
+    assert all(isinstance(digit, int) for digit in __version_info__[:2])
 
 
 def test_dunder_full_version():

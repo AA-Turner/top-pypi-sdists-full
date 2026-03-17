@@ -1,5 +1,7 @@
 """Tests for LLMObs evaluator classes."""
 
+import asyncio
+
 import pytest
 
 from ddtrace.llmobs._experiment import BaseEvaluator
@@ -100,15 +102,24 @@ class TestBaseEvaluator:
         result = evaluator.evaluate(ctx)
         assert result == {"passed": True, "score": 1.0}
 
+    def test_evaluator_build_publish_payload_not_implemented(self):
+        evaluator = SimpleEvaluator()
+        with pytest.raises(NotImplementedError, match="publishing"):
+            evaluator._build_publish_payload(ml_app="my-app")
+
     def test_evaluator_name_validation_invalid_characters(self):
         """Test that names with invalid characters are rejected."""
         with pytest.raises(ValueError, match="Evaluator name .* is invalid"):
-            SimpleEvaluator(name="my-evaluator")
+            SimpleEvaluator(name="my evaluator")
+        with pytest.raises(ValueError, match="Evaluator name .* is invalid"):
+            SimpleEvaluator(name="eval!name")
 
     def test_evaluator_name_validation_valid_characters(self):
-        """Test that valid names are accepted."""
+        """Test that valid names are accepted, including hyphens."""
         evaluator = SimpleEvaluator(name="my_evaluator_123")
         assert evaluator.name == "my_evaluator_123"
+        evaluator_hyphen = SimpleEvaluator(name="my-evaluator")
+        assert evaluator_hyphen.name == "my-evaluator"
 
     def test_evaluator_primitive_return_type(self):
         """Test that evaluators can return primitive types like function-based evaluators."""
@@ -179,8 +190,8 @@ class TestEvaluatorIntegration:
         exp = llmobs.experiment("test_experiment", dummy_task, dataset, [evaluator])
 
         run_info = _ExperimentRunInfo(0)
-        task_results = exp._run_task(1, run=run_info, raise_errors=False)
-        eval_results = exp._run_evaluators(task_results, raise_errors=False)
+        task_results = asyncio.run(exp._experiment._run_task(1, run=run_info, raise_errors=False))
+        eval_results = asyncio.run(exp._experiment._run_evaluators(task_results, raise_errors=False))
 
         assert len(eval_results) == 1
         assert "SimpleEvaluator" in eval_results[0]["evaluations"]
@@ -224,8 +235,8 @@ class TestEvaluatorIntegration:
         )
 
         run_info = _ExperimentRunInfo(0)
-        task_results = exp._run_task(1, run=run_info, raise_errors=False)
-        eval_results = exp._run_evaluators(task_results, raise_errors=False)
+        task_results = asyncio.run(exp._experiment._run_task(1, run=run_info, raise_errors=False))
+        eval_results = asyncio.run(exp._experiment._run_evaluators(task_results, raise_errors=False))
 
         assert len(eval_results) == 1
         evaluations = eval_results[0]["evaluations"]
@@ -278,9 +289,11 @@ class TestSummaryEvaluatorIntegration:
         )
 
         run_info = _ExperimentRunInfo(0)
-        task_results = exp._run_task(1, run=run_info, raise_errors=False)
-        eval_results = exp._run_evaluators(task_results, raise_errors=False)
-        summary_results = exp._run_summary_evaluators(task_results, eval_results, raise_errors=False)
+        task_results = asyncio.run(exp._experiment._run_task(1, run=run_info, raise_errors=False))
+        eval_results = asyncio.run(exp._experiment._run_evaluators(task_results, raise_errors=False))
+        summary_results = asyncio.run(
+            exp._experiment._run_summary_evaluators(task_results, eval_results, raise_errors=False)
+        )
 
         assert "SimpleSummaryEvaluator" in summary_results[0]["evaluations"]
         assert summary_results[0]["evaluations"]["SimpleSummaryEvaluator"]["value"] == 2

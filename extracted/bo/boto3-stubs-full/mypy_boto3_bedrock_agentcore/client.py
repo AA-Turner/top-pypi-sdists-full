@@ -70,6 +70,8 @@ from .type_defs import (
     GetWorkloadAccessTokenForUserIdResponseTypeDef,
     GetWorkloadAccessTokenRequestTypeDef,
     GetWorkloadAccessTokenResponseTypeDef,
+    InvokeAgentRuntimeCommandRequestTypeDef,
+    InvokeAgentRuntimeCommandResponseTypeDef,
     InvokeAgentRuntimeRequestTypeDef,
     InvokeAgentRuntimeResponseTypeDef,
     InvokeCodeInterpreterRequestTypeDef,
@@ -360,6 +362,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_agent_runtime.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_agent_runtime)
+        """
+
+    def invoke_agent_runtime_command(
+        self, **kwargs: Unpack[InvokeAgentRuntimeCommandRequestTypeDef]
+    ) -> InvokeAgentRuntimeCommandResponseTypeDef:
+        """
+        Executes a command in a runtime session container.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_agent_runtime_command.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_agent_runtime_command)
         """
 
     def invoke_code_interpreter(
