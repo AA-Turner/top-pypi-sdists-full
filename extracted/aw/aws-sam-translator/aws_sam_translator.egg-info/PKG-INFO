@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-translator
-Version: 1.107.0
+Version: 1.108.0
 Summary: AWS SAM Translator is a library that transform SAM templates into AWS CloudFormation templates
 Home-page: https://github.com/awslabs/serverless-application-model
 Author: Amazon Web Services
@@ -52,6 +52,7 @@ Requires-Dist: mypy~=1.10.1; extra == "dev"
 Requires-Dist: boto3-stubs[appconfig,serverlessrepo]<2.0.0,>=1.34.0; extra == "dev"
 Requires-Dist: types-PyYAML~=6.0; extra == "dev"
 Requires-Dist: types-jsonschema~=3.2; extra == "dev"
+Requires-Dist: types-requests~=2.28; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

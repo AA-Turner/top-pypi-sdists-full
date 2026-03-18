@@ -1979,6 +1979,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
 
+        if matches!(
+            field_definition,
+            ClassFieldDefinition::DefinedInMethod { .. }
+        ) && name != &dunder::SLOTS
+            && let Some(allowed_slots) = self.effective_slots_for_instance_write(class)
+            && !allowed_slots.contains::<Name>(name)
+        {
+            let class_name = class.name();
+            self.error(
+                errors,
+                range,
+                ErrorInfo::new(
+                    ErrorKind::MissingAttribute,
+                    None::<&dyn Fn() -> ErrorContext>,
+                ),
+                format!(
+                    "Object of class `{class_name}` has no attribute `{name}` \
+                     (not declared in `__slots__`)"
+                ),
+            );
+        }
+
         class_field
     }
 
@@ -2096,9 +2118,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             return Some(ReadOnlyReason::NamedTuple);
         }
+        // ClassVars in dataclasses are class attributes rather than frozen instance fields.
+        let is_classvar = annotation.is_some_and(|ann| ann.has_qualifier(&Qualifier::ClassVar));
         // Frozen dataclass fields (not methods) are read-only
         if let Some(dm) = metadata.dataclass_metadata()
             && dm.kws.frozen
+            && !is_classvar
             && dm.fields.contains(name)
         {
             let reason = if metadata.is_pydantic_model() {
@@ -2996,7 +3021,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
-        let range = if let Some(range) = cls.field_decl_range(field_name) {
+        let Some(cls_fields) = self.get_class_fields(cls) else {
+            return;
+        };
+        let range = if let Some(range) = cls_fields.field_decl_range(field_name) {
             range
         } else {
             return;
@@ -3289,24 +3317,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             read_only: bool,
         }
 
-        let current_class_fields: SmallSet<_> = cls.fields().collect();
+        let current_class_fields = self.get_class_fields(cls);
         let current_class_metadata = self.get_metadata_for_class(cls);
         let current_class_bases = self.get_base_types_for_class(cls);
         let swallow_access_errors = self.error_swallower();
-        let mut inherited_fields: SmallMap<&Name, Vec<InheritedFieldInfo>> = SmallMap::new();
+        let mut inherited_fields: SmallMap<Name, Vec<InheritedFieldInfo>> = SmallMap::new();
 
         for parent_class in current_class_bases.iter() {
             let parent_class_object = parent_class.class_object();
-            let parent_class_fields = parent_class_object.fields();
+            let Some(parent_class_fields) = self.get_class_fields(parent_class_object) else {
+                continue;
+            };
             let parent_metadata = self.get_metadata_for_class(parent_class_object);
-            for parent_field_name in parent_class_fields {
+            for parent_field_name in parent_class_fields.names() {
                 if !self.should_check_field_for_override_consistency(
                     parent_field_name,
                     &current_class_metadata,
                 ) {
                     continue;
                 }
-                if current_class_fields.contains(parent_field_name) {
+                if current_class_fields.is_some_and(|f| f.contains(parent_field_name)) {
                     continue;
                 }
                 if let Some(parent_field_arc) =
@@ -3334,15 +3364,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if ty.is_error() {
                         continue;
                     }
-                    inherited_fields.entry(parent_field_name).or_default().push(
-                        InheritedFieldInfo {
+                    inherited_fields
+                        .entry(parent_field_name.clone())
+                        .or_default()
+                        .push(InheritedFieldInfo {
                             class: parent_class_object.dupe(),
                             metadata: parent_metadata.clone(),
                             field: parent_field,
                             ty,
                             read_only,
-                        },
-                    );
+                        });
                 }
             }
         }
@@ -3445,7 +3476,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<Arc<ClassField>> {
-        if cls.contains(name)
+        if self.get_class_fields(cls).is_some_and(|f| f.contains(name))
             && let Some(field) = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()))
         {
             Some(field)
@@ -3822,7 +3853,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         member: &WithDefiningClass<Arc<ClassField>>,
     ) -> Option<NoAccessReason> {
-        if member.value.is_abstract() {
+        let lacks_runtime_impl = member
+            .value
+            .ty()
+            .visit_toplevel_func_metadata::<bool>(&|meta| {
+                meta.flags.lacks_runtime_implementation()
+            });
+        if member.value.is_abstract() && lacks_runtime_impl {
             return Some(NoAccessReason::SuperMethodNeedsImplementation(
                 member.defining_class.dupe(),
             ));
@@ -4463,27 +4500,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// Return `__call__` as a bound method if instances of `cls` have `__call__`.
     /// This is what the runtime automatically does when we try to call an instance.
+    ///
+    /// For nn.Module subclasses, falls back to the `forward` method, since
+    /// PyTorch's `nn.Module.__call__` delegates to `forward` at runtime.
     pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
-        let attr = self.get_instance_attribute(cls, &dunder::CALL)?;
-        self.resolve_dunder_call_attr(attr)
+        if let Some(attr) = self.get_instance_attribute(cls, &dunder::CALL) {
+            return self.resolve_dunder_call_attr(attr);
+        }
+        // nn.Module subclasses: __call__ delegates to forward at runtime.
+        if self.is_nn_module_subclass(cls) {
+            let forward_name = Name::new("forward");
+            let attr = self.get_instance_attribute(cls, &forward_name)?;
+            return self.resolve_dunder_call_attr(attr);
+        }
+        None
     }
 
     /// Return `__call__` as bound method when called on `Self`.
+    ///
+    /// For nn.Module subclasses, falls back to the `forward` method.
     pub fn self_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
-        let attr = self.get_self_attribute(cls, &dunder::CALL)?;
-        self.resolve_dunder_call_attr(attr)
+        if let Some(attr) = self.get_self_attribute(cls, &dunder::CALL) {
+            return self.resolve_dunder_call_attr(attr);
+        }
+        // nn.Module subclasses: fall back to forward.
+        if self.is_nn_module_subclass(cls) {
+            let forward_name = Name::new("forward");
+            let attr = self.get_self_attribute(cls, &forward_name)?;
+            return self.resolve_dunder_call_attr(attr);
+        }
+        None
     }
 
     /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
     /// We look up `__call__` from the upper bound of `type_var`, but `Self` is substituted with
     /// the `type_var` instead of the upper bound class.
+    ///
+    /// For nn.Module subclasses, falls back to the `forward` method.
     pub fn quantified_instance_as_dunder_call(
         &self,
         quantified: Quantified,
         upper_bound: &ClassType,
     ) -> Option<Type> {
-        let attr = self.get_bounded_quantified_attribute(quantified, upper_bound, &dunder::CALL)?;
-        self.resolve_dunder_call_attr(attr)
+        if let Some(attr) =
+            self.get_bounded_quantified_attribute(quantified.clone(), upper_bound, &dunder::CALL)
+        {
+            return self.resolve_dunder_call_attr(attr);
+        }
+        // nn.Module subclasses: fall back to forward.
+        if self.is_nn_module_subclass(upper_bound) {
+            let forward_name = Name::new("forward");
+            let attr =
+                self.get_bounded_quantified_attribute(quantified, upper_bound, &forward_name)?;
+            return self.resolve_dunder_call_attr(attr);
+        }
+        None
     }
 
     fn callable_params_and_flags(mut ty: Type) -> Option<(ParamList, FuncFlags)> {

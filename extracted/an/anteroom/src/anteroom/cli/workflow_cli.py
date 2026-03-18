@@ -45,36 +45,11 @@ def _format_duration(seconds: int) -> str:
 def _resolve_workflow_path(workflow_id: str) -> Path | None:
     """Resolve a workflow definition by ID or path.
 
-    Search order:
-    1. Exact filesystem path (if it exists and ends in .yaml/.yml)
-    2. Package examples: workflows/examples/ inside the installed package
-    3. Source-tree examples: examples/workflows/ (for development)
-    4. Built-in workflows: workflows/ inside the package
+    Delegates to the shared resolution module.
     """
-    # Direct path
-    candidate = Path(workflow_id)
-    if candidate.exists() and candidate.suffix in (".yaml", ".yml"):
-        return candidate
+    from ..services.workflow_resolution import resolve_workflow_path
 
-    # Package-shipped examples (works in installed packages)
-    pkg_examples_dir = Path(__file__).parent.parent / "workflows" / "examples"
-    pkg_example_path = pkg_examples_dir / f"{workflow_id}.yaml"
-    if pkg_example_path.exists():
-        return pkg_example_path
-
-    # Source-tree examples (works in development/editable installs)
-    src_examples_dir = Path(__file__).parent.parent.parent.parent / "examples" / "workflows"
-    src_example_path = src_examples_dir / f"{workflow_id}.yaml"
-    if src_example_path.exists():
-        return src_example_path
-
-    # Built-in workflows (generic, shipped in package)
-    builtin_dir = Path(__file__).parent.parent / "workflows"
-    builtin_path = builtin_dir / f"{workflow_id}.yaml"
-    if builtin_path.exists():
-        return builtin_path
-
-    return None
+    return resolve_workflow_path(workflow_id)
 
 
 def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -> tuple[Any, Any]:
@@ -267,6 +242,12 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
         _handle_deny(db, args)
     elif action == "respond":
         _handle_respond(db, args)
+    elif action == "watch":
+        _handle_watch(db, args)
+    elif action == "triggers":
+        _handle_triggers(config, db, args)
+    elif action == "schedule":
+        _handle_schedule(config, db, args)
     else:
         console.print(f"Unknown workflow action: {action}")
 
@@ -388,7 +369,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
 
 def _handle_status(db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow status <run_id>`."""
-    from ..services.workflow_storage import get_workflow_run, list_workflow_steps
+    from ..services.workflow_storage import count_checkpoints, get_workflow_run, list_workflow_steps
 
     run_id = getattr(args, "run_id", None)
     if not run_id:
@@ -411,6 +392,9 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
     if run.get("definition_hash"):
         console.print(f"[bold]Definition hash:[/bold] {run['definition_hash'][:12]}...")
     console.print(f"[bold]Created:[/bold] {run['created_at']}")
+
+    checkpoint_count = count_checkpoints(db, run["id"])
+    console.print(f"[bold]Checkpoints:[/bold] {checkpoint_count}")
 
     # Usage and budget display (#963, #967)
     budget = run.get("budget")
@@ -454,9 +438,13 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
         table.add_column("Summary", max_width=60)
         for step in steps:
             dur = f"{step['duration_ms']}ms" if step.get("duration_ms") else "-"
+            step_type_display = step["step_type"]
+            result_artifacts = step.get("result_artifacts") or {}
+            if result_artifacts.get("structured_output") is not None:
+                step_type_display += " (json)"
             table.add_row(
                 step["step_id"],
-                step["step_type"],
+                step_type_display,
                 step["status"],
                 dur,
                 (step.get("result_summary") or "")[:60],
@@ -516,7 +504,12 @@ def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
 
 def _handle_history(db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow history <run_id>`."""
-    from ..services.workflow_storage import get_workflow_run, list_workflow_events, list_workflow_steps
+    from ..services.workflow_storage import (
+        get_workflow_run,
+        list_checkpoints,
+        list_workflow_events,
+        list_workflow_steps,
+    )
 
     run_id = getattr(args, "run_id", None)
     if not run_id:
@@ -542,22 +535,45 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
         table.add_column("Result")
         table.add_column("Duration")
         table.add_column("Tokens")
+        table.add_column("Idem. Key", max_width=30)
         table.add_column("Summary", max_width=50)
         for step in steps:
             dur = f"{step['duration_ms']}ms" if step.get("duration_ms") else "-"
             artifacts = step.get("result_artifacts") or {}
             tokens = _format_tokens(artifacts["total_tokens"]) if artifacts.get("total_tokens") else "-"
+            idem_key = step.get("idempotency_key") or "-"
+            step_type_display = step["step_type"]
+            if artifacts.get("structured_output") is not None:
+                step_type_display += " (json)"
             table.add_row(
                 step["step_id"],
-                step["step_type"],
+                step_type_display,
                 step.get("runner_type") or "-",
                 step["status"],
                 step.get("result_status") or "-",
                 dur,
                 tokens,
+                idem_key[:30] if len(idem_key) > 30 else idem_key,
                 (step.get("result_summary") or "")[:50],
             )
         console.print(table)
+
+    checkpoints = list_checkpoints(db, run["id"])
+    if checkpoints:
+        console.print(f"\n[bold]Checkpoints ({len(checkpoints)}):[/bold]")
+        cp_table = Table(show_header=True)
+        cp_table.add_column("Label", style="bold")
+        cp_table.add_column("Step")
+        cp_table.add_column("Status")
+        cp_table.add_column("Time")
+        for cp in checkpoints:
+            cp_table.add_row(
+                cp["label"],
+                cp.get("step_id") or "-",
+                cp["run_status"],
+                cp["created_at"][:19],
+            )
+        console.print(cp_table)
 
     events = list_workflow_events(db, run["id"])
     if events:
@@ -838,3 +854,229 @@ def _handle_respond(db: Any, args: argparse.Namespace) -> None:
         console.print(f"Use 'aroom workflow resume {run_id}' to continue.")
     else:
         console.print("[red]Error:[/red] Could not resolve decision.")
+
+
+def _handle_watch(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow watch <run_id>`. Poll and display live progress."""
+    import time
+
+    from ..services.workflow_storage import (
+        get_workflow_run,
+        list_workflow_events,
+        list_workflow_steps,
+    )
+
+    run_id = getattr(args, "run_id", None)
+    if not run_id:
+        console.print("[red]Error:[/red] run_id is required")
+        return
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Error:[/red] Run not found: {run_id}")
+        return
+
+    terminal_statuses = {"completed", "failed", "cancelled", "blocked"}
+    seen_events: set[int] = set()
+    console.print(f"[bold]Watching run {run_id[:12]}...[/bold] (Ctrl+C to stop)\n")
+
+    try:
+        while True:
+            run = get_workflow_run(db, run_id)
+            if not run:
+                console.print("[red]Run deleted[/red]")
+                break
+
+            steps = list_workflow_steps(db, run_id)
+            events = list_workflow_events(db, run_id)
+
+            # Print new events
+            for event in events:
+                eid = event.get("id", 0)
+                if eid not in seen_events:
+                    seen_events.add(eid)
+                    etype = event.get("event_type", "")
+                    step = event.get("step_id") or ""
+                    step_str = f" [{step}]" if step else ""
+                    console.print(f"  {etype}{step_str}")
+
+            # Show current status
+            status = run.get("status", "unknown")
+            step_summary = ", ".join(f"{s['step_id']}={s['status']}" for s in steps[-3:]) if steps else "no steps"
+            console.print(
+                f"  [dim]status={status} | {step_summary}[/dim]",
+                end="\r",
+            )
+
+            if status in terminal_statuses:
+                console.print(f"\n\n[bold]Run {status}[/bold]")
+                if run.get("stop_reason"):
+                    console.print(f"  Reason: {run['stop_reason']}")
+                break
+
+            time.sleep(2)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Watch stopped[/yellow]")
+
+
+def _handle_triggers(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow triggers <subaction>`."""
+    import asyncio
+
+    from ..services.workflow_storage import (
+        get_schedule,
+        list_schedules,
+        update_schedule,
+    )
+
+    trigger_action = getattr(args, "trigger_action", None)
+    if not trigger_action:
+        console.print("Usage: aroom workflow triggers {list|fire|enable|disable}")
+        return
+
+    if trigger_action == "list":
+        schedules = list_schedules(db)
+        if not schedules:
+            console.print("[dim]No workflow schedules[/dim]")
+            return
+        console.print("[bold]Workflow Schedules[/bold]\n")
+        for s in schedules:
+            enabled = "[green]on[/green]" if s.get("enabled") else "[red]off[/red]"
+            console.print(
+                f"  {s['id'][:12]}...  {enabled}  {s['cron_expr']:<15}  "
+                f"{s['workflow_ref']}  next={s.get('next_run_at', 'N/A')}"
+            )
+
+    elif trigger_action == "fire":
+        schedule_id = getattr(args, "schedule_id", None)
+        if not schedule_id:
+            console.print("[red]Error:[/red] schedule_id is required")
+            return
+        sched = get_schedule(db, schedule_id)
+        if not sched:
+            console.print(f"[red]Error:[/red] Schedule not found: {schedule_id}")
+            return
+
+        from ..services.workflow_engine import load_definition
+        from ..services.workflow_resolution import resolve_workflow_path
+
+        path = resolve_workflow_path(sched["workflow_ref"])
+        if not path:
+            console.print(f"[red]Error:[/red] Workflow not found: {sched['workflow_ref']}")
+            return
+        definition = load_definition(path)
+        engine, event_bus = _create_engine(config, db)
+        try:
+            run = asyncio.run(
+                engine.enqueue_run(
+                    definition,
+                    target_kind=sched.get("target_kind") or "generic",
+                    target_ref=sched["target_ref"],
+                    inputs=sched.get("inputs"),
+                    trigger_source="manual",
+                    trigger_meta={"schedule_id": schedule_id},
+                )
+            )
+            console.print(f"[green]Enqueued run {run['id']}[/green] from schedule {schedule_id[:12]}...")
+        finally:
+            _cleanup_event_bus(event_bus)
+
+    elif trigger_action in ("enable", "disable"):
+        schedule_id = getattr(args, "schedule_id", None)
+        if not schedule_id:
+            console.print("[red]Error:[/red] schedule_id is required")
+            return
+        enabled = 1 if trigger_action == "enable" else 0
+        result = update_schedule(db, schedule_id, enabled=enabled)
+        if result:
+            state = "enabled" if enabled else "disabled"
+            console.print(f"[green]Schedule {schedule_id[:12]}... {state}[/green]")
+        else:
+            console.print(f"[red]Error:[/red] Schedule not found: {schedule_id}")
+
+    else:
+        console.print(f"Unknown trigger action: {trigger_action}")
+
+
+def _handle_schedule(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow schedule <path>`. Register triggers from a workflow definition."""
+    from datetime import datetime, timezone
+
+    from ..services.cron import min_interval_seconds, parse_cron
+    from ..services.workflow_engine import load_definition
+    from ..services.workflow_resolution import resolve_workflow_path
+    from ..services.workflow_storage import create_schedule
+
+    workflow_path = getattr(args, "workflow_path", None)
+    if not workflow_path:
+        console.print("[red]Error:[/red] workflow path is required")
+        return
+
+    path = resolve_workflow_path(workflow_path)
+    if not path:
+        console.print(f"[red]Error:[/red] Workflow not found: {workflow_path}")
+        return
+
+    definition = load_definition(path)
+    if not definition.triggers:
+        console.print("[yellow]No triggers defined in this workflow[/yellow]")
+        return
+
+    min_interval = config.workflow.min_schedule_interval
+    now = datetime.now(timezone.utc)
+
+    for trigger in definition.triggers:
+        if trigger.type != "schedule":
+            console.print(f"[yellow]Skipping non-schedule trigger type: {trigger.type}[/yellow]")
+            continue
+
+        if not trigger.cron:
+            console.print("[red]Error:[/red] Schedule trigger missing cron expression")
+            continue
+
+        try:
+            cron = parse_cron(trigger.cron)
+        except ValueError as e:
+            console.print(f"[red]Error:[/red] Invalid cron: {e}")
+            continue
+
+        interval = min_interval_seconds(cron)
+        if interval < min_interval:
+            console.print(
+                f"[red]Error:[/red] Cron {trigger.cron!r} fires every {interval}s, minimum is {min_interval}s"
+            )
+            continue
+
+        # Determine ref_type
+        ref_type = "path" if str(path).endswith((".yaml", ".yml")) else "builtin"
+        workflow_ref = str(path) if ref_type == "path" else definition.id
+
+        # Path confinement at registration time — reject paths the scheduler would later reject
+        if ref_type == "path":
+            from ..services.workflow_scheduler import _confine_path
+
+            try:
+                _confine_path(workflow_ref)
+            except ValueError as e:
+                console.print(f"[red]Error:[/red] {e}")
+                continue
+
+        next_at = cron.next_occurrence(now)
+        target_ref = trigger.target_ref or "default"
+        missed_policy = trigger.missed_policy or "skip"
+
+        schedule = create_schedule(
+            db,
+            workflow_ref=workflow_ref,
+            ref_type=ref_type,
+            cron_expr=trigger.cron,
+            target_ref=target_ref,
+            next_run_at=next_at.isoformat(),
+            target_kind=trigger.target_kind or "generic",
+            inputs=trigger.inputs,
+            missed_policy=missed_policy,
+            min_interval_seconds=min_interval,
+        )
+        console.print(
+            f"[green]Schedule created: {schedule['id']}[/green]  cron={trigger.cron}  next={next_at.isoformat()}"
+        )

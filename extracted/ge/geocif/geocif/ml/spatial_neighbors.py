@@ -260,12 +260,12 @@ def add_neighbor_features(
             nbr_med = yield_medians.get(region, np.nan)
         out_yield_hist[indices] = nbr_med
 
-    # Bulk assignment to DataFrame
+    # Bulk assignment via pd.concat to avoid DataFrame fragmentation
     nbr_cols = [f"{prefix}{c}" for c in feature_cols]
-    for fi, col in enumerate(nbr_cols):
-        df[col] = out_features[:, fi]
-    df[f"{prefix}mean_yield_hist"] = out_yield_hist
-    df[f"{prefix}yield_corr_mean"] = out_corr_mean
-    df["n_neighbors"] = out_n_neighbors
+    new_data = pd.DataFrame(out_features, columns=nbr_cols, index=df.index)
+    new_data[f"{prefix}mean_yield_hist"] = out_yield_hist
+    new_data[f"{prefix}yield_corr_mean"] = out_corr_mean
+    new_data["n_neighbors"] = out_n_neighbors
+    df = pd.concat([df, new_data], axis=1)
 
     return df

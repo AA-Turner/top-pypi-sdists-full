@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.instance_group_with_workspaces_instance_role import InstanceGroupWithWorkspacesInstanceRole
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -19,12 +20,14 @@ class InstanceGroupWithWorkspaces:
         name (str):
         summary (Union[Unset, str]):
         emails (Union[Unset, List[str]]):
+        instance_role (Union[Unset, None, InstanceGroupWithWorkspacesInstanceRole]):
         workspaces (Union[Unset, List['InstanceGroupWithWorkspacesWorkspacesItem']]):
     """
 
     name: str
     summary: Union[Unset, str] = UNSET
     emails: Union[Unset, List[str]] = UNSET
+    instance_role: Union[Unset, None, InstanceGroupWithWorkspacesInstanceRole] = UNSET
     workspaces: Union[Unset, List["InstanceGroupWithWorkspacesWorkspacesItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -34,6 +37,10 @@ class InstanceGroupWithWorkspaces:
         emails: Union[Unset, List[str]] = UNSET
         if not isinstance(self.emails, Unset):
             emails = self.emails
+
+        instance_role: Union[Unset, None, str] = UNSET
+        if not isinstance(self.instance_role, Unset):
+            instance_role = self.instance_role.value if self.instance_role else None
 
         workspaces: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.workspaces, Unset):
@@ -54,6 +61,8 @@ class InstanceGroupWithWorkspaces:
             field_dict["summary"] = summary
         if emails is not UNSET:
             field_dict["emails"] = emails
+        if instance_role is not UNSET:
+            field_dict["instance_role"] = instance_role
         if workspaces is not UNSET:
             field_dict["workspaces"] = workspaces
 
@@ -70,6 +79,15 @@ class InstanceGroupWithWorkspaces:
 
         emails = cast(List[str], d.pop("emails", UNSET))
 
+        _instance_role = d.pop("instance_role", UNSET)
+        instance_role: Union[Unset, None, InstanceGroupWithWorkspacesInstanceRole]
+        if _instance_role is None:
+            instance_role = None
+        elif isinstance(_instance_role, Unset):
+            instance_role = UNSET
+        else:
+            instance_role = InstanceGroupWithWorkspacesInstanceRole(_instance_role)
+
         workspaces = []
         _workspaces = d.pop("workspaces", UNSET)
         for workspaces_item_data in _workspaces or []:
@@ -81,6 +99,7 @@ class InstanceGroupWithWorkspaces:
             name=name,
             summary=summary,
             emails=emails,
+            instance_role=instance_role,
             workspaces=workspaces,
         )
 

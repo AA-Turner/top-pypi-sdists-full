@@ -6,6 +6,9 @@ from attrs import field as _attrs_field
 from ..models.list_users_as_super_admin_response_200_item_login_type import (
     ListUsersAsSuperAdminResponse200ItemLoginType,
 )
+from ..models.list_users_as_super_admin_response_200_item_role_source import (
+    ListUsersAsSuperAdminResponse200ItemRoleSource,
+)
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ListUsersAsSuperAdminResponse200Item")
@@ -20,6 +23,7 @@ class ListUsersAsSuperAdminResponse200Item:
         super_admin (bool):
         verified (bool):
         first_time_user (bool):
+        role_source (ListUsersAsSuperAdminResponse200ItemRoleSource):
         devops (Union[Unset, bool]):
         name (Union[Unset, str]):
         company (Union[Unset, str]):
@@ -32,6 +36,7 @@ class ListUsersAsSuperAdminResponse200Item:
     super_admin: bool
     verified: bool
     first_time_user: bool
+    role_source: ListUsersAsSuperAdminResponse200ItemRoleSource
     devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     company: Union[Unset, str] = UNSET
@@ -46,6 +51,8 @@ class ListUsersAsSuperAdminResponse200Item:
         super_admin = self.super_admin
         verified = self.verified
         first_time_user = self.first_time_user
+        role_source = self.role_source.value
+
         devops = self.devops
         name = self.name
         company = self.company
@@ -61,6 +68,7 @@ class ListUsersAsSuperAdminResponse200Item:
                 "super_admin": super_admin,
                 "verified": verified,
                 "first_time_user": first_time_user,
+                "role_source": role_source,
             }
         )
         if devops is not UNSET:
@@ -89,6 +97,8 @@ class ListUsersAsSuperAdminResponse200Item:
 
         first_time_user = d.pop("first_time_user")
 
+        role_source = ListUsersAsSuperAdminResponse200ItemRoleSource(d.pop("role_source"))
+
         devops = d.pop("devops", UNSET)
 
         name = d.pop("name", UNSET)
@@ -105,6 +115,7 @@ class ListUsersAsSuperAdminResponse200Item:
             super_admin=super_admin,
             verified=verified,
             first_time_user=first_time_user,
+            role_source=role_source,
             devops=devops,
             name=name,
             company=company,

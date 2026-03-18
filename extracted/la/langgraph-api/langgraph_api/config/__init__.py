@@ -142,7 +142,12 @@ See https://developer.chrome.com/blog/private-network-access-update-2024-03
 # gRPC client pool size for persistence server.
 GRPC_CLIENT_POOL_SIZE = env("GRPC_CLIENT_POOL_SIZE", cast=int, default=5)
 
-# gRPC message size limits (100MB default)
+# HTTP request body size limit (default matches gRPC limits: 300MB)
+HTTP_MAX_REQUEST_BODY_BYTES = env(
+    "HTTP_MAX_REQUEST_BODY_BYTES", cast=int, default=300 * 1024 * 1024
+)
+
+# gRPC message size limits (300MB default)
 LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES = env(
     "LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
@@ -502,6 +507,7 @@ __all__ = [
     "GRPC_CLIENT_MAX_SEND_MSG_BYTES",
     "GRPC_CLIENT_POOL_SIZE",
     "HTTP_CONFIG",
+    "HTTP_MAX_REQUEST_BODY_BYTES",
     "IS_EXECUTOR_ENTRYPOINT",
     "IS_QUEUE_ENTRYPOINT",
     "JSON_THREAD_POOL_MINIMUM_SIZE_BYTES",

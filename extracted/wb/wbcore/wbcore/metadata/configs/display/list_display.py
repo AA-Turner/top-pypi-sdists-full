@@ -93,7 +93,7 @@ class Field:
             repr["pinned"] = self.pinned
 
         if self.children:
-            repr["children"] = [child.serialize(identifier) for child in self.children]
+            repr["children"] = [child.serialize(identifier) for child in self.children if child]
             repr["marry_children"] = self.marry_children is True  # Convert None into False
 
         if self.show:

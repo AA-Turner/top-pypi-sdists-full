@@ -389,8 +389,8 @@ class Unsloth{RLConfig_name}({RLConfig_name}):
     def __init__({RLConfig_arguments},
         vllm_sampling_params = None,
         unsloth_num_chunks = -1,
-        unsloth_logit_chunk_multiplier = None, 
-        unsloth_grpo_mini_batch = None, 
+        unsloth_logit_chunk_multiplier = None,
+        unsloth_grpo_mini_batch = None,
         {max_seq_length_call}
         **kwargs,
     ):
@@ -1119,14 +1119,15 @@ def _patch_trl_rl_trainers(trainer_file = "grpo_trainer"):
     if "dataset_num_proc" in call_args:
         num_proc_check = (
             "import multiprocessing as _mp\n"
-            "if _mp.get_start_method() != 'fork':\n"
-            "    dataset_num_proc = None\n"
-            "elif dataset_num_proc is None:\n"
-            "    import psutil\n"
-            "    dataset_num_proc = min(max((psutil.cpu_count() or 1)+4, 2), 64)\n"
-            "    memory_gb_left = psutil.virtual_memory().available / (1024**3)\n"
-            "    if memory_gb_left <= 2: dataset_num_proc = 1\n"
-            "    else: dataset_num_proc = min(dataset_num_proc, int(memory_gb_left))\n"
+            "if dataset_num_proc is None:\n"
+            "    if _mp.get_start_method() != 'fork':\n"
+            "        dataset_num_proc = None\n"
+            "    else:\n"
+            "        import psutil\n"
+            "        dataset_num_proc = min(max((psutil.cpu_count() or 1)+4, 2), 64)\n"
+            "        memory_gb_left = psutil.virtual_memory().available / (1024**3)\n"
+            "        if memory_gb_left <= 2: dataset_num_proc = 1\n"
+            "        else: dataset_num_proc = min(dataset_num_proc, int(memory_gb_left))\n"
         )
         extra_args += num_proc_check
 
@@ -1232,7 +1233,7 @@ def _patch_trl_rl_trainers(trainer_file = "grpo_trainer"):
     # Unsloth gradient checkpointing requires use_reentrant=True, so we remove
     # the setting after super().__init__() when it gets auto-applied.
     RLConfig_post = ""
-    if trl_version >= Version("0.27.0") and RLConfig_name == "GRPOConfig":
+    if trl_version >= Version("0.27.0"):
         RLConfig_post = (
             "        # Unsloth: Remove use_reentrant=False forced by TRL 0.27.0+\n"
             "        if getattr(self, 'gradient_checkpointing_kwargs', None) is not None:\n"
@@ -1876,10 +1877,35 @@ def patch_trl_openenv():
     return
 
 
+def patch_trl_vllm_generation():
+    # trl moved vllm stuff to trl/generation/vllm_generation.py
+    # We need to min_p patch it to not instantiate another vLLM instance if we already have one with fast_inference
+    # Find the instance of self.llm = LLM(..) (multiline) and wrap it around an if clause
+    for function in RL_ADDITIONAL_FUNCTIONS["vllm_generation"]:
+        logger.info(
+            f"Unsloth: Patching trl VLLMGeneration with function: {function.__name__}"
+        )
+        function()
+    return
+
+
+def patch_trl_vllm_generation():
+    # trl moved vllm stuff to trl/generation/vllm_generation.py
+    # We need to min_p patch it to not instantiate another vLLM instance if we already have one with fast_inference
+    # Find the instance of self.llm = LLM(..) (multiline) and wrap it around an if clause
+    for function in RL_ADDITIONAL_FUNCTIONS["vllm_generation"]:
+        logger.info(
+            f"Unsloth: Patching trl VLLMGeneration with function: {function.__name__}"
+        )
+        function()
+    return
+
+
 def PatchFastRL(algorithm = None, FastLanguageModel = None):
     if FastLanguageModel is not None:
         PatchRL(FastLanguageModel)
     patch_trl_rl_trainers()
     patch_trl_openenv()
+    patch_trl_vllm_generation()
     if type(algorithm) is str and algorithm.islower():
         PatchRLStatistics(algorithm)

@@ -479,7 +479,7 @@ x = 42
 def f():
     # We should really be producing an error more like the compiler's, which says you can't use `x` before the declaration
     print(x)  # E: `x` is uninitialized
-    global x
+    global x  # E: `x` was assigned in the current scope before the global declaration
 "#,
 );
 
@@ -580,6 +580,43 @@ def test(cond: bool):
 );
 
 testcase!(
+    test_initialize_on_usage,
+    r#"
+def test1(cond: bool) -> None:
+    if cond:
+        x: int
+    else:
+        x = 1
+    print(x)  # E: `x` may be uninitialized
+    print(x)
+
+def test2(cond: bool) -> None:
+    x: int
+    if cond:
+        print(x)  # E: `x` is uninitialized
+    else:
+        print(x)  # E: `x` is uninitialized
+    print(x)
+
+def test3(cond: bool) -> None:
+    if cond:
+        x: int
+        print(x)  # E: `x` is uninitialized
+    else:
+        x = 1
+    print(x)
+
+def test4(cond: bool) -> None:
+    x: int
+    if cond:
+        print(x)  # E: `x` is uninitialized
+    else:
+        x = 1
+    print(x)
+"#,
+);
+
+testcase!(
     test_local_defined_by_mutation_no_shadowing,
     r#"
 def f() -> None:
@@ -618,10 +655,33 @@ def f(arg: int) -> None:
     x = (y := arg)
     assert_type(y, int)
     w = [z for x in [arg, arg] if (z := x) > 1]
-    z  # E: Could not find name `z`
+    assert_type(z, int)
     assert_type(w, list[int])
-    lambd = lambda x: (z := x) + 1
-    z  # E: Could not find name `z`
+    lambd = lambda x: (z2 := x) + 1
+    z2  # E: Could not find name `z2`
+"#,
+);
+
+testcase!(
+    test_walrus_in_comprehension_outer_scope,
+    r#"
+from typing import assert_type
+
+def f() -> None:
+    var = 33
+    my_list = [var := str("some_str") for _ in [123]]
+    assert_type(var, str)
+    assert_type(my_list, list[str])
+
+def g(xs: list[str]) -> None:
+    last = ""
+    results = [last := x for x in xs]
+    assert_type(last, str)
+    assert_type(results, list[str])
+
+def h(matrix: list[list[int]]) -> None:
+    result = [[y := x for x in row] for row in matrix]
+    assert_type(y, int)
 "#,
 );
 
@@ -671,7 +731,7 @@ def try_except_finally():
     finally:
         e2 # E: `e2` is uninitialized
 
-    e2 # E: `e2` is uninitialized
+    e2
 
 def try_except_twice():
     try:
@@ -681,7 +741,7 @@ def try_except_twice():
     except Exception:
         e3 # E: `e3` is uninitialized
 
-    e3 # E: `e3` is uninitialized
+    e3 # E: `e3` may be uninitialized
 
 def try_except_multiple_finally():
     try:
@@ -696,8 +756,8 @@ def try_except_multiple_finally():
         e4 # E: `e4` is uninitialized
         e5 # E: `e5` is uninitialized
 
-    e4 # E: `e4` is uninitialized
-    e5 # E: `e5` is uninitialized
+    e4
+    e5
 
 def try_except_else():
     try:
@@ -709,7 +769,7 @@ def try_except_else():
     else:
         e6 # E: `e6` is uninitialized
 
-    e6 # E: `e6` is uninitialized
+    e6 # E: `e6` may be uninitialized
 
 def try_except_else_finally():
     try:
@@ -721,9 +781,9 @@ def try_except_else_finally():
     else:
         e7 # E: `e7` is uninitialized
     finally:
-        e7 # E: `e7` is uninitialized
+        e7 # E: `e7` may be uninitialized
 
-    e7 # E: `e7` is uninitialized
+    e7
 "#,
 );
 
@@ -754,7 +814,7 @@ testcase!(
 from typing import assert_type, Any
 def f():
     assert_type(x, Any)  # E: `x` is uninitialized
-    x += 5  # E: `x` is uninitialized
+    x += 5
     assert_type(x, Any)
 "#,
 );
@@ -767,8 +827,8 @@ x = 5
 def f():
     assert_type(y, Any)  # E: `y` is uninitialized
     assert_type(x, Any)  # E: `x` is uninitialized
-    del y  # E: `y` is uninitialized
-    del x  # E: `x` is uninitialized
+    del y
+    del x
 f()
 "#,
 );
@@ -1140,6 +1200,37 @@ def f(rows: list[int]) -> int:
         assert_type(table_start, int)
         return table_start - 1
     return inner()
+"#,
+);
+
+testcase!(
+    // #2739: reassignment before nested function definition should preserve the reassigned type
+    test_narrow_capture_reassigned_before_nested_def,
+    r#"
+from typing import Callable
+from typing_extensions import assert_type
+
+class Connection:
+    def __init__(self, host: str) -> None:
+        self.host = host
+
+    def clone(self) -> "Connection":
+        return Connection(self.host)
+
+def get_connection() -> Connection | None:
+    return Connection("localhost")
+
+def make_query_func() -> Callable[[], str]:
+    conn = get_connection()
+    assert conn is not None
+    conn = conn.clone()
+    assert_type(conn, Connection)
+
+    def query() -> str:
+        assert_type(conn, Connection)
+        return conn.host
+
+    return query
 "#,
 );
 

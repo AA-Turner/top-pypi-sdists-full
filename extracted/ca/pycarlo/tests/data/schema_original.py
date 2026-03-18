@@ -1479,10 +1479,11 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     * `STATUS`None
     * `TOTAL_TOKENS`None
     * `TURNS`None
+    * `WORKFLOW`None
     """
 
     __schema__ = schema
-    __choices__ = ("DURATION", "STATUS", "TOTAL_TOKENS", "TURNS")
+    __choices__ = ("DURATION", "STATUS", "TOTAL_TOKENS", "TURNS", "WORKFLOW")
 
 
 class ConversationSortField(sgqlc.types.Enum):
@@ -5412,6 +5413,17 @@ class SlackEngagementEventType(sgqlc.types.Enum):
     __choices__ = ("CHANNEL_COMMENT", "REACTION_ADDED", "REACTION_REMOVED", "THREAD_REPLY")
 
 
+class SloPolicyModelSloType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `TTA`: Time to Acknowledge
+    * `TTR`: Time to Resolve
+    """
+
+    __schema__ = schema
+    __choices__ = ("TTA", "TTR")
+
+
 class SloStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5421,6 +5433,17 @@ class SloStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("BREACHED", "NOT_BREACHED")
+
+
+class SloType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `TTA`None
+    * `TTR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("TTA", "TTR")
 
 
 class SpanPredicateArity(sgqlc.types.Enum):
@@ -7565,6 +7588,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
         "conversation_id_search",
+        "workflows",
         "statuses",
         "min_turns",
         "max_turns",
@@ -7575,6 +7599,11 @@ class ConversationFiltersInput(sgqlc.types.Input):
     )
     conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
     """Case-insensitive substring search on conversation_id"""
+
+    workflows = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
+    )
+    """Filter by workflow names (OR logic). Empty or omitted returns all."""
 
     statuses = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(ConversationStatus)), graphql_name="statuses"
@@ -11017,6 +11046,42 @@ class SimulateMonitorEvaluationRequestType(sgqlc.types.Input):
     """Number of breaching query groups to return"""
 
 
+class SloPolicyInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "slo_type",
+        "threshold_minutes",
+        "is_enabled",
+        "notify_on_breach",
+        "priority_filter",
+        "domain_filter",
+    )
+    id = sgqlc.types.Field(UUID, graphql_name="id")
+    """If provided, updates existing policy"""
+
+    slo_type = sgqlc.types.Field(sgqlc.types.non_null(SloType), graphql_name="sloType")
+
+    threshold_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="thresholdMinutes"
+    )
+    """Threshold in minutes; must be greater than 0"""
+
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+
+    notify_on_breach = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="notifyOnBreach"
+    )
+
+    priority_filter = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="priorityFilter"
+    )
+
+    domain_filter = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainFilter"
+    )
+
+
 class SnowflakeConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -12312,6 +12377,16 @@ class WidgetOptionsUnionInput(sgqlc.types.Input):
     type = sgqlc.types.Field(sgqlc.types.non_null(CustomDashboardWidgetType), graphql_name="type")
 
 
+class WidgetOrderInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("widget_id", "order")
+    widget_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="widgetId")
+    """UUID of the widget"""
+
+    order = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="order")
+    """New order value for the widget"""
+
+
 class WildcardTemplateInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("template_name", "template_regex")
@@ -13314,6 +13389,7 @@ class Account(sgqlc.types.Type):
         "dashboards",
         "comparison_dashboards",
         "widgets",
+        "slo_policies",
         "identity_provider",
         "tableau_accounts",
         "use_monitor_domains",
@@ -13908,6 +13984,11 @@ class Account(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    slo_policies = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SloPolicy"))),
+        graphql_name="sloPolicies",
+    )
 
     identity_provider = sgqlc.types.Field("SamlIdentityProvider", graphql_name="identityProvider")
 
@@ -15817,6 +15898,20 @@ class AssetIncludeDatabase(sgqlc.types.Type):
     tables = sgqlc.types.Field(GenericScalar, graphql_name="tables")
 
 
+class AssetMemoryResultType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "memories", "memories_metadata", "last_updated")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    memories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="memories"
+    )
+
+    memories_metadata = sgqlc.types.Field(GenericScalar, graphql_name="memoriesMetadata")
+
+    last_updated = sgqlc.types.Field(String, graphql_name="lastUpdated")
+
+
 class AssetOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "asset_id", "asset_type")
@@ -17541,6 +17636,16 @@ class BillingMonitorUsageResults(sgqlc.types.Type):
     """List of daily monitor usage data points."""
 
 
+class BridgeTokenOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("token", "expires_at")
+    token = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="token")
+    """JWT string"""
+
+    expires_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="expiresAt")
+    """Token expiration timestamp"""
+
+
 class BulkAddMonitorDataQualityDimension(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -18819,7 +18924,14 @@ class ConversationFilter(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("field_name", "display_name", "query_parameter_name", "is_range_filter")
+    __field_names__ = (
+        "field_name",
+        "display_name",
+        "query_parameter_name",
+        "query_parameter_accepts_multiple_values",
+        "is_range_filter",
+        "facet_searchable",
+    )
     field_name = sgqlc.types.Field(
         sgqlc.types.non_null(ConversationFilterFieldName), graphql_name="fieldName"
     )
@@ -18831,8 +18943,20 @@ class ConversationFilter(sgqlc.types.Type):
     )
     """Corresponding parameter name(s) in ConversationFiltersInput"""
 
+    query_parameter_accepts_multiple_values = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="queryParameterAcceptsMultipleValues"
+    )
+    """Whether the associated getConversations parameter accepts multiple
+    values as input
+    """
+
     is_range_filter = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRangeFilter")
     """True → render as a min/max slider; False → render as checkboxes"""
+
+    facet_searchable = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="facetSearchable"
+    )
+    """Whether the filter values can be searched by their display name"""
 
 
 class ConversationFilterData(sgqlc.types.Type):
@@ -18864,12 +18988,15 @@ class ConversationFilterValue(sgqlc.types.Type):
     """A single value available for an enum conversation filter."""
 
     __schema__ = schema
-    __field_names__ = ("value", "display_name")
+    __field_names__ = ("value", "display_name", "count")
     value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
     """Raw value (e.g. 'OK', 'ERROR')"""
 
     display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
     """Human-readable label"""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of conversations with this value"""
 
 
 class ConversationSpan(sgqlc.types.Type):
@@ -20141,6 +20268,12 @@ class CreateOrUpdateServiceApiToken(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("access_token",)
     access_token = sgqlc.types.Field(AccessToken, graphql_name="accessToken")
+
+
+class CreateOrUpdateSloPolicy(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("slo_policy",)
+    slo_policy = sgqlc.types.Field(sgqlc.types.non_null("SloPolicy"), graphql_name="sloPolicy")
 
 
 class CreateOrUpdateTableMonitor(sgqlc.types.Type):
@@ -23106,6 +23239,12 @@ class DeleteMcpIntegrationKey(sgqlc.types.Type):
     """True if the key was deleted, false otherwise"""
 
 
+class DeleteMemoryResultType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("message",)
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+
+
 class DeleteMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -23231,6 +23370,13 @@ class DeleteServiceNowIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+
+
+class DeleteSloPolicy(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True if the policy was deleted. Errors surface via GraphQL errors."""
 
 
 class DeleteStreamingClusterMutation(sgqlc.types.Type):
@@ -25137,6 +25283,14 @@ class FHNumericResult(sgqlc.types.Type):
 
     correlation = sgqlc.types.Field(String, graphql_name="correlation")
     """high or low correlation found on field"""
+
+
+class FacetBucketType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("value", "count")
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
 
 
 class FacetEntry(sgqlc.types.Type):
@@ -28536,6 +28690,26 @@ class ListDatasetsResponse(sgqlc.types.Type):
     """Page token for the next page"""
 
 
+class ListMemoriesResultType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("query_type", "query", "count", "memories", "total", "offset", "facets")
+    query_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="queryType")
+
+    query = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="query")
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+    memories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("MemoryRecordType")), graphql_name="memories"
+    )
+
+    total = sgqlc.types.Field(Int, graphql_name="total")
+
+    offset = sgqlc.types.Field(Int, graphql_name="offset")
+
+    facets = sgqlc.types.Field("MemoryFacetsType", graphql_name="facets")
+
+
 class ListMonitorTagsOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("total_count", "tags")
@@ -28784,6 +28958,63 @@ class MconsMonitorsCountPair(sgqlc.types.Type):
     sample_mcon_monitors = sgqlc.types.Field(
         sgqlc.types.non_null(GenericScalar), graphql_name="sampleMconMonitors"
     )
+
+
+class MemoryFacetsType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("sources", "domains", "is_account_level")
+    sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="sources"
+    )
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="domains"
+    )
+
+    is_account_level = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="isAccountLevel"
+    )
+
+
+class MemoryRecordType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "memory",
+        "score",
+        "metadata",
+        "source",
+        "created_at",
+        "table_id",
+        "resource_id",
+        "memories",
+        "memories_metadata",
+        "last_updated",
+        "extra",
+    )
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    memory = sgqlc.types.Field(String, graphql_name="memory")
+
+    score = sgqlc.types.Field(Float, graphql_name="score")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    source = sgqlc.types.Field(String, graphql_name="source")
+
+    created_at = sgqlc.types.Field(String, graphql_name="createdAt")
+
+    table_id = sgqlc.types.Field(String, graphql_name="tableId")
+
+    resource_id = sgqlc.types.Field(String, graphql_name="resourceId")
+
+    memories = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="memories")
+
+    memories_metadata = sgqlc.types.Field(GenericScalar, graphql_name="memoriesMetadata")
+
+    last_updated = sgqlc.types.Field(String, graphql_name="lastUpdated")
+
+    extra = sgqlc.types.Field(GenericScalar, graphql_name="extra")
 
 
 class MergeAlerts(sgqlc.types.Type):
@@ -30126,12 +30357,16 @@ class Mutation(sgqlc.types.Type):
         "delete_custom_dashboard",
         "add_or_update_custom_dashboard_widget",
         "delete_custom_dashboard_widget",
+        "update_custom_dashboard_widget_ordering",
         "add_or_update_custom_dashboard_widget_from_definition",
         "update_platform_service",
         "create_or_update_agent_trace_table",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "delete_platform_agent",
+        "create_or_update_slo_policy",
+        "delete_slo_policy",
+        "set_slo_policies",
         "link_slack_app_installation",
         "create_logs_integration",
         "update_logs_integration",
@@ -30265,6 +30500,7 @@ class Mutation(sgqlc.types.Type):
         "delete_open_telemetry_data_store",
         "create_mcp_integration_key",
         "delete_mcp_integration_key",
+        "generate_bridge_token",
         "create_opsgenie_integration",
         "update_opsgenie_integration",
         "update_opsgenie_integration_webhook_secret",
@@ -30609,6 +30845,12 @@ class Mutation(sgqlc.types.Type):
         "set_etl_job_generates_incidents",
         "set_etl_job_generates_alerts",
         "bulk_set_etl_job_generates_alerts",
+        "create_semantic_memory",
+        "update_semantic_memory",
+        "delete_semantic_memory",
+        "create_asset_memory",
+        "update_asset_memory",
+        "delete_asset_memory",
         "configure_ai_agent_prompt",
         "create_account_secret",
         "update_account_secret",
@@ -30849,6 +31091,40 @@ class Mutation(sgqlc.types.Type):
     * `widget_id` (`UUID!`)None
     """
 
+    update_custom_dashboard_widget_ordering = sgqlc.types.Field(
+        "UpdateCustomDashboardWidgetOrdering",
+        graphql_name="updateCustomDashboardWidgetOrdering",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dashboard_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="dashboardId", default=None
+                    ),
+                ),
+                (
+                    "widget_orders",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(WidgetOrderInput))
+                        ),
+                        graphql_name="widgetOrders",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update the ordering of widgets on a custom
+    dashboard
+
+    Arguments:
+
+    * `dashboard_id` (`UUID!`)None
+    * `widget_orders` (`[WidgetOrderInput!]!`): List of widget ID and
+      order pairs to update
+    """
+
     add_or_update_custom_dashboard_widget_from_definition = sgqlc.types.Field(
         AddOrUpdateWidgetFromDefinition,
         graphql_name="addOrUpdateCustomDashboardWidgetFromDefinition",
@@ -30993,6 +31269,67 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `agent_mcon` (`String!`): MCON of the platform agent to delete
+    """
+
+    create_or_update_slo_policy = sgqlc.types.Field(
+        CreateOrUpdateSloPolicy,
+        graphql_name="createOrUpdateSloPolicy",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "policy",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SloPolicyInput), graphql_name="policy", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a single SLO policy
+
+    Arguments:
+
+    * `policy` (`SloPolicyInput!`): Policy fields to create or update
+    """
+
+    delete_slo_policy = sgqlc.types.Field(
+        DeleteSloPolicy,
+        graphql_name="deleteSloPolicy",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="id", default=None)),)
+        ),
+    )
+    """(experimental) Delete an SLO policy by UUID
+
+    Arguments:
+
+    * `id` (`UUID!`): UUID of the SLO policy to delete
+    """
+
+    set_slo_policies = sgqlc.types.Field(
+        "SetSloPolicies",
+        graphql_name="setSloPolicies",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "policies",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(SloPolicyInput))
+                        ),
+                        graphql_name="policies",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Replace all SLO policies with the given set
+
+    Arguments:
+
+    * `policies` (`[SloPolicyInput!]!`): Full set of desired SLO
+      policies (replaces all existing)
     """
 
     link_slack_app_installation = sgqlc.types.Field(
@@ -35795,6 +36132,9 @@ class Mutation(sgqlc.types.Type):
 
     * `key_id` (`String!`): Integration key id
     """
+
+    generate_bridge_token = sgqlc.types.Field(BridgeTokenOutput, graphql_name="generateBridgeToken")
+    """(experimental) Generate a signed JWT for mc-bridge authentication"""
 
     create_opsgenie_integration = sgqlc.types.Field(
         CreateOpsgenieIntegration,
@@ -49888,6 +50228,187 @@ class Mutation(sgqlc.types.Type):
     * `mcons` (`[String]!`): MCONs of jobs to set generate alerts for
     """
 
+    create_semantic_memory = sgqlc.types.Field(
+        "SemanticMemoryResultType",
+        graphql_name="createSemanticMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "is_account_level",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAccountLevel", default=None),
+                ),
+                (
+                    "memory",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memory", default=None
+                    ),
+                ),
+                ("source", sgqlc.types.Arg(String, graphql_name="source", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create a semantic memory
+
+    Arguments:
+
+    * `domain_ids` (`[String!]`)None
+    * `is_account_level` (`Boolean`)None
+    * `memory` (`String!`)None
+    * `source` (`String`)None
+    """
+
+    update_semantic_memory = sgqlc.types.Field(
+        "SemanticMemoryResultType",
+        graphql_name="updateSemanticMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="domainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "memory",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memory", default=None
+                    ),
+                ),
+                (
+                    "memory_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update a semantic memory
+
+    Arguments:
+
+    * `domain_ids` (`[String!]`)None
+    * `memory` (`String!`)None
+    * `memory_id` (`String!`)None
+    """
+
+    delete_semantic_memory = sgqlc.types.Field(
+        DeleteMemoryResultType,
+        graphql_name="deleteSemanticMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "memory_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a semantic memory
+
+    Arguments:
+
+    * `memory_id` (`String!`)None
+    """
+
+    create_asset_memory = sgqlc.types.Field(
+        AssetMemoryResultType,
+        graphql_name="createAssetMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "memory",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memory", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create asset memories
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    * `memory` (`String!`)None
+    """
+
+    update_asset_memory = sgqlc.types.Field(
+        AssetMemoryResultType,
+        graphql_name="updateAssetMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "memory_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
+                    ),
+                ),
+                (
+                    "text",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="text", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update asset memories
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    * `memory_id` (`String!`)None
+    * `text` (`String!`)None
+    """
+
+    delete_asset_memory = sgqlc.types.Field(
+        DeleteMemoryResultType,
+        graphql_name="deleteAssetMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("memory_id", sgqlc.types.Arg(String, graphql_name="memoryId", default=None)),
+            )
+        ),
+    )
+    """(experimental) Delete asset memories
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    * `memory_id` (`String`)None
+    """
+
     configure_ai_agent_prompt = sgqlc.types.Field(
         ConfigureAiAgentPrompt,
         graphql_name="configureAiAgentPrompt",
@@ -52117,6 +52638,7 @@ class Query(sgqlc.types.Type):
         "get_ucs_table_monitor",
         "migrate_to_table_monitors",
         "get_freshness_table_monitor",
+        "get_slo_policies",
         "get_slack_users",
         "get_slack_user_groups",
         "list_slack_users",
@@ -52494,6 +53016,7 @@ class Query(sgqlc.types.Type):
         "get_airflow_dag_runs",
         "get_airflow_capabilities",
         "get_tsa_analysis_result",
+        "get_agent_memories",
         "get_ai_agent_config",
         "fix_sql_query",
         "create_sql_query",
@@ -56291,6 +56814,11 @@ class Query(sgqlc.types.Type):
 
     * `mcon` (`String`): MC unique identifier of the object
     """
+
+    get_slo_policies = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("SloPolicy")), graphql_name="getSloPolicies"
+    )
+    """(experimental) List all SLO policies for the current account"""
 
     get_slack_users = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("SlackUserOutput")),
@@ -66432,8 +66960,16 @@ class Query(sgqlc.types.Type):
                 (
                     "mcons",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
                         graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="monitorUuids",
                         default=None,
                     ),
                 ),
@@ -66449,15 +66985,19 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Check whether the current user has the given
-    permissions on all of the specified MCONs. Returns one result per
-    requested permission. hasAccess is true only if the user has that
-    permission on every MCON in the list. Unrecognized or malformed
-    MCONs are treated as no-access.
+    permissions on a set of assets or monitors. You must provide
+    either mcons (for table assets) or monitorUuids (for monitors),
+    but not both. Returns one result per requested permission.
+    hasAccess is true only if the user has that permission on every
+    item in the list.
 
     Arguments:
 
-    * `mcons` (`[String!]!`): Non-empty list of MCON strings
-      identifying the assets to check.
+    * `mcons` (`[String!]`): Non-empty list of MCON strings
+      identifying the table assets to check. Cannot be used together
+      with monitorUuids.
+    * `monitor_uuids` (`[String!]`): Non-empty list of monitor UUIDs
+      to check. Cannot be used together with mcons.
     * `permissions` (`[Permission!]!`): One or more permissions to
       check.
     """
@@ -71310,6 +71850,61 @@ class Query(sgqlc.types.Type):
       result for
     """
 
+    get_agent_memories = sgqlc.types.Field(
+        ListMemoriesResultType,
+        graphql_name="getAgentMemories",
+        args=sgqlc.types.ArgDict(
+            (
+                ("table_id", sgqlc.types.Arg(String, graphql_name="tableId", default=None)),
+                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
+                ("query", sgqlc.types.Arg(String, graphql_name="query", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("min_score", sgqlc.types.Arg(Float, graphql_name="minScore", default=None)),
+                (
+                    "sources",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="sources",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filter_domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="filterDomainIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "scopes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="scopes",
+                        default=None,
+                    ),
+                ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
+            )
+        ),
+    )
+    """(experimental) List or search agent memories
+
+    Arguments:
+
+    * `table_id` (`String`)None
+    * `mcon` (`String`)None
+    * `query` (`String`)None
+    * `offset` (`Int`)None
+    * `limit` (`Int`)None
+    * `min_score` (`Float`)None
+    * `sources` (`[String!]`)None
+    * `filter_domain_ids` (`[String!]`)None
+    * `scopes` (`[String!]`)None
+    * `domain_id` (`UUID`)None
+    """
+
     get_ai_agent_config = sgqlc.types.Field(
         AiAgent,
         graphql_name="getAiAgentConfig",
@@ -73384,6 +73979,18 @@ class SelectGitlabProjects(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class SemanticMemoryResultType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("id", "memory", "event", "metadata")
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    memory = sgqlc.types.Field(String, graphql_name="memory")
+
+    event = sgqlc.types.Field(String, graphql_name="event")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+
 class SendAlertInvite(sgqlc.types.Type):
     """Send an invitation to a non-user for an existing alert"""
 
@@ -74088,6 +74695,15 @@ class SetSensitivity(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class SetSloPolicies(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("slo_policies",)
+    slo_policies = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("SloPolicy"))),
+        graphql_name="sloPolicies",
+    )
+
+
 class SetTutorialState(sgqlc.types.Type):
     """Set the state of a tutorial step"""
 
@@ -74497,6 +75113,58 @@ class SlackUserOutput(sgqlc.types.Type):
 
     display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
     """Display name"""
+
+
+class SloPolicy(sgqlc.types.Type):
+    """An SLO policy belonging to the current account."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "updated_time",
+        "slo_type",
+        "threshold_minutes",
+        "is_enabled",
+        "notify_on_breach",
+        "priority_filter",
+        "domain_filter",
+        "id",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+
+    slo_type = sgqlc.types.Field(
+        sgqlc.types.non_null(SloPolicyModelSloType), graphql_name="sloType"
+    )
+    """SLO type: time to acknowledge (TTA) or time to resolve (TTR)"""
+
+    threshold_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="thresholdMinutes"
+    )
+    """SLO threshold in minutes (e.g. 480 = 8 hours)"""
+
+    is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
+
+    notify_on_breach = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="notifyOnBreach"
+    )
+    """Whether to notify original audience when this SLO is breached"""
+
+    priority_filter = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="priorityFilter",
+    )
+    """Priority values to match (empty = all priorities)"""
+
+    domain_filter = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="domainFilter",
+    )
+    """Domain UUIDs to match (empty = all domains)"""
+
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Policy UUID"""
 
 
 class SnoozeCustomRule(sgqlc.types.Type):
@@ -78600,6 +79268,13 @@ class UpdateCredentialsV2Result(sgqlc.types.Type):
     """
 
 
+class UpdateCustomDashboardWidgetOrdering(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("dashboard",)
+    dashboard = sgqlc.types.Field(sgqlc.types.non_null("CustomDashboard"), graphql_name="dashboard")
+    """The updated dashboard"""
+
+
 class UpdateCustomMetricRuleNotes(sgqlc.types.Type):
     """Create or update notes for custom metric rule"""
 
@@ -81820,6 +82495,8 @@ class AuditedUser(sgqlc.types.Type, Node):
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
         "lineagenodecollapsingpatternmodel_updated_by",
+        "slopolicymodel_created_by",
+        "slopolicymodel_updated_by",
         "name",
     )
     cognito_user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cognitoUserId")
@@ -83188,6 +83865,18 @@ class AuditedUser(sgqlc.types.Type, Node):
     lineagenodecollapsingpatternmodel_updated_by = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeCollapsingRule))),
         graphql_name="lineagenodecollapsingpatternmodelUpdatedBy",
+    )
+    """Last updated by"""
+
+    slopolicymodel_created_by = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(SloPolicy))),
+        graphql_name="slopolicymodelCreatedBy",
+    )
+    """Creator"""
+
+    slopolicymodel_updated_by = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(SloPolicy))),
+        graphql_name="slopolicymodelUpdatedBy",
     )
     """Last updated by"""
 
@@ -88940,6 +89629,8 @@ class User(sgqlc.types.Type, Node):
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
         "lineagenodecollapsingpatternmodel_updated_by",
+        "slopolicymodel_created_by",
+        "slopolicymodel_updated_by",
         "account",
         "role",
         "auth",
@@ -90311,6 +91002,18 @@ class User(sgqlc.types.Type, Node):
     lineagenodecollapsingpatternmodel_updated_by = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageNodeCollapsingRule))),
         graphql_name="lineagenodecollapsingpatternmodelUpdatedBy",
+    )
+    """Last updated by"""
+
+    slopolicymodel_created_by = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(SloPolicy))),
+        graphql_name="slopolicymodelCreatedBy",
+    )
+    """Creator"""
+
+    slopolicymodel_updated_by = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(SloPolicy))),
+        graphql_name="slopolicymodelUpdatedBy",
     )
     """Last updated by"""
 

@@ -547,6 +547,8 @@ class ErrorCode(str, Enum):
     )
     CheckoutIsNotSupported = "CheckoutIsNotSupported"
     CouponNotFound = "CouponNotFound"
+    CreditChargeCoexistenceError = "CreditChargeCoexistenceError"
+    CreditChargeValidationError = "CreditChargeValidationError"
     CreditGrantAlreadyVoided = "CreditGrantAlreadyVoided"
     CreditGrantCannotBeVoided = "CreditGrantCannotBeVoided"
     CreditGrantNotFound = "CreditGrantNotFound"

@@ -837,10 +837,21 @@ class WorkflowConfig:
     registry_heartbeat_interval: int = 30
     budget: WorkflowBudgetConfig = field(default_factory=WorkflowBudgetConfig)
     credentials: list[WorkflowCredentialConfig] = field(default_factory=list)
+    executor_enabled: bool = False
+    executor_poll_interval: int = 5
+    max_concurrent_runs: int = 3
+    scheduler_enabled: bool = True
+    min_schedule_interval: int = 60
 
     _MIN_STEP_TIMEOUT: int = field(default=10, init=False, repr=False)
     _MAX_STEP_TIMEOUT: int = field(default=3600, init=False, repr=False)
     _MIN_HEARTBEAT: int = field(default=5, init=False, repr=False)
+    _MIN_POLL_INTERVAL: int = field(default=1, init=False, repr=False)
+    _MAX_POLL_INTERVAL: int = field(default=60, init=False, repr=False)
+    _MIN_CONCURRENT_RUNS: int = field(default=1, init=False, repr=False)
+    _MAX_CONCURRENT_RUNS: int = field(default=20, init=False, repr=False)
+    _MIN_SCHED_INTERVAL: int = field(default=60, init=False, repr=False)
+    _MAX_SCHED_INTERVAL: int = field(default=86400, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.step_timeout < self._MIN_STEP_TIMEOUT:
@@ -861,6 +872,18 @@ class WorkflowConfig:
             object.__setattr__(self, "heartbeat_interval", self._MIN_HEARTBEAT)
         if self.max_review_rounds < 1:
             object.__setattr__(self, "max_review_rounds", 1)
+        if self.executor_poll_interval < self._MIN_POLL_INTERVAL:
+            object.__setattr__(self, "executor_poll_interval", self._MIN_POLL_INTERVAL)
+        if self.executor_poll_interval > self._MAX_POLL_INTERVAL:
+            object.__setattr__(self, "executor_poll_interval", self._MAX_POLL_INTERVAL)
+        if self.max_concurrent_runs < self._MIN_CONCURRENT_RUNS:
+            object.__setattr__(self, "max_concurrent_runs", self._MIN_CONCURRENT_RUNS)
+        if self.max_concurrent_runs > self._MAX_CONCURRENT_RUNS:
+            object.__setattr__(self, "max_concurrent_runs", self._MAX_CONCURRENT_RUNS)
+        if self.min_schedule_interval < self._MIN_SCHED_INTERVAL:
+            object.__setattr__(self, "min_schedule_interval", self._MIN_SCHED_INTERVAL)
+        if self.min_schedule_interval > self._MAX_SCHED_INTERVAL:
+            object.__setattr__(self, "min_schedule_interval", self._MAX_SCHED_INTERVAL)
 
 
 @dataclass

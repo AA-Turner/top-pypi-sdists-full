@@ -19,10 +19,11 @@ use crate::commands::infer::InferArgs;
 use crate::commands::init::InitArgs;
 use crate::commands::lsp::LspArgs;
 use crate::commands::report::ReportArgs;
+use crate::commands::stubgen::StubgenArgs;
 use crate::commands::suppress::SuppressArgs;
 use crate::commands::tsp::TspArgs;
 use crate::commands::util::CommandExitStatus;
-use crate::lsp::non_wasm::external_references::NoExternalReferences;
+use crate::lsp::non_wasm::external_provider::NoExternalProvider;
 
 /// Subcommands to run Pyrefly with.
 #[deny(clippy::missing_docs_in_private_items)]
@@ -55,6 +56,8 @@ pub enum Command {
     Report(ReportArgs),
     /// Suppress type errors by adding ignore comments, or remove unused ignores.
     Suppress(SuppressArgs),
+    /// Generate .pyi stub files from Python source files.
+    Stubgen(StubgenArgs),
 }
 
 impl Command {
@@ -72,7 +75,7 @@ impl Command {
                 version,
                 None,
                 telemetry,
-                Arc::new(NoExternalReferences),
+                Arc::new(NoExternalProvider),
                 config_configurer_wrapper,
             ),
             Command::Tsp(args) => args.run(telemetry, config_configurer_wrapper),
@@ -81,6 +84,7 @@ impl Command {
             Command::DumpConfig(args) => args.run(config_configurer_wrapper),
             Command::Report(args) => args.run(config_configurer_wrapper),
             Command::Suppress(args) => args.run(config_configurer_wrapper),
+            Command::Stubgen(args) => args.run(config_configurer_wrapper),
         }
     }
 }

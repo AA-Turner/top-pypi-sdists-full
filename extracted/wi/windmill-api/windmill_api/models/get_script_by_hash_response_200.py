@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.get_script_by_hash_response_200_extra_perms import GetScriptByHashResponse200ExtraPerms
+    from ..models.get_script_by_hash_response_200_modules import GetScriptByHashResponse200Modules
     from ..models.get_script_by_hash_response_200_schema import GetScriptByHashResponse200Schema
 
 
@@ -35,7 +36,6 @@ class GetScriptByHashResponse200:
         language (GetScriptByHashResponse200Language):
         kind (GetScriptByHashResponse200Kind):
         starred (bool):
-        no_main_func (bool):
         has_preprocessor (bool):
         workspace_id (Union[Unset, str]):
         parent_hashes (Union[Unset, List[str]]): The first element is the direct parent of the script, the second is the
@@ -63,8 +63,11 @@ class GetScriptByHashResponse200:
         timeout (Union[Unset, int]):
         delete_after_use (Union[Unset, bool]):
         visible_to_runner_only (Union[Unset, bool]):
+        auto_kind (Union[Unset, str]):
         codebase (Union[Unset, str]):
         on_behalf_of_email (Union[Unset, str]):
+        modules (Union[Unset, None, GetScriptByHashResponse200Modules]): Additional script modules keyed by relative
+            file path
     """
 
     hash_: str
@@ -81,7 +84,6 @@ class GetScriptByHashResponse200:
     language: GetScriptByHashResponse200Language
     kind: GetScriptByHashResponse200Kind
     starred: bool
-    no_main_func: bool
     has_preprocessor: bool
     workspace_id: Union[Unset, str] = UNSET
     parent_hashes: Union[Unset, List[str]] = UNSET
@@ -108,8 +110,10 @@ class GetScriptByHashResponse200:
     timeout: Union[Unset, int] = UNSET
     delete_after_use: Union[Unset, bool] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
+    auto_kind: Union[Unset, str] = UNSET
     codebase: Union[Unset, str] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
+    modules: Union[Unset, None, "GetScriptByHashResponse200Modules"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -131,7 +135,6 @@ class GetScriptByHashResponse200:
         kind = self.kind.value
 
         starred = self.starred
-        no_main_func = self.no_main_func
         has_preprocessor = self.has_preprocessor
         workspace_id = self.workspace_id
         parent_hashes: Union[Unset, List[str]] = UNSET
@@ -170,8 +173,12 @@ class GetScriptByHashResponse200:
         timeout = self.timeout
         delete_after_use = self.delete_after_use
         visible_to_runner_only = self.visible_to_runner_only
+        auto_kind = self.auto_kind
         codebase = self.codebase
         on_behalf_of_email = self.on_behalf_of_email
+        modules: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.modules, Unset):
+            modules = self.modules.to_dict() if self.modules else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -191,7 +198,6 @@ class GetScriptByHashResponse200:
                 "language": language,
                 "kind": kind,
                 "starred": starred,
-                "no_main_func": no_main_func,
                 "has_preprocessor": has_preprocessor,
             }
         )
@@ -245,16 +251,21 @@ class GetScriptByHashResponse200:
             field_dict["delete_after_use"] = delete_after_use
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
+        if auto_kind is not UNSET:
+            field_dict["auto_kind"] = auto_kind
         if codebase is not UNSET:
             field_dict["codebase"] = codebase
         if on_behalf_of_email is not UNSET:
             field_dict["on_behalf_of_email"] = on_behalf_of_email
+        if modules is not UNSET:
+            field_dict["modules"] = modules
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_script_by_hash_response_200_extra_perms import GetScriptByHashResponse200ExtraPerms
+        from ..models.get_script_by_hash_response_200_modules import GetScriptByHashResponse200Modules
         from ..models.get_script_by_hash_response_200_schema import GetScriptByHashResponse200Schema
 
         d = src_dict.copy()
@@ -285,8 +296,6 @@ class GetScriptByHashResponse200:
         kind = GetScriptByHashResponse200Kind(d.pop("kind"))
 
         starred = d.pop("starred")
-
-        no_main_func = d.pop("no_main_func")
 
         has_preprocessor = d.pop("has_preprocessor")
 
@@ -345,9 +354,20 @@ class GetScriptByHashResponse200:
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
+        auto_kind = d.pop("auto_kind", UNSET)
+
         codebase = d.pop("codebase", UNSET)
 
         on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
+
+        _modules = d.pop("modules", UNSET)
+        modules: Union[Unset, None, GetScriptByHashResponse200Modules]
+        if _modules is None:
+            modules = None
+        elif isinstance(_modules, Unset):
+            modules = UNSET
+        else:
+            modules = GetScriptByHashResponse200Modules.from_dict(_modules)
 
         get_script_by_hash_response_200 = cls(
             hash_=hash_,
@@ -364,7 +384,6 @@ class GetScriptByHashResponse200:
             language=language,
             kind=kind,
             starred=starred,
-            no_main_func=no_main_func,
             has_preprocessor=has_preprocessor,
             workspace_id=workspace_id,
             parent_hashes=parent_hashes,
@@ -391,8 +410,10 @@ class GetScriptByHashResponse200:
             timeout=timeout,
             delete_after_use=delete_after_use,
             visible_to_runner_only=visible_to_runner_only,
+            auto_kind=auto_kind,
             codebase=codebase,
             on_behalf_of_email=on_behalf_of_email,
+            modules=modules,
         )
 
         get_script_by_hash_response_200.additional_properties = d

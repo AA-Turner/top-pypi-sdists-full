@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from plato.markers import FieldMarker, WorkspaceMarker
+from plato.worlds.review import collect_review_schemas
 
 if TYPE_CHECKING:
     from plato.worlds.config import RunConfig
@@ -228,6 +229,8 @@ def get_world_schema(world_cls: type, image: str | None = None) -> dict[str, Any
             "required": [s["name"] for s in secrets if s.get("required", False)],
         }
 
+    review_schemas = collect_review_schemas(world_cls)
+
     return {
         "name": getattr(world_cls, "name", world_cls.__name__),
         "config_schema": config_schema,
@@ -237,4 +240,5 @@ def get_world_schema(world_cls: type, image: str | None = None) -> dict[str, Any
         "agents": schema.get("agents", []),
         "envs": schema.get("envs", []),
         "env_list": schema.get("env_list"),
+        "review_schemas": review_schemas or None,
     }

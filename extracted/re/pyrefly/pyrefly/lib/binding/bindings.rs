@@ -21,6 +21,8 @@ use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::callable::FuncDefIndex;
+use pyrefly_types::class::ClassDefIndex;
+use pyrefly_types::class::ClassFields;
 use pyrefly_types::type_alias::TypeAliasIndex;
 use pyrefly_types::type_info::JoinStyle;
 use pyrefly_util::display::DisplayWithCtx;
@@ -74,6 +76,7 @@ use crate::binding::binding::TypeAliasParams;
 use crate::binding::binding::TypeAliasRefBinding;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
+use crate::binding::metadata::BindingsMetadata;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
@@ -93,14 +96,13 @@ use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
 use crate::module::module_info::ModuleInfo;
-use crate::solver::solver::SolverFlags;
+use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
 use crate::state::loader::FindingOrError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
 use crate::types::globals::ImplicitGlobal;
-use crate::types::heap::TypeHeap;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::types::AnyStyle;
 
@@ -177,9 +179,8 @@ table! {
 #[derive(Clone, Debug)]
 struct BindingsInner {
     module_info: ModuleInfo,
-    solver_flags: SolverFlags,
-    heap: Arc<TypeHeap>,
     table: BindingTable,
+    metadata: Arc<BindingsMetadata>,
     scope_trace: Option<ScopeTrace>,
     unused_parameters: Vec<UnusedParameter>,
     unused_imports: Vec<UnusedImport>,
@@ -238,12 +239,12 @@ pub struct BindingsBuilder<'a> {
     pub module_info: ModuleInfo,
     pub lookup: &'a dyn LookupExport,
     pub sys_info: SysInfo,
-    pub class_count: u32,
+    pub metadata: BindingsMetadata,
     pub func_count: u32,
     type_alias_count: u32,
     await_context: AwaitContext,
     errors: &'a ErrorCollector,
-    solver_flags: SolverFlags,
+    solver: &'a Solver,
     uniques: &'a UniqueFactory,
     pub has_docstring: bool,
     pub scopes: Scopes,
@@ -303,13 +304,8 @@ impl Bindings {
         let module_info = Module::new(module_name, module_path, contents);
         Self(Arc::new(BindingsInner {
             module_info,
-            solver_flags: SolverFlags {
-                infer_with_first_use: false,
-                tensor_shapes: false,
-                strict_callable_subtyping: false,
-            },
-            heap: Arc::new(TypeHeap::new()),
             table: Default::default(),
+            metadata: Arc::new(BindingsMetadata::new()),
             scope_trace: None,
             unused_parameters: Vec::new(),
             unused_imports: Vec::new(),
@@ -330,12 +326,15 @@ impl Bindings {
         &self.0.module_info
     }
 
-    pub fn solver_flags(&self) -> SolverFlags {
-        self.0.solver_flags
+    pub fn metadata(&self) -> &Arc<BindingsMetadata> {
+        &self.0.metadata
     }
 
-    pub fn heap(&self) -> &TypeHeap {
-        self.0.heap.as_ref()
+    /// Look up pre-computed class fields by `ClassDefIndex`. O(1) Vec index.
+    /// Returns `None` if the index is out of bounds (e.g., stale cross-module
+    /// index after incremental rebuild).
+    pub fn get_class_fields(&self, idx: ClassDefIndex) -> Option<&ClassFields> {
+        Some(&self.0.metadata.get_class_checked(idx)?.fields)
     }
 
     pub fn unused_parameters(&self) -> &[UnusedParameter] {
@@ -499,7 +498,7 @@ impl Bindings {
         x: ModModule,
         module_info: ModuleInfo,
         exports: &Exports,
-        solver_flags: SolverFlags,
+        solver: &Solver,
         lookup: &dyn LookupExport,
         sys_info: SysInfo,
         errors: &ErrorCollector,
@@ -512,9 +511,9 @@ impl Bindings {
             lookup,
             sys_info,
             errors,
-            solver_flags,
+            solver,
             uniques,
-            class_count: 0,
+            metadata: BindingsMetadata::new(),
             func_count: 0,
             type_alias_count: 0,
             await_context: AwaitContext::General,
@@ -599,9 +598,8 @@ impl Bindings {
         }
         Self(Arc::new(BindingsInner {
             module_info,
-            solver_flags,
-            heap: Arc::new(TypeHeap::new()),
             table: builder.table,
+            metadata: Arc::new(builder.metadata),
             scope_trace: if enable_trace {
                 Some(scope_trace)
             } else {
@@ -762,12 +760,12 @@ impl CurrentIdx {
 impl<'a> BindingsBuilder<'a> {
     /// Whether to infer empty container types and unsolved type variables based on first use.
     pub fn infer_with_first_use(&self) -> bool {
-        self.solver_flags.infer_with_first_use
+        self.solver.infer_with_first_use
     }
 
     /// Whether tensor shape type inference is enabled.
     pub fn tensor_shapes(&self) -> bool {
-        self.solver_flags.tensor_shapes
+        self.solver.tensor_shapes
     }
 
     /// Given a `key: K = impl Keyed`, get an `Idx<K>` for it. The intended use case
@@ -1139,9 +1137,10 @@ impl<'a> BindingsBuilder<'a> {
     /// For names that are read but not locally-defined (implicit captures),
     /// this method creates flow entries pointing to the outer scope's binding.
     ///
-    /// When the outer scope has an active narrow for the captured variable and
-    /// the variable is not reassigned after this function definition, we use
-    /// the narrowed type in the nested scope.
+    /// When the outer scope has a current value binding for the captured
+    /// variable and the variable is not reassigned after this function
+    /// definition, we seed the nested scope from that value. If the outer scope
+    /// also has an active type-guard narrow, we layer that narrow on top.
     pub fn seed_captured_variables(&mut self) {
         let captures = self.scopes.implicit_capture_names();
         let inner_fn_range = self.scopes.current_scope_range();
@@ -1151,17 +1150,17 @@ impl<'a> BindingsBuilder<'a> {
                 .scopes
                 .look_up_name_for_read(hashed_name, &Usage::Narrowing(None));
             if let NameReadInfo::Anywhere { key, .. } = name_read_info {
-                let idx = self.idx_for_promise(key);
+                let capture_info = self.scopes.outer_capture_info(hashed_name, inner_fn_range);
+                let idx = capture_info
+                    .value_idx
+                    .unwrap_or_else(|| self.idx_for_promise(key));
                 let style = self
                     .scopes
                     .flow_style_for_name(&name)
                     .map(FlowStyle::assume_initialized)
                     .unwrap_or(FlowStyle::Other);
                 self.scopes.define_in_current_flow(hashed_name, idx, style);
-                if let Some(narrow_idx) = self
-                    .scopes
-                    .outer_capture_narrow_idx(hashed_name, inner_fn_range)
-                {
+                if let Some(narrow_idx) = capture_info.narrow_idx {
                     // Only propagate type-guard narrows (isinstance, is not None,
                     // etc.), not assignment narrows from subscript/attribute writes.
                     // Assignment narrows track mutations and should not leak into
@@ -1180,6 +1179,8 @@ impl<'a> BindingsBuilder<'a> {
     /// First-use detection happens later in `process_deferred_bound_names`
     /// when all phi nodes are populated.
     pub fn lookup_name(&mut self, name: Hashed<&Name>, usage: &mut Usage) -> NameLookupResult {
+        let may_prove_initialized =
+            !matches!(usage, Usage::StaticTypeInformation | Usage::TypeAliasRhs);
         let name_read_info = self.scopes.look_up_name_for_read(name, usage);
         match name_read_info {
             NameReadInfo::Flow { idx, initialized } => {
@@ -1187,16 +1188,40 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.mark_parameter_used(name.key());
                 self.scopes.mark_import_used(name.key());
                 self.scopes.mark_variable_used(name.key());
+                if may_prove_initialized
+                    && matches!(
+                        initialized,
+                        InitializedInFlow::No
+                            | InitializedInFlow::Conditionally
+                            | InitializedInFlow::DeferredCheck(_)
+                    )
+                {
+                    // When we use a variable, we mark it as initialized
+                    // If the variable was uninitialized before, this will
+                    // prevent us from emitting errors for every subsequent usage
+                    let style = self
+                        .scopes
+                        .flow_style_for_name(name.key())
+                        .map(FlowStyle::assume_initialized)
+                        .unwrap_or(FlowStyle::Other);
+                    self.scopes.define_in_current_flow(name, idx, style);
+                }
                 NameLookupResult::Found { idx, initialized }
             }
             NameReadInfo::Anywhere { key, initialized } => {
                 self.scopes.mark_parameter_used(name.key());
                 self.scopes.mark_import_used(name.key());
                 self.scopes.mark_variable_used(name.key());
-                NameLookupResult::Found {
-                    idx: self.idx_for_promise(key),
-                    initialized,
+                let idx = self.idx_for_promise(key);
+                // NameReadInfo::Anywhere can only be InitializedInFlow::Yes or InitializedInFlow::No
+                if may_prove_initialized && matches!(initialized, InitializedInFlow::No) {
+                    // When we use a variable, we mark it as initialized
+                    // If the variable was uninitialized before, this will
+                    // prevent us from emitting errors for every subsequent usage
+                    self.scopes
+                        .define_in_current_flow(name, idx, FlowStyle::Other);
                 }
+                NameLookupResult::Found { idx, initialized }
             }
             NameReadInfo::NotFound => NameLookupResult::NotFound,
         }
@@ -1462,9 +1487,16 @@ impl<'a> BindingsBuilder<'a> {
     fn check_for_imported_final_reassignment(&self, name: &Name, idx: Idx<Key>) {
         let prev_idx = self.scopes.current_flow_idx(name);
         if let Some(prev_idx) = prev_idx
-            && let Some(Binding::Import(x)) = self.idx_to_binding(prev_idx)
-            && self.lookup.is_final(x.0, &x.1)
+            && let Some(Binding::Import(prev)) = self.idx_to_binding(prev_idx)
+            && self.lookup.is_final(prev.0, &prev.1)
         {
+            // A duplicate import of the same symbol is not a reassignment.
+            if let Some(Binding::Import(cur)) = self.idx_to_binding(idx)
+                && cur.0 == prev.0
+                && cur.1 == prev.1
+            {
+                return;
+            }
             self.error(
                 self.idx_to_key(idx).range(),
                 ErrorInfo::Kind(ErrorKind::BadAssignment),

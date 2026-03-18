@@ -785,7 +785,7 @@ def validate_artifacts(graph: graph_pb.Graph, config: Optional[ProjectSettings])
     if config is not None and config.HasField("validation"):
         _validate_metadata(list(graph.feature_sets), list(graph.resolvers), builder, config.validation)
 
-    garbage_feature_builder = FeatureClassErrorBuilder(uri="garbage.py", namespace="garbage", node=None)
+    garbage_feature_builder = FeatureClassErrorBuilder(uri="garbage.py", namespace="garbage")
     for fs in graph.feature_sets:
         _validate_namespace_primary_key(
             namespace=fs.name,

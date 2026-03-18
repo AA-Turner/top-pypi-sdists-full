@@ -95,6 +95,19 @@ if patch_lmdb_source:
         except ImportError:
             raise Exception('Building py-lmdb from source on Windows requires the "patch-ng" python module.')
 
+    # Clean the CFFI verify() cache so it recompiles against the freshly
+    # patched sources.  verify() hashes the cdef/csource strings and compile
+    # args but NOT the content of extra_sources, so a stale .so can persist
+    # even after the LMDB source changes.
+    _cffi_cache = os.path.join('lmdb', '__pycache__')
+    if os.path.isdir(_cffi_cache):
+        for _f in os.listdir(_cffi_cache):
+            if _f.startswith('lmdb_cffi'):
+                try:
+                    os.remove(os.path.join(_cffi_cache, _f))
+                except OSError:
+                    pass  # On Windows, .pyd may be locked by a running process
+
     # Clean out any previously patched files
     dest = 'build' + os.sep + 'lib'
     try:
@@ -111,7 +124,7 @@ if patch_lmdb_source:
     # Copy away the lmdb source then patch it
     if sys.platform.startswith('win'):
 
-        for patchfile in ['lib\\py-lmdb\\env-copy-txn.patch', 'lib\\py-lmdb\\cursor-next-prev-uninitialized.patch', 'lib\\py-lmdb\\win32-semaphore-lock.patch']:
+        for patchfile in ['lib\\py-lmdb\\env-copy-txn.patch', 'lib\\py-lmdb\\cursor-next-prev-uninitialized.patch']:
             patchset = patch.fromfile(patchfile)
             rv = patchset.apply(2, root=dest)
             if not rv:
@@ -121,9 +134,6 @@ if patch_lmdb_source:
         if rv:
             raise Exception('Applying patch failed')
         rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/cursor-next-prev-uninitialized.patch')
-        if rv:
-            raise Exception('Applying patch failed')
-        rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/win32-semaphore-lock.patch')
         if rv:
             raise Exception('Applying patch failed')
 
@@ -217,16 +227,13 @@ setup(
     license='OLDAP-2.8',
     url='http://github.com/jnwatson/py-lmdb/',
     packages=['lmdb'],
+    package_data={'lmdb': ['py.typed', '*.pyi']},
 
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

@@ -142,9 +142,11 @@ class SeeqURL:
                                          rf'/workbook/(?P<workbook_id>{_common.GUID_REGEX})'
                                          rf'/(?:worksheet/(?P<worksheet_id>{_common.GUID_REGEX}))?', re.IGNORECASE),
                               dict()),
-        Route.WORKBOOK_VIEW: (re.compile(rf'^/view/(?P<worksheet_id>{_common.GUID_REGEX})', re.IGNORECASE),
+        Route.WORKBOOK_VIEW: (re.compile(rf'^(?:/workbooks)?/view/'
+                                         rf'(?P<worksheet_id>{_common.GUID_REGEX})', re.IGNORECASE),
                               {'workstepId': 'workstep_id'}),
-        Route.WORKSHEET_VIEW: (re.compile(rf'^/view/worksheet/(?P<workbook_id>{_common.GUID_REGEX})'
+        Route.WORKSHEET_VIEW: (re.compile(rf'^(?:/workbooks)?/view/'
+                                          rf'worksheet/(?P<workbook_id>{_common.GUID_REGEX})'
                                           rf'/(?P<worksheet_id>{_common.GUID_REGEX})', re.IGNORECASE),
                                {'workstepId': 'workstep_id'}),
         Route.WORKBOOK_PRESENTATION: (re.compile(rf'^/present/worksheet/(?P<workbook_id>{_common.GUID_REGEX})'

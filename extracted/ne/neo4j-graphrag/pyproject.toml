@@ -15,7 +15,7 @@
 
 [project]
 name = "neo4j-graphrag"
-version = "1.13.1"
+version = "1.14.0"
 description = "Python package to allow easy integration to Neo4j's GraphRAG features"
 authors = [
     {name = "Neo4j, Inc", email = "team-gen-ai@neo4j.com"}
@@ -58,6 +58,7 @@ experimental = [
     "langchain-text-splitters>=0.3.0,<0.4.0",
     "neo4j-viz>=0.4.2,<0.5.0",
     "llama-index>=0.13.0,<0.14.0",
+    "pyarrow>=20.0.0",  # ParquetWriter, Neo4jGraphParquetFormatter
 ]
 examples = [
     "langchain-openai>=0.2.2,<0.3.0",

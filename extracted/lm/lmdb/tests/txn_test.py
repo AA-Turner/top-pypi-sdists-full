@@ -152,6 +152,32 @@ class InitTest(testlib.LmdbTest):
             txn = env.begin(write=False)  # Used to raise MDB_BAD_RSLOT (#346)
 
     @unittest.skipIf(sys.platform.startswith('win'), "No fork on Windows")
+    def test_fork_child_dealloc_write_txn(self):
+        """Write txn created before fork must not be committed/aborted in
+        child — the cached-PID fork detection should silently skip cleanup."""
+        _, env = testlib.temp_env()
+        with env.begin(write=True) as txn:
+            txn.put(b'k', b'before_fork')
+
+        txn = env.begin(write=True)
+        txn.put(b'k', b'in_write_txn')
+
+        pid = os.fork()
+        if pid == 0:
+            # Child: dealloc should detect fork via cached PID and skip
+            # the LMDB abort/commit.  If the cache is stale this would
+            # corrupt the parent's environment.
+            del txn
+            del env
+            os._exit(0)
+
+        os.waitpid(pid, 0)
+        # Parent: abort the write txn — should still work fine.
+        txn.abort()
+        with env.begin() as txn:
+            assert txn.get(b'k') == b'before_fork'
+
+    @unittest.skipIf(sys.platform.startswith('win'), "No fork on Windows")
     def test_child_deleting_transaction(self):
         _, env = testlib.temp_env()
         with env.begin(write=True) as txn:
@@ -196,7 +222,7 @@ class ContextManagerTest(unittest.TestCase):
         try:
             with txn as txn_:
                 txn.put(B('foo'), B('123'))
-                txn.put(123, 123)
+                txn.put(123, 123)  # type: ignore[arg-type]
         except:
             pass
 
@@ -264,10 +290,10 @@ class StatTest(unittest.TestCase):
 
         txn.abort()
         self.assertRaises(Exception,
-            lambda: env.stat(db1))
+            lambda: env.stat(db1))  # type: ignore[call-arg]
         env.close()
         self.assertRaises(Exception,
-            lambda: env.stat(db1))
+            lambda: env.stat(db1))  # type: ignore[call-arg]
 
 
 class DropTest(unittest.TestCase):
@@ -569,7 +595,7 @@ class ReplaceTest(unittest.TestCase):
             cur = txn.cursor()
             assert cur.set_key(B('a'))
             assert [B('a'), B('b')] == list(cur.iternext_dup())
-            assert txn.delete(B('a'), None)
+            assert txn.delete(B('a'), None)  # type: ignore[arg-type]
 
     def test_dupdata_no_dupsort(self):
         _, env = testlib.temp_env()

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
-    Tuple,
+    get_args,
 )
 
 from llama_index_instrumentation import get_dispatcher
@@ -18,7 +18,7 @@ from pydantic import ValidationError
 if TYPE_CHECKING:  # pragma: no cover
     from .context import Context
     from .runtime.types.plugin import Runtime
-from .decorators import StepConfig, StepFunction
+from .decorators import StepConfig, StepFunction, WorkflowGraphCheck
 from .errors import (
     WorkflowConfigurationError,
     WorkflowRuntimeError,
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowMeta(type):
-    def __init__(cls, name: str, bases: Tuple[type, ...], dct: dict[str, Any]) -> None:
+    def __init__(cls, name: str, bases: tuple[type, ...], dct: dict[str, Any]) -> None:
         super().__init__(name, bases, dct)
         cls._step_functions: dict[str, StepFunction] = {}
 
@@ -100,6 +100,7 @@ class Workflow(metaclass=WorkflowMeta):
 
     # Populated by the metaclass; declared here for type checkers.
     _step_functions: dict[str, StepFunction]
+    _step_functions_version: int = 0
 
     _runtime: Runtime
     _workflow_name: str | None
@@ -113,6 +114,7 @@ class Workflow(metaclass=WorkflowMeta):
         num_concurrent_runs: int | None = None,
         runtime: Runtime | None = None,
         workflow_name: str | None = None,
+        skip_graph_checks: set[WorkflowGraphCheck] | None = None,
     ) -> None:
         """
         Initialize a workflow instance.
@@ -132,6 +134,9 @@ class Workflow(metaclass=WorkflowMeta):
             workflow_name (str | None): Optional explicit name for this workflow.
                 If not provided, a module-qualified name is computed from
                 the class's `__module__` and `__qualname__` attributes.
+            skip_graph_checks (set[str] | None): Optional set of graph validation
+                checks to skip (e.g. "reachability", "terminal_event"). Use to
+                allow intentional patterns that would otherwise fail validation.
         """
         # Configuration
         self._timeout = timeout
@@ -149,6 +154,19 @@ class Workflow(metaclass=WorkflowMeta):
         # Instrumentation
         self._dispatcher = dispatcher
         self._runtime_locked = False
+        # Validation cache: set after first successful _validate(); skip re-validation on run() until invalidated.
+        # _validated_version tracks which _step_functions_version was validated so add_step() invalidates the cache.
+        self._validation_result: bool | None = None
+        self._validated_version: int = -1
+        checks = skip_graph_checks or set()
+        valid_checks = set(get_args(WorkflowGraphCheck))
+        unknown = checks - valid_checks
+        if unknown:
+            raise WorkflowValidationError(
+                f"Unknown graph check names: {', '.join(sorted(unknown))}. "
+                f"Valid names are: {', '.join(sorted(valid_checks))}"
+            )
+        self._skip_graph_checks: set[WorkflowGraphCheck] = checks
 
         # Runtime registration: explicit > context-scoped > basic_runtime
         from workflows.plugins._context import get_current_runtime
@@ -349,6 +367,7 @@ class Workflow(metaclass=WorkflowMeta):
             raise WorkflowValidationError(msg)
 
         cls._step_functions[func.__name__] = func
+        cls._step_functions_version += 1
 
     def _get_steps(self) -> dict[str, StepFunction]:
         """Returns all the steps, whether defined as methods or free functions."""
@@ -458,6 +477,29 @@ class Workflow(metaclass=WorkflowMeta):
             workflow=self, start_event=start_event_instance, run_id=run_id
         )
 
+    def _validate_graph_structure(self) -> None:
+        """Check that all steps are reachable from input events and only output events are terminal.
+
+        Delegates to the pure ``validate_graph`` function in the representation
+        package and raises a single ``WorkflowValidationError`` listing every
+        problem found.
+        """
+        from .representation.validate import validate_graph
+
+        step_configs = {
+            name: func._step_config for name, func in self._get_steps().items()
+        }
+        errors = validate_graph(
+            steps=step_configs,
+            start_event_class=self._start_event_class,
+            skip_checks=self._skip_graph_checks,
+        )
+        if errors:
+            detail = "\n".join(
+                f"  - [{e.check}] {e.message}\n    {e.hint}" for e in errors
+            )
+            raise WorkflowValidationError(f"Graph validation failed:\n{detail}")
+
     def _validate_resource_configs(self) -> list[str]:
         """Validate all resource configs (including nested ones) by loading them."""
         errors: list[str] = []
@@ -522,9 +564,15 @@ class Workflow(metaclass=WorkflowMeta):
         Validate the workflow to ensure it's well-formed.
 
         This method validates the event graph and optionally validates resources:
+        - Event production/consumption (set-based checks)
+        - Graph structure: all steps reachable from an input event (StartEvent or HumanResponseEvent),
+          and only output events (StopEvent, InputRequiredEvent) may be terminal
         - Resource configs (JSON files with Pydantic validation) are validated by default
         - Resource factories are not validated by default (may require env vars)
         - Circular resource dependencies are caught when validate_resources=True
+
+        Validation result is cached after the first successful run(); subsequent run() calls
+        skip re-validation. Calling validate() explicitly always re-runs all checks.
 
         Args:
             validate_resource_configs: If True (default), validate that resource
@@ -552,6 +600,9 @@ class Workflow(metaclass=WorkflowMeta):
     ) -> bool:
         if self._disable_validation and not force:
             return False
+        stale = self._validated_version != self.__class__._step_functions_version
+        if not force and not stale and self._validation_result is not None:
+            return self._validation_result
 
         # Ensure at least one step is configured before inspecting events
         if not self._get_steps():
@@ -639,6 +690,9 @@ class Workflow(metaclass=WorkflowMeta):
                 f"The following events are produced but never consumed: {names}"
             )
 
+        # Graph structural checks: reachability from input events, terminal events
+        self._validate_graph_structure()
+
         # Resource validation
         if validate_resource_configs:
             if errors := self._validate_resource_configs():
@@ -648,23 +702,20 @@ class Workflow(metaclass=WorkflowMeta):
                 )
 
         if validate_resources:
-            # Python 3.9 compat: asyncio.run() closes the loop, must restore it
             errors = asyncio.run(self._validate_resources())
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                asyncio.set_event_loop(asyncio.new_event_loop())
             if errors:
                 raise WorkflowValidationError(
                     "Resource validation failed:\n"
                     + "\n".join(f"  - {e}" for e in errors)
                 )
 
-        # Check if the workflow uses human-in-the-loop
-        return (
+        # Check if the workflow uses human-in-the-loop; cache result for subsequent run() calls
+        self._validation_result = (
             InputRequiredEvent in produced_events
             or HumanResponseEvent in consumed_events
         )
+        self._validated_version = self.__class__._step_functions_version
+        return self._validation_result
 
 
 @dataclass

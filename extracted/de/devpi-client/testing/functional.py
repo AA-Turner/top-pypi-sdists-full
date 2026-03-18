@@ -1,8 +1,35 @@
 # this file is shared via symlink with devpi-client,
 # so it must continue to work with the lowest supported Python 3.x version
+from __future__ import annotations
+
 from devpi_common.metadata import parse_version
+from typing import TYPE_CHECKING
 from urllib.parse import quote as url_quote
 import pytest
+
+
+if TYPE_CHECKING:
+    from typing import Any
+    from typing import Protocol
+
+    class MappProtocol(Protocol):
+        api: API
+
+        def create_and_login_user(self, user: str, password: str) -> None: ...
+
+        def create_index(
+            self,
+            indexname: str,
+            indexconfig: dict | None = None,
+            use: bool = True,  # noqa: FBT001, FBT002 - API
+            code: int = 200,
+        ) -> API | str: ...
+
+        def getjson(self, path: str, code: int = 200) -> dict[str, Any]: ...
+
+        def get_new_stagename(self) -> str: ...
+
+        def use(self, stagename: str) -> API: ...
 
 
 LOWER_ARGON2_MEMORY_COST = 8
@@ -11,8 +38,16 @@ LOWER_ARGON2_TIME_COST = 1
 
 
 class API:
+    index: str
+    login: str
+    user: str
+    password: str
+    pypisubmit: str
+    simpleindex: str
+    stagename: str
+
     def __init__(self, d):
-        self.__dict__ = d
+        self.__dict__.update(d)
 
     def __repr__(self):
         cls = self.__class__
@@ -24,7 +59,12 @@ class API:
 class MappMixin:
     _usercount = 0
 
-    def create_and_use(self, stagename=None, password="123", indexconfig=None):  # noqa: S107
+    def create_and_use(
+        self: MappProtocol,
+        stagename: str | None = None,
+        password: str = "123",  # noqa: S107 - testing
+        indexconfig: dict | None = None,
+    ) -> API:
         if stagename is None:
             stagename = self.get_new_stagename()
         user, index = stagename.split("/")
@@ -36,11 +76,11 @@ class MappMixin:
         self.api.stagename = stagename
         return self.api
 
-    def get_new_stagename(self):
+    def get_new_stagename(self) -> str:
         self._usercount += 1
         return "user%s/dev" % self._usercount
 
-    def getapi(self, relpath="/"):
+    def getapi(self: MappProtocol, relpath: str = "/") -> API:
         path = relpath.strip("/")
         if not path:
             path = "/+api"
@@ -214,6 +254,25 @@ class TestIndexThings:
         assert res["type"] == "indexconfig"
         assert res["result"]["projects"] == []
 
+    @pytest.mark.nomocking
+    @pytest.mark.skipif(
+        "test_devpi_server" not in __name__,
+        reason="test only works in devpi-server",
+    )
+    def test_large_upload(self, mapp):
+        from devpi_server.replica import REPLICA_CHUNK_SIZE
+
+        mapp.create_and_use("cuser3/dev")
+        content1 = b"content1" * (REPLICA_CHUNK_SIZE // 8 + 1)
+        assert len(content1) > REPLICA_CHUNK_SIZE
+        content1_pkg = mapp.makepkg("hello-1.0.tar.gz", content1, "hello", "1.0")
+        r = mapp.upload_file_pypi(
+            "hello-1.0.tar.gz", content1_pkg, "hello", "1.0", code=None
+        )
+        assert r.status_code == 200
+        (pkg_url,) = mapp.getreleaseslist("hello")
+        assert ".tar.gz" in pkg_url
+
     def test_non_volatile_cannot_be_deleted(self, mapp):
         mapp.create_and_login_user("cuser4")
         mapp.create_index("dev", indexconfig={"volatile": False})
@@ -353,9 +412,9 @@ class TestProjectThings:
         force_delete_fix_version = parse_version("6.12.1dev")
         if server_version < force_delete_fix_version:
             pytest.skip("devpi-server without force delete via replica fix")
-        mapp.create_and_login_user("cuser3")
+        mapp.create_and_login_user("pruser3")
         mapp.create_index("dev", indexconfig={"volatile": False})
-        mapp.use("cuser3/dev")
+        mapp.use("pruser3/dev")
         content = mapp.makepkg("hello-1.0.tar.gz", b"content", "hello", "1.0")
         mapp.upload_file_pypi("hello-1.0.tar.gz", content, "hello", "1.0")
         mapp.delete_project("hello", code=403)

@@ -22,7 +22,7 @@ class MainArgSignature:
         star_args (bool):
         args (List['MainArgSignatureArgsItem']):
         star_kwargs (Union[Unset, bool]):
-        no_main_func (Optional[bool]):
+        auto_kind (Optional[str]):
         has_preprocessor (Optional[bool]):
     """
 
@@ -30,7 +30,7 @@ class MainArgSignature:
     error: str
     star_args: bool
     args: List["MainArgSignatureArgsItem"]
-    no_main_func: Optional[bool]
+    auto_kind: Optional[str]
     has_preprocessor: Optional[bool]
     star_kwargs: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -47,7 +47,7 @@ class MainArgSignature:
             args.append(args_item)
 
         star_kwargs = self.star_kwargs
-        no_main_func = self.no_main_func
+        auto_kind = self.auto_kind
         has_preprocessor = self.has_preprocessor
 
         field_dict: Dict[str, Any] = {}
@@ -58,7 +58,7 @@ class MainArgSignature:
                 "error": error,
                 "star_args": star_args,
                 "args": args,
-                "no_main_func": no_main_func,
+                "auto_kind": auto_kind,
                 "has_preprocessor": has_preprocessor,
             }
         )
@@ -87,7 +87,7 @@ class MainArgSignature:
 
         star_kwargs = d.pop("star_kwargs", UNSET)
 
-        no_main_func = d.pop("no_main_func")
+        auto_kind = d.pop("auto_kind")
 
         has_preprocessor = d.pop("has_preprocessor")
 
@@ -97,7 +97,7 @@ class MainArgSignature:
             star_args=star_args,
             args=args,
             star_kwargs=star_kwargs,
-            no_main_func=no_main_func,
+            auto_kind=auto_kind,
             has_preprocessor=has_preprocessor,
         )
 

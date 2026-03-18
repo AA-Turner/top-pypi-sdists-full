@@ -1,5 +1,5 @@
 # version placeholder (replaced by poetry-dynamic-versioning)
-__version__ = "v2.8.3"
+__version__ = "v2.8.4"
 
 from .scanner import Scanner, Preset
 

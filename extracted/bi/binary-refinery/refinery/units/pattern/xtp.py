@@ -56,17 +56,19 @@ class LetterWeights(LetterWeight, Enum):
 
 class xtp(PatternExtractor):
     """
-    Extract Patterns: Uses regular expressions to extract indicators from the input data and
-    optionally filters these results heuristically. The unit is designed to extract indicators
-    such as domain names and IP addresses, see below for a complete list. To extract data
-    formats such as hex-encoded data, use `refinery.carve`.
+    Extract IOC patterns and interesting technical artifacts: URLs, IPs, emails, domains, etc.
+
+    Uses regular expressions to extract indicators from the input data and optionally filters these
+    results heuristically. The unit is designed to extract indicators such as domain names and IP
+    addresses, see below for a complete list. To extract data formats such as hex-encoded data, use
+    the unit `refinery.carve`.
     """
 
     def __init__(
         self,
         *pattern: Param[str, Arg.String('pattern',
             default=(
-                indicators.hostname.name,
+                indicators.host.name,
                 indicators.url.name,
                 indicators.email.name,
             ), help=(
@@ -87,8 +89,8 @@ class xtp(PatternExtractor):
         patterns = {
             p for name in pattern for p in indicators if fnmatch(p.display, name)
         }
-        # if indicators.hostname in patterns:
-        #     patterns.remove(indicators.hostname)
+        # if indicators.host in patterns:
+        #     patterns.remove(indicators.host)
         #     patterns.add(indicators.ipv4)
         #     patterns.add(indicators.domain)
         patterns = [F'(?P<{p.name}>{p.value})' for p in patterns]
@@ -229,7 +231,7 @@ class xtp(PatternExtractor):
                 value = value[:pos]
         if not self.args.filter:
             return value
-        if name == indicators.hostname.name:
+        if name == indicators.host.name:
             if all(part.isdigit() for part in value.split(B'.')):
                 name = indicators.ipv4.name
             elif B'.' not in value:
@@ -266,7 +268,7 @@ class xtp(PatternExtractor):
         elif name in {
             indicators.url.name,
             indicators.socket.name,
-            indicators.hostname.name,
+            indicators.host.name,
             indicators.domain.name,
             indicators.subdomain.name
         }:
@@ -292,7 +294,7 @@ class xtp(PatternExtractor):
                         value = value[pos:]
                         break
             if name in {
-                indicators.hostname.name,
+                indicators.host.name,
                 indicators.domain.name,
                 indicators.subdomain.name
             }:

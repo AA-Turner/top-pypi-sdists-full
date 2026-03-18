@@ -8,9 +8,14 @@ from .filestore import Digests
 from .filestore import FileEntry
 from .filestore import get_hash_spec
 from .log import threadlog
+from .markers import NotSet
+from .markers import notset
 from .markers import unknown
 from .normalized import normalize_name
+from .readonly import DictViewReadonly
+from .readonly import SetViewReadonly
 from .readonly import get_mutable_deepcopy
+from abc import abstractmethod
 from devpi_common.metadata import get_latest_version
 from devpi_common.metadata import parse_version
 from devpi_common.metadata import splitbasename
@@ -38,13 +43,19 @@ import warnings
 
 
 if TYPE_CHECKING:
+    from .filestore import BaseFileEntry
     from .filestore import FileStore
+    from .filestore import MutableFileEntry
+    from .interfaces import ContentOrFile
     from .keyfs import KeyFS
     from .keyfs_types import PTypedKey
+    from .keyfs_types import RelPath
     from .keyfs_types import TypedKey
     from .main import XOM
+    from .markers import Unknown
     from .normalized import NormalizedName
     from collections.abc import Sequence
+    from devpi_common.metadata import Version
     from typing import Any
     from typing import Literal
     from typing import Union
@@ -56,9 +67,6 @@ if TYPE_CHECKING:
     YankedList = list[Yanked]
     JoinedLink = tuple[str, str, RequiresPython, Yanked]
     JoinedLinkList = list[JoinedLink]
-
-
-notset = object()
 
 
 class Rel(StrEnum):
@@ -160,13 +168,13 @@ class MissesVersion(ModelException):
 class NonVolatile(ModelException):
     """ A release is overwritten on a non volatile index. """
 
-    link: ELink | None = None  # the conflicting link
+    link: ELink  # the conflicting link
 
 
 class RootModel:
     """ per-process root model object. """
 
-    def __init__(self, xom: XOM):
+    def __init__(self, xom: XOM) -> None:
         self.xom = xom
         self.keyfs = xom.keyfs
 
@@ -211,11 +219,11 @@ class RootModel:
         threadlog.info("created index %s: %s", stage.name, stage.ixconfig)
         return stage
 
-    def delete_user(self, username):
+    def delete_user(self, username: str) -> None:
         with cast("TypedKey[set]", self.keyfs.USERLIST).update() as userlist:
             userlist.remove(username)
 
-    def delete_stage(self, username, index):
+    def delete_stage(self, username: str, index: str) -> None:
         user = self.get_user(username)
         if user is None:
             threadlog.info("user %s does not exist", username)
@@ -335,7 +343,7 @@ name_char_blocklist_regexp = re.compile(
     r' !"#$%&\'()*+,/:;<=>?\[\\\\\]^`{|}~]')
 
 
-def is_valid_name(name):
+def is_valid_name(name: str) -> bool:
     return not name_char_blocklist_regexp.search(name)
 
 
@@ -367,7 +375,7 @@ class User:
     # visible_keys are returned via json
     visible_keys = ignored_keys.union(info_keys, public_keys)
 
-    def __init__(self, parent, name):
+    def __init__(self, parent: RootModel, name: str) -> None:
         self.parent = parent
         self.keyfs = parent.keyfs
         self.xom = parent.xom
@@ -391,7 +399,7 @@ class User:
             raise InvalidUserconfig(
                 "Unknown keys in user config: %s" % ", ".join(unknown_keys))
 
-    def _set(self, newuserconfig):
+    def _set(self, newuserconfig: dict) -> None:
         with self.key.update() as userconfig:
             userconfig.update(newuserconfig)
             threadlog.info("internal: set user information %r", self.name)
@@ -439,7 +447,7 @@ class User:
             userconfig["pwhash"] = hash_password(password)
         threadlog.info("setting password for user %r", self.name)
 
-    def delete(self):
+    def delete(self) -> None:
         # delete all projects on the index
         userconfig = self.get()
         for name in list(userconfig.get("indexes", {})):
@@ -450,7 +458,7 @@ class User:
         self.key.delete()
         self.parent.delete_user(self.name)
 
-    def validate(self, password):
+    def validate(self, password: str) -> bool:
         userconfig = self.key.get()
         if not userconfig:
             return False
@@ -530,7 +538,7 @@ def get_principals(value):
 class BaseStageCustomizer:
     readonly = False
 
-    def __init__(self, stage):
+    def __init__(self, stage: BaseStage) -> None:
         self.stage = stage
         self.hooks = self.stage.xom.config.hook
 
@@ -677,7 +685,7 @@ class SimpleLinks:
     def __iter__(self):
         return self._links.__iter__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._links)
 
     def __eq__(self, other):
@@ -696,7 +704,7 @@ class SimpleLinks:
     def sort(self, *args, **kw):
         self._links.sort(*args, **kw)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clsname = f"{self.__class__.__module__}.{self.__class__.__name__}"
         content = ', '.join(repr(x) for x in self._links)
         return f"<{clsname} stale={self.stale!r} [{content}]>"
@@ -704,8 +712,16 @@ class SimpleLinks:
 
 class BaseStage:
     keyfs: KeyFS
+    offline: bool
 
-    def __init__(self, xom, username, index, ixconfig, customizer_cls):
+    def __init__(
+        self,
+        xom: XOM,
+        username: str,
+        index: str,
+        ixconfig: DictViewReadonly[str, Any],
+        customizer_cls: type,
+    ) -> None:
         self.xom = xom
         self.username = username
         self.index = index
@@ -719,12 +735,21 @@ class BaseStage:
             user=username, index=index
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.name}>"
 
     @property
-    def model(self):
+    def model(self) -> RootModel:
         return self.xom.model
+
+    @abstractmethod
+    def add_project_name(self, project: NormalizedName | str) -> None:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def no_project_list(self) -> bool:
+        raise NotImplementedError
 
     def get_indexconfig_from_kwargs(self, **kwargs):
         """Normalizes values and validates keys.
@@ -808,12 +833,29 @@ class BaseStage:
         ixconfig["type"] = index_type
         return (ixconfig, kwargs)
 
+    @abstractmethod
     def get_default_config_items(self) -> Sequence[tuple[str, Any]]:
         raise NotImplementedError
 
+    @abstractmethod
     def get_possible_indexconfig_keys(self) -> Sequence:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_versiondata_perstage(self, project, version, readonly=None):
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_projects_perstage(
+        self,
+    ) -> dict[str, NormalizedName | str] | SetViewReadonly[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def has_project_perstage(self, project: NormalizedName | str) -> bool | Unknown:
+        raise NotImplementedError
+
+    @abstractmethod
     def normalize_indexconfig_value(self, key: str, value: Any) -> Any:
         raise NotImplementedError
 
@@ -826,7 +868,7 @@ class BaseStage:
         userconfig = self.user.get()
         return userconfig.get("indexes", {}).get(self.index)
 
-    def delete(self):
+    def delete(self) -> None:
         self.model.delete_stage(self.username, self.index)
 
     def key_projsimplelinks(self, project: str) -> TypedKey[dict]:
@@ -887,7 +929,7 @@ class BaseStage:
     def get_link_from_entrypath(self, entrypath):
         relpath = entrypath.rsplit("#", 1)[0]
         entry = self.xom.filestore.get_file_entry(relpath)
-        if entry.project is None:
+        if entry is None or entry.project is None:
             return None
         linkstore = self.get_linkstore_perstage(entry.project,
                                                 entry.version)
@@ -895,12 +937,19 @@ class BaseStage:
         assert len(links) < 2
         return links[0] if links else None
 
+    @abstractmethod
     def get_simplelinks_perstage(self, project: NormalizedName | str) -> SimpleLinks:
         raise NotImplementedError
 
     def store_toxresult(
-        self, link, content_or_file, *, filename=None, hashes=None, last_modified=None
-    ):
+        self,
+        link: ELink,
+        content_or_file: ContentOrFile,
+        *,
+        filename: str | None = None,
+        hashes: Digests | None = None,
+        last_modified: str | None = None,
+    ) -> ELink:
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
         assert not isinstance(content_or_file, dict)
@@ -936,6 +985,7 @@ class BaseStage:
             versions.update(res)
         return self.filter_versions(project, versions)
 
+    @abstractmethod
     def list_versions_perstage(self, project: str) -> set:
         raise NotImplementedError
 
@@ -1311,11 +1361,22 @@ class PrivateStage(BaseStage):
 
     use_external_url = False
 
-    def __init__(self, xom, username, index, ixconfig, customizer_cls):
+    def __init__(
+        self,
+        xom: XOM,
+        username: str,
+        index: str,
+        ixconfig: DictViewReadonly[str, Any],
+        customizer_cls: type,
+    ) -> None:
         super().__init__(xom, username, index, ixconfig, customizer_cls)
         self.httpget = xom.httpget
         self.async_httpget = xom.async_httpget
         self.http = xom.http
+
+    @property
+    def no_project_list(self) -> Literal[False]:
+        return False
 
     def get_possible_indexconfig_keys(self):
         return tuple(dict(self.get_default_config_items())) + (
@@ -1354,7 +1415,7 @@ class PrivateStage(BaseStage):
         if key in ("custom_data", "description", "title"):
             return value
 
-    def delete(self):
+    def delete(self) -> None:
         # delete all projects on this index
         for name in self.list_projects_perstage():
             self.del_project(name)
@@ -1403,7 +1464,7 @@ class PrivateStage(BaseStage):
             self.key_projversions(project).set(versions)
         self.add_project_name(project)
 
-    def add_project_name(self, project):
+    def add_project_name(self, project: NormalizedName | str) -> None:
         project = normalize_name(project)
         projects = self.key_projects.get_mutable()
         if project not in projects:
@@ -1412,7 +1473,7 @@ class PrivateStage(BaseStage):
             projects.add(project)
             self.key_projects.set(projects)
 
-    def del_project(self, project):
+    def del_project(self, project: NormalizedName | str) -> None:
         project = normalize_name(project)
         for version in list(self.key_projversions(project).get()):
             self.del_versiondata(project, version, cleanup=False)
@@ -1423,7 +1484,12 @@ class PrivateStage(BaseStage):
         self.key_projversions(project).delete()
         self.key_projsimplelinks(project).delete()
 
-    def del_versiondata(self, project, version, cleanup=True):
+    def del_versiondata(
+        self,
+        project: NormalizedName | str,
+        version: str,
+        cleanup: bool = True,  # noqa: ARG002,FBT001,FBT002
+    ) -> None:
         project = normalize_name(project)
         if not self.has_project_perstage(project):
             raise self.NotFound("project %r not found on stage %r" %
@@ -1462,43 +1528,44 @@ class PrivateStage(BaseStage):
         tx = self.keyfs.tx
         if at_serial is None:
             at_serial = tx.at_serial
-        info = tx.get_last_serial_and_value_at(
+        projects_info = tx.get_last_serial_and_value_at(
             self.key_projects,
             at_serial,
             raise_on_error=False,
         )
-        if info is None:
+        if projects_info is None:
             # never existed
             return -1
-        (last_serial, projects) = info
+        (last_serial, projects) = projects_info
         if projects is None:
             # the whole index was deleted
             return -1
-        info = tx.get_last_serial_and_value_at(
+        assert isinstance(projects, SetViewReadonly)
+        versions_info = tx.get_last_serial_and_value_at(
             self.key_projversions(project),
             at_serial,
             raise_on_error=False,
         )
-        if info is None:
+        if versions_info is None:
             if project in projects:
                 # no versions ever existed, but the project is known
                 return last_serial
             # the project never existed or was deleted and didn't have versions
             return -1
-        (last_serial, versions) = info
+        (last_serial, versions) = versions_info
         if versions is None:
             # was deleted
             return last_serial
         version = get_latest_version(versions)
-        info = tx.get_last_serial_and_value_at(
+        version_info = tx.get_last_serial_and_value_at(
             self.key_projversion(project, version),
             at_serial,
             raise_on_error=False,
         )
-        if info is None:
+        if version_info is None:
             # never existed
             return -1
-        (version_serial, version) = info
+        (version_serial, version) = version_info
         return max(last_serial, version_serial)
 
     def get_versiondata_perstage(self, project, version, readonly=None):
@@ -1539,14 +1606,24 @@ class PrivateStage(BaseStage):
         data_dict = {u"links":links, u"requires_python":requires_python}
         self.key_projsimplelinks(project).set(data_dict)
 
-    def list_projects_perstage(self):
+    def list_projects_perstage(
+        self,
+    ) -> dict[str, NormalizedName | str] | SetViewReadonly[str]:
         return self.key_projects.get()
 
-    def has_project_perstage(self, project):
+    def has_project_perstage(self, project: NormalizedName | str) -> bool | Unknown:
         return normalize_name(project) in self.list_projects_perstage()
 
-    def store_releasefile(self, project, version, filename, content_or_file,
-                          *, hashes=None, last_modified=None):
+    def store_releasefile(
+        self,
+        project: NormalizedName | str,
+        version: str,
+        filename: str,
+        content_or_file: ContentOrFile,
+        *,
+        hashes: Digests | None = None,
+        last_modified: str | None = None,
+    ) -> ELink:
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
         project = normalize_name(project)
@@ -1571,8 +1648,15 @@ class PrivateStage(BaseStage):
         self._regen_simplelinks(project)
         return link
 
-    def store_doczip(self, project, version, content_or_file,
-                     *, hashes=None, last_modified=None):
+    def store_doczip(
+        self,
+        project: NormalizedName | str,
+        version: str,
+        content_or_file: ContentOrFile,
+        *,
+        hashes: Digests | None = None,
+        last_modified: str | None = None,
+    ) -> ELink:
         if self.customizer.readonly:
             raise ReadonlyIndex("index is marked read only")
         project = normalize_name(project)
@@ -1625,18 +1709,21 @@ class PrivateStage(BaseStage):
                 self.key_projects, at_serial)
         except KeyError:
             last_serial = -1
-            projects = ()
+            projects = SetViewReadonly(set())
         if last_serial >= at_serial:
             return last_serial
+        assert isinstance(projects, SetViewReadonly)
         for project in projects:
             (versions_serial, versions) = tx.get_last_serial_and_value_at(
                 self.key_projversions(project), at_serial)
             last_serial = max(last_serial, versions_serial)
             if last_serial >= at_serial:
                 return last_serial
+            assert isinstance(versions, SetViewReadonly)
             for version in versions:
-                (version_serial, version) = tx.get_last_serial_and_value_at(
-                    self.key_projversion(project, version), at_serial)
+                (version_serial, _version_value) = tx.get_last_serial_and_value_at(
+                    self.key_projversion(project, version), at_serial
+                )
                 last_serial = max(last_serial, version_serial)
                 if last_serial >= at_serial:
                     return last_serial
@@ -1644,8 +1731,11 @@ class PrivateStage(BaseStage):
         user_key = self.user.key
         (user_serial, user_config) = tx.get_last_serial_and_value_at(
             user_key, at_serial)
+        assert isinstance(user_config, DictViewReadonly)
         try:
-            current_index_config = user_config["indexes"][self.index]
+            indexes = user_config["indexes"]
+            assert isinstance(indexes, DictViewReadonly)
+            current_index_config = indexes[self.index]
         except KeyError:
             raise KeyError("The index '%s' was not committed yet." % self.index)
         # if any project is newer than the user config, we are done
@@ -1811,22 +1901,29 @@ class ELink:
     def matches_hashes(self, hashes):
         return self.hashes == hashes
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<ELink rel=%r entrypath=%r>" % (self.rel, self.entrypath)
 
     @property
-    def entry(self):
-        if self._entry is notset:
-            self._entry = self.filestore.get_file_entry(self.relpath)
-        return self._entry
+    def entry(self) -> FileEntry:
+        entry = self._entry
+        if isinstance(entry, NotSet):
+            entry = self.filestore.get_file_entry(self.relpath)
+            assert entry is not None
+            self._entry = entry
+        return entry
 
     def add_log(self, what, who, **kw):
-        d = {"what": what, "who": who, "when": gmtime()[:6]}
-        d.update(kw)
-        self._log.append(d)
+        log = {"what": what, "who": who, "when": gmtime()[:6]} | kw
+        self._log.append(log | dict(when=tuple(log["when"])))
 
     def add_logs(self, logs):
-        self._log.extend(logs)
+        for log in logs:
+            self.add_log(
+                log["what"],
+                log["who"],
+                **{k: v for k, v in log.items() if k not in ("what", "who")},
+            )
 
     def get_logs(self):
         return list(getattr(self, '_log', []))
@@ -1846,7 +1943,7 @@ class LinkStore:
                 "%s-%s on stage %s at %s",
                 project, version, stage.name, stage.keyfs.tx.at_serial)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.project} {self.stage.name} {self.version}>"
 
     @property
@@ -1856,10 +1953,18 @@ class LinkStore:
             for k, v in get_mutable_deepcopy(self.verdata).items()
             if not k.startswith("+")}
 
-    def get_file_entry(self, relpath):
+    def get_file_entry(self, relpath: RelPath) -> FileEntry | None:
         return self.filestore.get_file_entry(relpath)
 
-    def create_linked_entry(self, rel, basename, content_or_file, *, hashes=None, last_modified=None):
+    def create_linked_entry(
+        self,
+        rel: Rel,
+        basename: str,
+        content_or_file: ContentOrFile,
+        *,
+        hashes: Digests | None = None,
+        last_modified: str | None = None,
+    ) -> ELink:
         overwrite = None
         for link in self.get_links(rel=rel, basename=basename):
             if not self.stage.ixconfig.get("volatile"):
@@ -1879,8 +1984,16 @@ class LinkStore:
             link.add_log('overwrite', None, count=overwrite + 1)
         return link
 
-    def new_reflink(self, rel, content_or_file, for_entrypath,
-                    *, filename=None, hashes=None, last_modified=None):
+    def new_reflink(
+        self,
+        rel: Rel,
+        content_or_file: ContentOrFile,
+        for_entrypath: ELink | str | None,
+        *,
+        filename: str | None = None,
+        hashes: Digests | None = None,
+        last_modified: str | None = None,
+    ) -> ELink:
         if isinstance(for_entrypath, ELink):
             for_entrypath = for_entrypath.relpath
         elif for_entrypath is not None:
@@ -1921,7 +2034,7 @@ class LinkStore:
         self,
         rel: Rel | None = None,
         basename: str | None = None,
-        entrypath: str | None = None,
+        entrypath: ELink | str | None = None,
         for_entrypath: ELink | str | None = None,
     ) -> list[ELink]:
         if isinstance(for_entrypath, ELink):
@@ -1940,7 +2053,14 @@ class LinkStore:
         return list(filter(fil, [ELink(self.filestore, linkdict, self.project, self.version)
                            for linkdict in self.verdata.get("+elinks", [])]))
 
-    def _create_file_entry(self, basename, content_or_file, *, hashes=None, ref_hash_spec=None):
+    def _create_file_entry(
+        self,
+        basename: str,
+        content_or_file: ContentOrFile,
+        *,
+        hashes: Digests | None = None,
+        ref_hash_spec: str | None = None,
+    ) -> MutableFileEntry:
         entry = self.filestore.store(
             user=self.stage.username, index=self.stage.index,
             basename=basename,
@@ -1951,13 +2071,18 @@ class LinkStore:
         entry.version = self.version
         return entry
 
-    def _mark_dirty(self):
+    def _mark_dirty(self) -> None:
         self.stage._set_versiondata(self.verdata)
 
     def _get_inplace_linkdicts(self):
         return self.verdata.setdefault("+elinks", [])
 
-    def _add_link_to_file_entry(self, rel, file_entry, for_entrypath=None):
+    def _add_link_to_file_entry(
+        self,
+        rel: Rel,
+        file_entry: BaseFileEntry,
+        for_entrypath: ELink | str | None = None,
+    ) -> ELink:
         if isinstance(for_entrypath, ELink):
             for_entrypath = for_entrypath.relpath
         elif for_entrypath is not None:
@@ -2003,6 +2128,8 @@ class SimplelinkMeta:
         "require_python",
         "yanked",
     )
+    __cmpval: tuple | NotSet
+    __hashes: Digests | NotSet
 
     def __init__(self, link_info: tuple[str, str, RequiresPython, Yanked]) -> None:
         self.__basename = notset
@@ -2016,7 +2143,7 @@ class SimplelinkMeta:
         self.__version = notset
         (self.key, self.href, self.require_python, self.yanked) = link_info
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             (
                 self.__basename,
@@ -2035,12 +2162,12 @@ class SimplelinkMeta:
             )
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
             other = other.cmpval
         return self.cmpval == other
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if isinstance(other, type(self)):
             other = other.cmpval
         return self.cmpval < other
@@ -2061,11 +2188,11 @@ class SimplelinkMeta:
             return self.yanked
         raise IndexError(f"{self.__class__.__name__} index out of range")
 
-    def __splitbasename(self):
+    def __splitbasename(self) -> None:
         (self.__name, self.__version, self.__ext) = splitbasename(
             self.basename, checkarch=False)
 
-    def __parse_url(self):
+    def __parse_url(self) -> None:
         url = URL(self.href)
         self.__basename = url.basename
         self.__hash_spec = url.hash_spec
@@ -2075,57 +2202,76 @@ class SimplelinkMeta:
         self.__path = url.path
 
     @property
-    def basename(self):
+    def basename(self) -> str:
         if self.__basename is notset:
             self.__parse_url()
+        if TYPE_CHECKING:
+            assert isinstance(self.__basename, str)
         return self.__basename
 
     @property
-    def hash_spec(self):
+    def hash_spec(self) -> str:
         if self.__hash_spec is notset:
             self.__parse_url()
+        if TYPE_CHECKING:
+            assert isinstance(self.__hash_spec, str)
         return self.__hash_spec
 
     @property
-    def hashes(self):
+    def hashes(self) -> Digests:
         if self.__hashes is notset:
             self.__parse_url()
+        if TYPE_CHECKING:
+            assert isinstance(self.__hashes, Digests)
         return self.__hashes
 
     @property
-    def path(self):
+    def path(self) -> str:
         if self.__path is notset:
             self.__parse_url()
+        if TYPE_CHECKING:
+            assert isinstance(self.__path, str)
         return self.__path
 
     @property
-    def name(self):
+    def name(self) -> str:
         if self.__name is notset:
             self.__splitbasename()
+        if TYPE_CHECKING:
+            assert isinstance(self.__name, str)
         return self.__name
 
     @property
-    def version(self):
+    def version(self) -> str:
         if self.__version is notset:
             self.__splitbasename()
+        if TYPE_CHECKING:
+            assert isinstance(self.__version, str)
         return self.__version
 
     @property
-    def ext(self):
+    def ext(self) -> str:
         if self.__ext is notset:
             self.__splitbasename()
+        if TYPE_CHECKING:
+            assert isinstance(self.__ext, str)
         return self.__ext
 
     @property
-    def cmpval(self):
+    def cmpval(self) -> tuple[Version, NormalizedName, str]:
         if self.__cmpval is notset:
             self.__cmpval = (
                 parse_version(self.version),
                 normalize_name(self.name),
                 self.ext)
+        if TYPE_CHECKING:
+            assert isinstance(self.__cmpval, tuple)
+            assert isinstance(self.__cmpval[0], Version)
+            assert isinstance(self.__cmpval[1], NormalizedName)
+            assert isinstance(self.__cmpval[2], str)
         return self.__cmpval
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         clsname = f"{self.__class__.__module__}.{self.__class__.__name__}"
         return (
             f"<{clsname} "

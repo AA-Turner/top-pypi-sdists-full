@@ -1305,7 +1305,19 @@ class Prospectus424B:
         tables = self._classified_tables.get('key_terms', [])
         if not tables:
             return None
-        return extract_structured_note_terms(tables[0])
+        # Merge terms from all key_terms tables (some filings split across multiple)
+        merged = extract_structured_note_terms(tables[0])
+        for extra_table in tables[1:]:
+            extra = extract_structured_note_terms(extra_table)
+            for field in merged.model_fields:
+                if field == 'additional_terms':
+                    continue
+                if getattr(merged, field) is None and getattr(extra, field) is not None:
+                    setattr(merged, field, getattr(extra, field))
+            for k, v in extra.additional_terms.items():
+                if k not in merged.additional_terms:
+                    merged.additional_terms[k] = v
+        return merged
 
     @cached_property
     def dilution(self) -> Optional[DilutionData]:
@@ -1343,7 +1355,7 @@ class Prospectus424B:
         fee_type = 'underwriting_discount'
 
         # Prefer allocation tables (have full legal names)
-        alloc = [r for r in table_results if r['type'] == 'allocation']
+        alloc = [r for r in table_results if r['type'] == 'allocation' and r['names']]
         if alloc:
             for name, amt in zip(alloc[0]['names'], alloc[0].get('allocations', [])):
                 entries.append(UnderwriterEntry(name=name, shares_allocated=amt))

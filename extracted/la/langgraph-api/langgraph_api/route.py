@@ -80,8 +80,14 @@ class ApiRequest(Request):
     async def body(self) -> bytearray:
         if not hasattr(self, "_body"):
             chunks = bytearray()
+            limit = config.HTTP_MAX_REQUEST_BODY_BYTES
             async for chunk in self.stream():
                 chunks.extend(chunk)
+                if len(chunks) > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Request body too large (limit: {limit} bytes)",
+                    )
             self._body = chunks
         return self._body
 

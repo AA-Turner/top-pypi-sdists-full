@@ -309,6 +309,8 @@ async def stream_run(
         await sub.__aexit__(None, None, None)
         raise
 
+    request.scope["run_id"] = str(run["run_id"])
+
     async def body():
         try:
             async for event, message, stream_id in Runs.Stream.join(
@@ -358,6 +360,8 @@ async def stream_run_stateless(
         await sub.__aexit__(None, None, None)
         raise
 
+    request.scope["run_id"] = str(run["run_id"])
+
     async def body():
         try:
             async for event, message, stream_id in Runs.Stream.join(
@@ -404,6 +408,8 @@ async def wait_run(request: ApiRequest):
         await sub.__aexit__(None, None, None)
         raise
 
+    request.scope["run_id"] = str(run["run_id"])
+
     body = _run_result_body(
         run_id=run["run_id"],
         thread_id=run["thread_id"],
@@ -447,6 +453,8 @@ async def wait_run_stateless(request: ApiRequest):
         # Clean up the stream handler on errors
         await sub.__aexit__(None, None, None)
         raise
+
+    request.scope["run_id"] = str(run["run_id"])
 
     async def stateless_fallback() -> bytes:
         await logger.awarning(

@@ -783,13 +783,13 @@ class Geocif:
         """Compute detrended yield for each region."""
         self.df_train[f"Detrended {self.target}"] = np.nan
         self.df_train["Detrended Model"] = np.nan
-        self.df_train["Detrended Model Type"] = np.nan
+        self.df_train["Detrended Model Type"] = pd.Series(np.nan, index=self.df_train.index, dtype="object")
         self.df_test[f"Detrended {self.target}"] = np.nan
         self.df_test["Detrended Model"] = np.nan
-        self.df_test["Detrended Model Type"] = np.nan
+        self.df_test["Detrended Model Type"] = pd.Series(np.nan, index=self.df_test.index, dtype="object")
         self.detrend_models = {}
 
-        groups = self.df_train.groupby(["Region"])
+        groups = self.df_train.groupby("Region")
 
         for region_name, group in groups:
             if group.empty or not group[self.target].any():
@@ -1498,32 +1498,39 @@ class Geocif:
         """Add trend back to detrended predictions."""
         y_pred_retrended = y_pred.copy()
 
-        for idx, region in enumerate(df_region["Region"].unique()):
-            mask_region = self.df_train["Region"] == region
-            df_tmp = self.df_train[mask_region]
+        for region in df_region["Region"].unique():
+            mask_test = df_region["Region"].values == region
+            row_indices = np.where(mask_test)[0]
+
+            mask_train = self.df_train["Region"] == region
+            df_tmp = self.df_train[mask_train]
+
+            if df_tmp.empty:
+                continue
+
             model_type = df_tmp["Detrended Model Type"].iloc[0]
 
-            if model_type == "gaussian":
-                # Retrieve the Gaussian model from per-region dict
-                gaussian_model = self.detrend_models[region]
-                year = df_region.iloc[idx]["Harvest Year"]
-                X = add_constant(np.array([year]), has_constant="add")
-                yei = gaussian_model["extrap_model"].predict(X)[0]
-                # Detrended values are percent anomalies: Yai = 100*(Yi-Yei)/Yei
-                # Retrend: Yi = Yei * (1 + Yai/100)
-                y_pred_retrended[idx] = yei * (1 + y_pred[idx] / 100.0)
-            else:
-                obj_trend = trend.DetrendedData(
-                    df_tmp[f"Detrended {self.target}"],
-                    df_tmp["Detrended Model"],
-                    df_tmp["Detrended Model Type"],
-                )
-                trend_value = trend.compute_trend(
-                    obj_trend, df_region.iloc[idx][["Harvest Year"]]
-                )[0]
-                y_pred_retrended[idx] += trend_value
+            for ri in row_indices:
+                if model_type == "gaussian":
+                    gaussian_model = self.detrend_models[region]
+                    year = df_region.iloc[ri]["Harvest Year"]
+                    X = add_constant(np.array([year]), has_constant="add")
+                    yei = gaussian_model["extrap_model"].predict(X)[0]
+                    # Detrended values are percent anomalies: Yai = 100*(Yi-Yei)/Yei
+                    # Retrend: Yi = Yei * (1 + Yai/100)
+                    y_pred_retrended[ri] = yei * (1 + y_pred[ri] / 100.0)
+                else:
+                    obj_trend = trend.DetrendedData(
+                        df_tmp[f"Detrended {self.target}"],
+                        df_tmp["Detrended Model"],
+                        df_tmp["Detrended Model Type"],
+                    )
+                    trend_value = trend.compute_trend(
+                        obj_trend, df_region.iloc[ri][["Harvest Year"]]
+                    )[0]
+                    y_pred_retrended[ri] += trend_value
 
-            df_region.loc[idx, "Detrended Model Type"] = model_type
+                df_region.iloc[ri, df_region.columns.get_loc("Detrended Model Type")] = model_type
 
         return y_pred_retrended
 
@@ -1902,9 +1909,9 @@ class Geocif:
         """Update progress bar with region information."""
         if self.cluster_strategy == "individual":
             region_name = self.df_train["Region"].unique()[idx]
-            pbar.set_description(f"Fit/Predict for {region_name}")
+            pbar.set_description(f"Fit/Predict {self.country} {self.crop} {region_name}")
         else:
-            pbar.set_description(f"Fit/Predict for group {idx + 1}")
+            pbar.set_description(f"Fit/Predict {self.country} {self.crop} group {idx + 1}")
         
         pbar.update()
 

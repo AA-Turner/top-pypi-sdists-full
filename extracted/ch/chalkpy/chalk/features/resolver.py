@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import ast
 import asyncio
 import base64
 import builtins
@@ -26,6 +25,7 @@ from dataclasses import dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum, IntEnum
 from inspect import Parameter, isclass
+from pathlib import Path
 from types import ModuleType
 from typing import (
     TYPE_CHECKING,
@@ -68,8 +68,12 @@ from google.protobuf.descriptor import Descriptor
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
 from pydantic import BaseModel
 
-from chalk._lsp._class_finder import get_function_caller_info
-from chalk._lsp.error_builder import FunctionCallErrorBuilder, ResolverErrorBuilder, get_resolver_error_builder
+from chalk._lsp.error_builder import (
+    FunctionCallErrorBuilder,
+    ResolverErrorBuilder,
+    get_function_caller_info,
+    get_resolver_error_builder,
+)
 from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features._encoding.protobuf import (
     convert_proto_message_type_to_pyarrow_type,
@@ -84,6 +88,7 @@ from chalk.features.filter import Filter, TimeDelta, time_is_frozen
 from chalk.features.namespace_context import build_namespaced_name
 from chalk.features.pseudofeatures import CHALK_TS_FEATURE, PSEUDONAMESPACE
 from chalk.features.tag import Environments, Tags
+from chalk.parsed.ast_context import get_project_ast_context
 from chalk.sink import SinkIntegrationProtocol
 from chalk.state import StateWrapper
 from chalk.streams import KafkaSource, StreamSource, get_name_with_duration
@@ -111,6 +116,7 @@ except ImportError:
     UnionType = Union
 
 if TYPE_CHECKING:
+    from chalk_rs import ResolverAST
     from pydantic import BaseModel
 
     from chalk.features import Underscore
@@ -608,6 +614,8 @@ ResolverRegistry.__new__ = _prevent_duplicate_construction
 
 
 class Resolver(ResolverProtocol[P, T], abc.ABC):
+    __chalk_resolver_ast__: ResolverAST | None
+
     def __init__(
         self,
         *,
@@ -656,6 +664,12 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._inputs = inputs
         self._output = output
         self.fn = fn
+        self.__chalk_resolver_ast__ = None
+        file_path = Path(fn.__code__.co_filename).resolve()
+        index = get_project_ast_context()
+        self.__chalk_resolver_ast__ = index.function_ast_in_file(str(file_path), fn.__name__)
+        if self.__chalk_resolver_ast__ is None:
+            self.__chalk_resolver_ast__ = index.function_ast(fn.__module__, fn.__name__)
         self.__name__ = self.fn.__name__
         self.__module__ = fn.__module__
         self.__doc__ = fn.__doc__
@@ -1299,23 +1313,22 @@ def parse_function(
                 lines = content.split("\n")
                 for i, arg_name in enumerate(sig.parameters.keys()):
                     arg_node = error_builder.function_arg_value_by_index(i)
-                    if isinstance(arg_node, ast.AST):
-                        datetime_now_range = error_builder.string_in_node(
-                            node=arg_node, string=datetime_now, text=lines
+                    if arg_node is None:
+                        continue
+                    datetime_now_range = error_builder.string_in_node(node=arg_node, string=datetime_now, text=lines)
+                    if datetime_now_range is not None:
+                        error_builder.add_diagnostic(
+                            message=(
+                                "Do not use 'datetime.now()' in your resolver arguments. "
+                                "If you want the current time for inference or backfills, "
+                                "replace this annotation with chalk.Now."
+                            ),
+                            code="87",
+                            label="replace with chalk.Now",
+                            range=datetime_now_range,
+                            raise_error=ValueError,
+                            code_href="https://docs.chalk.ai/docs/time",
                         )
-                        if datetime_now_range is not None:
-                            error_builder.add_diagnostic(
-                                message=(
-                                    "Do not use 'datetime.now()' in your resolver arguments. "
-                                    "If you want the current time for inference or backfills, "
-                                    "replace this annotation with chalk.Now."
-                                ),
-                                code="87",
-                                label="replace with chalk.Now",
-                                range=datetime_now_range,
-                                raise_error=ValueError,
-                                code_href="https://docs.chalk.ai/docs/time",
-                            )
 
         for i, (arg_name, parameter) in enumerate(sig.parameters.items()):
             bad_input_message = (

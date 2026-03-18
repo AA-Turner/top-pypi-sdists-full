@@ -77,3 +77,29 @@ class ConsumerServiceServicer(metaclass=abc.ABCMeta):
         """Update the state of a task with execution results."""
 
 def add_ConsumerServiceServicer_to_server(servicer: ConsumerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...
+
+class WorkerServiceStub:
+    def __init__(self, channel: typing.Union[grpc.Channel, grpc.aio.Channel]) -> None: ...
+    PushTask: grpc.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse,
+    ]
+    """Provide the worker with a task to execute."""
+
+class WorkerServiceAsyncStub:
+    PushTask: grpc.aio.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse,
+    ]
+    """Provide the worker with a task to execute."""
+
+class WorkerServiceServicer(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def PushTask(
+        self,
+        request: sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskRequest,
+        context: _ServicerContext,
+    ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.PushTaskResponse]]:
+        """Provide the worker with a task to execute."""
+
+def add_WorkerServiceServicer_to_server(servicer: WorkerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...

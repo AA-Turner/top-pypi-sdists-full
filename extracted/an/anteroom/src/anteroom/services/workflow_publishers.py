@@ -19,6 +19,7 @@ class PublishAdapter(Protocol):
         content: str,
         destination: dict[str, Any],
         credentials: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> Any: ...
 
 
@@ -28,6 +29,7 @@ class FilePublishAdapter:
         content: str,
         destination: dict[str, Any],
         credentials: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         from .workflow_runners import RunnerResult
 
@@ -63,6 +65,7 @@ class WebhookPublishAdapter:
         content: str,
         destination: dict[str, Any],
         credentials: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> Any:
         from .workflow_runners import RunnerResult
 
@@ -76,6 +79,9 @@ class WebhookPublishAdapter:
         if credentials:
             for key, val in credentials.items():
                 headers[f"X-{key}"] = val
+
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
 
         body_template = destination.get("body_template")
         if body_template:

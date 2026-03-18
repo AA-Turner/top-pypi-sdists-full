@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.14.141
+Version: 0.14.142
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -15,7 +15,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: aiobotocore==2.21.1
 Requires-Dist: aiohappyeyeballs==2.6.1
 Requires-Dist: aiohttp==3.13.3
@@ -50,7 +50,7 @@ Requires-Dist: databricks-sqlalchemy==1.0.2
 Requires-Dist: dataclasses-json==0.6.7
 Requires-Dist: decorator==5.2.1
 Requires-Dist: deprecation==2.1.0
-Requires-Dist: dlt-cratedb==0.0.2
+Requires-Dist: dlt-cratedb==0.1.1
 Requires-Dist: dlt==1.21.0
 Requires-Dist: dnspython==2.7.0
 Requires-Dist: duckdb-engine==0.17.0
@@ -86,7 +86,7 @@ Requires-Dist: google-cloud-storage==3.1.0
 Requires-Dist: google-crc32c==1.6.0
 Requires-Dist: google-resumable-media==2.7.2
 Requires-Dist: googleapis-common-protos==1.69.0
-Requires-Dist: greenlet==3.3.1
+Requires-Dist: greenlet==3.3.2
 Requires-Dist: grpc-google-iam-v1==0.14.2
 Requires-Dist: grpc-interceptor==0.15.4
 Requires-Dist: grpcio-status==1.70.0
@@ -177,8 +177,8 @@ Requires-Dist: simplejson==3.20.1
 Requires-Dist: six==1.17.0
 Requires-Dist: smartsheet-python-sdk==3.0.5
 Requires-Dist: smmap==5.0.2
-Requires-Dist: snowflake-connector-python==3.14.0
-Requires-Dist: snowflake-sqlalchemy==1.6.1
+Requires-Dist: snowflake-connector-python==3.18.0
+Requires-Dist: snowflake-sqlalchemy==1.9.0
 Requires-Dist: sortedcontainers==2.4.0
 Requires-Dist: sqlalchemy-bigquery==1.12.1
 Requires-Dist: sqlalchemy-cratedb==0.41.0

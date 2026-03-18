@@ -1553,7 +1553,7 @@ class MavenPublishOptions(CommonPublishOptions):
 
         :default: "MAVEN_GPG_PRIVATE_KEY_PASSPHRASE" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_passphrase")
@@ -1568,7 +1568,7 @@ class MavenPublishOptions(CommonPublishOptions):
 
         :default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_secret")
@@ -2090,7 +2090,7 @@ class Publisher(
 ):
     '''(experimental) Implements GitHub jobs for publishing modules to package managers.
 
-    Under the hood, it uses https://github.com/aws/publib
+    Under the hood, it uses https://github.com/cdklabs/publib
 
     :stability: experimental
     '''
@@ -2635,7 +2635,7 @@ class PublisherOptions:
         ``go`` (GitHub), ``dotnet`` (NuGet), ``java`` (Maven), ``js`` (npm), ``python``
         (PyPI).
 
-        :see: https://github.com/aws/publib
+        :see: https://github.com/cdklabs/publib
         :stability: experimental
         '''
         result = self._values.get("artifact_name")
@@ -4267,7 +4267,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
 
         :default: "MAVEN_GPG_PRIVATE_KEY_PASSPHRASE" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_passphrase")
@@ -4282,7 +4282,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
 
         :default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_secret")

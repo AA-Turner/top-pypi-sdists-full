@@ -8,6 +8,7 @@ class Apps:
         "django.contrib.staticfiles",
         "django.contrib.sites",
         "rest_framework",
+        "django_admin_inline_paginator",
         "django_filters",
         "dynamic_preferences",
         "dynamic_preferences.users.apps.UserPreferencesConfig",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oci
-Version: 2.168.1
+Version: 2.168.2
 Summary: Oracle Cloud Infrastructure Python SDK
 Home-page: https://docs.oracle.com/en-us/iaas/tools/python/latest/index.html
 Author: Oracle
@@ -128,7 +128,7 @@ Description: Oracle Cloud Infrastructure Python SDK
         You can find information on any known issues with the SDK `here`__ and under the “Issues” tab of this
         project's `GitHub repository`__.
         
-        __ https://docs.cloud.oracle.com/Content/knownissues.htm
+        __ https://docs.oracle.com/iaas/Content/knownissues.htm
         __ https://github.com/oracle/oci-python-sdk
         
         =======

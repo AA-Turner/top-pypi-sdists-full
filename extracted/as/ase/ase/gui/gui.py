@@ -1,6 +1,8 @@
 # fmt: off
 
+import functools
 import pickle
+import platform
 import subprocess
 import sys
 from functools import partial
@@ -43,6 +45,8 @@ class GUI(View):
             images = Images(images)
         self.images = images
         self.images.history.initialize_history()
+
+        self.system = platform.system()
 
         # Ordinary observers seem unused now, delete?
         self.observers = []
@@ -135,21 +139,47 @@ class GUI(View):
             self.arrowkey_mode = self.ARROWKEY_SCAN
             self.move_atoms_mask = None
             self.update_history()
-        else:
+        elif np.any(self.images.selected):
             self.arrowkey_mode = mode
             self.move_atoms_mask = self.images.selected.copy()
+        else:
+            from ase.gui.ui import showwarning
+            showwarning(
+                _('No atoms selected!'),
+                _('You need to select one or more atoms to do this')
+            )
 
         self.draw()
 
+    @functools.cached_property
+    def arrowkey_hint(self):
+        hint = ui.tk.Frame(
+            self.window.canvas, bg='#ffffff'
+        )
+        hint.label = ui.tk.Label(hint)
+        hint.qm = ui.tk.Label(
+            hint, text='(?)', padx=3,
+            bg='#ffffff', activeforeground="#ffb617"
+        )
+        hint.qm.grid(row=0, column=0)
+        hint.label.grid(row=0, column=1)
+        hint.tooltip = ui.Tooltip()
+        hint.qm.bind(
+            '<Enter>', hint.tooltip.show
+        )
+        hint.qm.bind(
+            '<Leave>', hint.tooltip.hide
+        )
+        hint.exists = False
+        return hint
+
     def step(self, key):
         d = {'Home': -10000000,
-             'Page-Up': -1,
-             'Page-Down': 1,
+             'PageUp': -1,
+             'PageDown': 1,
              'End': 10000000}[key]
         i = max(0, min(len(self.images) - 1, self.frame + d))
         self.set_frame(i)
-        if self.movie_window is not None:
-            self.movie_window.frame_number.value = i
 
     def copy_image(self, key=None):
         self.images._images.append(self.atoms.copy())
@@ -189,6 +219,8 @@ class GUI(View):
         alt_l = 0x8  # Also Mac Command Key
         mac_option_key = 0x10
 
+        self.remove_bothersome_key_states(event)
+
         use_small_step = bool(event.state & shift)
         rotate_into_plane = bool(event.state & (ctrl | alt_l | mac_option_key))
 
@@ -214,6 +246,11 @@ class GUI(View):
 
         if dxdydz is None:
             return
+
+        if self.arrowkey_mode == self.ARROWKEY_ROTATE:
+            # A little tweak to make rotation more intuitive for users:
+            mod_m = np.array([[0, -1, 0], [1, 0, 0], [0, 0, -1]])
+            dxdydz = np.dot(mod_m, dxdydz)
 
         vec = 0.1 * np.dot(self.axes, dxdydz)
         if use_small_step:
@@ -242,6 +279,25 @@ class GUI(View):
             # dx * 0.1 * self.axes[:, 0] - dy * 0.1 * self.axes[:, 1])
 
             self.draw()
+
+    def remove_bothersome_key_states(self, event):
+        """Modify event.state so that Num Lock doesn't get caught by
+        bitmasks"""
+        # We need to strip away Num Lock (and other bothersome key
+        # events) that interfere with bitmasking or else the scrolling
+        # will behave as if ctrl is always pressed down.
+        nl_windows = 0x0008
+        nl_linux = 0x0010
+
+        if self.system == 'Linux':
+            if event.state & nl_linux:
+                event.state -= nl_linux
+        elif self.system == 'Windows':
+            # Not completely sure what 0x40000 is but it seems to haunt Windows
+            if event.state & 0x40000:
+                event.state -= 0x40000
+            if event.state & nl_windows:
+                event.state -= nl_windows
 
     def delete_selected_atoms(self, widget=None, data=None):
         import ase.gui.ui as ui
@@ -543,8 +599,8 @@ class GUI(View):
               M(_('Edit _atoms …'), self.atoms_editor, 'A'),
               M('---'),
               M(_('_First image'), self.step, 'Home'),
-              M(_('_Previous image'), self.step, 'Page-Up'),
-              M(_('_Next image'), self.step, 'Page-Down'),
+              M(_('_Previous image'), self.step, 'PageUp'),
+              M(_('_Next image'), self.step, 'PageDown'),
               M(_('_Last image'), self.step, 'End'),
               M(_('Append image copy'), self.copy_image)]),
 

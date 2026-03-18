@@ -11,6 +11,7 @@ from .exceptions import lazy_format_exception
 from .filestore import key_from_link
 from .htmlpage import HTMLPage
 from .httpclient import FatalResponse
+from .keyfs_types import RelPath
 from .log import threadlog
 from .markers import unknown
 from .model import BaseStage
@@ -48,16 +49,21 @@ if TYPE_CHECKING:
     from .httpclient import AsyncGetResponse
     from .httpclient import HTTPClient
     from .keyfs_types import PTypedKey
+    from .main import XOM
+    from .markers import Unknown
     from .model import JoinedLinkList
     from .model import LinksList
     from .model import RequiresPythonList
     from .model import SimpleLinks
     from .model import YankedList
     from .normalized import NormalizedName
+    from .readonly import DictViewReadonly
     from collections.abc import Callable
     from typing import Any
+    from typing import Optional
     from typing_extensions import NotRequired
 
+    ProjectsResult = tuple[dict[NormalizedName, str], Optional[str]]
     ReleaseLinks = list["Link"]
 
     class CacheLinks(TypedDict):
@@ -329,7 +335,16 @@ class MirrorHTTPClient:
 
 
 class MirrorStage(BaseStage):
-    def __init__(self, xom, username, index, ixconfig, customizer_cls):
+    _offline_logging: set[str]
+
+    def __init__(
+        self,
+        xom: XOM,
+        username: str,
+        index: str,
+        ixconfig: DictViewReadonly[str, Any],
+        customizer_cls: type,
+    ) -> None:
         super().__init__(
             xom, username, index, ixconfig, customizer_cls)
         self.xom = xom
@@ -367,7 +382,7 @@ class MirrorStage(BaseStage):
         if self.xom.is_replica():
             (uuid, primary_uuid) = self.xom.config.nodeinfo.make_uuid_headers()
             rt = self.xom.replica_thread
-            token = rt.auth_serializer.dumps(uuid)
+            token = rt.http.auth_serializer.dumps(uuid)
             extra_headers[rt.H_REPLICA_UUID] = uuid
             extra_headers['Authorization'] = 'Bearer %s' % token
         else:
@@ -471,7 +486,7 @@ class MirrorStage(BaseStage):
         return None
 
     @property
-    def no_project_list(self):
+    def no_project_list(self) -> bool:
         return self.ixconfig.get('mirror_no_project_list', False)
 
     @property
@@ -520,21 +535,21 @@ class MirrorStage(BaseStage):
             return value
         return None
 
-    def delete(self):
+    def delete(self) -> None:
         # delete all projects on this index
         for name in self.key_projects.get():
             self.del_project(name)
         self.key_projects.delete()
         BaseStage.delete(self)
 
-    def add_project_name(self, project):
+    def add_project_name(self, project: NormalizedName | str) -> None:
         project = normalize_name(project)
         projects = self.key_projects.get_mutable()
         if project not in projects:
             projects.add(project)
             self.key_projects.set(projects)
 
-    def del_project(self, project):
+    def del_project(self, project: NormalizedName | str) -> None:
         if not self.is_project_cached(project):
             raise KeyError("project not found")
         (is_expired, links, cache_serial, etag) = self._load_cache_links(project)
@@ -551,7 +566,12 @@ class MirrorStage(BaseStage):
             self.cache_retrieve_times.expire(project)
             self.key_projects.set(projects)
 
-    def del_versiondata(self, project, version, cleanup=True):
+    def del_versiondata(
+        self,
+        project: NormalizedName | str,
+        version: str,
+        cleanup: bool = True,  # noqa: ARG002,FBT001,FBT002
+    ) -> None:
         project = normalize_name(project)
         if not self.has_project_perstage(project):
             raise self.NotFound("project %r not found on stage %r" %
@@ -592,7 +612,7 @@ class MirrorStage(BaseStage):
             self.name, "projects_update_lock", factory=threading.Lock)
 
     @property
-    def cache_projectnames(self):
+    def cache_projectnames(self) -> ProjectNamesCache:
         """ cache for full list of projectnames. """
         # we could keep this info inside keyfs but pypi.org
         # produces a several MB list of names and it changes often which
@@ -608,7 +628,9 @@ class MirrorStage(BaseStage):
         return self.xom.setdefault_singleton(
             self.name, "project_retrieve_times", factory=ProjectUpdateCache)
 
-    async def _get_remote_projects(self, projects_future: asyncio.Future) -> None:
+    async def _get_remote_projects(
+        self, projects_future: asyncio.Future[ProjectsResult]
+    ) -> None:
         headers = {"Accept": SIMPLE_API_ACCEPT}
         etag = self.cache_projectnames.get_etag()
         if etag is not None:
@@ -647,30 +669,35 @@ class MirrorStage(BaseStage):
             )
         )
 
-    def _stale_list_projects_perstage(self):
+    def _stale_list_projects_perstage(self) -> dict[NormalizedName, str]:
         return {normalize_name(x): x for x in self.key_projects.get()}
 
-    def _update_projects(self):
-        projects_future = self.xom.create_future()
+    def _update_projects(
+        self, timeout: float | None = None
+    ) -> tuple[dict[NormalizedName, str], bool]:
+        projects_timeout = self.projects_timeout if timeout is None else timeout
+        projects_future = cast(
+            "asyncio.Future[ProjectsResult]", self.xom.create_future()
+        )
         try:
             self.xom.run_coroutine_threadsafe(
                 self._get_remote_projects(projects_future),
-                timeout=self.projects_timeout,
+                timeout=projects_timeout,
             )
         except asyncio.TimeoutError:
             threadlog.warn(
                 "serving stale projects for %r, getting data timed out after %s seconds",
                 self.index,
-                self.projects_timeout,
+                projects_timeout,
             )
-            return self._stale_list_projects_perstage()
+            return (self._stale_list_projects_perstage(), True)
         except self.UpstreamNotModified as e:
             # the etag might have changed
             self.cache_projectnames.mark_current(e.etag)
-            return self._stale_list_projects_perstage()
+            return (self._stale_list_projects_perstage(), False)
         except self.UpstreamError as e:
             threadlog.warn("upstream error (%s): using stale projects list", e)
-            return self._stale_list_projects_perstage()
+            return (self._stale_list_projects_perstage(), True)
         (projects, etag) = projects_future.result()
         old = self.cache_projectnames.get()
         if self.cache_projectnames.exists() and old == projects:
@@ -694,38 +721,38 @@ class MirrorStage(BaseStage):
                 if k.get() in (0, 1):
                     with self.keyfs.write_transaction(allow_restart=True):
                         k.set(2)
-        return projects
+        return (projects, False)
 
-    def _list_projects_perstage(self):
+    def _list_projects_perstage(
+        self, *, timeout: float | None = None
+    ) -> tuple[dict[NormalizedName, str], bool]:
         """ Return the cached project names.
 
             Only for internal use which makes sure the data isn't modified.
         """
         if self.offline:
             threadlog.warn("offline mode: using stale projects list")
-            return self._stale_list_projects_perstage()
+            return (self._stale_list_projects_perstage(), True)
         if self.no_project_list:
             # upstream of mirror configured as not having a project list
             # return only locally known projects
-            return self._stale_list_projects_perstage()
+            return (self._stale_list_projects_perstage(), True)
         # try without lock first
         if not self.cache_projectnames.is_expired(self.cache_expiry):
-            projects = self.cache_projectnames.get()
-        else:
-            with self._list_projects_perstage_lock:
-                # retry in case it was updated in another thread
-                if not self.cache_projectnames.is_expired(self.cache_expiry):
-                    projects = self.cache_projectnames.get()
-                else:
-                    # no fresh projects or None at all, let's go remote
-                    projects = self._update_projects()
-        return projects
+            return (self.cache_projectnames.get(), False)
+        with self._list_projects_perstage_lock:
+            # retry in case it was updated in another thread
+            if not self.cache_projectnames.is_expired(self.cache_expiry):
+                return (self.cache_projectnames.get(), False)
+            # no fresh projects or None at all, let's go remote
+            return self._update_projects(timeout=timeout)
 
-    def list_projects_perstage(self):
+    def list_projects_perstage(self) -> dict[str, NormalizedName | str]:
         """ Return the project names. """
         # return a read-only version of the cached data,
         # so it can't be modified accidentally and we avoid a copy
-        return ensure_deeply_readonly(self._list_projects_perstage())
+        (projects, _stale) = self._list_projects_perstage()
+        return ensure_deeply_readonly(projects)
 
     def is_project_cached(self, project):
         """ return True if we have some cached simpelinks information. """
@@ -758,7 +785,7 @@ class MirrorStage(BaseStage):
             # deletion and offline mode
             self.add_project_name(project)
 
-        def on_commit():
+        def on_commit() -> None:
             threadlog.debug("setting projects cache for %r", project)
             self.cache_retrieve_times.refresh(project, etag)
             # make project appear in projects list even
@@ -789,14 +816,14 @@ class MirrorStage(BaseStage):
 
     def _entry_from_href(self, href: str) -> FileEntry | None:
         # extract relpath from href by cutting of the hash
-        relpath = re.sub(r"#.*$", "", href)
+        relpath = RelPath(re.sub(r"#.*$", "", href))
         return self.filestore.get_file_entry(relpath)
 
     def _is_file_cached(self, link):
         entry = self._entry_from_href(link[1])
         return entry is not None and entry.file_exists()
 
-    def clear_simplelinks_cache(self, project):
+    def clear_simplelinks_cache(self, project: NormalizedName | str) -> None:
         # we have to set to an empty dict instead of removing the key, so
         # replicas behave correctly
         self.cache_retrieve_times.expire(project)
@@ -1088,7 +1115,7 @@ class MirrorStage(BaseStage):
 
         return self._update_simplelinks(project, info, links, newlinks)
 
-    def has_project_perstage(self, project):
+    def has_project_perstage(self, project: NormalizedName | str) -> bool | Unknown:
         project = normalize_name(project)
         if self.is_project_cached(project):
             return True
@@ -1098,7 +1125,12 @@ class MirrorStage(BaseStage):
             return unknown
         # recheck full project list while abiding to expiration etc
         # use the internal method to avoid a copy
-        return project in self._list_projects_perstage()
+        (projects, stale) = self._list_projects_perstage(timeout=self.timeout)
+        if project in projects:
+            return True
+        if stale:
+            return unknown
+        return False
 
     def list_versions_perstage(self, project):
         try:
@@ -1211,7 +1243,7 @@ class ProjectNamesCache:
         with self._lock:
             del self._data[normalize_name(project)]
 
-    def set(self, data: dict[NormalizedName, str], etag: str) -> None:
+    def set(self, data: dict[NormalizedName, str], etag: str | None) -> None:
         """ Set data and update timestamp. """
         with self._lock:
             if data != self._data:
@@ -1219,7 +1251,7 @@ class ProjectNamesCache:
                 self._data = data
             self.mark_current(etag)
 
-    def mark_current(self, etag: str) -> None:
+    def mark_current(self, etag: str | None) -> None:
         with self._lock:
             self._timestamp = time.time()
             self._etag = etag
@@ -1233,7 +1265,7 @@ class ProjectUpdateInnerLock:
     __slots__ = (
         '__weakref__', 'acquire', 'locked', 'release', 'thread_ident')
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.thread_ident = threading.get_ident()
         lock = threading.Lock()
         self.acquire = lock.acquire
@@ -1286,7 +1318,7 @@ class ProjectUpdateCache:
     _project2lock: weakref.WeakValueDictionary[str, ProjectUpdateInnerLock]
     _project2time: dict[str, tuple[float, str | None]]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._project2time = {}
         self._project2lock = weakref.WeakValueDictionary()
 

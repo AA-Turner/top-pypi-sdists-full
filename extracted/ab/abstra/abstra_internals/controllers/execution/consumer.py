@@ -219,6 +219,9 @@ class ConsumerController:
                 rabbitmq_params = RabbitMQParams(
                     connection_uri=RABBITMQ_CONNECTION_URI,
                     execution_id=execution_id,
+                    send_queue=msg.preexecution.send_queue,
+                    recv_queue=msg.preexecution.recv_queue,
+                    queue_expire_ms=msg.preexecution.queue_expire_ms,
                 )
 
             response = self.executor_pool.execute(

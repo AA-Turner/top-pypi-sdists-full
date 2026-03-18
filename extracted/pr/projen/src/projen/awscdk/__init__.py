@@ -168,6 +168,7 @@ class AutoDiscover(
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         srcdir: builtins.str,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         lambda_extension_options: typing.Optional[typing.Union["LambdaExtensionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -182,6 +183,7 @@ class AutoDiscover(
         :param integration_test_auto_discover: (experimental) Auto-discover integration tests. Default: true
         :param lambda_auto_discover: (experimental) Auto-discover lambda functions. Default: true
         :param lambda_extension_auto_discover: (experimental) Auto-discover lambda extensions. Default: true
+        :param singleton_lambda_auto_discover: (experimental) Auto-discover singleton lambda functions. UUID is deterministically derived from the project name and entrypoint path. Default: true
         :param srcdir: (experimental) Project source tree (relative to project output directory).
         :param lambda_options: (experimental) Options for AWS Lambda functions.
         :param lambda_extension_options: (experimental) Options for lambda extensions.
@@ -200,6 +202,7 @@ class AutoDiscover(
             integration_test_auto_discover=integration_test_auto_discover,
             lambda_auto_discover=lambda_auto_discover,
             lambda_extension_auto_discover=lambda_extension_auto_discover,
+            singleton_lambda_auto_discover=singleton_lambda_auto_discover,
             srcdir=srcdir,
             lambda_options=lambda_options,
             lambda_extension_options=lambda_extension_options,
@@ -291,6 +294,7 @@ class AwsCdkConstructLibrary(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
@@ -481,6 +485,7 @@ class AwsCdkConstructLibrary(
         :param lambda_auto_discover: (experimental) Automatically adds an ``aws_lambda.Function`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you either need to explicitly call ``aws_lambda.Function.autoDiscover()`` or define a ``new aws_lambda.Function()`` for each handler. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
@@ -673,6 +678,7 @@ class AwsCdkConstructLibrary(
             lambda_auto_discover=lambda_auto_discover,
             lambda_extension_auto_discover=lambda_extension_auto_discover,
             lambda_options=lambda_options,
+            singleton_lambda_auto_discover=singleton_lambda_auto_discover,
             catalog=catalog,
             cdk_version=cdk_version,
             cdk_assert=cdk_assert,
@@ -2477,6 +2483,7 @@ class AwsCdkTypeScriptApp(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
         docgen: typing.Optional[builtins.bool] = None,
@@ -2659,6 +2666,7 @@ class AwsCdkTypeScriptApp(
         :param lambda_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaFunction`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
         :param disable_tsconfig_dev: (experimental) Do not generate a ``tsconfig.dev.json`` file. Default: false
         :param docgen: (experimental) Docgen by Typedoc. Default: false
@@ -2843,6 +2851,7 @@ class AwsCdkTypeScriptApp(
             lambda_auto_discover=lambda_auto_discover,
             lambda_extension_auto_discover=lambda_extension_auto_discover,
             lambda_options=lambda_options,
+            singleton_lambda_auto_discover=singleton_lambda_auto_discover,
             disable_tsconfig=disable_tsconfig,
             disable_tsconfig_dev=disable_tsconfig_dev,
             docgen=docgen,
@@ -3631,6 +3640,7 @@ class ConstructLibraryAws(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
@@ -3821,6 +3831,7 @@ class ConstructLibraryAws(
         :param lambda_auto_discover: (experimental) Automatically adds an ``aws_lambda.Function`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you either need to explicitly call ``aws_lambda.Function.autoDiscover()`` or define a ``new aws_lambda.Function()`` for each handler. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
@@ -4013,6 +4024,7 @@ class ConstructLibraryAws(
             lambda_auto_discover=lambda_auto_discover,
             lambda_extension_auto_discover=lambda_extension_auto_discover,
             lambda_options=lambda_options,
+            singleton_lambda_auto_discover=singleton_lambda_auto_discover,
             catalog=catalog,
             cdk_version=cdk_version,
             cdk_assert=cdk_assert,
@@ -5411,6 +5423,8 @@ class LambdaFunction(
         bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
+        singleton: typing.Optional[builtins.bool] = None,
+        singleton_uuid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Defines a pre-bundled AWS Lambda function construct from handler code.
 
@@ -5423,6 +5437,8 @@ class LambdaFunction(
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
         :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
+        :param singleton: (experimental) Whether to create a ``lambda.SingletonFunction`` instead of a ``lambda.Function``. Not compatible with ``edgeLambda``. Default: false
+        :param singleton_uuid: (experimental) UUID to use for singleton lambda uniqueness. When specified, the generated singleton construct hardcodes this UUID. Only valid when ``singleton`` is set to ``true``. Default: - no UUID is hardcoded and consumers must provide one
 
         :stability: experimental
         '''
@@ -5438,6 +5454,8 @@ class LambdaFunction(
             bundling_options=bundling_options,
             edge_lambda=edge_lambda,
             runtime=runtime,
+            singleton=singleton,
+            singleton_uuid=singleton_uuid,
         )
 
         jsii.create(self.__class__, self, [project, options])
@@ -5451,6 +5469,8 @@ class LambdaFunction(
         "bundling_options": "bundlingOptions",
         "edge_lambda": "edgeLambda",
         "runtime": "runtime",
+        "singleton": "singleton",
+        "singleton_uuid": "singletonUuid",
     },
 )
 class LambdaFunctionCommonOptions:
@@ -5461,6 +5481,8 @@ class LambdaFunctionCommonOptions:
         bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
+        singleton: typing.Optional[builtins.bool] = None,
+        singleton_uuid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Common options for ``LambdaFunction``.
 
@@ -5471,6 +5493,8 @@ class LambdaFunctionCommonOptions:
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
         :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
+        :param singleton: (experimental) Whether to create a ``lambda.SingletonFunction`` instead of a ``lambda.Function``. Not compatible with ``edgeLambda``. Default: false
+        :param singleton_uuid: (experimental) UUID to use for singleton lambda uniqueness. When specified, the generated singleton construct hardcodes this UUID. Only valid when ``singleton`` is set to ``true``. Default: - no UUID is hardcoded and consumers must provide one
 
         :stability: experimental
         '''
@@ -5482,6 +5506,8 @@ class LambdaFunctionCommonOptions:
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument edge_lambda", value=edge_lambda, expected_type=type_hints["edge_lambda"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument singleton", value=singleton, expected_type=type_hints["singleton"])
+            check_type(argname="argument singleton_uuid", value=singleton_uuid, expected_type=type_hints["singleton_uuid"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if aws_sdk_connection_reuse is not None:
             self._values["aws_sdk_connection_reuse"] = aws_sdk_connection_reuse
@@ -5491,6 +5517,10 @@ class LambdaFunctionCommonOptions:
             self._values["edge_lambda"] = edge_lambda
         if runtime is not None:
             self._values["runtime"] = runtime
+        if singleton is not None:
+            self._values["singleton"] = singleton
+        if singleton_uuid is not None:
+            self._values["singleton_uuid"] = singleton_uuid
 
     @builtins.property
     def aws_sdk_connection_reuse(self) -> typing.Optional[builtins.bool]:
@@ -5549,6 +5579,34 @@ class LambdaFunctionCommonOptions:
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["LambdaRuntime"], result)
 
+    @builtins.property
+    def singleton(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to create a ``lambda.SingletonFunction`` instead of a ``lambda.Function``.
+
+        Not compatible with ``edgeLambda``.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def singleton_uuid(self) -> typing.Optional[builtins.str]:
+        '''(experimental) UUID to use for singleton lambda uniqueness.
+
+        When specified, the generated singleton construct hardcodes this UUID.
+
+        Only valid when ``singleton`` is set to ``true``.
+
+        :default: - no UUID is hardcoded and consumers must provide one
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_uuid")
+        return typing.cast(typing.Optional[builtins.str], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -5569,6 +5627,8 @@ class LambdaFunctionCommonOptions:
         "bundling_options": "bundlingOptions",
         "edge_lambda": "edgeLambda",
         "runtime": "runtime",
+        "singleton": "singleton",
+        "singleton_uuid": "singletonUuid",
         "cdk_deps": "cdkDeps",
         "entrypoint": "entrypoint",
         "construct_file": "constructFile",
@@ -5583,6 +5643,8 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
+        singleton: typing.Optional[builtins.bool] = None,
+        singleton_uuid: typing.Optional[builtins.str] = None,
         cdk_deps: "AwsCdkDeps",
         entrypoint: builtins.str,
         construct_file: typing.Optional[builtins.str] = None,
@@ -5594,6 +5656,8 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
         :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
+        :param singleton: (experimental) Whether to create a ``lambda.SingletonFunction`` instead of a ``lambda.Function``. Not compatible with ``edgeLambda``. Default: false
+        :param singleton_uuid: (experimental) UUID to use for singleton lambda uniqueness. When specified, the generated singleton construct hardcodes this UUID. Only valid when ``singleton`` is set to ``true``. Default: - no UUID is hardcoded and consumers must provide one
         :param cdk_deps: (experimental) AWS CDK dependency manager.
         :param entrypoint: (experimental) A path from the project root directory to a TypeScript file which contains the AWS Lambda handler entrypoint (exports a ``handler`` function). This is relative to the root directory of the project.
         :param construct_file: (experimental) The name of the generated TypeScript source file. This file should also be under the source tree. Default: - The name of the entrypoint file, with the ``-function.ts`` suffix instead of ``.lambda.ts``.
@@ -5609,6 +5673,8 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument edge_lambda", value=edge_lambda, expected_type=type_hints["edge_lambda"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument singleton", value=singleton, expected_type=type_hints["singleton"])
+            check_type(argname="argument singleton_uuid", value=singleton_uuid, expected_type=type_hints["singleton_uuid"])
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument construct_file", value=construct_file, expected_type=type_hints["construct_file"])
@@ -5625,6 +5691,10 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
             self._values["edge_lambda"] = edge_lambda
         if runtime is not None:
             self._values["runtime"] = runtime
+        if singleton is not None:
+            self._values["singleton"] = singleton
+        if singleton_uuid is not None:
+            self._values["singleton_uuid"] = singleton_uuid
         if construct_file is not None:
             self._values["construct_file"] = construct_file
         if construct_name is not None:
@@ -5686,6 +5756,34 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["LambdaRuntime"], result)
+
+    @builtins.property
+    def singleton(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to create a ``lambda.SingletonFunction`` instead of a ``lambda.Function``.
+
+        Not compatible with ``edgeLambda``.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def singleton_uuid(self) -> typing.Optional[builtins.str]:
+        '''(experimental) UUID to use for singleton lambda uniqueness.
+
+        When specified, the generated singleton construct hardcodes this UUID.
+
+        Only valid when ``singleton`` is set to ``true``.
+
+        :default: - no UUID is hardcoded and consumers must provide one
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_uuid")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cdk_deps(self) -> "AwsCdkDeps":
@@ -5964,6 +6062,142 @@ class LambdaRuntimeOptions:
         )
 
 
+class SingletonLambdaAutoDiscover(
+    _AutoDiscoverBase_ff3410aa,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.awscdk.SingletonLambdaAutoDiscover",
+):
+    '''(experimental) Creates singleton lambdas from entry points discovered in the project's source tree.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        project: "_Project_57d89203",
+        *,
+        srcdir: builtins.str,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_deps: "AwsCdkDeps",
+        tsconfig_path: builtins.str,
+    ) -> None:
+        '''
+        :param project: -
+        :param srcdir: (experimental) Project source tree (relative to project output directory).
+        :param lambda_options: (experimental) Options for AWS Lambda functions.
+        :param cdk_deps: (experimental) AWS CDK dependency manager.
+        :param tsconfig_path: (experimental) Path to the tsconfig file to use for integration tests.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3b705fcc19ee5828a7f0424a9d228b6c638bbe5cd8e854eedf107f071d1a0c7)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        options = SingletonLambdaAutoDiscoverOptions(
+            srcdir=srcdir,
+            lambda_options=lambda_options,
+            cdk_deps=cdk_deps,
+            tsconfig_path=tsconfig_path,
+        )
+
+        jsii.create(self.__class__, self, [project, options])
+
+
+@jsii.data_type(
+    jsii_type="projen.awscdk.SingletonLambdaAutoDiscoverOptions",
+    jsii_struct_bases=[AutoDiscoverCommonOptions],
+    name_mapping={
+        "cdk_deps": "cdkDeps",
+        "tsconfig_path": "tsconfigPath",
+        "srcdir": "srcdir",
+        "lambda_options": "lambdaOptions",
+    },
+)
+class SingletonLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
+    def __init__(
+        self,
+        *,
+        cdk_deps: "AwsCdkDeps",
+        tsconfig_path: builtins.str,
+        srcdir: builtins.str,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Options for ``SingletonLambdaAutoDiscover``.
+
+        :param cdk_deps: (experimental) AWS CDK dependency manager.
+        :param tsconfig_path: (experimental) Path to the tsconfig file to use for integration tests.
+        :param srcdir: (experimental) Project source tree (relative to project output directory).
+        :param lambda_options: (experimental) Options for AWS Lambda functions.
+
+        :stability: experimental
+        '''
+        if isinstance(lambda_options, dict):
+            lambda_options = LambdaFunctionCommonOptions(**lambda_options)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2edc3750fb9f39e12bb2f0d0f2a245bc0cb76db20a599bdde61d7358a4fbbd6e)
+            check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
+            check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
+            check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
+            check_type(argname="argument lambda_options", value=lambda_options, expected_type=type_hints["lambda_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cdk_deps": cdk_deps,
+            "tsconfig_path": tsconfig_path,
+            "srcdir": srcdir,
+        }
+        if lambda_options is not None:
+            self._values["lambda_options"] = lambda_options
+
+    @builtins.property
+    def cdk_deps(self) -> "AwsCdkDeps":
+        '''(experimental) AWS CDK dependency manager.
+
+        :stability: experimental
+        '''
+        result = self._values.get("cdk_deps")
+        assert result is not None, "Required property 'cdk_deps' is missing"
+        return typing.cast("AwsCdkDeps", result)
+
+    @builtins.property
+    def tsconfig_path(self) -> builtins.str:
+        '''(experimental) Path to the tsconfig file to use for integration tests.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig_path")
+        assert result is not None, "Required property 'tsconfig_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def srcdir(self) -> builtins.str:
+        '''(experimental) Project source tree (relative to project output directory).
+
+        :stability: experimental
+        '''
+        result = self._values.get("srcdir")
+        assert result is not None, "Required property 'srcdir' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lambda_options(self) -> typing.Optional["LambdaFunctionCommonOptions"]:
+        '''(experimental) Options for AWS Lambda functions.
+
+        :stability: experimental
+        '''
+        result = self._values.get("lambda_options")
+        return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SingletonLambdaAutoDiscoverOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="projen.awscdk.AutoDiscoverOptions",
     jsii_struct_bases=[
@@ -5983,6 +6217,7 @@ class LambdaRuntimeOptions:
         "integration_test_auto_discover": "integrationTestAutoDiscover",
         "lambda_auto_discover": "lambdaAutoDiscover",
         "lambda_extension_auto_discover": "lambdaExtensionAutoDiscover",
+        "singleton_lambda_auto_discover": "singletonLambdaAutoDiscover",
     },
 )
 class AutoDiscoverOptions(
@@ -6004,6 +6239,7 @@ class AutoDiscoverOptions(
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for ``AutoDiscover``.
 
@@ -6018,6 +6254,7 @@ class AutoDiscoverOptions(
         :param integration_test_auto_discover: (experimental) Auto-discover integration tests. Default: true
         :param lambda_auto_discover: (experimental) Auto-discover lambda functions. Default: true
         :param lambda_extension_auto_discover: (experimental) Auto-discover lambda extensions. Default: true
+        :param singleton_lambda_auto_discover: (experimental) Auto-discover singleton lambda functions. UUID is deterministically derived from the project name and entrypoint path. Default: true
 
         :stability: experimental
         '''
@@ -6040,6 +6277,7 @@ class AutoDiscoverOptions(
             check_type(argname="argument integration_test_auto_discover", value=integration_test_auto_discover, expected_type=type_hints["integration_test_auto_discover"])
             check_type(argname="argument lambda_auto_discover", value=lambda_auto_discover, expected_type=type_hints["lambda_auto_discover"])
             check_type(argname="argument lambda_extension_auto_discover", value=lambda_extension_auto_discover, expected_type=type_hints["lambda_extension_auto_discover"])
+            check_type(argname="argument singleton_lambda_auto_discover", value=singleton_lambda_auto_discover, expected_type=type_hints["singleton_lambda_auto_discover"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cdk_deps": cdk_deps,
             "tsconfig_path": tsconfig_path,
@@ -6060,6 +6298,8 @@ class AutoDiscoverOptions(
             self._values["lambda_auto_discover"] = lambda_auto_discover
         if lambda_extension_auto_discover is not None:
             self._values["lambda_extension_auto_discover"] = lambda_extension_auto_discover
+        if singleton_lambda_auto_discover is not None:
+            self._values["singleton_lambda_auto_discover"] = singleton_lambda_auto_discover
 
     @builtins.property
     def cdk_deps(self) -> "AwsCdkDeps":
@@ -6174,6 +6414,19 @@ class AutoDiscoverOptions(
         :stability: experimental
         '''
         result = self._values.get("lambda_extension_auto_discover")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def singleton_lambda_auto_discover(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Auto-discover singleton lambda functions.
+
+        UUID is deterministically derived from the project name and entrypoint path.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_lambda_auto_discover")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -6380,6 +6633,7 @@ class AutoDiscoverOptions(
         "lambda_auto_discover": "lambdaAutoDiscover",
         "lambda_extension_auto_discover": "lambdaExtensionAutoDiscover",
         "lambda_options": "lambdaOptions",
+        "singleton_lambda_auto_discover": "singletonLambdaAutoDiscover",
     },
 )
 class AwsCdkConstructLibraryOptions(
@@ -6577,6 +6831,7 @@ class AwsCdkConstructLibraryOptions(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for ``AwsCdkConstructLibrary``.
 
@@ -6768,6 +7023,7 @@ class AwsCdkConstructLibraryOptions(
         :param lambda_auto_discover: (experimental) Automatically adds an ``aws_lambda.Function`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you either need to explicitly call ``aws_lambda.Function.autoDiscover()`` or define a ``new aws_lambda.Function()`` for each handler. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
 
         :stability: experimental
         '''
@@ -7043,6 +7299,7 @@ class AwsCdkConstructLibraryOptions(
             check_type(argname="argument lambda_auto_discover", value=lambda_auto_discover, expected_type=type_hints["lambda_auto_discover"])
             check_type(argname="argument lambda_extension_auto_discover", value=lambda_extension_auto_discover, expected_type=type_hints["lambda_extension_auto_discover"])
             check_type(argname="argument lambda_options", value=lambda_options, expected_type=type_hints["lambda_options"])
+            check_type(argname="argument singleton_lambda_auto_discover", value=singleton_lambda_auto_discover, expected_type=type_hints["singleton_lambda_auto_discover"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "default_release_branch": default_release_branch,
@@ -7415,6 +7672,8 @@ class AwsCdkConstructLibraryOptions(
             self._values["lambda_extension_auto_discover"] = lambda_extension_auto_discover
         if lambda_options is not None:
             self._values["lambda_options"] = lambda_options
+        if singleton_lambda_auto_discover is not None:
+            self._values["singleton_lambda_auto_discover"] = singleton_lambda_auto_discover
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -9757,6 +10016,17 @@ class AwsCdkConstructLibraryOptions(
         '''
         result = self._values.get("lambda_options")
         return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
+
+    @builtins.property
+    def singleton_lambda_auto_discover(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_lambda_auto_discover")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12766,6 +13036,7 @@ class AwsCdkPythonAppOptions(
         "lambda_auto_discover": "lambdaAutoDiscover",
         "lambda_extension_auto_discover": "lambdaExtensionAutoDiscover",
         "lambda_options": "lambdaOptions",
+        "singleton_lambda_auto_discover": "singletonLambdaAutoDiscover",
     },
 )
 class AwsCdkTypeScriptAppOptions(
@@ -12956,6 +13227,7 @@ class AwsCdkTypeScriptAppOptions(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -13138,6 +13410,7 @@ class AwsCdkTypeScriptAppOptions(
         :param lambda_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaFunction`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
 
         :stability: experimental
         '''
@@ -13391,6 +13664,7 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument lambda_auto_discover", value=lambda_auto_discover, expected_type=type_hints["lambda_auto_discover"])
             check_type(argname="argument lambda_extension_auto_discover", value=lambda_extension_auto_discover, expected_type=type_hints["lambda_extension_auto_discover"])
             check_type(argname="argument lambda_options", value=lambda_options, expected_type=type_hints["lambda_options"])
+            check_type(argname="argument singleton_lambda_auto_discover", value=singleton_lambda_auto_discover, expected_type=type_hints["singleton_lambda_auto_discover"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "default_release_branch": default_release_branch,
@@ -13750,6 +14024,8 @@ class AwsCdkTypeScriptAppOptions(
             self._values["lambda_extension_auto_discover"] = lambda_extension_auto_discover
         if lambda_options is not None:
             self._values["lambda_options"] = lambda_options
+        if singleton_lambda_auto_discover is not None:
+            self._values["singleton_lambda_auto_discover"] = singleton_lambda_auto_discover
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -15986,6 +16262,17 @@ class AwsCdkTypeScriptAppOptions(
         result = self._values.get("lambda_options")
         return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
+    @builtins.property
+    def singleton_lambda_auto_discover(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_lambda_auto_discover")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -16322,6 +16609,7 @@ class CdkFeatureFlagsV2(
         "lambda_auto_discover": "lambdaAutoDiscover",
         "lambda_extension_auto_discover": "lambdaExtensionAutoDiscover",
         "lambda_options": "lambdaOptions",
+        "singleton_lambda_auto_discover": "singletonLambdaAutoDiscover",
     },
 )
 class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
@@ -16516,6 +16804,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -16706,6 +16995,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param lambda_auto_discover: (experimental) Automatically adds an ``aws_lambda.Function`` for each ``.lambda.ts`` handler in your source tree. If this is disabled, you either need to explicitly call ``aws_lambda.Function.autoDiscover()`` or define a ``new aws_lambda.Function()`` for each handler. Default: true
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
+        :param singleton_lambda_auto_discover: (experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
 
         :deprecated: use ``AwsCdkConstructLibraryOptions``
 
@@ -16983,6 +17273,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             check_type(argname="argument lambda_auto_discover", value=lambda_auto_discover, expected_type=type_hints["lambda_auto_discover"])
             check_type(argname="argument lambda_extension_auto_discover", value=lambda_extension_auto_discover, expected_type=type_hints["lambda_extension_auto_discover"])
             check_type(argname="argument lambda_options", value=lambda_options, expected_type=type_hints["lambda_options"])
+            check_type(argname="argument singleton_lambda_auto_discover", value=singleton_lambda_auto_discover, expected_type=type_hints["singleton_lambda_auto_discover"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "default_release_branch": default_release_branch,
@@ -17355,6 +17646,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             self._values["lambda_extension_auto_discover"] = lambda_extension_auto_discover
         if lambda_options is not None:
             self._values["lambda_options"] = lambda_options
+        if singleton_lambda_auto_discover is not None:
+            self._values["singleton_lambda_auto_discover"] = singleton_lambda_auto_discover
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -19698,6 +19991,17 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         result = self._values.get("lambda_options")
         return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
+    @builtins.property
+    def singleton_lambda_auto_discover(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically adds an ``awscdk.SingletonFunction`` for each ``.singleton-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("singleton_lambda_auto_discover")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -19759,6 +20063,8 @@ __all__ = [
     "LambdaFunctionOptions",
     "LambdaRuntime",
     "LambdaRuntimeOptions",
+    "SingletonLambdaAutoDiscover",
+    "SingletonLambdaAutoDiscoverOptions",
 ]
 
 publication.publish()
@@ -19770,6 +20076,7 @@ def _typecheckingstub__299bec780848fe97b2969bd034a0cc0c5b289c8b070804a0e7019e2fd
     integration_test_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
+    singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
     srcdir: builtins.str,
     lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     lambda_extension_options: typing.Optional[typing.Union[LambdaExtensionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20160,6 +20467,8 @@ def _typecheckingstub__9c96aae8d19a301890fb68506adb9e271f0a9ee57f80876f6f7f6f563
     bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
     edge_lambda: typing.Optional[builtins.bool] = None,
     runtime: typing.Optional[LambdaRuntime] = None,
+    singleton: typing.Optional[builtins.bool] = None,
+    singleton_uuid: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20170,6 +20479,8 @@ def _typecheckingstub__5f294df9d6ea5796bcc7e805ef3688a7f80f3e360e5fab93a5431529b
     bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
     edge_lambda: typing.Optional[builtins.bool] = None,
     runtime: typing.Optional[LambdaRuntime] = None,
+    singleton: typing.Optional[builtins.bool] = None,
+    singleton_uuid: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20180,6 +20491,8 @@ def _typecheckingstub__1a0313c5a9398ee8aa0fa87e7d7f45d577637921f59d25ae7aa9b80fe
     bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
     edge_lambda: typing.Optional[builtins.bool] = None,
     runtime: typing.Optional[LambdaRuntime] = None,
+    singleton: typing.Optional[builtins.bool] = None,
+    singleton_uuid: typing.Optional[builtins.str] = None,
     cdk_deps: AwsCdkDeps,
     entrypoint: builtins.str,
     construct_file: typing.Optional[builtins.str] = None,
@@ -20204,6 +20517,27 @@ def _typecheckingstub__529408614d4ab517d65e565b90aadbe260021c7e52940745c9be92fca
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f3b705fcc19ee5828a7f0424a9d228b6c638bbe5cd8e854eedf107f071d1a0c7(
+    project: _Project_57d89203,
+    *,
+    srcdir: builtins.str,
+    lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cdk_deps: AwsCdkDeps,
+    tsconfig_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2edc3750fb9f39e12bb2f0d0f2a245bc0cb76db20a599bdde61d7358a4fbbd6e(
+    *,
+    cdk_deps: AwsCdkDeps,
+    tsconfig_path: builtins.str,
+    srcdir: builtins.str,
+    lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__70a8169edd5eb7d3a8797f7e70d2c732d0ba6af4dfae6647695b912078eb46e2(
     *,
     cdk_deps: AwsCdkDeps,
@@ -20217,6 +20551,7 @@ def _typecheckingstub__70a8169edd5eb7d3a8797f7e70d2c732d0ba6af4dfae6647695b91207
     integration_test_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
+    singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20411,6 +20746,7 @@ def _typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8
     lambda_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20753,6 +21089,7 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     lambda_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20947,6 +21284,7 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
     lambda_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
     lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    singleton_lambda_auto_discover: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

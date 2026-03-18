@@ -9,6 +9,9 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_script_preview_and_wait_result_json_body_args import RunScriptPreviewAndWaitResultJsonBodyArgs
+    from ..models.run_script_preview_and_wait_result_json_body_modules import (
+        RunScriptPreviewAndWaitResultJsonBodyModules,
+    )
 
 
 T = TypeVar("T", bound="RunScriptPreviewAndWaitResultJsonBody")
@@ -28,6 +31,8 @@ class RunScriptPreviewAndWaitResultJsonBody:
         dedicated_worker (Union[Unset, bool]):
         lock (Union[Unset, str]):
         flow_path (Union[Unset, str]):
+        modules (Union[Unset, None, RunScriptPreviewAndWaitResultJsonBodyModules]): Additional script modules keyed by
+            relative file path
     """
 
     args: "RunScriptPreviewAndWaitResultJsonBodyArgs"
@@ -40,6 +45,7 @@ class RunScriptPreviewAndWaitResultJsonBody:
     dedicated_worker: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
     flow_path: Union[Unset, str] = UNSET
+    modules: Union[Unset, None, "RunScriptPreviewAndWaitResultJsonBodyModules"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -60,6 +66,9 @@ class RunScriptPreviewAndWaitResultJsonBody:
         dedicated_worker = self.dedicated_worker
         lock = self.lock
         flow_path = self.flow_path
+        modules: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.modules, Unset):
+            modules = self.modules.to_dict() if self.modules else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -86,12 +95,17 @@ class RunScriptPreviewAndWaitResultJsonBody:
             field_dict["lock"] = lock
         if flow_path is not UNSET:
             field_dict["flow_path"] = flow_path
+        if modules is not UNSET:
+            field_dict["modules"] = modules
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.run_script_preview_and_wait_result_json_body_args import RunScriptPreviewAndWaitResultJsonBodyArgs
+        from ..models.run_script_preview_and_wait_result_json_body_modules import (
+            RunScriptPreviewAndWaitResultJsonBodyModules,
+        )
 
         d = src_dict.copy()
         args = RunScriptPreviewAndWaitResultJsonBodyArgs.from_dict(d.pop("args"))
@@ -124,6 +138,15 @@ class RunScriptPreviewAndWaitResultJsonBody:
 
         flow_path = d.pop("flow_path", UNSET)
 
+        _modules = d.pop("modules", UNSET)
+        modules: Union[Unset, None, RunScriptPreviewAndWaitResultJsonBodyModules]
+        if _modules is None:
+            modules = None
+        elif isinstance(_modules, Unset):
+            modules = UNSET
+        else:
+            modules = RunScriptPreviewAndWaitResultJsonBodyModules.from_dict(_modules)
+
         run_script_preview_and_wait_result_json_body = cls(
             args=args,
             content=content,
@@ -135,6 +158,7 @@ class RunScriptPreviewAndWaitResultJsonBody:
             dedicated_worker=dedicated_worker,
             lock=lock,
             flow_path=flow_path,
+            modules=modules,
         )
 
         run_script_preview_and_wait_result_json_body.additional_properties = d

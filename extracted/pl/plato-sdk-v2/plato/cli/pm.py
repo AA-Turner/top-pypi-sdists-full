@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -51,11 +52,73 @@ from plato.v1.sdk import Plato
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 CHRONOS_URL = "https://chronos.plato.so"
-DEFAULT_ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 DEFAULT_DATAGEN_API_KEY = os.getenv("PLATO_DATAGEN_API_KEY", "")
-DEFAULT_WORLD_PACKAGE_STRUCTURED = "plato-world-structured-execution"
-DEFAULT_WORLD_PACKAGE_INTERACTIVE = "plato-world-interactive"
 DEFAULT_ANCHOR_KEY = os.getenv("ANCHOR_API_KEY", "")
+
+# Keychain service name used by Claude Code to store OAuth credentials
+_CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials"
+
+
+def _get_claude_credentials() -> tuple[str, str]:
+    """Get Claude credentials, preferring OAuth from Keychain, falling back to API key.
+
+    Returns:
+        (config_key, value) — either ("claude_oauth_credentials", "<json>")
+        or ("anthropic_api_key", "<key>").
+    """
+    # 1. Try macOS Keychain for OAuth credentials
+    try:
+        raw = subprocess.run(
+            ["security", "find-generic-password", "-s", _CLAUDE_KEYCHAIN_SERVICE, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if raw.returncode == 0 and raw.stdout.strip():
+            creds = json.loads(raw.stdout.strip())
+            # Show token expiry info
+            oauth = creds.get("claudeAiOauth", {})
+            expires_at = oauth.get("expiresAt")
+            expiry_msg = ""
+            if expires_at:
+                try:
+                    exp_dt = datetime.fromtimestamp(expires_at / 1000)
+                    remaining = exp_dt - datetime.now()
+                    mins = int(remaining.total_seconds() / 60)
+                    if mins < 0:
+                        expiry_msg = f" [yellow](expired {-mins}m ago!)[/yellow]"
+                    elif mins < 60:
+                        expiry_msg = f" [yellow](expires in {mins}m)[/yellow]"
+                    else:
+                        expiry_msg = f" [dim](expires in {mins // 60}h {mins % 60}m)[/dim]"
+                except (ValueError, TypeError, OSError):
+                    pass
+            console.print(f"[green]Using Claude OAuth from Keychain[/green]{expiry_msg}")
+            return "claude_oauth_credentials", json.dumps(creds, separators=(",", ":"))
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+
+    # 2. Fall back to ANTHROPIC_API_KEY env var
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if api_key:
+        masked = api_key[:10] + "..." + api_key[-4:] if len(api_key) > 14 else "****"
+        console.print(f"[cyan]Using ANTHROPIC_API_KEY from environment[/cyan] [dim]({masked})[/dim]")
+        return "anthropic_api_key", api_key
+
+    console.print(
+        "[yellow]Warning: No Claude credentials found. Run 'claude' to authenticate or set ANTHROPIC_API_KEY.[/yellow]"
+    )
+    return "anthropic_api_key", ""
+
+
+def _set_claude_credentials(config: dict, key: str, value: str) -> None:
+    """Set the appropriate credential key on a config dict, removing the stale one."""
+    config[key] = value
+    # Remove the other credential key to avoid stale placeholders
+    other_key = "anthropic_api_key" if key == "claude_oauth_credentials" else "claude_oauth_credentials"
+    config.pop(other_key, None)
+
+
 DEFAULT_DATA_ASSIGNEES = [771]
 DEFAULT_DATA_REVIEW_ASSIGNEES = [32]
 
@@ -68,11 +131,23 @@ list_app = typer.Typer(help="List simulators by status")
 review_app = typer.Typer(help="Review simulator artifacts")
 submit_app = typer.Typer(help="Submit simulator artifacts for review")
 start_app = typer.Typer(help="Start env or data pipelines for simulators")
+experiment_app = typer.Typer(help="Manage experiment configs in Chronos")
+experiment_env_app = typer.Typer(help="Env pipeline experiments")
+experiment_env_base_app = typer.Typer(help="Env base (fresh create) experiment")
+experiment_env_resume_app = typer.Typer(help="Env resume (fix) experiment")
+experiment_data_app = typer.Typer(help="Data pipeline experiments")
+experiment_data_base_app = typer.Typer(help="Data base experiment")
 
 pm_app.add_typer(list_app, name="list")
 pm_app.add_typer(review_app, name="review")
 pm_app.add_typer(submit_app, name="submit")
 pm_app.add_typer(start_app, name="start")
+pm_app.add_typer(experiment_app, name="experiment")
+experiment_app.add_typer(experiment_env_app, name="env")
+experiment_app.add_typer(experiment_data_app, name="data")
+experiment_env_app.add_typer(experiment_env_base_app, name="base")
+experiment_env_app.add_typer(experiment_env_resume_app, name="resume")
+experiment_data_app.add_typer(experiment_data_base_app, name="base")
 
 
 # =============================================================================
@@ -398,25 +473,9 @@ def list_data():
 
 
 def _find_templates_dir() -> Path:
-    """Find the extensions/data-review/templates directory."""
-    package_dir = Path(__file__).resolve().parent.parent  # plato/
-    is_installed = "site-packages" in str(package_dir)
-
-    if is_installed:
-        templates_dir = package_dir / "extensions" / "data-review" / "templates"
-    else:
-        repo_root = package_dir.parent.parent  # plato-client/
-        templates_dir = repo_root / "extensions" / "data-review" / "templates"
-
-    # Fallback to env var
-    if not templates_dir.exists():
-        plato_client_dir_env = os.getenv("PLATO_CLIENT_DIR")
-        if plato_client_dir_env:
-            env_path = Path(plato_client_dir_env) / "extensions" / "data-review" / "templates"
-            if env_path.exists():
-                templates_dir = env_path
-
-    return templates_dir
+    """Find the cli/templates directory."""
+    cli_dir = Path(__file__).resolve().parent  # plato/cli/
+    return cli_dir / "templates"
 
 
 def _load_template(name: str) -> dict:
@@ -429,14 +488,52 @@ def _load_template(name: str) -> dict:
         return json.load(f)
 
 
+# Maps (pipeline, mode) → experiment name in Chronos
+_EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
+    ("env", "base"): "env-create-launch",
+    ("env", "resume"): "env-fix-launch",
+    ("data", "base"): "datagen-launch",
+}
+
+
+def _fetch_experiment_config(pipeline: str, mode: str, api_key: str) -> tuple[dict, str]:
+    """Fetch latest experiment config from Chronos by name. Raises if not found.
+
+    Returns (config_json, version_public_id) so callers can attach sessions back.
+    """
+    name = _EXPERIMENT_NAMES.get((pipeline, mode))
+    if name is None:
+        raise ValueError(f"Unknown experiment: {pipeline}/{mode}")
+    with httpx.Client(timeout=10.0) as client:
+        resp = client.get(
+            f"{CHRONOS_URL}/api/experiments/files",
+            headers={"X-API-Key": api_key},
+        )
+        if resp.status_code != 200:
+            raise Exception(f"Failed to fetch experiments: HTTP {resp.status_code}: {resp.text}")
+        files = resp.json().get("files", [])
+        match = next((f for f in files if f["name"] == name), None)
+        if not match:
+            raise Exception(
+                f"Experiment '{name}' not found in Chronos. Run: plato pm experiment {pipeline} {mode} push"
+            )
+        latest = match.get("latest_version") or {}
+        config = latest.get("config_json")
+        if config is None:
+            raise Exception(f"Experiment '{name}' has no config_json in latest version")
+        version_public_id = latest.get("public_id", "")
+        if not version_public_id:
+            console.print(f"[yellow]⚠️  Experiment '{name}' version has no public_id — session won't be linked[/yellow]")
+        return config, version_public_id
+
+
 def _get_last_chronos_session(tags: list[str], api_key: str) -> dict | None:
     """Get the most recent Chronos session matching all given tags. Returns session dict or None."""
     try:
         with httpx.Client(timeout=15.0) as client:
-            params = [("tag", t) for t in tags] + [("limit", "1")]
             resp = client.get(
                 f"{CHRONOS_URL}/api/sessions",
-                params=params,
+                params=[("tag", t) for t in tags] + [("limit", "1")],  # pyright: ignore[reportArgumentType]
                 headers={"X-API-Key": api_key},
             )
             if resp.status_code != 200:
@@ -460,6 +557,24 @@ def _launch_on_chronos(launch_config: dict, api_key: str) -> str:
         return resp.json()["session_id"]
 
 
+def _attach_session_to_experiment(version_public_id: str, session_id: str, api_key: str) -> None:
+    """Attach a launched session to its experiment version. Warns on failure."""
+    if not version_public_id:
+        return
+    try:
+        with httpx.Client(base_url=CHRONOS_URL, timeout=httpx.Timeout(3.0, connect=2.0)) as client:
+            from plato.chronos.api.experiments import attach_session_to_experiment_version
+
+            attach_session_to_experiment_version.sync(
+                client=client,
+                public_id=version_public_id,
+                session_public_id=session_id,
+                x_api_key=api_key,
+            )
+    except Exception as e:
+        console.print(f"[yellow]⚠️  Failed to link session {session_id} to experiment: {e}[/yellow]")
+
+
 async def _launch_env_world(
     action: str,
     simulator_name: str,
@@ -475,7 +590,6 @@ async def _launch_env_world(
                    For resume: {"resume_from": "..."}.
     """
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
-    world_package = DEFAULT_WORLD_PACKAGE_STRUCTURED
     inputs = action_inputs or {}
 
     try:
@@ -485,15 +599,15 @@ async def _launch_env_world(
                 console.print("[yellow]No GitHub URL provided, skipping launch.[/yellow]")
                 return None
 
-            template = _load_template("env-create-launch.json")
+            template, version_id = _fetch_experiment_config("env", "base", api_key)
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
             config["github_url"] = github_url
+            cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
-            config["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+            _set_claude_credentials(config, cred_key, cred_val)
             config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-            config["skill_runner"]["config"]["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
-            template["world"]["package"] = world_package
+            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
             template["tags"].append(simulator_name)
 
         else:
@@ -505,26 +619,24 @@ async def _launch_env_world(
 
             resume_from = inputs.get("resume_from", "")
 
-            template = _load_template("env-fix-launch.json")
+            template, version_id = _fetch_experiment_config("env", "resume", api_key)
             config = template["world"]["config"]
             config["sim_name"] = simulator_name
             config["artifact_id"] = base_artifact_id
             config["feedback"] = feedback
+            cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
-            config["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+            _set_claude_credentials(config, cred_key, cred_val)
             config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-            config["skill_runner"]["config"]["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+            _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
             config["state"]["resume_from"] = resume_from
-            template["world"]["package"] = world_package
             template["tags"].append(simulator_name)
 
         console.print("[cyan]Launching world on Chronos...[/cyan]")
         session_id = _launch_on_chronos(template, api_key)
+        _attach_session_to_experiment(version_id, session_id, api_key)
         return session_id
 
-    except FileNotFoundError as e:
-        console.print(f"[red]❌ {e}[/red]")
-        return None
     except Exception as e:
         console.print(f"[red]❌ World launch failed: {e}[/red]")
         return None
@@ -539,10 +651,9 @@ async def _launch_datagen_world(
 ) -> str | None:
     """Launch an interactive datagen world. Returns session_id or None."""
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
-    world_package = DEFAULT_WORLD_PACKAGE_INTERACTIVE
 
     try:
-        template = _load_template("datagen-launch.json")
+        template, version_id = _fetch_experiment_config("data", "base", api_key)
 
         # Fetch DB configs for MCP setup
         with httpx.Client(timeout=30.0) as client:
@@ -573,12 +684,16 @@ async def _launch_datagen_world(
         mcps.append({"type": "functions", "session_id": f"run-{simulator_name}", "service": simulator_name})
 
         config = template["world"]["config"]
-        config["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        # Also set credentials on agent.config if present (used by claude-code agent)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
         config["plato_api_key"] = datagen_api_key
         config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
         config["mcps"] = mcps
         config["envs"] = [{"artifact_id": artifact_id, "alias": simulator_name}]
-        template["world"]["package"] = world_package
 
         # Update iterations
         msg = config["initial_messages"][0]
@@ -595,11 +710,9 @@ async def _launch_datagen_world(
 
         console.print("[cyan]Launching datagen world on Chronos...[/cyan]")
         session_id = _launch_on_chronos(template, api_key)
+        _attach_session_to_experiment(version_id, session_id, api_key)
         return session_id
 
-    except FileNotFoundError as e:
-        console.print(f"[red]❌ {e}[/red]")
-        return None
     except Exception as e:
         console.print(f"[red]❌ Datagen launch failed: {e}[/red]")
         return None
@@ -628,7 +741,6 @@ def start_env(
     async def _start():
         base_url = _get_base_url()
         datagen_api_key = DEFAULT_DATAGEN_API_KEY
-        world_package = DEFAULT_WORLD_PACKAGE_STRUCTURED
 
         # Fetch all sim configs
         to_launch = []
@@ -684,6 +796,9 @@ def start_env(
             console.print("[yellow]Cancelled.[/yellow]")
             return
 
+        # Resolve credentials once before the loop to avoid redundant subprocess calls
+        cred_key, cred_val = _get_claude_credentials()
+
         for s in to_launch:
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
@@ -694,20 +809,20 @@ def start_env(
                         x_api_key=api_key,
                     )
 
-                template = _load_template("env-create-launch.json")
+                template, version_id = _fetch_experiment_config("env", "base", api_key)
                 config = template["world"]["config"]
                 config["sim_name"] = s["name"]
                 config["github_url"] = s["github_url"]
                 config["plato_api_key"] = datagen_api_key
-                config["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+                _set_claude_credentials(config, cred_key, cred_val)
                 config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
-                config["skill_runner"]["config"]["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
+                _set_claude_credentials(config["skill_runner"]["config"], cred_key, cred_val)
                 if resume:
                     config["state"]["resume_from"] = s.get("resume_from", "")
-                template["world"]["package"] = world_package
                 template["tags"].append(s["name"])
 
                 session_id = _launch_on_chronos(template, api_key)
+                _attach_session_to_experiment(version_id, session_id, api_key)
                 console.print(f"[green]✅ {s['name']}:[/green] {session_id}")
             except Exception as e:
                 console.print(f"[red]❌ {s['name']}: {e}[/red]")
@@ -1138,7 +1253,7 @@ def review_env(
                     # Execute the flow
                     try:
                         executor = FlowExecutor(page, flow)
-                        await executor.execute()
+                        await executor.execute_flow()
                         console.print("[green]✅ Local flow executed successfully[/green]")
                     except Exception as e:
                         console.print(f"[yellow]⚠️  Flow execution error: {e}[/yellow]")
@@ -1147,6 +1262,7 @@ def review_env(
                     if fake_time:
                         console.print("[yellow]⚠️  --clock with default login may not work correctly.[/yellow]")
                         console.print("[yellow]   Use --local with a flow file for reliable clock testing.[/yellow]")
+                    page = None
                     try:
                         # Create page and navigate to public URL first
                         page = await browser.new_page()
@@ -1312,7 +1428,7 @@ def review_env(
             # Collect all inputs BEFORE submitting anything
             # (so Ctrl+C at any prompt means nothing gets submitted)
             reject_comments: str = ""
-            reject_assignee_id = None
+            clear_assignees = False
             reject_action = None
             reject_action_inputs = {}
             pass_start_datagen = False
@@ -1331,16 +1447,20 @@ def review_env(
                         console.print("[yellow]Comments are required when rejecting. Please provide feedback.[/yellow]")
                 reject_comments = comments
 
-                # Assign env assignee
-                existing_assignees = current_config.get("env_assignees") or []
+                # Clear env assignees option — re-fetch to avoid stale data
+                try:
+                    async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as http_client:
+                        fresh_sim = await get_simulator_by_name.asyncio(
+                            client=http_client,
+                            name=simulator_name,
+                            x_api_key=api_key,
+                        )
+                    existing_assignees = (fresh_sim.config or {}).get("env_assignees") or []
+                except Exception:
+                    existing_assignees = current_config.get("env_assignees") or []
                 if existing_assignees:
                     console.print(f"[cyan]Current env assignees:[/cyan] {existing_assignees}")
-                assignee_input = typer.prompt("Add env assignee (user ID, enter to skip)", default="").strip()
-                if assignee_input:
-                    try:
-                        reject_assignee_id = int(assignee_input)
-                    except ValueError:
-                        console.print(f"[yellow]⚠️  Invalid user ID: {assignee_input}[/yellow]")
+                    clear_assignees = typer.confirm("Clear env assignees?", default=False)
 
                 # Optionally launch a world
                 github_url_from_config = current_config.get("source_code_url", "")
@@ -1390,8 +1510,8 @@ def review_env(
             console.print(f"  Outcome: {outcome}")
             if reject_comments:
                 console.print(f"  Comments: {reject_comments}")
-            if reject_assignee_id is not None:
-                console.print(f"  Add env assignee: {reject_assignee_id}")
+            if clear_assignees:
+                console.print("  Clear env assignees: yes")
             if reject_action:
                 action_desc = reject_action
                 if reject_action == "fresh":
@@ -1430,30 +1550,20 @@ def review_env(
                         x_api_key=api_key,
                     )
 
-                    # 2. Assign env reviewer (re-fetch to avoid stale data)
-                    if reject_assignee_id is not None:
+                    # 2. Clear env assignees if requested
+                    if clear_assignees:
                         try:
-                            # Re-fetch current config to get latest assignees
-                            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as http_client:
-                                fresh_sim = await get_simulator_by_name.asyncio(
-                                    client=http_client,
-                                    name=simulator_name,
-                                    x_api_key=api_key,
-                                )
-                            fresh_config = fresh_sim.config or {}
-                            existing = fresh_config.get("env_assignees") or []
-                            merged = list(set(existing + [reject_assignee_id]))
                             await update_simulator.asyncio(
                                 client=api_client,
                                 simulator_id=simulator_id,
                                 body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(
-                                    env_assignees=merged,
+                                    env_assignees=[],
                                 ),
                                 x_api_key=api_key,
                             )
-                            console.print(f"[green]✅ Assigned env assignee: {reject_assignee_id}[/green]")
+                            console.print("[green]✅ Cleared env assignees[/green]")
                         except Exception as e:
-                            console.print(f"[yellow]⚠️  Could not set assignee: {e}[/yellow]")
+                            console.print(f"[yellow]⚠️  Could not clear assignees: {e}[/yellow]")
 
                     # 3. Launch world if requested
                     if reject_action:
@@ -1849,8 +1959,9 @@ def review_data(
                     await options_page.fill("#platoApiKey", api_key)
                     if DEFAULT_DATAGEN_API_KEY:
                         await options_page.fill("#platoDatagenApiKey", DEFAULT_DATAGEN_API_KEY)
-                    if DEFAULT_ANTHROPIC_KEY:
-                        await options_page.fill("#anthropicApiKey", DEFAULT_ANTHROPIC_KEY)
+                    _cred_key, _cred_val = _get_claude_credentials()
+                    if _cred_val and _cred_key == "claude_oauth_credentials":
+                        await options_page.fill("#claudeOauthCredentials", _cred_val)
                     if DEFAULT_ANCHOR_KEY:
                         await options_page.fill("#anchorApiKey", DEFAULT_ANCHOR_KEY)
                     save_button = options_page.locator('button:has-text("Save")')
@@ -2177,3 +2288,92 @@ def submit_data(
             console.print(f"[cyan]Data Artifact:[/cyan] {artifact_id}")
 
     handle_async(_submit_data())
+
+
+# =============================================================================
+# EXPERIMENT COMMANDS
+# plato pm experiment env base push
+# plato pm experiment env resume push
+# plato pm experiment data base push
+# =============================================================================
+
+
+def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
+    """Create a new experiment version in Chronos (creates the file if it doesn't exist)."""
+    name = _EXPERIMENT_NAMES[(pipeline, mode)]
+    template_file = {
+        ("env", "base"): "env-create-launch.json",
+        ("env", "resume"): "env-fix-launch.json",
+        ("data", "base"): "datagen-launch.json",
+    }[(pipeline, mode)]
+    description = {
+        ("env", "base"): "Run via: plato pm start env <sim> (fresh create) or plato pm review env <sim> (action=fresh)",
+        ("env", "resume"): "Run via: plato pm review env <sim> (action=resume, after rejection)",
+        ("data", "base"): "Run via: plato pm start data <sim>",
+    }[(pipeline, mode)]
+    world_key = {
+        ("env", "base"): "structured-execution",
+        ("env", "resume"): "structured-execution",
+        ("data", "base"): "interactive",
+    }[(pipeline, mode)]
+    config_json = _load_template(template_file)
+
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.get(
+            f"{CHRONOS_URL}/api/experiments/files",
+            headers={"X-API-Key": api_key},
+        )
+        resp.raise_for_status()
+        files = resp.json().get("files", [])
+        match = next((f for f in files if f["name"] == name), None)
+
+        if not match:
+            resp = client.post(
+                f"{CHRONOS_URL}/api/experiments/files",
+                json={
+                    "name": name,
+                    "description": description,
+                    "world_key": world_key,
+                    "config_json": config_json,
+                },
+                headers={"X-API-Key": api_key},
+            )
+            resp.raise_for_status()
+            console.print(f"[green]✅ Created experiment '{name}' (v1)[/green]")
+        else:
+            file_id = match["public_id"]
+            patch_resp = client.patch(
+                f"{CHRONOS_URL}/api/experiments/files/{file_id}",
+                json={"description": description},
+                headers={"X-API-Key": api_key},
+            )
+            patch_resp.raise_for_status()
+            resp = client.post(
+                f"{CHRONOS_URL}/api/experiments/files/{file_id}/versions",
+                json={"config_json": config_json},
+                headers={"X-API-Key": api_key},
+            )
+            resp.raise_for_status()
+            version_num = resp.json().get("latest_version", {}).get("version_number", "?")
+            console.print(f"[green]✅ Pushed experiment '{name}' → v{version_num}[/green]")
+
+
+@experiment_env_base_app.command(name="push")
+def experiment_env_base_push() -> None:
+    """Push local env-create-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("env", "base", api_key)
+
+
+@experiment_env_resume_app.command(name="push")
+def experiment_env_resume_push() -> None:
+    """Push local env-fix-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("env", "resume", api_key)
+
+
+@experiment_data_base_app.command(name="push")
+def experiment_data_base_push() -> None:
+    """Push local datagen-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("data", "base", api_key)

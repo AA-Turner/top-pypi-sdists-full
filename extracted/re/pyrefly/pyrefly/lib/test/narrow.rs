@@ -1885,6 +1885,62 @@ def test(x: Literal["a", "b", "c", "d"]) -> None:
 );
 
 testcase!(
+    test_narrow_in_frozenset_literal_iterable,
+    r#"
+from typing import assert_type, Literal, Never, TypedDict
+
+VALUES = dict(
+    autoremove="The following packages will be REMOVED",
+    autoclean="Del ",
+)
+
+def cleanup(operation: str | None = None) -> bool:
+    if operation not in frozenset(["autoremove", "autoclean"]):
+        raise AssertionError(f"Bad operation: {operation}")
+    return VALUES[operation] in "some output"
+
+def positive_narrowing(x: int | str) -> None:
+    if x in frozenset([1, 2]):
+        assert_type(x, Literal[1, 2])
+
+def tuple_arg(x: int | str) -> None:
+    if x in frozenset((1, 2)):
+        assert_type(x, Literal[1, 2])
+
+def set_arg(x: int | str) -> None:
+    if x in frozenset({1, 2}):
+        assert_type(x, Literal[1, 2])
+
+def set_constructor(x: int | str) -> None:
+    if x in set([1, 2]):
+        assert_type(x, Literal[1, 2])
+
+def list_constructor(x: int | str) -> None:
+    if x in list((1, 2)):
+        assert_type(x, Literal[1, 2])
+
+def tuple_constructor(x: int | str) -> None:
+    if x in tuple([1, 2]):
+        assert_type(x, Literal[1, 2])
+
+def empty_frozenset(x: int | str) -> None:
+    if x in frozenset():
+        assert_type(x, Never)
+
+def qualified_builtins_frozenset(x: int | str) -> None:
+    import builtins
+    if x in builtins.frozenset([1, 2]):
+        assert_type(x, Literal[1, 2])
+
+def non_literal_arg(x: int | str) -> None:
+    y = [1, 2]
+    if x in frozenset(y):
+        # Can't statically enumerate elements, no narrowing.
+        assert_type(x, int | str)
+"#,
+);
+
+testcase!(
     test_narrow_len,
     r#"
 from typing import assert_type, Never, NamedTuple
@@ -2841,5 +2897,108 @@ def example(variable: str | None) -> str:
         return "Not Found"
 
     return variable
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1575
+testcase!(
+    test_typevar_isinstance_narrow_else,
+    r#"
+from typing import TypeVar, assert_type, reveal_type
+
+T = TypeVar("T", int, str, float)
+
+def test(x: T) -> T:
+    if isinstance(x, (int, float)):
+        reveal_type(x)  # E: revealed type: float | int
+        return x
+    else:
+        reveal_type(x)  # E: revealed type: str
+        return x
+
+# Single constraint subtraction
+U = TypeVar("U", int, str)
+
+def test2(x: U) -> U:
+    if isinstance(x, int):
+        assert_type(x, int)
+        return x
+    else:
+        assert_type(x, str)
+        return x
+
+# All constraints matched - else branch is Never
+from typing import Never
+V = TypeVar("V", int, str)
+
+def test3(x: V) -> V:
+    if isinstance(x, (int, str)):
+        assert_type(x, int | str)
+        return x
+    else:
+        assert_type(x, Never)
+        return x
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2607
+testcase!(
+    test_narrow_sequence_to_tuple_return,
+    r#"
+from typing import Sequence
+
+def f(x: Sequence[int]) -> tuple[int, ...]:
+    if isinstance(x, tuple):
+        return x
+    return tuple(x)
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2607
+testcase!(
+    test_narrow_sequence_to_tuple_assert_type,
+    r#"
+from typing import Sequence, assert_type
+
+def seq_int(x: Sequence[int]):
+    if isinstance(x, tuple):
+        assert_type(x, tuple[int, ...])
+
+def seq_str(x: Sequence[str]):
+    if isinstance(x, tuple):
+        assert_type(x, tuple[str, ...])
+"#,
+);
+
+testcase!(
+    test_narrow_to_named_tuple,
+    r#"
+from typing import NamedTuple, Sequence, assert_type
+
+class Point(NamedTuple):
+    x: int
+    y: str
+
+def f(x: Sequence[int]) -> Point:
+    if isinstance(x, Point):
+        return x
+    raise ValueError
+
+def g(x: object):
+    if isinstance(x, Point):
+        assert_type(x, Point)
+        assert_type(x.x, int)
+        assert_type(x.y, str)
+"#,
+);
+
+testcase!(
+    test_narrow_concrete_tuple_to_tuple,
+    r#"
+from typing import assert_type
+
+def f(x: tuple[int, str] | int):
+    if isinstance(x, tuple):
+        assert_type(x, tuple[int, str])
 "#,
 );

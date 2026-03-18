@@ -11,9 +11,9 @@ use std::ops::Not;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_types::class::Class;
+use pyrefly_types::class::ClassFields;
 use pyrefly_types::class::ClassType;
 use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Stmt;
@@ -50,7 +50,7 @@ use crate::report::pysa::function::WholeProgramFunctionDefinitions;
 use crate::report::pysa::location::PysaLocation;
 use crate::report::pysa::module::ModuleId;
 use crate::report::pysa::module::ModuleIds;
-use crate::report::pysa::module::ModuleKey;
+use crate::report::pysa::module_index::WholeProgramPysaModuleIndex;
 use crate::report::pysa::scope::ScopeParent;
 use crate::report::pysa::scope::get_scope_parent;
 use crate::report::pysa::types::PysaType;
@@ -85,9 +85,7 @@ pub struct ClassRef {
 impl ClassRef {
     pub fn from_class(class: &Class, module_ids: &ModuleIds) -> ClassRef {
         ClassRef {
-            module_id: module_ids
-                .get(ModuleKey::from_module(class.module()))
-                .unwrap(),
+            module_id: module_ids.get_from_module(class.module()),
             class_id: ClassId::from_class(class),
             class: class.clone(),
         }
@@ -268,18 +266,6 @@ pub fn get_super_class_member(
         .flatten()
 }
 
-pub fn get_context_from_class<'a>(
-    class: &'a Class,
-    context: &'a ModuleContext<'a>,
-) -> ModuleContext<'a> {
-    let handle = Handle::new(
-        class.module_name(),
-        class.module_path().clone(),
-        *context.handle.sys_info(),
-    );
-    ModuleContext::create(handle, context.transaction, context.module_ids).unwrap()
-}
-
 pub fn get_class_field_declaration<'a>(
     class: &Class,
     field_name: &Name,
@@ -306,10 +292,19 @@ pub fn get_class_fields<'a>(
     class: &'a Class,
     context: &'a ModuleContext<'a>,
 ) -> impl Iterator<Item = (Cow<'a, Name>, Arc<ClassField>)> {
-    let regular_fields = class.fields().filter_map(|name| {
-        get_class_field_from_current_class_only(class, name, context)
-            .map(|field| (Cow::Borrowed(name), field))
-    });
+    let class_fields = context
+        .bindings
+        .get_class_fields(class.index())
+        .cloned()
+        .unwrap_or_else(ClassFields::empty);
+    let regular_fields = class_fields
+        .names()
+        .filter_map(|name| {
+            get_class_field_from_current_class_only(class, name, context)
+                .map(|field| (Cow::Owned(name.clone()), field))
+        })
+        .collect::<Vec<_>>()
+        .into_iter();
 
     let synthesized_fields_idx = context
         .bindings
@@ -317,7 +312,7 @@ pub fn get_class_fields<'a>(
     let synthesized_fields = context.answers.get_idx(synthesized_fields_idx).unwrap();
     let synthesized_fields = synthesized_fields
         .fields()
-        .filter(|(name, _)| !class.contains(name))
+        .filter(|(name, _)| !class_fields.contains(name))
         .map(|(name, field)| (Cow::Owned(name.clone()), field.inner.dupe()))
         // Required by the borrow checker.
         // This is fine since the amount of synthesized fields should be small.
@@ -462,6 +457,7 @@ fn find_definition_ast<'a>(
 
 fn get_decorator_callees(
     class: &Class,
+    pysa_module_index: &WholeProgramPysaModuleIndex,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
 ) -> HashMap<PysaLocation, Vec<Target<FunctionRef>>> {
@@ -469,6 +465,7 @@ fn get_decorator_callees(
     if let Some(class_def) = find_definition_ast(class, context) {
         resolve_decorator_callees(
             &class_def.decorator_list,
+            pysa_module_index,
             function_base_definitions,
             context,
         )
@@ -478,6 +475,7 @@ fn get_decorator_callees(
 }
 
 pub fn export_all_classes(
+    pysa_module_index: &WholeProgramPysaModuleIndex,
     function_base_definitions: &WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     context: &ModuleContext,
 ) -> HashMap<PysaLocation, ClassDefinition> {
@@ -500,7 +498,7 @@ pub fn export_all_classes(
             .unwrap();
 
         let is_synthesized = match context.bindings.get(class_idx) {
-            BindingClass::FunctionalClassDef(_, _, _, _) => true,
+            BindingClass::FunctionalClassDef(_, _, _) => true,
             BindingClass::ClassDef(_) => false,
         };
 
@@ -523,7 +521,12 @@ pub fn export_all_classes(
             ClassMro::Cyclic => PysaClassMro::Cyclic,
         };
 
-        let decorator_callees = get_decorator_callees(&class, function_base_definitions, context);
+        let decorator_callees = get_decorator_callees(
+            &class,
+            pysa_module_index,
+            function_base_definitions,
+            context,
+        );
 
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),

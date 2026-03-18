@@ -1,12 +1,78 @@
-[tool.black]
-line-length = 120
-target-version = ["py37", "py38"]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | build
-  | dist
+[project]
+name = "django-datadog-logger"
+version = "0.8.0"
+description = "Django Datadog Logger integration package."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Lenno Nagel", email = "lenno@namespace.ee" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+keywords = ["django_datadog_logger"]
+dependencies = [
+    "JSON-log-formatter",
+    "Django",
+    "djangorestframework",
+]
 
-)/
-'''
+[project.urls]
+Homepage = "https://github.com/namespace-ee/django-datadog-logger"
+
+[dependency-groups]
+dev = [
+    "bump-my-version",
+    "pytest",
+    "pytest-django",
+    "ruff",
+]
+docs = [
+    "sphinx>=7,<8",
+    "myst-parser>=2,<3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["django_datadog_logger"]
+
+[tool.bumpversion]
+current_version = "0.8.0"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "django_datadog_logger/__init__.py"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"

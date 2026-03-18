@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lambdalib
-Version: 0.11.0
+Version: 0.11.1
 Summary: Standardized ASIC design libraries
 Author: Zero ASIC
 License: MIT License
@@ -16,7 +16,7 @@ Project-URL: Homepage, https://github.com/siliconcompiler/lambdalib
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: siliconcompiler>=0.35.0
+Requires-Dist: siliconcompiler>=0.37.0
 Requires-Dist: Jinja2>=3.1.3
 Provides-Extra: test
 Requires-Dist: pytest==9.0.2; extra == "test"
@@ -29,7 +29,7 @@ Requires-Dist: cocotb==2.0.1; extra == "cocotb"
 Requires-Dist: cocotb-bus==0.3.0; extra == "cocotb"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"
-Requires-Dist: codespell==2.4.1; extra == "lint"
+Requires-Dist: codespell==2.4.2; extra == "lint"
 Dynamic: license-file
 
 # Lambdalib

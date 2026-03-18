@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydoris"
-version = "1.1.0"
+version = "1.2.0"
 description = "Python interface to Doris"
 readme = "README.md"
 license = { text = "Apache 2.0" }
@@ -29,8 +29,8 @@ classifiers = [
     "Topic :: Database :: Front-Ends",
 ]
 dependencies = [
-    "sqlalchemy>=1.4,<2",
-    "sqlalchemy-utils>=0.38.3,<0.39",
+    "sqlalchemy>=1.4",
+    "sqlalchemy-utils>=0.38.3",
     "mysqlclient>=2.1.0,<3",
     "requests"
 ]

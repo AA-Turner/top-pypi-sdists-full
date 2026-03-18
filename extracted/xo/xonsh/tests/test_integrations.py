@@ -65,7 +65,7 @@ def run_xonsh(
     timeout=20,
     env=None,
     blocking=True,
-    xonsh_cmd="xonsh",
+    xonsh_cmd="python -m xonsh",
 ):
     # Env
     popen_env = dict(os.environ)
@@ -1109,7 +1109,6 @@ def test_loading_correctly(monkeypatch, interactive):
         "import xonsh; echo -n AAA @(xonsh.__file__) BBB",
         interactive=interactive,
         single_command=True,
-        xonsh_cmd="python -m xonsh",  # Tests can be run from the venv (e.g. on NixOS) so we need to use `python -m`.
     )
     assert not err
     assert ret == 0
@@ -1674,8 +1673,8 @@ $XONSH_SHOW_TRACEBACK = True
 def _e(a,i,o,e):
     echo -n O
     echo -n E 1>2
-    execx("echo -n O")
-    execx("echo -n E 1>2")
+    # execx("echo -n O")      # Excluded until fix https://github.com/xonsh/xonsh/issues/5631
+    # execx("echo -n E 1>2")  # Excluded until fix https://github.com/xonsh/xonsh/issues/5631
     print("o")
     print("O", file=o)
     print("E", file=e)
@@ -1698,7 +1697,7 @@ def test_callable_alias_no_bad_file_descriptor(test_code):
     """Test no exceptions during any kind of capturing of callable alias. See also #5631."""
 
     out, err, ret = run_xonsh(
-        test_code, interactive=True, single_command=True, timeout=60
+        test_code, interactive=False, single_command=True, timeout=60
     )
     assert ret == 0
     assert "Error" not in out

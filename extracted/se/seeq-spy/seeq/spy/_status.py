@@ -579,9 +579,16 @@ class Status:
 
         # Build HTML with pre tag for monospaced font and overflow for horizontal scroll
         tail_command = f'{"tail -f" if self.code == Status.RUNNING else "cat"} "{self._log_filename}"'
-        escaped_tail_command = html.escape(tail_command, quote=True).replace('\\', '&#92;')
         grep_command = self.get_grep_errors_command()
+
+        escaped_tail_command = html.escape(tail_command, quote=True).replace('\\', '&#92;')
         escaped_grep_command = html.escape(grep_command, quote=True).replace('\\', '&#92;')
+
+        # We replace spaces with &nbsp; so that filenames with multiple spaces get rendered (and can be copy/pasted)
+        # correctly
+        escaped_tail_command = escaped_tail_command.replace(' ', '&nbsp;')
+        escaped_grep_command = escaped_grep_command.replace(' ', '&nbsp;')
+
         return f"""
         <div style="{style} overflow-x: auto; max-width: 100%%;">
             <div>

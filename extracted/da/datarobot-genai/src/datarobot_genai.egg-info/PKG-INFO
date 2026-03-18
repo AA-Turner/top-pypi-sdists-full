@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.7.1
+Version: 0.7.8
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -41,6 +41,7 @@ Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
 Requires-Dist: crewai[litellm]<2.0.0,>=1.1.0; extra == "crewai"
 Requires-Dist: crewai-tools[mcp]<0.77.0,>=0.69.0; extra == "crewai"
+Requires-Dist: nvidia-nat-crewai==1.4.1; extra == "crewai"
 Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == "crewai"
 Requires-Dist: pybase64<2.0.0,>=1.4.2; extra == "crewai"
 Provides-Extra: langgraph

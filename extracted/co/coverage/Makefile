@@ -130,7 +130,7 @@ KITBIN = .tox/$(KITVER)/bin
 $(KITBIN):
 	tox -q -e $(KITVER) --notest
 
-PIP_COMPILE = uv pip compile -q --universal ${COMPILE_OPTS}
+PIP_COMPILE = uv pip compile -q --universal --generate-hashes ${COMPILE_OPTS}
 
 # Limit to packages that were released more than 10 days ago.
 # https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns
@@ -198,12 +198,12 @@ _sample_cog_html: clean
 sample_html: _sample_cog_html		#- Generate sample HTML report.
 	rm -f doc/sample_html/*.*
 	cp -r ~/cog/htmlcov/ doc/sample_html/
-	rm doc/sample_html/.gitignore
+	rm doc/sample_html/.gitignore doc/sample_html/status.json
 
 sample_html_beta: _sample_cog_html	#- Generate sample HTML report for a beta release.
 	rm -f doc/sample_html_beta/*.*
 	cp -r ~/cog/htmlcov/ doc/sample_html_beta/
-	rm doc/sample_html_beta/.gitignore
+	rm doc/sample_html_beta/.gitignore doc/sample_html_beta/status.json
 
 
 ### Kitting: making releases
@@ -314,13 +314,11 @@ WEBSAMPLEBETA = $(WEBHOME)/files/sample_coverage_html_beta
 publish:				#- Publish the sample HTML report.
 	rm -f $(WEBSAMPLE)/*.*
 	mkdir -p $(WEBSAMPLE)
-	rm doc/sample_html/status.json
 	cp doc/sample_html/*.* $(WEBSAMPLE)
 
 publishbeta:
 	rm -f $(WEBSAMPLEBETA)/*.*
 	mkdir -p $(WEBSAMPLEBETA)
-	rm doc/sample_html_beta/status.json
 	cp doc/sample_html_beta/*.* $(WEBSAMPLEBETA)
 
 CHANGES_MD = tmp/rst_rst/changes.md

@@ -7,6 +7,7 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  : todo 适配
+import os
 
 from meutils.pipe import *
 
@@ -48,6 +49,21 @@ curl -X 'GET' https://api.x.ai/v1/videos/5945e180-c2df-d23a-38ef-3554893b3edb \
 
 {"video":{"url":"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-a29603e6-d101-4217-a6ba-c29c6334ec88.mp4","duration":8,"respect_moderation":true},"model":"grok-imagine-video"}root@instance-IZBri9Ev:~# 
   
+  
+  
+  {
+    "model": "grok-imagine-video",
+    "prompt": "Generate a slow and serene time-lapse",
+    "image": {"url": "https://docs.x.ai/assets/api-examples/video/milkyway-still.png"},
+    "duration": 12
+  }
+  
+  {
+    "model": "grok-imagine-video",
+    "prompt": "Give the woman a silver necklace",
+    "video": {"url": "https://data.x.ai/docs/video-generation/portrait-wave.mp4"}
+  }
+  
 prompt: str,
 model: str,
 *,
@@ -85,7 +101,7 @@ BASE_URL = "https://api.x.ai/v1"
 class Tasks(object):
 
     def __init__(self, base_url: Optional[str] = None, api_key: str = None):
-        api_key = api_key or os.getenv("REPLICATE_API_KEY")
+        api_key = api_key or os.getenv("GROK_API_KEY")
         base_url = base_url or BASE_URL
         self.client = AsyncClient(api_key=api_key, base_url=base_url)
 
@@ -107,10 +123,10 @@ class Tasks(object):
             payload['resolution'] = request.resolution
 
         if image_urls := request.input_reference:
-            payload['image_url'] = image_urls[0]
+            payload['image'] = {"url": image_urls[0]}
 
         if request.video:
-            payload['video_url'] = {"video": {"url": request.video}}
+            payload['video'] = {"url": request.video}
 
         logany(bjson(payload))
 
@@ -176,6 +192,8 @@ class Tasks(object):
 if __name__ == '__main__':
     api_key = "xai-qOVFqcxzwi91nPYJSusiaWP6U2OPi4jvRZIHR1SAUexqm92yCTGCYa3pTtX8fUry3PfPiDTfREiwcpeF"
     t = Tasks(api_key=api_key)
+
+    os.getenv("OPENAI_API_KEY")
 
     model = "grok-imagine-video"
 

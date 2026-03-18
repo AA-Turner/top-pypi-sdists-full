@@ -20,6 +20,7 @@ def _build_request_args(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_audit_events: bool | None = False,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -42,6 +43,8 @@ def _build_request_args(
         params["checkpoint_only"] = checkpoint_only
     if plato_type is not None:
         params["plato_type"] = plato_type
+    if include_audit_events is not None:
+        params["include_audit_events"] = include_audit_events
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -66,6 +69,7 @@ def sync(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_audit_events: bool | None = False,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
@@ -83,6 +87,7 @@ def sync(
         atif_only=atif_only,
         checkpoint_only=checkpoint_only,
         plato_type=plato_type,
+        include_audit_events=include_audit_events,
         x_api_key=x_api_key,
     )
 
@@ -102,6 +107,7 @@ async def asyncio(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_audit_events: bool | None = False,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
@@ -119,6 +125,7 @@ async def asyncio(
         atif_only=atif_only,
         checkpoint_only=checkpoint_only,
         plato_type=plato_type,
+        include_audit_events=include_audit_events,
         x_api_key=x_api_key,
     )
 

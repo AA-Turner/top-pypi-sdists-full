@@ -34,9 +34,6 @@ kwargs = dict(
     # [连接超时] 建立 TCP 连接的最大等待时间
     socket_connect_timeout=5,
 
-    # [读写超时] (可选) 防止网络卡死导致协程一直挂起
-    socket_timeout=2.0,
-
     # 断线重连
     retry_on_timeout=True,
     # retry_on_error=[ConnectionError, TimeoutError],

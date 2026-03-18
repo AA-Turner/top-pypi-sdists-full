@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bittensor-cli
-Version: 9.18.2
+Version: 9.18.1
 Summary: Bittensor CLI
 Author: bittensor.com
 Requires-Python: >=3.9
@@ -33,7 +33,7 @@ Requires-Dist: PyYAML~=6.0
 Requires-Dist: rich>=13.7,<15.0
 Requires-Dist: scalecodec==1.2.12
 Requires-Dist: typer>=0.16
-Requires-Dist: bittensor-wallet==4.0.2
+Requires-Dist: bittensor-wallet>=4.0.0
 Requires-Dist: packaging
 Requires-Dist: plotille>=5.0.0
 Requires-Dist: plotly>=6.0.0

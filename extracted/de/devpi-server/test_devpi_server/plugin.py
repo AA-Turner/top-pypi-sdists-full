@@ -12,6 +12,7 @@ from devpi_server.log import thread_clear_log
 from devpi_server.log import threadlog
 from devpi_server.main import XOM
 from devpi_server.main import parseoptions
+from devpi_server.markers import notset
 from devpi_server.normalized import normalize_name
 from io import BytesIO
 from pathlib import Path
@@ -39,19 +40,9 @@ import webtest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from devpi_server.markers import NotSet
 
 
-class NotSet:
-    __slots__ = ()
-
-    def __bool__(self):
-        return False
-
-    def __repr__(self) -> str:
-        return "<notset>"
-
-
-notset = NotSet()
 pytest_plugins = ["test_devpi_server.reqmock"]
 
 
@@ -482,6 +473,7 @@ def http(pypiurls):
             content=None,
             timeout=None,
             extra_headers=None,
+            raise_on_error=False,  # noqa: ARG002
         ):
             return self.__call__(
                 url,
@@ -764,12 +756,17 @@ def devpiserver_makepypistage():
         from devpi_server.main import _pypi_ixconfig_default
         from devpi_server.mirror import MirrorCustomizer
         from devpi_server.mirror import MirrorStage
+        from devpi_server.readonly import ensure_deeply_readonly
+
         # we copy _pypi_ixconfig_default, otherwise the defaults will
         # be modified during config updates later on
         return MirrorStage(
-            xom, username="root", index="pypi",
-            ixconfig=dict(_pypi_ixconfig_default),
-            customizer_cls=MirrorCustomizer)
+            xom,
+            username="root",
+            index="pypi",
+            ixconfig=ensure_deeply_readonly(dict(_pypi_ixconfig_default)),
+            customizer_cls=MirrorCustomizer,
+        )
     return makepypistage
 
 

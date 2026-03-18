@@ -45,6 +45,8 @@ mod report;
 mod solver;
 #[doc(hidden)]
 pub mod state;
+#[cfg(not(target_arch = "wasm32"))]
+mod stubgen;
 mod test;
 #[cfg(not(target_arch = "wasm32"))]
 mod tsp;
@@ -70,8 +72,8 @@ pub mod library {
                 pub use crate::commands::config_finder::default_config_finder;
                 pub use crate::commands::config_finder::default_config_finder_with_overrides;
                 pub use crate::commands::util;
-                pub use crate::lsp::non_wasm::external_references::ExternalReferences;
-                pub use crate::lsp::non_wasm::external_references::NoExternalReferences;
+                pub use crate::lsp::non_wasm::external_provider::ExternalProvider;
+                pub use crate::lsp::non_wasm::external_provider::NoExternalProvider;
                 pub use crate::lsp::non_wasm::module_helpers::PathRemapper;
             }
         }

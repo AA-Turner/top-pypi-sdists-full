@@ -1,7 +1,8 @@
 from contextlib import contextmanager
 import json
-from typing import TYPE_CHECKING, Optional, Union
+from typing import Optional, Union
 
+import httpx
 from dlt._workspace.exceptions import WorkspaceException
 from dlt._workspace.cli.exceptions import CliCommandInnerException
 from dlt.common.runtime.exceptions import RuntimeException
@@ -13,9 +14,6 @@ from dlt_runtime.runtime_clients.auth.errors import (
 )
 from dlt_runtime.runtime_clients.api.types import Response as ApiResponse
 from dlt_runtime.runtime_clients.auth.types import Response as AuthResponse
-
-if TYPE_CHECKING:
-    from dlt_runtime.runtime import RuntimeAuthService
 
 
 UnexpectedStatus = Union[ApiUnexpectedStatus, AuthUnexpectedStatus]
@@ -58,10 +56,7 @@ class NoRunnableRun(CliCommandInnerException):
 
 
 @contextmanager
-def handle_client_exceptions(
-    message: Optional[str] = None,
-    auth_service: Optional["RuntimeAuthService"] = None,
-):
+def handle_client_exceptions(message: Optional[str] = None):
     message = message or "Error calling the Runtime API"
     try:
         yield
@@ -69,13 +64,23 @@ def handle_client_exceptions(
         # As clients are initialized with raise_on_unexpected_status=True, HTTP exceptions
         # that are not documented in the source OpenAPI document are raised as
         # UnexpectedStatus and handled here
-        if auth_service and e.status_code == 401:
-            # Auto-delete invalid token so user can re-login without explicit logout
-            try:
-                auth_service.logout()
-            except Exception:
-                pass
         raise exception_from_response(message, e) from e
+    except httpx.TimeoutException as e:
+        raise CliCommandInnerException(
+            cmd="runtime",
+            msg=(
+                f"{message}. The request timed out. "
+                "Please check your connection and try again."
+            ),
+        ) from e
+    except httpx.NetworkError as e:
+        raise CliCommandInnerException(
+            cmd="runtime",
+            msg=(
+                f"{message}. A network error occurred. "
+                "Please check your connection and try again."
+            ),
+        ) from e
     except json.JSONDecodeError as e:
         message = (
             "Error parsing the JSON response from the Runtime API. "

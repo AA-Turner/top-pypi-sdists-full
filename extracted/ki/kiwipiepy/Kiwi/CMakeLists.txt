@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(kiwi VERSION 0.22.2 DESCRIPTION "Kiwi, Korean Intelligent Word Identifier")
+project(kiwi VERSION 0.23.0 DESCRIPTION "Kiwi, Korean Intelligent Word Identifier")
 
 set ( CMAKE_CXX_STANDARD 17 )
 set ( CMAKE_VERBOSE_MAKEFILE true )
@@ -53,7 +53,7 @@ else()
   set ( AVX_VNNI_SUPPORTED OFF )
 endif()
 
-if(APPLE)
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
   set(CMAKE_OSX_ARCHITECTURES "${KIWI_CPU_ARCH}")
 endif()
 
@@ -79,6 +79,7 @@ set ( CORE_SRCS
   src/TagUtils.cpp
   src/TypoTransformer.cpp
   src/UnicodeCase.cpp
+  src/UnkFormScorer.cpp
   src/Utils.cpp
   src/WordDetector.cpp
   src/archImpl/none.cpp

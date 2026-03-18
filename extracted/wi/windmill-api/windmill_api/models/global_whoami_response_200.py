@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.global_whoami_response_200_login_type import GlobalWhoamiResponse200LoginType
+from ..models.global_whoami_response_200_role_source import GlobalWhoamiResponse200RoleSource
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="GlobalWhoamiResponse200")
@@ -18,6 +19,7 @@ class GlobalWhoamiResponse200:
         super_admin (bool):
         verified (bool):
         first_time_user (bool):
+        role_source (GlobalWhoamiResponse200RoleSource):
         devops (Union[Unset, bool]):
         name (Union[Unset, str]):
         company (Union[Unset, str]):
@@ -30,6 +32,7 @@ class GlobalWhoamiResponse200:
     super_admin: bool
     verified: bool
     first_time_user: bool
+    role_source: GlobalWhoamiResponse200RoleSource
     devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     company: Union[Unset, str] = UNSET
@@ -44,6 +47,8 @@ class GlobalWhoamiResponse200:
         super_admin = self.super_admin
         verified = self.verified
         first_time_user = self.first_time_user
+        role_source = self.role_source.value
+
         devops = self.devops
         name = self.name
         company = self.company
@@ -59,6 +64,7 @@ class GlobalWhoamiResponse200:
                 "super_admin": super_admin,
                 "verified": verified,
                 "first_time_user": first_time_user,
+                "role_source": role_source,
             }
         )
         if devops is not UNSET:
@@ -87,6 +93,8 @@ class GlobalWhoamiResponse200:
 
         first_time_user = d.pop("first_time_user")
 
+        role_source = GlobalWhoamiResponse200RoleSource(d.pop("role_source"))
+
         devops = d.pop("devops", UNSET)
 
         name = d.pop("name", UNSET)
@@ -103,6 +111,7 @@ class GlobalWhoamiResponse200:
             super_admin=super_admin,
             verified=verified,
             first_time_user=first_time_user,
+            role_source=role_source,
             devops=devops,
             name=name,
             company=company,

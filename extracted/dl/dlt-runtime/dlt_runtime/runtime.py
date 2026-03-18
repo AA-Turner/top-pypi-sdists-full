@@ -1,8 +1,10 @@
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, Optional, Union, List
+from typing import Generator, Optional, Union, List
 from uuid import UUID
 
+import httpx
 import jose.jwt as jose_jwt
 from dlt._workspace._workspace_context import WorkspaceRunContext, active
 from dlt._workspace.cli.config_toml_writer import WritableConfigValue, write_values
@@ -13,7 +15,7 @@ from dlt.common.configuration.providers.toml import (
 )
 from dlt.common.configuration.specs.pluggable_run_context import RunContextBase
 from dlt.common.configuration.specs.runtime_configuration import RuntimeConfiguration
-from jose.exceptions import ExpiredSignatureError, JOSEError
+from jose.exceptions import JOSEError
 
 from dlt_runtime.version import __version__
 
@@ -33,7 +35,13 @@ from dlt_runtime.runtime_clients.api.models.workspace_create_request import (
     WorkspaceCreateRequest,
 )
 from dlt_runtime.runtime_clients.api.models.workspace_response import WorkspaceResponse
+from dlt_runtime.runtime_clients.api.models.workspace_with_membership_response import (
+    WorkspaceWithMembershipResponse,
+)
+from dlt_runtime.runtime_clients.auth.api.default import refresh as refresh_api
 from dlt_runtime.runtime_clients.auth.client import Client as AuthClient
+from dlt_runtime.runtime_clients.auth.models.refresh_request import RefreshRequest
+from dlt_runtime.runtime_clients.auth.models.refresh_response import RefreshResponse
 
 
 @dataclass
@@ -41,6 +49,7 @@ class AuthInfo:
     user_id: str
     email: str
     jwt_token: str
+    token_expiry: Optional[float] = None
 
 
 @dataclass
@@ -116,17 +125,52 @@ class RuntimeAuthService:
         return self._user_info
 
     def authenticate(self) -> AuthInfo:
-        return self._read_token()
+        try:
+            return self._read_token()
+        except RuntimeNotAuthenticated:
+            # Token invalid/expired — try refresh before giving up.
+            try:
+                if self.refresh():
+                    assert self.auth_info is not None
+                    return self.auth_info
+            except Exception:
+                pass  # refresh failed — fall through to re-raise original
+            raise
 
-    def login(self, token: str) -> AuthInfo:
+    def login(self, token: str, refresh_token: Optional[str] = None) -> AuthInfo:
         auth_info = self._save_token(token)
+        if refresh_token:
+            self._save_refresh_token(refresh_token)
         self._fetch_user_info()
         return auth_info
 
     def logout(self) -> None:
         self._delete_token()
+        self._delete_refresh_token()
+        self.auth_info = None
         self._remote_workspace_ids = None
         self._user_info = None
+
+    def refresh(self) -> bool:
+        """Refresh JWT using stored refresh token. Returns True on success."""
+        # Bail out early if there's no refresh token stored
+        stored_refresh_token = self._read_refresh_token()
+        if not stored_refresh_token:
+            return False
+
+        # Call the refresh endpoint — 400/401 mean the token is invalid,
+        # any other error (5xx, network) should propagate to the caller.
+        response = refresh_api.sync_detailed(
+            client=get_auth_client(),
+            body=RefreshRequest(refresh_token=stored_refresh_token),
+        )
+        if not isinstance(response.parsed, RefreshResponse):
+            return False
+
+        # Persist the new JWT and rotate the refresh token
+        self._save_token(response.parsed.jwt)
+        self._save_refresh_token(response.parsed.refresh_token)
+        return True
 
     def connect(self) -> str:
         # Ensuring workspace id is set and is one of the remote workspace ids
@@ -189,7 +233,7 @@ class RuntimeAuthService:
         """Fetch user info including all accessible workspaces from /me endpoint."""
         error_message = "Failed to get your user info from the Runtime API. Try logging out and in again"
         client = get_api_client(self)
-        with handle_client_exceptions(error_message, auth_service=self):
+        with handle_client_exceptions(error_message):
             me_response = me.sync_detailed(client=client)
 
         if isinstance(me_response.parsed, MeResponse):
@@ -219,12 +263,6 @@ class RuntimeAuthService:
                 str(workspace.id) for workspace in self.user_info.workspaces
             ]
         else:
-            # Auto-delete invalid token on 401 so user can re-login without explicit logout
-            if me_response.status_code == 401:
-                try:
-                    self.logout()
-                except Exception:
-                    pass
             raise exception_from_response(error_message, me_response)
 
     def _convert_workspace(self, workspace: WorkspaceResponse) -> WorkspaceInfo:
@@ -240,7 +278,9 @@ class RuntimeAuthService:
             description=description,
         )
 
-    def _convert_workspace_membership(self, wm: Any) -> WorkspaceInfo:
+    def _convert_workspace_membership(
+        self, wm: WorkspaceWithMembershipResponse
+    ) -> WorkspaceInfo:
         """Convert a WorkspaceWithMembershipResponse to WorkspaceInfo."""
         info = self._convert_workspace(wm.workspace)
         info.role = wm.role
@@ -276,25 +316,65 @@ class RuntimeAuthService:
         )
         local_toml_config.write_toml()
 
+    def _save_refresh_token(self, refresh_token: str) -> None:
+        """Persist the refresh token to the global secrets.toml."""
+        value = [
+            WritableConfigValue(
+                "refresh_token", str, refresh_token, (RuntimeConfiguration.__section__,)
+            )
+        ]
+        global_path = self.run_context.global_dir
+        os.makedirs(global_path, exist_ok=True)
+        secrets = SecretsTomlProvider(settings_dir=global_path)
+        write_values(secrets._config_toml, value, overwrite_existing=True)
+        secrets.write_toml()
+
+    def _read_refresh_token(self) -> Optional[str]:
+        """Read the refresh token from the global secrets.toml, or None if absent."""
+        secrets = SecretsTomlProvider(
+            settings_dir=self.workspace_run_context.global_dir
+        )
+        value, _ = secrets.get_value(
+            "refresh_token", str, "", RuntimeConfiguration.__section__
+        )
+        return value if value else None
+
+    def _delete_refresh_token(self) -> None:
+        """Remove the refresh token from the global secrets.toml."""
+        secrets = SecretsTomlProvider(self.workspace_run_context.global_dir)
+        secrets.set_value(
+            "refresh_token",
+            "",
+            None,
+            RuntimeConfiguration.__section__,
+        )
+        secrets.write_toml()
+
     def _validate_and_decode_jwt(self, token: Union[str, bytes]) -> AuthInfo:
         if isinstance(token, str):
             token = token.encode("utf-8")
         try:
             payload = jose_jwt.decode(
-                token, key="", audience="cli", options={"verify_signature": False}
-            )
-        except ExpiredSignatureError:
-            raise RuntimeNotAuthenticated(
-                "Your authentication token has expired. Please run 'dlt runtime login' to re-authenticate"
+                token,
+                key="",
+                audience="cli",
+                options={"verify_signature": False, "verify_exp": False},
             )
         except JOSEError as e:
             raise RuntimeNotAuthenticated("Failed to decode JWT") from e
+
+        token_expiry = payload.get("exp")
+        if token_expiry is not None and token_expiry < time.time():
+            raise RuntimeNotAuthenticated(
+                "Your authentication token has expired. Please run 'dlt runtime login' to re-authenticate"
+            )
 
         try:
             auth_info = AuthInfo(
                 jwt_token=token.decode("utf-8"),
                 email=payload["email"],
                 user_id=payload["sub"],
+                token_expiry=token_expiry,
             )
         except (KeyError, TypeError) as e:
             raise RuntimeNotAuthenticated("Failed to validate JWT payload") from e
@@ -313,6 +393,79 @@ def get_auth_client() -> AuthClient:
     )
 
 
+# Must match the detail string returned by the API auth middleware for expired tokens.
+_EXPIRED_TOKEN_MARKER = "Token expired"
+
+
+class RuntimeAuth(httpx.Auth):
+    """httpx Auth that sets the Bearer token and refreshes on 401."""
+
+    requires_response_body = True
+
+    def __init__(self, auth_service: RuntimeAuthService) -> None:
+        self._auth_service = auth_service
+
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> Generator[httpx.Request, httpx.Response, None]:
+        proactive_refresh_succeeded = False
+
+        # Proactive refresh: if the token expires within 60 s, refresh now
+        # to avoid a wasted 401 round-trip.
+        if self._auth_service.auth_info and self._is_token_expiring():
+            try:
+                proactive_refresh_succeeded = self._auth_service.refresh()
+            except Exception:
+                pass
+
+        # Attach current JWT (possibly freshly refreshed)
+        if self._auth_service.auth_info:
+            request.headers["Authorization"] = (
+                f"Bearer {self._auth_service.auth_info.jwt_token}"
+            )
+
+        response = yield request
+
+        if response.status_code != 401:
+            return
+
+        # If the proactive refresh succeeded and the server still returned
+        # 401-expired, the problem isn't a stale token. Clear everything.
+        if proactive_refresh_succeeded and self._is_expired_token_response(response):
+            self._auth_service.logout()
+            return
+
+        # Try to obtain a new JWT using the stored refresh token.
+        # This handles both expired tokens and corrupted/invalid tokens
+        # (e.g. wrong signature) — as long as a valid refresh_token exists.
+        if not self._auth_service.refresh():
+            self._auth_service.logout()
+            return
+
+        # Retry with the refreshed token
+        assert self._auth_service.auth_info is not None
+        request.headers["Authorization"] = (
+            f"Bearer {self._auth_service.auth_info.jwt_token}"
+        )
+        yield request
+
+    def _is_token_expiring(self, offset_seconds: int = 60) -> bool:
+        """True if the stored JWT expires within `offset_seconds`."""
+        auth = self._auth_service.auth_info
+        if auth is None or auth.token_expiry is None:
+            return False
+        return auth.token_expiry < time.time() + offset_seconds
+
+    @staticmethod
+    def _is_expired_token_response(response: httpx.Response) -> bool:
+        """True if the 401 response detail indicates an expired token."""
+        try:
+            detail = response.json().get("detail", "")
+        except Exception:
+            detail = response.text
+        return isinstance(detail, str) and _EXPIRED_TOKEN_MARKER in detail
+
+
 def get_api_client(auth_service: Optional[RuntimeAuthService] = None) -> ApiClient:
     api_base_url = active().runtime_config.api_base_url
     if not api_base_url:
@@ -325,12 +478,11 @@ def get_api_client(auth_service: Optional[RuntimeAuthService] = None) -> ApiClie
         auth_service.authenticate()
 
     headers = {"User-Agent": f"dlt-runtime-cli/{__version__}"}
-    if auth_service.auth_info:
-        headers["Authorization"] = f"Bearer {auth_service.auth_info.jwt_token}"
 
     return ApiClient(
         base_url=api_base_url,
         verify_ssl=False,
         headers=headers,
         raise_on_unexpected_status=True,
+        httpx_args={"auth": RuntimeAuth(auth_service)},
     )

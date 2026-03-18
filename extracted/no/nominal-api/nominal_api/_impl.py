@@ -10890,6 +10890,29 @@ ingest_api_CsvOpts.__qualname__ = "CsvOpts"
 ingest_api_CsvOpts.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_CustomStreamingSessionSource(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source_name': ConjureFieldDefinition('sourceName', str)
+        }
+
+    __slots__: List[str] = ['_source_name']
+
+    def __init__(self, source_name: str) -> None:
+        self._source_name = source_name
+
+    @builtins.property
+    def source_name(self) -> str:
+        return self._source_name
+
+
+ingest_api_CustomStreamingSessionSource.__name__ = "CustomStreamingSessionSource"
+ingest_api_CustomStreamingSessionSource.__qualname__ = "CustomStreamingSessionSource"
+ingest_api_CustomStreamingSessionSource.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_CustomTimestamp(ConjureBeanType):
 
     @builtins.classmethod
@@ -10929,6 +10952,29 @@ class ingest_api_CustomTimestamp(ConjureBeanType):
 ingest_api_CustomTimestamp.__name__ = "CustomTimestamp"
 ingest_api_CustomTimestamp.__qualname__ = "CustomTimestamp"
 ingest_api_CustomTimestamp.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_DataConnectorStreamingSessionSource(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'data_connector_rid': ConjureFieldDefinition('dataConnectorRid', api_rids_DataConnectorRid)
+        }
+
+    __slots__: List[str] = ['_data_connector_rid']
+
+    def __init__(self, data_connector_rid: str) -> None:
+        self._data_connector_rid = data_connector_rid
+
+    @builtins.property
+    def data_connector_rid(self) -> str:
+        return self._data_connector_rid
+
+
+ingest_api_DataConnectorStreamingSessionSource.__name__ = "DataConnectorStreamingSessionSource"
+ingest_api_DataConnectorStreamingSessionSource.__qualname__ = "DataConnectorStreamingSessionSource"
+ingest_api_DataConnectorStreamingSessionSource.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_DataflashOpts(ConjureBeanType):
@@ -11576,6 +11622,42 @@ class ingest_api_GetContainerizedExtractorsResponse(ConjureBeanType):
 ingest_api_GetContainerizedExtractorsResponse.__name__ = "GetContainerizedExtractorsResponse"
 ingest_api_GetContainerizedExtractorsResponse.__qualname__ = "GetContainerizedExtractorsResponse"
 ingest_api_GetContainerizedExtractorsResponse.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_HeartbeatStreamingSessionRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'bounds': ConjureFieldDefinition('bounds', api_Range),
+            'points_count': ConjureFieldDefinition('pointsCount', int)
+        }
+
+    __slots__: List[str] = ['_bounds', '_points_count']
+
+    def __init__(self, bounds: "api_Range", points_count: int) -> None:
+        self._bounds = bounds
+        self._points_count = points_count
+
+    @builtins.property
+    def bounds(self) -> "api_Range":
+        """The time range of data points ingested since the last heartbeat.
+The server atomically merges this with the session's existing bounds
+using LEAST/GREATEST to track the full time range.
+        """
+        return self._bounds
+
+    @builtins.property
+    def points_count(self) -> int:
+        """Number of data points ingested since the last heartbeat.
+The server atomically adds this to the session's running total.
+        """
+        return self._points_count
+
+
+ingest_api_HeartbeatStreamingSessionRequest.__name__ = "HeartbeatStreamingSessionRequest"
+ingest_api_HeartbeatStreamingSessionRequest.__qualname__ = "HeartbeatStreamingSessionRequest"
+ingest_api_HeartbeatStreamingSessionRequest.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_IngestDataSource(ConjureUnionType):
@@ -14026,6 +14108,41 @@ ingest_api_McapVideoChannelConfig.__qualname__ = "McapVideoChannelConfig"
 ingest_api_McapVideoChannelConfig.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_MeshStreamingSessionSource(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source_dataset_rid': ConjureFieldDefinition('sourceDatasetRid', api_rids_DatasetRid),
+            'source_org_rid': ConjureFieldDefinition('sourceOrgRid', authentication_api_OrgRid),
+            'origin_streaming_session_source': ConjureFieldDefinition('originStreamingSessionSource', str)
+        }
+
+    __slots__: List[str] = ['_source_dataset_rid', '_source_org_rid', '_origin_streaming_session_source']
+
+    def __init__(self, origin_streaming_session_source: str, source_dataset_rid: str, source_org_rid: str) -> None:
+        self._source_dataset_rid = source_dataset_rid
+        self._source_org_rid = source_org_rid
+        self._origin_streaming_session_source = origin_streaming_session_source
+
+    @builtins.property
+    def source_dataset_rid(self) -> str:
+        return self._source_dataset_rid
+
+    @builtins.property
+    def source_org_rid(self) -> str:
+        return self._source_org_rid
+
+    @builtins.property
+    def origin_streaming_session_source(self) -> str:
+        return self._origin_streaming_session_source
+
+
+ingest_api_MeshStreamingSessionSource.__name__ = "MeshStreamingSessionSource"
+ingest_api_MeshStreamingSessionSource.__qualname__ = "MeshStreamingSessionSource"
+ingest_api_MeshStreamingSessionSource.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_NewDataSource(ConjureBeanType):
 
     @builtins.classmethod
@@ -14713,26 +14830,20 @@ class ingest_api_ResolveStreamingSessionRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'bounds': ConjureFieldDefinition('bounds', api_Range),
-            'session_rid': ConjureFieldDefinition('sessionRid', OptionalTypeWrapper[ingest_api_StreamingSessionRid])
+            'source': ConjureFieldDefinition('source', OptionalTypeWrapper[ingest_api_StreamingSessionSource])
         }
 
-    __slots__: List[str] = ['_bounds', '_session_rid']
+    __slots__: List[str] = ['_source']
 
-    def __init__(self, bounds: "api_Range", session_rid: Optional[str] = None) -> None:
-        self._bounds = bounds
-        self._session_rid = session_rid
-
-    @builtins.property
-    def bounds(self) -> "api_Range":
-        return self._bounds
+    def __init__(self, source: Optional["ingest_api_StreamingSessionSource"] = None) -> None:
+        self._source = source
 
     @builtins.property
-    def session_rid(self) -> Optional[str]:
-        """Explicit session RID. If absent, the server atomically creates or reuses the
-shared unlocked session for the dataset.
+    def source(self) -> Optional["ingest_api_StreamingSessionSource"]:
+        """The source attribution for this streaming session. Each unique source gets
+its own in-progress session per dataset. If absent, the session is unattributed.
         """
-        return self._session_rid
+        return self._source
 
 
 ingest_api_ResolveStreamingSessionRequest.__name__ = "ResolveStreamingSessionRequest"
@@ -14748,21 +14859,21 @@ class ingest_api_ResolveStreamingSessionResponse(ConjureBeanType):
             'session_rid': ConjureFieldDefinition('sessionRid', ingest_api_StreamingSessionRid),
             'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
             'status': ConjureFieldDefinition('status', ingest_api_StreamingSessionStatus),
-            'locked': ConjureFieldDefinition('locked', bool),
+            'source': ConjureFieldDefinition('source', OptionalTypeWrapper[ingest_api_StreamingSessionSource]),
             'bounds': ConjureFieldDefinition('bounds', OptionalTypeWrapper[api_Range]),
-            'last_seen_at': ConjureFieldDefinition('lastSeenAt', api_Timestamp),
+            'points_count': ConjureFieldDefinition('pointsCount', int),
             'created_at': ConjureFieldDefinition('createdAt', api_Timestamp)
         }
 
-    __slots__: List[str] = ['_session_rid', '_dataset_rid', '_status', '_locked', '_bounds', '_last_seen_at', '_created_at']
+    __slots__: List[str] = ['_session_rid', '_dataset_rid', '_status', '_source', '_bounds', '_points_count', '_created_at']
 
-    def __init__(self, created_at: "api_Timestamp", dataset_rid: str, last_seen_at: "api_Timestamp", locked: bool, session_rid: str, status: "ingest_api_StreamingSessionStatus", bounds: Optional["api_Range"] = None) -> None:
+    def __init__(self, created_at: "api_Timestamp", dataset_rid: str, points_count: int, session_rid: str, status: "ingest_api_StreamingSessionStatus", bounds: Optional["api_Range"] = None, source: Optional["ingest_api_StreamingSessionSource"] = None) -> None:
         self._session_rid = session_rid
         self._dataset_rid = dataset_rid
         self._status = status
-        self._locked = locked
+        self._source = source
         self._bounds = bounds
-        self._last_seen_at = last_seen_at
+        self._points_count = points_count
         self._created_at = created_at
 
     @builtins.property
@@ -14778,16 +14889,16 @@ class ingest_api_ResolveStreamingSessionResponse(ConjureBeanType):
         return self._status
 
     @builtins.property
-    def locked(self) -> bool:
-        return self._locked
+    def source(self) -> Optional["ingest_api_StreamingSessionSource"]:
+        return self._source
 
     @builtins.property
     def bounds(self) -> Optional["api_Range"]:
         return self._bounds
 
     @builtins.property
-    def last_seen_at(self) -> "api_Timestamp":
-        return self._last_seen_at
+    def points_count(self) -> int:
+        return self._points_count
 
     @builtins.property
     def created_at(self) -> "api_Timestamp":
@@ -15170,11 +15281,12 @@ class ingest_api_StreamingSessionService(Service):
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), ingest_api_ResolveStreamingSessionResponse, self._return_none_for_unknown_union_types)
 
-    def heartbeat(self, auth_header: str, session_rid: str) -> None:
+    def heartbeat(self, auth_header: str, request: "ingest_api_HeartbeatStreamingSessionRequest", session_rid: str) -> None:
         _conjure_encoder = ConjureEncoder()
 
         _headers: Dict[str, Any] = {
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'Authorization': auth_header,
         }
 
@@ -15185,7 +15297,7 @@ class ingest_api_StreamingSessionService(Service):
             'sessionRid': quote(str(_conjure_encoder.default(session_rid)), safe=''),
         }
 
-        _json: Any = None
+        _json: Any = _conjure_encoder.default(request)
 
         _path = '/ingest/v1/internal/streaming-session/{sessionRid}/heartbeat'
         _path = _path.format(**_path_params)
@@ -15203,6 +15315,104 @@ class ingest_api_StreamingSessionService(Service):
 ingest_api_StreamingSessionService.__name__ = "StreamingSessionService"
 ingest_api_StreamingSessionService.__qualname__ = "StreamingSessionService"
 ingest_api_StreamingSessionService.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_StreamingSessionSource(ConjureUnionType):
+    _mesh: Optional["ingest_api_MeshStreamingSessionSource"] = None
+    _data_connector: Optional["ingest_api_DataConnectorStreamingSessionSource"] = None
+    _custom: Optional["ingest_api_CustomStreamingSessionSource"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'mesh': ConjureFieldDefinition('mesh', ingest_api_MeshStreamingSessionSource),
+            'data_connector': ConjureFieldDefinition('dataConnector', ingest_api_DataConnectorStreamingSessionSource),
+            'custom': ConjureFieldDefinition('custom', ingest_api_CustomStreamingSessionSource)
+        }
+
+    def __init__(
+            self,
+            mesh: Optional["ingest_api_MeshStreamingSessionSource"] = None,
+            data_connector: Optional["ingest_api_DataConnectorStreamingSessionSource"] = None,
+            custom: Optional["ingest_api_CustomStreamingSessionSource"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (mesh is not None) + (data_connector is not None) + (custom is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if mesh is not None:
+                self._mesh = mesh
+                self._type = 'mesh'
+            if data_connector is not None:
+                self._data_connector = data_connector
+                self._type = 'dataConnector'
+            if custom is not None:
+                self._custom = custom
+                self._type = 'custom'
+
+        elif type_of_union == 'mesh':
+            if mesh is None:
+                raise ValueError('a union value must not be None')
+            self._mesh = mesh
+            self._type = 'mesh'
+        elif type_of_union == 'dataConnector':
+            if data_connector is None:
+                raise ValueError('a union value must not be None')
+            self._data_connector = data_connector
+            self._type = 'dataConnector'
+        elif type_of_union == 'custom':
+            if custom is None:
+                raise ValueError('a union value must not be None')
+            self._custom = custom
+            self._type = 'custom'
+
+    @builtins.property
+    def mesh(self) -> Optional["ingest_api_MeshStreamingSessionSource"]:
+        return self._mesh
+
+    @builtins.property
+    def data_connector(self) -> Optional["ingest_api_DataConnectorStreamingSessionSource"]:
+        return self._data_connector
+
+    @builtins.property
+    def custom(self) -> Optional["ingest_api_CustomStreamingSessionSource"]:
+        return self._custom
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, ingest_api_StreamingSessionSourceVisitor):
+            raise ValueError('{} is not an instance of ingest_api_StreamingSessionSourceVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'mesh' and self.mesh is not None:
+            return visitor._mesh(self.mesh)
+        if self._type == 'dataConnector' and self.data_connector is not None:
+            return visitor._data_connector(self.data_connector)
+        if self._type == 'custom' and self.custom is not None:
+            return visitor._custom(self.custom)
+
+
+ingest_api_StreamingSessionSource.__name__ = "StreamingSessionSource"
+ingest_api_StreamingSessionSource.__qualname__ = "StreamingSessionSource"
+ingest_api_StreamingSessionSource.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_StreamingSessionSourceVisitor:
+
+    @abstractmethod
+    def _mesh(self, mesh: "ingest_api_MeshStreamingSessionSource") -> Any:
+        pass
+
+    @abstractmethod
+    def _data_connector(self, data_connector: "ingest_api_DataConnectorStreamingSessionSource") -> Any:
+        pass
+
+    @abstractmethod
+    def _custom(self, custom: "ingest_api_CustomStreamingSessionSource") -> Any:
+        pass
+
+
+ingest_api_StreamingSessionSourceVisitor.__name__ = "StreamingSessionSourceVisitor"
+ingest_api_StreamingSessionSourceVisitor.__qualname__ = "StreamingSessionSourceVisitor"
+ingest_api_StreamingSessionSourceVisitor.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_StreamingSessionStatus(ConjureEnumType):
@@ -50818,6 +51028,64 @@ scout_compute_api_ComputeWithUnitsResult.__qualname__ = "ComputeWithUnitsResult"
 scout_compute_api_ComputeWithUnitsResult.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ConstantNumericSeries(ConjureUnionType):
+    """A synthetic series that produces a constant value across the entire time range.
+    """
+    _double: Optional["scout_compute_api_DoubleConstant"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'double': ConjureFieldDefinition('double', scout_compute_api_DoubleConstant)
+        }
+
+    def __init__(
+            self,
+            double: Optional["scout_compute_api_DoubleConstant"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (double is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if double is not None:
+                self._double = double
+                self._type = 'double'
+
+        elif type_of_union == 'double':
+            if double is None:
+                raise ValueError('a union value must not be None')
+            self._double = double
+            self._type = 'double'
+
+    @builtins.property
+    def double(self) -> Optional["scout_compute_api_DoubleConstant"]:
+        return self._double
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ConstantNumericSeriesVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ConstantNumericSeriesVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'double' and self.double is not None:
+            return visitor._double(self.double)
+
+
+scout_compute_api_ConstantNumericSeries.__name__ = "ConstantNumericSeries"
+scout_compute_api_ConstantNumericSeries.__qualname__ = "ConstantNumericSeries"
+scout_compute_api_ConstantNumericSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ConstantNumericSeriesVisitor:
+
+    @abstractmethod
+    def _double(self, double: "scout_compute_api_DoubleConstant") -> Any:
+        pass
+
+
+scout_compute_api_ConstantNumericSeriesVisitor.__name__ = "ConstantNumericSeriesVisitor"
+scout_compute_api_ConstantNumericSeriesVisitor.__qualname__ = "ConstantNumericSeriesVisitor"
+scout_compute_api_ConstantNumericSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Context(ConjureBeanType):
 
     @builtins.classmethod
@@ -57501,6 +57769,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _sum: Optional["scout_compute_api_SumSeries"] = None
     _union: Optional["scout_compute_api_NumericUnionSeries"] = None
     _product: Optional["scout_compute_api_ProductSeries"] = None
+    _constant: Optional["scout_compute_api_ConstantNumericSeries"] = None
     _aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None
     _bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None
     _count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None
@@ -57563,6 +57832,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'sum': ConjureFieldDefinition('sum', scout_compute_api_SumSeries),
             'union': ConjureFieldDefinition('union', scout_compute_api_NumericUnionSeries),
             'product': ConjureFieldDefinition('product', scout_compute_api_ProductSeries),
+            'constant': ConjureFieldDefinition('constant', scout_compute_api_ConstantNumericSeries),
             'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateNumericSeries),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_api_BitOperationSeries),
             'count_duplicate': ConjureFieldDefinition('countDuplicate', scout_compute_api_EnumCountDuplicateSeries),
@@ -57625,6 +57895,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             sum: Optional["scout_compute_api_SumSeries"] = None,
             union: Optional["scout_compute_api_NumericUnionSeries"] = None,
             product: Optional["scout_compute_api_ProductSeries"] = None,
+            constant: Optional["scout_compute_api_ConstantNumericSeries"] = None,
             aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None,
             bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None,
             count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None,
@@ -57662,7 +57933,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (aggregate is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (offset is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
+            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (constant is not None) + (aggregate is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (offset is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if abs is not None:
@@ -57737,6 +58008,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if product is not None:
                 self._product = product
                 self._type = 'product'
+            if constant is not None:
+                self._constant = constant
+                self._type = 'constant'
             if aggregate is not None:
                 self._aggregate = aggregate
                 self._type = 'aggregate'
@@ -57960,6 +58234,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._product = product
             self._type = 'product'
+        elif type_of_union == 'constant':
+            if constant is None:
+                raise ValueError('a union value must not be None')
+            self._constant = constant
+            self._type = 'constant'
         elif type_of_union == 'aggregate':
             if aggregate is None:
                 raise ValueError('a union value must not be None')
@@ -58228,6 +58507,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._product
 
     @builtins.property
+    def constant(self) -> Optional["scout_compute_api_ConstantNumericSeries"]:
+        return self._constant
+
+    @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
         return self._aggregate
 
@@ -58414,6 +58697,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._union(self.union)
         if self._type == 'product' and self.product is not None:
             return visitor._product(self.product)
+        if self._type == 'constant' and self.constant is not None:
+            return visitor._constant(self.constant)
         if self._type == 'aggregate' and self.aggregate is not None:
             return visitor._aggregate(self.aggregate)
         if self._type == 'bitOperation' and self.bit_operation is not None:
@@ -58585,6 +58870,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _product(self, product: "scout_compute_api_ProductSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _constant(self, constant: "scout_compute_api_ConstantNumericSeries") -> Any:
         pass
 
     @abstractmethod
@@ -68218,6 +68507,29 @@ scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguratio
 scout_compute_resolved_api_ConstantDefaultValueResampleInterpolationConfiguration.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_ConstantNumericSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', float)
+        }
+
+    __slots__: List[str] = ['_value']
+
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    @builtins.property
+    def value(self) -> float:
+        return self._value
+
+
+scout_compute_resolved_api_ConstantNumericSeriesNode.__name__ = "ConstantNumericSeriesNode"
+scout_compute_resolved_api_ConstantNumericSeriesNode.__qualname__ = "ConstantNumericSeriesNode"
+scout_compute_resolved_api_ConstantNumericSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_CpsdNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -71149,6 +71461,7 @@ scout_compute_resolved_api_NumericResampleSeriesNode.__module__ = "nominal_api.s
 
 
 class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
+    _constant: Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"] = None
     _arithmetic: Optional["scout_compute_resolved_api_ArithmeticSeriesNode"] = None
     _bit_operation: Optional["scout_compute_resolved_api_BitOperationSeriesNode"] = None
     _count_duplicate: Optional["scout_compute_resolved_api_EnumCountDuplicateSeriesNode"] = None
@@ -71190,6 +71503,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'constant': ConjureFieldDefinition('constant', scout_compute_resolved_api_ConstantNumericSeriesNode),
             'arithmetic': ConjureFieldDefinition('arithmetic', scout_compute_resolved_api_ArithmeticSeriesNode),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_resolved_api_BitOperationSeriesNode),
             'count_duplicate': ConjureFieldDefinition('countDuplicate', scout_compute_resolved_api_EnumCountDuplicateSeriesNode),
@@ -71231,6 +71545,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
 
     def __init__(
             self,
+            constant: Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"] = None,
             arithmetic: Optional["scout_compute_resolved_api_ArithmeticSeriesNode"] = None,
             bit_operation: Optional["scout_compute_resolved_api_BitOperationSeriesNode"] = None,
             count_duplicate: Optional["scout_compute_resolved_api_EnumCountDuplicateSeriesNode"] = None,
@@ -71271,9 +71586,12 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) != 1:
+            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if constant is not None:
+                self._constant = constant
+                self._type = 'constant'
             if arithmetic is not None:
                 self._arithmetic = arithmetic
                 self._type = 'arithmetic'
@@ -71386,6 +71704,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 self._z_score = z_score
                 self._type = 'zScore'
 
+        elif type_of_union == 'constant':
+            if constant is None:
+                raise ValueError('a union value must not be None')
+            self._constant = constant
+            self._type = 'constant'
         elif type_of_union == 'arithmetic':
             if arithmetic is None:
                 raise ValueError('a union value must not be None')
@@ -71573,6 +71896,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             self._type = 'zScore'
 
     @builtins.property
+    def constant(self) -> Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"]:
+        return self._constant
+
+    @builtins.property
     def arithmetic(self) -> Optional["scout_compute_resolved_api_ArithmeticSeriesNode"]:
         return self._arithmetic
 
@@ -71723,6 +72050,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'constant' and self.constant is not None:
+            return visitor._constant(self.constant)
         if self._type == 'arithmetic' and self.arithmetic is not None:
             return visitor._arithmetic(self.arithmetic)
         if self._type == 'bitOperation' and self.bit_operation is not None:
@@ -71805,6 +72134,10 @@ scout_compute_resolved_api_NumericSeriesNode.__module__ = "nominal_api.scout_com
 
 
 class scout_compute_resolved_api_NumericSeriesNodeVisitor:
+
+    @abstractmethod
+    def _constant(self, constant: "scout_compute_resolved_api_ConstantNumericSeriesNode") -> Any:
+        pass
 
     @abstractmethod
     def _arithmetic(self, arithmetic: "scout_compute_resolved_api_ArithmeticSeriesNode") -> Any:
@@ -88029,13 +88362,19 @@ class scout_layout_api_CanvasLayout(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'id': ConjureFieldDefinition('id', str),
             'objects': ConjureFieldDefinition('objects', Dict[str, scout_layout_api_CanvasObject])
         }
 
-    __slots__: List[str] = ['_objects']
+    __slots__: List[str] = ['_id', '_objects']
 
-    def __init__(self, objects: Dict[str, "scout_layout_api_CanvasObject"]) -> None:
+    def __init__(self, id: str, objects: Dict[str, "scout_layout_api_CanvasObject"]) -> None:
+        self._id = id
         self._objects = objects
+
+    @builtins.property
+    def id(self) -> str:
+        return self._id
 
     @builtins.property
     def objects(self) -> Dict[str, "scout_layout_api_CanvasObject"]:
@@ -91769,18 +92108,20 @@ class scout_notebook_api_UpdateNotebookMetadataRequest(ConjureBeanType):
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
             'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
-            'is_draft': ConjureFieldDefinition('isDraft', OptionalTypeWrapper[bool])
+            'is_draft': ConjureFieldDefinition('isDraft', OptionalTypeWrapper[bool]),
+            'preview_image': ConjureFieldDefinition('previewImage', OptionalTypeWrapper[api_ThemeAwareImage])
         }
 
-    __slots__: List[str] = ['_title', '_data_scope', '_description', '_properties', '_labels', '_is_draft']
+    __slots__: List[str] = ['_title', '_data_scope', '_description', '_properties', '_labels', '_is_draft', '_preview_image']
 
-    def __init__(self, data_scope: Optional["scout_notebook_api_NotebookDataScope"] = None, description: Optional[str] = None, is_draft: Optional[bool] = None, labels: Optional[List[str]] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, data_scope: Optional["scout_notebook_api_NotebookDataScope"] = None, description: Optional[str] = None, is_draft: Optional[bool] = None, labels: Optional[List[str]] = None, preview_image: Optional["api_ThemeAwareImage"] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None) -> None:
         self._title = title
         self._data_scope = data_scope
         self._description = description
         self._properties = properties
         self._labels = labels
         self._is_draft = is_draft
+        self._preview_image = preview_image
 
     @builtins.property
     def title(self) -> Optional[str]:
@@ -91807,6 +92148,12 @@ class scout_notebook_api_UpdateNotebookMetadataRequest(ConjureBeanType):
     @builtins.property
     def is_draft(self) -> Optional[bool]:
         return self._is_draft
+
+    @builtins.property
+    def preview_image(self) -> Optional["api_ThemeAwareImage"]:
+        """Theme-aware preview image for the workbook. When provided, replaces the existing preview image.
+        """
+        return self._preview_image
 
 
 scout_notebook_api_UpdateNotebookMetadataRequest.__name__ = "UpdateNotebookMetadataRequest"

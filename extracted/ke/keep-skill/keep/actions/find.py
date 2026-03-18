@@ -5,6 +5,19 @@ from typing import Any
 from . import action, item_to_result
 
 
+def _part_to_result(base_id: str, part) -> dict[str, Any]:
+    """Convert a PartInfo to a find-result dict with a part ID."""
+    tags = dict(getattr(part, "tags", None) or {})
+    tags["_base_id"] = base_id
+    tags["_part_num"] = str(part.part_num)
+    return {
+        "id": f"{base_id}@p{part.part_num}",
+        "summary": getattr(part, "summary", "") or "",
+        "tags": tags,
+        "score": None,
+    }
+
+
 @action(id="find")
 class Find:
     def run(self, params: dict[str, Any], context) -> dict[str, Any]:
@@ -29,6 +42,12 @@ class Find:
             bias = None
         n_excluded = sum(1 for v in (bias or {}).values() if v == 0)
 
+        scope = params.get("scope")
+        if isinstance(scope, str) and scope:
+            scope = scope
+        else:
+            scope = None
+
         has_selector = any([
             bool(query),
             bool(similar_to),
@@ -43,6 +62,19 @@ class Find:
 
         fetch_limit = limit + n_excluded + offset
 
+        # Parts prefix query: prefix ending with @p targets the parts
+        # table (document_parts), not the documents table.
+        if prefix and str(prefix).endswith("@p"):
+            list_parts = getattr(context, "list_parts", None)
+            if callable(list_parts):
+                base_id = str(prefix)[:-2]  # strip @p suffix
+                all_parts = list_parts(base_id)
+                results = [_part_to_result(base_id, p) for p in all_parts]
+                if offset > 0:
+                    results = results[offset:]
+                results = results[:limit]
+                return {"results": results, "count": len(results)}
+
         if query or similar_to:
             rows = context.find(
                 str(query) if query is not None else None,
@@ -52,6 +84,7 @@ class Find:
                 since=str(since) if since is not None else None,
                 until=str(until) if until is not None else None,
                 include_hidden=include_hidden,
+                scope=scope,
             )
         else:
             rows = context.list_items(

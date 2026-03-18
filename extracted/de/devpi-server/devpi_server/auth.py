@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from .log import threadlog
+from .markers import notset
 from passlib.context import CryptContext
+from typing import TYPE_CHECKING
 import itertools
 import itsdangerous
 
 
-notset = object()
+if TYPE_CHECKING:
+    from .main import XOM
 
 
 class AuthException(Exception):
@@ -19,7 +22,7 @@ class Auth:
     class Expired(Exception):
         """ proxy authentication expired. """
 
-    def __init__(self, xom, secret):
+    def __init__(self, xom: XOM, secret: str) -> None:
         self.xom = xom
         self.serializer = itsdangerous.TimedSerializer(secret)
         self.hook = xom.config.hook.devpiserver_auth_request
@@ -56,7 +59,7 @@ class Auth:
             return dict(status="ok", groups=sorted(
                 set(itertools.chain.from_iterable(groups))))
 
-    def _autocreate_user(self, authuser):
+    def _autocreate_user(self, authuser: str) -> None:
         if self.model.get_user(authuser) is None:
             # Autocreated users will be authenticated via plugin, and so no
             # valid password should be stored.

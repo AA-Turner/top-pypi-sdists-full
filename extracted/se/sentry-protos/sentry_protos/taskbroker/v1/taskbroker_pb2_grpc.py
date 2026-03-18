@@ -154,3 +154,76 @@ class ConsumerService(object):
             timeout,
             metadata,
             _registered_method=True)
+
+
+class WorkerServiceStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.PushTask = channel.unary_unary(
+                '/sentry_protos.taskbroker.v1.WorkerService/PushTask',
+                request_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskRequest.SerializeToString,
+                response_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskResponse.FromString,
+                _registered_method=True)
+
+
+class WorkerServiceServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def PushTask(self, request, context):
+        """Provide the worker with a task to execute.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_WorkerServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'PushTask': grpc.unary_unary_rpc_method_handler(
+                    servicer.PushTask,
+                    request_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskRequest.FromString,
+                    response_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'sentry_protos.taskbroker.v1.WorkerService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('sentry_protos.taskbroker.v1.WorkerService', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class WorkerService(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def PushTask(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sentry_protos.taskbroker.v1.WorkerService/PushTask',
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskRequest.SerializeToString,
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.PushTaskResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)

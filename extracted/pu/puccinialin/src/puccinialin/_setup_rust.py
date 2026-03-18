@@ -90,7 +90,7 @@ def setup_rust(
     program: str | None = None,
     file: typing.IO = sys.stderr,
 ) -> dict[str, str]:
-    """Install rust and return the modified environment variable to use it.
+    """Install rust and return the modified environment variables to use it.
 
     If `installation_dir` is given, this directory is used. By default, the cache directory for `program` is used.
 
@@ -111,7 +111,7 @@ def setup_rust(
     rustup_home = installation_dir.joinpath("rustup")
     rustup_home.mkdir(parents=True, exist_ok=True)
     cargo_home = installation_dir.joinpath("cargo")
-    rustup_home.mkdir(parents=True, exist_ok=True)
+    cargo_home.mkdir(parents=True, exist_ok=True)
 
     # Step 2: Download rustup
     rustup_init = rustup_init_dir.joinpath("rustup-init").with_suffix(

@@ -416,6 +416,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Proxy AIService created")
     _write_progress(_progress_path, "artifacts", "done")
 
+    # Start workflow executor worker if enabled (#888)
+    app.state.workflow_executor = None
+    if config.workflow.enabled and config.workflow.executor_enabled:
+        from .services.workflow_executor import WorkflowExecutorWorker
+
+        def _make_engine() -> Any:
+            from .services.ai_service import create_ai_service
+            from .services.workflow_credentials import CredentialResolver
+            from .services.workflow_engine import WorkflowEngine
+            from .services.workflow_runners import create_default_registry
+
+            ai_svc = create_ai_service(config.ai)
+            cred_resolver = CredentialResolver(config.workflow.credentials)
+            registry = create_default_registry()
+            return WorkflowEngine(
+                app.state.db,
+                config.workflow,
+                registry,
+                ai_service=ai_svc,
+                event_bus=app.state.event_bus if hasattr(app.state, "event_bus") else None,
+                credential_resolver=cred_resolver,
+                artifact_registry=getattr(app.state, "artifact_registry", None),
+                skill_registry=getattr(app.state, "skill_registry", None),
+                egress_allowed_domains=config.ai.allowed_domains,
+                egress_block_localhost=config.ai.block_localhost_api,
+            )
+
+        executor_worker = WorkflowExecutorWorker(config.workflow, _make_engine, app.state.db)
+        executor_worker.start()
+        app.state.workflow_executor = executor_worker
+        logger.info("Workflow executor worker started")
+
     _write_progress(_progress_path, "ready", "done")
     try:
         yield
@@ -424,6 +456,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             _progress_path.unlink(missing_ok=True)
         except OSError:
             pass
+        if hasattr(app.state, "workflow_executor") and app.state.workflow_executor:
+            app.state.workflow_executor.stop()
         if hasattr(app.state, "pack_refresh_worker") and app.state.pack_refresh_worker:
             app.state.pack_refresh_worker.stop()
         if hasattr(app.state, "retention_worker") and app.state.retention_worker:

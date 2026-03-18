@@ -134,7 +134,8 @@ def get_dirlist(directory):
         dir_list = [os.path.basename(path)]
     return dir_list
 
-
+def is_pathlike(obj):
+    return obj and isinstance(obj, Path)
 def is_directory_in_paths(path,directory):
     return directory in path 
 
@@ -149,10 +150,22 @@ def remove_path(path=None):
             remove_directory(path)
         else:
             os.remove(path)
+def safe_join_path(path,part):
+    if path:
+        isPath =is_pathlike(path)
+        path = str(path)
+        part = str(part)
+        path = os.path.join(path,part)
+        if isPath:
+            path = return_path(path,isPath=isPath)
+    return path
+    
 def get_safe_dirname(path=None):
     if path:
+        isPath =is_pathlike(path)
         path_str = str(path)
-        return os.path.dirname(path_str)
+        dirname = os.path.dirname(path_str)
+        return return_path(dirname,isPath=isPath)
 def get_safe_basename(path=None):
     if path:
         path_str = str(path)
@@ -221,18 +234,28 @@ def get_abs_path(path: str, i=None) -> str:
             "GVFS, or dynamically loaded context."
         )
 
-    return os.path.join(abs_dir, path)
+    return safe_join_path(abs_dir, path)
 
 
     return root / name
 def get_pathlib_path(obj):
-    if isinstance(obj,str):
+    if obj and not is_pathlike(obj):
         obj = Path(obj)
     return obj
 def get_str_path(obj):
-    if obj and not isinstance(obj,str):
+    if is_pathlike(obj):
         obj = str(obj)
     return obj
+def return_path(path,isPath=False):
+    if isPath:
+        path = get_pathlib_path(path)
+    else:
+        path = get_str_path(path)
+    return path
+def safe_rel_path(path,rel):
+    isPath =is_pathlike(path)
+    rel_path = os.path.relpath(str(path), start=str(rel))
+    return return_path(rel_path,isPath=isPath)
 def get_file_parts(path):
     if path:
         path= str(path) 

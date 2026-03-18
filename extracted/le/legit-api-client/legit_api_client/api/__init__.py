@@ -4,6 +4,7 @@
 from legit_api_client.api.amazon_ecr_key_integration_api import AmazonEcrKeyIntegrationApi
 from legit_api_client.api.amazon_ecr_role_integration_api import AmazonEcrRoleIntegrationApi
 from legit_api_client.api.brokers_api import BrokersApi
+from legit_api_client.api.certificates_api import CertificatesApi
 from legit_api_client.api.cloud_instances_api import CloudInstancesApi
 from legit_api_client.api.collaborators_api import CollaboratorsApi
 from legit_api_client.api.compliance_api import ComplianceApi

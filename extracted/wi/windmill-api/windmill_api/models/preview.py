@@ -9,6 +9,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.preview_args import PreviewArgs
+    from ..models.preview_modules import PreviewModules
 
 
 T = TypeVar("T", bound="Preview")
@@ -28,6 +29,7 @@ class Preview:
         dedicated_worker (Union[Unset, bool]):
         lock (Union[Unset, str]):
         flow_path (Union[Unset, str]):
+        modules (Union[Unset, None, PreviewModules]): Additional script modules keyed by relative file path
     """
 
     args: "PreviewArgs"
@@ -40,6 +42,7 @@ class Preview:
     dedicated_worker: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
     flow_path: Union[Unset, str] = UNSET
+    modules: Union[Unset, None, "PreviewModules"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -60,6 +63,9 @@ class Preview:
         dedicated_worker = self.dedicated_worker
         lock = self.lock
         flow_path = self.flow_path
+        modules: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.modules, Unset):
+            modules = self.modules.to_dict() if self.modules else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -86,12 +92,15 @@ class Preview:
             field_dict["lock"] = lock
         if flow_path is not UNSET:
             field_dict["flow_path"] = flow_path
+        if modules is not UNSET:
+            field_dict["modules"] = modules
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.preview_args import PreviewArgs
+        from ..models.preview_modules import PreviewModules
 
         d = src_dict.copy()
         args = PreviewArgs.from_dict(d.pop("args"))
@@ -124,6 +133,15 @@ class Preview:
 
         flow_path = d.pop("flow_path", UNSET)
 
+        _modules = d.pop("modules", UNSET)
+        modules: Union[Unset, None, PreviewModules]
+        if _modules is None:
+            modules = None
+        elif isinstance(_modules, Unset):
+            modules = UNSET
+        else:
+            modules = PreviewModules.from_dict(_modules)
+
         preview = cls(
             args=args,
             content=content,
@@ -135,6 +153,7 @@ class Preview:
             dedicated_worker=dedicated_worker,
             lock=lock,
             flow_path=flow_path,
+            modules=modules,
         )
 
         preview.additional_properties = d

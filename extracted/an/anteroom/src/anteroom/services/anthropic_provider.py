@@ -598,3 +598,48 @@ class AnthropicService:
         except Exception:
             logger.exception("Failed to generate completion")
             return None
+
+    async def complete_with_usage(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        max_completion_tokens: int = 4096,
+        temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
+        _token_refreshed: bool = False,
+    ) -> tuple[str | None, dict[str, int]]:
+        """Bounded completion with usage metadata.
+
+        Returns (response_text, {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}).
+        """
+        try:
+            system_prompt, anthropic_messages = _convert_messages(messages)
+            kwargs: dict[str, Any] = {
+                "model": self.config.model,
+                "max_tokens": max_completion_tokens,
+                "messages": anthropic_messages,
+            }
+            if system_prompt:
+                kwargs["system"] = system_prompt
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            response = await self.client.messages.create(**kwargs)
+            text = response.content[0].text if response.content else None
+            usage: dict[str, int] = {}
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.input_tokens or 0,
+                    "completion_tokens": response.usage.output_tokens or 0,
+                    "total_tokens": (response.usage.input_tokens or 0) + (response.usage.output_tokens or 0),
+                }
+            return text, usage
+        except AnthropicAuthError:
+            if not _token_refreshed and self._try_refresh_token():
+                return await self.complete_with_usage(
+                    messages,
+                    max_completion_tokens=max_completion_tokens,
+                    temperature=temperature,
+                    response_format=response_format,
+                    _token_refreshed=True,
+                )
+            raise

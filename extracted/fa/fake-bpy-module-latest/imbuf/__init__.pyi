@@ -19,6 +19,13 @@ import imbuf.types
 
 from . import types as types
 
+def file_type_from_buffer(buffer) -> imbuf.types.ImBufFileType:
+    """Detect the image file type from a buffer.
+
+    :param buffer: A buffer containing image data.
+    :return: The detected file type, or None if unrecognized.
+    """
+
 def load(filepath: bytes | str) -> imbuf.types.ImBuf:
     """Load an image from a file.
 

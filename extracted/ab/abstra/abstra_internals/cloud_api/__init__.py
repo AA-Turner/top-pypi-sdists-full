@@ -1,10 +1,12 @@
 import asyncio
 import json
 import socket
+import ssl
 import uuid
 from threading import Thread
 from typing import Any, Optional
 
+import certifi
 import requests
 import websockets
 from colorama import Fore
@@ -109,12 +111,18 @@ def connect_tunnel(verbose: bool = False):
                 await asyncio.sleep(5)
                 continue
             try:
+                ssl_context = (
+                    ssl.create_default_context(cafile=certifi.where())
+                    if url.startswith("wss://")
+                    else None
+                )
                 async with websockets.connect(
                     uri=url,
                     additional_headers=headers,
                     ping_interval=20,
                     ping_timeout=10,
                     close_timeout=10,
+                    ssl=ssl_context,
                 ) as ws:
                     if verbose:
                         print("WebSocket connection established")

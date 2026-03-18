@@ -1673,6 +1673,7 @@ def vertex_predict(
     endpoint: str,
     content_type: str | None = None,
     gcp_credentials_override: str | None = None,
+    dedicated_endpoint_dns: str | None = None,
 ):
     """
     Runs a Vertex AI prediction on the specified endpoint, passing serialized bytes as input.
@@ -1688,6 +1689,11 @@ def vertex_predict(
         Content type of the input (e.g. "application/json"). Optional.
     gcp_credentials_override
         Service account JSON key string. Falls back to Application Default Credentials if not set.
+    dedicated_endpoint_dns
+        Dedicated endpoint DNS domain for Vertex AI dedicated endpoints.
+        Retrieve from the ``dedicatedEndpointDns`` field on your endpoint resource.
+        Example: ``"1234567890.us-central1-123456789.prediction.vertexai.goog"``
+        When set, the gRPC connection uses this domain instead of the shared Vertex AI domain.
 
     Examples
     --------
@@ -1710,6 +1716,7 @@ def vertex_predict(
         endpoint=endpoint,
         content_type=content_type,
         gcp_credentials_override=gcp_credentials_override,
+        dedicated_endpoint_dns=dedicated_endpoint_dns,
     )
 
 

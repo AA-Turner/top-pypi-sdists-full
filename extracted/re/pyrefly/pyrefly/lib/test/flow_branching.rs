@@ -1143,26 +1143,80 @@ def f():
 );
 
 testcase!(
-    bug = "We approximate flow for tests in a lossy way - the first test actually runs in the base flow",
     test_walrus_on_first_branch_of_if,
     r#"
 def condition() -> bool: ...
-def f() -> bool:
+def f1() -> bool:
     if (b := condition()):
         pass
-    # In our approximation, `b` is defined in the branch but actually the test always evaluates
-    return b  # E: `b` may be uninitialized
+    return b
+
+def f2() -> bool:
+    if (a := condition()) and condition() and (b := condition()):
+        return b
+    return a
+
+def f3() -> bool:
+    if (a := condition()) and (b := condition()):
+        return b
+    return a
     "#,
 );
 
+// When a variable is PossiblyUninitialized (defined in only one branch of an
+// if/else) and then redefined via walrus in a BoolOp, the PossiblyUninitialized
+// from the short-circuit branch poisons the BoolOp merge via the early return in
+// FlowStyle::merged (line that matches PossiblyUninitialized), bypassing the
+// BoolOp laxness. Inside the if-body all `and` operands succeeded, so the walrus
+// must have executed and the variable is definitely initialized.
 testcase!(
+    test_walrus_in_boolop_after_possibly_uninitialized,
+    r#"
+def condition() -> bool: ...
+def get() -> int: ...
+
+def f1(x: bool) -> None:
+    if x:
+        viewer = 1
+    # viewer is PossiblyUninitialized here
+    if condition() and (viewer := get()):
+        print(viewer)
+
+def f2(x: bool) -> None:
+    """Same pattern but the first definition is in the else branch."""
+    if x:
+        pass
+    else:
+        if condition() and (viewer := get()):
+            pass
+    # viewer is PossiblyUninitialized here
+    if condition() and (viewer := get()):
+        print(viewer)
+
+def f3(x: bool) -> None:
+    """Three-way and chain, matching the real-world pattern."""
+    if x:
+        pass
+    else:
+        viewer = 1
+    if get() and get() and (viewer := get()):
+        print(viewer)
+    "#,
+);
+
+// Short-circuit prevents `value := v` from executing when the lhs is `False`.
+// However, processing the test before the fork applies BoolOp lax semantics, so
+// `value` appears maybe-initialized — a known false negative from BoolOp laxness.
+// This is the same trade-off as test_walrus_names_in_bool_op_straight_line.
+testcase!(
+    bug = "BoolOp laxness causes false negative for walrus in short-circuit context, see #1251",
     test_false_and_walrus,
     r#"
 def f(v):
     if False and (value := v):
         print(value)
     else:
-        print(value)  # E: `value` is uninitialized
+        print(value)
     "#,
 );
 
@@ -1241,6 +1295,67 @@ def condition() -> bool: ...
 def get() -> int: ...
 def f() -> int:
     return (b if (b := get()) > 0 else 0) if condition() else -1
+    "#,
+);
+
+// Regression tests for https://github.com/facebook/pyrefly/issues/2382
+// Walrus operator in if-statement test conditions
+
+// The first `if` test always evaluates, so walrus bindings should be in base flow.
+testcase!(
+    test_walrus_in_if_basic,
+    r#"
+def f(a: int) -> int:
+    if (x := a) > 0:
+        pass
+    return x
+    "#,
+);
+
+testcase!(
+    test_walrus_in_if_both_branches,
+    r#"
+def f(a: int) -> int:
+    if (x := a) > 0:
+        result = x + 1
+    else:
+        result = x - 1
+    return result
+    "#,
+);
+
+testcase!(
+    test_walrus_in_if_with_narrowing,
+    r#"
+def get() -> int | None: ...
+def f() -> int:
+    if (x := get()) is not None:
+        return x
+    return 0
+    "#,
+);
+
+// elif condition only executes if the first `if` was False — walrus may not run.
+testcase!(
+    test_walrus_in_elif,
+    r#"
+def condition() -> bool: ...
+def f() -> bool:
+    if condition():
+        pass
+    elif (x := condition()):
+        pass
+    return x  # E: `x` may be uninitialized
+    "#,
+);
+
+testcase!(
+    test_walrus_in_if_no_else,
+    r#"
+def f(a: int) -> int:
+    if (x := a) > 0:
+        return x
+    return x
     "#,
 );
 
@@ -1917,5 +2032,138 @@ def demo_pyre_narrowing_failure() -> int:
             success = result
     assert_type(success, Success)
     return use_success(success)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/2261
+testcase!(
+    test_walrus_in_if_with_is_none,
+    r#"
+def fun(**kwargs):
+    if x := kwargs.get("x") is None:
+        x = "a"
+    print(x)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1397
+testcase!(
+    test_walrus_in_chained_if_re_match,
+    r#"
+from re import compile
+
+interface_re = compile(r"^foo")
+ipv4_re = compile(r"bar$")
+line = str()
+
+if match := interface_re.match(line):
+    pass
+
+if line and (match := ipv4_re.search(line)):
+    print(match)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1397
+testcase!(
+    test_walrus_in_negated_if_with_isinstance,
+    r#"
+from typing import Any
+
+def test(thing: Any) -> None:
+    if not (items := getattr(thing, "items")):
+        return
+    if not isinstance(items, tuple|list):
+        items = (items,)
+    for item in items:
+        print(item)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1397
+testcase!(
+    test_walrus_bool_in_if,
+    r#"
+def f() -> None:
+    if a := True:
+        print(a)
+    print(a)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_in_method_call_chain,
+    r#"
+import pathlib
+
+def f(mod: str, stubs_path: pathlib.Path):
+    _, *submods = mod.split(".")
+    if (path := stubs_path.joinpath(*submods, "__init__.pyi")).is_file():
+        return path
+    assert submods, path
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_in_comparison,
+    r#"
+def check():
+    if (y := 2) <= 1:
+        return
+    print(y)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_with_and_condition,
+    r#"
+def f(v):
+    x: int
+    if (x := v) and v:
+        print(x)
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_in_compound_and_condition,
+    r#"
+def hello(x: int, y: int) -> int | None:
+    if x == 5 and (z := x + y) == 7:
+        return z
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_with_none_reassignment,
+    r#"
+d: dict[str, str] = {}
+def func(key: str) -> str:
+    if (name := d.get(key)) is None:
+        name = 'missing'
+    d[key] = name
+    return name
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/913
+testcase!(
+    test_walrus_in_loop_with_narrowing,
+    r#"
+from typing import assert_type
+d1 = {0: '0', 1:'1', 3:'3'}
+d2 = {'0': 0, '1': 1, '2': 2, '3':3}
+for x in range(10):
+    if not (y := d1.get(x)):
+        continue
+    assert_type(y, str)
+    if (z := d2[y]) < 2:
+        assert_type(z, int)
+        continue
+    assert_type(z, int)
     "#,
 );

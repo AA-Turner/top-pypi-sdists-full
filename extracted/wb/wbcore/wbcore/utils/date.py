@@ -1,11 +1,13 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Iterable
 from zoneinfo import ZoneInfo, available_timezones
 
 from dateutil import rrule
 from django.utils.dateparse import parse_date
 from django.utils.timezone import localdate
 from pandas.tseries.offsets import BDay
+from psycopg.types.range import DateRange
 
 from wbcore.utils.date_builder import (
     BusinessDay,
@@ -235,3 +237,59 @@ def get_timezone_choices() -> list[tuple[str, str]]:
         offset_str = offset_str[:-2] + ":" + offset_str[-2:]
         tz_tuples.append((tz_name, f"{tz_name} ({offset_str})"))
     return tz_tuples
+
+
+def distance_to_quarter(r: DateRange) -> float:
+    """Distance from range to nearest quarter (symmetric diff or center dist)."""
+    best_dist = float("inf")
+
+    quarter_start_map = lambda year: {  # noqa: E731
+        1: date(year, 1, 1),
+        2: date(year, 4, 1),
+        3: date(year, 7, 1),
+        4: date(year, 10, 1),
+    }
+    quarter_end_map = lambda year: {  # noqa: E731
+        1: date(year, 3, 31) if r.upper_inc else date(year, 4, 1),
+        2: date(year, 6, 30) if r.upper_inc else date(year, 7, 1),
+        3: date(year, 9, 30) if r.upper_inc else date(year, 10, 1),
+        4: date(year, 12, 31) if r.upper_inc else date(year + 1, 1, 1),
+    }
+    range_dist = (r.upper - r.lower).days
+    for year in range(r.lower.year - 1, r.upper.year + 2):
+        for q in range(1, 5):
+            q_start = quarter_start_map(year)[q]
+            q_end = quarter_end_map(year)[q]
+            q_len = (q_end - q_start).days
+
+            if r.lower <= q_end and r.upper >= q_start:
+                # Overlap: use symmetric difference
+                overlap_start = max(r.lower, q_start)
+                overlap_end = min(r.upper, q_end)
+                overlap_len = (overlap_end - overlap_start).days
+                sym_diff = range_dist + q_len - 2 * overlap_len
+                best_dist = min(best_dist, sym_diff)
+            else:
+                # No overlap: center-to-center + half-lengths
+                r_center = r.lower + timedelta(days=range_dist / 2)
+                q_center = q_start + timedelta(days=q_len / 2)
+                center_dist = abs((r_center - q_center).days)
+                total_dist = center_dist + range_dist / 2 + q_len / 2
+                best_dist = min(best_dist, total_dist)
+
+    return best_dist
+
+
+def find_closest_to_quarter(ranges: Iterable[DateRange]) -> DateRange:
+    """Find range closest to any quarter."""
+
+    min_dist = float("inf")
+    closest = None
+
+    for r in ranges:
+        dist = distance_to_quarter(r)
+        if dist < min_dist:
+            min_dist = dist
+            closest = r
+
+    return closest

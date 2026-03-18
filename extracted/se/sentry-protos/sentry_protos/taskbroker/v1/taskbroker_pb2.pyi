@@ -313,3 +313,33 @@ class SetTaskStatusResponse(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_task", b"_task"]) -> typing.Literal["task"] | None: ...
 
 global___SetTaskStatusResponse = SetTaskStatusResponse
+
+@typing.final
+class PushTaskRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_FIELD_NUMBER: builtins.int
+    CALLBACK_URL_FIELD_NUMBER: builtins.int
+    callback_url: builtins.str
+    @property
+    def task(self) -> global___TaskActivation: ...
+    def __init__(
+        self,
+        *,
+        task: global___TaskActivation | None = ...,
+        callback_url: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["task", b"task"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["callback_url", b"callback_url", "task", b"task"]) -> None: ...
+
+global___PushTaskRequest = PushTaskRequest
+
+@typing.final
+class PushTaskResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___PushTaskResponse = PushTaskResponse

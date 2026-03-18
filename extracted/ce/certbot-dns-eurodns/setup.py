@@ -6,11 +6,12 @@ from setuptools import __version__ as setuptools_version
 from setuptools import find_packages
 from setuptools import setup
 
+# read the contents of your README file
 from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-version = '1.8.1'
+version = '1.8.2'
 
 # Remember to update local-oldest-requirements.txt when changing the minimum
 # acme/certbot version.

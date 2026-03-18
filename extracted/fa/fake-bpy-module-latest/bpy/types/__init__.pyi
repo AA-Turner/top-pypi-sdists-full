@@ -83008,6 +83008,7 @@ class PreferencesView(bpy_struct):
         "ca_AD",
         "zh_HANS",
         "zh_HANT",
+        "hr",
         "cs_CZ",
         "da",
         "nl_NL",
@@ -104653,6 +104654,9 @@ class ThemeUserInterface(bpy_struct):
     icon_shading: typing.Any
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
+    link: typing.Any
+    """ Color of link widgets (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
+
     menu_shadow_fac: float
     """ Blending factor for panel and menu shadows (in [0.01, 1], default 0.0)"""
 
@@ -106654,6 +106658,26 @@ class UILayout(bpy_struct):
     ) -> None:
         """Item. Displays text and/or icon in the layout.
 
+        :param text: Override automatic text of the item (optional)
+        :param text_ctxt: Override automatic translation context of the given text (optional)
+        :param translate: Translate the given text, when UI translation is enabled (optional)
+        :param icon: Icon, Override automatic icon of the item (optional)
+        :param icon_value: Icon Value, Override automatic icon of the item (in [0, inf], optional)
+        """
+
+    def link(
+        self,
+        *,
+        url: str | None = "",
+        text: str | None = "",
+        text_ctxt: str | None = "",
+        translate: bool | None = True,
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon_value: int | None = 0,
+    ) -> None:
+        """Item. Displays a url that can be clicked in the layout.
+
+        :param url: (optional, never None)
         :param text: Override automatic text of the item (optional)
         :param text_ctxt: Override automatic translation context of the given text (optional)
         :param translate: Translate the given text, when UI translation is enabled (optional)
@@ -116819,10 +116843,6 @@ USERPREF_PT_animation_timeline: bl_ui.space_userpref.USERPREF_PT_animation_timel
 
 USERPREF_PT_assets: bl_ui.space_userpref.USERPREF_PT_assets
 
-USERPREF_PT_assets_asset_libraries: (
-    bl_ui.space_userpref.USERPREF_PT_assets_asset_libraries
-)
-
 USERPREF_PT_developer_tools: bl_ui.space_userpref.USERPREF_PT_developer_tools
 
 USERPREF_PT_edit_annotations: bl_ui.space_userpref.USERPREF_PT_edit_annotations
@@ -116863,6 +116883,10 @@ USERPREF_PT_extensions_repos: bl_ui.space_userpref.USERPREF_PT_extensions_repos
 
 USERPREF_PT_file_paths_applications: (
     bl_ui.space_userpref.USERPREF_PT_file_paths_applications
+)
+
+USERPREF_PT_file_paths_asset_libraries: (
+    bl_ui.space_userpref.USERPREF_PT_file_paths_asset_libraries
 )
 
 USERPREF_PT_file_paths_data: bl_ui.space_userpref.USERPREF_PT_file_paths_data

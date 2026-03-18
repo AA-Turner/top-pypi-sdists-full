@@ -156,10 +156,6 @@ class Uploader:
             auth = (auth[0], hub.derive_token(auth[1], meta['name']))
             set_devpi_auth_header(headers, auth)
         if path:
-            files = {"content": (path.name, path.open("rb"))}
-        else:
-            files = None
-        if path:
             msg = f"{action} of {path.name} to {self.pypisubmit}"
         else:
             msg = "%s %s-%s to %s" %(action, meta["name"], meta["version"],
@@ -167,6 +163,7 @@ class Uploader:
         if self.args.dryrun:
             hub.line("skipped: %s" % msg)
         else:
+            files = {"content": (path.name, path.open("rb"))} if path else None
             try:
                 r = hub.http.post(self.pypisubmit, dic, files=files,
                                   headers=headers,
@@ -174,13 +171,13 @@ class Uploader:
                                   cert=hub.current.get_client_cert(self.pypisubmit))
             finally:
                 if files:
-                    for p, f in files.values():
+                    for _p, f in files.values():
                         f.close()
             hub._last_http_stati.append(r.status_code)
             r = HTTPReply(r)
             if r.status_code == 200:
                 hub.info(msg)
-                return True
+                return
             else:
                 hub.error("%s FAIL %s" %(r.status_code, msg))
                 if r.type == "actionlog":
@@ -199,7 +196,15 @@ class Uploader:
         self.post("file_upload", path, meta=meta)
 
 
-ALLOWED_ARCHIVE_EXTS = ".egg .whl .tar.gz .tar.bz2 .tar .tgz .zip".split()
+ALLOWED_ARCHIVE_EXTS = [
+    ".egg",
+    ".tar",
+    ".tar.bz2",
+    ".tar.gz",
+    ".tgz",
+    ".whl",
+    ".zip",
+]
 
 
 def get_archive_files(path):
@@ -290,7 +295,16 @@ def get_pkginfo(archivepath):
         cls = pkginfo.BDist
     else:
         cls = pkginfo.SDist
-    return cls(str(archivepath))
+    result = cls(str(archivepath))
+    if result.name is None and result.metadata_version and sys.version_info < (3, 8):
+        # add rudimentary support for new metadata, as only newer
+        # versions of pkginfo not available for Python 3.7 support it
+        # and added automatic fallbacks
+        header_attrs = pkginfo.distribution.HEADER_ATTRS
+        newest_headers = header_attrs[max(header_attrs)]
+        header_attrs.setdefault(result.metadata_version, newest_headers)
+        result.extractMetadata()
+    return result
 
 
 def find_parent_subpath(startpath, relpath, *, raising=True):

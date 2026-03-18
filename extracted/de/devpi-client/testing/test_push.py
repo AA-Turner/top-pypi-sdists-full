@@ -190,7 +190,7 @@ def test_push_devpi_index_option_with_environment(loghub, monkeypatch, mock_http
     assert len(mock_http_api.called) == 3
 
 
-@pytest.mark.parametrize("spec", ("pkg==1.0", "pkg-1.0"))
+@pytest.mark.parametrize("spec", ["pkg==1.0", "pkg-1.0"])
 def test_main_push_pypi(capsys, monkeypatch, tmpdir, spec):
     from devpi.push import main
     l = []
@@ -395,10 +395,9 @@ def test_fail_push(monkeypatch, tmpdir):
         only_docs = False
         register_project = False
 
-    try:
+    with pytest.raises(SystemExit) as exc:
         main(hub, args)
-    except SystemExit as e:
-        assert e.code==1
+    assert exc.value.code == 1
 
 
 def test_derive_token_non_token():

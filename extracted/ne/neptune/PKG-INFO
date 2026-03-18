@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: neptune
-Version: 1.14.0
+Version: 1.14.0.post2
 Summary: Neptune Client
 License: Apache-2.0
+License-File: LICENSE
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store
 Author: neptune.ai
 Author-email: contact@neptune.ai
@@ -24,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -93,7 +95,7 @@ Description-Content-Type: text/markdown
 
 <div align="center">
     <img src="https://raw.githubusercontent.com/neptune-ai/neptune-client/assets/readme/Github-cover-022025.png" width="1500" />
- <h1>neptune.ai Legacy</h1>
+ <h1>neptune.ai</h1>
 </div>
 
 <div align="center">
@@ -107,19 +109,13 @@ Description-Content-Type: text/markdown
 </div>
 
 > [!IMPORTANT]
-> This is the legacy client.<br/>
+> This is the Python client for Neptune app version `2.x`.<br/>
 > For the new Neptune client, go to **[neptune-client-scale &rarr;][client]**
 
 > [!NOTE]
-> If you need to access Neptune Legacy (app version `2.x`), see the [legacy documentation][legacy-setup] for setup instructions.
+> For Neptune `2.x` setup and instructions, see the [documentation][legacy-setup].
 <hr />
 
-&nbsp;
-## Support
-
-If you get stuck or simply want to talk to us about something, here are your options:
-* Chat! In the Legacy app, click the blue message icon in the bottom-right corner and send a message. A real person will talk to you ASAP (typically very ASAP).
-* Shoot us an email at [support@neptune.ai](mailto:support@neptune.ai).
 &nbsp;
 
 

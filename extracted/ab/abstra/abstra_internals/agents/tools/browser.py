@@ -1,6 +1,4 @@
 import asyncio
-import functools
-import re
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -9,38 +7,9 @@ from uuid import uuid4
 
 import playwright.sync_api
 from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .base import AgentTools
-
-BROWSER_DEAD_ERROR = "FATAL: Browser has been closed or crashed and cannot recover. Complete the task with the information you already have."
-
-_BARE_RETURN_RE = re.compile(r"(?:^|\n)\s*return\s")
-
-
-def _prepare_script(script: str) -> str:
-    if _BARE_RETURN_RE.search(script):
-        return f"(async () => {{ {script} }})()"
-    return script
-
-
-def _browser_guard(method):
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        if self._browser_dead:
-            raise RuntimeError(BROWSER_DEAD_ERROR)
-        try:
-            return method(self, *args, **kwargs)
-        except Exception as e:
-            msg = str(e)
-            if (
-                "Target page, context or browser has been closed" in msg
-                or "Browser has been closed" in msg
-            ):
-                self._browser_dead = True
-                raise RuntimeError(BROWSER_DEAD_ERROR) from e
-            raise
-
-    return wrapper
 
 
 class ElementExtractor:
@@ -67,9 +36,9 @@ class ElementExtractor:
             const selectors = [
                 'a[href]',
                 'button',
-                'input',  // All input fields
-                'textarea',  // Text areas
-                'select',  // Dropdowns
+                'input',
+                'textarea',
+                'select',
                 '[role="button"]',
                 '[onclick]',
                 '[tabindex]:not([tabindex="-1"])'
@@ -77,34 +46,27 @@ class ElementExtractor:
 
             const seen = new Set();
 
-            // Helper to get associated label for an input
             function getLabel(el) {
-                // Try aria-label first (often most descriptive for icons)
                 const ariaLabel = el.getAttribute('aria-label');
                 if (ariaLabel) return ariaLabel;
 
-                // Try title (tooltip)
                 const title = el.getAttribute('title');
                 if (title) return title;
 
-                // Try id-based label
                 if (el.id) {
-                    const label = document.querySelector(`label[for="${el.id}"]`);
+                    const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
                     if (label) return label.innerText.trim();
                 }
 
-                // Try parent label
                 const parentLabel = el.closest('label');
                 if (parentLabel) return parentLabel.innerText.trim();
 
-                // Try placeholder
                 const placeholder = el.getAttribute('placeholder');
                 if (placeholder) return `[${placeholder}]`;
 
                 return '';
             }
 
-            // Helper to get semantic parent context
             function getParentContext(el) {
                 const semanticParents = [
                     'form', 'nav', 'header', 'footer', 'main', 'aside', 'section', 'article', 'dialog',
@@ -116,7 +78,6 @@ class ElementExtractor:
 
                 let context = parent.tagName.toLowerCase();
 
-                // Enhance context with attributes
                 if (parent.getAttribute('aria-label')) context += ` (${parent.getAttribute('aria-label')})`;
                 else if (parent.id) context += ` (#${parent.id})`;
                 else if (parent.getAttribute('role')) context += ` [role="${parent.getAttribute('role')}"]`;
@@ -126,14 +87,12 @@ class ElementExtractor:
 
             selectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach((el, idx) => {
-                    // Skip if already seen
                     if (seen.has(el)) return;
                     seen.add(el);
 
                     const rect = el.getBoundingClientRect();
                     const style = window.getComputedStyle(el);
 
-                    // Improved visibility check
                     const isVisible = rect.width > 0 &&
                                     rect.height > 0 &&
                                     style.visibility !== 'hidden' &&
@@ -142,7 +101,6 @@ class ElementExtractor:
 
                     if (!isVisible) return;
 
-                    // Check if element is at least partially within the viewport
                     const vw = window.innerWidth;
                     const vh = window.innerHeight;
                     const isOnScreen = rect.right > 0 &&
@@ -150,19 +108,28 @@ class ElementExtractor:
                                        rect.left < vw &&
                                        rect.top < vh;
 
-                    // Generate TRULY unique selector using nth-child
+                    // Check if element is actually the topmost at its center.
+                    // Filters elements hidden behind sticky headers, overlays,
+                    // or positioned at (0,0) behind page chrome.
+                    let isTopmost = true;
+                    if (isOnScreen) {
+                        const cx = rect.left + rect.width / 2;
+                        const cy = rect.top + rect.height / 2;
+                        if (cx >= 0 && cy >= 0 && cx < vw && cy < vh) {
+                            const topEl = document.elementFromPoint(cx, cy);
+                            isTopmost = !topEl || topEl === el || el.contains(topEl);
+                        }
+                    }
+
                     let uniqueSelector = '';
                     if (el.id) {
-                        uniqueSelector = `#${el.id}`;
+                        uniqueSelector = `#${CSS.escape(el.id)}`;
                     } else {
-                        // Build path from element to body with nth-child for uniqueness
                         let path = [];
                         let current = el;
                         while (current && current !== document.body) {
                             let selector = current.tagName.toLowerCase();
 
-                            // Add classes if present (for readability)
-                            // Note: SVG elements have className as SVGAnimatedString, not string
                             if (current.className && typeof current.className === 'string') {
                                 const classes = current.className.split(' ')
                                     .filter(c => c && !c.startsWith('css-'))
@@ -172,8 +139,6 @@ class ElementExtractor:
                                 }
                             }
 
-                            // **CRITICAL**: Add nth-child to ensure uniqueness
-                            // Find position among siblings of same type
                             if (current.parentElement) {
                                 const siblings = Array.from(current.parentElement.children);
                                 const sameTagSiblings = siblings.filter(s => s.tagName === current.tagName);
@@ -189,12 +154,9 @@ class ElementExtractor:
                         uniqueSelector = path.join(' > ');
                     }
 
-                    // Get label/context for form fields
                     const label = getLabel(el);
                     const parentContext = getParentContext(el);
 
-                    // Build text representation
-                    // Prioritize: innerText -> aria-label -> title -> value -> alt -> label
                     let text = el.innerText?.trim().substring(0, 100) ||
                                el.getAttribute('aria-label') ||
                                el.getAttribute('title') ||
@@ -203,15 +165,28 @@ class ElementExtractor:
                                label ||
                                '';
 
-                    // Convert viewport-relative coords to page-absolute
-                    // (needed for full_page screenshot annotation alignment)
                     const pageX = rect.x + window.scrollX;
                     const pageY = rect.y + window.scrollY;
+
+                    let category;
+                    const isInDropdown = el.closest('.dropdown-menu, [role="listbox"], [role="menu"]');
+                    if (isInDropdown) {
+                        category = 'dropdown-option';
+                    } else if (el.tagName === 'BUTTON' || el.type === 'submit' || el.type === 'button' || el.getAttribute('role') === 'button') {
+                        category = 'action-button';
+                    } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                        category = 'form-input';
+                    } else if (el.tagName === 'A' && el.href) {
+                        category = 'navigation-link';
+                    } else {
+                        category = 'other';
+                    }
 
                     elements.push({
                         selector: uniqueSelector,
                         text: text,
                         tag: el.tagName.toLowerCase(),
+                        category: category,
                         parent_context: parentContext,
                         attributes: {
                             href: el.href || '',
@@ -232,7 +207,6 @@ class ElementExtractor:
                             width: Math.round(rect.width),
                             height: Math.round(rect.height)
                         },
-                        // viewport-relative coords for click targeting
                         viewport_bbox: {
                             x: Math.round(rect.x),
                             y: Math.round(rect.y),
@@ -240,12 +214,20 @@ class ElementExtractor:
                             height: Math.round(rect.height)
                         },
                         isVisible: rect.width > 0 && rect.height > 0,
-                        isOnScreen: isOnScreen
+                        isOnScreen: isOnScreen,
+                        isTopmost: isTopmost
                     });
                 });
             });
 
-            return elements.filter(e => e.isVisible);
+            const visible = elements.filter(e => e.isVisible && e.isOnScreen && e.isTopmost);
+
+            // Keep DOM order but move dropdown options to the end.
+            // Dropdown items (e.g. 88 currency options) bury critical
+            // elements like submit buttons when listed inline.
+            const main = visible.filter(e => e.category !== 'dropdown-option');
+            const dropdown = visible.filter(e => e.category === 'dropdown-option');
+            return main.concat(dropdown);
         }
         """
 
@@ -257,7 +239,7 @@ class ElementExtractor:
                 elements.append(elem)
 
         except Exception as e:
-            print(f"⚠️  Error extracting elements: {e}")
+            print(f"[WARN][ElementExtractor] Error extracting elements: {e}")
 
         return elements
 
@@ -270,12 +252,37 @@ class ElementExtractor:
         return None
 
 
+def _slim_element(element: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "index": element["index"],
+        "selector": element["selector"],
+        "text": element["text"],
+        "tag": element["tag"],
+        "category": element["category"],
+        "parent_context": element["parent_context"],
+        "type": element.get("attributes", {}).get("type", ""),
+        "href": element.get("attributes", {}).get("href", ""),
+    }
+
+
 def to_urls(u: Optional[Union[str, Iterable[str]]] = None) -> Optional[Iterable[str]]:
     if u is None:
         return None
     if isinstance(u, str):
         return [u]
     return u
+
+
+def _prepare_script(script: str) -> str:
+    """Wrap bare `return` statements in an async IIFE for Playwright evaluate()."""
+    if "return " in script and not script.strip().startswith("("):
+        return f"(async () => {{ {script} }})()"
+    return script
+
+
+def _is_target_closed(e: Exception) -> bool:
+    msg = str(e)
+    return "Target" in msg and "closed" in msg
 
 
 class BrowserTools(AgentTools):
@@ -287,6 +294,7 @@ class BrowserTools(AgentTools):
     network_requests: Dict[str, List[playwright.sync_api.Request]]
     console_logs: Dict[str, List[playwright.sync_api.ConsoleMessage]]
     debug_mode: bool
+    allow_close_page: bool
     headless: bool
 
     def __init__(
@@ -295,14 +303,16 @@ class BrowserTools(AgentTools):
         listen_network: bool = False,
         listen_console: bool = False,
         debug_mode: bool = False,
+        allow_close_page: bool = True,
         headless: bool = True,
     ):
         self.urls = to_urls(url)
         self.debug_mode = debug_mode
+        self.allow_close_page = allow_close_page
         self.headless = headless
         if self.debug_mode:
             print(
-                f"[DEBUG][BrowserTools.__init__] url={url}, listen_network={listen_network}, listen_console={listen_console}, debug_mode={debug_mode}"
+                f"[DEBUG][BrowserTools.__init__] url={url}, listen_network={listen_network}, listen_console={listen_console}, debug_mode={debug_mode}, allow_close_page={allow_close_page}"
             )
             print(f"[DEBUG][BrowserTools.__init__] resolved urls={self.urls}")
         try:
@@ -328,10 +338,9 @@ class BrowserTools(AgentTools):
         self.pages = {}
         self.listen_network = listen_network
         self.listen_console = listen_console
-        if listen_network:
-            self._setup_network_listener()
-        self._browser_dead = False
-        self.last_extracted_elements = None
+        self.network_requests = {}
+        self.console_logs = {}
+        self._extracted_elements: Dict[str, List[Dict[str, Any]]] = {}
         self.extractor = ElementExtractor()
 
     def close(self):
@@ -360,21 +369,31 @@ class BrowserTools(AgentTools):
         try:
             if self.debug_mode:
                 print("[DEBUG][BrowserTools.close] Exiting playwright context")
-            self._playwright_context.__exit__()
+            self._playwright_context.__exit__(None, None, None)
         except Exception as e:
             if self.debug_mode:
                 print(
                     f"[DEBUG][BrowserTools.close] Error exiting playwright context: {e}"
                 )
 
-    def __del__(self):
-        self.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
         self.close()
+
+    def _get_page(self, page_id: str) -> Page:
+        if page_id not in self.pages:
+            raise ValueError(f"Page '{page_id}' does not exist.")
+        return self.pages[page_id]
+
+    def _handle_page_crash(self, page_id: str):
+        self.pages.pop(page_id, None)
+        self._extracted_elements.pop(page_id, None)
+        raise RuntimeError(
+            "Browser page has closed or crashed. "
+            "Call navigate_to_url to start a new session."
+        )
 
     def _get_page_id_by_request(
         self, request: playwright.sync_api.Request
@@ -392,36 +411,33 @@ class BrowserTools(AgentTools):
                 return page_id
         return None
 
-    def _setup_network_listener(self):
-        def on_request(request: playwright.sync_api.Request):
-            page_id = self._get_page_id_by_request(request)
-            if page_id:
-                if not hasattr(self, "network_requests"):
-                    self.network_requests = {}
-                if page_id not in self.network_requests:
-                    self.network_requests[page_id] = []
-                self.network_requests[page_id].append(request)
+    def _attach_listeners(self, page: playwright.sync_api.Page):
+        if self.listen_network:
 
-        def on_console_message(msg: playwright.sync_api.ConsoleMessage):
-            page_id = self._get_page_id_by_console_message(msg)
-            if page_id:
-                if not hasattr(self, "console_logs"):
-                    self.console_logs = {}
-                if page_id not in self.console_logs:
-                    self.console_logs[page_id] = []
-                self.console_logs[page_id].append(msg)
+            def on_request(request: playwright.sync_api.Request):
+                page_id = self._get_page_id_by_request(request)
+                if page_id:
+                    if page_id not in self.network_requests:
+                        self.network_requests[page_id] = []
+                    self.network_requests[page_id].append(request)
 
-        for page in self.pages.values():
-            if self.listen_network:
-                page.on("request", on_request)
-            if self.listen_console:
-                page.on("console", on_console_message)
+            page.on("request", on_request)
 
-    @_browser_guard
+        if self.listen_console:
+
+            def on_console_message(msg: playwright.sync_api.ConsoleMessage):
+                page_id = self._get_page_id_by_console_message(msg)
+                if page_id:
+                    if page_id not in self.console_logs:
+                        self.console_logs[page_id] = []
+                    self.console_logs[page_id].append(msg)
+
+            page.on("console", on_console_message)
+
     def navigate_to_url(
         self, url: str, page_id: Optional[str] = None
     ) -> Dict[str, str]:
-        """Navigate to a URL. If page_id given, reuse that page; otherwise create new. Returns page_id."""
+        """Navigate to a URL. If page_id is provided, reuses that page; otherwise creates a new page. Returns page_id, final url, and title. After navigation, call get_page_summary to discover interactive elements on the new page."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.navigate_to_url] url={url}, page_id={page_id}")
         if self.urls is not None and url not in self.urls:
@@ -437,15 +453,21 @@ class BrowserTools(AgentTools):
                 print(
                     f"[DEBUG][BrowserTools.navigate_to_url] Creating new page with id={page_id}"
                 )
-            page = self.browser.new_page()
+            try:
+                page = self.browser.new_page()
+            except Exception as e:
+                if _is_target_closed(e):
+                    raise RuntimeError(
+                        "Browser has closed. Cannot create new pages. "
+                        "The browser session may have expired."
+                    )
+                raise
             if page is None:
                 raise RuntimeError("Failed to create a new browser page.")
             self.pages[page_id] = page
+            self._attach_listeners(page)
         else:
-            page_id = page_id
-            if page_id not in self.pages:
-                raise ValueError(f"Page '{page_id}' does not exist.")
-            page = self.pages[page_id]
+            page = self._get_page(page_id)
             if self.debug_mode:
                 print(
                     f"[DEBUG][BrowserTools.navigate_to_url] Reusing existing page {page_id}"
@@ -453,14 +475,21 @@ class BrowserTools(AgentTools):
 
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.navigate_to_url] Navigating to {url}")
-        page.goto(url)
+
+        try:
+            page.goto(url)
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
+        self._extracted_elements.pop(page_id, None)
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.navigate_to_url] Navigation complete. page.url={page.url}, title={page.title()}"
             )
-        return dict(page_id=page_id)
+        return dict(page_id=page_id, url=page.url, title=page.title())
 
-    @_browser_guard
     def click(
         self,
         page_id: str,
@@ -468,103 +497,237 @@ class BrowserTools(AgentTools):
         x: Optional[float] = None,
         y: Optional[float] = None,
     ):
-        """Click an element by CSS selector, or click at a specific position using x,y coordinates (viewport-relative pixels). Provide either selector OR both x and y."""
+        """Click an element by CSS selector, or click at specific x,y coordinates. Provide either selector OR both x and y. IMPORTANT: Use selectors from get_page_summary or get_element_by_summary_index. Prefer click_element(page_id, index) to avoid selector errors."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.click] page_id={page_id}, selector={selector}, x={x}, y={y}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        if selector is not None:
-            page.click(selector)
-        elif x is not None and y is not None:
-            page.mouse.click(x, y)
-        else:
-            raise ValueError(
-                "Provide either 'selector' OR both 'x' and 'y' coordinates."
-            )
+        page = self._get_page(page_id)
+
         try:
-            page.wait_for_load_state("networkidle", timeout=5000)
-        except playwright.sync_api.TimeoutError:
-            pass
+            if selector is not None:
+                element = page.query_selector(selector)
+                if element is None:
+                    available = self._get_available_selectors_hint(page_id)
+                    raise ValueError(
+                        f"Selector '{selector}' not found on the page. "
+                        f"Use click_element(page_id, index) with an index from get_page_summary instead. "
+                        f"{available}"
+                    )
+                page.click(selector, timeout=5000)
+            elif x is not None and y is not None:
+                page.mouse.click(x, y)
+            else:
+                raise ValueError(
+                    "Provide either 'selector' OR both 'x' and 'y' coordinates."
+                )
+        except ValueError:
+            raise
+        except PlaywrightTimeoutError:
+            available = self._get_available_selectors_hint(page_id)
+            raise ValueError(
+                f"Element '{selector}' found but not clickable (timeout). "
+                f"Use click_element(page_id, index) with an index from get_page_summary. "
+                f"{available}"
+            )
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.click] Click complete. Current url={page.url}")
 
-    @_browser_guard
+    def click_element(self, page_id: str, index: int):
+        """Click an interactive element by its index from the last get_page_summary. This is the preferred way to click — pass the index number directly instead of a CSS selector. Call get_page_summary first to see available elements and their indices."""
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.click_element] page_id={page_id}, index={index}"
+            )
+        element = self._resolve_element(page_id, index)
+        self.click(page_id, selector=element["selector"])
+        return element
+
+    def _resolve_element(self, page_id: str, index: int) -> Dict[str, Any]:
+        page = self._get_page(page_id)
+        cached = self._extracted_elements.get(page_id)
+        if cached is None:
+            cached = self.extractor.extract_elements(page)
+            self._extracted_elements[page_id] = cached
+
+        element = self.extractor.get_element_by_index(cached, index)
+
+        if element is not None:
+            selector = element.get("selector", "")
+            try:
+                if selector and not page.query_selector(selector):
+                    if self.debug_mode:
+                        print(
+                            f"[DEBUG][BrowserTools._resolve_element] Stale selector at index {index}, re-extracting"
+                        )
+                    cached = self.extractor.extract_elements(page)
+                    self._extracted_elements[page_id] = cached
+                    element = self.extractor.get_element_by_index(cached, index)
+            except Exception as e:
+                if _is_target_closed(e):
+                    self._handle_page_crash(page_id)
+                raise
+
+        if element is None:
+            count = len(cached)
+            raise ValueError(
+                f"No element at index {index}. "
+                f"Page has {count} elements (indices 0-{count - 1}). "
+                f"Call get_page_summary to see current elements."
+            )
+        return element
+
+    def _get_available_selectors_hint(self, page_id: str) -> str:
+        cached = self._extracted_elements.get(page_id)
+        if cached is None:
+            return ""
+        selectors = [
+            e["selector"]
+            for e in cached
+            if e.get("selector") and not e["selector"].startswith("form.")
+        ]
+        if not selectors:
+            return ""
+        preview = selectors[:10]
+        hint = "Available selectors from last page summary: " + ", ".join(preview)
+        if len(selectors) > 10:
+            hint += f" ... and {len(selectors) - 10} more"
+        return hint
+
     def fill(self, page_id: str, selector: str, value: str):
-        """Fill an input field by CSS selector with the given value."""
+        """Fill a form field with a value using a CSS selector. IMPORTANT: Use selectors from get_page_summary or get_element_by_summary_index. Prefer fill_element(page_id, index, value) to avoid selector errors."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.fill] page_id={page_id}, selector={selector}, value={value!r}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        page.fill(selector, value)
+        page = self._get_page(page_id)
+
+        try:
+            element = page.query_selector(selector)
+            if element is None:
+                available = self._get_available_selectors_hint(page_id)
+                raise ValueError(
+                    f"Selector '{selector}' not found on the page. "
+                    f"Use fill_element(page_id, index, value) with an index from get_page_summary instead. "
+                    f"{available}"
+                )
+            page.fill(selector, value, timeout=5000)
+        except ValueError:
+            raise
+        except PlaywrightTimeoutError:
+            available = self._get_available_selectors_hint(page_id)
+            raise ValueError(
+                f"Element '{selector}' found but not fillable (timeout). "
+                f"Use fill_element(page_id, index, value) with an index from get_page_summary. "
+                f"{available}"
+            )
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
         if self.debug_mode:
             print("[DEBUG][BrowserTools.fill] Fill complete")
 
-    @_browser_guard
+    def fill_element(self, page_id: str, index: int, value: str):
+        """Fill a form field by its index from the last get_page_summary. This is the preferred way to fill — pass the index number directly instead of a CSS selector. Call get_page_summary first to see available elements and their indices."""
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.fill_element] page_id={page_id}, index={index}, value={value!r}"
+            )
+        element = self._resolve_element(page_id, index)
+        self.fill(page_id, selector=element["selector"], value=value)
+        return element
+
     def get_html(self, page_id: str) -> str:
-        """Get full HTML of the page. Prefer get_text or get_page_summary for targeted info."""
+        """Get the full HTML content of the page. Prefer get_page_summary for identifying interactive elements — use this only when you need raw HTML inspection."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_html] page_id={page_id}")
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        content = page.content()
+        page = self._get_page(page_id)
+        try:
+            content = page.content()
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_html] Got HTML content, length={len(content)}"
             )
         return content
 
-    @_browser_guard
     def get_text(self, page_id: str, selector: str) -> str:
-        """Get visible text of an element by CSS selector."""
+        """Get the inner text content of an element by CSS selector."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_text] page_id={page_id}, selector={selector}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        text = page.inner_text(selector)
+        page = self._get_page(page_id)
+        try:
+            element = page.query_selector(selector)
+            if element is None:
+                raise ValueError(
+                    f"Selector '{selector}' not found. "
+                    f"Call get_page_summary to see current elements."
+                )
+            text = page.inner_text(selector)
+        except ValueError:
+            raise
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_text] Got text, length={len(text)}, preview={text[:200]!r}"
             )
         return text
 
-    @_browser_guard
     def get_attribute(
         self, page_id: str, selector: str, attribute: str
     ) -> Optional[str]:
-        """Get a single HTML attribute from an element by CSS selector."""
+        """Get a single HTML attribute value from an element by CSS selector."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_attribute] page_id={page_id}, selector={selector}, attribute={attribute}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        value = page.get_attribute(selector, attribute)
+        page = self._get_page(page_id)
+        try:
+            element = page.query_selector(selector)
+            if element is None:
+                raise ValueError(
+                    f"Selector '{selector}' not found. "
+                    f"Call get_page_summary to see current elements."
+                )
+            value = page.get_attribute(selector, attribute)
+        except ValueError:
+            raise
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_attribute] Result: {value!r}")
         return value
 
-    @_browser_guard
     def get_attributes(self, page_id: str, selector: str) -> Dict[str, Optional[str]]:
-        """Get all HTML attributes of an element by CSS selector."""
+        """Get all HTML attributes of an element by CSS selector. Returns a dict of attribute name to value."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_attributes] page_id={page_id}, selector={selector}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        element_handle = page.query_selector(selector)
+        page = self._get_page(page_id)
+        try:
+            element_handle = page.query_selector(selector)
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
         if element_handle is None:
             if self.debug_mode:
                 print(
@@ -580,24 +743,26 @@ class BrowserTools(AgentTools):
             )
         return attrs
 
-    @_browser_guard
-    def get_all_links(self, page_id: str) -> Dict[str, str]:
-        """Get all links on the page as {text: href} mapping."""
+    def get_all_links(self, page_id: str) -> List[Dict[str, str]]:
+        """Get all links on the page as a list of {text, href} objects."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_all_links] page_id={page_id}")
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        links = page.query_selector_all("a")
+        page = self._get_page(page_id)
+        try:
+            links = page.query_selector_all("a")
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_all_links] Found {len(links)} <a> elements"
             )
-        result = {
-            link.inner_text(): href
-            for link in links
-            if (href := link.get_attribute("href")) is not None
-        }
+        result = []
+        for link in links:
+            href = link.get_attribute("href")
+            if href is not None:
+                result.append({"text": link.inner_text(), "href": href})
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_all_links] Returning {len(result)} links with href"
@@ -605,11 +770,10 @@ class BrowserTools(AgentTools):
         return result
 
     def get_network_requests(self, page_id: str) -> Iterable[dict]:
-        """Get captured network requests. Only available when listen_network=True."""
+        """Get all captured network requests for a page. Requires listen_network=True on initialization."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_network_requests] page_id={page_id}")
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
+        self._get_page(page_id)
 
         requests = self.network_requests.get(page_id, [])
         if self.debug_mode:
@@ -621,31 +785,31 @@ class BrowserTools(AgentTools):
                     f"[DEBUG][BrowserTools.get_network_requests]   {r.method} {r.url}"
                 )
 
-        return [
-            {
-                "request": {
-                    "url": request.url,
-                    "method": request.method,
-                    "headers": dict(request.headers),
-                    "post_data": request.post_data,
-                },
-                "response": {
-                    "status": res.status if (res := request.response()) else None,
-                    "headers": dict(res.headers)
-                    if (res := request.response())
-                    else None,
-                    "body": res.text() if (res := request.response()) else None,
-                },
-            }
-            for request in self.network_requests.get(page_id, [])
-        ]
+        result = []
+        for request in requests:
+            res = request.response()
+            result.append(
+                {
+                    "request": {
+                        "url": request.url,
+                        "method": request.method,
+                        "headers": dict(request.headers),
+                        "post_data": request.post_data,
+                    },
+                    "response": {
+                        "status": res.status if res else None,
+                        "headers": dict(res.headers) if res else None,
+                        "body": res.text() if res else None,
+                    },
+                }
+            )
+        return result
 
     def get_console_logs(self, page_id: str) -> Iterable[dict]:
-        """Get captured console messages. Only available when listen_console=True."""
+        """Get all captured console log messages for a page. Requires listen_console=True on initialization."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_console_logs] page_id={page_id}")
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
+        self._get_page(page_id)
 
         logs = self.console_logs.get(page_id, [])
         if self.debug_mode:
@@ -665,12 +829,11 @@ class BrowserTools(AgentTools):
                 if msg.location
                 else None,
             }
-            for msg in self.console_logs.get(page_id, [])
+            for msg in logs
         ]
 
-    @_browser_guard
     def list_pages(self) -> Iterable[dict]:
-        """List all open pages with page_id, URL, and title."""
+        """List all open browser pages with their page_id, URL, and title."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.list_pages] Total pages: {len(self.pages)}")
             for pid, p in self.pages.items():
@@ -686,13 +849,33 @@ class BrowserTools(AgentTools):
             for page_id, page in self.pages.items()
         ]
 
+    def wait(self, page_id: str, milliseconds: int = 1000):
+        """Wait for a specified number of milliseconds (default 1000). Use this instead of execute_javascript with setTimeout — it does NOT invalidate the element cache. Useful for waiting after clicks, form submissions, or page transitions before taking a screenshot or calling get_page_summary."""
+        if milliseconds < 0 or milliseconds > 30000:
+            raise ValueError("milliseconds must be between 0 and 30000.")
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.wait] page_id={page_id}, milliseconds={milliseconds}"
+            )
+        page = self._get_page(page_id)
+        try:
+            page.wait_for_timeout(milliseconds)
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+        if self.debug_mode:
+            print("[DEBUG][BrowserTools.wait] Wait complete")
+
     def close_page(self, page_id: str):
+        """Close a browser page by its page_id."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.close_page] page_id={page_id}")
         if page_id in self.pages:
             page = self.pages[page_id]
             page.close()
             del self.pages[page_id]
+            self._extracted_elements.pop(page_id, None)
             if self.debug_mode:
                 print(
                     f"[DEBUG][BrowserTools.close_page] Page closed. Remaining pages: {list(self.pages.keys())}"
@@ -700,77 +883,89 @@ class BrowserTools(AgentTools):
         else:
             raise ValueError(f"Page '{page_id}' does not exist.")
 
-    @_browser_guard
     def execute_javascript(self, page_id: str, script: str):
-        """Execute JavaScript code in the page and return the result. Write a JavaScript expression (e.g. 'document.title') and its value will be returned. Do NOT use 'return' statements. For async operations, return a Promise."""
+        """Execute JavaScript code on the page and return the result. WARNING: JavaScript execution may change the DOM. After calling this, the cached page summary is invalidated — call get_page_summary before using any selectors from a previous summary."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.execute_javascript] page_id={page_id}, script={script[:200]!r}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
+        page = self._get_page(page_id)
         script = _prepare_script(script)
-        result = page.evaluate(script)
+        try:
+            result = page.evaluate(script)
+        except PlaywrightTimeoutError:
+            raise ValueError(
+                "JavaScript execution timed out. "
+                "Simplify the script or check for infinite loops."
+            )
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            error_str = str(e)
+            if "SyntaxError" in error_str:
+                raise ValueError(
+                    f"JavaScript syntax error: {error_str}. "
+                    f"Check for invalid syntax. Do not use bare 'return' statements."
+                )
+            raise
+        self._extracted_elements.pop(page_id, None)
         if self.debug_mode:
             result_preview = repr(result)[:500] if result is not None else "None"
             print(f"[DEBUG][BrowserTools.execute_javascript] Result: {result_preview}")
         return result
 
-    @_browser_guard
-    def get_page_summary(self, page_id: str):
-        """Extract all interactive elements with index, tag, text, and bounding box. Use indices with click or get_element_by_summary_index."""
+    def get_page_summary(self, page_id: str, max_elements: int = 50):
+        """Return a list of interactive elements visible on the page (up to max_elements, default 50). Each element has: index, selector, text, tag, category, parent_context, type, href. Use the index with click_element(page_id, index) or fill_element(page_id, index, value) to interact. Call this after ANY action that changes the DOM to get fresh data."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_page_summary] page_id={page_id}")
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
+        page = self._get_page(page_id)
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_page_summary] Extracting elements from page url={page.url}"
             )
-        self.last_extracted_elements = self.extractor.extract_elements(page)
+        try:
+            full_elements = self.extractor.extract_elements(page)
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+        self._extracted_elements[page_id] = full_elements
         if self.debug_mode:
             print(
-                f"[DEBUG][BrowserTools.get_page_summary] Extracted {len(self.last_extracted_elements)} elements"
+                f"[DEBUG][BrowserTools.get_page_summary] Extracted {len(full_elements)} elements"
             )
-            for elem in self.last_extracted_elements:
+            for elem in full_elements:
                 print(
                     f"[DEBUG][BrowserTools.get_page_summary]   [{elem['index']}] <{elem['tag']}> text={elem['text'][:50]!r} bbox={elem['viewport_bbox']} selector={elem['selector'][:80]}"
                 )
-        return self.last_extracted_elements
+        slim = [_slim_element(e) for e in full_elements]
+        total = len(slim)
+        if total > max_elements:
+            slim = slim[:max_elements]
+            slim.append(
+                {
+                    "note": (
+                        f"{total - max_elements} more elements not shown (total: {total}). "
+                        f"click_element/fill_element still work with any index 0-{total - 1}. "
+                        f"Call get_page_summary(page_id, max_elements={total}) to see all."
+                    )
+                }
+            )
+        return slim
 
-    @_browser_guard
     def get_element_by_summary_index(self, page_id: str, index: int):
-        """Get details of an element by index from the last get_page_summary."""
+        """Get detailed information about a specific element by its index from the last get_page_summary result. Returns the full element data including selector, text, tag, bbox, attributes. Use this when you need details beyond what get_page_summary shows (e.g., coordinates, attributes)."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_element_by_summary_index] page_id={page_id}, index={index}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-        page = self.pages[page_id]
-        if self.last_extracted_elements is None:
-            if self.debug_mode:
-                print(
-                    "[DEBUG][BrowserTools.get_element_by_summary_index] No cached elements, extracting now"
-                )
-            self.last_extracted_elements = self.extractor.extract_elements(page)
-        element = self.extractor.get_element_by_index(
-            self.last_extracted_elements, index
-        )
+        element = self._resolve_element(page_id, index)
         if self.debug_mode:
-            if element:
-                print(
-                    f"[DEBUG][BrowserTools.get_element_by_summary_index] Found element: <{element['tag']}> text={element['text'][:50]!r}"
-                )
-            else:
-                print(
-                    f"[DEBUG][BrowserTools.get_element_by_summary_index] No element found at index {index}"
-                )
+            print(
+                f"[DEBUG][BrowserTools.get_element_by_summary_index] Found element: <{element['tag']}> text={element['text'][:50]!r}"
+            )
         return element
 
-    @_browser_guard
     def screenshot(
         self,
         page_id: str,
@@ -782,22 +977,24 @@ class BrowserTools(AgentTools):
             print(
                 f"[DEBUG][BrowserTools.screenshot] page_id={page_id}, show_markers={show_markers}, highlight_element={highlight_element}"
             )
-        if page_id not in self.pages:
-            raise ValueError(f"Page '{page_id}' does not exist.")
-
-        page = self.pages[page_id]
+        page = self._get_page(page_id)
 
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.screenshot] Taking screenshot of url={page.url}"
             )
 
-        # Inject marker overlays for interactive elements
         if show_markers:
-            self.last_extracted_elements = self.extractor.extract_elements(page)
+            try:
+                full_elements = self.extractor.extract_elements(page)
+            except Exception as e:
+                if _is_target_closed(e):
+                    self._handle_page_crash(page_id)
+                raise
+            self._extracted_elements[page_id] = full_elements
             if self.debug_mode:
                 print(
-                    f"[DEBUG][BrowserTools.screenshot] Injecting markers for {len(self.last_extracted_elements)} elements"
+                    f"[DEBUG][BrowserTools.screenshot] Injecting markers for {len(full_elements)} elements"
                 )
             marker_js = """
             (elements) => {
@@ -811,7 +1008,6 @@ class BrowserTools(AgentTools):
                 document.body.appendChild(container);
 
                 elements.forEach((elem) => {
-                    // Highlight border around the element
                     const border = document.createElement('div');
                     border.style.position = 'absolute';
                     border.style.left = elem.bbox.x + 'px';
@@ -823,7 +1019,6 @@ class BrowserTools(AgentTools):
                     border.style.pointerEvents = 'none';
                     container.appendChild(border);
 
-                    // Numbered label at top-left corner
                     const label = document.createElement('div');
                     label.textContent = elem.index;
                     label.style.position = 'absolute';
@@ -843,9 +1038,8 @@ class BrowserTools(AgentTools):
                 });
             }
             """
-            page.evaluate(marker_js, self.last_extracted_elements)
+            page.evaluate(marker_js, full_elements)
 
-        # Build highlight CSS for a specific element
         highlight_css = None
         if highlight_element:
             safe_selector = highlight_element.replace("\\", "\\\\").replace('"', '\\"')
@@ -859,13 +1053,18 @@ class BrowserTools(AgentTools):
         if highlight_css:
             screenshot_kwargs["style"] = highlight_css
 
-        image_data = page.screenshot(**screenshot_kwargs)
+        try:
+            image_data = page.screenshot(**screenshot_kwargs)
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.screenshot] Screenshot taken, size={len(image_data)} bytes"
             )
 
-        # Remove injected marker overlays
         if show_markers:
             page.evaluate(
                 "() => { const el = document.getElementById('__abstra_markers__'); if (el) el.remove(); }"
@@ -886,7 +1085,9 @@ class BrowserTools(AgentTools):
             self.navigate_to_url.__name__,
             self.list_pages.__name__,
             self.click.__name__,
+            self.click_element.__name__,
             self.fill.__name__,
+            self.fill_element.__name__,
             self.get_html.__name__,
             self.get_text.__name__,
             self.get_page_summary.__name__,
@@ -895,9 +1096,12 @@ class BrowserTools(AgentTools):
             self.get_attributes.__name__,
             self.get_all_links.__name__,
             self.execute_javascript.__name__,
+            self.wait.__name__,
             self.screenshot.__name__,
         ]
 
+        if self.allow_close_page:
+            tools.append(self.close_page.__name__)
         if self.listen_network:
             tools.append(self.get_network_requests.__name__)
         if self.listen_console:

@@ -25,8 +25,8 @@ class Medium:
             self.kgrid.makeTime(self.params.acoustic['medium']['c0'])
             self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
         else:
-            if self.params.general['Nt'] is None:
-                Nt = ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(params.acoustic['f_AQ']) / self.params.acoustic['c0'])
+            if self.params.general['Nt'] is None or self.params.general['Nt'] == "None":
+                Nt = ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0'])
                 self.params.general['Nt'] = Nt
             else:
                 Nt = self.params.general['Nt']

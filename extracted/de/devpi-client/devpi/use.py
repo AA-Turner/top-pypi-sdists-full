@@ -18,7 +18,12 @@ if sys.platform == "win32":
 else:
     vbin = "bin"
 
-devpi_endpoints = "index simpleindex pypisubmit login".split()
+devpi_endpoints = [
+    "index",
+    "login",
+    "pypisubmit",
+    "simpleindex",
+]
 devpi_data_keys = ["features"]
 
 
@@ -99,6 +104,9 @@ class Current:
         # searches for longest match, so there can be multiple devpi instances
         # on the same domain with different paths
         url = URL(url)
+        # Strip the query part, if any, because otherwise a URL with parameters
+        # unexpectedly does not match the one stored in the auth mapping.
+        url = url.replace(query=None)
         while url:
             if url in d or url.path == '/':
                 break
@@ -222,7 +230,7 @@ class Current:
         url = self._get_normalized_url(url)
         client_cert = self._value_from_dict_by_url(
             self._get_client_cert_dict(), url)
-        return client_cert if client_cert else None
+        return client_cert or None
 
     def reconfigure(self, data):
         for name in data:

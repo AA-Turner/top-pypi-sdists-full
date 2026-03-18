@@ -121,4 +121,5 @@ if __name__ == '__main__':
         stream=True,
         messages=[{"role": "user", "content": "9.11 9.8哪个大"}])
 
-    arun(Completions().create(request))
+
+    arun(Completions(api_key=api_key).create(request))

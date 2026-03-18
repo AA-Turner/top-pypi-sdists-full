@@ -13,6 +13,7 @@ from dynaconf import add_converter
 from dynaconf import default_settings
 from dynaconf import Dynaconf
 from dynaconf import DynaconfFormatError
+from dynaconf import DynaconfParseError
 from dynaconf.loaders.json_loader import DynaconfEncoder
 from dynaconf.utils import build_env_list
 from dynaconf.utils import ensure_a_list
@@ -400,6 +401,12 @@ def test_evaluate_lazy_format_decorator(settings):
                 return getattr(self, key)
             return parse_conf_data("@format {this.FOO}/bar", box_settings=self)
 
+        def __contains__(self, key):
+            value = getattr(self, key, missing)
+            if value is missing:
+                return False
+            return True
+
     settings = Settings()
     assert settings.get("foo") == "foo/bar"
 
@@ -530,12 +537,53 @@ def test_get_converter(settings):
     settings.set("ZAZ", "@get RAZ @float 42")
     assert settings.ZAZ == 42.0
 
+    settings.set("ZAZ", "@get RAZ 34 @float")
+    assert settings.ZAZ == 34.0
+
+    settings.set("STRINGFLOAT", "23.2")
+    settings.set("ZAZ", "@get STRINGFLOAT @float")
+    assert settings.ZAZ == 23.2
+
+
+def test_get_converter_with_1_levels(settings):
+    """Ensure the work of @get converter on nested data"""
+    settings.set("NAME", "Wilsom")
+    settings.set("OTHERNAME", "@get name")
+    assert settings.othername == "Wilsom"
+
+
+def test_get_converter_with_2_levels():
+    settings = Dynaconf()
+    """Ensure the work of @get converter on nested data"""
+    settings.set("RESTFRAMEWORK", {"AUTHENTICATION_CLASSES": ["A", "B"]})
+    assert settings.RESTFRAMEWORK
+
+    # pulp ansible
+    settings.set("MYCLASSES", "@get RESTFRAMEWORK.AUTHENTICATION_CLASSES")
+    assert settings.MYCLASSES[0] == "A"
+
+
+def test_get_converter_with_3_levels(settings):
+    """Ensure the work of @get converter on nested data"""
+    settings.set("FOO__BAR__ZAZ", 12)
+    settings.set("BAR", "@get FOO.BAR.ZAZ")
+    assert settings.FOO.BAR.ZAZ == 12
+    assert settings.BAR == 12
+
 
 def test_get_converter_error_when_converting(settings):
     """Malformed declaration errors"""
     settings.set("BLA", "@get")
 
     with pytest.raises(DynaconfFormatError):
+        settings.BLA
+
+
+def test_get_converter_error_when_not_found(settings):
+    """Malformed declaration errors"""
+    settings.set("BLA", "@get BATATA123")
+
+    with pytest.raises(DynaconfParseError):
         settings.BLA
 
 

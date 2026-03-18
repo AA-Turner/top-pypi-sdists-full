@@ -797,6 +797,50 @@ class AIService:
             logger.exception("Failed to generate completion")
             return None
 
+    async def complete_with_usage(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        max_completion_tokens: int = 4096,
+        temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
+        _token_refreshed: bool = False,
+    ) -> tuple[str | None, dict[str, int]]:
+        """Bounded completion with usage metadata.
+
+        Returns (response_text, {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}).
+        """
+        try:
+            kwargs: dict[str, Any] = {
+                "model": self.config.model,
+                "messages": messages,
+                "max_completion_tokens": max_completion_tokens,
+            }
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            if response_format is not None:
+                kwargs["response_format"] = response_format
+            response = await self.client.chat.completions.create(**kwargs)
+            text = response.choices[0].message.content if response.choices else None
+            usage: dict[str, int] = {}
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens or 0,
+                    "completion_tokens": response.usage.completion_tokens or 0,
+                    "total_tokens": response.usage.total_tokens or 0,
+                }
+            return text, usage
+        except AuthenticationError:
+            if not _token_refreshed and self._try_refresh_token():
+                return await self.complete_with_usage(
+                    messages,
+                    max_completion_tokens=max_completion_tokens,
+                    temperature=temperature,
+                    response_format=response_format,
+                    _token_refreshed=True,
+                )
+            raise
+
     async def validate_connection(self, _token_refreshed: bool = False) -> tuple[bool, str, list[str]]:
         try:
             models = await self.client.models.list()

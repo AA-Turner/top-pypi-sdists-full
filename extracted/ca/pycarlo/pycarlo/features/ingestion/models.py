@@ -1,9 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 
 from dataclasses_json import DataClassJsonMixin, config
+
+
+def _datetime_to_iso8601(dt: datetime) -> str:
+    """Serialize datetime to ISO8601 string with trailing Z for UTC."""
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _iso8601_to_datetime(s: str) -> datetime:
+    """Parse ISO8601 string to datetime (handles Z suffix on Python <3.11)."""
+    return datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+_iso8601_field = config(
+    encoder=_datetime_to_iso8601,
+    decoder=_iso8601_to_datetime,
+)
 
 
 def _is_none(value: object) -> bool:
@@ -56,6 +73,33 @@ class AssetFreshness(DataClassJsonMixin):
     """Freshness (recency) information for a relational asset."""
 
     last_update_time: str | None = field(default=None, metadata=config(exclude=_is_none))
+
+
+@dataclass
+class QueryLogEntry(DataClassJsonMixin):
+    """
+    A single query log event for the query log ingestion API.
+
+    :param start_time: When the query started (datetime; serialized to ISO8601).
+    :param end_time: When the query finished (datetime; serialized to ISO8601).
+    :param query_text: The SQL or query text that was executed.
+    :param query_id: Optional identifier for the query (e.g. warehouse query ID).
+    :param user: Optional user who ran the query.
+    :param error_code: Optional error code (string or integer) if the query failed.
+    :param error_text: Optional error message if the query failed.
+    :param returned_rows: Optional number of rows returned.
+    :param extra: Optional dict for additional vendor-specific fields.
+    """
+
+    start_time: datetime = field(metadata=_iso8601_field)
+    end_time: datetime = field(metadata=_iso8601_field)
+    query_text: str
+    query_id: str | None = field(default=None, metadata=config(exclude=_is_none))
+    user: str | None = field(default=None, metadata=config(exclude=_is_none))
+    error_code: str | int | None = field(default=None, metadata=config(exclude=_is_none))
+    error_text: str | None = field(default=None, metadata=config(exclude=_is_none))
+    returned_rows: int | None = field(default=None, metadata=config(exclude=_is_none))
+    extra: dict[str, object] | None = field(default=None, metadata=config(exclude=_is_none))
 
 
 @dataclass
@@ -199,6 +243,22 @@ def build_lineage_payload(
     resolved_type = event_type.value if isinstance(event_type, LineageEventType) else event_type
     return {
         "event_type": resolved_type,
+        "resource": {
+            "uuid": resource_uuid,
+            "resource_type": resource_type,
+        },
+        "events": [e.to_dict() for e in events],
+    }
+
+
+def build_query_log_payload(
+    resource_uuid: str,
+    resource_type: str,
+    events: list[QueryLogEntry],
+) -> dict:
+    """Build the full JSON payload for ``POST /ingest/v1/querylogs``."""
+    return {
+        "event_type": "QUERY_LOG",
         "resource": {
             "uuid": resource_uuid,
             "resource_type": resource_type,

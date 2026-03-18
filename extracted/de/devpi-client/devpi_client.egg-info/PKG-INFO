@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: devpi-client
-Version: 7.2.0
+Version: 7.2.1
 Summary: devpi upload/install/... workflow commands for Python developers
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License: 
@@ -40,10 +40,23 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: build>=0.7.0
+Requires-Dist: check-manifest>=0.28
+Requires-Dist: colorama; platform_system == "Windows"
+Requires-Dist: devpi_common<5,>=4dev
+Requires-Dist: iniconfig
+Requires-Dist: pkginfo>=1.10.0
+Requires-Dist: platformdirs
+Requires-Dist: pluggy<2.0,>=0.6.0
+Requires-Dist: requests>=2.3.0
+Requires-Dist: tomli; python_version < "3.11"
+Dynamic: license-file
 
 ===============================================================
 devpi-client: manage devpi-server, Python packaging and testing
@@ -79,10 +92,16 @@ Changelog
 
 .. towncrier release notes start
 
-7.1.0 (2024-10-16)
+7.2.1 (2026-03-17)
 ==================
 
-No significant changes.
+Bug Fixes
+---------
+
+- Work around missing support for metadata 2.4 in pkginfo with Python 3.7.
+
+- The stored basic authentication credentials are now correctly applied to
+  HTTP API URLs containing a query string.
 
 
 7.2.0 (2024-10-16)
@@ -97,8 +116,6 @@ Features
 
 - Add support for ``uv.conf`` to ``devpi use --set-cfg``.
 
-
-
 Bug Fixes
 ---------
 
@@ -107,7 +124,6 @@ Bug Fixes
 - Fix #1052: require pkginfo >= 1.10.0 which supports newer metadata versions.
 
 - Fix #1057: PermissionError during upload due to trying to copy a folder like a file.
-
 
 
 7.1.0 (2024-07-17)
@@ -124,13 +140,10 @@ Features
 
 - Add detection of tox configs in pyproject.toml and setup.cfg for ``devpi test``.
 
-
-
 Bug Fixes
 ---------
 
 - In ``setup.cfg`` any value for upload settings was interpreted as True, now a warning is printed if it looks like False was meant and how to fix that. For backward compatibility the behavior wasn't changed.
-
 
 
 7.0.3 (2024-04-20)
@@ -148,7 +161,6 @@ Bug Fixes
 - Provide proper error message if the API request for ``devpi use`` fails.
 
 - Fix #1011: change HTTP status codes >=400 to use self.fatal instead of raw SystemExit, protect 403 and 404 errors from SystemExit
-
 
 
 7.0.2 (2023-10-19)

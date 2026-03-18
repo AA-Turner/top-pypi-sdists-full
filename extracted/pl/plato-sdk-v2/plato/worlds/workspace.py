@@ -17,6 +17,10 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
+from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
+from plato.utils.audit import read_audit_records
+
 if TYPE_CHECKING:
     from plato.agents.runtime.transport import Transport
 
@@ -61,7 +65,7 @@ class Workspace:
         self.chronos_url = chronos_url
         self.api_key = api_key
         self.session_id = session_id
-        self.transport: Transport | None = None
+        self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
         self._last_ref_step: str = ""
@@ -74,6 +78,21 @@ class Workspace:
         if self._mount_path is not None:
             return self._mount_path
         return str(self.path)
+
+    @property
+    def transport(self) -> Transport | None:
+        return self._transport
+
+    @transport.setter
+    def transport(self, value: Transport | None) -> None:
+        self._transport = value
+        if value is None:
+            return
+        value.configure_workspace(
+            name=self.name,
+            repo_root=str(self._repo_root),
+            tracked=self.tracked,
+        )
 
     @staticmethod
     def _cleanup_stale_mount(path: Path) -> None:
@@ -341,7 +360,8 @@ class Workspace:
             dvc_files[dir_name] = dvc_yaml
 
         await self._validate_dvc_files_restorable(dvc_files)
-        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True)
+        ref_public_id = await self._record_workspace_ref(step_name, "output", dvc_files, changed=True)
+        await self._upload_audit_events(step_name, ref_public_id)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
 
@@ -397,10 +417,10 @@ class Workspace:
         source_repo_name: str | None = None,
         source_step_name: str | None = None,
         changed: bool | None = None,
-    ) -> None:
-        """Record a workspace ref with Chronos."""
+    ) -> str | None:
+        """Record a workspace ref with Chronos. Returns the ref public_id if available."""
         if not self.chronos_url or not self.repo_name or not self.session_id:
-            return
+            return None
         has_source_ref = bool(source_ref_public_id)
         has_source_parts = any((source_session_public_id, source_repo_name, source_step_name))
         if has_source_ref and has_source_parts:
@@ -422,7 +442,7 @@ class Workspace:
             payload["source_session_public_id"] = source_session_public_id
             payload["source_repo_name"] = source_repo_name
             payload["source_step_name"] = source_step_name
-        await self._chronos_request(
+        resp = await self._chronos_request(
             "POST",
             f"/api/workspace-repos/sessions/{self.session_id}/workspace-refs",
             json=payload,
@@ -430,6 +450,13 @@ class Workspace:
         self._last_ref_step = step_name
         if changed is True:
             self._last_changed_ref_step = step_name
+
+        # Extract ref public_id from response if available
+        try:
+            resp_data = resp.json()
+            return resp_data.get("public_id") or resp_data.get("ref_public_id")
+        except Exception:
+            return None
 
     async def _fetch_workspace_ref(self, step_name: str, session_id: str | None = None) -> dict[str, Any] | None:
         """Fetch a specific workspace ref from Chronos.
@@ -492,6 +519,101 @@ class Workspace:
         if self.chronos_url and self.repo_id:
             if not self._sts_credentials or time.time() >= self._sts_expires_at:
                 await self._refresh_credentials()
+
+    def _audit_scope_dir(self) -> Path:
+        return self._repo_root / ".plato" / "audit" / self.name
+
+    def _audit_scope_files(self) -> list[Path]:
+        audit_dir = self._audit_scope_dir()
+        if not audit_dir.exists():
+            return []
+        return sorted(audit_dir.glob("*.jsonl"))
+
+    def _read_audit_scope_events(self, paths: list[Path]) -> list[AuditEventInput]:
+        events: list[AuditEventInput] = []
+        for path in paths:
+            try:
+                records = read_audit_records(path)
+                events.extend(record.to_audit_event_input() for record in records)
+            except FileNotFoundError:
+                continue
+            except Exception as exc:
+                logger.warning(
+                    "Skipping invalid audit spool file %s: %s",
+                    path,
+                    exc,
+                )
+        return events
+
+    async def _upload_audit_events(self, step_name: str, ref_public_id: str | None) -> None:
+        """Upload audit events from local scoped JSONL spool files to Chronos."""
+        try:
+            if not self.chronos_url or not self.session_id or not self.tracked:
+                return
+
+            if not ref_public_id:
+                logger.debug(
+                    "Skipping audit upload for workspace '%s' at step '%s' because no committed ref_public_id was recorded",
+                    self.name,
+                    step_name,
+                )
+                return
+
+            scope_files = self._audit_scope_files()
+            if not scope_files:
+                return
+
+            events = self._read_audit_scope_events(scope_files)
+            if not events:
+                logger.debug("No audit events to upload for step '%s'", step_name)
+                for path in scope_files:
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
+                return
+
+            # Transform paths from agent mount path to workspace-relative paths
+            # so they match the file tree in workspace refs.
+            # Agent sees: /workspace/input_a.txt (mount_path)
+            # Workspace ref stores: /data/input_a.txt (relative to _repo_root)
+            mount = self.mount_path.rstrip("/")
+            repo_root = str(self._repo_root)
+            ws_relative = str(self.path).removeprefix(repo_root)  # e.g. "/data"
+            if mount:
+                for event in events:
+                    if event.path.startswith(mount):
+                        event.path = ws_relative + event.path[len(mount) :]
+                    if event.new_path and event.new_path.startswith(mount):
+                        event.new_path = ws_relative + event.new_path[len(mount) :]
+
+            # Upload in chunks of 500
+            chunk_size = 500
+            total_uploaded = 0
+            async with httpx.AsyncClient(
+                base_url=self.chronos_url,
+                headers={"X-API-Key": self.api_key},
+                timeout=30,
+            ) as client:
+                for i in range(0, len(events), chunk_size):
+                    chunk = events[i : i + chunk_size]
+                    payload = BulkRefAuditEventsRequest(events=chunk)
+                    await bulk_ingest_ref_audit_events.asyncio(
+                        client,
+                        ref_public_id=ref_public_id,
+                        body=payload,
+                    )
+                    total_uploaded += len(chunk)
+
+            logger.info("Uploaded %d audit events for step '%s'", total_uploaded, step_name)
+
+            for path in scope_files:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+        except Exception:
+            logger.warning("Failed to upload audit events for step '%s'", step_name, exc_info=True)
 
     def _require_tracked(self) -> None:
         if not self.tracked:

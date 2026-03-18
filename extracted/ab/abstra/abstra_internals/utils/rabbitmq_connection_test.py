@@ -12,7 +12,7 @@ import numpy as np
 from pika.adapters.blocking_connection import BlockingConnection
 from pika.exceptions import AMQPConnectionError
 
-from .rabbitmq_connection import RabbitMQConnection
+from .rabbitmq_connection import QUEUE_EXPIRES_MS, RabbitMQConnection
 
 
 # Helper for mocking connections
@@ -661,6 +661,169 @@ class TestRabbitMQConnection(unittest.TestCase):
 
             os.remove(tmp_path)
 
+        conn.close()
+
+
+class TestRabbitMQConnectionSessionMode(unittest.TestCase):
+    """Tests for is_session flag behavior in RabbitMQConnection."""
+
+    def setUp(self):
+        self.sleep_patcher = patch("time.sleep")
+        self.mock_sleep = self.sleep_patcher.start()
+
+    def tearDown(self):
+        self.sleep_patcher.stop()
+
+    def test_setup_connections_legacy_mode(self):
+        """Legacy mode: auto_delete=True, no x-message-ttl."""
+        mock_conn = make_mock_connection()
+        factory = Mock(side_effect=lambda *a: mock_conn)
+        conn = RabbitMQConnection(
+            "amqp://localhost",
+            "server_to_worker_abc",
+            "worker_to_server_abc",
+            "abc",
+            auto_start_consumer=False,
+            connection_factory=cast(Type[BlockingConnection], factory),
+            is_session=False,
+        )
+
+        mock_channel = mock_conn.channel.return_value
+        queue_calls = mock_channel.queue_declare.call_args_list
+
+        self.assertGreaterEqual(len(queue_calls), 1)
+
+        for c in queue_calls:
+            kwargs = c.kwargs if c.kwargs else {}
+            self.assertTrue(kwargs.get("auto_delete", True))
+            args = kwargs.get("arguments", {})
+            self.assertIn("x-expires", args)
+            self.assertNotIn("x-message-ttl", args)
+
+        conn.close()
+
+    def test_setup_connections_session_mode(self):
+        """Session mode: auto_delete=False, x-message-ttl present."""
+        mock_conn = make_mock_connection()
+        factory = Mock(side_effect=lambda *a: mock_conn)
+        conn = RabbitMQConnection(
+            "amqp://localhost",
+            "session_s2w_abc",
+            "session_w2s_abc",
+            "abc",
+            auto_start_consumer=False,
+            connection_factory=cast(Type[BlockingConnection], factory),
+            is_session=True,
+        )
+
+        mock_channel = mock_conn.channel.return_value
+        queue_calls = mock_channel.queue_declare.call_args_list
+
+        self.assertGreaterEqual(len(queue_calls), 1)
+
+        for c in queue_calls:
+            kwargs = c.kwargs if c.kwargs else {}
+            self.assertFalse(kwargs.get("auto_delete", True))
+            args = kwargs.get("arguments", {})
+            self.assertIn("x-expires", args)
+            self.assertIn("x-message-ttl", args)
+            self.assertEqual(args["x-expires"], QUEUE_EXPIRES_MS)
+            self.assertEqual(args["x-message-ttl"], QUEUE_EXPIRES_MS)
+
+        conn.close()
+
+    def test_reconnect_send_connection_session_mode(self):
+        """Reconnect in session mode must use auto_delete=False + x-message-ttl."""
+        # Initial setup
+        initial_conn = make_mock_connection()
+        reconnect_conn = make_mock_connection()
+        call_count = {"n": 0}
+
+        def factory_fn(*a, **k):
+            call_count["n"] += 1
+            if call_count["n"] <= 2:
+                return initial_conn
+            return reconnect_conn
+
+        factory = Mock(side_effect=factory_fn)
+        conn = RabbitMQConnection(
+            "amqp://localhost",
+            "session_s2w_abc",
+            "session_w2s_abc",
+            "abc",
+            auto_start_consumer=False,
+            connection_factory=cast(Type[BlockingConnection], factory),
+            is_session=True,
+        )
+
+        # Force reconnect
+        result = conn._reconnect_send_connection()
+        self.assertTrue(result)
+
+        # Check the reconnected channel's queue_declare
+        reconnect_channel = reconnect_conn.channel.return_value
+        queue_calls = reconnect_channel.queue_declare.call_args_list
+        self.assertGreaterEqual(len(queue_calls), 1)
+
+        c = queue_calls[0]
+        kwargs = c.kwargs if c.kwargs else {}
+        self.assertFalse(kwargs.get("auto_delete", True))
+        args = kwargs.get("arguments", {})
+        self.assertIn("x-message-ttl", args)
+        self.assertEqual(args["x-message-ttl"], QUEUE_EXPIRES_MS)
+
+        conn.close()
+
+    def test_reconnect_send_connection_legacy_mode(self):
+        """Reconnect in legacy mode must use auto_delete=True, no x-message-ttl."""
+        initial_conn = make_mock_connection()
+        reconnect_conn = make_mock_connection()
+        call_count = {"n": 0}
+
+        def factory_fn(*a, **k):
+            call_count["n"] += 1
+            if call_count["n"] <= 2:
+                return initial_conn
+            return reconnect_conn
+
+        factory = Mock(side_effect=factory_fn)
+        conn = RabbitMQConnection(
+            "amqp://localhost",
+            "server_to_worker_abc",
+            "worker_to_server_abc",
+            "abc",
+            auto_start_consumer=False,
+            connection_factory=cast(Type[BlockingConnection], factory),
+            is_session=False,
+        )
+
+        result = conn._reconnect_send_connection()
+        self.assertTrue(result)
+
+        reconnect_channel = reconnect_conn.channel.return_value
+        queue_calls = reconnect_channel.queue_declare.call_args_list
+        self.assertGreaterEqual(len(queue_calls), 1)
+
+        c = queue_calls[0]
+        kwargs = c.kwargs if c.kwargs else {}
+        self.assertTrue(kwargs.get("auto_delete", True))
+        args = kwargs.get("arguments", {})
+        self.assertNotIn("x-message-ttl", args)
+
+        conn.close()
+
+    def test_is_session_false_by_default(self):
+        """Default is_session should be False."""
+        factory = Mock(side_effect=lambda *a: make_mock_connection())
+        conn = RabbitMQConnection(
+            "amqp://localhost",
+            "s",
+            "r",
+            "id",
+            auto_start_consumer=False,
+            connection_factory=cast(Type[BlockingConnection], factory),
+        )
+        self.assertFalse(conn.is_session)
         conn.close()
 
 

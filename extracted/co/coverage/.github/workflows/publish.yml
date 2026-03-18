@@ -29,7 +29,7 @@ concurrency:
 jobs:
   find-run:
     name: "Find latest kit.yml run"
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     outputs:
       run-id: ${{ steps.run-id.outputs.run-id }}
 
@@ -56,7 +56,7 @@ jobs:
     permissions:
       id-token: write       # needed for actions/attest-build-provenance
       attestations: write   # needed for actions/attest-build-provenance
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     environment:
       name: "testpypi"
     needs:
@@ -81,7 +81,7 @@ jobs:
           files=$(ls dist 2>/dev/null | wc -l) && [ "$files" -eq $EXPECTED ] || exit 1
 
       - name: "Generate attestations"
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: "dist/*"
 
@@ -96,7 +96,7 @@ jobs:
     permissions:
       id-token: write       # needed for actions/attest-build-provenance
       attestations: write   # needed for actions/attest-build-provenance
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     environment:
       name: "pypi"
     needs:
@@ -121,7 +121,7 @@ jobs:
           files=$(ls dist 2>/dev/null | wc -l) && [ "$files" -eq $EXPECTED ] || exit 1
 
       - name: "Generate attestations"
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: "dist/*"
 

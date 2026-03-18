@@ -435,6 +435,7 @@ class _EnvActionContext:
         since: str | None = None,
         until: str | None = None,
         include_hidden: bool = False,
+        scope: str | None = None,
     ) -> list[Any]:
         return self._env.find(
             query,
@@ -445,6 +446,7 @@ class _EnvActionContext:
             until=until,
             include_hidden=include_hidden,
             deep=False,
+            scope=scope,
         )
 
     def list_items(
@@ -467,6 +469,9 @@ class _EnvActionContext:
             include_hidden=include_hidden,
             limit=limit,
         )
+
+    def list_parts(self, id: str) -> list[Any]:
+        return self._env.list_parts(id)
 
     def get_document(self, id: str) -> Any:
         return self._env.get_document(id)

@@ -71,10 +71,12 @@ class _KeeperActionContext:
         since: str | None = None,
         until: str | None = None,
         include_hidden: bool = False,
+        scope: str | None = None,
     ) -> list[Any]:
         return self._keeper.find(
             query, tags=tags, similar_to=similar_to, limit=limit,
             since=since, until=until, include_hidden=include_hidden,
+            scope=scope,
         )
 
     def list_items(
@@ -92,6 +94,9 @@ class _KeeperActionContext:
             prefix=prefix, tags=tags, since=since, until=until,
             order_by=order_by, include_hidden=include_hidden, limit=limit,
         )
+
+    def list_parts(self, id: str) -> list[Any]:
+        return self._keeper.list_parts(id)
 
     def get_document(self, id: str) -> Any:
         return self._keeper._document_store.get(self._collection, id)

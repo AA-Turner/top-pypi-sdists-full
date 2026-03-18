@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cfn-lint
-Version: 1.46.0
+Version: 1.47.0
 Summary: Checks CloudFormation templates for practices and behaviour that could potentially be improved
 Author: Kevin DeJong
 Author-email: kddejong@amazon.com
@@ -16,12 +16,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
@@ -88,7 +87,7 @@ _To get information about the [SAM Transformation](https://docs.aws.amazon.com/A
 
 ## Install
 
-Python 3.9 to 3.13 are supported.
+Python 3.10 to 3.13 are supported.
 
 ### Pip
 
@@ -395,7 +394,7 @@ If you'd like cfn-lint to be run automatically when making changes to files in y
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.46.0 # The version of cfn-lint to use
+    rev: v1.47.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint
         files: path/to/cfn/dir/.*\.(json|yml|yaml)$
@@ -406,7 +405,7 @@ If you are using a `.cfnlintrc` and specifying the `templates` or `ignore_templa
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.46.0 # The version of cfn-lint to use
+    rev: v1.47.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint-rc
 ```

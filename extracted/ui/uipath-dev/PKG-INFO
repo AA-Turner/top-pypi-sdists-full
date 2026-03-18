@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-dev
-Version: 0.0.73
+Version: 0.0.74
 Summary: UiPath Developer Console
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-dev-python
@@ -15,8 +15,9 @@ Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.11
 Requires-Dist: aiosqlite>=0.20.0
 Requires-Dist: fastapi>=0.128.8
-Requires-Dist: openai
+Requires-Dist: mcp[cli]>=1.0.0
 Requires-Dist: pyperclip<2.0.0,>=1.11.0
+Requires-Dist: pywinpty>=2.0.0; sys_platform == 'win32'
 Requires-Dist: textual<8.0.0,>=7.5.0
 Requires-Dist: uipath-runtime<0.10.0,>=0.9.0
 Requires-Dist: uipath<2.11.0,>=2.10.0

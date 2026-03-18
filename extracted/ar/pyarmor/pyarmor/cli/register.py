@@ -171,7 +171,7 @@ class Register(object):
         return url
 
     def update_token(self):
-        from .core import Pytransform3
+        from pyarmor.cli.core import Pytransform3
         assert Pytransform3._pytransform3 is None
         with open(self.ctx.license_token, 'wb') as f:
             f.close()
@@ -208,6 +208,10 @@ class Register(object):
                 if len(line) == 192 and line.find(' ') == -1:
                     return regname, line
 
+        logger.error('please make sure the activation file is '
+                     'pure text file, the content starts with `Dear `, '
+                     'and includes the activation code'
+                     '(its length is 192 and no line break)')
         raise CliError('invalid activation file "%s"' % filename)
 
     def _register_offline_license(self, fzip, namelist):
@@ -359,7 +363,7 @@ class Register(object):
             logger.debug('%s:%d:%s', host, port, str(e))
 
     def _get_machine_id(self, devflag=11):
-        from .core import Pytransform3
+        from pyarmor.cli.core import Pytransform3
         try:
             return Pytransform3.get_hd_info(devflag)
         except SystemError:
@@ -817,7 +821,7 @@ class WebRegister(Register):
         ucode = reginfo['ucode']
         rcode = reginfo['rcode']
         if len(ucode) != 192:
-            raise CliError('invalid registration file "%s"', regfile)
+            raise CliError('invalid ci registration file "%s"', regfile)
 
         url = self.regurl('ci/%s' % ucode)
         paras = ('rev', str(rev)), ('cirev', str(cirev))

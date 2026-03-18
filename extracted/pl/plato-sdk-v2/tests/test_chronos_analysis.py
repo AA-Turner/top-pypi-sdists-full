@@ -12,7 +12,7 @@ from plato.chronos.analysis import (
     build_span_tree,
     fetch_all_spans,
 )
-from plato.chronos.models import OTelSpan
+from plato.chronos.models import OTelSpanSchema
 
 
 def _span(
@@ -23,8 +23,8 @@ def _span(
     end_ns: int | None = 1_000_000,
     attributes: dict | None = None,
     trace_id: str = "trace-1",
-) -> OTelSpan:
-    return OTelSpan(
+) -> OTelSpanSchema:
+    return OTelSpanSchema(
         trace_id=trace_id,
         span_id=span_id,
         parent_span_id=parent_span_id,

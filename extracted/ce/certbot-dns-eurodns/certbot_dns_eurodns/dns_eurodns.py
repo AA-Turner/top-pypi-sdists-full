@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Documentation URL to show on error
 ACCOUNT_URL = 'https://docapi.eurodns.com/'
-DEFAULT_ENDPOINT = 'https://rest-api.eurodns.com/user-api/dns-zones/'
+DEFAULT_ENDPOINT = 'https://rest-api.eurodns.com/dns-zones/'
 
 @zope.interface.implementer(interfaces.IAuthenticator)
 @zope.interface.provider(interfaces.IPluginFactory)

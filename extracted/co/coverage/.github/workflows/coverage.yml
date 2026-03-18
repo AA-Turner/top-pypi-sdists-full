@@ -110,6 +110,9 @@ jobs:
           # skip them for now.
           - os: windows
             python-version: "pypy-3.10"
+          # Windows 3.13t often fails during installation.
+          - os: windows
+            python-version: "3.13t"
         # If we need to tweak the os version we can do it with an include like
         # this:
         #  include:
@@ -166,7 +169,7 @@ jobs:
           mv .metacov .metacov.$MATRIX_ID
 
       - name: "Upload coverage data"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: metacov-${{ env.MATRIX_ID }}
           path: .metacov.*
@@ -234,7 +237,7 @@ jobs:
           python lab/goals.py --file 100 "tests/test_*.py"
 
       - name: "Upload HTML report"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: html_report
           path: htmlcov
@@ -257,6 +260,8 @@ jobs:
     name: "Publish coverage report"
     needs: combine
     runs-on: ubuntu-latest
+    environment:
+      name: "publish report"
 
     steps:
       - name: "Show environment"
@@ -281,6 +286,7 @@ jobs:
       - name: "Checkout reports repo"
         if: ${{ github.ref == 'refs/heads/main' }}
         env:
+          # Fine-grained, with write access to coveragepy/metacov-reports
           TOKEN: ${{ secrets.COVERAGE_REPORTS_TOKEN }}
         run: |
           set -xe
@@ -333,6 +339,7 @@ jobs:
         # https://gist.githubusercontent.com/nedbat/8c6980f77988a327348f9b02bbaf67f5
         uses: schneegans/dynamic-badges-action@e9a478b16159b4d31420099ba146cdc50f134483 # v1.7.0
         with:
+          # Personal access token: gist access
           auth: ${{ secrets.METACOV_GIST_SECRET }}
           gistID: 8c6980f77988a327348f9b02bbaf67f5
           filename: metacov.json

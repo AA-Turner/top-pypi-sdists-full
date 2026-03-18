@@ -7,6 +7,7 @@
 
 use std::any::Any;
 use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
@@ -41,6 +42,7 @@ use pyrefly_types::type_alias::TypeAliasIndex;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::fs_anyhow;
+use pyrefly_util::lined_buffer::LineNumber;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::locked_map::LockedMap;
@@ -90,6 +92,7 @@ use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
+use crate::binding::metadata::BindingsMetadata;
 use crate::binding::table::TableKeyed;
 use crate::config::config::ConfigFile;
 use crate::config::error_kind::ErrorKind;
@@ -108,6 +111,7 @@ use crate::module::typeshed::BundledTypeshedStdlib;
 use crate::solver::solver::VarRecurser;
 use crate::state::epoch::Epoch;
 use crate::state::errors::Errors;
+use crate::state::errors::sorted_multi_line_fstring_ranges;
 use crate::state::load::FileContents;
 use crate::state::load::Load;
 use crate::state::loader::FindingOrError;
@@ -128,6 +132,7 @@ use crate::state::subscriber::Subscriber;
 use crate::types::callable::Deprecation;
 use crate::types::class::Class;
 use crate::types::class::ClassDefIndex;
+use crate::types::class::ClassFields;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::TParams;
 use crate::types::types::Type;
@@ -185,6 +190,8 @@ pub enum ModuleDep {
     NameMetadata(Name),
     // Depend on the set of wildcard exported names
     Wildcard,
+    // Depend on a class definition (fields, metadata, etc.)
+    Class(ClassDefIndex),
 }
 
 impl ModuleChanges {
@@ -289,6 +296,9 @@ impl ModuleDeps {
             }
             ModuleDep::Wildcard => {
                 self.wildcard = true;
+            }
+            ModuleDep::Class(idx) => {
+                self.classes.insert(idx);
             }
         }
     }
@@ -600,6 +610,17 @@ impl<'a> Transaction<'a> {
         self.with_module_inner(handle, |x| x.get_answers().map(|a| a.1.dupe()))
     }
 
+    /// Look up the `ClassFields` for a class, which may be defined in another module.
+    pub fn get_class_fields(&self, source_handle: &Handle, class: &Class) -> Option<ClassFields> {
+        let handle = Handle::new(
+            class.module_name(),
+            class.module_path().dupe(),
+            source_handle.sys_info().dupe(),
+        );
+        let bindings = self.get_bindings(&handle)?;
+        bindings.get_class_fields(class.index()).cloned()
+    }
+
     pub fn get_ast(&self, handle: &Handle) -> Option<Arc<ruff_python_ast::ModModule>> {
         self.with_module_inner(handle, |x| x.get_ast())
     }
@@ -619,7 +640,12 @@ impl<'a> Transaction<'a> {
                 .into_iter()
                 .filter_map(|handle| {
                     self.with_module_config_inner(handle, |config, x| {
-                        Some((x.get_load()?, config.dupe()))
+                        let load = x.get_load()?;
+                        let fstring_ranges = x
+                            .get_ast()
+                            .map(|ast| sorted_multi_line_fstring_ranges(&ast, &load.module_info))
+                            .unwrap_or_default();
+                        Some((load, config.dupe(), fstring_ranges))
                     })
                 })
                 .collect(),
@@ -627,13 +653,28 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn get_all_errors(&self) -> Errors {
+        /// Extract f-string ranges from the AST if available.
+        fn fstring_ranges_from(
+            state: &dyn ModuleStateReader,
+            load: &Load,
+        ) -> Vec<(LineNumber, LineNumber)> {
+            state
+                .get_ast()
+                .map(|ast| sorted_multi_line_fstring_ranges(&ast, &load.module_info))
+                .unwrap_or_default()
+        }
+
         if self.data.updated_modules.is_empty() {
             // Optimized path
             return Errors::new(
                 self.readable
                     .modules
                     .values()
-                    .filter_map(|x| Some((x.state.get_load()?, x.config.dupe())))
+                    .filter_map(|x| {
+                        let load = x.state.get_load()?;
+                        let ranges = fstring_ranges_from(&x.state, &load);
+                        Some((load, x.config.dupe(), ranges))
+                    })
                     .collect(),
             );
         }
@@ -641,13 +682,18 @@ impl<'a> Transaction<'a> {
             .data
             .updated_modules
             .iter_unordered()
-            .filter_map(|x| Some((x.1.state.get_load()?, x.1.config.read().dupe())))
+            .filter_map(|x| {
+                let load = x.1.state.get_load()?;
+                let ranges = fstring_ranges_from(&x.1.state, &load);
+                Some((load, x.1.config.read().dupe(), ranges))
+            })
             .collect::<Vec<_>>();
         for (k, v) in self.readable.modules.iter() {
             if self.data.updated_modules.get(k).is_none()
                 && let Some(load) = v.state.get_load()
             {
-                res.push((load, v.config.dupe()));
+                let ranges = fstring_ranges_from(&v.state, &load);
+                res.push((load, v.config.dupe(), ranges));
             }
         }
         Errors::new(res)
@@ -1295,6 +1341,7 @@ impl<'a> Transaction<'a> {
             transaction: self,
             module_data,
             deferred_deps: RefCell::new(FxHashMap::default()),
+            metadata_cache: UnsafeCell::new(FxHashMap::default()),
         }
     }
 
@@ -1740,7 +1787,7 @@ impl<'a> Transaction<'a> {
             &recurser,
             &stdlib,
             &thread_state,
-            answers.0.heap(),
+            answers.1.heap(),
         );
         let start = Instant::now();
         let result = solve(solver);
@@ -2067,6 +2114,15 @@ pub(crate) struct TransactionHandle<'a> {
     /// than Handle, since ModulePath uniquely identifies the target module within
     /// a TransactionHandle (module name is derivable, sys_info is invariant).
     deferred_deps: RefCell<FxHashMap<ModulePath, (Handle, ModuleDeps)>>,
+    /// Cache of cross-module `BindingsMetadata` for class field lookups.
+    /// Keyed by `ArcId::id()` (pointer-as-usize) to avoid atomic refcount
+    /// operations and to get a cheap 8-byte hash key.
+    /// Uses `UnsafeCell` because we need to return `&ClassFields` references
+    /// into the cached `Arc<BindingsMetadata>` values. This is safe because:
+    ///   1. `TransactionHandle` is single-threaded (not `Sync`).
+    ///   2. The cache is append-only — entries are never removed or replaced,
+    ///      so references into existing entries remain valid.
+    metadata_cache: UnsafeCell<FxHashMap<usize, Arc<BindingsMetadata>>>,
 }
 
 /// Result of looking up a target module's `Answers` for a cross-module
@@ -2158,6 +2214,7 @@ impl<'a> TransactionHandle<'a> {
             transaction: self.transaction,
             module_data,
             deferred_deps: RefCell::new(FxHashMap::default()),
+            metadata_cache: UnsafeCell::new(FxHashMap::default()),
         };
         Some(f(&exports, &lookup))
     }
@@ -2544,11 +2601,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
                         );
                         target_load.errors.extend(errors);
                     }
-                    if let Some(mut traces) = traces {
-                        // Finalize traces using the target module's solver,
-                        // then merge into the target module's trace store.
-                        traces.finalize(answers.solver());
-                        traces.debug_assert_var_free();
+                    if let Some(traces) = traces {
                         answers.merge_trace_side_effects(traces);
                     }
                 }
@@ -2565,6 +2618,42 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
                 answers.write_unlock_empty_preliminary(any_idx);
             }
         }
+    }
+
+    fn get_class_fields(&self, cls: &Class) -> Option<&ClassFields> {
+        // Register a class-level dependency via get_module, which handles
+        // both module resolution and dep tracking through deferred_deps.
+        let module_data = self
+            .get_module(
+                cls.module_name(),
+                Some(cls.module_path()),
+                ModuleDep::Class(cls.index()),
+            )
+            .finding()
+            .unwrap();
+
+        // Load metadata into cache (once per module), keyed by ArcId pointer
+        // to avoid atomic refcount ops and get a cheap 8-byte hash key.
+        // SAFETY: TransactionHandle is single-threaded and the cache is
+        // append-only, so references into existing entries remain valid.
+        let cache = unsafe { &mut *self.metadata_cache.get() };
+        let metadata = cache.entry(module_data.id()).or_insert_with(|| {
+            self.transaction.demand(module_data, Step::Answers);
+
+            let answers_guard = module_data.state.load_answers();
+            if let Some(answers) = answers_guard.as_ref() {
+                return answers.0.metadata().dupe();
+            }
+            let solutions_guard = module_data.state.load_solutions();
+            let solutions = solutions_guard
+                .as_ref()
+                .expect("answers evicted implies solutions exist");
+            solutions.metadata().dupe()
+        });
+        // ClassDefIndex may be stale if the target module was rebuilt with
+        // fewer classes during this epoch (transient inconsistency that
+        // resolves in the next epoch when rdeps are invalidated).
+        Some(&metadata.get_class_checked(cls.index())?.fields)
     }
 }
 

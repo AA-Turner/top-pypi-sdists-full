@@ -373,7 +373,8 @@ def test_parent_subpath(tmpdir):
     assert find_parent_subpath(tmpdir.mkdir("a"), "xyz") == s
     assert find_parent_subpath(tmpdir.ensure("a", "b"), "xyz") == s
     assert find_parent_subpath(s, "xyz") == s
-    pytest.raises(ValueError, lambda: find_parent_subpath(tmpdir, "poiqel123"))
+    with pytest.raises(ValueError, match="no subpath 'poiqel123' from"):
+        find_parent_subpath(tmpdir, "poiqel123")()
 
 
 @pytest.mark.skipif("config.option.fast")
@@ -834,9 +835,9 @@ class TestUploadFunctional:
             "conf.py": "",
             "index.html": "<html/>"}})
         tmpdir = Path()
-        runproc(tmpdir, "python setup.py sdist --format=zip".split())
+        runproc(tmpdir, ["python", "setup.py", "sdist", "--format=zip"])
         initproj("hello-1.2")
-        runproc(tmpdir, "python setup.py sdist --format=zip".split())
+        runproc(tmpdir, ["python", "setup.py", "sdist", "--format=zip"])
         dist = tmpdir / "dist"
         assert len(list(dist.iterdir())) == 2
         hub = devpi("upload", "--no-isolation", "--from-dir", dist)
@@ -862,7 +863,7 @@ class TestUploadFunctional:
             "conf.py": "",
             "index.html": "<html/>"}})
         tmpdir = Path()
-        runproc(tmpdir, "python setup.py sdist --format=zip".split())
+        runproc(tmpdir, ["python", "setup.py", "sdist", "--format=zip"])
         dist = tmpdir / "dist"
         zip_dir(tmpdir / 'doc', dist / f"{name_version_str}.doc.zip")
         assert len(list(dist.iterdir())) == 2

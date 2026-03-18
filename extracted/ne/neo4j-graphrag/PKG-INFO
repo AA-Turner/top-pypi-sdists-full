@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j-graphrag
-Version: 1.13.1
+Version: 1.14.0
 Summary: Python package to allow easy integration to Neo4j's GraphRAG features
 Project-URL: Homepage, https://neo4j.com/
 Project-URL: Repository, https://github.com/neo4j/neo4j-graphrag-python
@@ -34,6 +34,7 @@ Provides-Extra: experimental
 Requires-Dist: langchain-text-splitters<0.4.0,>=0.3.0; extra == 'experimental'
 Requires-Dist: llama-index<0.14.0,>=0.13.0; extra == 'experimental'
 Requires-Dist: neo4j-viz<0.5.0,>=0.4.2; extra == 'experimental'
+Requires-Dist: pyarrow>=20.0.0; extra == 'experimental'
 Provides-Extra: fuzzy-matching
 Requires-Dist: rapidfuzz<4.0.0,>=3.12.2; extra == 'fuzzy-matching'
 Provides-Extra: google
@@ -179,7 +180,7 @@ embedder = OpenAIEmbeddings(model="text-embedding-3-large")
 
 # Instantiate the LLM
 llm = OpenAILLM(
-    model_name="gpt-4o",
+    model_name="gpt-5",
     model_params={
         "max_tokens": 2000,
         "response_format": {"type": "json_object"},
@@ -320,7 +321,7 @@ embedder = OpenAIEmbeddings(model="text-embedding-3-large")
 retriever = VectorRetriever(driver, INDEX_NAME, embedder)
 
 # Instantiate the LLM
-llm = OpenAILLM(model_name="gpt-4o", model_params={"temperature": 0})
+llm = OpenAILLM(model_name="gpt-5", model_params={"temperature": 0})
 
 # Instantiate the RAG pipeline
 rag = GraphRAG(retriever=retriever, llm=llm)

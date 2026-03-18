@@ -1459,6 +1459,14 @@ class WM_OT_url_open_preset(_bpy_types.Operator):
         :param context:
         """
 
+    @staticmethod
+    def lookup_url_from_type(context, type) -> None:
+        """
+
+        :param context:
+        :param type:
+        """
+
 def context_path_decompose(data_path) -> None: ...
 def context_path_to_rna_property(context, data_path) -> None: ...
 def context_path_validate(context, data_path) -> None: ...

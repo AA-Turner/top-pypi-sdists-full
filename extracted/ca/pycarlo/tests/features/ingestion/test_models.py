@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 from unittest import TestCase
 
@@ -11,10 +12,12 @@ from pycarlo.features.ingestion.models import (
     LineageAssetRef,
     LineageEvent,
     LineageEventType,
+    QueryLogEntry,
     RelationalAsset,
     Tag,
     build_lineage_payload,
     build_metadata_payload,
+    build_query_log_payload,
 )
 
 
@@ -156,6 +159,110 @@ class TestRelationalAsset(TestCase):
         assert result["fields"][1]["description"] == "Customer name"
         assert result["volume"] == {"row_count": 500, "byte_count": 4096}
         assert result["freshness"] == {"last_update_time": "2026-03-01T08:30:00Z"}
+
+
+def _dt(iso: str) -> datetime:
+    """Parse ISO8601 string to datetime for tests."""
+    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+
+
+class TestQueryLogEntry(TestCase):
+    def test_to_dict_minimal(self):
+        entry = QueryLogEntry(
+            start_time=_dt("2026-03-02T10:00:00Z"),
+            end_time=_dt("2026-03-02T10:00:05Z"),
+            query_text="SELECT * FROM orders",
+        )
+        result = entry.to_dict()
+        assert result == {
+            "start_time": "2026-03-02T10:00:00Z",
+            "end_time": "2026-03-02T10:00:05Z",
+            "query_text": "SELECT * FROM orders",
+        }
+
+    def test_to_dict_full(self):
+        entry = QueryLogEntry(
+            start_time=_dt("2026-03-02T10:00:00Z"),
+            end_time=_dt("2026-03-02T10:00:05Z"),
+            query_text="SELECT * FROM orders",
+            query_id="q-123",
+            user="analyst@example.com",
+            error_code=None,
+            error_text=None,
+            returned_rows=1000,
+            extra={"warehouse": "COMPUTE_WH"},
+        )
+        result = entry.to_dict()
+        assert result["query_id"] == "q-123"
+        assert result["user"] == "analyst@example.com"
+        assert result["returned_rows"] == 1000
+        assert result["extra"] == {"warehouse": "COMPUTE_WH"}
+        assert "error_code" not in result
+        assert "error_text" not in result
+
+    def test_to_dict_with_error(self):
+        entry = QueryLogEntry(
+            start_time=_dt("2026-03-02T10:00:00Z"),
+            end_time=_dt("2026-03-02T10:00:01Z"),
+            query_text="SELECT * FROM invalid",
+            error_code=100132,
+            error_text="Object does not exist",
+        )
+        result = entry.to_dict()
+        assert result["error_code"] == 100132
+        assert result["error_text"] == "Object does not exist"
+
+    def test_from_dict_round_trip(self):
+        """Datetime fields deserialize from ISO8601 strings."""
+        d = {
+            "start_time": "2026-03-02T10:00:00Z",
+            "end_time": "2026-03-02T10:00:05Z",
+            "query_text": "SELECT 1",
+        }
+        entry = QueryLogEntry.from_dict(d)
+        assert entry.start_time == _dt("2026-03-02T10:00:00Z")
+        assert entry.end_time == _dt("2026-03-02T10:00:05Z")
+        assert entry.query_text == "SELECT 1"
+
+
+class TestBuildQueryLogPayload(TestCase):
+    def test_payload_structure(self):
+        entry = QueryLogEntry(
+            start_time=_dt("2026-03-02T10:00:00Z"),
+            end_time=_dt("2026-03-02T10:00:05Z"),
+            query_text="SELECT 1",
+        )
+        payload = build_query_log_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[entry],
+        )
+        assert payload["event_type"] == "QUERY_LOG"
+        assert payload["resource"] == {
+            "uuid": "res-123",
+            "resource_type": "snowflake",
+        }
+        assert len(payload["events"]) == 1
+        assert payload["events"][0]["start_time"] == "2026-03-02T10:00:00Z"
+        assert payload["events"][0]["query_text"] == "SELECT 1"
+
+    def test_multiple_events(self):
+        events = [
+            QueryLogEntry(
+                start_time=_dt("2026-03-02T10:00:00Z"),
+                end_time=_dt("2026-03-02T10:00:01Z"),
+                query_text=f"SELECT {i}",
+            )
+            for i in range(3)
+        ]
+        payload = build_query_log_payload(
+            resource_uuid="res-456",
+            resource_type="bigquery",
+            events=events,
+        )
+        assert len(payload["events"]) == 3
+        for i, event in enumerate(payload["events"]):
+            assert event["query_text"] == f"SELECT {i}"
 
 
 class TestBuildMetadataPayload(TestCase):

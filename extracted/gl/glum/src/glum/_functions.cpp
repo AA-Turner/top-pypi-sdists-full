@@ -13,7 +13,7 @@
             "-fopenmp"
         ],
         "include_dirs": [
-            "/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/site-packages/numpy/_core/include"
+            "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/numpy/_core/include"
         ],
         "language": "c++",
         "name": "glum._functions",

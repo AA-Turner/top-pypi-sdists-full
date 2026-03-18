@@ -22,6 +22,8 @@ _ERROR_IGNORES = {
 
 class ef(Unit):
     """
+    Emit files matching a glob pattern from disk.
+
     Short for "emit file". The unit reads files from disk and outputs them individually. Has the
     ability to read large files in chunks.
     """
@@ -182,7 +184,6 @@ class ef(Unit):
         meta = metavars(data)
         size = self.args.size
         size = size and bounds[size]
-        meta.ghost = True
         wild = (os.name == 'nt' or self.args.wild) and not self.args.tame
         root = self._absolute_path('.')
         paths = self._glob if wild else lambda mask: [self._absolute_path(mask)]

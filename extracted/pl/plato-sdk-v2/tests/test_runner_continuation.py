@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from plato.agents.runner import AgentRunner
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
+from plato.agents.runtime.transport import NFSTransport
+from plato.utils.audit import build_audit_key
+from plato.utils.tool_execution import DEFAULT_TOOL_EXECUTION_SPOOL_PATH
 from plato.worlds.workspace import Workspace
 
 # ---------------------------------------------------------------------------
@@ -193,6 +196,126 @@ class TestRunWithoutContinuation:
 
         assert len(runtime.cleanup_calls) == 1
         assert runtime.cleanup_calls[0] == ("test-agent", True)
+
+    @pytest.mark.asyncio
+    async def test_collects_audit_before_cleanup_on_error(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+
+        async def failing_execute(prepared, ctx):
+            raise RuntimeError("boom")
+
+        runtime.execute = failing_execute
+        runner = AgentRunner(agent_cfg, runtime)
+        collect_mock = AsyncMock()
+        runner._collect_and_store_audit = collect_mock  # type: ignore[method-assign]
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await runner.run("do something")
+
+        collect_mock.assert_awaited_once()
+        assert runtime.cleanup_calls == [("test-agent", True)]
+
+    @pytest.mark.asyncio
+    async def test_post_run_hooks_execute_before_cleanup(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime)
+        call_order: list[str] = []
+
+        collect_mock = AsyncMock(side_effect=lambda *args, **kwargs: call_order.append("audit"))
+        runner._collect_and_store_audit = collect_mock  # type: ignore[method-assign]
+
+        async def post_hook(prepared):
+            assert prepared.agent_id == "test-agent"
+            assert runtime.cleanup_calls == []
+            call_order.append("post-hook")
+
+        runner.on_post_run(post_hook)
+
+        await runner.run("do something")
+
+        assert runtime.cleanup_calls == [("test-agent", False)]
+        assert call_order == ["audit", "post-hook"]
+
+    @pytest.mark.asyncio
+    async def test_post_run_hooks_do_not_execute_on_error(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+
+        async def failing_execute(prepared, ctx):
+            raise RuntimeError("boom")
+
+        runtime.execute = failing_execute
+        runner = AgentRunner(agent_cfg, runtime)
+        post_hook = AsyncMock()
+        runner.on_post_run(post_hook)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await runner.run("do something")
+
+        post_hook.assert_not_awaited()
+        assert runtime.cleanup_calls == [("test-agent", True)]
+
+    @pytest.mark.asyncio
+    async def test_cleanup_still_runs_if_post_run_hook_fails(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime)
+
+        async def failing_post_hook(prepared):
+            raise RuntimeError("hook failed")
+
+        runner.on_post_run(failing_post_hook)
+
+        with pytest.raises(RuntimeError, match="hook failed"):
+            await runner.run("do something")
+
+        assert runtime.cleanup_calls == [("test-agent", True)]
+
+    def test_configure_audit_scopes_uses_shared_key_builder(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        transport = NFSTransport("/tmp/code", "127.0.0.1", Path("/tmp/test-key"))
+        transport.configure_workspace(
+            name="code",
+            repo_root="/tmp/repo",
+            tracked=True,
+        )
+        runner = AgentRunner(agent_cfg, runtime, workspace=transport)
+
+        scopes = runner._configure_audit_scopes()
+
+        assert len(scopes) == 1
+        assert scopes[0].audit_key == build_audit_key(scopes[0].audit_run_id)
+        assert transport.audit_key == scopes[0].audit_key
+
+    def test_tool_execution_context_payload_uses_scope_metadata(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        transport = NFSTransport("/tmp/code", "127.0.0.1", Path("/tmp/test-key"))
+        transport.configure_workspace(
+            name="code",
+            repo_root="/tmp/repo",
+            tracked=True,
+        )
+        runner = AgentRunner(agent_cfg, runtime, workspace=transport, display_name="Claude Code")
+        scopes = runner._configure_audit_scopes()
+        prepared = PreparedAgent(agent_id="agent-123", hostname="10.0.0.2", runtime=runtime)
+
+        payload = runner._tool_execution_context_payload(
+            prepared,
+            scopes,
+            display_name="Claude Code",
+        )
+
+        assert payload.agent_id == "agent-123"
+        assert payload.agent_name == "Claude Code"
+        assert payload.display_name == "Claude Code"
+        assert payload.spool_path == str(DEFAULT_TOOL_EXECUTION_SPOOL_PATH)
+        assert len(payload.scopes) == 1
+        assert payload.scopes[0].workspace_name == "code"
+        assert payload.scopes[0].audit_key == scopes[0].audit_key
 
 
 # ---------------------------------------------------------------------------

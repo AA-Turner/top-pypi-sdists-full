@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lumibot
-Version: 4.4.55
+Version: 4.4.56
 Summary: Backtesting and Trading Library, Made by Lumiwealth
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -29,7 +29,7 @@ Requires-Dist: bcrypt
 Requires-Dist: pytest
 Requires-Dist: yappi>=1.6.0
 Requires-Dist: scipy>=1.14.0
-Requires-Dist: quantstats-lumi>=1.1.0
+Requires-Dist: quantstats-lumi>=1.1.1
 Requires-Dist: python-dotenv
 Requires-Dist: ccxt>=4.4.80
 Requires-Dist: termcolor

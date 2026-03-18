@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.9
+Version: 2.5.10
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -263,6 +263,8 @@ Requires-Dist: opentelemetry-sdk; extra == "os"
 Requires-Dist: openinference-instrumentation-agno; extra == "os"
 Requires-Dist: croniter>=1.3; extra == "os"
 Requires-Dist: pytz>=2023.3; extra == "os"
+Provides-Extra: whatsapp-crypto
+Requires-Dist: cryptography>=41.0; extra == "whatsapp-crypto"
 Provides-Extra: scheduler
 Requires-Dist: croniter>=1.3; extra == "scheduler"
 Requires-Dist: pytz>=2023.3; extra == "scheduler"
@@ -415,6 +417,9 @@ Provides-Extra: trafilatura
 Requires-Dist: trafilatura; extra == "trafilatura"
 Provides-Extra: neo4j
 Requires-Dist: neo4j; extra == "neo4j"
+Provides-Extra: telegram
+Requires-Dist: pyTelegramBotAPI>=4.32.0; extra == "telegram"
+Requires-Dist: aiohttp; extra == "telegram"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
@@ -485,6 +490,8 @@ Provides-Extra: markdown
 Requires-Dist: unstructured<0.18.31; extra == "markdown"
 Requires-Dist: markdown; extra == "markdown"
 Requires-Dist: aiofiles; extra == "markdown"
+Provides-Extra: docling
+Requires-Dist: docling; extra == "docling"
 Provides-Extra: chonkie
 Requires-Dist: chonkie[semantic]; extra == "chonkie"
 Requires-Dist: chonkie[code]; extra == "chonkie"
@@ -601,6 +608,7 @@ Requires-Dist: agno[text]; extra == "knowledge"
 Requires-Dist: agno[csv]; extra == "knowledge"
 Requires-Dist: agno[excel]; extra == "knowledge"
 Requires-Dist: agno[markdown]; extra == "knowledge"
+Requires-Dist: agno[docling]; extra == "knowledge"
 Requires-Dist: agno[chonkie]; extra == "knowledge"
 Provides-Extra: embedders
 Requires-Dist: agno[huggingface]; extra == "embedders"

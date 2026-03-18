@@ -744,26 +744,25 @@ class StoredItem(StoredOrCalculatedItem):
 
                 status.log(f'{dry_run_tense} dummy item for {self}')
                 self._push_dummy_item(context, label, item_map, datasource_output, dummy_items_workbook_context)
-        else:
-            if local:
-                item_scope = _common.get(item, 'Scoped To')
-                item_is_scoped_to_other_workbook = item_scope is not None and item_scope != pushed_workbook_id
-                self_already_exists_and_may_need_update = (
-                        item_scope is not None
-                        and item_scope == pushed_workbook_id
-                        and _common.get(self, 'ID') == _common.get(item, 'ID')
-                        and not label
+        elif local and context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            item_scope = _common.get(item, 'Scoped To')
+            item_is_scoped_to_other_workbook = item_scope is not None and item_scope != pushed_workbook_id
+            self_already_exists_and_may_need_update = (
+                    item_scope is not None
+                    and item_scope == pushed_workbook_id
+                    and _common.get(self, 'ID') == _common.get(item, 'ID')
+                    and not label
+            )
+            if item_is_scoped_to_other_workbook or self_already_exists_and_may_need_update:
+                Status.log_if(
+                    context,
+                    f'{dry_run_tense} local item because existing item is scoped to another workbook or may need update: '
+                    f'{self} (existing item scoped to {item_scope})'
                 )
-                if item_is_scoped_to_other_workbook or self_already_exists_and_may_need_update:
-                    Status.log_if(
-                        context,
-                        f'{dry_run_tense} local item because existing item is scoped to another workbook or may need update: '
-                        f'{self} (existing item scoped to {item_scope})'
-                    )
-                    if not context.dry_run:
-                        self._push_local_item(
-                            context, label, item_map, datasource_output, pushed_workbook_id, item_inventory,
-                            self_already_exists_and_may_need_update)
+                if not context.dry_run:
+                    self._push_local_item(
+                        context, label, item_map, datasource_output, pushed_workbook_id, item_inventory,
+                        self_already_exists_and_may_need_update)
 
         item_map[self.id] = item.id
         item_map.data_item_cache[self.id] = item

@@ -62,34 +62,34 @@ def _format_workbook_push_errors(push_errors: set, context: WorkbookPushContext,
 
 @Status.top_level_spy_function()
 def push(
-    workbooks: Union[Workbook, List[Workbook], WorkbookList],
-    *,
-    path: Optional[str] = None,
-    owner: Optional[str] = None,
-    label: Optional[str] = None,
-    datasource: Optional[str] = None,
-    datasource_map_folder: Optional[Union[str, Path]] = None,
-    mode: str = WorkbookPushMode.NORMAL,
-    use_full_path: bool = False,
-    access_control: Optional[str] = None,
-    override_max_interp: bool = False,
-    include_inventory: Optional[bool] = None,
-    include_annotations: bool = True,
-    dry_run: bool = False,
-    refresh: bool = True,
-    lookup_df: Optional[pd.DataFrame] = None,
-    specific_worksheet_ids: Optional[List[str]] = None,
-    create_dummy_items_in_workbook: Optional[str] = None,
-    assume_dependencies_exist: bool = False,
-    reconcile_inventory_by: str = 'id',
-    global_inventory: Optional[str] = None,
-    item_map: Optional[ItemMap] = None,
-    verbose: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None,
-    scope_globals_to_workbook: Optional[bool] = None
+        workbooks: Union[Workbook, List[Workbook], WorkbookList],
+        *,
+        path: Optional[str] = None,
+        owner: Optional[str] = None,
+        label: Optional[str] = None,
+        datasource: Optional[str] = None,
+        datasource_map_folder: Optional[Union[str, Path]] = None,
+        mode: str = WorkbookPushMode.NORMAL,
+        use_full_path: bool = False,
+        access_control: Optional[str] = None,
+        override_max_interp: bool = False,
+        include_inventory: Optional[bool] = None,
+        include_annotations: bool = True,
+        dry_run: bool = False,
+        refresh: bool = True,
+        lookup_df: Optional[pd.DataFrame] = None,
+        specific_worksheet_ids: Optional[List[str]] = None,
+        create_dummy_items_in_workbook: Optional[str] = None,
+        assume_dependencies_exist: bool = False,
+        reconcile_inventory_by: str = 'id',
+        global_inventory: Optional[str] = None,
+        item_map: Optional[ItemMap] = None,
+        verbose: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None,
+        scope_globals_to_workbook: Optional[bool] = None
 ) -> pd.DataFrame:
     """
     Pushes workbooks into Seeq using a list of Workbook object definitions.
@@ -521,9 +521,10 @@ def push(
                 status.put('Time', datetime.timedelta(0))
                 status.put('Result', 'Pushing')
 
-                status.update('[%d/%d] Pushing %s "%s"' %
+                status.update('[%d/%d] Pushing %s "%s" (%s)' %
                               (len(status.df[status.df['Result'] != 'Queued']),
-                               len(status.df), workbook['Workbook Type'], workbook['Name']),
+                               len(status.df), workbook['Workbook Type'], workbook['Name'],
+                               workbook['ID']),
                               Status.RUNNING)
 
                 if label is None:
@@ -566,8 +567,16 @@ def push(
                         status.warn('Ignoring datasource_map_folder argument because inventory is not being pushed. '
                                     'Add include_inventory=True to push inventory and use the datasource map folder.')
 
-                    search_folder_id, workbook_folder_id = workbook.push_containing_folders(
-                        context, item_map, datasource_output, use_full_path, path, owner, label, access_control)
+                    if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                        search_folder_id, workbook_folder_id = workbook.push_containing_folders(
+                            context, item_map, datasource_output, use_full_path, path, owner, label, access_control)
+                    else:
+                        if 'Ancestors' not in workbook or len(workbook['Ancestors']) == 0:
+                            workbook_folder_id = None
+                            search_folder_id = None
+                        else:
+                            workbook_folder_id = workbook['Ancestors'][-1]
+                            search_folder_id = workbook_folder_id
 
                     search_folder_ids[workbook.id] = search_folder_id
 

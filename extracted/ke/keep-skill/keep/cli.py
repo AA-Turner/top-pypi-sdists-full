@@ -72,84 +72,7 @@ def _is_filesystem_path(source: str) -> Optional[Path]:
     return None
 
 
-def _git_visible_files(directory: Path, recurse: bool) -> list[Path] | None:
-    """Return files visible to git (tracked + untracked, excluding ignored).
-
-    Returns None if the directory is not inside a git repository or git
-    is not available, signalling the caller to fall back to plain walk.
-    """
-    try:
-        # Tracked files + untracked-but-not-ignored files
-        result = subprocess.run(
-            ["git", "ls-files", "-co", "--exclude-standard", "-z"],
-            cwd=directory, capture_output=True, timeout=10,
-        )
-        if result.returncode != 0:
-            return None
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-
-    raw = result.stdout.decode("utf-8", errors="replace")
-    if not raw:
-        return []
-
-    files = []
-    for relpath in raw.split("\0"):
-        if not relpath:
-            continue
-        # Skip paths with any hidden component (.github/, .vscode/, etc.)
-        parts = relpath.split("/")
-        if any(p.startswith(".") for p in parts):
-            continue
-        entry = (directory / relpath).resolve()
-        # Scope to directory
-        if not str(entry).startswith(str(directory.resolve())):
-            continue
-        # Apply recurse constraint: without -r, only top-level files
-        if not recurse and len(parts) > 1:
-            continue
-        if entry.is_symlink() or not entry.is_file():
-            continue
-        files.append(entry)
-    return sorted(files)
-
-
-def _list_directory_files(directory: Path, *, recurse: bool = False) -> list[Path]:
-    """List regular files in a directory, sorted by name.
-
-    Respects .gitignore when the directory is inside a git repository.
-    Skips symlinks, hidden files/dirs (names starting with '.').
-    When recurse=True, walks subdirectories.
-    """
-    # Try git-aware listing first
-    git_files = _git_visible_files(directory, recurse)
-    if git_files is not None:
-        return git_files
-
-    # Fallback: plain walk (non-git directories)
-    files = []
-    if recurse:
-        for root, dirs, filenames in os.walk(directory, followlinks=False):
-            # Skip hidden directories (modifying dirs in-place prunes them)
-            dirs[:] = sorted(d for d in dirs if not d.startswith("."))
-            root_path = Path(root)
-            for name in sorted(filenames):
-                if name.startswith("."):
-                    continue
-                entry = root_path / name
-                if entry.is_symlink():
-                    continue
-                files.append(entry)
-    else:
-        for entry in sorted(directory.iterdir()):
-            if entry.name.startswith("."):
-                continue
-            if entry.is_symlink():
-                continue
-            if entry.is_dir():
-                continue
-            files.append(entry)
-    return files
+from .utils import _git_visible_files, _list_directory_files  # noqa: E402
 
 
 def _output_width() -> int:
@@ -1613,6 +1536,10 @@ def find(
         "--all", "-a",
         help="Include hidden system notes (IDs starting with '.')"
     )] = False,
+    scope: Annotated[Optional[str], typer.Option(
+        "--scope", "-S",
+        help="ID glob to constrain results (e.g. 'file:///path/to/dir*')"
+    )] = None,
     token_budget: Annotated[Optional[int], typer.Option(
         "--tokens",
         help="Token budget for rich context output (includes parts and versions)"
@@ -1644,9 +1571,9 @@ def find(
     search_limit = limit * 5 if tag else limit
 
     if id:
-        results = kp.find(similar_to=id, limit=search_limit, since=since, until=until, include_self=include_self, include_hidden=show_all, deep=deep)
+        results = kp.find(similar_to=id, limit=search_limit, since=since, until=until, include_self=include_self, include_hidden=show_all, deep=deep, scope=scope)
     else:
-        results = kp.find(query, limit=search_limit, since=since, until=until, include_hidden=show_all, deep=deep)
+        results = kp.find(query, limit=search_limit, since=since, until=until, include_hidden=show_all, deep=deep, scope=scope)
 
     # Post-filter by tags if specified
     deep_groups = getattr(results, "deep_groups", {})
@@ -1927,6 +1854,45 @@ def tag_update(
     )
 
 
+def _handle_watch(
+    kp: "Keeper",
+    watch: bool,
+    unwatch: bool,
+    source: str,
+    kind: str,
+    parsed_tags: dict,
+    *,
+    recurse: bool = False,
+    exclude: list[str] | None = None,
+    interval: str | None = None,
+) -> None:
+    """Add or remove a watch entry if --watch or --unwatch was given."""
+    if not watch and not unwatch:
+        return
+    from .watches import add_watch, remove_watch
+    if watch:
+        kwargs: dict = {}
+        if interval:
+            kwargs["interval"] = interval
+        try:
+            entry = add_watch(
+                kp, source, kind,
+                tags=parsed_tags or {},
+                recurse=recurse,
+                exclude=exclude or [],
+                max_watches=kp.config.max_watches,
+                **kwargs,
+            )
+            typer.echo(f"Watching {kind}: {source} (interval {entry.interval})", err=True)
+        except ValueError as e:
+            typer.echo(f"Watch error: {e}", err=True)
+    elif unwatch:
+        if remove_watch(kp, source):
+            typer.echo(f"Stopped watching: {source}", err=True)
+        else:
+            typer.echo(f"Not watching: {source}", err=True)
+
+
 def _put_store(
     kp: "Keeper",
     source: Optional[str],
@@ -1936,6 +1902,10 @@ def _put_store(
     summary: Optional[str],
     force: bool = False,
     recurse: bool = False,
+    exclude: list[str] | None = None,
+    watch: bool = False,
+    unwatch: bool = False,
+    interval: str | None = None,
 ) -> Optional["Item"]:
     """Execute the store operation for put(). Returns Item, or None for directory mode."""
     if source == "-" or (source is None and _has_stdin_data()):
@@ -1963,7 +1933,7 @@ def _put_store(
         if id is not None:
             typer.echo("Error: --id cannot be used with directory mode", err=True)
             raise typer.Exit(1)
-        files = _list_directory_files(resolved_path, recurse=recurse)
+        files = _list_directory_files(resolved_path, recurse=recurse, exclude=exclude)
         if not files:
             typer.echo(f"Error: no eligible files in {resolved_path}/", err=True)
             hint = "hidden files and symlinks are skipped"
@@ -2006,14 +1976,20 @@ def _put_store(
                 typer.echo(f"  error: {e}", err=True)
         if results:
             typer.echo(_format_items(results, as_json=_get_json_output()))
+        _handle_watch(kp, watch, unwatch, str(resolved_path), "directory",
+                      parsed_tags, recurse=recurse, exclude=exclude, interval=interval)
         return None
     elif resolved_path is not None and resolved_path.is_file():
         # File mode: bare file path → normalize to file:// URI
         file_uri = f"file://{resolved_path}"
-        return kp.put(uri=file_uri, id=id or None, tags=parsed_tags or None, summary=summary, force=force)
+        item = kp.put(uri=file_uri, id=id or None, tags=parsed_tags or None, summary=summary, force=force)
+        _handle_watch(kp, watch, unwatch, file_uri, "file", parsed_tags, interval=interval)
+        return item
     elif source and _URI_SCHEME_PATTERN.match(source):
         # URI mode: fetch from URI (--id overrides the document ID)
-        return kp.put(uri=source, id=id or None, tags=parsed_tags or None, summary=summary, force=force)
+        item = kp.put(uri=source, id=id or None, tags=parsed_tags or None, summary=summary, force=force)
+        _handle_watch(kp, watch, unwatch, source, "url", parsed_tags, interval=interval)
+        return item
     elif source:
         # Text mode: inline content (no :// in source)
         if summary is not None:
@@ -2054,6 +2030,22 @@ def put(
         "--recurse", "-r",
         help="Recurse into subdirectories (directory mode)"
     )] = False,
+    exclude: Annotated[Optional[list[str]], typer.Option(
+        "--exclude", "-x",
+        help="Glob pattern to exclude files (directory mode, repeatable)"
+    )] = None,
+    watch: Annotated[bool, typer.Option(
+        "--watch",
+        help="Watch this source for changes (daemon re-imports on change)"
+    )] = False,
+    unwatch: Annotated[bool, typer.Option(
+        "--unwatch",
+        help="Stop watching this source for changes"
+    )] = False,
+    interval: Annotated[Optional[str], typer.Option(
+        "--interval",
+        help="Watch poll interval as ISO 8601 duration (default PT30S, e.g. PT5M, P1D)"
+    )] = None,
     _analyze: Annotated[bool, typer.Option(
         "--analyze", hidden=True, help="(deprecated, no-op)"
     )] = False,
@@ -2076,6 +2068,8 @@ def put(
 
     \b
     Directory mode skips hidden files/dirs and symlinks.
+    Use --exclude/-x to skip additional patterns (repeatable, fnmatch globs):
+      keep put ./src/ -r -x "*.pyc" -x "test_*"
 
     \b
     Text mode uses content-addressed IDs for versioning:
@@ -2083,6 +2077,20 @@ def put(
       keep put "my note" -t done   # Same ID, new version (tag change)
       keep put "different note"    # Different ID (new doc)
     """
+    if watch and unwatch:
+        typer.echo("Error: --watch and --unwatch are mutually exclusive", err=True)
+        raise typer.Exit(1)
+    if interval and not watch:
+        typer.echo("Error: --interval requires --watch", err=True)
+        raise typer.Exit(1)
+    if interval:
+        from .watches import parse_duration
+        try:
+            parse_duration(interval)
+        except ValueError:
+            typer.echo(f"Error: invalid interval {interval!r} (use ISO 8601: PT30S, PT5M, P1D)", err=True)
+            raise typer.Exit(1)
+
     kp = _get_keeper(store)
     parsed_tags = _parse_tags(tags)
 
@@ -2091,7 +2099,11 @@ def put(
     resolved_path = _is_filesystem_path(source) if source and source != "-" else None
 
     try:
-        item = _put_store(kp, source, resolved_path, parsed_tags, id, summary, force, recurse=recurse)
+        item = _put_store(
+            kp, source, resolved_path, parsed_tags, id, summary, force,
+            recurse=recurse, exclude=exclude, watch=watch, unwatch=unwatch,
+            interval=interval,
+        )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -2346,14 +2358,65 @@ def _find_now_version_by_tags(kp, tags: list[str], *, scope: Optional[str] = Non
     return None
 
 
-def expand_prompt(result: "PromptResult", kp=None) -> str:
-    """Expand {get}, {find}, {find:deep}, {text}, {since}, {until} placeholders in a prompt template.
+def _render_binding(name: str, binding: dict, kp=None, token_budget: int = 4000) -> str:
+    """Render a single flow binding to text by dispatching on shape."""
+    from .types import Item
 
-    The {find} placeholder supports optional modifiers:
-      {find}                — use default token budget
-      {find:deep}           — deep search (handled upstream)
-      {find:8000}           — override token budget to 8000
-      {find:deep:8000}      — both deep and budget override
+    # Find-action results: {"results": [...], "count": N}
+    results = binding.get("results")
+    if isinstance(results, list) and results:
+        items = _dicts_to_items(results, summary_limit=500)
+        if items:
+            return render_find_context(items, keeper=kp, token_budget=token_budget)
+
+    # Get-action result: {"id": ..., "summary": ..., "tags": ...}
+    if "id" in binding and "summary" in binding:
+        item = Item(
+            id=str(binding["id"]),
+            summary=str(binding.get("summary", "")),
+            tags=dict(binding.get("tags") or {}),
+        )
+        from ._context_resolution import ItemContext
+        ctx = ItemContext(item=item, viewing_offset=0, similar=[], meta={}, edges={}, parts=[], prev=[], next=[])
+        return render_context(ctx)
+
+    # Meta sections: {"sections": {"learnings": [...], "todo": [...]}}
+    sections = binding.get("sections")
+    if isinstance(sections, dict):
+        lines = []
+        for section_name, section_items in sections.items():
+            if isinstance(section_items, list) and section_items:
+                items = _dicts_to_items(section_items, summary_limit=300)
+                if items:
+                    lines.append(f"meta/{section_name}:")
+                    for item in items:
+                        sid = item.id[:20]
+                        summary = item.summary.replace("\n", " ")[:120]
+                        lines.append(f"  - {sid} {summary}")
+        return "\n".join(lines)
+
+    # Edges: {"edges": {...}}
+    edges = binding.get("edges")
+    if isinstance(edges, dict) and edges:
+        lines = []
+        for tag_key, edge_list in edges.items():
+            if isinstance(edge_list, list):
+                for e in edge_list:
+                    if isinstance(e, dict):
+                        lines.append(f"  {tag_key}: {e.get('id', '')} {str(e.get('summary', ''))[:100]}")
+        return "\n".join(lines)
+
+    return ""
+
+
+def expand_prompt(result: "PromptResult", kp=None) -> str:
+    """Expand placeholders in a prompt template.
+
+    Supports:
+      {get}                 — rendered item context
+      {find[:deep][:budget]} — search results
+      {text}, {since}, {until} — raw filter values
+      {binding_name}        — flow binding (when state doc is used)
     """
     output = result.prompt
 
@@ -2387,6 +2450,18 @@ def expand_prompt(result: "PromptResult", kp=None) -> str:
             deep_primary_cap=cap,
         )
     output = _find_re.sub(_expand_find, output)
+
+    # Expand flow bindings: {binding_name} -> rendered binding
+    if result.flow_bindings:
+        budget = result.token_budget or 4000
+        # Distribute budget across bindings
+        n_bindings = sum(1 for b in result.flow_bindings.values() if b)
+        per_binding = budget // max(n_bindings, 1)
+        for name, binding in result.flow_bindings.items():
+            placeholder = "{" + name + "}"
+            if placeholder in output:
+                rendered = _render_binding(name, binding, kp=kp, token_budget=per_binding)
+                output = output.replace(placeholder, rendered)
 
     # Expand {text}, {since}, {until} with raw filter values
     output = output.replace("{text}", result.text or "")
@@ -3623,6 +3698,13 @@ def pending_cmd(
             "Daemon started (pid=%d) keep-skill=%s python=%s store=%s",
             os.getpid(), _ver, sys.executable, kp._store_path,
         )
+        # Release leases held by previous daemon instances that exited
+        # without completing their work items.
+        wq = kp._get_work_queue()
+        released = wq.release_stale_leases(flow_worker_id)
+        if released:
+            _daemon_logger.info("Released %d stale leases from previous daemon", released)
+
         _daemon_logger.info(
             "Queue: %d pending, %d flow, %d failed",
             kp._pending_queue.count(),
@@ -3646,19 +3728,64 @@ def pending_cmd(
         signal.signal(signal.SIGTERM, handle_signal)
         signal.signal(signal.SIGINT, handle_signal)
 
+        # TTL cleanup for temp files (email attachments, etc.)
+        _last_cleanup_ts = 0.0
+        _CLEANUP_INTERVAL = 86400  # 24 hours
+        _CLEANUP_MAX_AGE = 86400   # delete files older than 24 hours
+
+        def _cleanup_temp_files():
+            nonlocal _last_cleanup_ts
+            now = time.time()
+            if now - _last_cleanup_ts < _CLEANUP_INTERVAL:
+                return
+            _last_cleanup_ts = now
+            cache_dirs = [
+                Path.home() / ".cache" / "keep" / "email-att",
+            ]
+            total_removed = 0
+            for cache_dir in cache_dirs:
+                if not cache_dir.is_dir():
+                    continue
+                for entry in cache_dir.iterdir():
+                    if not entry.is_dir():
+                        continue
+                    try:
+                        age = now - entry.stat().st_mtime
+                        if age > _CLEANUP_MAX_AGE:
+                            shutil.rmtree(entry)
+                            total_removed += 1
+                    except OSError:
+                        pass
+            if total_removed:
+                _daemon_logger.info("Cleaned up %d temp directories", total_removed)
+
         try:
             pid_path.write_text(str(os.getpid()))
             while not shutdown_requested:
                 flow_result = kp.process_pending_work(
-                    limit=50,
+                    limit=1,
                     worker_id=flow_worker_id,
                     lease_seconds=180,
                     shutdown_check=_is_shutdown,
                 )
                 if shutdown_requested:
                     break
-                result = kp.process_pending(limit=50, shutdown_check=_is_shutdown)
+                result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
                 delegated = result.get("delegated", 0)
+
+                # Poll watched sources for changes
+                from .watches import poll_watches as _poll_watches, has_active_watches, next_check_delay, load_watches
+                watch_result = _poll_watches(kp)
+                if watch_result["checked"] > 0:
+                    _daemon_logger.info(
+                        "Watches: checked=%d changed=%d stale=%d errors=%d",
+                        watch_result["checked"], watch_result["changed"],
+                        watch_result["stale"], watch_result["errors"],
+                    )
+
+                # TTL cleanup (self-throttled to once per day)
+                _cleanup_temp_files()
+
                 _daemon_logger.info(
                     "Daemon batch: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
                     result["processed"], result["failed"], delegated,
@@ -3674,7 +3801,7 @@ def pending_cmd(
                 if result["processed"] == 0 and result["failed"] == 0 and delegated == 0 and not flow_activity:
                     # Check for outstanding delegated tasks before exiting
                     delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
-                    flow_remaining = kp.pending_work_count(claimable_only=True) if hasattr(kp, "pending_work_count") else 0
+                    flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
                     pending_remaining = kp._pending_queue.count()
                     if delegated_remaining > 0:
                         _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
@@ -3689,6 +3816,14 @@ def pending_cmd(
                         time.sleep(5)
                         continue
 
+                    # Active watches keep the daemon alive
+                    if has_active_watches(kp):
+                        delay = next_check_delay(load_watches(kp))
+                        delay = max(1.0, min(delay, 30.0))
+                        _daemon_logger.debug("Sleeping %.1fs (next watch check)", delay)
+                        time.sleep(delay)
+                        continue
+
                     # Items may have been enqueued after our last dequeue
                     # (e.g. OCR enqueued while we were processing a summarize).
                     # Wait briefly and check once more before exiting.
@@ -3696,12 +3831,12 @@ def pending_cmd(
                     if shutdown_requested:
                         break
                     flow_result = kp.process_pending_work(
-                        limit=50,
+                        limit=1,
                         worker_id=flow_worker_id,
                         lease_seconds=180,
                         shutdown_check=_is_shutdown,
                     )
-                    result = kp.process_pending(limit=50, shutdown_check=_is_shutdown)
+                    result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
                     flow_activity = (
                         int(flow_result.get("claimed", 0)) > 0
                         or int(flow_result.get("processed", 0)) > 0
@@ -3773,7 +3908,12 @@ def pending_cmd(
             flow_items = wq.list_pending(limit=100)
         except Exception:
             flow_items = []
-        if not items and not failed and not flow_items:
+        try:
+            from .watches import list_watches as _lw
+            _watches = _lw(kp)
+        except Exception:
+            _watches = []
+        if not items and not failed and not flow_items and not _watches:
             typer.echo("Nothing pending.")
         else:
             if items:
@@ -3793,6 +3933,31 @@ def pending_cmd(
                 for item in failed[:10]:
                     error = item.get("last_error", "unknown")
                     typer.echo(f"  {item['task_type']:15s} {item['id']}: {error}")
+        # Show watches
+        try:
+            from .watches import list_watches
+            watches = list_watches(kp)
+            if watches:
+                active = [w for w in watches if not w.stale]
+                stale = [w for w in watches if w.stale]
+                label = f"{len(active)} active"
+                if stale:
+                    label += f", {len(stale)} stale"
+                typer.echo(f"\nWatches ({label}):")
+                for w in watches:
+                    suffix = " [stale]" if w.stale else ""
+                    detail = ""
+                    if w.kind == "directory":
+                        parts = []
+                        if w.recurse:
+                            parts.append("recurse")
+                        if w.exclude:
+                            parts.append(f"{len(w.exclude)} excludes")
+                        if parts:
+                            detail = f" ({', '.join(parts)})"
+                    typer.echo(f"  {w.kind:12s} {w.source}{detail}{suffix}")
+        except Exception:
+            pass
         kp.close()
         return
 

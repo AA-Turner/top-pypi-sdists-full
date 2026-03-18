@@ -424,7 +424,7 @@ class EmailContact(ComplexToStringMixin, PrimaryMixin, WBModel):
     @transaction.atomic
     def set_entry_primary_email(cls, entry, address):
         contact = EmailContact.objects.select_for_update().update_or_create(
-            address=address, defaults={"entry": entry}
+            address=address.lower().strip(), defaults={"entry": entry}
         )[0]
         contact.primary = True
         contact.save()

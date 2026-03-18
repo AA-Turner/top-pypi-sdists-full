@@ -1,19 +1,20 @@
 Metadata-Version: 2.2
 Name: fastremap
-Version: 1.17.7
+Version: 1.18.0
 Summary: Remap, mask, renumber, unique, and in-place transposition of 3D labeled images. Point cloud too.
 Home-page: https://github.com/seung-lab/fastremap/
 Author: William Silversmith
 Author-email: ws9@princeton.edu
+License: LGPL-3.0
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9,<4.0
 Description-Content-Type: text/markdown
@@ -26,6 +27,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -70,6 +72,7 @@ minval, maxval = fastremap.minmax(labels) # faster version of (np.min(labels), n
 # computes number of matching adjacent pixel pairs in an image
 num_pairs = fastremap.pixel_pairs(labels)  
 n_foreground = fastremap.foreground(labels) # number of nonzero voxels
+is_solid = fastremap.is_solid(labels, 1) # checks if all 1 w/ early exit, no copy
 
 # computes the cutout.tobytes(order) of each chunk and returns
 # the binaries indexed by fortran order in the order specified (C or F)

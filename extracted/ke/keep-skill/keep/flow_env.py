@@ -157,6 +157,7 @@ class LocalFlowEnvironment:
         until: str | None = None,
         include_hidden: bool = False,
         deep: bool = False,
+        scope: str | None = None,
     ) -> list[Any]:
         return self._keeper.find(
             query=query,
@@ -167,6 +168,7 @@ class LocalFlowEnvironment:
             until=until,
             include_hidden=include_hidden,
             deep=deep,
+            scope=scope,
         )
 
     def list_items(
@@ -189,6 +191,9 @@ class LocalFlowEnvironment:
             include_hidden=include_hidden,
             limit=limit,
         )
+
+    def list_parts(self, id: str) -> list[Any]:
+        return self._keeper.list_parts(id)
 
     def list_versions(self, id: str, *, limit: int = 3) -> list[Any]:
         return self._keeper.list_versions(id, limit=limit)

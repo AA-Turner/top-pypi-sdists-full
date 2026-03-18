@@ -60,6 +60,8 @@ __all__ = (
     "ListStepsPaginatorName",
     "ListStudioSessionMappingsPaginatorName",
     "ListStudiosPaginatorName",
+    "LogTypeType",
+    "LogUploadPolicyValueType",
     "MarketTypeType",
     "NotebookExecutionStatusType",
     "OnClusterAppUITypeType",
@@ -194,6 +196,8 @@ ListSecurityConfigurationsPaginatorName = Literal["list_security_configurations"
 ListStepsPaginatorName = Literal["list_steps"]
 ListStudioSessionMappingsPaginatorName = Literal["list_studio_session_mappings"]
 ListStudiosPaginatorName = Literal["list_studios"]
+LogTypeType = Literal["application-logs", "persistent-ui-logs", "system-logs"]
+LogUploadPolicyValueType = Literal["disabled", "emr-managed", "on-customer-s3only"]
 MarketTypeType = Literal["ON_DEMAND", "SPOT"]
 NotebookExecutionStatusType = Literal[
     "FAILED",

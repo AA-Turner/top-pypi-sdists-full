@@ -5,6 +5,7 @@
 #include <kiwi/Form.h>
 #include <kiwi/PatternMatcher.h>
 #include <kiwi/FrozenTrie.h>
+#include <kiwi/TypoTransformer.h>
 
 #include "StrUtils.h"
 
@@ -97,7 +98,10 @@ namespace kiwi
 		Match matchOptions, 
 		Dialect allowedDialect,
 		size_t maxUnkFormSize, 
+		size_t maxUnkFormSizeFollowedByJClass,
 		size_t spaceTolerance,
+		const PreparedTypoTransformer* typoTransformer,
+		float typoThreshold,
 		float continualTypoCost,
 		float lengtheningTypoCost,
 		const PretokenizedSpanGroup::Span*& pretokenizedFirst,

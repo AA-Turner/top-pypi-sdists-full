@@ -9,6 +9,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_script_preview_json_body_args import RunScriptPreviewJsonBodyArgs
+    from ..models.run_script_preview_json_body_modules import RunScriptPreviewJsonBodyModules
 
 
 T = TypeVar("T", bound="RunScriptPreviewJsonBody")
@@ -28,6 +29,8 @@ class RunScriptPreviewJsonBody:
         dedicated_worker (Union[Unset, bool]):
         lock (Union[Unset, str]):
         flow_path (Union[Unset, str]):
+        modules (Union[Unset, None, RunScriptPreviewJsonBodyModules]): Additional script modules keyed by relative file
+            path
     """
 
     args: "RunScriptPreviewJsonBodyArgs"
@@ -40,6 +43,7 @@ class RunScriptPreviewJsonBody:
     dedicated_worker: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
     flow_path: Union[Unset, str] = UNSET
+    modules: Union[Unset, None, "RunScriptPreviewJsonBodyModules"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -60,6 +64,9 @@ class RunScriptPreviewJsonBody:
         dedicated_worker = self.dedicated_worker
         lock = self.lock
         flow_path = self.flow_path
+        modules: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.modules, Unset):
+            modules = self.modules.to_dict() if self.modules else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -86,12 +93,15 @@ class RunScriptPreviewJsonBody:
             field_dict["lock"] = lock
         if flow_path is not UNSET:
             field_dict["flow_path"] = flow_path
+        if modules is not UNSET:
+            field_dict["modules"] = modules
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.run_script_preview_json_body_args import RunScriptPreviewJsonBodyArgs
+        from ..models.run_script_preview_json_body_modules import RunScriptPreviewJsonBodyModules
 
         d = src_dict.copy()
         args = RunScriptPreviewJsonBodyArgs.from_dict(d.pop("args"))
@@ -124,6 +134,15 @@ class RunScriptPreviewJsonBody:
 
         flow_path = d.pop("flow_path", UNSET)
 
+        _modules = d.pop("modules", UNSET)
+        modules: Union[Unset, None, RunScriptPreviewJsonBodyModules]
+        if _modules is None:
+            modules = None
+        elif isinstance(_modules, Unset):
+            modules = UNSET
+        else:
+            modules = RunScriptPreviewJsonBodyModules.from_dict(_modules)
+
         run_script_preview_json_body = cls(
             args=args,
             content=content,
@@ -135,6 +154,7 @@ class RunScriptPreviewJsonBody:
             dedicated_worker=dedicated_worker,
             lock=lock,
             flow_path=flow_path,
+            modules=modules,
         )
 
         run_script_preview_json_body.additional_properties = d

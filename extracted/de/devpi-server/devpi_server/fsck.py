@@ -1,18 +1,47 @@
+from __future__ import annotations
+
 from .filestore import FileEntry
+from .log import TimeDeltaChecker
 from .main import CommandRunner
 from .main import Fatal
 from .main import xom_from_config
+from typing import TYPE_CHECKING
 import sys
-import time
 
 
-def add_fsck_options(parser, pluginmanager):
+if TYPE_CHECKING:
+    from .config import MyArgumentParser
+    from .main import XOM
+    from .model import BaseStage
+    from pluggy import PluginManager
+
+
+def add_fsck_options(
+    parser: MyArgumentParser,
+    pluginmanager: PluginManager,  # noqa: ARG001 - API
+) -> None:
     parser.addoption(
         "--checksum", action="store_true", default=True, dest="checksum",
         help="Perform checksum validation.")
     parser.addoption(
         "--no-checksum", action="store_false", dest="checksum",
         help="Skip checksum validation.")
+
+
+class IndexCache:
+    def __init__(self, xom: XOM) -> None:
+        self.cache: dict[tuple[str, str], BaseStage | None] = {}
+        self.xom = xom
+
+    def get(self, user: str, index: str) -> BaseStage | None:
+        key = (user, index)
+        if key not in self.cache:
+            self.cache[key] = self.xom.model.getstage(user, index)
+        return self.cache[key]
+
+    def is_mirror(self, user: str, index: str) -> bool:
+        stage = self.get(user, index)
+        return stage is not None and stage.ixconfig["type"] == "mirror"
 
 
 def fsck():
@@ -36,9 +65,11 @@ def fsck():
         log.info("uuid: %s", xom.config.nodeinfo["uuid"])
         keyfs = xom.keyfs
         keys = (keyfs.get_key('PYPIFILE_NOMD5'), keyfs.get_key('STAGEFILE'))
-        last_time = time.time()
+        timed_log = TimeDeltaChecker(5)
         processed = 0
-        missing_files = 0
+        error_count = 0
+        warning_count = 0
+        index_cache = IndexCache(xom)
         got_errors = False
         with xom.keyfs.read_transaction() as tx:
             log.info("Checking at serial %s", tx.at_serial)
@@ -46,8 +77,7 @@ def fsck():
             for item in relpaths:
                 if item.value is None:
                     continue
-                if time.time() - last_time > 5:
-                    last_time = time.time()
+                if timed_log.is_due():
                     log.info(
                         "Processed a total of %s files (serial %s/%s) so far.",
                         processed,
@@ -60,22 +90,27 @@ def fsck():
                 if not entry.last_modified:
                     continue
                 if not entry.file_exists():
-                    missing_files += 1
-                    if missing_files < 10:
+                    if index_cache.is_mirror(entry.user, entry.index):
+                        warning_count += 1
+                        log.warning("Missing file %s", entry.relpath)
+                    else:
+                        error_count += 1
                         got_errors = True
                         log.error("Missing file %s", entry.relpath)
-                    elif missing_files == 10:
-                        log.error("Further missing files will be omitted.")
                     continue
                 if not args.checksum:
                     continue
-                msg = entry.validate()
-                if msg is not None:
+                _msg = entry.validate()
+                if _msg is not None:
                     got_errors = True
-                    log.error("%s - %s", entry.relpath, msg)
+                    log.error("%s - %s", entry.relpath, _msg)
             log.info("Finished with a total of %s files.", processed)
-            if missing_files:
-                log.error("A total of %s files are missing.", missing_files)
+            if warning_count:
+                log.warning(
+                    "A total of %s files are missing in mirrors.", warning_count
+                )
+            if error_count:
+                log.error("A total of %s files are missing.", error_count)
             if got_errors:
                 msg = "There have been errors during consistency check."
                 raise Fatal(msg)

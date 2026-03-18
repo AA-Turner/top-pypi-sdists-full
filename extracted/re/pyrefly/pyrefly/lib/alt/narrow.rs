@@ -62,7 +62,9 @@ use crate::types::literal::Lit;
 use crate::types::literal::Literal;
 use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
+use crate::types::type_var::Restriction;
 use crate::types::types::CalleeKind;
+use crate::types::types::TParams;
 use crate::types::types::Type;
 
 /// Synthesize an `Expr` for an integer index, producing a `NumberLiteral` for
@@ -100,7 +102,10 @@ const NARROW_ENUM_LIMIT: usize = 100;
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     // Get the union of all members of an enum, minus the specified member
     fn subtract_enum_member(&self, cls: &ClassType, name: &Name) -> Type {
-        if cls.class_object().fields().len() > NARROW_ENUM_LIMIT {
+        if self
+            .get_class_fields(cls.class_object())
+            .is_some_and(|f| f.len() > NARROW_ENUM_LIMIT)
+        {
             return self.heap.mk_class_type(cls.clone());
         }
         let e = self.get_enum_from_class(cls.class_object()).unwrap();
@@ -282,11 +287,78 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Extract element expressions from a literal container (list, tuple, set)
+    /// or a builtin container constructor call wrapping one (list/tuple/set/frozenset).
+    /// Returns `None` if the expression is not a container whose elements can
+    /// be statically enumerated.
+    fn literal_membership_exprs(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Vec<Expr>> {
+        match expr {
+            Expr::List(list) => Some(list.elts.clone()),
+            Expr::Tuple(tuple) => Some(tuple.elts.clone()),
+            Expr::Set(set) => Some(set.elts.clone()),
+            Expr::Call(call) => {
+                const CONTAINER_NAMES: &[&str] = &["list", "tuple", "set", "frozenset"];
+                // Cheap syntactic pre-check: only proceed when the callee looks like
+                // it *could* be a builtin container constructor (bare name or
+                // `builtins.<name>`). This avoids an expensive `expr_infer` call for
+                // the common case of arbitrary function calls.
+                let callee_name = match &*call.func {
+                    Expr::Name(name) => name.id.as_str(),
+                    Expr::Attribute(attr) => attr.attr.as_str(),
+                    _ => return None,
+                };
+                if !CONTAINER_NAMES.contains(&callee_name) {
+                    return None;
+                }
+                if !call.arguments.keywords.is_empty() {
+                    return None;
+                }
+                // Confirm via type inference that it's actually the builtin, to guard
+                // against shadowing or unrelated attributes with the same name.
+                let is_builtin_container = match self.expr_infer(&call.func, errors) {
+                    Type::ClassDef(cls) => CONTAINER_NAMES.iter().any(|n| cls.is_builtin(n)),
+                    _ => false,
+                };
+                if !is_builtin_container {
+                    return None;
+                }
+                match &*call.arguments.args {
+                    [] => Some(Vec::new()),
+                    [expr] => self.literal_membership_exprs(expr, errors),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Unwrap a class object for isinstance narrowing. When the right-hand side is `tuple`
+    /// and the left-hand side is a heterogeneous tuple type, creates a TypeVarTuple for
+    /// precise narrowing. Otherwise falls back to standard class object unwrapping.
+    fn unwrap_isinstance_target(&self, left: &Type, right: &Type) -> Option<(TParams, Type)> {
+        let right_is_tuple = match right {
+            Type::Type(box Type::Tuple(_)) => true,
+            Type::ClassDef(cls) => cls.is_builtin("tuple"),
+            _ => false,
+        };
+        let narrow_heterogeneous_tuple = right_is_tuple
+            && match left {
+                Type::Tuple(_) => true,
+                Type::ClassType(cls) => self.as_tuple(cls).is_some(),
+                _ => false,
+            };
+        if narrow_heterogeneous_tuple {
+            Some(self.instantiate_type_var_tuple())
+        } else {
+            self.unwrap_class_object_silently(right)
+        }
+    }
+
     fn narrow_isinstance(&self, left: &Type, right: &Type) -> Type {
         let mut res = Vec::new();
         for right in self.as_class_info(right.clone()) {
             res.push(self.distribute_over_union(left, |l| {
-                if let Some((tparams, right)) = self.unwrap_class_object_silently(&right) {
+                if let Some((tparams, right)) = self.unwrap_isinstance_target(l, &right) {
                     let (vs, right) = self
                         .solver()
                         .fresh_quantified(&tparams, right, self.uniques);
@@ -328,13 +400,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for (right, allows_negative_narrow) in self.expr_as_class_info(right_expr, errors) {
             res.push(self.distribute_over_union(left, |l| {
                 let allows_negative_narrow = allows_negative_narrow || force_allow_negative;
-                if allows_negative_narrow
-                    && let Some((tparams, right)) = self.unwrap_class_object_silently(&right)
-                {
+                if !allows_negative_narrow {
+                    return l.clone();
+                }
+                if let Some((tparams, right)) = self.unwrap_isinstance_target(l, &right) {
                     let (vs, right) = self
                         .solver()
                         .fresh_quantified(&tparams, right, self.uniques);
-                    let result = self.subtract(l, &right);
+                    // For constrained TypeVars, subtract from the concrete constraints
+                    // so that e.g. isinstance(x, (int, float)) with T(int, str, float)
+                    // narrows the else branch to str instead of leaving it as T.
+                    let result = if let Type::Quantified(q) = l
+                        && let Restriction::Constraints(_) = q.restriction()
+                    {
+                        let concrete = q.restriction().as_type(self.stdlib, self.heap);
+                        self.subtract(&concrete, &right)
+                    } else {
+                        self.subtract(l, &right)
+                    };
                     // These are safe to ignore, as the only possible specialization errors are handled elsewhere:
                     // * If `left` is an invalid specialization, the error has already been reported at its definition site.
                     // * Unsafe runtime protocol overlaps are separately checked for in special_calls.rs.
@@ -357,7 +440,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && self.is_final(cls)
         {
             self.distribute_over_union(left, |l| {
-                if let Some((tparams, unwrapped)) = self.unwrap_class_object_silently(&right) {
+                if let Some((tparams, unwrapped)) = self.unwrap_isinstance_target(l, &right) {
                     let (vs, unwrapped) =
                         self.solver()
                             .fresh_quantified(&tparams, unwrapped, self.uniques);
@@ -888,15 +971,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.is_not_type_for_pattern(ty, |t| self.is_subset_eq(t, &mapping))
             }
             AtomicNarrowOp::In(v) => {
-                // First, check for List, Tuple, and Set literal expressions (syntactic check,
-                // avoids type inference on the container itself)
-                let exprs = match v {
-                    Expr::List(list) => Some(list.elts.clone()),
-                    Expr::Tuple(tuple) => Some(tuple.elts.clone()),
-                    Expr::Set(set) => Some(set.elts.clone()),
-                    _ => None,
-                };
-                if let Some(exprs) = exprs {
+                // First, check for literal containers. We also unwrap builtin
+                // container constructor calls (list/tuple/set/frozenset) when
+                // their argument is itself a literal container.
+                if let Some(exprs) = self.literal_membership_exprs(v, errors) {
                     // Bail out if any element is a starred expression (e.g., `x in [*y, 1]`).
                     // We can't know all values at compile time when unpacking occurs.
                     if exprs.iter().any(|e| matches!(e, Expr::Starred(_))) {
@@ -954,15 +1032,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             AtomicNarrowOp::NotIn(v) => {
-                // First, check for List, Tuple, and Set literal expressions (syntactic check,
-                // avoids type inference on the container itself)
-                let exprs = match v {
-                    Expr::List(list) => Some(list.elts.clone()),
-                    Expr::Tuple(tuple) => Some(tuple.elts.clone()),
-                    Expr::Set(set) => Some(set.elts.clone()),
-                    _ => None,
-                };
-                if let Some(exprs) = exprs {
+                // First, check for literal containers. We also unwrap builtin
+                // container constructor calls (list/tuple/set/frozenset) when
+                // their argument is itself a literal container.
+                if let Some(exprs) = self.literal_membership_exprs(v, errors) {
                     // Bail out if any element is a starred expression (e.g., `x not in [*y, 1]`).
                     // We can't know all values at compile time when unpacking occurs.
                     if exprs.iter().any(|e| matches!(e, Expr::Starred(_))) {
@@ -1492,8 +1565,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     (Some(_), None) => return type_info.clone(),
                     (None, _) => self.force_for_narrowing(type_info.ty(), range, errors),
                 };
-                // We only narrow the attribute to `Any` if the attribute does not exist
-                if !self.has_attr(&base_ty, attr) {
+                // Narrow the attribute facet only if it doesn't exist on all members.
+                // The facet type is the union of attribute types from members that DO
+                // have the attribute, plus `Any` for members that don't. Preserving
+                // specific attribute types (rather than using a blanket `Any`) ensures
+                // fixpoint convergence when `hasattr` is used in loops with reassignment.
+                if let Some(narrow_ty) = self.hasattr_narrow_type(&base_ty, attr, range, errors) {
                     let attr_facet = FacetKind::Attribute(attr.clone());
                     let facets = match resolved_chain {
                         Some(chain) => {
@@ -1503,7 +1580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         None => Vec1::new(attr_facet),
                     };
-                    type_info.with_narrow(&facets, self.heap.mk_any_implicit())
+                    type_info.with_narrow(&facets, narrow_ty)
                 } else {
                     type_info.clone()
                 }

@@ -143,6 +143,7 @@ def _log_slow_graph_generation(
     start: float,
     value_type: str,
     graph_id: str,
+    run_id: str | None = None,
     warn_threshold_ms: float = 100,
     error_threshold_ms: float = 250,
 ) -> None:
@@ -164,14 +165,19 @@ def _log_slow_graph_generation(
             elapsed_ms=elapsed_ms_rounded,
             value_type=value_type,
             graph_id=graph_id,
+            run_id=run_id,
         )
 
 
 @asynccontextmanager
-async def _generate_graph(value: Any, graph_id: str) -> AsyncIterator[Any]:
+async def _generate_graph(
+    value: Any, graph_id: str, run_id: str | None = None
+) -> AsyncIterator[Any]:
     """Yield a graph object regardless of its type.
 
     Logs a warning if graph generation takes >100ms, error if >250ms.
+    run_id is passed through solely for inclusion in slow-load log entries,
+    enabling correlation with access logs.
     """
     start = time.perf_counter()
     value_type = type(value).__name__
@@ -179,15 +185,15 @@ async def _generate_graph(value: Any, graph_id: str) -> AsyncIterator[Any]:
         yield value
     elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
         async with value as ctx_value:
-            _log_slow_graph_generation(start, value_type, graph_id)
+            _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
             yield ctx_value
     elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
         with value as ctx_value:
-            _log_slow_graph_generation(start, value_type, graph_id)
+            _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
             yield ctx_value
     elif asyncio.iscoroutine(value):
         result = await value
-        _log_slow_graph_generation(start, value_type, graph_id)
+        _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
         yield result
     else:
         yield value
@@ -206,6 +212,7 @@ async def get_graph(
     checkpointer: BaseCheckpointSaver | None = None,
     store: BaseStore,
     access_context: AccessContext,
+    run_id: str | None = None,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
     from langgraph_api.utils import config as lg_config  # noqa: PLC0415
@@ -239,7 +246,7 @@ async def get_graph(
 
         value = invoke_factory(value, graph_id, config, server_runtime)
     try:
-        async with _generate_graph(value, graph_id) as graph_obj:
+        async with _generate_graph(value, graph_id, run_id=run_id) as graph_obj:
             if isinstance(graph_obj, StateGraph):
                 graph_obj = graph_obj.compile()
             if not isinstance(graph_obj, Pregel | BaseRemotePregel):

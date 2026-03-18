@@ -593,12 +593,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Expr::FString(x) => {
-                // Swallow type errors in f-string interpolations: there is no valid
-                // place to add a suppression comment inside a string literal.
-                let fstring_errors = self.error_swallower();
                 let mut all_literal_strings = true;
                 x.visit(&mut |x| {
-                    let fstring_expr_ty = self.expr_infer(x, &fstring_errors);
+                    let fstring_expr_ty = self.expr_infer(x, errors);
                     if !fstring_expr_ty.is_literal_string() {
                         all_literal_strings = false;
                     }
@@ -610,11 +607,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Expr::TString(x) => {
-                // Swallow type errors in t-string interpolations: there is no valid
-                // place to add a suppression comment inside a string literal.
-                let tstring_errors = self.error_swallower();
                 x.visit(&mut |x| {
-                    self.expr_infer(x, &tstring_errors);
+                    self.expr_infer(x, errors);
                 });
                 if let Some(template) = self.stdlib.template() {
                     self.heap.mk_class_type(template.clone())
@@ -1992,7 +1986,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Jaxtyping annotation parsing: Float[Tensor, "batch channels"] syntax
                 Type::ClassDef(ref cls)
                     if self.is_jaxtyping_wrapper(cls)
-                        && self.solver().flags.tensor_shapes =>
+                        && self.solver().tensor_shapes =>
                 {
                     Type::type_form(self.parse_jaxtyping_annotation(xs, range, errors))
                 }

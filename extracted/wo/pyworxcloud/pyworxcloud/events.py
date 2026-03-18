@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger("pyworxcloud.events")
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
     for obj in objs:
-        if not obj in args:
+        if obj not in args:
             _LOGGER.debug("%s was not found in %s", obj, args)
             return False
         if not isinstance(args[obj], expected_type):
@@ -59,8 +59,7 @@ class EventHandler:
         signature = inspect.signature(handler)
         parameters = signature.parameters.values()
         accepts_var_kwargs = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD
-            for parameter in parameters
+            parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters
         )
 
         if accepts_var_kwargs:
@@ -97,7 +96,7 @@ class EventHandler:
 
     def call(self, event: LandroidEvent, **kwargs) -> bool:
         """Call a handler if it was set."""
-        if not event in self.__events:
+        if event not in self.__events:
             # Event was not set
             return False
 
@@ -131,9 +130,9 @@ class EventHandler:
                     return False
                 has_valid_api_payload = True
 
-            has_valid_name_device = check_syntax(kwargs, ["name"], str) and check_syntax(
-                kwargs, ["device"], DeviceHandler
-            )
+            has_valid_name_device = check_syntax(
+                kwargs, ["name"], str
+            ) and check_syntax(kwargs, ["device"], DeviceHandler)
 
             if has_valid_name_device and not has_valid_api_payload:
                 api_payload = {"name": kwargs["name"], "device": kwargs["device"]}

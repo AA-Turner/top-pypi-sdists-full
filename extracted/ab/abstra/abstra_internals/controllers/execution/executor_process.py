@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import signal
 import threading
 import time
@@ -47,6 +48,33 @@ from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 from abstra_internals.utils.stdio_broadcast import StdioBroadcastPublisher
 
+_SESSION_QUEUE_RE = re.compile(
+    r"^session_(s2w|w2s)_([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$"
+)
+
+
+def _validate_session_queues(
+    send_queue: str, recv_queue: str, execution_id: str
+) -> None:
+    for name in (send_queue, recv_queue):
+        m = _SESSION_QUEUE_RE.match(name)
+        if not m:
+            raise ValueError(f"Invalid session queue name: {name}")
+        if m.group(2) != execution_id:
+            raise ValueError(
+                f"Queue executionId mismatch: {m.group(2)} != {execution_id}"
+            )
+    # Validate directions: send_queue must be s2w (server-to-worker) and
+    # recv_queue must be w2s (worker-to-server) from cloud-api's perspective.
+    # The worker inverts these in handle_execute.
+    send_m = _SESSION_QUEUE_RE.match(send_queue)
+    recv_m = _SESSION_QUEUE_RE.match(recv_queue)
+    if send_m and recv_m:
+        if send_m.group(1) == recv_m.group(1):
+            raise ValueError(
+                f"Queue direction mismatch: both queues have direction '{send_m.group(1)}'"
+            )
+
 
 class ExecutorCommand(str, Enum):
     WARMUP = "warmup"
@@ -80,6 +108,9 @@ class ShutdownRequest:
 class RabbitMQParams:
     connection_uri: str
     execution_id: str
+    send_queue: Optional[str] = None
+    recv_queue: Optional[str] = None
+    queue_expire_ms: Optional[int] = None
 
 
 @dataclass
@@ -203,11 +234,44 @@ def handle_execute(
 
         actual_connection = request.connection
         if request.rabbitmq_params is not None:
+            params = request.rabbitmq_params
+            # Session queues: cloud-api's send = worker's recv, and vice versa
+            if params.recv_queue and params.send_queue:
+                _validate_session_queues(
+                    params.send_queue, params.recv_queue, params.execution_id
+                )
+                if params.queue_expire_ms is not None:
+                    # Log unusual values but always keep the cloud-api value.
+                    # Rejecting it and falling back to env-based default would cause
+                    # PRECONDITION_FAILED on queue re-declare (different x-expires).
+                    if params.queue_expire_ms < 60_000:
+                        AbstraLogger.warning(
+                            f"[Executor] queue_expire_ms unusually low ({params.queue_expire_ms}ms), "
+                            f"keeping cloud-api value to avoid PRECONDITION_FAILED"
+                        )
+                worker_send_queue = params.recv_queue
+                worker_recv_queue = params.send_queue
+                is_session = True
+            elif params.recv_queue or params.send_queue:
+                AbstraLogger.error(
+                    f"[Executor] Received partial session fields "
+                    f"(send_queue={params.send_queue}, recv_queue={params.recv_queue}). "
+                    f"Falling back to legacy mode. This is likely a bug in cloud-api."
+                )
+                worker_send_queue = f"worker_to_server_{params.execution_id}"
+                worker_recv_queue = f"server_to_worker_{params.execution_id}"
+                is_session = False
+            else:
+                worker_send_queue = f"worker_to_server_{params.execution_id}"
+                worker_recv_queue = f"server_to_worker_{params.execution_id}"
+                is_session = False
             rabbitmq_connection_to_close = RabbitMQConnection(
-                connection_uri=request.rabbitmq_params.connection_uri,
-                send_queue=f"worker_to_server_{request.rabbitmq_params.execution_id}",
-                recv_queue=f"server_to_worker_{request.rabbitmq_params.execution_id}",
-                execution_id=request.rabbitmq_params.execution_id,
+                connection_uri=params.connection_uri,
+                send_queue=worker_send_queue,
+                recv_queue=worker_recv_queue,
+                execution_id=params.execution_id,
+                is_session=is_session,
+                queue_expire_ms=params.queue_expire_ms,
             )
             actual_connection = rabbitmq_connection_to_close
 

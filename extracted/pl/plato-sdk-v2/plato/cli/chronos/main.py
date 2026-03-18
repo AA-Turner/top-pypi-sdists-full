@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich.table import Table
 
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
@@ -528,6 +529,86 @@ def workspace_refs(
                 console.print(",\n".join(entries))
                 console.print("    }")
                 console.print("  }")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Filesystem audit
+# ---------------------------------------------------------------------------
+
+
+@chronos_app.command("audit")
+def audit_command(
+    session_id: Annotated[str, typer.Argument(help="Session public ID")],
+    step: Annotated[str | None, typer.Option("--step", help="Filter by step name")] = None,
+    repo: Annotated[str | None, typer.Option("--repo", help="Filter by repo name")] = None,
+    path: Annotated[str | None, typer.Option("--path", help="Filter by path prefix")] = None,
+    trace: Annotated[str | None, typer.Option("--trace", help="Filter by trace ID")] = None,
+    agent: Annotated[str | None, typer.Option("--agent", help="Filter by agent name")] = None,
+    operation: Annotated[str | None, typer.Option("--operation", help="Filter by operation name")] = None,
+    format: Annotated[str, typer.Option("--format", help="Output format: table or json")] = "table",
+    limit: Annotated[int, typer.Option("--limit", help="Max events to return")] = 500,
+    output: Path | None = _output_option,
+    chronos_url: str = _chronos_url_option,
+    api_key: str = _api_key_option,
+):
+    """Query filesystem audit events for a session."""
+    chronos_url = chronos_url or settings.chronos_url
+    api_key = _require_api_key(api_key)
+
+    try:
+        with Chronos(base_url=chronos_url, api_key=api_key) as client:
+            audit_response = client.get_audit_events(
+                session_id,
+                step_name=step,
+                repo_name=repo,
+                path=path,
+                trace_id=trace,
+                agent_name=agent,
+                operation=operation,
+                limit=limit,
+            )
+            data = audit_response.model_dump(mode="json")
+
+        events: list[dict[str, str]] = data.get("events", [])
+
+        if format == "json":
+            json_str = json.dumps(data, indent=2)
+            if output:
+                _write_output(json_str, output)
+            else:
+                console.print(json_str)
+        else:
+            if not events:
+                console.print("[yellow]No audit events found[/yellow]")
+                raise typer.Exit(0)
+
+            table = Table(title=f"Audit Events for {session_id[:12]}...")
+            table.add_column("Timestamp", style="dim")
+            table.add_column("Op", style="cyan")
+            table.add_column("Path", style="green")
+            table.add_column("Agent", style="yellow")
+            table.add_column("Exe", style="magenta")
+            table.add_column("Trace", style="dim")
+
+            for event in events:
+                table.add_row(
+                    event.get("timestamp", ""),
+                    event.get("operation", ""),
+                    event.get("path", ""),
+                    event.get("agent_name", ""),
+                    event.get("exe", ""),
+                    event.get("trace_id", "")[:12] + "..." if event.get("trace_id") else "",
+                )
+            console.print(table)
+
+            if output:
+                _write_output(json.dumps(data, indent=2), output)
 
     except typer.Exit:
         raise

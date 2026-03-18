@@ -27,7 +27,7 @@ def register_verifier(name: str):
         if name in _VERIFIER_REGISTRY:
             logger.warning("Overwriting verifier registration for '%s'", name)
         _VERIFIER_REGISTRY[name] = cls
-        cls.name = name  # type: ignore[attr-defined]
+        cls.name = name
         return cls
 
     return decorator

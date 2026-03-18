@@ -169,7 +169,7 @@ def activate_user(request, uuid, token):
             return redirect(success_redirect_url, status=status.HTTP_200_OK)
         return render(
             request,
-            "activate_confirm.html",
+            "authentication/activate_confirm.html",
             {
                 "title": _("Activation Successful"),
                 "message": _("You are successfully registered. Please login"),
@@ -183,7 +183,7 @@ def activate_user(request, uuid, token):
     else:
         return render(
             request,
-            "activate_confirm.html",
+            "authentication/activate_confirm.html",
             {
                 "title": _("Activation Failed"),
                 "message": _(

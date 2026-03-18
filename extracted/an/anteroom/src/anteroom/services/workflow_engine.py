@@ -70,6 +70,13 @@ class WorkflowStepDef:
     on_timeout: dict[str, Any] | None = None
     # Publish step fields (#966)
     destination: dict[str, Any] | None = None
+    # Idempotency (#977)
+    idempotency_key: str | None = None
+    # LLM step fields (#983, #984)
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    response_format: str | None = None  # "json_object" for structured output (#984)
     # Conditional execution (#959)
     when: dict[str, Any] | None = None
     # Retry configuration (#962)
@@ -77,6 +84,18 @@ class WorkflowStepDef:
     # Common
     approval_mode: str | None = None
     timeout: int | None = None
+
+
+@dataclass(frozen=True)
+class TriggerDef:
+    """A trigger declaration in a workflow definition."""
+
+    type: str
+    cron: str | None = None
+    inputs: dict[str, Any] | None = None
+    target_kind: str | None = None
+    target_ref: str | None = None
+    missed_policy: str | None = None
 
 
 @dataclass
@@ -91,6 +110,7 @@ class WorkflowDefinition:
     notifications: dict[str, Any] | None = None
     raw_yaml: bytes = field(default=b"", repr=False)
     content_hash: str = ""
+    triggers: list[TriggerDef] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +286,8 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
 
     content_hash = hashlib.sha256(raw_bytes).hexdigest()
 
+    triggers = [_parse_trigger(t) for t in raw.get("triggers", [])]
+
     defn = WorkflowDefinition(
         id=raw["id"],
         version=raw["version"],
@@ -275,9 +297,32 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
         notifications=raw.get("notifications"),
         raw_yaml=raw_bytes,
         content_hash=content_hash,
+        triggers=triggers,
     )
     _validate_definition(defn)
     return defn
+
+
+def _parse_trigger(raw: dict[str, Any]) -> TriggerDef:
+    """Parse a trigger declaration from YAML. Structural validation only."""
+    if not isinstance(raw, dict):
+        raise ValueError("Each trigger must be a YAML mapping")
+    trigger_type = raw.get("type")
+    if not isinstance(trigger_type, str):
+        raise ValueError("Each trigger must have a string 'type' field")
+    if trigger_type == "schedule" and not raw.get("cron"):
+        raise ValueError("Schedule trigger must have a 'cron' field")
+    missed_policy = raw.get("missed_policy")
+    if missed_policy is not None and missed_policy not in ("skip", "queue"):
+        raise ValueError(f"Trigger missed_policy must be 'skip' or 'queue', got {missed_policy!r}")
+    return TriggerDef(
+        type=trigger_type,
+        cron=raw.get("cron"),
+        inputs=raw.get("inputs"),
+        target_kind=raw.get("target_kind"),
+        target_ref=raw.get("target_ref"),
+        missed_policy=missed_policy,
+    )
 
 
 def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
@@ -286,7 +331,7 @@ def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
     if not raw.get("type"):
         raise ValueError(f"Step {raw['id']!r} must have a 'type' field")
     step_type = raw["type"]
-    if step_type not in ("runner", "gate", "loop", "human_gate", "publish"):
+    if step_type not in ("runner", "gate", "loop", "human_gate", "publish", "llm"):
         raise ValueError(f"Step {raw['id']!r}: invalid type {step_type!r}")
 
     nested_steps = None
@@ -314,6 +359,7 @@ def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
         on_timeout=raw.get("on_timeout"),
         credentials=raw.get("credentials"),
         destination=raw.get("destination"),
+        idempotency_key=raw.get("idempotency_key"),
         skill_name=raw.get("skill_name"),
         skill_args=raw.get("skill_args"),
         inject_rules=raw.get("inject_rules"),
@@ -322,6 +368,10 @@ def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
         approval_mode=raw.get("approval_mode"),
         timeout=raw.get("timeout"),
         when=raw.get("when"),
+        model=raw.get("model"),
+        temperature=raw.get("temperature"),
+        max_tokens=raw.get("max_tokens"),
+        response_format=raw.get("response_format"),
     )
 
 
@@ -445,6 +495,18 @@ def _validate_definition(defn: WorkflowDefinition) -> None:
             max_delay = step.retry.get("max_delay", 60)
             if not isinstance(max_delay, (int, float)) or max_delay < initial_delay:
                 raise ValueError(f"Step {step.id!r}: retry.max_delay must be >= initial_delay ({initial_delay})")
+
+        if step.type == "llm":
+            if not step.prompt:
+                raise ValueError(f"LLM step {step.id!r} requires a 'prompt' field")
+            if step.response_format is not None:
+                if step.response_format != "json_object":
+                    raise ValueError(
+                        f"LLM step {step.id!r}: response_format must be 'json_object', got {step.response_format!r}"
+                    )
+
+        if step.response_format is not None and step.type != "llm":
+            raise ValueError(f"Step {step.id!r}: response_format is only allowed on llm steps")
 
         if step.type == "publish":
             if not step.destination:
@@ -833,6 +895,15 @@ class WorkflowEngine:
 
         return resolved
 
+    def _resolve_idempotency_key(self, step_def: WorkflowStepDef, run: dict[str, Any], inputs: dict[str, Any]) -> str:
+        """Compute idempotency key for a publish step.
+
+        Engine-owned keys (run_id, step_id) override user inputs with the same name.
+        """
+        template = step_def.idempotency_key or "{run_id}:{step_id}"
+        context = {**inputs, "run_id": run["id"], "step_id": step_def.id}
+        return template.format(**context)
+
     def _build_agent_system_context(self, step_def: WorkflowStepDef, definition: WorkflowDefinition) -> str:
         """Build extra system prompt context from artifacts and conventions (#957).
 
@@ -1000,6 +1071,154 @@ class WorkflowEngine:
             except asyncio.CancelledError:
                 pass
             ws.release_lock(self._db, run_id=run["id"])
+            await self._drain_hooks()
+
+        return run
+
+    async def enqueue_run(
+        self,
+        definition: WorkflowDefinition,
+        *,
+        target_kind: str,
+        target_ref: str,
+        inputs: dict[str, Any] | None = None,
+        space_id: str | None = None,
+        trigger_source: str | None = None,
+        trigger_meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Enqueue a workflow run as pending without executing it.
+
+        The run is created in 'pending' status for the background executor
+        to claim and dispatch. No lock is acquired, no execution starts.
+        """
+        from . import workflow_storage as ws
+
+        effective_mode = self._config_approval_mode or "ask_for_writes"
+        validate_approval_mode(definition, effective_mode)
+
+        if definition.notifications:
+            hooks = definition.notifications.get("hooks", [])
+            if hooks:
+                from .workflow_hooks import validate_hook_config
+
+                validate_hook_config(
+                    hooks,
+                    self._egress_allowed_domains,
+                    block_localhost=self._egress_block_localhost,
+                )
+
+        for name, schema in definition.inputs.items():
+            if schema.get("required") and (not inputs or name not in inputs):
+                raise ValueError(f"Missing required input: {name!r}")
+
+        self._validate_step_credentials(definition)
+        budget = self._compute_effective_budget(definition)
+
+        run = ws.create_workflow_run(
+            self._db,
+            workflow_id=definition.id,
+            workflow_version=definition.version,
+            target_kind=target_kind,
+            target_ref=target_ref,
+            inputs=inputs,
+            space_id=space_id,
+            definition_hash=definition.content_hash or None,
+            definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
+            budget=budget or None,
+            trigger_source=trigger_source,
+            trigger_meta=trigger_meta,
+        )
+
+        await self._emit_event(
+            run_id=run["id"],
+            event_type="run_enqueued",
+            payload={
+                "workflow_id": definition.id,
+                "target": f"{target_kind}:{target_ref}",
+                "trigger_source": trigger_source,
+            },
+            definition=definition,
+        )
+
+        return run
+
+    async def execute_enqueued_run(
+        self,
+        run_id: str,
+        definition: WorkflowDefinition,
+    ) -> dict[str, Any]:
+        """Execute an already-claimed run.
+
+        The run must be in 'claimed' status. Acquires lock, transitions to
+        'running', starts heartbeat, executes steps, releases lock.
+        """
+        from . import workflow_storage as ws
+
+        run = ws.get_workflow_run(self._db, run_id)
+        if not run:
+            raise ValueError(f"Run {run_id!r} not found")
+        if run["status"] != "claimed":
+            raise ValueError(f"Run {run_id!r} has status {run['status']!r}, expected 'claimed'")
+
+        if not ws.acquire_lock(
+            self._db,
+            target_kind=run["target_kind"],
+            target_ref=run["target_ref"],
+            run_id=run["id"],
+        ):
+            ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
+            raise RuntimeError(f"Target {run['target_kind']}:{run['target_ref']} is already locked by another run")
+
+        updated = ws.update_workflow_run(
+            self._db,
+            run["id"],
+            status="running",
+            started_at=datetime.now(timezone.utc).isoformat(),
+        )
+        assert updated is not None
+        run = updated
+
+        await self._emit_event(
+            run_id=run["id"],
+            event_type="run_started",
+            payload={
+                "workflow_id": definition.id,
+                "target": f"{run['target_kind']}:{run['target_ref']}",
+            },
+            definition=definition,
+        )
+
+        ws.update_workflow_run(self._db, run["id"], heartbeat_at=_now())
+        heartbeat_task = asyncio.create_task(self._heartbeat_loop(run["id"]))
+        run_id_for_cleanup = run["id"]
+
+        try:
+            run = await self._execute_steps(
+                run,
+                definition.steps,
+                run.get("inputs") or {},
+                definition,
+                budget_start_time=time.monotonic(),
+            )
+        except Exception:
+            logger.exception("Workflow run %s failed with exception", run_id_for_cleanup)
+            failed = ws.update_workflow_run(
+                self._db, run_id_for_cleanup, status="failed", stop_reason="unhandled_exception"
+            )
+            if failed is not None:
+                run = failed
+            await self._emit_event(
+                run_id=run_id_for_cleanup,
+                event_type="run_failed",
+                payload={"reason": "exception"},
+            )
+        finally:
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
+            ws.release_lock(self._db, run_id=run_id_for_cleanup)
             await self._drain_hooks()
 
         return run
@@ -1377,6 +1596,47 @@ class WorkflowEngine:
         )
         return run
 
+    # -- Checkpoint sanitization (#979) ------------------------------------
+
+    _SAFE_ARTIFACT_KEYS = frozenset(
+        {
+            "result_status",
+            "total_tokens",
+            "prompt_tokens",
+            "completion_tokens",
+            "model",
+            "exit_code",
+            "tool_call_count",
+            "destination",
+            "bytes_written",
+            "status_code",
+            "duration_ms",
+            "idempotency_key",
+            "structured_output",
+        }
+    )
+
+    @staticmethod
+    def _sanitize_checkpoint_data(
+        step_results: dict[str, dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        """Sanitize step results for checkpoint storage.
+
+        Truncates summaries and allowlists artifact keys to prevent credential leakage.
+        Returns a new dict — does not mutate the input.
+        """
+        sanitized: dict[str, dict[str, Any]] = {}
+        for step_id, data in step_results.items():
+            entry: dict[str, Any] = {}
+            entry["result_status"] = data.get("result_status")
+            summary = data.get("result_summary") or ""
+            entry["result_summary"] = summary[:500] if len(summary) > 500 else summary
+            artifacts = data.get("result_artifacts") or {}
+            entry["result_artifacts"] = {k: v for k, v in artifacts.items() if k in WorkflowEngine._SAFE_ARTIFACT_KEYS}
+            entry["result_findings"] = data.get("result_findings")
+            sanitized[step_id] = entry
+        return sanitized
+
     async def _execute_steps(
         self,
         run: dict[str, Any],
@@ -1443,7 +1703,7 @@ class WorkflowEngine:
             # Retry configuration (#962)
             max_attempts = 1
             retry_cfg = step_def.retry
-            if retry_cfg and step_def.type in ("runner", "loop"):
+            if retry_cfg and step_def.type in ("runner", "loop", "llm"):
                 max_attempts = retry_cfg.get("max_attempts", 1)
 
             for attempt in range(1, max_attempts + 1):
@@ -1496,12 +1756,24 @@ class WorkflowEngine:
                 )
 
                 start_time = time.monotonic()
-                ws.update_workflow_step(
-                    self._db,
-                    step_record["id"],
-                    status="running",
-                    started_at=datetime.now(timezone.utc).isoformat(),
-                )
+
+                # Persist idempotency key before execution for crash safety (#977)
+                if step_def.type == "publish":
+                    idem_key = self._resolve_idempotency_key(step_def, run, inputs)
+                    ws.update_workflow_step(
+                        self._db,
+                        step_record["id"],
+                        status="running",
+                        started_at=datetime.now(timezone.utc).isoformat(),
+                        idempotency_key=idem_key,
+                    )
+                else:
+                    ws.update_workflow_step(
+                        self._db,
+                        step_record["id"],
+                        status="running",
+                        started_at=datetime.now(timezone.utc).isoformat(),
+                    )
 
                 try:
                     if step_def.type == "runner":
@@ -1514,14 +1786,35 @@ class WorkflowEngine:
                         result = await self._execute_loop_step(step_def, run, inputs, definition, step_results)
                     elif step_def.type == "publish":
                         result = await self._execute_publish_step(step_def, run, inputs, step_results)
+                    elif step_def.type == "llm":
+                        result = await self._execute_llm_step(step_def, run, inputs, step_results, definition)
                     elif step_def.type == "human_gate":
-                        return await self._execute_human_gate_step(
+                        hg_run = await self._execute_human_gate_step(
                             step_def,
                             run,
                             inputs,
                             step_results,
                             step_record,
                         )
+                        # Create checkpoint at human_gate pause (#979)
+                        # Include the human_gate step's data in the checkpoint snapshot
+                        checkpoint_results = dict(step_results)
+                        checkpoint_results[step_def.id] = {
+                            "result_status": "blocked",
+                            "result_summary": f"Waiting for human decision: {(step_def.prompt or '')[:80]}",
+                            "result_artifacts": {},
+                            "result_findings": None,
+                        }
+                        ws.create_checkpoint(
+                            self._db,
+                            run_id=hg_run["id"],
+                            label=f"pause:human_gate:{step_def.id}",
+                            step_id=step_def.id,
+                            step_results=self._sanitize_checkpoint_data(checkpoint_results),
+                            budget_usage=dict(budget_usage),
+                            run_status=hg_run.get("status", "waiting_for_input"),
+                        )
+                        return hg_run
                     else:
                         raise ValueError(f"Unknown step type: {step_def.type!r}")
                 except Exception as exc:
@@ -1574,6 +1867,24 @@ class WorkflowEngine:
                         event_type="run_failed",
                         payload={"reason": f"step_failed:{step_def.id}"},
                     )
+                    # Create checkpoint at failure (#979)
+                    # Include the failing step's data in the checkpoint snapshot
+                    checkpoint_results = dict(step_results)
+                    checkpoint_results[step_def.id] = {
+                        "result_status": "failed",
+                        "result_summary": str(exc)[:500],
+                        "result_artifacts": {},
+                        "result_findings": None,
+                    }
+                    ws.create_checkpoint(
+                        self._db,
+                        run_id=run["id"],
+                        label=f"failure:{step_def.id}",
+                        step_id=step_def.id,
+                        step_results=self._sanitize_checkpoint_data(checkpoint_results),
+                        budget_usage=dict(budget_usage),
+                        run_status="failed",
+                    )
                     return run
 
                 duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -1612,6 +1923,28 @@ class WorkflowEngine:
                             run["id"],
                             completed_at=datetime.now(timezone.utc).isoformat(),
                         )
+
+                    # Create checkpoint at approval/block pause (#979)
+                    # Include the blocked step's data in the checkpoint snapshot
+                    checkpoint_results = dict(step_results)
+                    checkpoint_results[step_def.id] = {
+                        "result_status": "blocked",
+                        "result_summary": result.summary[:500] if result.summary else "",
+                        "result_artifacts": result.artifacts,
+                        "result_findings": result.findings if hasattr(result, "findings") else None,
+                    }
+                    checkpoint_label = (
+                        f"pause:approval:{step_def.id}" if is_approval_pause else f"blocked:{step_def.id}"
+                    )
+                    ws.create_checkpoint(
+                        self._db,
+                        run_id=run["id"],
+                        label=checkpoint_label,
+                        step_id=step_def.id,
+                        step_results=self._sanitize_checkpoint_data(checkpoint_results),
+                        budget_usage=dict(budget_usage),
+                        run_status=run.get("status", run_status),
+                    )
                     return run
 
                 if result.status == "failed":
@@ -1664,6 +1997,24 @@ class WorkflowEngine:
                         run_id=run["id"],
                         event_type="run_failed",
                         payload={"reason": f"step_failed:{step_def.id}"},
+                    )
+                    # Create checkpoint at failure (#979)
+                    # Include the failing step's data in the checkpoint snapshot
+                    checkpoint_results = dict(step_results)
+                    checkpoint_results[step_def.id] = {
+                        "result_status": result.status,
+                        "result_summary": result.summary[:500] if result.summary else "",
+                        "result_artifacts": result.artifacts,
+                        "result_findings": result.findings if hasattr(result, "findings") else None,
+                    }
+                    ws.create_checkpoint(
+                        self._db,
+                        run_id=run["id"],
+                        label=f"failure:{step_def.id}",
+                        step_id=step_def.id,
+                        step_results=self._sanitize_checkpoint_data(checkpoint_results),
+                        budget_usage=dict(budget_usage),
+                        run_status="failed",
                     )
                     return run
 
@@ -1722,6 +2073,17 @@ class WorkflowEngine:
                 attempt_count=run.get("attempt_count", 0) + 1,
             )
 
+            # Create checkpoint after step completion (#979)
+            ws.create_checkpoint(
+                self._db,
+                run_id=run["id"],
+                label=f"after:{step_def.id}",
+                step_id=step_def.id,
+                step_results=self._sanitize_checkpoint_data(step_results),
+                budget_usage=dict(budget_usage),
+                run_status="running",
+            )
+
         # All steps completed
         run = ws.update_workflow_run(
             self._db,
@@ -1734,6 +2096,18 @@ class WorkflowEngine:
             event_type="run_completed",
             payload={"total_steps": len(steps)},
         )
+
+        # Create completion checkpoint (#979)
+        ws.create_checkpoint(
+            self._db,
+            run_id=run["id"],
+            label="completed",
+            step_id=None,
+            step_results=self._sanitize_checkpoint_data(step_results),
+            budget_usage=dict(budget_usage),
+            run_status="completed",
+        )
+
         return run
 
     def _expand_skill_prompt(self, step_def: WorkflowStepDef) -> str:
@@ -1942,10 +2316,120 @@ class WorkflowEngine:
 
         resolved_creds = self._resolve_step_credentials(step_def)
 
-        return await adapter.publish(
+        idem_key = self._resolve_idempotency_key(step_def, run, inputs)
+
+        result = await adapter.publish(
             content=content,
             destination=resolved_dest,
             credentials=resolved_creds,
+            idempotency_key=idem_key,
+        )
+        result.artifacts["idempotency_key"] = idem_key
+        return result
+
+    async def _execute_llm_step(
+        self,
+        step_def: WorkflowStepDef,
+        run: dict[str, Any],
+        inputs: dict[str, Any],
+        step_results: dict[str, dict[str, Any]],
+        definition: WorkflowDefinition,
+    ) -> RunnerResult:
+        """Execute a bounded LLM inference step (#983, #984)."""
+        import copy
+        import json
+
+        from .ai_service import create_ai_service
+        from .workflow_runners import RunnerResult
+
+        if self._ai_service is None:
+            return RunnerResult(status="failed", summary="LLM step requires ai_service", duration_ms=0)
+
+        start = time.monotonic()
+
+        prompt = step_def.prompt or ""
+        if "{" in prompt:
+            prompt = resolve_template(prompt, inputs)
+
+        system_prompt = step_def.system_prompt or ""
+
+        if step_def.context_from:
+            context = resolve_context_from(step_def.context_from, step_results, db=self._db)
+            if context:
+                prompt = f"{prompt}\n\n--- Context ---\n{context}"
+
+        # Structured output: append JSON instruction for Anthropic provider (#984)
+        if step_def.response_format == "json_object":
+            provider = getattr(getattr(self._ai_service, "config", None), "provider", "openai")
+            if provider == "anthropic":
+                json_instruction = (
+                    "\n\nIMPORTANT: Respond with valid JSON only."
+                    " No explanation, no markdown fencing, no text outside the JSON object."
+                )
+                if system_prompt:
+                    system_prompt += json_instruction
+                else:
+                    system_prompt = json_instruction.lstrip()
+
+        messages: list[dict[str, Any]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        ai_service = self._ai_service
+        if step_def.model and step_def.model != getattr(ai_service, "config", object()).model:
+            step_config = copy.deepcopy(ai_service.config)
+            step_config.model = step_def.model
+            if step_def.temperature is not None:
+                step_config.temperature = step_def.temperature
+            ai_service = create_ai_service(step_config)
+
+        # Build kwargs for complete_with_usage
+        complete_kwargs: dict[str, Any] = {
+            "max_completion_tokens": step_def.max_tokens or 4096,
+            "temperature": step_def.temperature,
+        }
+        if step_def.response_format == "json_object":
+            complete_kwargs["response_format"] = {"type": "json_object"}
+
+        try:
+            text, usage = await ai_service.complete_with_usage(messages, **complete_kwargs)
+        except Exception as exc:
+            duration_ms = int((time.monotonic() - start) * 1000)
+            return RunnerResult(
+                status="failed",
+                summary=f"LLM completion failed: {exc}",
+                duration_ms=duration_ms,
+            )
+
+        duration_ms = int((time.monotonic() - start) * 1000)
+        model_name = step_def.model or getattr(getattr(self._ai_service, "config", None), "model", "")
+
+        artifacts: dict[str, Any] = {
+            "model": model_name,
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens": usage.get("total_tokens", 0),
+        }
+
+        # Parse structured output (#984)
+        if step_def.response_format == "json_object" and text is not None:
+            try:
+                parsed = json.loads(text)
+                artifacts["structured_output"] = parsed
+            except json.JSONDecodeError:
+                return RunnerResult(
+                    status="failed",
+                    summary=f"LLM response was not valid JSON: {text[:200]}",
+                    artifacts={**artifacts, "raw_response": text[:2000]},
+                    duration_ms=duration_ms,
+                )
+
+        return RunnerResult(
+            status="success",
+            summary=(text or "")[:2000],
+            artifacts=artifacts,
+            duration_ms=duration_ms,
         )
 
     async def _execute_gate_step(
@@ -2023,10 +2507,12 @@ class WorkflowEngine:
                         )
                     elif nested_step.type == "gate":
                         result = await self._execute_gate_step(nested_step, run, inputs)
+                    elif nested_step.type == "llm":
+                        result = await self._execute_llm_step(nested_step, run, inputs, step_results, definition)
                     else:
                         raise ValueError(
                             f"Unsupported step type in loop: {nested_step.type!r}"
-                            " (only 'runner' and 'gate' are allowed inside loops)"
+                            " (only 'runner', 'gate', and 'llm' are allowed inside loops)"
                         )
                 except Exception as exc:
                     nested_dur = int((time.monotonic() - nested_start) * 1000)

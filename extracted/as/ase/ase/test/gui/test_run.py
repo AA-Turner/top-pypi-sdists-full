@@ -98,6 +98,15 @@ def test_helpwindow(gui):
     ui.helpwindow('some\n multiline\n text')
 
 
+def test_arrowkey_tooltip(gui):
+    gui.new_atoms(molecule('H2O'))
+    gui.images.selected[0] = True
+    gui.toggle_rotate_mode()
+    assert not gui.arrowkey_hint.tooltip.exists
+    gui.arrowkey_hint.tooltip.show()
+    assert gui.arrowkey_hint.tooltip.exists
+
+
 def test_nanotube(gui):
     nt = gui.nanotube_window()
     nt.apply()
@@ -322,26 +331,26 @@ def test_movie(animation):
     animation.step('Home')
     assert movie.frame_number.value == 0
 
-    animation.step('Page-Up')
+    animation.step('PageUp')
     assert movie.frame_number.value == 0
 
-    animation.step('Page-Down')
+    animation.step('PageDown')
     assert movie.frame_number.value == 1
 
-    animation.step('Page-Down')
+    animation.step('PageDown')
     assert movie.frame_number.value == 2
 
     last_index = len(animation.images) - 1
     animation.step('End')
     assert movie.frame_number.value == last_index
 
-    animation.step('Page-Down')
+    animation.step('PageDown')
     assert movie.frame_number.value == last_index
 
-    animation.step('Page-Up')
+    animation.step('PageUp')
     assert movie.frame_number.value == last_index - 1
 
-    animation.step('Page-Up')
+    animation.step('PageUp')
     assert movie.frame_number.value == last_index - 2
 
     movie.play()
@@ -399,6 +408,21 @@ def test_cell_editor(gui):
     dia.update(np.eye(3), newpbc)
     dia.apply_pbc()
     assert (gui.atoms.pbc == newpbc).all()
+
+
+def test_input_arithmetic(gui):
+    """Using the cell editor to check that arithmetic in the SpinBoxes
+    is parsed correctly"""
+    au = bulk('Au')
+    gui.new_atoms(au.copy())
+    double_cell = au.cell * 2
+
+    dia = gui.cell_editor()
+
+    for lengths in dia.cell_grid:
+        lengths[3].value = str(lengths[3].value) + '*2'
+    dia.apply_magnitudes()
+    assert gui.atoms.cell == pytest.approx(double_cell[:])
 
 
 def test_constrain(gui, atoms):
@@ -665,3 +689,17 @@ def test_many_atoms_history(gui_many_images):
         gui_many_images.redo_history()
         gui_many_images.undo_history()
         assert not compare_atoms(gui_many_images.images[frame], before)
+
+
+@pytest.mark.parametrize(
+    'radii', [{'Cl': 5.0, 1: 3.0}, [[17, 5.0], ['H', 3.0]]]
+)
+def test_custom_radii(gui, radii):
+    hcl = molecule('HCl')
+    radius_scale = gui.images.atom_scale
+
+    gui.new_atoms(hcl)
+    gui.images.configure_radii(radii)
+    radii = gui.images.get_radii(gui.atoms)
+    assert radii[0] / radius_scale == pytest.approx(5.0)
+    assert radii[1] / radius_scale == pytest.approx(3.0)

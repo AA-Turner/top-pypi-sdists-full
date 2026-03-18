@@ -13,6 +13,9 @@ from langgraph_api.asyncio import SimpleTaskGroup, aclosing
 from langgraph_api.serde import json_dumpb
 
 logger = structlog.stdlib.get_logger(__name__)
+# Version 2 is listen_for_exit_signal and listen_for_disconnect
+# Version 3 is _listen_for_exit_signal and _listen_for_disconnect
+USE_PUBLIC_SSE = hasattr(sse_starlette.EventSourceResponse, "listen_for_disconnect")
 
 
 class EventSourceResponse(sse_starlette.EventSourceResponse):
@@ -35,12 +38,18 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                 task_group.cancel_scope.cancel()
 
             task_group.start_soon(wrap, partial(self.stream_response, send))
-            task_group.start_soon(wrap, self._listen_for_exit_signal)
+            if USE_PUBLIC_SSE:
+                task_group.start_soon(wrap, self.listen_for_exit_signal)
+            else:
+                task_group.start_soon(wrap, self._listen_for_exit_signal)
 
             if self.data_sender_callable:
                 task_group.start_soon(self.data_sender_callable)
 
-            await wrap(partial(self._listen_for_disconnect, receive))
+            if USE_PUBLIC_SSE:
+                await wrap(partial(self.listen_for_disconnect, receive))
+            else:
+                await wrap(partial(self._listen_for_disconnect, receive))
 
         if self.background is not None:  # pragma: no cover, tested in StreamResponse
             await self.background()

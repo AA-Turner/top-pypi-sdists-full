@@ -1,9 +1,64 @@
 # Python internals
 import argparse
+from collections.abc import Iterator
 
 # Other libraries
 from dlt.common.configuration.plugins import SupportsCliCommand
 from dlt_runtime.runtime_clients.api.models import InteractiveScriptType
+
+
+def _has_visible_subparsers(parser: argparse.ArgumentParser) -> bool:
+    """Check whether a parser has any non-suppressed subparsers.
+
+    Note: uses argparse private attributes (_subparsers, _actions,
+    _SubParsersAction, _choices_actions) because argparse has no public
+    introspection API.
+    """
+    if parser._subparsers is None:
+        return False
+    for action in parser._subparsers._actions:
+        if not isinstance(action, argparse._SubParsersAction):
+            continue
+        for choice_action in action._choices_actions:
+            if choice_action.help != argparse.SUPPRESS:
+                return True
+    return False
+
+
+def _build_command_tree_lines(
+    parser: argparse.ArgumentParser, prefix: str = "", base_indent: int = 0
+) -> Iterator[str]:
+    """Recursively yield formatted lines of the command tree.
+
+    ``base_indent`` is a fixed left-margin (in two-space units) applied to
+    every line.  It is not incremented during recursion -- nested depth is
+    conveyed by growing the ``prefix`` (e.g. "deployment list").
+
+    Note: uses argparse private attributes (_subparsers, _actions,
+    _SubParsersAction, _choices_actions) because argparse has no public
+    introspection API.
+    """
+    if parser._subparsers is None:
+        return
+    for action in parser._subparsers._actions:
+        if not isinstance(action, argparse._SubParsersAction):
+            continue
+        seen: set[str] = set()
+        for choice_action in action._choices_actions:
+            name = choice_action.dest
+            if name in seen:
+                continue
+            seen.add(name)
+            help_msg = choice_action.help
+            if help_msg == argparse.SUPPRESS:
+                continue
+            subparser = action.choices[name]
+            full_name = f"{prefix} {name}" if prefix else name
+            if _has_visible_subparsers(subparser):
+                yield from _build_command_tree_lines(subparser, full_name, base_indent)
+            else:
+                padding = " " * max(1, 30 - len(full_name) - base_indent * 2)
+                yield f"{'  ' * base_indent}{full_name}{padding}{help_msg}"
 
 
 class RuntimeCommand(SupportsCliCommand):
@@ -15,6 +70,11 @@ class RuntimeCommand(SupportsCliCommand):
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         self.parser = parser
+        parser.add_argument(
+            "--help-all",
+            action="store_true",
+            help="Show all commands including subcommands",
+        )
 
         subparsers = parser.add_subparsers(
             title="Available subcommands", dest="runtime_command", required=False
@@ -57,6 +117,13 @@ class RuntimeCommand(SupportsCliCommand):
         )
         self._configure_publish_parser(publish_cmd)
 
+        unpublish_cmd = subparsers.add_parser(
+            "unpublish",
+            help="Revoke the public link for an interactive notebook/app",
+            description="Revoke the public link for an interactive notebook/app.",
+        )
+        self._configure_unpublish_parser(unpublish_cmd)
+
         schedule_cmd = subparsers.add_parser(
             "schedule",
             help=(
@@ -70,16 +137,23 @@ class RuntimeCommand(SupportsCliCommand):
         )
         self._configure_schedule_parser(schedule_cmd)
 
+        unschedule_cmd = subparsers.add_parser(
+            "unschedule",
+            help="Remove the cron schedule from a script",
+            description="Remove the cron schedule from a script, stopping future scheduled runs.",
+        )
+        self._configure_unschedule_parser(unschedule_cmd)
+
         logs_cmd = subparsers.add_parser(
             "logs",
-            help="Show logs for latest or selected job run",
+            help="Show logs for latest or selected job run (shortcut for 'job-run logs')",
             description="Show logs for the latest run of a job or a specific run number.",
         )
         self._configure_logs_parser(logs_cmd)
 
         cancel_cmd = subparsers.add_parser(
             "cancel",
-            help="Cancel latest or selected job run",
+            help="Cancel latest or selected job run (shortcut for 'job-run cancel')",
             description="Cancel the latest run of a job or a specific run number.",
         )
         self._configure_cancel_parser(cancel_cmd)
@@ -92,13 +166,13 @@ class RuntimeCommand(SupportsCliCommand):
 
         subparsers.add_parser(
             "deploy",
-            help="Sync code and configuration to Runtime without running anything",
+            help="Sync code and configuration to Runtime without running anything (shortcut for 'deployment sync' + 'configuration sync')",
             description="Upload deployment and configuration if changed.",
         )
 
         subparsers.add_parser(
             "info",
-            help="Show overview of current Runtime workspace",
+            help="Show overview of current Runtime workspace (shows workspace, job count, latest run, latest deployment, and latest configuration)",
             description="Show workspace ID and summary of deployments, configurations and jobs.",
         )
 
@@ -117,10 +191,9 @@ class RuntimeCommand(SupportsCliCommand):
             description="List and manipulate jobs registered in the workspace.",
         )
         self._configure_jobs_parser(job_cmd)
-        # plural alias
+        # plural alias (hidden from help output)
         jobs_cmd = subparsers.add_parser(
             "jobs",
-            help="List, create and inspect jobs",
             description="List and manipulate jobs registered in the workspace.",
         )
         self._configure_jobs_parser(jobs_cmd)
@@ -132,10 +205,9 @@ class RuntimeCommand(SupportsCliCommand):
             description="List and manipulate job runs registered in the workspace.",
         )
         self._configure_job_runs_parser(job_run_cmd)
-        # plural alias
+        # plural alias (hidden from help output)
         job_runs_cmd = subparsers.add_parser(
             "job-runs",
-            help="List, create and inspect job runs",
             description="List and manipulate job runs registered in the workspace.",
         )
         self._configure_job_runs_parser(job_runs_cmd)
@@ -188,6 +260,21 @@ class RuntimeCommand(SupportsCliCommand):
             action="store_true",
             help="When cancelling the schedule, also cancel the currently running instance if any",
         )
+
+    def _configure_unschedule_parser(
+        self, unschedule_cmd: argparse.ArgumentParser
+    ) -> None:
+        unschedule_cmd.add_argument("script_path", help="Local path to the script")
+        unschedule_cmd.add_argument(
+            "--current",
+            action="store_true",
+            help="Also cancel the currently running instance if any",
+        )
+
+    def _configure_unpublish_parser(
+        self, unpublish_cmd: argparse.ArgumentParser
+    ) -> None:
+        unpublish_cmd.add_argument("script_path", help="Local path to the notebook/app")
 
     def _configure_logs_parser(self, logs_cmd: argparse.ArgumentParser) -> None:
         logs_cmd.add_argument("script_path_or_job_name", help="Local path or job name")
@@ -355,8 +442,29 @@ class RuntimeCommand(SupportsCliCommand):
 
         import dlt_runtime._runtime_command as cmd
         from dlt_runtime.runtime import get_api_client
+        from dlt_runtime.version import __version__
 
-        fmt.echo("")  # leading newline for all runtime commands
+        # Command tree: shown for --help-all OR when no subcommand is given
+        if args.help_all or not args.runtime_command:
+            fmt.echo("")
+            fmt.echo(f"dlt-runtime v{__version__}")
+            fmt.echo("")
+            fmt.echo("dlt runtime")
+            for line in _build_command_tree_lines(self.parser, base_indent=1):
+                fmt.echo(line)
+            fmt.echo("")
+            fmt.echo(
+                'Use "dlt runtime <command> --help" for detailed usage of a'
+                " specific command."
+            )
+            fmt.echo("")
+            return
+
+        # Banner + hint for specific commands
+        fmt.echo("")
+        fmt.echo(f"dlt-runtime v{__version__}")
+        fmt.echo('Use "dlt runtime --help-all" for full command reference.')
+        fmt.echo("")
         try:
             if args.runtime_command == "login":
                 cmd.login(minimal_logging=False)
@@ -381,15 +489,37 @@ class RuntimeCommand(SupportsCliCommand):
                     auth_service=auth_service,
                     api_client=api_client,
                 )
+            elif args.runtime_command == "unpublish":
+                cmd.unpublish(
+                    args.script_path,
+                    auth_service=auth_service,
+                    api_client=api_client,
+                )
             elif args.runtime_command == "publish":
+                if bool(getattr(args, "cancel", False)):
+                    fmt.warning(
+                        "'dlt runtime publish --cancel' is deprecated."
+                        " Use 'dlt runtime unpublish <script>' instead."
+                    )
                 cmd.publish(
                     args.script_path,
                     cancel=bool(getattr(args, "cancel", False)),
                     auth_service=auth_service,
                     api_client=api_client,
                 )
+            elif args.runtime_command == "unschedule":
+                cmd.unschedule(
+                    args.script_path,
+                    cancel_current=bool(getattr(args, "current", False)),
+                    auth_service=auth_service,
+                    api_client=api_client,
+                )
             elif args.runtime_command == "schedule":
                 if args.cron_expr_or_cancel == "cancel":
+                    fmt.warning(
+                        "'dlt runtime schedule <script> cancel' is deprecated."
+                        " Use 'dlt runtime unschedule <script>' instead."
+                    )
                     cmd.schedule_cancel(
                         args.script_path,
                         cancel_current=bool(args.current),
@@ -517,6 +647,7 @@ class RuntimeCommand(SupportsCliCommand):
                         api_client=api_client,
                     )
             else:
+                fmt.echo(f"Unknown command: {args.runtime_command}")
                 self.parser.print_usage()
         finally:
             fmt.echo("")  # trailing newline for all runtime commands

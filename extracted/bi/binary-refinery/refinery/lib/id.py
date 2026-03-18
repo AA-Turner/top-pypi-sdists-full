@@ -12,7 +12,6 @@ import enum
 import re
 
 from typing import Callable, NamedTuple
-from unicodedata import category as unicode_category
 
 from refinery.lib.tools import entropy
 from refinery.lib.types import buf
@@ -691,6 +690,19 @@ def get_reg_export_type(data: buf):
         return Fmt.REG_TEXT
 
 
+def _get_control_chars():
+    if not _CONTROL_CHARS:
+        from unicodedata import category as uc
+        _CONTROL_CHARS.update(
+            cp for cp in range(0x10000) if uc(chr(cp)).startswith('C'))
+        _CONTROL_CHARS.difference_update(B'\040\n\r\t')
+    return _CONTROL_CHARS
+
+
+_CONTROL_CHARS = set()
+_INVALID_BYTES = bytes(sorted(set(range(256)) - set(range(0x20, 0x80)) - {9, 10, 13}))
+
+
 class TextEncoding(NamedTuple):
     codec: str
     bom: int = 0
@@ -711,12 +723,9 @@ def guess_text_encoding(
     each encoded character in bytes.
     """
     def ascii_count(v: memoryview):
-        count = 0
-        ascii = range(0x20, 0x80)
-        b = 0xFF
-        for b in v:
-            count += (b in ascii or b == 9 or b == 10 or b == 13)
-        if b == 0 and count > 0:
+        bv = bytes(v)
+        count = len(bv.translate(None, _INVALID_BYTES))
+        if bv and bv[-1] == 0 and count > 0:
             # accept a terminating null byte
             count += 1
         return count
@@ -777,15 +786,22 @@ def guess_text_encoding(
         assert enc is not None
         return TextEncoding(enc, bom, lsb, step)
 
+    cc = _get_control_chars()
+
     for encoding in (enc and [enc] or ENCODINGS):
         try:
             decoded = codecs.decode(data, encoding)
         except UnicodeDecodeError:
             continue
+        threshold = int(maxbad * len(decoded))
+        bad = 0
+        for c in decoded:
+            if ord(c) not in cc:
+                continue
+            if (bad := bad + 1) > threshold:
+                break
         else:
-            bad = sum(1 for c in decoded if unicode_category(c).startswith('C') and c not in '\040\n\r\t')
-            if bad / len(decoded) <= maxbad:
-                return TextEncoding(encoding, bom, lsb, step)
+            return TextEncoding(encoding, bom, lsb, step)
 
 
 def xml_or_html(view: buf):

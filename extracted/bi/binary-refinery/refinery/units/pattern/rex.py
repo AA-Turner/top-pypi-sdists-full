@@ -13,8 +13,8 @@ class rex(SingleRegexTransformUnit, PatternExtractor, docs=(
     F' The unit also supports the format `{{{{{_FORWARD_VAR}}}}}` to represent the input data.'
 )):
     """
-    Short for Regular Expression eXtractor: A binary grep which can apply a transformation to each
-    match. Each match is an individual output.
+    Apply a regular expression and extract matches, optionally applying multibin suffix
+    transformations.
     """
     def __init__(
         self, regex,
@@ -72,7 +72,7 @@ class rex(SingleRegexTransformUnit, PatternExtractor, docs=(
                     for key, value in list(symb.items()):
                         if value is None:
                             symb[key] = B''
-                    item = meta.format(_spec, self.codec, args, symb, True, True, used)
+                    item = meta.format(_spec, self.codec, args, symb, used=used)
                     assert not isinstance(item, str)
                     used.update(key for key, value in symb.items() if not value)
                     used.add(_FORWARD_VAR)

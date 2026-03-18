@@ -1318,7 +1318,7 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
 
         :default: "MAVEN_GPG_PRIVATE_KEY_PASSPHRASE" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_passphrase")
@@ -1333,7 +1333,7 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
 
         :default: "MAVEN_GPG_PRIVATE_KEY" or not set when using GitHub Packages
 
-        :see: https://github.com/aws/publib#maven
+        :see: https://github.com/cdklabs/publib#maven
         :stability: experimental
         '''
         result = self._values.get("maven_gpg_private_key_secret")

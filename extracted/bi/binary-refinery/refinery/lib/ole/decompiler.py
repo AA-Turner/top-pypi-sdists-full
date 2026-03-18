@@ -1,5 +1,5 @@
 """
-VBA p-code decompiler that converts pcodedmp disassembly text back to VBA source code. This module
+VBA p-code decompiler that converts disassembled p-code back to VBA source code. This module
 is based on pcode2code by Nicolas Zilio (@Big5_sec), originally available at:
 https://github.com/Big5-sec/pcode2code
 
@@ -11,10 +11,17 @@ original GPL license.
 """
 from __future__ import annotations
 
+import io
+import logging
+import math
 import re
 import struct
 
 from typing import Callable
+
+from refinery.lib.ole.pcode import PCodeLine, PCodeModule
+
+logger = logging.getLogger(__name__)
 
 
 class PCodeDecompilerError(Exception):
@@ -56,16 +63,52 @@ class VBAStack:
         """
         Pop all items and return them in bottom-to-top order.
         """
-        items = list(reversed(self._items))
+        items = list(self._items)
         self._items.clear()
-        items.reverse()
         return items
+
+
+_BINARY_OPS: dict[str, str] = {
+    'Imp'    : 'Imp',
+    'Eqv'    : 'Eqv',
+    'Xor'    : 'Xor',
+    'Or'     : 'Or',
+    'And'    : 'And',
+    'Eq'     : '=',
+    'Ne'     : '<>',
+    'Le'     : '<=',
+    'Ge'     : '>=',
+    'Lt'     : '<',
+    'Gt'     : '>',
+    'Add'    : '+',
+    'Sub'    : '-',
+    'Mod'    : 'Mod',
+    'IDiv'   : '\\',
+    'Mul'    : '*',
+    'Div'    : '/',
+    'Concat' : '&',
+    'Like'   : 'Like',
+    'Pwr'    : '^',
+    'Is'     : 'Is',
+}
+
+_UNARY_FNS: dict[str, str] = {
+    'FnAbs'  : 'Abs',
+    'FnFix'  : 'Fix',
+    'FnInt'  : 'int',
+    'FnSgn'  : 'Sgn',
+    'FnLen'  : 'Len',
+    'FnLenB' : 'LenB',
+    'FnMid'  : 'Mid',
+    'FnMidB' : 'MidB',
+}
 
 
 class VBADecompiler:
     """
     Executes VBA p-code opcodes against a stack to reconstruct VBA source text. Each opcode name
-    maps to a handler via the internal dispatch dictionary.
+    maps to a handler via a naming convention (_op_ + lowercase mnemonic) or the explicit override
+    dictionary.
     """
 
     def __init__(self, stack: VBAStack):
@@ -73,21 +116,20 @@ class VBADecompiler:
         self.indent_level: int = 0
         self.indent_increase_pending: bool = False
         self.has_bos: bool = False
-        self.one_line_if: bool = False
+        self.one_line_if: int = 0
         self.unindented: int = 0
-
-        self._dispatch: dict[str, Callable] = self._build_dispatch()
+        self._dispatch_overrides: dict[str, Callable] = {}
 
     def _binary_op(self, operator: str) -> None:
         rhs = self._stack.pop()
         lhs = self._stack.pop()
-        self._stack.push(f'{lhs} {operator} {rhs}')
+        self._stack.push(F'{lhs} {operator} {rhs}')
 
     def _unary_prefix(self, prefix: str) -> None:
         self._stack.push(F'{prefix}{self._stack.pop()}')
 
     def _unary_fn(self, name: str) -> None:
-        self._stack.push(f'{name}({self._stack.pop()})')
+        self._stack.push(F'{name}({self._stack.pop()})')
 
     def _pop_params(self, num_hex: str) -> list[str]:
         n = int(num_hex, 16)
@@ -121,7 +163,6 @@ class VBADecompiler:
             preserve = True
 
         var_name = args[0]
-        # args[1] is num_params hex, not used beyond triggering the pop
 
         values = self._stack.drain()
 
@@ -175,92 +216,75 @@ class VBADecompiler:
             val += F' {elmt}'
         return val
 
-    def _op_imp(self) -> None:
-        self._binary_op('Imp')
+    def _build_call(
+        self,
+        args_list: list[str],
+        target_prefix: str,
+    ) -> None:
+        is_call = False
+        if args_list[0] == '(Call)':
+            args_list.pop(0)
+            is_call = True
+            name = ' '.join(args_list[:-1])
+            val = F'Call {target_prefix}{name}'
+        else:
+            name = ' '.join(args_list[:-1])
+            val = F'{target_prefix}{name}'
 
-    def _op_eqv(self) -> None:
-        self._binary_op('Eqv')
+        nb = int(args_list[-1], 16)
+        end_val = ''
 
-    def _op_xor(self) -> None:
-        self._binary_op('Xor')
+        params: list[str] = []
+        for _ in range(nb):
+            params.append(self._stack.pop())
+        params.reverse()
 
-    def _op_or(self) -> None:
-        self._binary_op('Or')
+        if params:
+            if len(params) == 1 and params[0].startswith('(') and not is_call:
+                val += '(' + params[0][1:-1]
+                end_val = ')'
+            elif is_call:
+                val += F'({params[0]}'
+                end_val = ')'
+            else:
+                val += F' {params[0]}'
+            for p in params[1:]:
+                val += F', {p}'
 
-    def _op_and(self) -> None:
-        self._binary_op('And')
+        self._stack.push(val + end_val)
 
-    def _op_eq(self) -> None:
-        self._binary_op('=')
+    def _lock_unlock(self, keyword: str) -> None:
+        sz = self._stack.size()
+        if sz == 3:
+            last = self._stack.pop()
+            first = self._stack.pop()
+            chan = self._stack.pop()
+            self._stack.push(F'{keyword} {chan}, {first} To {last}')
+        elif sz == 2:
+            rec = self._stack.pop()
+            chan = self._stack.pop()
+            self._stack.push(F'{keyword} {chan}, {rec}')
+        elif sz == 1:
+            self._stack.push(F'{keyword} {self._stack.pop()}')
 
-    def _op_ne(self) -> None:
-        self._binary_op('<>')
-
-    def _op_le(self) -> None:
-        self._binary_op('<=')
-
-    def _op_ge(self) -> None:
-        self._binary_op('>=')
-
-    def _op_lt(self) -> None:
-        self._binary_op('<')
-
-    def _op_gt(self) -> None:
-        self._binary_op('>')
-
-    def _op_add(self) -> None:
-        self._binary_op('+')
-
-    def _op_sub(self) -> None:
-        self._binary_op('-')
-
-    def _op_mod(self) -> None:
-        self._binary_op('Mod')
-
-    def _op_idiv(self) -> None:
-        self._binary_op('\\')
-
-    def _op_mul(self) -> None:
-        self._binary_op('*')
-
-    def _op_div(self) -> None:
-        self._binary_op('/')
-
-    def _op_concat(self) -> None:
-        self._binary_op('&')
-
-    def _op_like(self) -> None:
-        self._binary_op('Like')
-
-    def _op_pwr(self) -> None:
-        self._binary_op('^')
-
-    def _op_is(self) -> None:
-        self._binary_op('Is')
+    def _mid_statement(self, fn_name: str) -> None:
+        if self._stack.size() > 3:
+            length = self._stack.pop()
+            start = self._stack.pop()
+            obj = self._stack.pop()
+            rhs = self._stack.pop()
+            self._stack.push(F'{fn_name}({obj}, {start}, {length}) = {rhs}')
+        else:
+            start = self._stack.pop()
+            obj = self._stack.pop()
+            rhs = self._stack.pop()
+            self._stack.push(F'{fn_name}({obj}, {start}) = {rhs}')
 
     def _op_not(self) -> None:
         self._unary_prefix('Not ')
 
     def _op_umi(self) -> None:
         self._unary_prefix('-')
-
-    def _op_fnabs(self) -> None:
-        self._unary_fn('Abs')
-
-    def _op_fnfix(self) -> None:
-        self._unary_fn('Fix')
-
-    def _op_fnint(self) -> None:
-        self._unary_fn('int')
-
-    def _op_fnsgn(self) -> None:
-        self._unary_fn('Sgn')
-
-    def _op_fnlen(self) -> None:
-        self._unary_fn('Len')
-
-    def _op_fnlenb(self) -> None:
-        self._unary_fn('LenB')
 
     def _op_paren(self) -> None:
         self._stack.push(F'({self._stack.pop()})')
@@ -285,18 +309,21 @@ class VBADecompiler:
     def _op_indexld(self, *args: str) -> None:
         raise PCodeDecompilerError('not implemented: IndexLd')
 
-    def _op_argsld(self, varname: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsld(self, *args: str) -> None:
+        varname = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         self._stack.push(F'{varname}({self._join_params(params)})')
 
-    def _op_argsmemld(self, var: str, numparams: str) -> None:
+    def _op_argsmemld(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = self._stack.pop()
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         self._stack.push(F'{obj}.{var}({self._join_params(params)})')
 
-    def _op_argsdictld(self, var: str, numparams: str) -> None:
+    def _op_argsdictld(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = self._stack.pop()
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         self._stack.push(F'{obj}!{var}({self._join_params(params)})')
 
     def _op_st(self, arg: str) -> None:
@@ -313,20 +340,23 @@ class VBADecompiler:
     def _op_indexst(self, *args: str) -> None:
         raise PCodeDecompilerError('not implemented: IndexSt')
 
-    def _op_argsst(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsst(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         val = F'{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
-    def _op_argsmemst(self, var: str, numparams: str) -> None:
+    def _op_argsmemst(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = F'{self._stack.pop()}.'
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         val = F'{obj}{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
-    def _op_argsdictst(self, var: str, numparams: str) -> None:
+    def _op_argsdictst(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = F'{self._stack.pop()}!'
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         val = F'{obj}{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
@@ -348,16 +378,18 @@ class VBADecompiler:
         arg = self._stack.pop()
         self._stack.push(F'Set {var}({arg}) = {self._stack.pop()}')
 
-    def _op_argsmemset(self, var: str, numparams: str) -> None:
+    def _op_argsmemset(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = self._stack.pop()
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         joined = self._join_params(params)
         val = F'Set {obj}.{var}({joined}) = {self._stack.pop()}'
         self._stack.push(val)
 
-    def _op_argsdictset(self, var: str, numparams: str) -> None:
+    def _op_argsdictset(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
         obj = self._stack.pop()
-        params = self._pop_params(numparams)
+        params = self._pop_params(args[-1])
         joined = self._join_params(params)
         val = F'Set {obj}!{var}({joined}) = {self._stack.pop()}'
         self._stack.push(val)
@@ -368,12 +400,14 @@ class VBADecompiler:
     def _op_dictldwith(self, var: str) -> None:
         self._with_access('!', var)
 
-    def _op_argsmemldwith(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsmemldwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         self._stack.push(F'.{var}({self._join_params(params)})')
 
-    def _op_argsdictldwith(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsdictldwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         self._stack.push(F'!{var}({self._join_params(params)})')
 
     def _op_memstwith(self, var: str) -> None:
@@ -382,12 +416,14 @@ class VBADecompiler:
     def _op_dictstwith(self, var: str) -> None:
         self._stack.push(F'!{var} = {self._stack.pop()}')
 
-    def _op_argsmemstwith(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsmemstwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         val = F'.{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
-    def _op_argsdictstwith(self, var: str, *args: str) -> None:
+    def _op_argsdictstwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1]) if len(args) > 1 else args[0]
         self._stack.push(F'!{var} = {self._stack.pop()}')
 
     def _op_memsetwith(self, var: str) -> None:
@@ -396,35 +432,42 @@ class VBADecompiler:
     def _op_dictsetwith(self, var: str) -> None:
         self._stack.push(F'Set !{var} = {self._stack.pop()}')
 
-    def _op_argsmemsetwith(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsmemsetwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         val = F'Set !{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
-    def _op_argsdictsetwith(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsdictsetwith(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         val = F'Set !{var}({self._join_params(params)}) = {self._stack.pop()}'
         self._stack.push(val)
 
     def _op_argscall(self, *args: str) -> None:
         args_list = list(args)
-        if args_list[0] == '(Call)':
-            nb = int(args_list[2], 16)
-            val = F'Call {args_list[1]}('
-            end_val = ')'
+        is_call = args_list[0] == '(Call)'
+        if is_call:
+            nb = int(args_list[-1], 16)
+            name = ' '.join(args_list[1:-1])
+            val = F'Call {name}'
         else:
-            val = args_list[0]
-            nb = int(args_list[1], 16)
-            end_val = ''
+            nb = int(args_list[-1], 16)
+            val = ' '.join(args_list[:-1])
 
         params: list[str] = []
         for _ in range(nb):
             params.append(self._stack.pop())
         params.reverse()
 
+        end_val = ''
         if params:
-            if params[0].startswith('(') or args_list[0] == '(Call)':
-                val += params[0]
+            if len(params) == 1 and params[0].startswith('(') and not is_call:
+                val += '(' + params[0][1:-1]
+                end_val = ')'
+            elif is_call:
+                val += F'({params[0]}'
+                end_val = ')'
             else:
                 val += F' {params[0]}'
             for p in params[1:]:
@@ -434,72 +477,16 @@ class VBADecompiler:
 
     def _op_argsmemcall(self, *args: str) -> None:
         args_list = list(args)
-        parenthesis = False
-        if args_list[0] == '(Call)':
-            args_list.pop(0)
-            val = F'Call {self._stack.pop()}.{args_list[0]}('
-            parenthesis = True
-        else:
-            val = F'{self._stack.pop()}.{args_list[0]}'
-
-        nb = int(args_list[1], 16)
-        end_val = ''
-
-        params: list[str] = []
-        for _ in range(nb):
-            params.append(self._stack.pop())
-        params.reverse()
-
-        if params:
-            if params[0].startswith('('):
-                val += params[0]
-                end_val = ')'
-            elif not parenthesis:
-                val += F' {params[0]}'
-            else:
-                val += params[0]
-            for p in params[1:]:
-                val += F', {p}'
-
-        if parenthesis:
-            end_val = ')'
-        self._stack.push(val + end_val)
+        target_prefix = F'{self._stack.pop()}.'
+        self._build_call(args_list, target_prefix)
 
     def _op_argsmemcallwith(self, *args: str) -> None:
         args_list = list(args)
-        parenthesis = False
-        if args_list[0] == '(Call)':
-            args_list.pop(0)
-            parenthesis = True
-            val = F'Call .{args_list[0]}('
-        else:
-            val = F'.{args_list[0]}'
+        self._build_call(args_list, '.')
 
-        nb = int(args_list[1], 16)
-        end_val = ''
-
-        params: list[str] = []
-        for _ in range(nb):
-            params.append(self._stack.pop())
-        params.reverse()
-
-        if params:
-            if params[0].startswith('('):
-                val += params[0]
-                end_val = ')'
-            elif not parenthesis:
-                val += F' {params[0]}'
-            else:
-                val += params[0]
-            for p in params[1:]:
-                val += F', {p}'
-
-        if parenthesis:
-            end_val = ')'
-        self._stack.push(val + end_val)
-
-    def _op_argsarray(self, var: str, numparams: str) -> None:
-        params = self._pop_params(numparams)
+    def _op_argsarray(self, *args: str) -> None:
+        var = ' '.join(args[:-1])
+        params = self._pop_params(args[-1])
         self._stack.push(F'{var}({self._join_params(params)})')
 
     def _op_assert(self) -> None:
@@ -523,30 +510,37 @@ class VBADecompiler:
     def _op_memaddressof(self, var: str) -> None:
         self._stack.push(F'AddressOf {self._stack.pop()}.{var}')
 
+    def _push_case(self, clause: str) -> None:
+        if self._stack.size() > 0 and self._stack.top().startswith('Case '):
+            prev = self._stack.pop()
+            self._stack.push(F'{prev}, {clause}')
+        else:
+            self._stack.push(F'Case {clause}')
+
     def _op_case(self) -> None:
-        self._stack.push(F'Case {self._stack.pop()}')
+        self._push_case(self._stack.pop())
 
     def _op_caseto(self) -> None:
         upper = self._stack.pop()
-        self._stack.push(F'Case {self._stack.pop()} To {upper}')
+        self._push_case(F'{self._stack.pop()} To {upper}')
 
     def _op_casegt(self) -> None:
-        self._stack.push(F'Case Is > {self._stack.pop()}')
+        self._push_case(F'Is > {self._stack.pop()}')
 
     def _op_caselt(self) -> None:
-        self._stack.push(F'Case Is < {self._stack.pop()}')
+        self._push_case(F'Is < {self._stack.pop()}')
 
     def _op_casege(self) -> None:
-        self._stack.push(F'Case Is >= {self._stack.pop()}')
+        self._push_case(F'Is >= {self._stack.pop()}')
 
     def _op_casele(self) -> None:
-        self._stack.push(F'Case Is <= {self._stack.pop()}')
+        self._push_case(F'Is <= {self._stack.pop()}')
 
     def _op_casene(self) -> None:
-        self._stack.push(F'Case Is <> {self._stack.pop()}')
+        self._push_case(F'Is <> {self._stack.pop()}')
 
     def _op_caseeq(self) -> None:
-        self._stack.push(F'Case Is = {self._stack.pop()}')
+        self._push_case(F'Is = {self._stack.pop()}')
 
     def _op_caseelse(self) -> None:
         self._stack.push('Case Else')
@@ -583,32 +577,44 @@ class VBADecompiler:
         self._stack.push('Close')
 
     _COERCE_MAP: dict[str, str] = {
-        '(Str)': 'CStr', '(Var)': 'CVar', '(Sng)': 'CSng',
-        '(Lng)': 'CLng', '(Int)': 'CInt', '(Dbl)': 'CDbl',
-        '(Date)': 'CDate', '(Cur)': 'CCur', '(Byte)': 'CByte',
-        '(Bool)': 'CBool',
+        '(Str)'  : 'CStr',
+        '(Var)'  : 'CVar',
+        '(Sng)'  : 'CSng',
+        '(Lng)'  : 'CLng',
+        '(Int)'  : 'CInt',
+        '(Dbl)'  : 'CDbl',
+        '(Date)' : 'CDate',
+        '(Cur)'  : 'CCur',
+        '(Byte)' : 'CByte',
+        '(Bool)' : 'CBool',
     }
 
     def _op_coerce(self, arg: str) -> None:
         fn = self._COERCE_MAP.get(arg)
         if fn is None:
-            raise PCodeDecompilerError(f'not implemented coerce type: {arg}')
+            raise PCodeDecompilerError(F'not implemented coerce type: {arg}')
         self._stack.push(F'{fn}({self._stack.pop()})')
 
     def _op_coercevar(self, arg: str) -> None:
         if arg == '(Err)':
             self._stack.push(F'CVErr({self._stack.pop()})')
         else:
-            raise PCodeDecompilerError(f'not implemented coercevar type: {arg}')
+            raise PCodeDecompilerError(F'not implemented coercevar type: {arg}')
 
     def _op_context(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Context')
+        pass
 
     def _op_debug(self) -> None:
         self._stack.push('Debug')
 
-    def _op_deftype(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: DefType')
+    def _op_deftype(self, type_arg: str, start: str, end: str) -> None:
+        type_name = type_arg[1:-1] if type_arg.startswith('(') else type_arg
+        start_letter = chr(int(start, 16) + ord('A'))
+        end_letter = chr(int(end, 16) + ord('A'))
+        if start_letter == end_letter:
+            self._stack.push(F'Def{type_name} {start_letter}')
+        else:
+            self._stack.push(F'Def{type_name} {start_letter}-{end_letter}')
 
     def _op_dim(self, *args: str) -> None:
         if args:
@@ -626,7 +632,7 @@ class VBADecompiler:
         self.indent_increase_pending = True
 
     def _op_doevents(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: DoEvents')
+        self._stack.push('DoEvents')
 
     def _op_dounitil(self) -> None:
         self._stack.push(F'Do Until {self._stack.pop()}')
@@ -649,22 +655,25 @@ class VBADecompiler:
         self.indent_level -= 1
         self.indent_increase_pending = True
 
-    def _op_elseiftypeblock(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: ElseIfTypeBlock')
+    def _op_elseiftypeblock(self, type_name: str) -> None:
+        obj = self._stack.pop()
+        self._stack.push(F'ElseIf TypeOf {obj} Is {type_name} Then')
+        self.indent_level -= 1
+        self.indent_increase_pending = True
 
     def _op_end(self) -> None:
         self._stack.push('End')
 
     def _op_endcontext(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: EndContext')
+        pass
 
     def _op_endfunc(self) -> None:
         self._stack.push('End Function')
         self.indent_level -= 1
 
     def _op_endif(self) -> None:
-        if self.one_line_if:
-            self.one_line_if = False
+        if self.one_line_if > 0:
+            self.one_line_if -= 1
         else:
             self._stack.push('End If')
             self.indent_level -= 1
@@ -701,7 +710,7 @@ class VBADecompiler:
         params: list[str] = []
         for _ in range(nb):
             params.append(self._stack.pop())
-            params.reverse()
+        params.reverse()
         val = ', '.join(params)
         self._stack.push(F'Erase {val}')
 
@@ -770,61 +779,69 @@ class VBADecompiler:
         self._stack.push('Exit Sub')
 
     def _op_fncurdir(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnCurDir')
+        self._stack.push('CurDir')
 
-    def _op_fndir(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnDir')
+    def _op_fndir(self, numparams: str = '0x0000') -> None:
+        params = self._pop_params(numparams)
+        if params:
+            self._stack.push(F'Dir({self._join_params(params)})')
+        else:
+            self._stack.push('Dir')
 
     def _op_empty0(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Empty0')
+        self._stack.push('')
 
     def _op_empty1(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Empty1')
+        self._stack.push('Empty')
 
     def _op_fnerror(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnError')
+        self._stack.push('Error')
 
-    def _op_fnformat(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnFormat')
+    def _op_fnformat(self, numparams: str = '0x0000') -> None:
+        params = self._pop_params(numparams)
+        if params:
+            self._stack.push(F'Format({self._join_params(params)})')
+        else:
+            self._stack.push('Format')
 
     def _op_fnfreefile(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnFreeFile')
+        self._stack.push('FreeFile')
 
     def _op_fninstr(self) -> None:
         arg2 = self._stack.pop()
         arg1 = self._stack.pop()
-        self._stack.push(f'Instr({arg1}, {arg2})')
+        self._stack.push(F'Instr({arg1}, {arg2})')
 
     def _op_fninstr3(self) -> None:
         a3 = self._stack.pop()
         a2 = self._stack.pop()
         a1 = self._stack.pop()
-        self._stack.push(f'Instr({a1}, {a2}, {a3})')
+        self._stack.push(F'Instr({a1}, {a2}, {a3})')
 
     def _op_fninstr4(self) -> None:
         a4 = self._stack.pop()
         a3 = self._stack.pop()
         a2 = self._stack.pop()
         a1 = self._stack.pop()
-        self._stack.push(f'Instr({a1}, {a2}, {a3}, {a4})')
+        self._stack.push(F'Instr({a1}, {a2}, {a3}, {a4})')
 
     def _op_fninstrb(self) -> None:
         arg2 = self._stack.pop()
         arg1 = self._stack.pop()
-        self._stack.push(f'InstrB({arg1}, {arg2})')
+        self._stack.push(F'InstrB({arg1}, {arg2})')
 
     def _op_fninstrb3(self) -> None:
         a3 = self._stack.pop()
         a2 = self._stack.pop()
         a1 = self._stack.pop()
-        self._stack.push(f'InstrB({a1}, {a2}, {a3})')
+        self._stack.push(F'InstrB({a1}, {a2}, {a3})')
 
     def _op_fninstrb4(self) -> None:
         a4 = self._stack.pop()
         a3 = self._stack.pop()
         a2 = self._stack.pop()
         a1 = self._stack.pop()
-        self._stack.push(f'Instr({a1}, {a2}, {a3}, {a4})')
+        self._stack.push(F'InstrB({a1}, {a2}, {a3}, {a4})')
 
     def _op_fnlbound(self, arg: str) -> None:
         n = int(arg, 16) + 1
@@ -834,28 +851,24 @@ class VBADecompiler:
         params.reverse()
         self._stack.push(F'LBound({self._join_params(params)})')
 
-    def _op_fnmid(self) -> None:
-        self._unary_fn('Mid')
-
-    def _op_fnmidb(self) -> None:
-        self._unary_fn('MidB')
-
     def _op_fnstrcomp(self) -> None:
         s2 = self._stack.pop()
         s1 = self._stack.pop()
-        self._stack.push(f'StrComp({s1}, {s2})')
+        self._stack.push(F'StrComp({s1}, {s2})')
 
     def _op_fnstrcomp3(self) -> None:
         a3 = self._stack.pop()
         s2 = self._stack.pop()
         s1 = self._stack.pop()
-        self._stack.push(f'StrComp({s1}, {s2}, {a3})')
+        self._stack.push(F'StrComp({s1}, {s2}, {a3})')
 
-    def _op_fnstringvar(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnStringVar')
+    def _op_fnstringvar(self, numparams: str = '0x0000') -> None:
+        params = self._pop_params(numparams)
+        self._stack.push(F'String({self._join_params(params)})')
 
-    def _op_fnstringstr(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FnStringStr')
+    def _op_fnstringstr(self, numparams: str = '0x0000') -> None:
+        params = self._pop_params(numparams)
+        self._stack.push(F'String({self._join_params(params)})')
 
     def _op_fnubound(self, arg: str) -> None:
         n = int(arg, 16) + 1
@@ -869,17 +882,20 @@ class VBADecompiler:
         maxvar = self._stack.pop()
         minvar = self._stack.pop()
         loopvar = self._stack.pop()
-        self._stack.push(f'For {loopvar} = {minvar} To {maxvar}')
+        self._stack.push(F'For {loopvar} = {minvar} To {maxvar}')
         self.indent_increase_pending = True
 
     def _op_foreach(self) -> None:
         collect = self._stack.pop()
         loopvar = self._stack.pop()
-        self._stack.push(f'For Each {loopvar} In {collect}')
+        self._stack.push(F'For Each {loopvar} In {collect}')
         self.indent_increase_pending = True
 
-    def _op_foreachas(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: ForEachAs')
+    def _op_foreachas(self, type_name: str) -> None:
+        collect = self._stack.pop()
+        loopvar = self._stack.pop()
+        self._stack.push(F'For Each {loopvar} In {collect}')
+        self.indent_increase_pending = True
 
     def _op_forstep(self) -> None:
         step = self._stack.pop()
@@ -887,8 +903,8 @@ class VBADecompiler:
         minvar = self._stack.pop()
         loopvar = self._stack.pop()
         self._stack.push(
-            f'For {loopvar} = {minvar} To {maxvar}'
-            f' Step {step}')
+            F'For {loopvar} = {minvar} To {maxvar}'
+            F' Step {step}')
         self.indent_increase_pending = True
 
     def _op_funcdefn(self, *args: str) -> None:
@@ -899,16 +915,20 @@ class VBADecompiler:
             self.indent_increase_pending = True
 
     def _op_funcdefnsave(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: FuncDefnSave')
+        val = ' '.join(args)
+        val = val[1:-1]
+        self._stack.push(val)
+        if not val.startswith('Declare'):
+            self.indent_increase_pending = True
 
     def _op_getrec(self) -> None:
         record = self._stack.pop()
         record_num = self._stack.pop()
         chan = self._stack.pop()
         if chan:
-            self._stack.push(f'Get {chan}, {record_num}, {record}')
+            self._stack.push(F'Get {chan}, {record_num}, {record}')
         else:
-            self._stack.push(f'Get {record_num}, , {record}')
+            self._stack.push(F'Get {record_num}, , {record}')
 
     def _op_gosub(self, var: str) -> None:
         self._stack.push(F'GoSub {var}')
@@ -918,20 +938,23 @@ class VBADecompiler:
 
     def _op_if(self, *args: str) -> None:
         self._stack.push(F'If {self._stack.pop()} Then')
-        self.one_line_if = True
+        self.one_line_if += 1
 
     def _op_ifblock(self) -> None:
         self._stack.push(F'If {self._stack.pop()} Then')
         self.indent_increase_pending = True
 
-    def _op_typeof(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: TypeOf')
+    def _op_typeof(self, type_name: str) -> None:
+        obj = self._stack.pop()
+        self._stack.push(F'TypeOf {obj} Is {type_name}')
 
-    def _op_iftypeblock(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: IfTypeBlock')
+    def _op_iftypeblock(self, type_name: str) -> None:
+        obj = self._stack.pop()
+        self._stack.push(F'If TypeOf {obj} Is {type_name} Then')
+        self.indent_increase_pending = True
 
     def _op_implements(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Implements')
+        self._stack.push(F'Implements {self._stack.pop()}')
 
     def _op_input(self) -> None:
         self._stack.push(F'Input {self._stack.pop()}')
@@ -948,13 +971,35 @@ class VBADecompiler:
 
     def _op_label(self, arg: str) -> None:
         self._stack.push(F'{arg}:')
+        self.has_bos = True
 
     def _op_let(self, *args: str) -> None:
         self._stack.push('Let')
         self.has_bos = True
 
-    def _op_line(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Line')
+    def _op_line(self, numparams: str) -> None:
+        obj = self._stack.pop()
+        nb = int(numparams, 16)
+        params: list[str] = []
+        for _ in range(nb):
+            params.append(self._stack.pop())
+        params.reverse()
+        val = F'{obj}.Line '
+        if len(params) >= 4:
+            step1 = ''
+            step2 = ''
+            if params[0] != '0':
+                step1 = 'Step '
+            if params[1] != '0':
+                step2 = 'Step '
+            val += F'{step1}({params[2]}, {params[3]})'
+            if len(params) >= 6:
+                val += F'-{step2}({params[4]}, {params[5]})'
+            if len(params) >= 7 and params[6] != '0':
+                val += F', {params[6]}'
+            if len(params) >= 8 and params[7] != '0':
+                val += F', {params[7]}'
+        self._stack.push(val)
 
     def _op_linecont(self, *args: str) -> None:
         pass
@@ -962,31 +1007,50 @@ class VBADecompiler:
     def _op_lineinput(self) -> None:
         var = self._stack.pop()
         num_file = self._stack.pop()
-        self._stack.push(f'Line Input #{num_file}, {var}')
+        self._stack.push(F'Line Input #{num_file}, {var}')
 
     def _op_linenum(self, *args: str) -> None:
         return
 
-    def _op_litcy(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: LitCy')
+    def _op_litcy(self, b1: str, b2: str, b3: str, b4: str) -> None:
+        hexstr = b4[2:] + b3[2:] + b2[2:] + b1[2:]
+        val = int(hexstr, 16)
+        if val >= 0x8000000000000000:
+            val -= 0x10000000000000000
+        cy = val / 10000
+        if cy == int(cy):
+            self._stack.push(str(int(cy)))
+        else:
+            self._stack.push(str(cy))
 
-    def _op_litdate(self, *args: str) -> None:
-        raise PCodeDecompilerError(
-            'a date literal is defined here but cannot be'
-            ' reconstructed from the p-code')
+    def _op_litdate(self, b1: str, b2: str, b3: str, b4: str) -> None:
+        from datetime import datetime, timedelta
+        hexstr = b4[2:] + b3[2:] + b2[2:] + b1[2:]
+        value = struct.unpack('!d', bytes.fromhex(hexstr))[0]
+        epoch = datetime(1899, 12, 30)
+        try:
+            dt = epoch + timedelta(days=value)
+            self._stack.push(F'#{dt.strftime("%m/%d/%Y")}#')
+        except (OverflowError, ValueError, OSError):
+            self._stack.push(F'#<date:{value}>#')
 
     def _op_litdefault(self) -> None:
-        pass
+        self._stack.push('')
 
     def _op_litdi2(self, value: str) -> None:
         self._stack.push(str(int(value, 16)))
 
     def _op_litdi4(self, byte1: str, byte2: str) -> None:
         val = int(byte2 + byte1[2:], 16)
-        self._stack.push(str(val))
+        if val >= 0x80000000:
+            val -= 0x100000000
+        suffix = '&' if -32768 <= val <= 32767 else ''
+        self._stack.push(F'{val}{suffix}')
 
-    def _op_litdi8(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: LitDI8')
+    def _op_litdi8(self, b1: str, b2: str, b3: str, b4: str) -> None:
+        hexstr = b4[2:] + b3[2:] + b2[2:] + b1[2:]
+        val = int(hexstr, 16)
+        self._stack.push(str(val))
 
     def _op_lithi2(self, byte: str) -> None:
         val = byte[2:]
@@ -996,12 +1060,19 @@ class VBADecompiler:
 
     def _op_lithi4(self, byte1: str, byte2: str) -> None:
         val = byte2[2:] + byte1[2:]
+        ival = int(val, 16)
+        if ival >= 0x80000000:
+            ival -= 0x100000000
+        suffix = '&' if -32768 <= ival <= 32767 else ''
+        while val.startswith('0') and len(val) > 1:
+            val = val[1:]
+        self._stack.push(F'&H{val}{suffix}')
+
+    def _op_lithi8(self, b1: str, b2: str, b3: str, b4: str) -> None:
+        val = b4[2:] + b3[2:] + b2[2:] + b1[2:]
         while val.startswith('0') and len(val) > 1:
             val = val[1:]
         self._stack.push(F'&H{val}')
-
-    def _op_lithi8(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: LitHI8')
 
     def _op_litnothing(self) -> None:
         self._stack.push('Nothing')
@@ -1013,25 +1084,36 @@ class VBADecompiler:
     def _op_litoi4(self, byte1: str, byte2: str) -> None:
         val = byte2[2:] + byte1[2:]
         v = int(val, 16)
-        self._stack.push(F'&O{oct(v)[2:]}')
+        if v >= 0x80000000:
+            v -= 0x100000000
+        suffix = '&' if -32768 <= v <= 32767 else ''
+        self._stack.push(F'&O{oct(v)[2:]}{suffix}')
 
-    def _op_litoi8(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: LitOI8')
+    def _op_litoi8(self, b1: str, b2: str, b3: str, b4: str) -> None:
+        val = b4[2:] + b3[2:] + b2[2:] + b1[2:]
+        v = int(val, 16)
+        self._stack.push(F'&O{oct(v)[2:]}')
 
     def _op_litr4(self, byte1: str, byte2: str) -> None:
         hexstr = byte2[2:] + byte1[2:]
         value = struct.unpack('!f', bytes.fromhex(hexstr))[0]
-        self._stack.push(str(value))
+        if value == int(value) and not (math.isinf(value) or math.isnan(value)):
+            self._stack.push(F'{int(value)}!')
+        else:
+            self._stack.push(str(value))
 
     def _op_litr8(
         self, b1: str, b2: str, b3: str, b4: str
     ) -> None:
         hexstr = b4[2:] + b3[2:] + b2[2:] + b1[2:]
         value = struct.unpack('!d', bytes.fromhex(hexstr))[0]
-        self._stack.push(str(value))
+        if value == int(value) and not (math.isinf(value) or math.isnan(value)):
+            self._stack.push(F'{int(value)}#')
+        else:
+            self._stack.push(str(value))
 
-    def _op_litsmalli2(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: LitSmallI2')
+    def _op_litsmalli2(self, value: str) -> None:
+        self._stack.push(value)
 
     def _op_litstr(self, mylen: str, *args: str) -> None:
         val = ' '.join(args)
@@ -1045,18 +1127,7 @@ class VBADecompiler:
         self._stack.push(var[1:-1])
 
     def _op_lock(self) -> None:
-        sz = self._stack.size()
-        if sz == 3:
-            last = self._stack.pop()
-            first = self._stack.pop()
-            chan = self._stack.pop()
-            self._stack.push(f'Lock {chan}, {first} To {last}')
-        elif sz == 2:
-            rec = self._stack.pop()
-            chan = self._stack.pop()
-            self._stack.push(f'Lock {chan}, {rec}')
-        elif sz == 1:
-            self._stack.push(F'Lock {self._stack.pop()}')
+        self._lock_unlock('Lock')
 
     def _op_loop(self) -> None:
         self._stack.push('Loop')
@@ -1073,10 +1144,10 @@ class VBADecompiler:
     def _op_lset(self) -> None:
         var = self._stack.pop()
         val = self._stack.pop()
-        self._stack.push(f'LSet {var} = {val}')
+        self._stack.push(F'LSet {var} = {val}')
 
     def _op_me(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Me')
+        self._stack.push('Me')
 
     def _op_meimplicit(self, *args: str) -> None:
         self._stack.push('MeImplicit')
@@ -1084,190 +1155,40 @@ class VBADecompiler:
     def _op_memredim(self, *args: str) -> None:
         obj = self._stack.pop()
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, {obj}.{args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'{obj}.{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
+        val = self._redim_body(args_list, F'{obj}.')
         self._stack.push(val)
 
     def _op_memredimwith(self, *args: str) -> None:
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, .{args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'.{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
+        val = self._redim_body(args_list, '.')
         self._stack.push(val)
 
     def _op_memredimas(self, *args: str) -> None:
         obj = self._stack.pop()
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, {obj}.{args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'{obj}.{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
-
-        remaining = args_list[2:]
-        if remaining and remaining[-1] != 'Variant)':
-            val += F' {remaining[0][1:]} {remaining[1][:-1]}'
+        val = self._redim_body(args_list, F'{obj}.')
+        val += self._redim_as_suffix(args_list)
         self._stack.push(val)
 
     def _op_memredimaswith(self, *args: str) -> None:
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, .{args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'.{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
-
-        remaining = args_list[2:]
-        if remaining and remaining[-1] != 'Variant)':
-            val += F' {remaining[0][1:]} {remaining[1][:-1]}'
+        val = self._redim_body(args_list, '.')
+        val += self._redim_as_suffix(args_list)
         self._stack.push(val)
 
     def _op_mid(self) -> None:
-        if self._stack.size() > 3:
-            length = self._stack.pop()
-            start = self._stack.pop()
-            obj = self._stack.pop()
-            rhs = self._stack.pop()
-            self._stack.push(f'Mid({obj}, {start}, {length}) = {rhs}')
-        else:
-            start = self._stack.pop()
-            obj = self._stack.pop()
-            rhs = self._stack.pop()
-            self._stack.push(f'Mid({obj}, {start}) = {rhs}')
+        self._mid_statement('Mid')
 
     def _op_midb(self) -> None:
-        if self._stack.size() > 3:
-            length = self._stack.pop()
-            start = self._stack.pop()
-            obj = self._stack.pop()
-            rhs = self._stack.pop()
-            self._stack.push(f'MidB({obj}, {start}, {length}) = {rhs}')
-        else:
-            start = self._stack.pop()
-            obj = self._stack.pop()
-            rhs = self._stack.pop()
-            self._stack.push(f'MidB({obj}, {start}) = {rhs}')
+        self._mid_statement('MidB')
 
     def _op_name(self) -> None:
         newname = self._stack.pop()
         oldname = self._stack.pop()
-        self._stack.push(f'Name {oldname} As {newname}')
+        self._stack.push(F'Name {oldname} As {newname}')
 
-    def _op_new(self, var: str) -> None:
-        self._stack.push(F'New {var}')
+    def _op_new(self, var: str = '') -> None:
+        self._stack.push(F'New {var}' if var else 'New')
 
     def _op_next(self) -> None:
         self._stack.push('Next')
@@ -1295,13 +1216,17 @@ class VBADecompiler:
         self._stack.push(val + ' '.join(args))
 
     def _op_open(self, *args: str) -> None:
+        rec_length = self._stack.pop()
         chan = self._stack.pop()
         mode = args[0][1:]
         for a in args[1:]:
             mode += F' {a}'
         mode = mode[:-1]
         filename = self._stack.pop()
-        self._stack.push(f'Open {filename} {mode} As {chan}')
+        val = F'Open {filename} {mode} As {chan}'
+        if rec_length:
+            val += F' Len = {rec_length}'
+        self._stack.push(val)
 
     def _op_option(self, *args: str) -> None:
         val = args[0][1:]
@@ -1387,7 +1312,7 @@ class VBADecompiler:
         record = self._stack.pop()
         record_num = self._stack.pop()
         chan = self._stack.pop()
-        self._stack.push(f'Put {chan}, {record_num}, {record}')
+        self._stack.push(F'Put {chan}, {record_num}, {record}')
 
     def _op_quoterem(
         self, val1: str, lenvar: str, *args: str
@@ -1402,78 +1327,13 @@ class VBADecompiler:
 
     def _op_redim(self, *args: str) -> None:
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, {args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
+        val = self._redim_body(args_list)
         self._stack.push(val)
 
     def _op_redimas(self, *args: str) -> None:
         args_list = list(args)
-        preserve = False
-        if args_list[0] == '(Preserve)':
-            args_list.pop(0)
-            preserve = True
-
-        values = self._stack.drain()
-
-        if values and values[0].startswith('ReDim'):
-            val = F'{values.pop(0)}, {args_list[0]}('
-        else:
-            val = 'ReDim '
-            if preserve:
-                val += 'Preserve '
-            val += F'{args_list[0]}('
-
-        v1 = values.pop(0)
-        v2 = values.pop(0)
-        if v1 == 'OptionBase':
-            val += v2
-        else:
-            val += F'{v1} To {v2}'
-
-        while values:
-            val += ', '
-            v1 = values.pop(0)
-            v2 = values.pop(0)
-            if v1 == 'OptionBase':
-                val += v2
-            else:
-                val += F'{v1} To {v2}'
-
-        val += ')'
-
-        remaining = args_list[2:]
-        if remaining and remaining[-1] != 'Variant)':
-            val += F' {remaining[0][1:]} {remaining[1][:-1]}'
+        val = self._redim_body(args_list)
+        val += self._redim_as_suffix(args_list)
         self._stack.push(val)
 
     def _op_reparse(self, *args: str) -> None:
@@ -1504,10 +1364,19 @@ class VBADecompiler:
     def _op_rset(self) -> None:
         var = self._stack.pop()
         val = self._stack.pop()
-        self._stack.push(f'RSet {var} = {val}')
+        self._stack.push(F'RSet {var} = {val}')
 
-    def _op_scale(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: Scale')
+    def _op_scale(self, numparams: str) -> None:
+        obj = self._stack.pop()
+        nb = int(numparams, 16)
+        params: list[str] = []
+        for _ in range(nb):
+            params.append(self._stack.pop())
+        params.reverse()
+        val = F'{obj}.Scale '
+        if len(params) >= 4:
+            val += F'({params[0]}, {params[1]})-({params[2]}, {params[3]})'
+        self._stack.push(val)
 
     def _op_seek(self) -> None:
         data = self._stack.pop()
@@ -1542,18 +1411,7 @@ class VBADecompiler:
         self.indent_increase_pending = True
 
     def _op_unlock(self) -> None:
-        sz = self._stack.size()
-        if sz == 3:
-            last = self._stack.pop()
-            first = self._stack.pop()
-            chan = self._stack.pop()
-            self._stack.push(f'Unlock {chan}, {first} To {last}')
-        elif sz == 2:
-            rec = self._stack.pop()
-            chan = self._stack.pop()
-            self._stack.push(f'Unlock {chan}, {rec}')
-        elif sz == 1:
-            self._stack.push(F'Unlock {self._stack.pop()}')
+        self._lock_unlock('Unlock')
 
     def _op_vardefn(self, *args: str) -> None:
         args_list = list(args)
@@ -1580,7 +1438,7 @@ class VBADecompiler:
             return
 
         decls = [
-            'Dim', 'Private', 'Public', 'Protected', 'Friend',
+            'Dim', 'Global', 'Private', 'Public', 'Protected', 'Friend',
             'Protected Friend', 'Shared', 'Shadows', 'Static',
             'ReadOnly',
         ]
@@ -1605,22 +1463,27 @@ class VBADecompiler:
             self._stack.push(F'{decl_part} {var}{ending}{end_val}')
             return
 
-        val = ''
+        decl_prefix = ''
         if values[0] in decls:
-            val += F'{values.pop(0)} {var}('
+            decl_prefix = F'{values.pop(0)} '
         elif values[0] == 'DimImplicit':
             values.pop(0)
-            val += var + '('
         else:
-            prev_decl = False
             for decl in decls:
                 if values[0].startswith(decl):
-                    val += F'{values.pop(0)}, {var}('
-                    prev_decl = True
+                    decl_prefix = F'{values.pop(0)}, '
                     break
-            if not prev_decl:
-                val += var + '('
 
+        if ending.strip().startswith('As') and len(values) == 1:
+            type_name = ending.strip()[3:]
+            self._stack.push(F'{decl_prefix}{var} As {type_name} * {values[0]}')
+            return
+
+        if len(values) == 1:
+            self._stack.push(F'{decl_prefix}{var}({values[0]}){ending}')
+            return
+
+        val = F'{decl_prefix}{var}('
         v1 = values.pop(0)
         v2 = values.pop(0)
         if v1 == 'OptionBase':
@@ -1656,7 +1519,7 @@ class VBADecompiler:
         self._stack.push(F'Write {self._stack.pop()},')
 
     def _op_constfuncexpr(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: ConstFuncExpr')
+        pass
 
     def _op_lbconst(self, var: str) -> None:
         self._stack.push(F'#Const {var} = {self._stack.pop()}')
@@ -1694,8 +1557,8 @@ class VBADecompiler:
     def _op_startwithexpr(self) -> None:
         pass
 
-    def _op_setorst(self, *args: str) -> None:
-        raise PCodeDecompilerError('not implemented: SetOrSt')
+    def _op_setorst(self, arg: str) -> None:
+        self._stack.push(F'{arg} = {self._stack.pop()}')
 
     def _op_endenum(self) -> None:
         self._stack.push('End Enum')
@@ -1707,283 +1570,30 @@ class VBADecompiler:
     def _op_newline(self) -> None:
         self._stack.push('')
 
-    def _build_dispatch(self) -> dict[str, Callable]:
-        return {
-            'Imp'                   : self._op_imp,
-            'Eqv'                   : self._op_eqv,
-            'Xor'                   : self._op_xor,
-            'Or'                    : self._op_or,
-            'And'                   : self._op_and,
-            'Eq'                    : self._op_eq,
-            'Ne'                    : self._op_ne,
-            'Le'                    : self._op_le,
-            'Ge'                    : self._op_ge,
-            'Lt'                    : self._op_lt,
-            'Gt'                    : self._op_gt,
-            'Add'                   : self._op_add,
-            'Sub'                   : self._op_sub,
-            'Mod'                   : self._op_mod,
-            'IDiv'                  : self._op_idiv,
-            'Mul'                   : self._op_mul,
-            'Div'                   : self._op_div,
-            'Concat'                : self._op_concat,
-            'Like'                  : self._op_like,
-            'Pwr'                   : self._op_pwr,
-            'Is'                    : self._op_is,
-            'Not'                   : self._op_not,
-            'UMi'                   : self._op_umi,
-            'FnAbs'                 : self._op_fnabs,
-            'FnFix'                 : self._op_fnfix,
-            'FnInt'                 : self._op_fnint,
-            'FnSgn'                 : self._op_fnsgn,
-            'FnLen'                 : self._op_fnlen,
-            'FnLenB'                : self._op_fnlenb,
-            'Paren'                 : self._op_paren,
-            'Sharp'                 : self._op_sharp,
-            'LdLHS'                 : self._op_ldlhs,
-            'Ld'                    : self._op_ld,
-            'MemLd'                 : self._op_memld,
-            'DictLd'                : self._op_dictld,
-            'IndexLd'               : self._op_indexld,
-            'ArgsLd'                : self._op_argsld,
-            'ArgsMemLd'             : self._op_argsmemld,
-            'ArgsDictLd'            : self._op_argsdictld,
-            'St'                    : self._op_st,
-            'MemSt'                 : self._op_memst,
-            'DictSt'                : self._op_dictst,
-            'IndexSt'               : self._op_indexst,
-            'ArgsSt'                : self._op_argsst,
-            'ArgsMemSt'             : self._op_argsmemst,
-            'ArgsDictSt'            : self._op_argsdictst,
-            'Set'                   : self._op_set,
-            'Memset'                : self._op_memset,
-            'Dictset'               : self._op_dictset,
-            'Indexset'              : self._op_indexset,
-            'ArgsSet'               : self._op_argsset,
-            'ArgsMemSet'            : self._op_argsmemset,
-            'ArgsDictSet'           : self._op_argsdictset,
-            'MemLdWith'             : self._op_memldwith,
-            'DictLdWith'            : self._op_dictldwith,
-            'ArgsMemLdWith'         : self._op_argsmemldwith,
-            'ArgsDictLdWith'        : self._op_argsdictldwith,
-            'MemStWith'             : self._op_memstwith,
-            'DictStWith'            : self._op_dictstwith,
-            'ArgsMemStWith'         : self._op_argsmemstwith,
-            'ArgsDictStWith'        : self._op_argsdictstwith,
-            'MemSetWith'            : self._op_memsetwith,
-            'DictSetWith'           : self._op_dictsetwith,
-            'ArgsMemSetWith'        : self._op_argsmemsetwith,
-            'ArgsDictSetWith'       : self._op_argsdictsetwith,
-            'ArgsCall'              : self._op_argscall,
-            'ArgsMemCall'           : self._op_argsmemcall,
-            'ArgsMemCallWith'       : self._op_argsmemcallwith,
-            'ArgsArray'             : self._op_argsarray,
-            'Assert'                : self._op_assert,
-            'BoS'                   : self._op_bos,
-            'BoSImplicit'           : self._op_bosimplicit,
-            'BoL'                   : self._op_bol,
-            'LdAddressOf'           : self._op_ldaddressof,
-            'MemAddressOf'          : self._op_memaddressof,
-            'Case'                  : self._op_case,
-            'CaseTo'                : self._op_caseto,
-            'CaseGt'                : self._op_casegt,
-            'CaseLt'                : self._op_caselt,
-            'CaseGe'                : self._op_casege,
-            'CaseLe'                : self._op_casele,
-            'CaseNe'                : self._op_casene,
-            'CaseEq'                : self._op_caseeq,
-            'CaseElse'              : self._op_caseelse,
-            'CaseDone'              : self._op_casedone,
-            'Circle'                : self._op_circle,
-            'Close'                 : self._op_close,
-            'CloseAll'              : self._op_closeall,
-            'Coerce'                : self._op_coerce,
-            'CoerceVar'             : self._op_coercevar,
-            'Context'               : self._op_context,
-            'Debug'                 : self._op_debug,
-            'DefType'               : self._op_deftype,
-            'Dim'                   : self._op_dim,
-            'DimImplicit'           : self._op_dimimplicit,
-            'Do'                    : self._op_do,
-            'DoEvents'              : self._op_doevents,
-            'DoUnitil'              : self._op_dounitil,
-            'DoWhile'               : self._op_dowhile,
-            'Else'                  : self._op_else,
-            'ElseBlock'             : self._op_elseblock,
-            'ElseIfBlock'           : self._op_elseifblock,
-            'ElseIfTypeBlock'       : self._op_elseiftypeblock,
-            'End'                   : self._op_end,
-            'EndContext'            : self._op_endcontext,
-            'EndFunc'               : self._op_endfunc,
-            'EndIf'                 : self._op_endif,
-            'EndIfBlock'            : self._op_endifblock,
-            'EndImmediate'          : self._op_endimmediate,
-            'EndProp'               : self._op_endprop,
-            'EndSelect'             : self._op_endselect,
-            'EndSub'                : self._op_endsub,
-            'EndType'               : self._op_endtype,
-            'EndWith'               : self._op_endwith,
-            'Erase'                 : self._op_erase,
-            'Error'                 : self._op_error,
-            'EventDecl'             : self._op_eventdecl,
-            'RaiseEvent'            : self._op_raiseevent,
-            'ArgsMemRaiseEvent'     : self._op_argsmemraiseevent,
-            'ArgsMemRaiseEventWith' : self._op_argsmemraiseeventwith,
-            'ExitDo'                : self._op_exitdo,
-            'ExitFor'               : self._op_exitfor,
-            'ExitFunc'              : self._op_exitfunc,
-            'ExitProp'              : self._op_exitprop,
-            'ExitSub'               : self._op_exitsub,
-            'FnCurDir'              : self._op_fncurdir,
-            'FnDir'                 : self._op_fndir,
-            'Empty0'                : self._op_empty0,
-            'Empty1'                : self._op_empty1,
-            'FnError'               : self._op_fnerror,
-            'FnFormat'              : self._op_fnformat,
-            'FnFreeFile'            : self._op_fnfreefile,
-            'FnInStr'               : self._op_fninstr,
-            'FnInStr3'              : self._op_fninstr3,
-            'FnInStr4'              : self._op_fninstr4,
-            'FnInStrB'              : self._op_fninstrb,
-            'FnInStrB3'             : self._op_fninstrb3,
-            'FnInStrB4'             : self._op_fninstrb4,
-            'FnLBound'              : self._op_fnlbound,
-            'FnMid'                 : self._op_fnmid,
-            'FnMidB'                : self._op_fnmidb,
-            'FnStrComp'             : self._op_fnstrcomp,
-            'FnStrComp3'            : self._op_fnstrcomp3,
-            'FnStringVar'           : self._op_fnstringvar,
-            'FnStringStr'           : self._op_fnstringstr,
-            'FnUBound'              : self._op_fnubound,
-            'For'                   : self._op_for,
-            'ForEach'               : self._op_foreach,
-            'ForEachAs'             : self._op_foreachas,
-            'ForStep'               : self._op_forstep,
-            'FuncDefn'              : self._op_funcdefn,
-            'FuncDefnSave'          : self._op_funcdefnsave,
-            'GetRec'                : self._op_getrec,
-            'GoSub'                 : self._op_gosub,
-            'GoTo'                  : self._op_goto,
-            'If'                    : self._op_if,
-            'IfBlock'               : self._op_ifblock,
-            'TypeOf'                : self._op_typeof,
-            'IfTypeBlock'           : self._op_iftypeblock,
-            'Implements'            : self._op_implements,
-            'Input'                 : self._op_input,
-            'InputDone'             : self._op_inputdone,
-            'InputItem'             : self._op_inputitem,
-            'Label'                 : self._op_label,
-            'Let'                   : self._op_let,
-            'Line'                  : self._op_line,
-            'LineCont'              : self._op_linecont,
-            'LineInput'             : self._op_lineinput,
-            'LineNum'               : self._op_linenum,
-            'LitCy'                 : self._op_litcy,
-            'LitDate'               : self._op_litdate,
-            'LitDefault'            : self._op_litdefault,
-            'LitDI2'                : self._op_litdi2,
-            'LitDI4'                : self._op_litdi4,
-            'LitDI8'                : self._op_litdi8,
-            'LitHI2'                : self._op_lithi2,
-            'LitHI4'                : self._op_lithi4,
-            'LitHI8'                : self._op_lithi8,
-            'LitNothing'            : self._op_litnothing,
-            'LitOI2'                : self._op_litoi2,
-            'LitOI4'                : self._op_litoi4,
-            'LitOI8'                : self._op_litoi8,
-            'LitR4'                 : self._op_litr4,
-            'LitR8'                 : self._op_litr8,
-            'LitSmallI2'            : self._op_litsmalli2,
-            'LitStr'                : self._op_litstr,
-            'LitVarSpecial'         : self._op_litvarspecial,
-            'Lock'                  : self._op_lock,
-            'Loop'                  : self._op_loop,
-            'LoopUntil'             : self._op_loopuntil,
-            'LoopWhile'             : self._op_loopwhile,
-            'LSet'                  : self._op_lset,
-            'Me'                    : self._op_me,
-            'MeImplicit'            : self._op_meimplicit,
-            'MemRedim'              : self._op_memredim,
-            'MemRedimWith'          : self._op_memredimwith,
-            'MemRedimAs'            : self._op_memredimas,
-            'MemRedimAsWith'        : self._op_memredimaswith,
-            'Mid'                   : self._op_mid,
-            'MidB'                  : self._op_midb,
-            'Name'                  : self._op_name,
-            'New'                   : self._op_new,
-            'Next'                  : self._op_next,
-            'NextVar'               : self._op_nextvar,
-            'OnError'               : self._op_onerror,
-            'OnGosub'               : self._op_ongosub,
-            'OnGoto'                : self._op_ongoto,
-            'Open'                  : self._op_open,
-            'Option'                : self._op_option,
-            'OptionBase'            : self._op_optionbase,
-            'ParamByVal'            : self._op_parambyval,
-            'ParamOmitted'          : self._op_paramomitted,
-            'ParamNamed'            : self._op_paramnamed,
-            'PrintChan'             : self._op_printchan,
-            'PrintComma'            : self._op_printcomma,
-            'PrintEoS'              : self._op_printeos,
-            'PrintItemComma'        : self._op_printitemcomma,
-            'PrintItemNL'           : self._op_printitemnl,
-            'PrintItemSemi'         : self._op_printitemsemi,
-            'PrintNL'               : self._op_printnl,
-            'PrintObj'              : self._op_printobj,
-            'PrintSemi'             : self._op_printsemi,
-            'PrintSpc'              : self._op_printspc,
-            'PrintTab'              : self._op_printtab,
-            'PrintTabComma'         : self._op_printtabcomma,
-            'PSet'                  : self._op_pset,
-            'PutRec'                : self._op_putrec,
-            'QuoteRem'              : self._op_quoterem,
-            'Redim'                 : self._op_redim,
-            'RedimAs'               : self._op_redimas,
-            'Reparse'               : self._op_reparse,
-            'Rem'                   : self._op_rem,
-            'Resume'                : self._op_resume,
-            'Return'                : self._op_return,
-            'RSet'                  : self._op_rset,
-            'Scale'                 : self._op_scale,
-            'Seek'                  : self._op_seek,
-            'SelectCase'            : self._op_selectcase,
-            'SelectIs'              : self._op_selectis,
-            'SelectType'            : self._op_selecttype,
-            'SetStmt'               : self._op_setstmt,
-            'Stack'                 : self._op_stack,
-            'Stop'                  : self._op_stop,
-            'Type'                  : self._op_type,
-            'Unlock'                : self._op_unlock,
-            'VarDefn'               : self._op_vardefn,
-            'Wend'                  : self._op_wend,
-            'While'                 : self._op_while,
-            'With'                  : self._op_with,
-            'WriteChan'             : self._op_writechan,
-            'ConstFuncExpr'         : self._op_constfuncexpr,
-            'LbConst'               : self._op_lbconst,
-            'LbIf'                  : self._op_lbif,
-            'LbElse'                : self._op_lbelse,
-            'LbElseIf'              : self._op_lbelseif,
-            'LbEndIf'               : self._op_lbendif,
-            'LbMark'                : self._op_lbmark,
-            'EndForVariable'        : self._op_endforvariable,
-            'StartForVariable'      : self._op_startforvariable,
-            'NewRedim'              : self._op_newredim,
-            'StartWithExpr'         : self._op_startwithexpr,
-            'SetOrSt'               : self._op_setorst,
-            'EndEnum'               : self._op_endenum,
-            'Illegal'               : self._op_illegal,
-            'NewLine'               : self._op_newline,
-        }
-
     def execute(self, opcode: str, *args: str) -> None:
         """
-        Dispatch a single opcode with its arguments.
+        Dispatch a single opcode with its arguments. Uses a naming convention (_op_ + lowercase
+        mnemonic) with getattr lookup, falling back to data-driven tables for binary ops and
+        unary functions.
         """
-        handler = self._dispatch.get(opcode)
-        if handler is None:
-            raise PCodeDecompilerError(f'unknown opcode: {opcode}')
-        handler(*args)
+        handler = self._dispatch_overrides.get(opcode)
+        if handler is not None:
+            handler(*args)
+            return
+        method_name = F'_op_{opcode.lower()}'
+        handler = getattr(self, method_name, None)
+        if handler is not None:
+            handler(*args)
+            return
+        binary_sym = _BINARY_OPS.get(opcode)
+        if binary_sym is not None:
+            self._binary_op(binary_sym)
+            return
+        unary_name = _UNARY_FNS.get(opcode)
+        if unary_name is not None:
+            self._unary_fn(unary_name)
+            return
+        raise PCodeDecompilerError(F'unknown opcode: {opcode}')
 
     def apply_pending_indent(self) -> None:
         """
@@ -1998,74 +1608,40 @@ class VBADecompiler:
 
 class PCodeParser:
     """
-    Parses pcodedmp output text and uses VBADecompiler to reconstruct readable VBA source code.
+    Accepts structured PCodeModule objects (or legacy pcodedmp text) and uses VBADecompiler to
+    reconstruct readable VBA source code.
     """
 
-    def __init__(self, text: str):
-        self._text = text
+    def __init__(self):
         self._stack = VBAStack()
         self._decompiler = VBADecompiler(self._stack)
-        self._output: str = ''
+        self._output = io.StringIO()
         self._output_queue: list[tuple[str, int, bool, bool]] = []
 
-    def parse(self) -> str:
+    def decompile_modules(self, modules: list[PCodeModule]) -> str:
         """
-        Parse the pcodedmp output and return decompiled VBA source.
+        Decompile a list of PCodeModule objects into VBA source code.
         """
-        streams = self._parse_input()
-        self._process_input(streams)
-        self._output = re.sub(
+        self._output = io.StringIO()
+        for module in modules:
+            self._process_structured(module.lines)
+        return re.sub(
             r'(End\s(?:Function|Sub|Property|Type|Enum))\n(?=\S)',
             r'\1\n\n',
-            self._output,
+            self._output.getvalue(),
         )
-        return self._output
 
-    def _parse_input(
-        self,
-    ) -> dict[str, dict[int, list[str]]]:
-        lines_by_stream: dict[str, dict[int, list[str]]] = {}
-        splitted = self._text.splitlines()
-
-        current_stream: str | None = None
-        lines: dict[int, list[str]] = {}
-        i = 0
-        started = False
-        opelines: list[str] = []
-
-        for input_line in splitted:
-            input_line = input_line.strip()
-
-            if 'VBA/' in input_line and input_line.endswith('bytes'):
-                if current_stream is not None:
-                    if not opelines:
-                        opelines = ['NewLine']
-                    lines[i] = opelines
-                    lines_by_stream[current_stream] = lines
-                    opelines = []
-                    i = 0
-                    lines = {}
-                    started = False
-                current_stream = input_line
-
-            if input_line.startswith('Line #'):
-                started = True
-                if not input_line.startswith('Line #0'):
-                    if not opelines:
-                        opelines = ['NewLine']
-                    lines[i] = opelines
-                    i += 1
-                opelines = []
-            elif started:
-                opelines.append(input_line)
-
-        if not opelines:
-            opelines = ['NewLine']
-        lines[i] = opelines
-        if current_stream is not None:
-            lines_by_stream[current_stream] = lines
-
-        return lines_by_stream
+    def decompile_module(self, module: PCodeModule) -> str:
+        """
+        Decompile a single PCodeModule into VBA source code.
+        """
+        self._output = io.StringIO()
+        self._process_structured(module.lines)
+        return re.sub(
+            r'(End\s(?:Function|Sub|Property|Type|Enum))\n(?=\S)',
+            r'\1\n\n',
+            self._output.getvalue(),
+        )
 
     def _queue_line(
         self,
@@ -2084,76 +1660,99 @@ class PCodeParser:
         has_end: bool = True,
         checking_queue: bool = False,
     ) -> None:
+        _write = self._output.write
         if not line.strip():
             return
         while not checking_queue and self._output_queue:
             entry = self._output_queue.pop()
             self._add_line(*entry, checking_queue=True)
         if print_linenum:
-            self._output += F'{linenum}: '
+            _write(F'{linenum}: ')
         if not has_end:
-            self._output += line
+            _write(line)
             return
-        self._output += line + '\n'
+        _write(line)
+        _write('\n')
 
-    def _process_input(
+    def _process_structured(
         self,
-        streams: dict[str, dict[int, list[str]]],
+        pcode_lines: list[PCodeLine],
         print_linenum: bool = False,
     ) -> None:
         dc = self._decompiler
 
-        for line_blocks in streams.values():
-            unindented = 0
-            for oplines in line_blocks.values():
-                for line in oplines:
-                    if line.startswith('FuncDefn'):
-                        unindented += 1
-                    if line.startswith(('EndFunc', 'EndSub')):
-                        unindented -= 1
-            dc.unindented = unindented
+        unindented = 0
+        for pcode_line in pcode_lines:
+            for mnemonic, _args in pcode_line.opcodes:
+                if mnemonic == 'FuncDefn':
+                    unindented += 1
+                if mnemonic in ('EndFunc', 'EndSub'):
+                    unindented -= 1
+        dc.unindented = unindented
 
-            for linenum, oplines in line_blocks.items():
-                try:
-                    self._stack.clear()
-                    for opline in oplines:
-                        parts = opline.split()
-                        opcode = parts[0]
-                        args = parts[1:]
-                        dc.execute(opcode, *args)
-
-                    if dc.has_bos:
-                        output_parts: list[str] = []
+        for linenum, pcode_line in enumerate(pcode_lines):
+            if not pcode_line.opcodes:
+                continue
+            try:
+                self._stack.clear()
+                bos_segments: list[list[str]] = []
+                for mnemonic, op_args in pcode_line.opcodes:
+                    normalized = ' '.join(op_args).split()
+                    if mnemonic == 'BoS' and self._stack.size() > 0:
+                        segment: list[str] = []
                         while self._stack.size() > 0:
-                            output_parts.append(self._stack.pop())
-                        output_parts.reverse()
-                        indent = dc.indent_level * '  '
-                        self._add_line(indent, linenum, print_linenum, False)
-                        for part in output_parts[:-1]:
-                            self._add_line(
-                                part + ' ', linenum,
-                                has_end=False)
-                        self._add_line(output_parts[-1], linenum)
-                        dc.has_bos = False
+                            segment.append(self._stack.pop())
+                        segment.reverse()
+                        bos_segments.append(segment)
+                        dc.has_bos = True
                     else:
-                        indent = dc.indent_level * '  '
-                        self._add_line(
-                            F'{indent}{self._stack.top()}',
-                            linenum, print_linenum)
+                        dc.execute(mnemonic, *normalized)
 
-                except PCodeDecompilerError as e:
+                if dc.has_bos:
+                    trailing: list[str] = []
+                    while self._stack.size() > 0:
+                        trailing.append(self._stack.pop())
+                    trailing.reverse()
+                    indent = dc.indent_level * '  '
+                    self._add_line(indent, linenum, print_linenum, False)
+                    all_segments = list(bos_segments)
+                    if trailing:
+                        all_segments.append(trailing)
+                    for k, segment in enumerate(all_segments):
+                        last_segment = k == len(all_segments) - 1
+                        for j, part in enumerate(segment):
+                            end_of_segment = j == len(segment) - 1
+                            if last_segment and end_of_segment:
+                                self._add_line(part, linenum)
+                            elif end_of_segment and not last_segment:
+                                self._add_line(F'{part}: ', linenum, has_end=False)
+                            else:
+                                self._add_line(F'{part} ', linenum, has_end=False)
+                    dc.has_bos = False
+                else:
+                    indent = dc.indent_level * '  '
                     self._add_line(
-                        F"' pcode2code, cannot process line {linenum} : {e}",
+                        F'{indent}{self._stack.top()}',
                         linenum, print_linenum)
-                    for opline in oplines:
-                        self._add_line(F"'\t# {opline}", linenum)
-                except Exception as e:
+
+            except PCodeDecompilerError as e:
+                self._add_line(
+                    F"' pcode2code, cannot process line {linenum} : {e}",
+                    linenum, print_linenum)
+                for mnemonic, op_args in pcode_line.opcodes:
                     self._add_line(
-                        F"' a generic exception occured at line {linenum}: {e}",
-                        linenum, print_linenum)
-                    for opline in oplines:
-                        self._add_line(F"'\t# {opline}", linenum)
+                        F"'\t# {mnemonic} {' '.join(op_args)}",
+                        linenum)
+            except Exception as e:
+                logger.warning(F'decompiler error at line {linenum}: {e}')
+                self._add_line(
+                    F"' a generic exception occured at line {linenum}: {e}",
+                    linenum, print_linenum)
+                for mnemonic, op_args in pcode_line.opcodes:
+                    self._add_line(
+                        F"'\t# {mnemonic} {' '.join(op_args)}",
+                        linenum)
 
-                dc.apply_pending_indent()
+            dc.apply_pending_indent()
 
-            self._output_queue.clear()
+        self._output_queue.clear()

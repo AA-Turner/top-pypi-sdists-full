@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-tools-common
-Version: 0.4.5
+Version: 0.5.0
 Summary: A set of tools for PyAnsys libraries
 Project-URL: Discussions, https://github.com/ansys/ansys-tools-common/discussions
 Project-URL: Documentation, https://tools.docs.pyansys.com/
@@ -30,11 +30,16 @@ Requires-Dist: typing-extensions>=4.5
 Provides-Extra: all
 Requires-Dist: ansys-tools-filetransfer>=0.1.1; extra == 'all'
 Requires-Dist: ansys-tools-visualization-interface>=0.9.2; extra == 'all'
+Requires-Dist: apprise>=1.9.7; extra == 'all'
 Requires-Dist: cryptography>=43.0; extra == 'all'
+Requires-Dist: pywin32>=311; (sys_platform == 'win32') and extra == 'all'
 Provides-Extra: filetransfer
 Requires-Dist: ansys-tools-filetransfer>=0.1.1; extra == 'filetransfer'
 Provides-Extra: graphics
 Requires-Dist: ansys-tools-visualization-interface>=0.9.2; extra == 'graphics'
+Provides-Extra: notifications
+Requires-Dist: apprise>=1.9.7; (sys_platform != 'win32') and extra == 'notifications'
+Requires-Dist: apprise[windows]>=1.9.7; (sys_platform == 'win32') and extra == 'notifications'
 Provides-Extra: other
 Requires-Dist: cryptography>=43.0; extra == 'other'
 Description-Content-Type: text/x-rst

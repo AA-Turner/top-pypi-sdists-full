@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.list_instance_groups_with_workspaces_response_200_item_instance_role import (
+    ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole,
+)
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -21,12 +24,14 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
         name (str):
         summary (Union[Unset, str]):
         emails (Union[Unset, List[str]]):
+        instance_role (Union[Unset, None, ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole]):
         workspaces (Union[Unset, List['ListInstanceGroupsWithWorkspacesResponse200ItemWorkspacesItem']]):
     """
 
     name: str
     summary: Union[Unset, str] = UNSET
     emails: Union[Unset, List[str]] = UNSET
+    instance_role: Union[Unset, None, ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole] = UNSET
     workspaces: Union[Unset, List["ListInstanceGroupsWithWorkspacesResponse200ItemWorkspacesItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -36,6 +41,10 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
         emails: Union[Unset, List[str]] = UNSET
         if not isinstance(self.emails, Unset):
             emails = self.emails
+
+        instance_role: Union[Unset, None, str] = UNSET
+        if not isinstance(self.instance_role, Unset):
+            instance_role = self.instance_role.value if self.instance_role else None
 
         workspaces: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.workspaces, Unset):
@@ -56,6 +65,8 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
             field_dict["summary"] = summary
         if emails is not UNSET:
             field_dict["emails"] = emails
+        if instance_role is not UNSET:
+            field_dict["instance_role"] = instance_role
         if workspaces is not UNSET:
             field_dict["workspaces"] = workspaces
 
@@ -74,6 +85,15 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
 
         emails = cast(List[str], d.pop("emails", UNSET))
 
+        _instance_role = d.pop("instance_role", UNSET)
+        instance_role: Union[Unset, None, ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole]
+        if _instance_role is None:
+            instance_role = None
+        elif isinstance(_instance_role, Unset):
+            instance_role = UNSET
+        else:
+            instance_role = ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole(_instance_role)
+
         workspaces = []
         _workspaces = d.pop("workspaces", UNSET)
         for workspaces_item_data in _workspaces or []:
@@ -87,6 +107,7 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
             name=name,
             summary=summary,
             emails=emails,
+            instance_role=instance_role,
             workspaces=workspaces,
         )
 

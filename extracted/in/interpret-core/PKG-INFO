@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: interpret-core
-Version: 0.7.7
+Version: 0.7.8
 Summary: Fit interpretable models. Explain blackbox machine learning.
 Home-page: https://github.com/interpretml/interpret
 Author: The InterpretML Contributors
@@ -14,8 +14,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Description-Content-Type: text/plain
 Requires-Dist: numpy>=1.25
 Requires-Dist: pandas>=0.24
 Requires-Dist: scikit-learn>=1.6.0
@@ -64,6 +64,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: provides-extra
 Dynamic: requires-dist

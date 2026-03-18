@@ -393,6 +393,16 @@ def customdata_custom_splitnormals_clear(
     :return: Result of the operator call.
     """
 
+def customdata_face_sets_clear(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Clear sculpt face set data from the mesh
+
+    :return: Result of the operator call.
+    """
+
 def customdata_mask_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -3145,6 +3155,7 @@ def symmetry_snap(
     threshold: float | None = 0.05,
     factor: float | None = 0.5,
     use_center: bool | None = True,
+    use_topology: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap vertex pairs to their mirrored locations
 
@@ -3152,6 +3163,7 @@ def symmetry_snap(
     :param threshold: Threshold, Distance within which matching vertices are searched (in [0, 10], optional)
     :param factor: Factor, Mix factor of the locations of the vertices (in [0, 1], optional)
     :param use_center: Center, Snap middle vertices to the axis center (optional)
+    :param use_topology: Topology Mirror, Use topology to find mirrored vertices instead of spatial proximity (optional)
     :return: Result of the operator call.
     """
 

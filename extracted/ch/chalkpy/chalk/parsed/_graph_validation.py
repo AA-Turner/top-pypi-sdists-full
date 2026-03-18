@@ -510,7 +510,7 @@ def validate_graph(request: UpsertGraphGQL) -> List[UpdateGraphError]:
             singleton_namespaces=singleton_namespaces,
         )
 
-    garbage_feature_builder = FeatureClassErrorBuilder(uri="garbage.py", namespace="garbage", node=None)
+    garbage_feature_builder = FeatureClassErrorBuilder(uri="garbage.py", namespace="garbage")
     for feature in request.features or []:
         lsp_builder = (
             FeatureSetBase.registry[feature.id.namespace].__chalk_error_builder__

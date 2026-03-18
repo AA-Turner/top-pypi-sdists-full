@@ -48,6 +48,10 @@ struct kiwi_typo : public TypoTransformer
 {
 };
 
+struct kiwi_prepared_typo : public PreparedTypoTransformer
+{
+};
+
 struct kiwi_morphset
 {
 	Kiwi* inst = nullptr;
@@ -275,6 +279,40 @@ int kiwi_builder_add_alias_word(kiwi_builder_h handle, const char* alias, const 
 	try
 	{
 		if (kb->addWord(utf8To16(alias), parse_tag(pos), score, utf8To16(orig_word)).second) return 0;
+		return KIWIERR_FAIL;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_builder_add_word_with_def(kiwi_builder_h handle, const char* word, const char* pos, int sense_id, int dialect, float score)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	auto* kb = (KiwiBuilder*)handle;
+	try
+	{
+		MorphemeDef def{ parse_tag(pos), (uint8_t)sense_id, (Dialect)dialect };
+		if (kb->addWord(utf8To16(word), def, score).second) return 0;
+		return KIWIERR_FAIL;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_builder_add_alias_word_with_def(kiwi_builder_h handle, const char* alias, const char* pos, int sense_id, int dialect, float score, const char* orig_word)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	auto* kb = (KiwiBuilder*)handle;
+	try
+	{
+		MorphemeDef def{ parse_tag(pos), (uint8_t)sense_id, (Dialect)dialect };
+		if (kb->addWord(utf8To16(alias), def, score, utf8To16(orig_word)).second) return 0;
 		return KIWIERR_FAIL;
 	}
 	catch (...)
@@ -647,11 +685,48 @@ int kiwi_typo_close(kiwi_typo_h handle)
 	}
 }
 
-kiwi_h kiwi_init(const char * modelPath, int num_threads, int options)
+kiwi_prepared_typo_h kiwi_typo_prepare(kiwi_typo_h handle)
+{
+	if (!handle) return nullptr;
+	try
+	{
+		return new kiwi_prepared_typo{ handle->prepare(true) };
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return nullptr;
+	}
+}
+
+int kiwi_prepared_typo_close(kiwi_prepared_typo_h handle)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		delete handle;
+		return 0;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return -1;
+	}
+}
+
+kiwi_h kiwi_init(const char * modelPath, int num_threads, int options, int enabled_dialects)
 {
 	try
 	{
-		return (kiwi_h)new Kiwi{ KiwiBuilder{ modelPath, (size_t)num_threads, (BuildOption)options }.build() };
+		BuildOption buildOption = (BuildOption)(options & 0xFF);
+		const auto mtMask = options & (KIWI_BUILD_MODEL_TYPE_LARGEST | KIWI_BUILD_MODEL_TYPE_KNLM | KIWI_BUILD_MODEL_TYPE_SBG | KIWI_BUILD_MODEL_TYPE_CONG | KIWI_BUILD_MODEL_TYPE_CONG_GLOBAL);
+		const ModelType modelType = (mtMask == KIWI_BUILD_MODEL_TYPE_LARGEST) ? ModelType::largest
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_KNLM) ? ModelType::knlm
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_SBG) ? ModelType::sbg
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG) ? ModelType::cong
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG_GLOBAL) ? ModelType::congGlobal
+			: ModelType::none;
+		return (kiwi_h)new Kiwi{ KiwiBuilder{ modelPath, (size_t)num_threads, buildOption, modelType, (Dialect)enabled_dialects }.build() };
 	}
 	catch (...)
 	{
@@ -669,11 +744,16 @@ void kiwi_set_global_config(kiwi_h handle, kiwi_config_t config)
 		KiwiConfig kconfig{
 			!!config.integrate_allomorph,
 			config.cut_off_threshold,
-			config.unk_form_score_scale,
-			config.unk_form_score_bias,
+			config.oov_rule_scale,
+			config.oov_rule_bias,
+			config.oov_chr_bias,
+			config.oov_global_weight,
+			config.oov_local_weight,
+			config.oov_global_min_freq,
 			config.space_penalty,
 			config.typo_cost_weight,
 			config.max_unk_form_size,
+			config.max_unk_form_size_followed_by_j_class,
 			config.space_tolerance,
 		};
 		kiwi->setGlobalConfig(kconfig);
@@ -694,11 +774,16 @@ kiwi_config_t kiwi_get_global_config(kiwi_h handle)
 		KiwiConfig kconfig = kiwi->getGlobalConfig();
 		config.integrate_allomorph = kconfig.integrateAllomorph;
 		config.cut_off_threshold = kconfig.cutOffThreshold;
-		config.unk_form_score_scale = kconfig.unkFormScoreScale;
-		config.unk_form_score_bias = kconfig.unkFormScoreBias;
+		config.oov_rule_scale = kconfig.oovRuleScale;
+		config.oov_rule_bias = kconfig.oovRuleBias;
+		config.oov_chr_bias = kconfig.oovChrBias;
+		config.oov_global_weight = kconfig.oovGlobalWeight;
+		config.oov_local_weight = kconfig.oovLocalWeight;
+		config.oov_global_min_freq = kconfig.oovGlobalMinFreq;
 		config.space_penalty = kconfig.spacePenalty;
 		config.typo_cost_weight = kconfig.typoCostWeight;
 		config.max_unk_form_size = kconfig.maxUnkFormSize;
+		config.max_unk_form_size_followed_by_j_class = kconfig.maxUnkFormSizeFollowedByJClass;
 		config.space_tolerance = kconfig.spaceTolerance;
 	}
 	catch (...)
@@ -785,7 +870,9 @@ inline AnalyzeOption toAnalyzeOption(kiwi_analyze_option_t option)
 		option.blocklist ? &option.blocklist->morphemes : nullptr,
 		!!option.open_ending,
 		(Dialect)option.allowed_dialects,
-		option.dialect_cost
+		option.dialect_cost,
+		option.typo_transformer,
+		option.typo_threshold
 	};
 }
 

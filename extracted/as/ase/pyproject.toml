@@ -9,7 +9,7 @@ dynamic = ['version']
 readme = 'README.rst'
 license = 'LGPL-2.1-or-later'
 license-files = ['LICENSE']
-maintainers = [{ name = 'ASE Community', email = 'ase-users@listserv.fysik.dtu.dk' }]
+maintainers = [{ name = 'ASE Steering Committee', email = 'ase-committee@listserv.fysik.dtu.dk' }]
 classifiers = [
     'Development Status :: 6 - Mature',
     'Operating System :: OS Independent',
@@ -41,7 +41,7 @@ Issues = 'https://gitlab.com/ase/ase/issues/'
 ase = 'ase.cli.main:main'
 
 [project.optional-dependencies]
-docs = ['sphinx', 'sphinx_book_theme', 'sphinx-gallery', 'pillow']
+docs = ['sphinx', 'sphinx_book_theme', 'sphinxcontrib-video', 'sphinx-gallery', 'pillow']
 test = ['pytest>=7.4.0', 'pytest-xdist>=3.2.0']  # summer 2023
 spglib = ['spglib>=1.9']
 lint = ['mypy', 'ruff', 'types-docutils', 'types-PyMySQL']
@@ -62,19 +62,6 @@ version = {attr = 'ase.__version__'}
 
 [tool.pytest.ini_options]
 testpaths = ['ase/test']
-markers = [
-    'calculator: parametrizes calculator tests with calculator factories',
-    'calculator_lite: for calculator tests; include in calculators-lite job',
-    'optimize: tests of optimizers',
-    'slow: test takes longer than a few seconds',
-]
-
-filterwarnings = [
-    'error',
-    'once::ResourceWarning',
-    'ignore:.*size changed, may indicate binary incompatibility',
-    'ignore::ase.config.ASEEnvDeprecationWarning',
-]
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -113,15 +100,16 @@ skip-magic-trailing-comma = false
 [tool.ruff.lint]
 preview = true  # necessary to activate many pycodestyle rules
 select = [
-    'F',  # Pyflakes
-    'E',  # pycodestyle
-    'W',  # pycodestyle
-    'I',  # isort
-    'UP', # pyupgrade
+    'F',      # Pyflakes
+    'E',      # pycodestyle
+    'W',      # pycodestyle
+    'I',      # isort
+    'UP',     # pyupgrade
+    'RUF013', # implicit-optional
 ]
 ignore = [
-    'E741',  # ambiguous-variable-name
-    'W505',  # doc-line-too-long
+    'E741',   # ambiguous-variable-name
+    'W505',   # doc-line-too-long
 ]
 
 [tool.ruff.lint.per-file-ignores]

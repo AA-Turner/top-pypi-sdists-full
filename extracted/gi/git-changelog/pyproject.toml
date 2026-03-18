@@ -49,7 +49,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
     "typing-extensions>=4.9; python_version < '3.13'",
 ]
-version = "2.9.0"
+version = "2.9.1"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/git-changelog"

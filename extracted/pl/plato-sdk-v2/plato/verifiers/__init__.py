@@ -7,12 +7,6 @@ Verifiers analyze completed sessions and publish findings as annotations.
 from plato.verifiers.base import BaseVerifier
 from plato.verifiers.config import VerifierConfig
 from plato.verifiers.models import (
-    BooleanCheckData,
-    CustomData,
-    ErrorData,
-    FindingData,
-    IssueData,
-    ScoreData,
     SessionData,
     VerifierFinding,
     VerifierResult,
@@ -27,12 +21,6 @@ from plato.verifiers.registry import (
 
 __all__ = [
     "BaseVerifier",
-    "BooleanCheckData",
-    "CustomData",
-    "ErrorData",
-    "FindingData",
-    "IssueData",
-    "ScoreData",
     "SessionData",
     "VerifierConfig",
     "VerifierFinding",

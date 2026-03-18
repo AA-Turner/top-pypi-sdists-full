@@ -1,6 +1,7 @@
 """API endpoints."""
 
 from . import (
+    annotation_metrics_api_annotations_metrics_get,
     create_annotation_api_annotations_post,
     create_review_api_reviews_post,
     delete_annotation_api_annotations__annotation_public_id__delete,
@@ -24,4 +25,5 @@ __all__ = [
     "list_session_annotations_api_sessions__session_public_id__annotations_get",
     "update_annotation_api_annotations__annotation_public_id__put",
     "delete_annotation_api_annotations__annotation_public_id__delete",
+    "annotation_metrics_api_annotations_metrics_get",
 ]

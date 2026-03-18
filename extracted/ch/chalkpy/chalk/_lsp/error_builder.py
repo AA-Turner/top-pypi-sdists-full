@@ -1,41 +1,27 @@
 from __future__ import annotations
 
 import ast
-import dataclasses
 import difflib
 import inspect
-import textwrap
+import linecache
+import types
 from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, NoReturn, Optional, Type, overload
 
 from executing import Source
 
-from chalk._lsp._class_finder import FunctionCallerInfo, get_function_ast
 from chalk._lsp.finders import (
-    get_annotation_range,
-    get_class_definition_range,
     get_comment_range,
-    get_decorator_kwarg_value_range,
     get_feature_range,
     get_full_comment_range,
     get_full_range,
-    get_function_arg_annotations,
-    get_function_arg_values,
-    get_function_decorator_arg_by_name,
-    get_function_decorator_range,
-    get_function_name,
-    get_function_return_annotation,
-    get_function_return_statement,
-    get_key_from_dict_node,
-    get_missing_return_annotation,
-    get_property_range,
-    get_property_value_call_range,
-    get_property_value_range,
     get_sql_range,
-    get_value_from_dict_node,
     get_variable_range,
     node_to_range,
 )
+from chalk.parsed.ast_context import get_project_ast_context
 from chalk.parsed.duplicate_input_gql import (
     CodeActionGQL,
     CodeDescriptionGQL,
@@ -47,15 +33,76 @@ from chalk.parsed.duplicate_input_gql import (
     RangeGQL,
 )
 from chalk.utils.collections import OrderedSet
-from chalk.utils.source_parsing import should_skip_source_code_parsing
 from chalk.utils.string import oxford_comma_list
 
 if TYPE_CHECKING:
     import types
 
+    from chalk_rs import FeatureClassAST, ResolverAST
     from sqlglot.expressions import Select, Union
 
     from chalk.features import FeatureWrapper
+
+
+@dataclass
+class FunctionCallerInfo:
+    """Information about the caller of a function, including AST node and source details."""
+
+    node: ast.Call | None
+    source: str
+    filename: str
+    lineno: int
+    caller_source: str | None
+
+
+def get_function_caller_info(frame_offset: int = 1) -> FunctionCallerInfo:
+    """Extract caller information including AST node and source details."""
+    caller_source: str | None = None
+    caller_filename: str | None = None
+    caller_lineno: int | None = None
+    caller_node: ast.Call | None = None
+    source = ""
+
+    current_frame = inspect.currentframe()
+    if current_frame is not None:
+        frame = current_frame
+        for _ in range(frame_offset + 1):
+            next_frame = frame.f_back
+            if next_frame is None:
+                break
+            frame = next_frame
+
+        caller_filename = inspect.getfile(frame)
+        caller_lineno = inspect.getlineno(frame)
+        filename = frame.f_code.co_filename
+        lineno = frame.f_lineno
+        source = "".join(linecache.getlines(filename))
+
+        try:
+            tree = ast.parse(source, filename)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and node.lineno == lineno:
+                    caller_source = ast.get_source_segment(source, node)
+                    caller_node = node
+                    break
+        except Exception:
+            pass
+
+        if caller_source is None:
+            try:
+                caller_source = inspect.getsource(frame)
+            except Exception:
+                caller_source = None
+
+    del current_frame
+
+    return FunctionCallerInfo(
+        node=caller_node,
+        source=source,
+        filename=caller_filename or "<unknown file>",
+        lineno=caller_lineno or 0,
+        caller_source=caller_source,
+    )
 
 
 class DiagnosticBuilder:
@@ -206,49 +253,64 @@ class LSPErrorBuilder:
 
 
 class FeatureClassErrorBuilder:
-    def __init__(self, uri: str, namespace: str, node: ast.ClassDef | None):
+    def __init__(
+        self,
+        uri: str,
+        namespace: str,
+        range_node: FeatureClassAST | None = None,
+    ):
         super().__init__()
         self.uri = uri
         self.diagnostics: List[DiagnosticGQL] = []
         self.namespace = namespace
-        self.node = node
+        self.range_node = range_node
         self.error_cache: OrderedSet[tuple[str, RangeGQL | ast.AST, str]] = OrderedSet()
 
-    def property_range(self, feature_name: str) -> ast.AST | None:
-        if self.node is None:
+    @staticmethod
+    def _tuple_to_range(range_tuple: tuple[int, int, int, int] | None) -> RangeGQL | None:
+        if range_tuple is None:
             return None
+        start_line, start_char, end_line, end_char = range_tuple
+        return RangeGQL(
+            start=PositionGQL(
+                line=start_line + 1,
+                character=start_char,
+            ),
+            end=PositionGQL(
+                line=end_line + 1,
+                character=end_char,
+            ),
+        )
 
-        return get_property_range(cls=self.node, name=feature_name)
-
-    def annotation_range(self, feature_name: str) -> ast.AST | None:
-        if self.node is None:
+    def property_range(self, feature_name: str) -> RangeGQL | None:
+        if self.range_node is None:
             return None
+        field = self.range_node.fields.get(feature_name)
+        return None if field is None else self._tuple_to_range(field.field_name_location)
 
-        return get_annotation_range(cls=self.node, name=feature_name)
-
-    def property_value_range(self, feature_name: str) -> ast.AST | None:
-        if self.node is None:
+    def annotation_range(self, feature_name: str) -> RangeGQL | None:
+        if self.range_node is None:
             return None
+        field = self.range_node.fields.get(feature_name)
+        return None if field is None else self._tuple_to_range(field.annotation)
 
-        return get_property_value_range(cls=self.node, name=feature_name)
-
-    def property_value_kwarg_range(self, feature_name: str, kwarg: str) -> ast.AST | None:
-        if self.node is None:
+    def property_value_range(self, feature_name: str) -> RangeGQL | None:
+        if self.range_node is None:
             return None
+        field = self.range_node.fields.get(feature_name)
+        return None if field is None else self._tuple_to_range(field.feature_call)
 
-        return get_property_value_call_range(cls=self.node, name=feature_name, kwarg=kwarg)
-
-    def decorator_kwarg_value_range(self, kwarg: str) -> ast.AST | None:
-        if self.node is None:
+    def property_value_kwarg_range(self, feature_name: str, kwarg: str) -> RangeGQL | None:
+        if self.range_node is None:
             return None
+        field = self.range_node.fields.get(feature_name)
+        return None if field is None else self._tuple_to_range(field.kwargs.get(kwarg))
 
-        return get_decorator_kwarg_value_range(cls=self.node, kwarg=kwarg)
+    def decorator_kwarg_value_range(self, kwarg: str) -> RangeGQL | None:
+        return self.range_node and self._tuple_to_range(self.range_node.kwargs.get(kwarg))
 
     def class_definition_range(self) -> RangeGQL | None:
-        if self.node is None:
-            return None
-
-        return get_class_definition_range(cls=self.node, filename=self.uri)
+        return self.range_node and self._tuple_to_range(self.range_node.class_definition_location)
 
     def invalid_attribute(
         self,
@@ -418,8 +480,8 @@ class ResolverErrorBuilder:
         super().__init__()
         self._fn = fn
         self.diagnostics: List[DiagnosticGQL] = []
-        self._uri = ...
-        self._node = ...
+        self._uri: str | types.EllipsisType = ...
+        self._resolver_node: ResolverAST | None | types.EllipsisType = ...
 
     @property
     def uri(self):
@@ -428,36 +490,51 @@ class ResolverErrorBuilder:
         assert self._uri is not ...
         return self._uri
 
-    @property
-    def node(self):
-        if self._node is ...:
-            self._load_node_and_uri()
-        assert self._node is not ...
-        return self._node
-
     def _load_node_and_uri(self):
-        """Lazily loading the node and uri on first use, because parsing the source is slow. If there are no errors, then no need to parse it"""
-        source_info: Optional[FunctionSource] = None
-        if not should_skip_source_code_parsing() and self._fn is not None:
-            try:
-                filename = inspect.getfile(self._fn)
-                resolver_source = inspect.getsource(self._fn)
-                dedent_source = resolver_source and textwrap.dedent(resolver_source)
-                try:
-                    tree = get_function_ast(self._fn)
-                except:
-                    tree = None
-                source_info = FunctionSource(
-                    filename=filename,
-                    source=resolver_source,
-                    dedent_source=dedent_source,
-                    tree=tree,
-                )
-            except:
-                pass
+        """Lazily load resolver range info from the shared Rust AST index."""
+        self._uri = "__main__"
+        self._resolver_node = None
 
-        self._uri = source_info.filename if source_info is not None else "__main__"
-        self._node = source_info and source_info.tree
+        if self._fn is None:
+            return
+
+        lookup_fn = getattr(self._fn, "fn", None)
+        if not callable(lookup_fn):
+            lookup_fn = self._fn
+        if not callable(lookup_fn):
+            return
+        file_path = Path(lookup_fn.__code__.co_filename).resolve()
+        try:
+            index = get_project_ast_context(file_path.parent)
+            self._uri = str(file_path)
+            self._resolver_node = index.function_ast_in_file(str(file_path), lookup_fn.__name__)
+            if self._resolver_node is None:
+                self._resolver_node = index.function_ast(lookup_fn.__module__, lookup_fn.__name__)
+        except Exception:
+            self._resolver_node = None
+
+    @property
+    def resolver_node(self):
+        if self._resolver_node is ...:
+            self._load_node_and_uri()
+        assert self._resolver_node is not ...
+        return self._resolver_node
+
+    @staticmethod
+    def _tuple_to_range(range_tuple: tuple[int, int, int, int] | None) -> RangeGQL | None:
+        if range_tuple is None:
+            return None
+        start_line, start_char, end_line, end_char = range_tuple
+        return RangeGQL(
+            start=PositionGQL(
+                line=start_line + 1,
+                character=start_char,
+            ),
+            end=PositionGQL(
+                line=end_line + 1,
+                character=end_char,
+            ),
+        )
 
     @overload
     def add_diagnostic(
@@ -556,90 +633,97 @@ class ResolverErrorBuilder:
             raise error
         return builder
 
-    def function_decorator(self) -> ast.AST | None:
-        if self.node is None:
-            return None
+    def function_decorator(self) -> RangeGQL | None:
+        return self.resolver_node and self._tuple_to_range(self.resolver_node.decorator_location)
 
-        return get_function_decorator_range(node=self.node)
+    def function_decorator_arg_by_name(self, name: str) -> RangeGQL | None:
+        return self.resolver_node and self._tuple_to_range(self.resolver_node.kwargs.get(name))
 
-    def function_decorator_arg_by_name(self, name: str) -> ast.AST | None:
-        if self.node is None:
-            return None
+    def function_decorator_key_from_dict(
+        self,
+        decorator_field: str,
+        arg_name: str,
+    ) -> RangeGQL | None:
+        return self.resolver_node and self._tuple_to_range(
+            self.resolver_node.kwarg_dict_key_names.get(decorator_field, {}).get(arg_name)
+        )
 
-        return get_function_decorator_arg_by_name(node=self.node, name=name)
+    def function_decorator_value_from_dict(
+        self,
+        decorator_field: str,
+        arg_name: str,
+    ) -> RangeGQL | None:
+        return self.resolver_node and self._tuple_to_range(
+            self.resolver_node.kwarg_dict_values.get(decorator_field, {}).get(arg_name)
+        )
 
-    def function_decorator_key_from_dict(self, decorator_field: str, arg_name: str) -> ast.AST | None:
-        if self.node is None:
-            return None
-        decorator_arg = get_function_decorator_arg_by_name(node=self.node, name=decorator_field)
-        if not isinstance(decorator_arg, ast.Dict):
-            return decorator_arg
-        return get_key_from_dict_node(decorator_arg, arg_name) or decorator_arg
-
-    def function_decorator_value_from_dict(self, decorator_field: str, arg_name: str) -> ast.AST | None:
-        if self.node is None:
-            return None
-        decorator_arg = get_function_decorator_arg_by_name(node=self.node, name=decorator_field)
-        if not isinstance(decorator_arg, ast.Dict):
-            return decorator_arg
-        return get_value_from_dict_node(decorator_arg, arg_name) or decorator_arg
-
-    def function_arg_values(self) -> Dict[str, ast.AST | None]:
-        if self.node is None:
+    def function_arg_values(self) -> Dict[str, RangeGQL | None]:
+        if self.resolver_node is None:
             return {}
+        args = self.resolver_node.args
+        ordered_names = self.resolver_node.args_in_order
+        ordered_values: Dict[str, RangeGQL | None] = {
+            name: self._tuple_to_range(args[name].arg_location) for name in ordered_names if name in args
+        }
+        unordered_values: Dict[str, RangeGQL | None] = {
+            name: self._tuple_to_range(arg.arg_location) for name, arg in args.items() if name not in ordered_names
+        }
+        return ordered_values | unordered_values
 
-        return get_function_arg_values(node=self.node)
-
-    def function_arg_value_by_name(self, name: str) -> ast.AST | None:
+    def function_arg_value_by_name(self, name: str) -> RangeGQL | None:
         return self.function_arg_values().get(name)
 
-    def function_arg_value_by_index(self, index: int) -> ast.AST | RangeGQL | None:
-        if self.node is None:
+    def function_arg_value_by_index(self, index: int) -> RangeGQL | None:
+        if self.resolver_node is None:
             return None
 
-        if len(self.node.args.args) == 0:
-            return get_function_name(self.node, self.uri)
-        if index < len(self.node.args.args):
-            return self.node.args.args[index]
+        args_in_order = self.resolver_node.args_in_order
+        if len(args_in_order) == 0:
+            return self.function_name()
+        if index < len(args_in_order):
+            return self.function_arg_values().get(args_in_order[index])
         return None
 
-    def function_arg_annotations(self) -> Dict[str, ast.AST | None]:
-        if self.node is None:
+    def function_arg_annotations(self) -> Dict[str, RangeGQL | None]:
+        if self.resolver_node is None:
             return {}
+        args = self.resolver_node.args
+        ordered_names = self.resolver_node.args_in_order
+        ordered_values: Dict[str, RangeGQL | None] = {
+            name: self._tuple_to_range(args[name].annotation) for name in ordered_names if name in args
+        }
+        unordered_values: Dict[str, RangeGQL | None] = {
+            name: self._tuple_to_range(arg.annotation) for name, arg in args.items() if name not in ordered_names
+        }
+        return ordered_values | unordered_values
 
-        return get_function_arg_annotations(node=self.node)
-
-    def function_arg_annotation_by_name(self, name: str) -> ast.AST | None:
+    def function_arg_annotation_by_name(self, name: str) -> RangeGQL | None:
         return self.function_arg_annotations().get(name)
 
-    def function_arg_annotation_by_index(self, index: int) -> ast.AST | None:
-        if self.node is None:
+    def function_arg_annotation_by_index(self, index: int) -> RangeGQL | None:
+        if self.resolver_node is None:
             return None
 
-        if index < len(self.node.args.args):
-            return self.node.args.args[index].annotation
+        args_in_order = self.resolver_node.args_in_order
+        if index < len(args_in_order):
+            return self.function_arg_annotations().get(args_in_order[index])
         return None
 
-    def function_return_annotation(self) -> ast.AST | RangeGQL | None:
-        if self.node is None:
-            return None
+    def function_return_annotation(self) -> RangeGQL | None:
+        return self.resolver_node and (
+            self._tuple_to_range(self.resolver_node.return_annotation)
+            or self._tuple_to_range(self.resolver_node.missing_return_annotation)
+        )
 
-        node_or_none = get_function_return_annotation(node=self.node)
-        return node_or_none or get_missing_return_annotation(self.node, self.uri)
-
-    def function_return_statements(self) -> List[ast.AST | None]:
-        if self.node is None:
+    def function_return_statements(self) -> List[RangeGQL | None]:
+        if self.resolver_node is None:
             return []
-
-        return get_function_return_statement(node=self.node)
+        return [self._tuple_to_range(range_tuple) for range_tuple in self.resolver_node.return_statements]
 
     def function_name(self) -> RangeGQL | None:
-        if self.node is None:
-            return None
+        return self.resolver_node and self._tuple_to_range(self.resolver_node.resolver_name_location)
 
-        return get_function_name(self.node, self.uri)
-
-    def string_in_node(self, node: ast.AST, string: str, text: list[str]) -> RangeGQL | None:
+    def string_in_node(self, node: RangeGQL | ast.AST, string: str, text: list[str]) -> RangeGQL | None:
         start_line = range_or_node_to_start_line(node)
         end_line = range_or_node_to_end_line(node)
         if start_line is None or end_line is None:
@@ -671,14 +755,6 @@ class ResolverErrorBuilder:
                     end=PositionGQL(line=i + 1, character=starting_index + len(string)),
                 )
         return None
-
-
-@dataclasses.dataclass
-class FunctionSource:
-    filename: str
-    source: str | None
-    dedent_source: str | None
-    tree: ast.FunctionDef | ast.AsyncFunctionDef | None
 
 
 def get_resolver_error_builder(fn: Callable) -> ResolverErrorBuilder:
@@ -875,75 +951,15 @@ class FunctionCallErrorBuilder:
     def uri(self) -> str:
         return self.caller_info.filename
 
-    @property
-    def node(self) -> ast.Call | None:
-        return self.caller_info.node
-
-    def function_arg_value_by_index(self, index: int) -> ast.AST | None:
-        """Get the AST node for a function argument by its positional index."""
-        if self.node is None or index >= len(self.node.args):
-            return None
-        return self.node.args[index]
-
-    def function_arg_value_by_name(self, name: str) -> ast.AST | None:
-        """Get the AST node for a function argument by its keyword name."""
-        if self.node is None:
-            return None
-
-        for keyword in self.node.keywords:
-            if keyword.arg == name:
-                return keyword.value
-        return None
-
-    def function_arg_range_by_index(self, index: int) -> RangeGQL | None:
-        """Get the range for a function argument by its positional index."""
-        arg_node = self.function_arg_value_by_index(index)
-        if arg_node is None:
-            return None
-        return node_to_range(arg_node)
-
     def function_arg_range_by_name(self, name: str) -> RangeGQL | None:
         """Get the range for a function argument by its keyword name."""
-        arg_node = self.function_arg_value_by_name(name)
-        if arg_node is None:
+        node = self.caller_info.node
+        if node is None:
             return None
-        return node_to_range(arg_node)
-
-    def function_kwarg_value_by_index(self, index: int) -> ast.AST | None:
-        """Get the AST node for a keyword argument by its position in the call."""
-        if self.node is None or index >= len(self.node.keywords):
-            return None
-        return self.node.keywords[index].value
-
-    def function_kwarg_range_by_index(self, index: int) -> RangeGQL | None:
-        """Get the range for a keyword argument by its position in the call."""
-        kwarg_node = self.function_kwarg_value_by_index(index)
-        if kwarg_node is None:
-            return None
-        return node_to_range(kwarg_node)
-
-    def function_call_range(self) -> RangeGQL | None:
-        """Get the range of the entire function call."""
-        if self.node is None:
-            return None
-        return node_to_range(self.node)
-
-    def function_name_range(self) -> RangeGQL | None:
-        """Get the range of just the function name being called."""
-        if self.node is None:
-            return None
-
-        # For a call like `foo.bar()`, we want just the `bar` part
-        # For a call like `func()`, we want the `func` part
-        func_node = self.node.func
-        if isinstance(func_node, ast.Attribute):
-            # Handle method calls like obj.method()
-            return node_to_range(func_node)
-        elif isinstance(func_node, ast.Name):
-            # Handle direct function calls like func()
-            return node_to_range(func_node)
-
-        return node_to_range(func_node)
+        for keyword in node.keywords:
+            if keyword.arg == name:
+                return node_to_range(keyword.value)
+        return None
 
     @overload
     def add_diagnostic(

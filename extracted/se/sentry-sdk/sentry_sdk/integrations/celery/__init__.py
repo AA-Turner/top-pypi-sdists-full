@@ -14,7 +14,7 @@ from sentry_sdk.integrations.celery.beat import (
 )
 from sentry_sdk.integrations.celery.utils import _now_seconds_since_epoch
 from sentry_sdk.integrations.logging import ignore_logger
-from sentry_sdk.tracing import BAGGAGE_HEADER_NAME, TransactionSource
+from sentry_sdk.tracing import BAGGAGE_HEADER_NAME, Span, TransactionSource
 from sentry_sdk.tracing_utils import Baggage
 from sentry_sdk.utils import (
     capture_internal_exceptions,
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from typing import Union
 
     from sentry_sdk._types import EventProcessor, Event, Hint, ExcInfo
-    from sentry_sdk.tracing import Span
 
     F = TypeVar("F", bound=Callable[..., Any])
 
@@ -100,7 +99,10 @@ def _set_status(status: str) -> None:
     with capture_internal_exceptions():
         scope = sentry_sdk.get_current_scope()
         if scope.span is not None:
-            scope.span.set_status(status)
+            if isinstance(scope.span, Span):
+                scope.span.set_status(status)
+            else:
+                scope.span.status = "ok" if status == "ok" else "error"
 
 
 def _capture_exception(task: "Any", exc_info: "ExcInfo") -> None:
@@ -229,6 +231,12 @@ def _update_celery_task_headers(
             # to the headers (done when auto-instrumenting Celery Beat tasks)
             for key, value in updated_headers.items():
                 if key.startswith("sentry-"):
+                    updated_headers["headers"][key] = value
+
+            # Preserve user-provided custom headers in the inner "headers" dict
+            # so they survive to task.request.headers on the worker (celery#4875).
+            for key, value in original_headers.items():
+                if key != "headers" and key not in updated_headers["headers"]:
                     updated_headers["headers"][key] = value
 
     return updated_headers

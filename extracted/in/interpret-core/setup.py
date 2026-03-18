@@ -10,7 +10,7 @@ from setuptools.command.build import build
 from setuptools.command.sdist import sdist
 
 # NOTE: Version is replaced by a regex script.
-version = "0.7.7"
+version = "0.7.8"
 
 
 def _copy_native_code_to_setup():
@@ -135,6 +135,7 @@ Minimal dependency core system for the interpret package.
 
 https://github.com/interpretml/interpret
 """,
+    long_description_content_type="text/plain",
     url="https://github.com/interpretml/interpret",
     cmdclass={
         "sdist": SDistCommand,
@@ -180,7 +181,6 @@ https://github.com/interpretml/interpret
         "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Development Status :: 5 - Production/Stable",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     entry_points={

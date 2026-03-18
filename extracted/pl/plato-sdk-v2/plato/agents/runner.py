@@ -8,20 +8,68 @@ import json
 import logging
 import os
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from opentelemetry import trace
+
 from plato.agents.runtime import DockerRuntime, PlatoVMRuntime
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
-from plato.agents.runtime.transport import Transport
+from plato.agents.runtime.transport import NFSTransport, Transport
 from plato.agents.runtime.vm import VMConfig
+from plato.chronos.models import Operation
 from plato.runtime import VMRuntimeConfig
+from plato.utils.audit import (
+    AuditScopeContext,
+    build_audit_key,
+    new_audit_run_id,
+    parse_audit_raw,
+    write_audit_jsonl,
+)
+from plato.utils.audit_resolution import resolve_audit_events_for_scope
+from plato.utils.subprocess import run_ssh
+from plato.utils.tool_execution import (
+    DEFAULT_TOOL_EXECUTION_CONTEXT_PATH,
+    DEFAULT_TOOL_EXECUTION_SPOOL_PATH,
+    DEFAULT_TOOL_START_SPOOL_PATH,
+    ToolExecutionContext,
+    ToolExecutionRecord,
+    ToolExecutionScope,
+    parse_tool_execution_records,
+    tool_execution_spool_path,
+    write_tool_execution_records,
+)
 
 if TYPE_CHECKING:
     from plato.v2.async_.session import Session
     from plato.worlds.config import AgentConfig
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AuditScope:
+    """Per-workspace audit collection scope for a single agent run."""
+
+    transport: NFSTransport
+    workspace_name: str
+    repo_root: Path
+    mount_path: str
+    audit_run_id: str
+    audit_key: str
+
+    @property
+    def spool_path(self) -> Path:
+        return self.repo_root / ".plato" / "audit" / self.workspace_name / f"{self.audit_run_id}.jsonl"
+
+    @property
+    def tool_spool_path(self) -> Path:
+        return tool_execution_spool_path(
+            self.repo_root / ".plato",
+            workspace_name=self.workspace_name,
+            audit_run_id=self.audit_run_id,
+        )
 
 
 def create_runtime(
@@ -137,6 +185,354 @@ class AgentRunner:
         self._continuation_instruction = continuation_instruction
         return self
 
+    def _all_transports(self) -> list[Transport]:
+        """Return the primary and extra transports without duplicates."""
+        transports: list[Transport] = []
+        seen: set[int] = set()
+        for transport in [self._workspace, *self._default_workspaces]:
+            if transport is None:
+                continue
+            marker = id(transport)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            transports.append(transport)
+        return transports
+
+    def _default_agent_name(self) -> str:
+        return self._agent.image.split("/")[-1].split(":")[0]
+
+    def _audit_workspace_name(self, transport: Transport) -> str:
+        workspace_name = getattr(transport, "workspace_name", None)
+        if workspace_name:
+            return workspace_name
+        mount_path = transport.agent_mount_path
+        fallback = Path(mount_path).name or "workspace"
+        return fallback
+
+    def _configure_audit_scopes(self, display_name: str | None = None) -> list[AuditScope]:
+        """Create one audit scope per tracked NFS-mounted workspace."""
+        del display_name
+        scopes: list[AuditScope] = []
+
+        for transport in self._all_transports():
+            if not isinstance(transport, NFSTransport):
+                continue
+            if not getattr(transport, "workspace_tracked", False):
+                transport.configure_audit_scope(audit_run_id=None, audit_key=None)
+                continue
+
+            repo_root = getattr(transport, "workspace_repo_root", None)
+            if not repo_root:
+                logger.debug(
+                    "Skipping audit scope for tracked transport without repo root: %s",
+                    transport.path,
+                )
+                transport.configure_audit_scope(audit_run_id=None, audit_key=None)
+                continue
+
+            workspace_name = self._audit_workspace_name(transport)
+            audit_run_id = new_audit_run_id()
+            audit_key = build_audit_key(audit_run_id)
+            transport.configure_audit_scope(
+                audit_run_id=audit_run_id,
+                audit_key=audit_key,
+            )
+            scopes.append(
+                AuditScope(
+                    transport=transport,
+                    workspace_name=workspace_name,
+                    repo_root=Path(repo_root),
+                    mount_path=transport.agent_mount_path,
+                    audit_run_id=audit_run_id,
+                    audit_key=audit_key,
+                )
+            )
+
+        return scopes
+
+    def _audit_context_payload(
+        self,
+        prepared: PreparedAgent,
+        scopes: list[AuditScope],
+        *,
+        display_name: str | None,
+    ) -> dict[str, object]:
+        span = trace.get_current_span()
+        ctx = span.get_span_context()
+        trace_id = format(ctx.trace_id, "032x") if ctx.is_valid else ""
+        span_id = format(ctx.span_id, "016x") if ctx.is_valid else ""
+
+        agent_name = display_name or self._display_name or self._default_agent_name()
+        return {
+            "session_id": os.environ.get("SESSION_ID", ""),
+            "agent_id": prepared.agent_id,
+            "agent_name": agent_name,
+            "display_name": display_name or self._display_name or agent_name,
+            "trace_id": trace_id,
+            "span_id": span_id,
+            "scopes": [
+                {
+                    "workspace_name": scope.workspace_name,
+                    "mount_path": scope.mount_path,
+                    "audit_run_id": scope.audit_run_id,
+                    "audit_key": scope.audit_key,
+                }
+                for scope in scopes
+            ],
+        }
+
+    def _tool_execution_context_payload(
+        self,
+        prepared: PreparedAgent,
+        scopes: list[AuditScope],
+        *,
+        display_name: str | None,
+    ) -> ToolExecutionContext:
+        audit_context = self._audit_context_payload(
+            prepared,
+            scopes,
+            display_name=display_name,
+        )
+        return ToolExecutionContext(
+            session_id=str(audit_context.get("session_id", "")),
+            agent_id=prepared.agent_id,
+            agent_name=str(audit_context.get("agent_name", "")),
+            display_name=str(audit_context.get("display_name", "")),
+            trace_id=str(audit_context.get("trace_id", "")),
+            span_id=str(audit_context.get("span_id", "")),
+            spool_path=str(DEFAULT_TOOL_EXECUTION_SPOOL_PATH),
+            hook_spool_path=str(DEFAULT_TOOL_START_SPOOL_PATH),
+            scopes=[
+                ToolExecutionScope(
+                    workspace_name=scope.workspace_name,
+                    mount_path=scope.mount_path,
+                    audit_run_id=scope.audit_run_id,
+                    audit_key=scope.audit_key,
+                )
+                for scope in scopes
+            ],
+        )
+
+    async def _write_audit_context(
+        self,
+        prepared: PreparedAgent,
+        scopes: list[AuditScope],
+        *,
+        display_name: str | None,
+    ) -> None:
+        """Write audit context JSON to the agent VM before agent launch."""
+        try:
+            context_json = json.dumps(
+                self._audit_context_payload(
+                    prepared,
+                    scopes,
+                    display_name=display_name,
+                )
+            )
+            tool_context_json = self._tool_execution_context_payload(
+                prepared,
+                scopes,
+                display_name=display_name,
+            ).model_dump_json()
+
+            if isinstance(self._runtime, PlatoVMRuntime) and self._runtime.ssh_key_path:
+                await run_ssh(
+                    self._runtime.ssh_key_path,
+                    prepared.hostname,
+                    (
+                        "cat > /tmp/plato-audit-context.json << 'AUDIT_EOF'\n"
+                        f"{context_json}\n"
+                        "AUDIT_EOF\n"
+                        f"cat > {DEFAULT_TOOL_EXECUTION_CONTEXT_PATH} << 'TOOL_EOF'\n"
+                        f"{tool_context_json}\n"
+                        "TOOL_EOF\n"
+                        f": > {DEFAULT_TOOL_EXECUTION_SPOOL_PATH}\n"
+                        f": > {DEFAULT_TOOL_START_SPOOL_PATH}"
+                    ),
+                    timeout=10,
+                )
+                logger.debug("Wrote audit and tool execution context to agent VM")
+        except Exception:
+            logger.warning("Failed to write audit context to agent VM", exc_info=True)
+
+    async def _read_tool_execution_records(
+        self,
+        prepared: PreparedAgent,
+    ) -> list[ToolExecutionRecord]:
+        if not isinstance(self._runtime, PlatoVMRuntime) or self._runtime.ssh_key_path is None:
+            return []
+
+        context_exit_code, context_stdout, context_stderr = await run_ssh(
+            self._runtime.ssh_key_path,
+            prepared.hostname,
+            (
+                f"echo '=== context ==='; "
+                f"if [ -f {DEFAULT_TOOL_EXECUTION_CONTEXT_PATH} ]; then cat {DEFAULT_TOOL_EXECUTION_CONTEXT_PATH}; else echo '<missing>'; fi; "
+                f"echo; echo '=== spool-meta ==='; "
+                f"if [ -f {DEFAULT_TOOL_EXECUTION_SPOOL_PATH} ]; then ls -l {DEFAULT_TOOL_EXECUTION_SPOOL_PATH}; wc -l {DEFAULT_TOOL_EXECUTION_SPOOL_PATH}; else echo '<missing>'; fi"
+            ),
+            timeout=10,
+        )
+        if context_exit_code == 0:
+            logger.debug(
+                "Tool execution VM state for agent %s:%s%s",
+                prepared.agent_id,
+                "\n",
+                context_stdout,
+            )
+        else:
+            logger.warning(
+                "Failed to inspect tool execution VM state for agent %s: %s",
+                prepared.agent_id,
+                context_stderr,
+            )
+
+        exit_code, stdout, stderr = await run_ssh(
+            self._runtime.ssh_key_path,
+            prepared.hostname,
+            (f"if [ -f {DEFAULT_TOOL_EXECUTION_SPOOL_PATH} ]; then cat {DEFAULT_TOOL_EXECUTION_SPOOL_PATH}; fi"),
+            timeout=10,
+        )
+        if exit_code != 0:
+            logger.warning(
+                "Failed to read tool execution spool from agent VM %s: %s",
+                prepared.agent_id,
+                stderr,
+            )
+            return []
+
+        logger.debug(
+            "Raw tool execution spool for agent %s:%s%s",
+            prepared.agent_id,
+            "\n",
+            stdout if stdout else "<empty>",
+        )
+        return parse_tool_execution_records(stdout)
+
+    async def _collect_and_store_audit(
+        self,
+        prepared: PreparedAgent,
+        scopes: list[AuditScope],
+        *,
+        display_name: str | None,
+    ) -> None:
+        """Collect audit logs from tracked workspace scopes into scoped JSONL spools."""
+        try:
+            if not isinstance(self._runtime, PlatoVMRuntime):
+                return
+
+            if not scopes:
+                return
+
+            context = self._audit_context_payload(
+                prepared,
+                scopes,
+                display_name=display_name,
+            )
+            tool_records = await self._read_tool_execution_records(prepared)
+            if tool_records:
+                logger.debug(
+                    "Read %d tool execution records from agent VM %s: %s",
+                    len(tool_records),
+                    prepared.agent_id,
+                    [
+                        {
+                            "tool_name": record.tool_name,
+                            "trace_id": record.trace_id,
+                            "span_id": record.span_id,
+                            "started_at": record.started_at.isoformat(),
+                            "ended_at": record.ended_at.isoformat(),
+                            "path_hints": record.path_hints,
+                            "working_directory": record.working_directory,
+                            "pid": record.pid,
+                            "child_pids": record.child_pids,
+                        }
+                        for record in tool_records
+                    ],
+                )
+            else:
+                logger.debug(
+                    "No tool execution records were collected from agent VM %s",
+                    prepared.agent_id,
+                )
+            for scope in scopes:
+                write_tool_execution_records(scope.tool_spool_path, tool_records)
+                logger.debug(
+                    "Stored %d tool execution records in %s",
+                    len(tool_records),
+                    scope.tool_spool_path,
+                )
+                raw_log = await scope.transport.collect_audit_log(
+                    prepared.hostname,
+                    audit_key=scope.audit_key,
+                )
+                if not raw_log:
+                    logger.debug(
+                        "No audit log data collected from agent VM for scope %s",
+                        scope.audit_key,
+                    )
+                    continue
+
+                events = parse_audit_raw(raw_log)
+                if not events:
+                    logger.debug(
+                        "No audit events parsed from log for scope %s",
+                        scope.audit_key,
+                    )
+                    continue
+
+                # Filter out noise: directory opens on the mount root itself
+                # (e.g. /workspace) are triggered by every path resolution and
+                # carry no useful information.
+                pre_filter_count = len(events)
+                events = [
+                    e
+                    for e in events
+                    if not (
+                        e.path in (scope.mount_path, scope.mount_path + "/.") and e.operation == Operation.opened_file
+                    )
+                ]
+                if len(events) < pre_filter_count:
+                    logger.debug(
+                        "Filtered %d mount-root noise events for scope %s",
+                        pre_filter_count - len(events),
+                        scope.audit_key,
+                    )
+                if not events:
+                    continue
+                logger.debug("Parsed %d audit events for scope %s", len(events), scope.audit_key)
+
+                scope_context = AuditScopeContext(
+                    session_id=str(context.get("session_id", "")),
+                    agent_id=prepared.agent_id,
+                    agent_name=str(context.get("agent_name", "")),
+                    display_name=str(context.get("display_name", "")),
+                    workspace_name=scope.workspace_name,
+                    audit_run_id=scope.audit_run_id,
+                    audit_key=scope.audit_key,
+                    trace_id=str(context.get("trace_id", "")),
+                    span_id=str(context.get("span_id", "")),
+                )
+                resolved_events = resolve_audit_events_for_scope(
+                    events,
+                    scope_context=scope_context,
+                    tool_records=tool_records,
+                )
+                logger.debug(
+                    "Resolved %d audit events for scope %s",
+                    len(resolved_events),
+                    scope.audit_key,
+                )
+                write_audit_jsonl(scope.spool_path, resolved_events, scope_context)
+                logger.debug(
+                    "Stored %d audit events in %s",
+                    len(resolved_events),
+                    scope.spool_path,
+                )
+        except Exception:
+            logger.warning("Failed to collect and store audit log", exc_info=True)
+
     async def run(
         self,
         instruction: str,
@@ -152,6 +548,7 @@ class AgentRunner:
         """
         ws = self._workspace
         current_display_name = display_name or self._display_name
+        audit_scopes = self._configure_audit_scopes(current_display_name)
 
         # Set workspaces on VM runtime
         if isinstance(self._runtime, PlatoVMRuntime):
@@ -172,10 +569,18 @@ class AgentRunner:
             agent_code_path=self._agent_code_path,
         )
         prepared = await self._runtime.prepare(prep_ctx)
+        run_error: Exception | None = None
+        final_error: Exception | None = None
 
         try:
             for hook in self._prepare_hooks:
                 await hook(prepared)
+
+            await self._write_audit_context(
+                prepared,
+                audit_scopes,
+                display_name=current_display_name,
+            )
 
             total_attempts = 1 + (self._max_continuations if self._exit_condition else 0)
 
@@ -225,16 +630,44 @@ class AgentRunner:
                         total_attempts,
                         self._max_continuations,
                     )
-
-            for hook in self._post_run_hooks:
-                await hook(prepared)
-        except Exception:
+        except Exception as exc:
+            run_error = exc
             logger.exception("Agent run failed on VM %s", prepared.agent_id)
-            await self._runtime.cleanup(prepared.agent_id, error=True)
-            raise
-        else:
+        finally:
+            await self._collect_and_store_audit(
+                prepared,
+                audit_scopes,
+                display_name=current_display_name,
+            )
+
+            if run_error is None:
+                try:
+                    for hook in self._post_run_hooks:
+                        await hook(prepared)
+                except Exception as exc:
+                    final_error = exc
+                    logger.exception("Post-run hook failed on VM %s", prepared.agent_id)
+
             logger.info("Cleaning up agent VM %s", prepared.agent_id)
-            await self._runtime.cleanup(prepared.agent_id)
+            try:
+                await self._runtime.cleanup(
+                    prepared.agent_id,
+                    error=run_error is not None or final_error is not None,
+                )
+            except Exception as exc:
+                if run_error is not None or final_error is not None:
+                    logger.warning(
+                        "Agent VM cleanup failed while handling a prior error for %s",
+                        prepared.agent_id,
+                        exc_info=True,
+                    )
+                else:
+                    final_error = exc
+
+        if run_error is not None:
+            raise run_error.with_traceback(run_error.__traceback__)
+        if final_error is not None:
+            raise final_error.with_traceback(final_error.__traceback__)
 
         logger.info("Agent run complete: %s", prepared.agent_id)
         return prepared.agent_id

@@ -88,7 +88,7 @@ def select_features(
         counter = Counter()
         selections = {}
 
-        models = ["Leshy", "BorutaPy", "mrmr", "gOMP"]
+        models = ["BorutaPy", "mrmr", "gOMP"]
         # run three selectors and count feature picks
         for sub_m in models:
             try:

@@ -1942,7 +1942,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         // Inline first-use pinning for NameAssign.
         let mut type_info = if let Binding::NameAssign(na) = binding
-            && self.solver().flags.infer_with_first_use
+            && self.solver().infer_with_first_use
             && na.def_idx.is_some()
             && na.annotation.is_none()
             && let FirstUse::UsedBy(first_use_idx) = &na.first_use
@@ -2366,7 +2366,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let Some(owner) = class_binding.0.as_ref() else {
                 return;
             };
-            if owner.contains(&expect.attr.id)
+            if self
+                .get_class_fields(owner)
+                .is_some_and(|f| f.contains(&expect.attr.id))
                 && self.is_subset_eq(
                     &value_type,
                     &self.union(
@@ -2421,6 +2423,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
+        let Some(cls_fields) = self.get_class_fields(cls) else {
+            return;
+        };
         let mro = self.get_mro_for_class(cls);
         for (field_name, _field) in self.get_class_field_map(cls).iter() {
             // Apply the same filters as check_consistent_override_for_field.
@@ -2439,10 +2444,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 continue;
             }
 
-            if let Some(child_range) = cls.field_decl_range(field_name) {
+            if let Some(child_range) = cls_fields.field_decl_range(field_name) {
                 for ancestor in mro.ancestors(self.stdlib) {
+                    let ancestor_fields = self.get_class_fields(ancestor.class_object());
                     if let Some(ancestor_range) =
-                        ancestor.class_object().field_decl_range(field_name)
+                        ancestor_fields.and_then(|f| f.field_decl_range(field_name))
                     {
                         let ancestor_module_path = ancestor.class_object().module().path();
                         if !Self::should_skip_module_for_indexing(ancestor_module_path) {
@@ -2497,12 +2503,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 x.def_index,
                 &x.def,
                 &x.parent,
-                x.fields.clone(),
                 x.tparams_require_binding,
                 errors,
             ),
-            BindingClass::FunctionalClassDef(def_index, x, parent, fields) => {
-                self.functional_class_definition(*def_index, x, parent, fields)
+            BindingClass::FunctionalClassDef(def_index, x, parent) => {
+                self.functional_class_definition(*def_index, x, parent)
             }
         };
         Arc::new(NoneIfRecursive(Some(cls)))
@@ -2541,7 +2546,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<ClassField> {
         let functional_class_def = matches!(
             self.bindings().get(field.class_idx),
-            BindingClass::FunctionalClassDef(_, _, _, _)
+            BindingClass::FunctionalClassDef(_, _, _)
         );
         let field = match &self.get_idx(field.class_idx).0 {
             None => ClassField::recursive(self.heap),
@@ -2975,9 +2980,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    // =========================================================================
+    // -------------------------------------------------------------------------
     // Helper functions for binding_to_type - extracted to reduce stack frame size
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     /// Handle `Binding::Exhaustive` - check if a match or if/elif chain is exhaustive.
     /// The `#[inline(never)]` annotation is intentional to reduce stack frame size.
@@ -3662,9 +3667,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         got
     }
 
-    // =========================================================================
+    // -------------------------------------------------------------------------
     // Helper functions for binding_to_type - Phase 2 (medium arms)
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     /// Handle `Binding::Expr` - process expression with optional annotation.
     /// The `#[inline(never)]` annotation is intentional to reduce stack frame size.
@@ -3791,7 +3796,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         // We're specifically looking for attributes that are inherited from the parent class
         if let Some(cls) = &self.get_idx(class_key).as_ref().0
-            && !cls.contains(&name.id)
+            && !self
+                .get_class_fields(cls)
+                .is_some_and(|f| f.contains(&name.id))
         {
             // If the attribute lookup fails here, we'll emit an `unknown-name` error, since this
             // is a deferred lookup that can't be calculated at the bindings step
@@ -3955,9 +3962,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    // =========================================================================
+    // -------------------------------------------------------------------------
     // Helper functions for binding_to_type_info
-    // =========================================================================
+    // -------------------------------------------------------------------------
 
     /// Handle `Binding::Phi` in binding_to_type_info - join multiple branches.
     /// The `#[inline(never)]` annotation is intentional to reduce stack frame size.
@@ -5536,7 +5543,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // We convert them directly to Type::Size to distinguish from Literal[6]
             Expr::NumberLiteral(ruff_python_ast::ExprNumberLiteral { value, .. })
                 if matches!(type_form_context, TypeFormContext::TypeArgument)
-                    && self.solver().flags.tensor_shapes =>
+                    && self.solver().tensor_shapes =>
             {
                 match value {
                     ruff_python_ast::Number::Int(i) => {

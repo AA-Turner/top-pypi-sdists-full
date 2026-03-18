@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shlex
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -122,6 +123,11 @@ class Transport(ABC):
 
     path: str
     mount_path: str | None = None
+    workspace_name: str | None = None
+    workspace_repo_root: str | None = None
+    workspace_tracked: bool = False
+    audit_run_id: str | None = None
+    audit_key: str | None = None
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -144,6 +150,28 @@ class Transport(ABC):
         """Path where this workspace appears on the agent VM."""
         return self.mount_path or self.path
 
+    def configure_workspace(
+        self,
+        *,
+        name: str | None,
+        repo_root: str | None,
+        tracked: bool,
+    ) -> None:
+        """Attach workspace metadata to the transport for downstream integration."""
+        self.workspace_name = name
+        self.workspace_repo_root = repo_root
+        self.workspace_tracked = tracked
+
+    def configure_audit_scope(
+        self,
+        *,
+        audit_run_id: str | None,
+        audit_key: str | None,
+    ) -> None:
+        """Attach per-run audit scope metadata."""
+        self.audit_run_id = audit_run_id
+        self.audit_key = audit_key
+
     async def prepare(self) -> None:
         """Prepare this workspace's path on the world VM (e.g., NFS bind mount)."""
 
@@ -161,6 +189,8 @@ class RsyncTransport(Transport):
         self.path = path
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
+        self.configure_workspace(name=None, repo_root=None, tracked=False)
+        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     async def initialize(self) -> None:
         pass
@@ -195,7 +225,17 @@ class RsyncTransport(Transport):
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        return RsyncTransport(path, self.ssh_key_path, sub_mount)
+        transport = RsyncTransport(path, self.ssh_key_path, sub_mount)
+        transport.configure_workspace(
+            name=self.workspace_name,
+            repo_root=self.workspace_repo_root,
+            tracked=self.workspace_tracked,
+        )
+        transport.configure_audit_scope(
+            audit_run_id=self.audit_run_id,
+            audit_key=self.audit_key,
+        )
+        return transport
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +262,8 @@ class NFSTransport(Transport):
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
+        self.configure_workspace(name=None, repo_root=None, tracked=False)
+        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     async def initialize(self) -> None:
         """Install kernel NFS server, write exports, and start the service."""
@@ -229,7 +271,6 @@ class NFSTransport(Transport):
             "which exportfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-kernel-server)",
             timeout=120,
         )
-
         await self._setup_workspace_path(self.path)
 
         # Export the workspace path directly as the NFSv4 pseudo-root.
@@ -337,6 +378,76 @@ class NFSTransport(Transport):
 
         logger.debug(f"NFS mounted {self.path} -> {remote} on agent VM ({hostname})")
 
+        # Set up filesystem audit on agent VM (non-fatal)
+        audit_key = self.audit_key
+        if not self.workspace_tracked or not audit_key:
+            logger.debug(
+                "Skipping filesystem audit setup for workspace %s (tracked=%s, key=%s)",
+                remote,
+                self.workspace_tracked,
+                audit_key,
+            )
+            return
+        try:
+            # Use syscall-based rules instead of -w (file watch), because
+            # -w watches inodes which don't work on NFS mount points.
+            remote_quoted = shlex.quote(remote)
+            audit_key_quoted = shlex.quote(audit_key)
+            audit_setup_cmd = (
+                "which auditctl > /dev/null 2>&1 || "
+                "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1) && "
+                "service auditd start 2>/dev/null; "
+                # Path-based rule for file read/write/attribute operations.
+                # Tool-level attribution depends on read events as well as writes.
+                f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} "
+                f"-F perm=rwa -k {audit_key_quoted}; "
+                # Explicit syscall rule for mkdir — not reliably caught by
+                # -p wa over NFS since the RPC doesn't map to a write on the
+                # parent directory in the audit framework.
+                f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
+                f"-F dir={remote_quoted} -k {audit_key_quoted}"
+            )
+            exit_code, _, stderr = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                audit_setup_cmd,
+                timeout=120,
+            )
+            if exit_code != 0:
+                logger.warning("Filesystem audit setup failed on agent VM: %s", stderr.strip())
+            else:
+                logger.info(
+                    "Filesystem audit enabled on agent VM for %s (key=%s)",
+                    remote,
+                    audit_key,
+                )
+        except Exception:
+            logger.warning("Failed to set up filesystem audit on agent VM", exc_info=True)
+
+    async def collect_audit_log(
+        self,
+        hostname: str,
+        audit_key: str | None = None,
+    ) -> str | None:
+        """Collect filesystem audit log from agent VM.
+
+        Returns ``ausearch --format raw`` output, or None if empty/failed.
+        """
+        try:
+            key = audit_key or self.audit_key or "plato_workspace"
+            exit_code, stdout, _ = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
+                timeout=30,
+            )
+            if exit_code != 0 or not stdout.strip():
+                return None
+            return stdout
+        except Exception:
+            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
+            return None
+
     async def sync_back(self, agent_env: Environment, hostname: str) -> None:
         """NFS writes are immediate — nothing to do."""
         pass
@@ -349,9 +460,19 @@ class NFSTransport(Transport):
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        return NFSTransport(
+        transport = NFSTransport(
             path,
             self.world_vm_ip,
             self.ssh_key_path,
             sub_mount,
         )
+        transport.configure_workspace(
+            name=self.workspace_name,
+            repo_root=self.workspace_repo_root,
+            tracked=self.workspace_tracked,
+        )
+        transport.configure_audit_scope(
+            audit_run_id=self.audit_run_id,
+            audit_key=self.audit_key,
+        )
+        return transport

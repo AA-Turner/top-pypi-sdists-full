@@ -31,10 +31,7 @@ from workflows.resource import (
     _Resource,
     _ResourceConfig,
 )
-from workflows.utils import (
-    get_steps_from_class,
-    get_steps_from_instance,
-)
+from workflows.utils import get_steps_from_class, get_steps_from_instance
 
 
 def _get_type_name(type_annotation: type | None) -> str | None:
@@ -374,7 +371,10 @@ def get_workflow_representation(workflow: Workflow) -> WorkflowGraph:
                     WorkflowGraphEdge(source=event_type.__name__, target=step_name)
                 )
 
-            if issubclass(event_type, HumanResponseEvent):
+            if (
+                issubclass(event_type, HumanResponseEvent)
+                and "external_step" in added_nodes
+            ):
                 edges.append(
                     WorkflowGraphEdge(
                         source="external_step", target=event_type.__name__

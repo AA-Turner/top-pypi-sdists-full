@@ -80,6 +80,34 @@ Point3(1)  # E: Missing argument `y` in function `Point3.__new__`
     "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/2734
+// Starred expressions in field lists can't be fully resolved statically,
+// so the namedtuple has dynamic fields. String literals alongside the
+// starred expression are still extracted as known fields.
+testcase!(
+    test_named_tuple_spread_fields_from_namedtuple,
+    r#"
+import collections
+from typing import assert_type, Any
+
+BaseFieldInfo = collections.namedtuple("BaseFieldInfo", ["name", "type_code", "size"])
+ExtendedFieldInfo = collections.namedtuple(
+    "ExtendedFieldInfo",
+    [*BaseFieldInfo._fields, "extra", "comment"],
+)
+
+# Constructor accepts any args since field positions are unknown
+info = ExtendedFieldInfo("col1", 1, 100, "extra_val", "a comment")
+# Also valid: fewer args, since we can't know which are required
+info2 = ExtendedFieldInfo("col1", 1)
+# Known fields are accessible as attributes
+assert_type(info.extra, Any)
+assert_type(info.comment, Any)
+# Unknown fields are also accessible (dynamic)
+assert_type(info.anything, Any)
+    "#,
+);
+
 testcase!(
     test_named_tuple_functional_rename,
     r#"

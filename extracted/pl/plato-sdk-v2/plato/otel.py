@@ -289,6 +289,119 @@ def instrument(service_name: str = "plato-agent") -> Tracer:
 # =============================================================================
 
 
+def _set_step_attributes(
+    span: Span,
+    *,
+    step_id: int,
+    source: Literal["system", "user", "agent"],
+    message: str,
+    model_name: str | None = None,
+    reasoning: str | None = None,
+    tool_calls: list[dict] | None = None,
+    observation: dict | None = None,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+    reasoning_tokens: int | None = None,
+    cost_usd: float | None = None,
+    duration_ms: float | None = None,
+    screenshot: str | None = None,
+    screenshot_format: str | None = None,
+) -> None:
+    """Populate an ATIF step span with the standard attributes."""
+    span.set_attribute("atif.step.id", step_id)
+    span.set_attribute("atif.step.source", source)
+    span.set_attribute("atif.step.message", message)
+
+    if model_name is not None:
+        span.set_attribute("atif.step.model_name", model_name)
+    if reasoning is not None:
+        span.set_attribute("atif.step.reasoning", reasoning)
+    if tool_calls is not None:
+        span.set_attribute("atif.step.tool_calls", json.dumps(tool_calls, default=str))
+    if observation is not None:
+        span.set_attribute("atif.step.observation", json.dumps(observation, default=str))
+    if prompt_tokens is not None:
+        span.set_attribute("atif.step.prompt_tokens", prompt_tokens)
+    if completion_tokens is not None:
+        span.set_attribute("atif.step.completion_tokens", completion_tokens)
+    if cache_read_tokens is not None:
+        span.set_attribute("atif.step.cache_read_tokens", cache_read_tokens)
+    if cache_write_tokens is not None:
+        span.set_attribute("atif.step.cache_write_tokens", cache_write_tokens)
+    if reasoning_tokens is not None:
+        span.set_attribute("atif.step.reasoning_tokens", reasoning_tokens)
+    if cost_usd is not None:
+        span.set_attribute("atif.step.cost_usd", cost_usd)
+    if duration_ms is not None:
+        span.set_attribute("atif.step.duration_ms", duration_ms)
+    if screenshot is not None:
+        span.set_attribute("atif.step.screenshot", screenshot)
+        span.set_attribute("atif.step.screenshot_format", screenshot_format or "image/png")
+
+
+@contextmanager
+def start_step_span(
+    tracer: Tracer,
+    step_id: int,
+    source: Literal["system", "user", "agent"],
+    message: str,
+    *,
+    model_name: str | None = None,
+    reasoning: str | None = None,
+    tool_calls: list[dict] | None = None,
+    observation: dict | None = None,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+    reasoning_tokens: int | None = None,
+    cost_usd: float | None = None,
+    duration_ms: float | None = None,
+    screenshot: str | None = None,
+    screenshot_format: str | None = None,
+) -> Iterator[Span]:
+    """Create one live ATIF step span and yield it to the caller.
+
+    Args:
+        tracer: OTel tracer instance
+        step_id: Sequential step ID (from 1)
+        source: "system", "user", or "agent"
+        message: Text content of the step
+        model_name: LLM model identifier
+        reasoning: Chain-of-thought / extended thinking content
+        tool_calls: List of tool call dicts with tool_call_id, function_name, arguments
+        observation: Observation dict with results list
+        prompt_tokens: Input token count
+        completion_tokens: Output token count
+        cost_usd: Cost in USD
+        screenshot: Base64-encoded screenshot image data
+        screenshot_format: Image MIME type (e.g., "image/png")
+    """
+    with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
+        _set_step_attributes(
+            span,
+            step_id=step_id,
+            source=source,
+            message=message,
+            model_name=model_name,
+            reasoning=reasoning,
+            tool_calls=tool_calls,
+            observation=observation,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+            reasoning_tokens=reasoning_tokens,
+            cost_usd=cost_usd,
+            duration_ms=duration_ms,
+            screenshot=screenshot,
+            screenshot_format=screenshot_format,
+        )
+        yield span
+
+
 def emit_step(
     tracer: Tracer,
     step_id: int,
@@ -309,53 +422,27 @@ def emit_step(
     screenshot: str | None = None,
     screenshot_format: str | None = None,
 ) -> None:
-    """Emit one ATIF step as an OTel span.
-
-    Args:
-        tracer: OTel tracer instance
-        step_id: Sequential step ID (from 1)
-        source: "system", "user", or "agent"
-        message: Text content of the step
-        model_name: LLM model identifier
-        reasoning: Chain-of-thought / extended thinking content
-        tool_calls: List of tool call dicts with tool_call_id, function_name, arguments
-        observation: Observation dict with results list
-        prompt_tokens: Input token count
-        completion_tokens: Output token count
-        cost_usd: Cost in USD
-        screenshot: Base64-encoded screenshot image data
-        screenshot_format: Image MIME type (e.g., "image/png")
-    """
-    with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
-        span.set_attribute("atif.step.id", step_id)
-        span.set_attribute("atif.step.source", source)
-        span.set_attribute("atif.step.message", message)
-
-        if model_name is not None:
-            span.set_attribute("atif.step.model_name", model_name)
-        if reasoning is not None:
-            span.set_attribute("atif.step.reasoning", reasoning)
-        if tool_calls is not None:
-            span.set_attribute("atif.step.tool_calls", json.dumps(tool_calls, default=str))
-        if observation is not None:
-            span.set_attribute("atif.step.observation", json.dumps(observation, default=str))
-        if prompt_tokens is not None:
-            span.set_attribute("atif.step.prompt_tokens", prompt_tokens)
-        if completion_tokens is not None:
-            span.set_attribute("atif.step.completion_tokens", completion_tokens)
-        if cache_read_tokens is not None:
-            span.set_attribute("atif.step.cache_read_tokens", cache_read_tokens)
-        if cache_write_tokens is not None:
-            span.set_attribute("atif.step.cache_write_tokens", cache_write_tokens)
-        if reasoning_tokens is not None:
-            span.set_attribute("atif.step.reasoning_tokens", reasoning_tokens)
-        if cost_usd is not None:
-            span.set_attribute("atif.step.cost_usd", cost_usd)
-        if duration_ms is not None:
-            span.set_attribute("atif.step.duration_ms", duration_ms)
-        if screenshot is not None:
-            span.set_attribute("atif.step.screenshot", screenshot)
-            span.set_attribute("atif.step.screenshot_format", screenshot_format or "image/png")
+    """Emit one ATIF step as an OTel span."""
+    with start_step_span(
+        tracer,
+        step_id,
+        source,
+        message,
+        model_name=model_name,
+        reasoning=reasoning,
+        tool_calls=tool_calls,
+        observation=observation,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
+        reasoning_tokens=reasoning_tokens,
+        cost_usd=cost_usd,
+        duration_ms=duration_ms,
+        screenshot=screenshot,
+        screenshot_format=screenshot_format,
+    ):
+        pass
 
 
 @contextmanager

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sse-starlette
-Version: 3.3.2
+Version: 3.3.3
 Summary: SSE plugin for Starlette
 Author-email: sysid <sysid@gmx.de>
 License-Expression: BSD-3-Clause
@@ -85,6 +85,9 @@ app = Starlette(routes=[Route("/events", sse_endpoint)])
 - **Graceful Shutdown**: Proper cleanup on server termination with cooperative shutdown support
 - **Thread Safety**: Context-local event management for multi-threaded applications
 - **Multi-Loop Support**: Works correctly with multiple asyncio event loops
+
+For a detailed look at the internal task coordination, shutdown detection, and cancellation
+flows, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Key Components
 

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: ase
-Version: 3.27.0
+Version: 3.28.0
 Summary: Atomic Simulation Environment
-Maintainer-email: ASE Community <ase-users@listserv.fysik.dtu.dk>
+Maintainer-email: ASE Steering Committee <ase-committee@listserv.fysik.dtu.dk>
 License-Expression: LGPL-2.1-or-later
 Project-URL: Homepage, https://ase-lib.org/
 Project-URL: Repository, https://gitlab.com/ase/ase.git
@@ -24,6 +24,7 @@ Requires-Dist: matplotlib>=3.5.2
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_book_theme; extra == "docs"
+Requires-Dist: sphinxcontrib-video; extra == "docs"
 Requires-Dist: sphinx-gallery; extra == "docs"
 Requires-Dist: pillow; extra == "docs"
 Provides-Extra: test

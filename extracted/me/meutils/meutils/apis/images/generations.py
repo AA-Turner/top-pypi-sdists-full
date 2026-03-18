@@ -42,6 +42,7 @@ from meutils.apis.modelscope_api.images import generate as modelscope_generate
 from meutils.apis.netmind.images import generate as netmind_generate
 from meutils.apis.hailuoai.openai_images import generate as hailuo_generate
 from meutils.apis.volcengine_apis.images_nx import generate as seedream_generate
+from meutils.apis.grok.images import generate as grok_generate
 
 # 工具类
 from meutils.apis.textin_apis import Textin
@@ -58,6 +59,9 @@ async def generate(
     if len(str(request)) < 1024: logger.debug(request)
 
     base_url = base_url or ""
+
+    if any(i in base_url for i in {"grok", "x.ai"}):
+        return await grok_generate(request, api_key)
 
     if "jimeng" in base_url:  # 逆向
         return await jimeng_generate(request, api_key)

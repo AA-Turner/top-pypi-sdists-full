@@ -82,10 +82,7 @@ def pseudo_current():
 def contains_sublist(list1, sublist):
     len_sublist = len(sublist)
     assert len_sublist <= len(list1)
-    for i in range(len(list1)):
-        if list1[i:i+len_sublist] == sublist:
-            return True
-    return False
+    return any(list1[i : i + len_sublist] == sublist for i in range(len(list1)))
 
 
 def test_passthrough_args_toxargs(makehub, tmpdir, pseudo_current):
@@ -306,14 +303,18 @@ class TestWheel:
         assert 'only universal wheels' not in '\n'.join(loghub._getmatcher().lines)
 
     @pytest.mark.skipif("config.option.fast")
-    @pytest.mark.parametrize("pkgname", (
-        "prep1",
-        "prep-dash",
-        "prep_under",
-        "prep.dot",
-        "prep.dot-dash",
-        "prep.dot_under",
-        "Upper"))
+    @pytest.mark.parametrize(
+        "pkgname",
+        [
+            "prep1",
+            "prep-dash",
+            "prep_under",
+            "prep.dot",
+            "prep.dot-dash",
+            "prep.dot_under",
+            "Upper",
+        ],
+    )
     def test_prepare_toxrun_args(self, loghub, pkgname, pseudo_current, tmpdir, reqmock, initproj):
         initproj((pkgname, "1.0"), filedefs={})
         subprocess.check_call(["python", "setup.py", "sdist", "--formats=gztar,zip"])
@@ -353,6 +354,7 @@ class TestWheel:
             "zip" + os.sep + f"{pkgname_norm}-1.0"))
         assert wheel1[0].basename in {
             f"{pkgname}-1.0-py2.py3-none-any.whl",
+            f"{pkgname_norm}-1.0-py2.py3-none-any.whl",
             f"{pkgname_whl}-1.0-py2.py3-none-any.whl"}
         assert str(wheel1[1].path_unpacked).endswith(wheel1[0].basename)
 

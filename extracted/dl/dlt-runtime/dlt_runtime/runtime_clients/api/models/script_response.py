@@ -33,7 +33,6 @@ class ScriptResponse:
         name (str): The name of the script
         script_type (ScriptType): The type of the script. Use 'batch' for batch pipelines and 'interactive' for
             notebooks
-        script_url (str): The URL where the script can be accessed if interactive
         version (int): The current version of the script
         workspace_id (UUID): The ID of the workspace the script belongs to
         archived (Union[Unset, bool]): Whether the script is archived and hidden from default listings Default: False.
@@ -46,6 +45,7 @@ class ScriptResponse:
         public_url (Union[None, Unset, str]): The public URL where the script can be accessed without authentication, is
             None if not enabled
         schedule (Union[None, Unset, str]): The schedule of the script. Use 'cron' format for cron jobs
+        script_url (Union[None, Unset, str]): The URL where the script can be accessed if interactive
     """
 
     created_by: UUID
@@ -56,7 +56,6 @@ class ScriptResponse:
     id: UUID
     name: str
     script_type: ScriptType
-    script_url: str
     version: int
     workspace_id: UUID
     archived: Union[Unset, bool] = False
@@ -66,6 +65,7 @@ class ScriptResponse:
     public_secret: Union[None, UUID, Unset] = UNSET
     public_url: Union[None, Unset, str] = UNSET
     schedule: Union[None, Unset, str] = UNSET
+    script_url: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,8 +84,6 @@ class ScriptResponse:
         name = self.name
 
         script_type = self.script_type.value
-
-        script_url = self.script_url
 
         version = self.version
 
@@ -135,6 +133,12 @@ class ScriptResponse:
         else:
             schedule = self.schedule
 
+        script_url: Union[None, Unset, str]
+        if isinstance(self.script_url, Unset):
+            script_url = UNSET
+        else:
+            script_url = self.script_url
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -147,7 +151,6 @@ class ScriptResponse:
                 "id": id,
                 "name": name,
                 "script_type": script_type,
-                "script_url": script_url,
                 "version": version,
                 "workspace_id": workspace_id,
             }
@@ -166,6 +169,8 @@ class ScriptResponse:
             field_dict["public_url"] = public_url
         if schedule is not UNSET:
             field_dict["schedule"] = schedule
+        if script_url is not UNSET:
+            field_dict["script_url"] = script_url
 
         return field_dict
 
@@ -187,8 +192,6 @@ class ScriptResponse:
         name = d.pop("name")
 
         script_type = ScriptType(d.pop("script_type"))
-
-        script_url = d.pop("script_url")
 
         version = d.pop("version")
 
@@ -282,6 +285,15 @@ class ScriptResponse:
 
         schedule = _parse_schedule(d.pop("schedule", UNSET))
 
+        def _parse_script_url(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        script_url = _parse_script_url(d.pop("script_url", UNSET))
+
         script_response = cls(
             created_by=created_by,
             date_added=date_added,
@@ -291,7 +303,6 @@ class ScriptResponse:
             id=id,
             name=name,
             script_type=script_type,
-            script_url=script_url,
             version=version,
             workspace_id=workspace_id,
             archived=archived,
@@ -301,6 +312,7 @@ class ScriptResponse:
             public_secret=public_secret,
             public_url=public_url,
             schedule=schedule,
+            script_url=script_url,
         )
 
         script_response.additional_properties = d

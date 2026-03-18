@@ -14,13 +14,14 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4711"
+__version__ = "1.1.4712"
 
 # Define package exports
 __all__ = [
     "AmazonEcrKeyIntegrationApi",
     "AmazonEcrRoleIntegrationApi",
     "BrokersApi",
+    "CertificatesApi",
     "CloudInstancesApi",
     "CollaboratorsApi",
     "ComplianceApi",
@@ -68,6 +69,8 @@ __all__ = [
     "BrokerStatus",
     "BusinessImpact",
     "Category",
+    "CertificateDto",
+    "CertificateStatus",
     "ClosingReason",
     "CloudInstanceDto",
     "CloudInstancesToContainersOperationDto",
@@ -93,6 +96,7 @@ __all__ = [
     "CorrelatedCloudInstance",
     "CorrelatedRepositoryDto",
     "CreateAutomaticCheckDto",
+    "CreateCertificateDto",
     "CreateIssuesTagDto",
     "CreateProductUnitBadRequestDto",
     "CreateProductUnitDto",
@@ -231,6 +235,7 @@ __all__ = [
     "StringCustomerFacingCursorPagedDto",
     "TagDto",
     "TagSource",
+    "UploadCertificateDto",
     "UserDto",
     "UserPermission",
     "UserRole",
@@ -248,6 +253,7 @@ __all__ = [
 from legit_api_client.api.amazon_ecr_key_integration_api import AmazonEcrKeyIntegrationApi as AmazonEcrKeyIntegrationApi
 from legit_api_client.api.amazon_ecr_role_integration_api import AmazonEcrRoleIntegrationApi as AmazonEcrRoleIntegrationApi
 from legit_api_client.api.brokers_api import BrokersApi as BrokersApi
+from legit_api_client.api.certificates_api import CertificatesApi as CertificatesApi
 from legit_api_client.api.cloud_instances_api import CloudInstancesApi as CloudInstancesApi
 from legit_api_client.api.collaborators_api import CollaboratorsApi as CollaboratorsApi
 from legit_api_client.api.compliance_api import ComplianceApi as ComplianceApi
@@ -299,6 +305,8 @@ from legit_api_client.models.broker_dto import BrokerDto as BrokerDto
 from legit_api_client.models.broker_status import BrokerStatus as BrokerStatus
 from legit_api_client.models.business_impact import BusinessImpact as BusinessImpact
 from legit_api_client.models.category import Category as Category
+from legit_api_client.models.certificate_dto import CertificateDto as CertificateDto
+from legit_api_client.models.certificate_status import CertificateStatus as CertificateStatus
 from legit_api_client.models.closing_reason import ClosingReason as ClosingReason
 from legit_api_client.models.cloud_instance_dto import CloudInstanceDto as CloudInstanceDto
 from legit_api_client.models.cloud_instances_to_containers_operation_dto import CloudInstancesToContainersOperationDto as CloudInstancesToContainersOperationDto
@@ -324,6 +332,7 @@ from legit_api_client.models.control_type import ControlType as ControlType
 from legit_api_client.models.correlated_cloud_instance import CorrelatedCloudInstance as CorrelatedCloudInstance
 from legit_api_client.models.correlated_repository_dto import CorrelatedRepositoryDto as CorrelatedRepositoryDto
 from legit_api_client.models.create_automatic_check_dto import CreateAutomaticCheckDto as CreateAutomaticCheckDto
+from legit_api_client.models.create_certificate_dto import CreateCertificateDto as CreateCertificateDto
 from legit_api_client.models.create_issues_tag_dto import CreateIssuesTagDto as CreateIssuesTagDto
 from legit_api_client.models.create_product_unit_bad_request_dto import CreateProductUnitBadRequestDto as CreateProductUnitBadRequestDto
 from legit_api_client.models.create_product_unit_dto import CreateProductUnitDto as CreateProductUnitDto
@@ -462,6 +471,7 @@ from legit_api_client.models.source_dto import SourceDto as SourceDto
 from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto as StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto as TagDto
 from legit_api_client.models.tag_source import TagSource as TagSource
+from legit_api_client.models.upload_certificate_dto import UploadCertificateDto as UploadCertificateDto
 from legit_api_client.models.user_dto import UserDto as UserDto
 from legit_api_client.models.user_permission import UserPermission as UserPermission
 from legit_api_client.models.user_role import UserRole as UserRole

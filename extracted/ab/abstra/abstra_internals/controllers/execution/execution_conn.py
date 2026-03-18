@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from abstra_internals.controllers.execution.connection_protocol import (
     ConnectionProtocol,
 )
+from abstra_internals.logger import AbstraLogger
 
 _current_conn: Optional[ConnectionProtocol] = None
 _stdio_buffer: Optional["StdioBuffer"] = None
@@ -57,8 +58,10 @@ class StdioBuffer:
 
         try:
             self._conn.send(message)
-        except Exception:
-            pass  # Don't break execution if broadcast fails
+        except Exception as e:
+            AbstraLogger.debug(
+                f"[StdioBuffer] Failed to flush {len(batch)} messages: {e}"
+            )
 
         try:
             publisher = _broadcast_publisher

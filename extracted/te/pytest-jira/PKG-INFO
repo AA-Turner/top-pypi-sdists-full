@@ -1,27 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-jira
-Version: 0.3.22
+Version: 0.3.23
 Summary: py.test JIRA integration plugin, using markers
-Home-page: http://github.com/rhevm-qe-automation/pytest_jira
-Author: James Laska
-Author-email: james.laska@gmail.com
-License: GPLv2
-Keywords: pytest,jira,plugin
-Classifier: Development Status :: 3 - Alpha
+Project-URL: Homepage, https://github.com/rhevm-qe-automation/pytest_jira
+Author-email: James Laska <james.laska@gmail.com>, Lukas Bednar <lukyn17@gmail.com>
+License: GPL-2.0-only
+License-File: LICENSE
+Keywords: jira,plugin,pytest
+Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Plugins
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Classifier: Topic :: Software Development :: Testing
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-License-File: LICENSE
+Requires-Python: >=3.9
+Requires-Dist: marshmallow>=4.0
+Requires-Dist: packaging
+Requires-Dist: pytest>=2.2.4
+Requires-Dist: requests>=2.13.0
+Requires-Dist: retry2>=0.9.5
+Requires-Dist: six
+Description-Content-Type: text/x-rst
 
 Intro
 =====
@@ -259,4 +266,3 @@ In order to execute tests run
 .. code:: sh
 
   $ tox
-

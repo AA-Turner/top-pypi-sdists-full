@@ -113,19 +113,20 @@ def wait_for_port(host, port, timeout=60):
 
 
 def find_python3():
-    if sys.version_info >= (3, 7):  # noqa: UP036
+    if sys.version_info >= (3, 9):
         return sys.executable
     locations = [
-        "C:\\Python37-x64\\python.exe",
-        "C:\\Python37\\python.exe",
-        "C:\\Python38-x64\\python.exe",
-        "C:\\Python38\\python.exe",
         "C:\\Python39-x64\\python.exe",
         "C:\\Python39\\python.exe",
         "C:\\Python310-x64\\python.exe",
         "C:\\Python310\\python.exe",
         "C:\\Python311-x64\\python.exe",
-        "C:\\Python311\\python.exe"]
+        "C:\\Python311\\python.exe",
+        "C:\\Python312-x64\\python.exe",
+        "C:\\Python312\\python.exe",
+        "C:\\Python313-x64\\python.exe",
+        "C:\\Python313\\python.exe",
+    ]
     for location in locations:
         if not os.path.exists(location):
             continue
@@ -136,12 +137,13 @@ def find_python3():
         except subprocess.CalledProcessError:
             continue
     names = [
-        'python3.7',
-        'python3.8',
-        'python3.9',
-        'python3.10',
-        'python3.11',
-        'python3']
+        "python3.9",
+        "python3.10",
+        "python3.11",
+        "python3.12",
+        "python3.13",
+        "python3",
+    ]
     for name in names:
         path = shutil.which(name)
         if path is None:
@@ -201,7 +203,8 @@ def server_executable(request, tmpdir_factory):
 @pytest.fixture(scope="session")
 def server_version(request, server_executable):
     output = check_output(request, [server_executable, "--version"])
-    return parse_version(output.decode('ascii').strip())
+    version_line = [l for l in output.splitlines() if l.strip()][-1]
+    return parse_version(version_line.decode('ascii').strip())
 
 
 @pytest.fixture(scope="session")
@@ -319,7 +322,7 @@ def _filedefs_contains(base, filedefs, path):
         filedefs = filedefs.get(part, unknown)
         if filedefs is unknown:
             return False
-    return path_rel_parts or path == base and filedefs
+    return path_rel_parts or (path == base and filedefs)
 
 
 def create_files(base, filedefs):

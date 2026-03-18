@@ -12,16 +12,18 @@ Design principles:
 5. Helpful error messages with suggestions
 
 Tools:
-- edgar_company: Get company info, financials, filings, ownership in one call
-- edgar_search: Search companies and/or filings
-- edgar_filing: Read SEC filing content and sections (10-K, 10-Q, 8-K, DEF 14A, 13D/G, 13F)
+- edgar_company: Starting point for company questions (profile, financials, filings, ownership)
+- edgar_filing: Examine any filing by accession number or URL (structured context)
+- edgar_read: Read specific sections from filings (risk factors, MD&A, business, etc.)
+- edgar_search: Find companies by name or list filings by form type
+- edgar_text_search: Full-text search across SEC filing content (EFTS)
 - edgar_compare: Compare multiple companies or analyze industry
 - edgar_ownership: Insider transactions, fund portfolios
 - edgar_monitor: Real-time SEC filings feed
 - edgar_trends: Financial time series with growth rates
 - edgar_screen: Company discovery by industry, exchange, state
-- edgar_text_search: Full-text search across SEC filing content
-- edgar_proxy: Proxy statement (DEF 14A) executive compensation and governance
+- edgar_fund: Fund, ETF, BDC, money market data
+- edgar_proxy: Executive compensation and governance (DEF 14A)
 
 Usage:
     python -m edgar.ai            # Via module
@@ -87,6 +89,7 @@ def _import_tools():
     from edgar.ai.mcp.tools import company  # noqa: F401
     from edgar.ai.mcp.tools import search  # noqa: F401
     from edgar.ai.mcp.tools import filing  # noqa: F401
+    from edgar.ai.mcp.tools import reader  # noqa: F401
     from edgar.ai.mcp.tools import compare  # noqa: F401
     from edgar.ai.mcp.tools import ownership  # noqa: F401
     from edgar.ai.mcp.tools import monitor  # noqa: F401
@@ -97,8 +100,38 @@ def _import_tools():
     from edgar.ai.mcp.tools import proxy  # noqa: F401
 
 
+# Server instructions — sent to the LLM on first connection, before any tool call.
+# This is the system prompt for the tool suite.
+SERVER_INSTRUCTIONS = """EdgarTools provides access to all SEC EDGAR filing data. 12 tools organized by intent:
+
+DISCOVER companies and filings:
+- edgar_company: Start here for any company question (profile, financials, filings)
+- edgar_search: Find companies by name or list filings by form type
+- edgar_screen: Filter companies by industry, exchange, or state
+- edgar_text_search: Full-text search across filing content (EFTS)
+- edgar_monitor: See what was just filed with the SEC
+
+EXAMINE specific filings:
+- edgar_filing: Get structured context for a filing (by company+form or accession number/URL)
+- edgar_read: Extract specific sections (risk factors, MD&A, business description, items)
+
+ANALYZE financial data:
+- edgar_trends: Revenue, income, EPS time series with growth rates
+- edgar_compare: Side-by-side company comparison on financial metrics
+- edgar_ownership: Insider transactions (Form 4) or institutional portfolios (13F)
+- edgar_fund: Mutual fund, ETF, BDC, and money market fund data
+- edgar_proxy: Executive compensation and governance (DEF 14A)
+
+Common workflows:
+1. Company research: edgar_company → edgar_read (10-K sections) → edgar_trends
+2. Filing analysis: edgar_filing (by accession/URL) → edgar_read (extract sections)
+3. Event monitoring: edgar_monitor → edgar_filing (examine new filings)
+4. Peer comparison: edgar_screen (find peers) → edgar_compare (compare metrics)
+
+Pre-built analysis prompts are available via prompts/list: due_diligence, earnings_analysis, industry_overview, insider_monitor, fund_analysis, filing_comparison, activist_tracking."""
+
 # Create the server
-app = Server("edgartools")
+app = Server("edgartools", instructions=SERVER_INSTRUCTIONS)
 
 
 @app.list_tools()
@@ -226,7 +259,15 @@ Search for companies or filings.
 ```
 
 ### edgar_filing
-Read SEC filing content.
+Examine any SEC filing by accession number or URL.
+
+```json
+{"input": "0000320193-23-000077"}
+{"input": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/...", "detail": "full"}
+```
+
+### edgar_read
+Read specific sections from a filing.
 
 ```json
 {"identifier": "AAPL", "form": "10-K", "sections": ["business", "risk_factors"]}

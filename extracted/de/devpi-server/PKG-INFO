@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.19.1
-Summary: devpi-server: reliable, private, and pypi.org caching server
+Version: 6.19.2
+Summary: devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
 Project-URL: Bug Tracker, https://github.com/devpi/devpi/issues
@@ -43,6 +43,7 @@ Requires-Dist: pluggy<2.0,>=0.6.0
 Requires-Dist: py>=1.4.23
 Requires-Dist: pyramid>=2
 Requires-Dist: repoze.lru>=0.6
+Requires-Dist: requests>=2.3.0
 Requires-Dist: setuptools<=81
 Requires-Dist: strenum; python_version < "3.11"
 Requires-Dist: strictyaml
@@ -50,25 +51,24 @@ Requires-Dist: waitress>=1.0.1
 Requires-Dist: ruamel.yaml
 Dynamic: license-file
 
-=============================================================================
-devpi-server: server for private package indexes and PyPI caching
-=============================================================================
+====================================================================================
+devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
+====================================================================================
 
 
-PyPI cache
-==========
+PyPI on-demand package mirror
+=============================
 
-You can point ``pip or easy_install`` to the ``root/pypi/+simple/``
-index, serving as a transparent cache for pypi-hosted packages.
+You can point ``uv``, ``pip`` or another Python package installer to the ``root/pypi/+simple/`` index,
+serving as a transparent on-demand mirror for PyPI-hosted packages.
 
 
 User specific indexes
 =====================
 
-Each user (which can represent a person, project or team) can have
-multiple indexes and upload packages and docs via standard ``twine`` or
-``setup.py`` invocations.  Users and indexes can be manipulated through
-`devpi-client`_ and a RESTful HTTP API.
+Each user (which can represent a person, project or team) can have multiple indexes,
+and can upload packages and documents to these indexes via standard ``twine`` or ``setup.py`` invocations.
+Users and indexes can be manipulated through `devpi-client`_ and a RESTful HTTP API.
 
 
 Index inheritance
@@ -80,19 +80,16 @@ index using ``root/pypi`` as a parent is a good place to test out a
 release candidate before you push it to PyPI.
 
 
-Good defaults and easy deployment
-=================================
+Sensible defaults for a low friction deployment
+===============================================
 
-Get started easily and create a permanent devpi-server deployment
-including pre-configured templates for ``nginx`` and process managers.
+Get started easily and deploy a devpi-server instance with pre-configured templates for ``nginx`` and process managers.
 
 
 Separate tool for Packaging/Testing activities
 ==============================================
 
-The complementary `devpi-client`_ tool
-helps to manage users, indexes, logins and typical setup.py-based upload and
-installation workflows.
+The complementary `devpi-client`_ tool helps to manage users, indexes, logins and typical package upload and installation workflows.
 
 See https://doc.devpi.net on how to get started and further documentation.
 
@@ -105,9 +102,9 @@ Support
 
 If you find a bug, use the `issue tracker at Github`_.
 
-For general questions use `GitHub Discussions`_ or the `devpi-dev@python.org mailing list`_.
+For general questions, use `GitHub Discussions`_ or the `devpi-dev@python.org mailing list`_.
 
-For support contracts and paid help contact ``mail at pyfidelity.com``.
+For support contracts and paid help, contact ``mail at pyfidelity.com``.
 
 .. _issue tracker at Github: https://github.com/devpi/devpi/issues/
 .. _devpi-dev@python.org mailing list: https://mail.python.org/mailman3/lists/devpi-dev.python.org/
@@ -124,6 +121,26 @@ Changelog
 
 .. towncrier release notes start
 
+6.19.2 (2026-03-17)
+===================
+
+Bug Fixes
+---------
+
+- Preserve log for documentation uploads in export.
+
+- Any missing file on mirrors will be ignored during event processing as is already the case in other places.
+
+- Use short timeout when project list is requested for ``has_project`` call on mirrors instead of the long one used for ``list_projects``. This prevents installers from timing out and retrying several times.
+
+- Fix error handling for proxy requests from replica to primary.
+
+Other Changes
+-------------
+
+- Removed limit of reported missing files for devpi-fsck.
+
+
 6.19.1 (2026-02-09)
 ===================
 
@@ -133,6 +150,7 @@ Bug Fixes
 - Pin setuptools as pyramid still requires pkg_resources.
 
 - Always allow replicas to access deleted releases to get the proper ``410 Gone`` instead of ``403 Forbidden`` when ``devpi-lockdown`` is in use.
+
 
 6.19.0 (2026-02-06)
 ===================
@@ -240,25 +258,4 @@ Other Changes
 -------------
 
 - Changed User-Agent when fetching data for mirrors from just "server" to "devpi-server".
-
-
-6.16.0 (2025-06-25)
-===================
-
-Deprecations and Removals
--------------------------
-
-- Dropped support for Python 3.7 and 3.8.
-
-Features
---------
-
-- Update stored package metadata fields to version 2.4 for license expressions (PEP 639).
-
-Bug Fixes
----------
-
-- Preserve hash when importing mirror data to prevent unnecessary updates later on.
-
-- Keep original metadata_version in database.
 

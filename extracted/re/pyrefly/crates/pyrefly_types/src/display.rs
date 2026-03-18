@@ -1161,7 +1161,6 @@ pub mod tests {
             NestingContext::toplevel(),
             mi,
             None,
-            SmallMap::new(),
         )
     }
 

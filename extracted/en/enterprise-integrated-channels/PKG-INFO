@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.52
+Version: 0.1.53
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -209,6 +209,11 @@ Change Log
 
 Unreleased
 **********
+
+0.1.53 – 2026-03-17
+*******************
+
+* fix: rendering django admin user field with raw_id
 
 0.1.52 – 2026-03-13
 *******************

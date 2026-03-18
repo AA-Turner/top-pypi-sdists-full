@@ -169,11 +169,7 @@ class Host(Generic[ArgsT, ReturnT]):
     _SUPPORTED_KEYS: ClassVar[frozenset[str]] = frozenset()
     _GATEWAY_KEYS: ClassVar[frozenset[str]] = frozenset({"serve", "exposed_port"})
     _VIRTUALENV_KEYS: ClassVar[frozenset[str]] = frozenset(
-        {
-            "python_version",
-            "requirements",
-            "resolver",
-        }
+        {"python_version", "requirements", "resolver", "force"}
     )
     _CONTAINER_KEYS: ClassVar[frozenset[str]] = frozenset(
         {"image", "python_version", "requirements", "resolver", "force"}
@@ -811,6 +807,7 @@ class FalServerlessHost(Host):
         setup_function = options.host.get("setup_function", None)
         request_timeout = options.host.get("request_timeout")
         startup_timeout = options.host.get("startup_timeout")
+        regions = options.host.get("regions")
         machine_requirements = MachineRequirements(
             machine_types=machine_type,  # type: ignore
             num_gpus=options.host.get("num_gpus"),
@@ -827,6 +824,7 @@ class FalServerlessHost(Host):
             scaling_delay=scaling_delay,
             request_timeout=request_timeout,
             startup_timeout=startup_timeout,
+            valid_regions=regions,
         )
 
         files = self.files_sync(FileSyncOptions.from_options(options))
@@ -1365,12 +1363,12 @@ def function(  # type: ignore
 
     if config.get("force_env_build") is not None:
         force_env_build = config.pop("force_env_build")
-        if kind == "container":
+        if kind == "container" or kind == "virtualenv":
             config["force"] = force_env_build
         elif force_env_build:
             console.print(
                 "[bold yellow]Note:[/bold yellow] [dim]--no-cache[/dim]"
-                " is only supported for container apps as of now. Ignoring."
+                " is not supported for conda apps as of now. Ignoring."
             )
 
     options = host.parse_options(kind=kind, **config)
@@ -1801,7 +1799,7 @@ class BaseServable:
     def handle_exit(self):
         pass
 
-    async def serve(self) -> None:
+    async def serve(self, *, limit_max_requests: int | None = None) -> None:
         from prometheus_client import Gauge  # noqa: PLC0415
         from starlette_exporter import handle_metrics  # noqa: PLC0415
 
@@ -1815,7 +1813,12 @@ class BaseServable:
         # and it runs once per worker.
         server = FalServer(
             config=uvicorn.Config(
-                app, host="0.0.0.0", port=8080, timeout_keep_alive=300, lifespan="on"
+                app,
+                host="0.0.0.0",
+                port=8080,
+                timeout_keep_alive=300,
+                lifespan="on",
+                limit_max_requests=limit_max_requests,
             )
         )
         server.set_handle_exit(self.handle_exit)

@@ -42,14 +42,13 @@ class Mapp(MappMixin):
             "Metadata-Version: 1.1",
             "Name: %s" % name,
             "Version: %s" % version]).encode('utf-8')
-        tf = tarfile.open(basename, mode='w:gz', fileobj=s)
-        tinfo = tarfile.TarInfo('PKG-INFO')
-        tinfo.size = len(pkg_info)
-        tf.addfile(tinfo, BytesIO(pkg_info))
-        tinfo = tarfile.TarInfo('content')
-        tinfo.size = len(content)
-        tf.addfile(tinfo, BytesIO(content))
-        tf.close()
+        with tarfile.open(basename, mode="w:gz", fileobj=s) as tf:
+            tinfo = tarfile.TarInfo("PKG-INFO")
+            tinfo.size = len(pkg_info)
+            tf.addfile(tinfo, BytesIO(pkg_info))
+            tinfo = tarfile.TarInfo("content")
+            tinfo.size = len(content)
+            tf.addfile(tinfo, BytesIO(content))
         return s.getvalue()
 
     def cleanup(self):
@@ -151,7 +150,6 @@ class Mapp(MappMixin):
         return params
 
     def create_index(self, indexname, indexconfig=None, code=200):
-        #user, password = self.auth
         params = self._indexconfig_to_cmdline_keyvalue(indexconfig)
         self.out_devpi("index", "-c", indexname, *params, code=code)
 

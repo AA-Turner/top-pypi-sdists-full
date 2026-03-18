@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspark-extension
-Version: 2.15.0.4.0
+Version: 2.15.0.4.1
 Summary: A library that provides useful extensions to Apache Spark.
 Home-page: https://github.com/G-Research/spark-extension
 Author: Enrico Minack
@@ -26,7 +26,7 @@ Provides-Extra: test
 Requires-Dist: pandas>=1.0.5; extra == "test"
 Requires-Dist: py4j; extra == "test"
 Requires-Dist: pyarrow>=4.0.0; extra == "test"
-Requires-Dist: pyspark~=4.0.0; extra == "test"
+Requires-Dist: pyspark~=4.1.0; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: unittest-xml-reporting; extra == "test"
 Dynamic: author

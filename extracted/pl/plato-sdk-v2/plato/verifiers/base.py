@@ -36,7 +36,7 @@ class BaseVerifier(Generic[ConfigT]):
     description: ClassVar[str] = ""
 
     def __init__(self) -> None:
-        self.config: ConfigT = None  # type: ignore[assignment]
+        self.config: ConfigT = None
         self._chronos: AsyncChronos | None = None
         self.world: Any = None  # BaseWorld instance, set by caller for agent/workspace access
 
@@ -46,7 +46,7 @@ class BaseVerifier(Generic[ConfigT]):
         for base in getattr(cls, "__orig_bases__", ()):
             args = get_args(base)
             if args and isinstance(args[0], type) and issubclass(args[0], VerifierConfig):
-                return args[0]  # type: ignore[return-value]
+                return args[0]
         return VerifierConfig  # type: ignore[return-value]
 
     @abstractmethod
@@ -173,6 +173,7 @@ class BaseVerifier(Generic[ConfigT]):
         # Create a review if none provided
         if not review_id:
             try:
+                assert self._chronos is not None
                 resp = await self._chronos._client.request(
                     method="POST",
                     url="/api/reviews",
@@ -199,7 +200,7 @@ class BaseVerifier(Generic[ConfigT]):
                 tags=[*base_tags, *finding.tags],
                 span_ids=finding.span_ids,
                 signal=finding.signal.value,
-                data=finding.data.model_dump() if finding.data else None,
+                data=finding.data.to_data() if finding.data else None,
             )
 
         logger.info(

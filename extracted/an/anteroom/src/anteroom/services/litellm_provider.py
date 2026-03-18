@@ -373,3 +373,35 @@ class LiteLLMService:
         except Exception:
             logger.exception("Failed to generate completion")
             return None
+
+    async def complete_with_usage(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        max_completion_tokens: int = 4096,
+        temperature: float | None = None,
+        response_format: dict[str, Any] | None = None,
+    ) -> tuple[str | None, dict[str, int]]:
+        """Bounded completion with usage metadata.
+
+        Returns (response_text, {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}).
+        """
+        try:
+            kwargs = self._build_kwargs(messages, max_completion_tokens=max_completion_tokens)
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            if response_format is not None:
+                kwargs["response_format"] = response_format
+            response = await litellm.acompletion(**kwargs)
+            text = response.choices[0].message.content if response.choices else None
+            usage: dict[str, int] = {}
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens or 0,
+                    "completion_tokens": response.usage.completion_tokens or 0,
+                    "total_tokens": response.usage.total_tokens or 0,
+                }
+            return text, usage
+        except Exception:
+            logger.exception("Failed to generate completion with usage")
+            raise

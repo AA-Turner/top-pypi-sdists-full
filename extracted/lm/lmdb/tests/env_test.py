@@ -36,7 +36,7 @@ from testlib import UnicodeType
 import lmdb
 
 # Whether we have the patch that allows env.copy* to take a txn
-have_txn_patch = lmdb.version(subpatch=True)[3]
+have_txn_patch = lmdb.version(subpatch=True)[3]  # type: ignore[call-arg]
 
 NO_READERS = UnicodeType('(no active readers)\n')
 
@@ -57,7 +57,7 @@ class VersionTest(unittest.TestCase):
         assert all(i >= 0 for i in ver)
 
     def test_version_subpatch(self):
-        ver = lmdb.version(subpatch=True)
+        ver = lmdb.version(subpatch=True)  # type: ignore[call-arg]
         assert len(ver) == 4
         assert all(isinstance(i, INT_TYPES) for i in ver)
         assert all(i >= 0 for i in ver)
@@ -120,10 +120,12 @@ class OpenTest(unittest.TestCase):
 
     def test_subdir_true_exist_nocreate(self):
         path, env = testlib.temp_env()
+        env.close()
         assert lmdb.open(path, subdir=True, create=False).path() == path
 
     def test_subdir_true_exist_create(self):
         path, env = testlib.temp_env()
+        env.close()
         assert lmdb.open(path, subdir=True, create=True).path() == path
 
     def test_readonly_false(self):
@@ -144,6 +146,7 @@ class OpenTest(unittest.TestCase):
 
     def test_readonly_true_exist(self):
         path, env = testlib.temp_env()
+        env.close()
         env2 = lmdb.open(path, readonly=True)
         assert env2.path() == path
         # Attempting a write txn should fail.
@@ -151,6 +154,17 @@ class OpenTest(unittest.TestCase):
             lambda: env2.begin(write=True))
         # Flag should be set.
         assert env2.flags()['readonly']
+
+    def test_open_same_path_twice(self):
+        path, env = testlib.temp_env()
+        self.assertRaises(lmdb.Error,
+            lambda: lmdb.open(path))
+
+    def test_open_same_path_after_close(self):
+        path, env = testlib.temp_env()
+        env.close()
+        env2 = lmdb.open(path)
+        env2.close()
 
     def test_metasync(self):
         for flag in True, False:
@@ -309,7 +323,7 @@ class ContextManagerTest(unittest.TestCase):
             with env as env_:
                 assert env_ is env
                 with env.begin() as txn:
-                    txn.get(123)
+                    txn.get(123)  # type: ignore[arg-type]
         except:
             pass
         self.assertRaises(Exception, lambda: env.begin())
@@ -575,12 +589,7 @@ class OtherMethodsTest(unittest.TestCase):
         rc = env.reader_check()
         assert rc == 0
 
-        # We need to open a separate env since Transaction.abort() always calls
-        # reset for a read-only txn, the actual abort doesn't happen until
-        # __del__, when Transaction discovers there is no room for it on the
-        # freelist.
-        env1 = lmdb.open(path)
-        txn1 = env1.begin()
+        txn1 = env.begin()
         assert env.readers() != NO_READERS
         assert env.reader_check() == 0
 
@@ -593,8 +602,10 @@ class OtherMethodsTest(unittest.TestCase):
         assert env.reader_check() == 0
         assert env.readers() != NO_READERS
 
+        # abort() only resets a read-only txn; the reader slot is freed
+        # when the TransObject is deallocated.
         txn1.abort()
-        env1.close()
+        del txn1
         assert env.readers() == NO_READERS
 
         env.close()
@@ -702,7 +713,7 @@ class OpenDbTest(unittest.TestCase):
         db = env.open_db(None)
         # w00t, no deadlock.
 
-        flags = db.flags(txn)
+        flags = db.flags(txn)  # type: ignore[call-arg]
         assert not flags['reverse_key']
         assert not flags['dupsort']
         txn.abort()
@@ -711,7 +722,7 @@ class OpenDbTest(unittest.TestCase):
         _, env = testlib.temp_env()
         assert env.open_db(B('myindex')) is not None
         self.assertRaises(TypeError,
-            lambda: env.open_db(UnicodeType('myindex')))
+            lambda: env.open_db(UnicodeType('myindex')))  # type: ignore[arg-type]
 
     def test_sub_notxn(self):
         _, env = testlib.temp_env()
@@ -723,7 +734,7 @@ class OpenDbTest(unittest.TestCase):
 
         env.close()
         self.assertRaises(Exception,
-            lambda: env.open_db('subdb3'))
+            lambda: env.open_db('subdb3'))  # type: ignore[arg-type]
 
     def test_sub_rotxn(self):
         _, env = testlib.temp_env()
@@ -737,7 +748,7 @@ class OpenDbTest(unittest.TestCase):
         db1 = env.open_db(B('subdb1'), txn=txn)
         db2 = env.open_db(B('subdb2'), txn=txn)
         for db in db1, db2:
-            assert db.flags(txn) == {
+            assert db.flags(txn) == {  # type: ignore[call-arg]
                 'dupfixed': False,
                 'dupsort': False,
                 'integerdup': False,
@@ -752,6 +763,7 @@ class OpenDbTest(unittest.TestCase):
         env.close()
         env = lmdb.open(path, max_dbs=10)
         db1 = env.open_db(B('subdb1'))
+        env.close()
 
     FLAG_SETS = [
         (flag, val)
@@ -768,10 +780,10 @@ class OpenDbTest(unittest.TestCase):
         for flag, val in self.FLAG_SETS:
             key = B('%s-%s' % (flag, val))
             db = env.open_db(key, txn=txn, **{flag: val})
-            assert db.flags(txn)[flag] == val
-            assert db.flags(None)[flag] == val
+            assert db.flags(txn)[flag] == val  # type: ignore[call-arg]
+            assert db.flags(None)[flag] == val  # type: ignore[call-arg]
             assert db.flags()[flag] == val
-            self.assertRaises(TypeError, lambda: db.flags(1, 2, 3))
+            self.assertRaises(TypeError, lambda: db.flags(1, 2, 3))  # type: ignore[call-arg]
 
         txn.commit()
         # Test flag persistence.
@@ -782,7 +794,10 @@ class OpenDbTest(unittest.TestCase):
         for flag, val in self.FLAG_SETS:
             key = B('%s-%s' % (flag, val))
             db = env.open_db(key, txn=txn)
-            assert db.flags(txn)[flag] == val
+            assert db.flags(txn)[flag] == val  # type: ignore[call-arg]
+
+        txn.abort()
+        env.close()
 
     def test_readonly_env_main(self):
         path, env = testlib.temp_env()
@@ -790,6 +805,7 @@ class OpenDbTest(unittest.TestCase):
 
         env = lmdb.open(path, readonly=True)
         db = env.open_db(None)
+        env.close()
 
     def test_readonly_env_sub_noexist(self):
         # https://github.com/dw/py-lmdb/issues/109
@@ -799,6 +815,7 @@ class OpenDbTest(unittest.TestCase):
         env = lmdb.open(path, max_dbs=10, readonly=True)
         self.assertRaises(lmdb.NotFoundError,
             lambda: env.open_db(B('node_schedules'), create=False))
+        env.close()
 
     def test_readonly_env_sub_eperm(self):
         # https://github.com/dw/py-lmdb/issues/109
@@ -808,6 +825,7 @@ class OpenDbTest(unittest.TestCase):
         env = lmdb.open(path, max_dbs=10, readonly=True)
         self.assertRaises(lmdb.ReadonlyError,
             lambda: env.open_db(B('node_schedules'), create=True))
+        env.close()
 
     def test_readonly_env_sub(self):
         # https://github.com/dw/py-lmdb/issues/109
@@ -818,6 +836,7 @@ class OpenDbTest(unittest.TestCase):
         env = lmdb.open(path, max_dbs=10, readonly=True)
         db = env.open_db(B('node_schedules'), create=False)
         assert db is not None
+        env.close()
 
 
 reader_count = lambda env: env.readers().count('\n') - 1

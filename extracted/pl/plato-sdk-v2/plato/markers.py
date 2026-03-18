@@ -118,6 +118,8 @@ class WorkspaceMarker:
         "*.pyc",
         ".cache",
         ".turbo",
+        ".runtime",
+        ".plato",
     )
 
     def __init__(

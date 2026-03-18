@@ -93,7 +93,7 @@ include = ["CHANGELOG.md"]
 license = "Apache License 2.0"
 name = "neptune-client"
 readme = "README.md"
-version = "1.14.0"
+version = "1.14.0-post.2"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",

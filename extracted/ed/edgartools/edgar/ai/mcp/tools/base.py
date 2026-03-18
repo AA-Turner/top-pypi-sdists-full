@@ -161,9 +161,8 @@ def tool(
                 "properties": params,
                 "required": required or []
             },
+            "output_schema": output_schema or TOOL_OUTPUT_SCHEMA,
         }
-        if output_schema is not None:
-            entry["output_schema"] = output_schema
         TOOLS[name] = entry
 
         @wraps(func)
@@ -412,12 +411,12 @@ ERROR_SUGGESTIONS = {
     ],
     "NoCompanyFactsFound": [
         "This company may not have XBRL data available",
-        "Try using edgar_filing to access raw filing text instead",
+        "Try using edgar_read to access raw filing text instead",
         "Some companies (especially foreign filers) lack XBRL facts"
     ],
     "XBRLFilingWithNoXbrlData": [
         "This filing does not contain structured XBRL data",
-        "Use edgar_filing to read the filing as raw text instead",
+        "Use edgar_read to read the filing as raw text instead",
         "Try a different filing from this company"
     ],
     "TooManyRequestsError": [

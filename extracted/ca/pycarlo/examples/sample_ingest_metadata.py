@@ -31,92 +31,87 @@ from pycarlo.features.ingestion.models import (
 )
 
 DEFAULT_ENDPOINT = "https://integrations.getmontecarlo.com"
+DEFAULT_ASSET_PREFIX = "run_01"
+MANUAL_INGESTION_DATABASE = "manual_ingestion"
+MANUAL_INGESTION_SCHEMA = "test"
 
 
-def build_sample_events() -> list[RelationalAsset]:
+def asset_name(prefix: str, suffix: str) -> str:
+    return f"{prefix}_{suffix}"
+
+
+def build_sample_events(prefix: str) -> list[RelationalAsset]:
     return [
         RelationalAsset(
             type="TABLE",
             metadata=AssetMetadata(
-                name="fede_10",
-                database="manual_ingestion",
+                name=asset_name(prefix, "a"),
+                database=MANUAL_INGESTION_DATABASE,
                 schema="test",
-                description="Test table",
-                created_on="2026-03-06T00:00:00Z",
+                description="Sample source table 1 for lineage",
+                created_on="2026-01-15T00:00:00Z",
             ),
             tags=[
                 Tag(key="team", value="data-eng"),
                 Tag(key="pii", value="false"),
             ],
             fields=[
-                AssetField(name="event_id", type="VARCHAR(36)", description="Primary key"),
-                AssetField(name="event_type", type="VARCHAR(100)", description="FK to customers"),
-                AssetField(name="payload", type="VARIANT"),
-                AssetField(name="ingested_at", type="TIMESTAMP_NTZ"),
-            ],
-            volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
-            freshness=AssetFreshness(last_update_time="2026-03-02T14:30:00Z"),
-        ),
-        RelationalAsset(
-            type="TABLE",
-            metadata=AssetMetadata(
-                name="fede_11",
-                database="manual_ingestion",
-                schema="test",
-                description="Test table",
-                created_on="2026-03-06T11:12:00Z",
-            ),
-            tags=[
-                Tag(key="team", value="data-eng"),
-                Tag(key="pii", value="false"),
-            ],
-            fields=[
-                AssetField(name="event_id", type="VARCHAR(36)", description="Primary key"),
-                AssetField(name="event_type", type="VARCHAR(100)", description="FK to customers"),
-                AssetField(name="payload", type="VARIANT"),
-                AssetField(name="ingested_at", type="TIMESTAMP_NTZ"),
-            ],
-            volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
-            freshness=AssetFreshness(last_update_time="2026-03-02T15:30:00Z"),
-        ),
-        RelationalAsset(
-            type="TABLE",
-            metadata=AssetMetadata(
-                name="fede_12",
-                database="manual_ingestion",
-                schema="test",
-                description="Test table",
-                created_on="2026-03-06T10:15:00Z",
-            ),
-            tags=[
-                Tag(key="team", value="data-eng"),
-                Tag(key="pii", value="false"),
-            ],
-            fields=[
-                AssetField(name="id", type="INTEGER"),
-                AssetField(name="customer_id", type="INTEGER"),
+                AssetField(name="id", type="INTEGER", description="Primary key"),
                 AssetField(name="amount", type="DECIMAL(10,2)"),
+                AssetField(name="created_at", type="TIMESTAMP_NTZ"),
+            ],
+            volume=AssetVolume(row_count=1_000_000, byte_count=111_111_111),
+            freshness=AssetFreshness(last_update_time="2026-03-12T14:30:00Z"),
+        ),
+        RelationalAsset(
+            type="TABLE",
+            metadata=AssetMetadata(
+                name=asset_name(prefix, "b"),
+                database=MANUAL_INGESTION_DATABASE,
+                schema=MANUAL_INGESTION_SCHEMA,
+                description="Sample source table 2 for lineage",
+            ),
+            fields=[
                 AssetField(name="status", type="VARCHAR(50)"),
                 AssetField(name="created_at", type="TIMESTAMP_NTZ"),
             ],
-            volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
-            freshness=AssetFreshness(last_update_time="2026-03-06T15:30:00Z"),
+            freshness=AssetFreshness(last_update_time="2026-03-12T15:00:00Z"),
+        ),
+        RelationalAsset(
+            type="TABLE",
+            metadata=AssetMetadata(
+                name=asset_name(prefix, "c"),
+                database=MANUAL_INGESTION_DATABASE,
+                schema=MANUAL_INGESTION_SCHEMA,
+                description="Sample destination table for lineage",
+                created_on="2026-01-15T00:00:00Z",
+            ),
+            tags=[
+                Tag(key="team", value="data-eng"),
+                Tag(key="pii", value="false"),
+            ],
+            fields=[
+                AssetField(name="event_id", type="INTEGER", description="Derived event identifier"),
+                AssetField(name="event_type", type="VARCHAR(50)", description="Derived event type"),
+            ],
+            volume=AssetVolume(row_count=500_000, byte_count=55_555_555),
+            freshness=AssetFreshness(last_update_time="2026-03-12T16:00:00Z"),
         ),
         RelationalAsset(
             type="VIEW",
             metadata=AssetMetadata(
-                name="fede_view_11",
-                database="manual_ingestion",
-                schema="test",
-                description="Test view",
-                view_query="SELECT * FROM manual_ingestion.test.fede",
+                name=asset_name(prefix, "view_c"),
+                database=MANUAL_INGESTION_DATABASE,
+                schema=MANUAL_INGESTION_SCHEMA,
+                description="Sample downstream view for lineage",
+                view_query=(
+                    "SELECT event_id, event_type FROM "
+                    f"{MANUAL_INGESTION_DATABASE}.{MANUAL_INGESTION_SCHEMA}.{asset_name(prefix, 'c')}"
+                ),
             ),
             fields=[
-                AssetField(name="id", type="INTEGER"),
-                AssetField(name="customer_id", type="INTEGER"),
-                AssetField(name="amount", type="DECIMAL(10,2)"),
-                AssetField(name="status", type="VARCHAR(50)"),
-                AssetField(name="created_at", type="TIMESTAMP_NTZ"),
+                AssetField(name="event_id", type="INTEGER"),
+                AssetField(name="event_type", type="VARCHAR(50)"),
             ],
         ),
     ]
@@ -143,6 +138,14 @@ def main():
         "--payload-file",
         help="Path to a JSON file with a custom payload (uses send_metadata_raw)",
     )
+    parser.add_argument(
+        "--asset-prefix",
+        default=DEFAULT_ASSET_PREFIX,
+        help=(
+            "Prefix for the sample assets so metadata and lineage can target a fresh "
+            f"shared set (default: {DEFAULT_ASSET_PREFIX})"
+        ),
+    )
     args = parser.parse_args()
 
     client = Client(
@@ -161,7 +164,14 @@ def main():
         print(f"Sending raw payload from {args.payload_file} ...")
         result = service.send_metadata_raw(payload=payload)
     else:
-        events = build_sample_events()
+        events = build_sample_events(args.asset_prefix)
+        print(
+            "Sample assets: "
+            f"{asset_name(args.asset_prefix, 'a')}, "
+            f"{asset_name(args.asset_prefix, 'b')}, "
+            f"{asset_name(args.asset_prefix, 'c')}, "
+            f"{asset_name(args.asset_prefix, 'view_c')}"
+        )
         print(f"Sending {len(events)} relational assets to resource {args.resource_uuid} ...")
         result = service.send_metadata(
             resource_uuid=args.resource_uuid,

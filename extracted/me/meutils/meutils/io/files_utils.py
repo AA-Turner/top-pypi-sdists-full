@@ -505,7 +505,7 @@ if __name__ == '__main__':
 
     file = Path("/Users/betterme/PycharmProjects/AI/MeUtils/meutils/io/x.py").read_bytes()
 
-    # arun(to_url_fal([file] * 1))
+    arun(to_url_fal([file] * 1))
 
     # print(mimetypes.guess_type("http://url"))
     # print(mimetypes.guess_type("http://url.pdf"))
@@ -535,7 +535,7 @@ if __name__ == '__main__':
 
     # arun(to_url([Path('img_1.png').read_bytes()], filename='x.png'))
     file = "/Users/betterme/PycharmProjects/AI/ppt.txt"
-    arun(to_url(Path(file).read_bytes(), filename='ppt.txt'))
+    # arun(to_url(Path(file).read_bytes(), filename='ppt.txt'))
 
     # arun(markdown_base64_to_url("![image](data:imagexxxxx)", pattern=r'!\[image\]\((.+?)\)'))
 
@@ -605,3 +605,4 @@ if __name__ == '__main__':
     url = "https://ark-common-storage-prod-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-0/2104716667/0/20260212/02177089914238900000000000000000000ffffac183fc8d5d6cf.mp4%3FX-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTYWJkZTExNjA1ZDUyNDc3YzhjNTM5OGIyNjBhNDcyOTQ%252F20260212%252Fcn-beijing%252Ftos%252Frequest&X-Tos-Date=20260212T123107Z&X-Tos-Expires=86400&X-Tos-Signature=065ea666a698224b237f7c0be0e31cc01a9ff7bd99caf0f90b1123095cf23cd4&X-Tos-SignedHeaders=host?X-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTMjgxMzUwNzliYzdlNDE4MTllYjJjZGVlOWQ3N2M1ZDY%2F20260212%2Fcn-beijing%2Ftos%2Frequest&X-Tos-Date=20260212T135308Z&X-Tos-Expires=604800&X-Tos-Signature=b982ef2fb2b2acffe10192a0412781ee57b3fdaa26af6fccbbe8cb40022dd22f&X-Tos-SignedHeaders=host"
 
     # arun(to_url(url, content_type="video/mp4"))
+    # arun(to_url_fal(url, content_type="video/mp4"))

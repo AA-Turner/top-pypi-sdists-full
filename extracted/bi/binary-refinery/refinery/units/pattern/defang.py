@@ -13,8 +13,10 @@ from refinery.units import Arg, Unit
 class defang(Unit):
     """
     Defangs all URL, domain and IPv4 address indicators in the input data by replacing the last dot
-    in the expression by `[.]`. For example, `127.0.0.1` will be replaced by `127.0.0[.]1`. For URL
-    indicators, the colon after the procol scheme is also wrapped in brackets.
+    in the expression by `[.]`.
+
+    For example, `127.0.0.1` will be replaced by `127.0.0[.]1`. For URL indicators, the colon after
+    the procol scheme is also wrapped in brackets.
     """
 
     _WHITELIST = [
@@ -51,7 +53,7 @@ class defang(Unit):
     def reverse(self, data: bytes | bytearray):
         def refang(hostname: re.Match[bytes]):
             return hostname[0].replace(B'[.]', B'.').replace(B'(.)', B'.')
-        data = defanged.hostname.value.bin.sub(refang, data)
+        data = defanged.host.value.bin.sub(refang, data)
         data = data.replace(B'[:]//', B'://')
         data = data.replace(B'[://]', B'://')
         data = re.sub(B'h..p(s?)://', B'http\\1://', data)
@@ -124,7 +126,7 @@ class defang(Unit):
 
         if not self.args.url_only:
             urlsplit[0::step] = [
-                indicators.hostname.value.bin.sub(replace_hostname, t)
+                indicators.host.value.bin.sub(replace_hostname, t)
                 for t in itertools.islice(iter(urlsplit), 0, None, step)
             ]
 

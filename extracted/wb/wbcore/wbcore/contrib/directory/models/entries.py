@@ -719,7 +719,7 @@ class Person(Entry):
         if profile := getattr(user, "profile", None):
             return profile
         else:
-            contact = EmailContact.objects.get_or_create(address=user.email)[0]
+            contact = EmailContact.objects.get_or_create(address=user.email.lower().strip())[0]
             if contact.entry:
                 with suppress(Person.DoesNotExist):
                     return Person.objects.get(id=contact.entry.id)
@@ -745,7 +745,7 @@ class Person(Entry):
         person = cls.objects.create(first_name=first_name.title(), last_name=last_name.title())
         if email:
             EmailContact.objects.get_or_create(
-                address=email,
+                address=email.lower().strip(),
                 defaults={
                     "primary": True,
                     "location": ContactLocationChoices.WORK.name,

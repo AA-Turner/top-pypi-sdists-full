@@ -296,7 +296,7 @@ def _generate_outlook_map(
 
 
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
-        reuse_db=None, use_latest_stage=True):
+        reuse_db=None, use_latest_stage=True, fdw_export=False):
     """Main entry point for yield outlook map generation.
 
     1. Override forecast_seasons to cover [current_year - n_years, ..., current_year]
@@ -304,6 +304,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     3. Query predictions from the database
     4. Compute outlook index per region
     5. Generate diverging choropleth maps and CSV
+    6. Optionally export FDW forecast CSV (fdw_export=True)
 
     Args:
         path_config_files: List of config file paths.
@@ -519,6 +520,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         logger.info("Outlook CSV saved to %s", csv_path)
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
+
+    # Optional FDW forecast CSV export
+    if fdw_export:
+        from geocif.fdw_export import export_forecast
+
+        export_forecast(
+            parser,
+            db_path=db_path,
+            forecast_year=current_year,
+        )
 
 
 if __name__ == "__main__":

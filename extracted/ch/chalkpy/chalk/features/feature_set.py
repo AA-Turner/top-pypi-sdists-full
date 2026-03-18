@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import contextvars
-import inspect
-import textwrap
 from collections import defaultdict
 from datetime import timedelta
 from typing import (
@@ -23,11 +21,9 @@ from typing import (
     cast,
 )
 
-from chalk._lsp._class_finder import get_class_ast
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.utils import notebook
 from chalk.utils.collections import ensure_tuple, get_unique_item
-from chalk.utils.source_parsing import should_skip_source_code_parsing
 
 from chalk.features.feature_cache_strategy import CacheStrategy
 
@@ -35,37 +31,9 @@ if TYPE_CHECKING:
     from chalk._lsp.error_builder import FeatureClassErrorBuilder
     from chalk.features.feature_field import Feature
     from chalk.features.underscore_features import NamedUnderscoreExpr
+    from chalk_rs import FeatureClassAST
 
 __all__ = ["Features", "FeaturesMeta", "FeatureSetBase", "is_features_cls", "is_feature_set_class"]
-
-
-class ClassSource:
-    __slots__ = ("filename", "class_source", "tree", "dedent_source")
-
-    def __init__(self, c: Any):
-        self.filename = None
-        self.class_source = None
-        self.tree = None
-        super().__init__()
-        if not should_skip_source_code_parsing():
-            try:
-                self.filename = inspect.getfile(c)
-            except:
-                self.filename = None
-
-            try:
-                if notebook.is_defined_in_module(c):
-                    self.class_source = inspect.getsource(c)
-                # TODO (rkargon) Try to get source from notebook cells if possible
-                else:
-                    self.class_source = None
-            except:
-                self.class_source = None
-            self.dedent_source = self.class_source and textwrap.dedent(self.class_source)
-            try:
-                self.tree = get_class_ast(c)
-            except:
-                self.tree = None
 
 
 class FeaturesMeta(type):
@@ -187,9 +155,9 @@ class FeaturesImpl(metaclass=FeaturesMeta):
     __chalk_ts__: ClassVar[Optional[Feature]]  # The timestamp feature
     features: ClassVar[List[Feature]]
     __chalk_features_raw__: ClassVar[List[Feature]]
-    __chalk_source_info__: "ClassVar[ClassSource]"
     __chalk_filename__: "ClassVar[str | None]"
     __chalk_source__: "ClassVar[str | None]"
+    __chalk_feature_class_ast__: "ClassVar[FeatureClassAST | None]"
     __chalk_is_loaded_from_notebook__: ClassVar[bool] = False
     """True if loaded on a branch server from a pickle"""
     __chalk_materialized_windows__: ClassVar[List[Feature]]

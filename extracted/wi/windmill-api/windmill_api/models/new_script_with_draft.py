@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.new_script_with_draft_assets_item import NewScriptWithDraftAssetsItem
     from ..models.new_script_with_draft_draft import NewScriptWithDraftDraft
+    from ..models.new_script_with_draft_modules import NewScriptWithDraftModules
     from ..models.new_script_with_draft_schema import NewScriptWithDraftSchema
 
 
@@ -52,13 +53,14 @@ class NewScriptWithDraft:
         max_total_debouncing_time (Union[Unset, int]):
         max_total_debounces_amount (Union[Unset, int]):
         visible_to_runner_only (Union[Unset, bool]):
-        no_main_func (Union[Unset, bool]):
+        auto_kind (Union[Unset, str]):
         codebase (Union[Unset, str]):
         has_preprocessor (Union[Unset, bool]):
         on_behalf_of_email (Union[Unset, str]):
         preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
             preserves the original on_behalf_of_email value instead of overwriting it.
         assets (Union[Unset, List['NewScriptWithDraftAssetsItem']]):
+        modules (Union[Unset, None, NewScriptWithDraftModules]): Additional script modules keyed by relative file path
         draft (Union[Unset, NewScriptWithDraftDraft]):
     """
 
@@ -94,12 +96,13 @@ class NewScriptWithDraft:
     max_total_debouncing_time: Union[Unset, int] = UNSET
     max_total_debounces_amount: Union[Unset, int] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
-    no_main_func: Union[Unset, bool] = UNSET
+    auto_kind: Union[Unset, str] = UNSET
     codebase: Union[Unset, str] = UNSET
     has_preprocessor: Union[Unset, bool] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
     preserve_on_behalf_of: Union[Unset, bool] = UNSET
     assets: Union[Unset, List["NewScriptWithDraftAssetsItem"]] = UNSET
+    modules: Union[Unset, None, "NewScriptWithDraftModules"] = UNSET
     draft: Union[Unset, "NewScriptWithDraftDraft"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -149,7 +152,7 @@ class NewScriptWithDraft:
         max_total_debouncing_time = self.max_total_debouncing_time
         max_total_debounces_amount = self.max_total_debounces_amount
         visible_to_runner_only = self.visible_to_runner_only
-        no_main_func = self.no_main_func
+        auto_kind = self.auto_kind
         codebase = self.codebase
         has_preprocessor = self.has_preprocessor
         on_behalf_of_email = self.on_behalf_of_email
@@ -161,6 +164,10 @@ class NewScriptWithDraft:
                 assets_item = assets_item_data.to_dict()
 
                 assets.append(assets_item)
+
+        modules: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.modules, Unset):
+            modules = self.modules.to_dict() if self.modules else None
 
         draft: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.draft, Unset):
@@ -231,8 +238,8 @@ class NewScriptWithDraft:
             field_dict["max_total_debounces_amount"] = max_total_debounces_amount
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
-        if no_main_func is not UNSET:
-            field_dict["no_main_func"] = no_main_func
+        if auto_kind is not UNSET:
+            field_dict["auto_kind"] = auto_kind
         if codebase is not UNSET:
             field_dict["codebase"] = codebase
         if has_preprocessor is not UNSET:
@@ -243,6 +250,8 @@ class NewScriptWithDraft:
             field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
         if assets is not UNSET:
             field_dict["assets"] = assets
+        if modules is not UNSET:
+            field_dict["modules"] = modules
         if draft is not UNSET:
             field_dict["draft"] = draft
 
@@ -252,6 +261,7 @@ class NewScriptWithDraft:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.new_script_with_draft_assets_item import NewScriptWithDraftAssetsItem
         from ..models.new_script_with_draft_draft import NewScriptWithDraftDraft
+        from ..models.new_script_with_draft_modules import NewScriptWithDraftModules
         from ..models.new_script_with_draft_schema import NewScriptWithDraftSchema
 
         d = src_dict.copy()
@@ -329,7 +339,7 @@ class NewScriptWithDraft:
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
-        no_main_func = d.pop("no_main_func", UNSET)
+        auto_kind = d.pop("auto_kind", UNSET)
 
         codebase = d.pop("codebase", UNSET)
 
@@ -345,6 +355,15 @@ class NewScriptWithDraft:
             assets_item = NewScriptWithDraftAssetsItem.from_dict(assets_item_data)
 
             assets.append(assets_item)
+
+        _modules = d.pop("modules", UNSET)
+        modules: Union[Unset, None, NewScriptWithDraftModules]
+        if _modules is None:
+            modules = None
+        elif isinstance(_modules, Unset):
+            modules = UNSET
+        else:
+            modules = NewScriptWithDraftModules.from_dict(_modules)
 
         _draft = d.pop("draft", UNSET)
         draft: Union[Unset, NewScriptWithDraftDraft]
@@ -386,12 +405,13 @@ class NewScriptWithDraft:
             max_total_debouncing_time=max_total_debouncing_time,
             max_total_debounces_amount=max_total_debounces_amount,
             visible_to_runner_only=visible_to_runner_only,
-            no_main_func=no_main_func,
+            auto_kind=auto_kind,
             codebase=codebase,
             has_preprocessor=has_preprocessor,
             on_behalf_of_email=on_behalf_of_email,
             preserve_on_behalf_of=preserve_on_behalf_of,
             assets=assets,
+            modules=modules,
             draft=draft,
         )
 

@@ -798,11 +798,13 @@ class EpisodicOverrideReflectionConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class EpisodicReflectionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
     namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
 
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
@@ -865,10 +867,12 @@ class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
 class EpisodicReflectionConfigurationInputTypeDef(TypedDict):
-    namespaces: Sequence[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class EpisodicReflectionConfigurationTypeDef(TypedDict):
-    namespaces: list[str]
+    namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
 
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorArn: str
@@ -1181,16 +1185,19 @@ class SemanticMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class SummaryMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class MessageBasedTriggerInputTypeDef(TypedDict):
     messageCount: NotRequired[int]
@@ -1778,6 +1785,7 @@ class EpisodicMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
 
 class ListEvaluatorsResponseTypeDef(TypedDict):
@@ -2594,12 +2602,14 @@ class ModifyMemoryStrategyInputTypeDef(TypedDict):
     memoryStrategyId: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
 
 class CustomMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[CustomConfigurationInputTypeDef]
 
 MemoryStrategyTypeDef = TypedDict(
@@ -2609,6 +2619,7 @@ MemoryStrategyTypeDef = TypedDict(
         "name": str,
         "type": MemoryStrategyTypeType,
         "namespaces": list[str],
+        "namespaceTemplates": list[str],
         "description": NotRequired[str],
         "configuration": NotRequired[StrategyConfigurationTypeDef],
         "createdAt": NotRequired[datetime],

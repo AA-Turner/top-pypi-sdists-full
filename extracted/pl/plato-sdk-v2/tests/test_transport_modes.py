@@ -378,6 +378,35 @@ async def test_setup_agent_installs_nfs_common(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_setup_agent_enables_read_write_audit_for_tracked_workspaces(monkeypatch):
+    """Tracked workspaces should audit reads as well as writes for tool attribution."""
+    ssh_cmds: list[str] = []
+
+    async def fake_run_local(command: str, timeout: int = 60):
+        return 0, "", ""
+
+    async def fake_run_ssh(key_path, hostname, command, timeout=60):
+        ssh_cmds.append(command)
+        return 0, "", ""
+
+    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+
+    t = NFSTransport(
+        "/workspace",
+        "10.100.0.9",
+        Path("/tmp/key"),
+    )
+    t.configure_workspace(name="code", repo_root=Path("/tmp/repo"), tracked=True)
+    t.configure_audit_scope(audit_run_id="run-1", audit_key="plato_scope")
+    await t.setup_agent(None, "10.100.1.5")
+
+    audit_cmds = [c for c in ssh_cmds if "auditctl -a always,exit" in c]
+    assert len(audit_cmds) == 1
+    assert "-F perm=rwa -k plato_scope" in audit_cmds[0]
+
+
+@pytest.mark.asyncio
 async def test_setup_agent_raises_on_mount_failure(monkeypatch):
     """setup_agent should raise when NFS mount fails."""
 

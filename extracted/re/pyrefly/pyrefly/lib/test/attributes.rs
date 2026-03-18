@@ -522,6 +522,16 @@ C().f(0)    # E: Argument `Literal[0]` is not assignable to parameter `x` with t
     "#,
 );
 
+testcase!(
+    test_bad_bound_on_self,
+    r#"
+class C:
+    def f[T: int](self: T) -> T:
+        return self
+C().f()  # E: `C` is not assignable to upper bound `int`
+    "#,
+);
+
 // Make sure we treat `callable_attr` as a bare instance attribute, not a bound method.
 testcase!(
     test_callable_instance_only_attribute,
@@ -1668,6 +1678,23 @@ class A[T]:
 reveal_type(A.f) # E: revealed type: Overload[\n  (x: None = ...) -> None\n  [T](x: T) -> T\n]
 assert_type(A.f(), None)
 assert_type(A.f(0), int)
+    "#,
+);
+
+testcase!(
+    test_parametrized_class_init_call,
+    r#"
+from typing import reveal_type
+
+class Foo[T]:
+    def __init__(self, /) -> None:
+        pass
+
+class Bar[S](Foo[S]):
+    def __init__(self, /) -> None:
+        Foo[S].__init__(self)
+
+Foo[int].__init__(Foo[int]())
     "#,
 );
 

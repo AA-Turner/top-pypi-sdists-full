@@ -11,15 +11,18 @@ from pycarlo.features.ingestion.exceptions import IngestionError
 from pycarlo.features.ingestion.models import (
     LineageEvent,
     LineageEventType,
+    QueryLogEntry,
     RelationalAsset,
     build_lineage_payload,
     build_metadata_payload,
+    build_query_log_payload,
 )
 
 logger = get_logger(__name__)
 
 _METADATA_PATH = "/ingest/v1/metadata"
 _LINEAGE_PATH = "/ingest/v1/lineage"
+_QUERY_LOG_PATH = "/ingest/v1/querylogs"
 
 
 class IngestionService:
@@ -109,11 +112,11 @@ class IngestionService:
         Extract the invocation ID returned by the ingest API.
 
         The Integration Gateway returns ``{"invocation_id": "<uuid>"}`` for
-        successful ingest metadata and lineage requests. This helper keeps SDK
+        successful ingest metadata, query-log, and lineage requests. This helper keeps SDK
         callers from needing to reach into the raw response payload directly.
 
-        :param response: The JSON response returned by ``send_metadata``,
-            ``send_metadata_raw``, ``send_lineage``, or ``send_lineage_raw``.
+        :param response: The JSON response returned by one of the public send
+            methods on this service.
         :return: The invocation ID when present, otherwise ``None``.
         """
         if not isinstance(response, dict):
@@ -187,6 +190,51 @@ class IngestionService:
         return self._post_lineage(payload)
 
     # ------------------------------------------------------------------
+    # Query logs
+    # ------------------------------------------------------------------
+
+    def send_query_logs(
+        self,
+        resource_uuid: str,
+        resource_type: str,
+        events: list[QueryLogEntry],
+    ) -> dict | None:
+        """
+        Send query log events to Monte Carlo.
+
+        :param resource_uuid: UUID of the Monte Carlo resource (warehouse/lake).
+        :param resource_type: Resource type identifier, e.g. ``"snowflake"``,
+            ``"bigquery"`` (lowercase).
+        :param events: One or more :class:`QueryLogEntry` objects describing
+            the queries to ingest.
+        :return: The JSON response from the API, or ``None`` if the response
+            body was empty.
+        :raises IngestionError: If the API returns an HTTP error.
+        """
+        if not events:
+            raise ValueError("At least one QueryLogEntry event is required.")
+
+        payload = build_query_log_payload(
+            resource_uuid=resource_uuid,
+            resource_type=resource_type,
+            events=events,
+        )
+        return self._post_query_logs(payload)
+
+    def send_query_logs_raw(self, payload: dict) -> dict | None:
+        """
+        Send a raw query log payload dictionary to the ingest API.
+
+        Use this when you already have a pre-built payload that conforms to the
+        ``POST /ingest/v1/querylogs`` schema.
+
+        :param payload: The full request body as a dictionary.
+        :return: The JSON response from the API, or ``None``.
+        :raises IngestionError: If the API returns an HTTP error.
+        """
+        return self._post_query_logs(payload)
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -221,3 +269,10 @@ class IngestionService:
             raise IngestionError(
                 f"{label} ingestion request failed: {exc}. Response: {response_body}"
             ) from exc
+
+    def _post_query_logs(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_QUERY_LOG_PATH,
+            payload=payload,
+            label="Query log",
+        )

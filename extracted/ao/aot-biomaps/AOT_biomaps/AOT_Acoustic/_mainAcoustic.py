@@ -397,7 +397,10 @@ class AcousticField(ABC):
         output_filename=os.path.join(gettempdir(), "KwaveOUT.h5"),
         smooth_c0 = True,
         smooth_rho0 = True,
-        smooth_p0 = True
+        smooth_p0 = True,
+        scale_source_terms=True,       # INDISPENSABLE pour source.p
+         use_kspace=True,               # Améliore la précision de propagation
+
         )
 
         execution_options = SimulationExecutionOptions(

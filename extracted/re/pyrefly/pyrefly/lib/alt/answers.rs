@@ -22,8 +22,6 @@ use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::uniques::UniqueFactory;
-use pyrefly_util::visit::Visit;
-use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -43,6 +41,7 @@ use crate::binding::binding::Keyed;
 use crate::binding::bindings::BindingEntry;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::Bindings;
+use crate::binding::metadata::BindingsMetadata;
 use crate::binding::table::TableKeyed;
 use crate::config::base::RecursionLimitConfig;
 use crate::dispatch_anyidx;
@@ -60,6 +59,8 @@ use crate::table_for_each;
 use crate::table_mut_for_each;
 use crate::table_try_for_each;
 use crate::types::callable::Callable;
+use crate::types::class::Class;
+use crate::types::class::ClassFields;
 use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
 use crate::types::heap::TypeHeap;
@@ -154,102 +155,6 @@ pub struct TraceSideEffects {
     pub invoked_properties: SmallMap<TextRange, Arc<Type>>,
 }
 
-impl TraceSideEffects {
-    /// Deep-force all embedded types, resolving any remaining `Type::Var`
-    /// references using the given solver. Must be called before publishing
-    /// to the persisted `Traces` store so that read APIs can return
-    /// fully-resolved types without touching the solver.
-    pub(crate) fn finalize(&mut self, solver: &Solver) {
-        for ty in self.types.values_mut() {
-            let mut t = ty.as_ref().clone();
-            solver.deep_force_mut(&mut t);
-            *ty = Arc::new(t);
-        }
-        for callee in self.overloaded_callees.values_mut() {
-            match callee {
-                OverloadedCallee::Resolved { callable } => {
-                    callable
-                        .callable
-                        .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
-                }
-                OverloadedCallee::Candidates { all, closest, .. } => {
-                    for trace in all.iter_mut() {
-                        trace
-                            .callable
-                            .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
-                    }
-                    closest
-                        .callable
-                        .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
-                }
-            }
-        }
-        for ty in self.invoked_properties.values_mut() {
-            let mut t = ty.as_ref().clone();
-            solver.deep_force_mut(&mut t);
-            *ty = Arc::new(t);
-        }
-    }
-
-    /// Assert that no trace payload contains unresolved `Type::Var`.
-    /// Only runs in debug builds to avoid production overhead.
-    /// Panics if any Var is found, indicating a bug in finalization.
-    #[cfg(debug_assertions)]
-    pub(crate) fn debug_assert_var_free(&self) {
-        fn has_var(ty: &Type) -> bool {
-            let mut found = false;
-            ty.visit(&mut |t: &Type| {
-                if matches!(t, Type::Var(_)) {
-                    found = true;
-                }
-            });
-            found
-        }
-
-        for (range, ty) in &self.types {
-            assert!(
-                !has_var(ty),
-                "Type trace at {range:?} contains unresolved Var after finalization: {ty}"
-            );
-        }
-        for (range, ty) in &self.invoked_properties {
-            assert!(
-                !has_var(ty),
-                "Property getter trace at {range:?} contains unresolved Var after finalization: {ty}"
-            );
-        }
-        for (range, callee) in &self.overloaded_callees {
-            match callee {
-                OverloadedCallee::Resolved { callable } => {
-                    let ty = callable.as_type();
-                    assert!(
-                        !has_var(&ty),
-                        "Resolved callee trace at {range:?} contains unresolved Var: {ty}"
-                    );
-                }
-                OverloadedCallee::Candidates { all, closest, .. } => {
-                    for trace in all {
-                        let ty = trace.as_type();
-                        assert!(
-                            !has_var(&ty),
-                            "Overload candidate trace at {range:?} contains unresolved Var: {ty}"
-                        );
-                    }
-                    let ty = closest.as_type();
-                    assert!(
-                        !has_var(&ty),
-                        "Closest overload trace at {range:?} contains unresolved Var: {ty}"
-                    );
-                }
-            }
-        }
-    }
-
-    /// No-op in release builds.
-    #[cfg(not(debug_assertions))]
-    pub(crate) fn debug_assert_var_free(&self) {}
-}
-
 /// Invariants:
 ///
 /// * Every module name referenced anywhere MUST be present
@@ -271,36 +176,6 @@ table!(
     #[derive(Debug, Default)]
     pub struct AnswerTable(pub AnswerEntry)
 );
-
-/// Prepare an answer for writing into shared `Calculation` state.
-///
-/// Invariants:
-/// - Producers are responsible for deep-forcing embedded `Type`s before
-///   crossing this boundary.
-/// - At this boundary, we enforce that no unresolved `Type::Var` remains.
-pub(crate) fn prepare_answer_for_calculation_write<K: Keyed>(
-    answer: Arc<K::Answer>,
-    write_context: &str,
-) -> Arc<K::Answer> {
-    assert_answer_has_no_var_for_calculation::<K>(&answer, write_context);
-    answer
-}
-
-fn assert_answer_has_no_var_for_calculation<K: Keyed>(
-    answer: &Arc<K::Answer>,
-    write_context: &str,
-) {
-    let mut checked = Arc::unwrap_or_clone(answer.dupe());
-    checked.visit_mut(&mut |ty| {
-        if let Type::Var(var) = ty {
-            panic!(
-                "{write_context}: unresolved Type::Var({var:?}) in answer \
-                 crossing thread boundary via Calculation (K = {})",
-                std::any::type_name::<K>(),
-            );
-        }
-    });
-}
 
 impl DisplayWith<Bindings> for Answers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, bindings: &Bindings) -> fmt::Result {
@@ -346,6 +221,7 @@ table!(
 pub struct Solutions {
     module_info: ModuleInfo,
     table: SolutionsTable,
+    metadata: Arc<BindingsMetadata>,
     index: Option<Arc<Mutex<Index>>>,
 }
 
@@ -414,6 +290,10 @@ impl Display for SolutionsDifference<'_> {
 }
 
 impl Solutions {
+    pub fn metadata(&self) -> &Arc<BindingsMetadata> {
+        &self.metadata
+    }
+
     #[allow(dead_code)] // Used in tests.
     pub fn get<K: Exported>(&self, key: &K) -> &Arc<<K as Keyed>::Answer>
     where
@@ -732,6 +612,18 @@ pub trait LookupAnswer: Sized {
     ///
     /// Default implementation is a no-op.
     fn write_unlock_empty_in_module(&self, _calc_id: &CalcId) {}
+
+    /// Look up the class fields for a class, which may be defined in another
+    /// module. The fields are populated during the binding phase and can be
+    /// queried without going through the solve code path.
+    ///
+    /// Returns `None` if the `ClassDefIndex` is stale (e.g., the target module
+    /// was rebuilt with fewer classes during incremental recompilation).
+    ///
+    /// Implementations must register a class-level dependency so that
+    /// incremental rebuilds properly invalidate dependents when class
+    /// fields change.
+    fn get_class_fields(&self, cls: &Class) -> Option<&ClassFields>;
 }
 
 impl Answers {
@@ -838,7 +730,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
-            bindings.heap(),
+            self.heap(),
         );
         table_mut_for_each!(&mut res, |items| pre_solve(
             items,
@@ -891,6 +783,7 @@ impl Answers {
         Solutions {
             module_info: bindings.module().dupe(),
             table: res,
+            metadata: bindings.metadata().dupe(),
             index: self.index.dupe(),
         }
     }
@@ -929,7 +822,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
-            bindings.heap(),
+            self.heap(),
         );
         solver.get_hashed_opt(key)
     }
@@ -976,7 +869,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
-            bindings.heap(),
+            self.heap(),
         );
         dispatch_anyidx!(any_idx, solver, solve_idx_erased_typed);
     }
@@ -993,7 +886,6 @@ impl Answers {
                 .downcast::<Arc<K::Answer>>()
                 .expect("Answers::commit_typed: type mismatch in cross-module batch commit"),
         );
-        let typed_answer = prepare_answer_for_calculation_write::<K>(typed_answer, "commit_typed");
         // Get the calculation cell from the answer table
         if let Some(calculation) = self.table.get::<K>().get(idx) {
             // No recursive placeholder can exist in the Calculation cell because
@@ -1047,8 +939,6 @@ impl Answers {
                 .downcast::<Arc<K::Answer>>()
                 .expect("Answers::write_unlock_typed: type mismatch"),
         );
-        let typed_answer =
-            prepare_answer_for_calculation_write::<K>(typed_answer, "write_unlock_typed");
         if let Some(calculation) = self.table.get::<K>().get(idx) {
             let (_answer, did_write) = calculation.write_unlock(typed_answer);
             did_write
@@ -1093,23 +983,23 @@ impl Answers {
 
     pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(lock.types.get(&range)?.as_ref().clone())
+        Some(self.deep_force(lock.types.get(&range)?.as_ref().clone()))
     }
 
     pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(lock.invoked_properties.get(&range)?.as_ref().clone())
+        Some(self.deep_force(lock.invoked_properties.get(&range)?.as_ref().clone()))
     }
 
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
         match lock.overloaded_callees.get(&range)? {
-            OverloadedCallee::Resolved { callable } => Some(callable.as_type()),
+            OverloadedCallee::Resolved { callable } => Some(self.deep_force(callable.as_type())),
             OverloadedCallee::Candidates {
                 closest,
                 is_closest_chosen,
                 ..
-            } if *is_closest_chosen => Some(closest.as_type()),
+            } if *is_closest_chosen => Some(self.deep_force(closest.as_type())),
             _ => None,
         }
     }
@@ -1171,27 +1061,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn solver(&self) -> &Solver {
         &self.current().solver
-    }
-
-    /// Prepare an answer for writing into shared `Calculation` state.
-    ///
-    /// This helper centralizes solve-time finalization for answer producers:
-    /// deep-force all embedded types using the current thread-local solver
-    /// state, then assert that no unresolved `Type::Var` crosses the
-    /// Calculation boundary.
-    pub fn finalize_answer_for_calculation_write<K: Keyed>(
-        &self,
-        answer: Arc<K::Answer>,
-        write_context: &str,
-    ) -> Arc<K::Answer>
-    where
-        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
-        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
-    {
-        let mut forced = Arc::unwrap_or_clone(answer);
-        forced.visit_mut(&mut |ty| self.solver().deep_force_mut(ty));
-        let forced = Arc::new(forced);
-        prepare_answer_for_calculation_write::<K>(forced, write_context)
     }
 
     pub fn record_resolved_trace(&self, loc: TextRange, ty: Type) {

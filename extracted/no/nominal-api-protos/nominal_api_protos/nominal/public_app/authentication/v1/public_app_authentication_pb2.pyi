@@ -65,11 +65,13 @@ class ExchangeAuthorizationCodeRequest(_message.Message):
     def __init__(self, client_id: _Optional[str] = ..., code: _Optional[str] = ..., redirect_uri: _Optional[str] = ..., code_verifier: _Optional[str] = ...) -> None: ...
 
 class ExchangeAuthorizationCodeResponse(_message.Message):
-    __slots__ = ("id_token", "expires_in", "scope")
+    __slots__ = ("id_token", "expires_in", "scope", "access_token")
     ID_TOKEN_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_IN_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
+    ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]
     id_token: str
     expires_in: int
     scope: str
-    def __init__(self, id_token: _Optional[str] = ..., expires_in: _Optional[int] = ..., scope: _Optional[str] = ...) -> None: ...
+    access_token: str
+    def __init__(self, id_token: _Optional[str] = ..., expires_in: _Optional[int] = ..., scope: _Optional[str] = ..., access_token: _Optional[str] = ...) -> None: ...

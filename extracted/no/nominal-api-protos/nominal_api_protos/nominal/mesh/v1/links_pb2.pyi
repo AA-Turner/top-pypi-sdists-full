@@ -22,6 +22,7 @@ class MeshServiceError(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND: _ClassVar[MeshServiceError]
     MESH_SERVICE_ERROR_REMOTE_CONNECTION_ALREADY_EXISTS: _ClassVar[MeshServiceError]
     MESH_SERVICE_ERROR_REMOTE_CONNECTION_HAS_DEPENDENT_LINKS: _ClassVar[MeshServiceError]
+    MESH_SERVICE_ERROR_INVALID_API_TOKEN: _ClassVar[MeshServiceError]
 RESOURCE_TYPE_UNSPECIFIED: ResourceType
 RESOURCE_TYPE_DATASET: ResourceType
 MESH_SERVICE_ERROR_LINK_NOT_FOUND: MeshServiceError
@@ -29,6 +30,7 @@ MESH_SERVICE_ERROR_LINK_ALREADY_EXISTS: MeshServiceError
 MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND: MeshServiceError
 MESH_SERVICE_ERROR_REMOTE_CONNECTION_ALREADY_EXISTS: MeshServiceError
 MESH_SERVICE_ERROR_REMOTE_CONNECTION_HAS_DEPENDENT_LINKS: MeshServiceError
+MESH_SERVICE_ERROR_INVALID_API_TOKEN: MeshServiceError
 
 class Link(_message.Message):
     __slots__ = ("rid", "local_resource_rid", "remote_resource_rid", "remote_connection_rid", "enabled", "resource_type")

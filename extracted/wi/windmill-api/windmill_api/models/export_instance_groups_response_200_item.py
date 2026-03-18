@@ -3,6 +3,9 @@ from typing import Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.export_instance_groups_response_200_item_instance_role import (
+    ExportInstanceGroupsResponse200ItemInstanceRole,
+)
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ExportInstanceGroupsResponse200Item")
@@ -18,6 +21,7 @@ class ExportInstanceGroupsResponse200Item:
         id (Union[Unset, str]):
         scim_display_name (Union[Unset, str]):
         external_id (Union[Unset, str]):
+        instance_role (Union[Unset, None, ExportInstanceGroupsResponse200ItemInstanceRole]):
     """
 
     name: str
@@ -26,6 +30,7 @@ class ExportInstanceGroupsResponse200Item:
     id: Union[Unset, str] = UNSET
     scim_display_name: Union[Unset, str] = UNSET
     external_id: Union[Unset, str] = UNSET
+    instance_role: Union[Unset, None, ExportInstanceGroupsResponse200ItemInstanceRole] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -38,6 +43,9 @@ class ExportInstanceGroupsResponse200Item:
         id = self.id
         scim_display_name = self.scim_display_name
         external_id = self.external_id
+        instance_role: Union[Unset, None, str] = UNSET
+        if not isinstance(self.instance_role, Unset):
+            instance_role = self.instance_role.value if self.instance_role else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -56,6 +64,8 @@ class ExportInstanceGroupsResponse200Item:
             field_dict["scim_display_name"] = scim_display_name
         if external_id is not UNSET:
             field_dict["external_id"] = external_id
+        if instance_role is not UNSET:
+            field_dict["instance_role"] = instance_role
 
         return field_dict
 
@@ -74,6 +84,15 @@ class ExportInstanceGroupsResponse200Item:
 
         external_id = d.pop("external_id", UNSET)
 
+        _instance_role = d.pop("instance_role", UNSET)
+        instance_role: Union[Unset, None, ExportInstanceGroupsResponse200ItemInstanceRole]
+        if _instance_role is None:
+            instance_role = None
+        elif isinstance(_instance_role, Unset):
+            instance_role = UNSET
+        else:
+            instance_role = ExportInstanceGroupsResponse200ItemInstanceRole(_instance_role)
+
         export_instance_groups_response_200_item = cls(
             name=name,
             summary=summary,
@@ -81,6 +100,7 @@ class ExportInstanceGroupsResponse200Item:
             id=id,
             scim_display_name=scim_display_name,
             external_id=external_id,
+            instance_role=instance_role,
         )
 
         export_instance_groups_response_200_item.additional_properties = d

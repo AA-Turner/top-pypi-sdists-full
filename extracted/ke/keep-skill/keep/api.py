@@ -2003,6 +2003,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         Temp files in ~/.cache/keep/email-att/ are NOT cleaned up here
         because background tasks (OCR, describe) need the files later.
+        The daemon sweeps this directory daily, deleting dirs older than 24h.
         """
         results = []
 
@@ -2086,6 +2087,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         include_self: bool = False,
         include_hidden: bool = False,
         deep: bool = False,
+        scope: Optional[str] = None,
     ) -> list[Item]:
         """Find items by hybrid search (semantic + FTS5) or similarity to an existing note.
 
@@ -2105,6 +2107,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             include_self: Include the queried item in results (only with similar_to)
             include_hidden: Include system notes (dot-prefix IDs)
             deep: Follow tags from results to discover related items
+            scope: ID glob pattern to constrain results (e.g. ``file:///path/to/dir*``).
+                   Search may traverse items outside the scope, but only items whose
+                   base ID matches the glob are returned.
         """
         if query and similar_to:
             raise ValueError("Specify either query or similar_to, not both")
@@ -2113,6 +2118,17 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         chroma_coll = self._resolve_chroma_collection()
         doc_coll = self._resolve_doc_collection()
+
+        # Resolve scope glob to a set of base IDs.  Search may traverse
+        # items outside the scope but only scoped items are returned.
+        scope_ids: Optional[set[str]] = None
+        if scope:
+            scope_records = self._document_store.query_by_id_glob(
+                doc_coll, scope, limit=0,
+            )
+            scope_ids = {r.id for r in scope_records}
+            if not scope_ids:
+                return FindResults([])
 
         # Deep search needs edges (created by tag definitions with
         # _inverse).  Ensure system-doc migration has run and, if it
@@ -2153,6 +2169,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             actual_limit = (limit + 1 if not include_self else limit) * 3
             if deep:
                 actual_limit = max(actual_limit, 30)
+            if scope_ids is not None:
+                actual_limit = max(actual_limit, len(scope_ids))
             results = self._store.query_embedding(chroma_coll, embedding, limit=actual_limit, where=where)
 
             if not include_self:
@@ -2170,6 +2188,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             fts_fetch = max(limit * 10, 100)
             if deep:
                 sem_fetch = max(sem_fetch, 30)
+            if scope_ids is not None:
+                sem_fetch = max(sem_fetch, len(scope_ids))
 
             sem_results = self._store.query_embedding(
                 chroma_coll, embedding, limit=sem_fetch, where=where,
@@ -2177,9 +2197,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             sem_items = [r.to_item() for r in sem_results]
             sem_items = self._apply_recency_decay(sem_items)
 
-            fts_rows = self._document_store.query_fts(
-                doc_coll, query, limit=fts_fetch, tags=casefolded_tags,
-            )
+            if scope_ids is not None:
+                fts_rows = self._document_store.query_fts_scoped(
+                    doc_coll, query, list(scope_ids),
+                    limit=fts_fetch, tags=casefolded_tags,
+                )
+            else:
+                fts_rows = self._document_store.query_fts(
+                    doc_coll, query, limit=fts_fetch, tags=casefolded_tags,
+                )
             fts_items = [Item(id=r[0], summary=r[1]) for r in fts_rows]
 
             if fts_items:
@@ -2191,9 +2217,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         else:
             # No embedding provider — FTS only
             fetch_limit = limit * 3
-            fts_rows = self._document_store.query_fts(
-                doc_coll, query, limit=fetch_limit, tags=casefolded_tags,
-            )
+            if scope_ids is not None:
+                fts_rows = self._document_store.query_fts_scoped(
+                    doc_coll, query, list(scope_ids),
+                    limit=fetch_limit, tags=casefolded_tags,
+                )
+            else:
+                fts_rows = self._document_store.query_fts(
+                    doc_coll, query, limit=fetch_limit, tags=casefolded_tags,
+                )
             items = [Item(id=r[0], summary=r[1]) for r in fts_rows]
 
         # Hydrate search hits from canonical SQLite tags so user tags remain
@@ -2218,6 +2250,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 score=item.score,
             ))
         items = hydrated
+
+        # Scope filter: keep only items whose base ID is in the scope set.
+        # Applied before deep follow so traversal can still discover edges
+        # through out-of-scope items; deep group results are filtered later.
+        if scope_ids is not None:
+            items = [i for i in items
+                     if (i.tags.get("_base_id") or
+                         (i.id.split("@")[0] if "@" in i.id else i.id))
+                     in scope_ids]
 
         # Deep follow: prefer edge-following when edges exist in the store,
         # fall back to tag-following for stores without edges.
@@ -2327,6 +2368,17 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                           for pid, g in deep_groups.items()}
         deep_groups = {pid: g for pid, g in deep_groups.items() if g}
 
+        # Scope filter for deep groups: keep only scoped items within groups.
+        if scope_ids is not None and deep_groups:
+            deep_groups = {
+                pid: [i for i in g
+                      if (i.tags.get("_base_id") or
+                          (i.id.split("@")[0] if "@" in i.id else i.id))
+                      in scope_ids]
+                for pid, g in deep_groups.items()
+            }
+            deep_groups = {pid: g for pid, g in deep_groups.items() if g}
+
         # Part-to-parent uplift: replace part hits with their parent
         # documents, carrying _focus_part so the formatter can window
         # the parts manifest around the hit.  Dedup: keep the highest-
@@ -2352,6 +2404,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     if part_num:
                         parent_tags["_focus_part"] = part_num
                         parent_tags["_focus_summary"] = item.summary
+                        # Propagate line range tags if present
+                        if "_start_line" in item.tags:
+                            parent_tags["_focus_start_line"] = item.tags["_start_line"]
+                        if "_end_line" in item.tags:
+                            parent_tags["_focus_end_line"] = item.tags["_end_line"]
                     uplifted.append(Item(
                         id=parent_id, summary=parent_item.summary,
                         tags=parent_tags, score=item.score,
@@ -2386,6 +2443,38 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 uplifted.append(item)
                 seen_parents[item.id] = len(uplifted) - 1
         items = uplifted
+
+        # Keyword passage fallback: for file-backed items that matched
+        # semantically (no _focus_part from FTS), find the best passage
+        # by keyword overlap in the source file. Only runs for URI items
+        # when a query string is available.
+        if query:
+            from .analyzers import _find_best_passage
+
+            for idx, item in enumerate(items):
+                if item.tags.get("_focus_part"):
+                    continue  # already has a part match
+                if item.tags.get("_source") != "uri":
+                    continue  # not file-backed
+                if not item.id.startswith("file://"):
+                    continue
+
+                fpath = Path(item.id.removeprefix("file://"))
+                try:
+                    content = fpath.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+
+                passage = _find_best_passage(content, query)
+                if passage:
+                    enriched_tags = dict(item.tags)
+                    enriched_tags["_focus_summary"] = passage["snippet"]
+                    enriched_tags["_focus_start_line"] = passage["start_line"]
+                    enriched_tags["_focus_end_line"] = passage["end_line"]
+                    items[idx] = Item(
+                        id=item.id, summary=item.summary,
+                        tags=enriched_tags, score=item.score,
+                    )
 
         # Remap deep_groups: uplift keys AND items (parts → parents), dedup.
         # Only exclude deep items that appear in the top primary results
@@ -2506,6 +2595,12 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     focus_version = item.tags.get("_focus_version")
                     if focus_version:
                         tags["_focus_version"] = focus_version
+                    focus_start = item.tags.get("_focus_start_line")
+                    if focus_start:
+                        tags["_focus_start_line"] = focus_start
+                    focus_end = item.tags.get("_focus_end_line")
+                    if focus_end:
+                        tags["_focus_end_line"] = focus_end
                     entity_marker = item.tags.get("_entity")
                     if entity_marker:
                         tags["_entity"] = entity_marker
@@ -3700,6 +3795,18 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 prompt_override=analysis_prompt,
                 classifier_provider=analyzer_provider,
             )
+
+        # Extract line ranges for URI-sourced documents
+        if (proc_result.parts 
+            and doc_record.tags.get("_source") == "uri" 
+            and chunk_dicts 
+            and len(chunk_dicts) == 1):
+            try:
+                from .analyzers import _extract_line_ranges
+                source_content = chunk_dicts[0]["content"]
+                proc_result.parts = _extract_line_ranges(source_content, proc_result.parts)
+            except Exception as e:
+                logger.warning("Line range extraction failed: %s", e)
 
         # Content not decomposable — single section is redundant with the note
         if not proc_result.parts or len(proc_result.parts) <= 1:

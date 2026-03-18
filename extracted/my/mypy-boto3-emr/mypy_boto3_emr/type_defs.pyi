@@ -3,7 +3,7 @@ Type annotations for emr service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_emr/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -45,6 +45,8 @@ from .literals import (
     InstanceStateChangeReasonCodeType,
     InstanceStateType,
     JobFlowExecutionStateType,
+    LogTypeType,
+    LogUploadPolicyValueType,
     MarketTypeType,
     NotebookExecutionStatusType,
     OnClusterAppUITypeType,
@@ -279,6 +281,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RunJobFlowInputTypeDef",
     "RunJobFlowOutputTypeDef",
+    "S3LoggingConfigurationOutputTypeDef",
+    "S3LoggingConfigurationTypeDef",
     "S3MonitoringConfigurationTypeDef",
     "ScalingActionTypeDef",
     "ScalingConstraintsTypeDef",
@@ -787,6 +791,12 @@ class ModifyClusterInputTypeDef(TypedDict):
     StepConcurrencyLevel: NotRequired[int]
     ExtendedSupport: NotRequired[bool]
 
+class S3LoggingConfigurationOutputTypeDef(TypedDict):
+    LogTypeUploadPolicy: NotRequired[dict[LogTypeType, LogUploadPolicyValueType]]
+
+class S3LoggingConfigurationTypeDef(TypedDict):
+    LogTypeUploadPolicy: NotRequired[Mapping[LogTypeType, LogUploadPolicyValueType]]
+
 class NotebookS3LocationForOutputTypeDef(TypedDict):
     Bucket: NotRequired[str]
     Key: NotRequired[str]
@@ -1073,12 +1083,6 @@ class CloudWatchAlarmDefinitionTypeDef(TypedDict):
     Unit: NotRequired[UnitType]
     Dimensions: NotRequired[Sequence[MetricDimensionTypeDef]]
 
-class MonitoringConfigurationOutputTypeDef(TypedDict):
-    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationOutputTypeDef]
-
-class MonitoringConfigurationTypeDef(TypedDict):
-    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationTypeDef]
-
 class ClusterStatusTypeDef(TypedDict):
     State: NotRequired[ClusterStateType]
     StateChangeReason: NotRequired[ClusterStateChangeReasonTypeDef]
@@ -1287,6 +1291,14 @@ class ListSupportedInstanceTypesOutputTypeDef(TypedDict):
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class MonitoringConfigurationOutputTypeDef(TypedDict):
+    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationOutputTypeDef]
+    S3LoggingConfiguration: NotRequired[S3LoggingConfigurationOutputTypeDef]
+
+class MonitoringConfigurationTypeDef(TypedDict):
+    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationTypeDef]
+    S3LoggingConfiguration: NotRequired[S3LoggingConfigurationTypeDef]
+
 class NotebookExecutionSummaryTypeDef(TypedDict):
     NotebookExecutionId: NotRequired[str]
     EditorId: NotRequired[str]
@@ -1384,9 +1396,6 @@ class ScalingTriggerOutputTypeDef(TypedDict):
 CloudWatchAlarmDefinitionUnionTypeDef = Union[
     CloudWatchAlarmDefinitionTypeDef, CloudWatchAlarmDefinitionOutputTypeDef
 ]
-MonitoringConfigurationUnionTypeDef = Union[
-    MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
-]
 
 class ClusterSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -1395,44 +1404,6 @@ class ClusterSummaryTypeDef(TypedDict):
     NormalizedInstanceHours: NotRequired[int]
     ClusterArn: NotRequired[str]
     OutpostArn: NotRequired[str]
-
-class ClusterTypeDef(TypedDict):
-    Id: NotRequired[str]
-    Name: NotRequired[str]
-    Status: NotRequired[ClusterStatusTypeDef]
-    Ec2InstanceAttributes: NotRequired[Ec2InstanceAttributesTypeDef]
-    InstanceCollectionType: NotRequired[InstanceCollectionTypeType]
-    LogUri: NotRequired[str]
-    LogEncryptionKmsKeyId: NotRequired[str]
-    RequestedAmiVersion: NotRequired[str]
-    RunningAmiVersion: NotRequired[str]
-    ReleaseLabel: NotRequired[str]
-    AutoTerminate: NotRequired[bool]
-    TerminationProtected: NotRequired[bool]
-    UnhealthyNodeReplacement: NotRequired[bool]
-    VisibleToAllUsers: NotRequired[bool]
-    Applications: NotRequired[list[ApplicationOutputTypeDef]]
-    Tags: NotRequired[list[TagTypeDef]]
-    ServiceRole: NotRequired[str]
-    NormalizedInstanceHours: NotRequired[int]
-    MasterPublicDnsName: NotRequired[str]
-    Configurations: NotRequired[list[ConfigurationOutputTypeDef]]
-    SecurityConfiguration: NotRequired[str]
-    AutoScalingRole: NotRequired[str]
-    ScaleDownBehavior: NotRequired[ScaleDownBehaviorType]
-    CustomAmiId: NotRequired[str]
-    EbsRootVolumeSize: NotRequired[int]
-    RepoUpgradeOnBoot: NotRequired[RepoUpgradeOnBootType]
-    KerberosAttributes: NotRequired[KerberosAttributesTypeDef]
-    ClusterArn: NotRequired[str]
-    OutpostArn: NotRequired[str]
-    StepConcurrencyLevel: NotRequired[int]
-    PlacementGroups: NotRequired[list[PlacementGroupConfigTypeDef]]
-    OSReleaseLabel: NotRequired[str]
-    EbsRootVolumeIops: NotRequired[int]
-    EbsRootVolumeThroughput: NotRequired[int]
-    ExtendedSupport: NotRequired[bool]
-    MonitoringConfiguration: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 class GetManagedScalingPolicyOutputTypeDef(TypedDict):
     ManagedScalingPolicy: ManagedScalingPolicyTypeDef
@@ -1494,6 +1465,48 @@ class InstanceTypeDef(TypedDict):
     Market: NotRequired[MarketTypeType]
     InstanceType: NotRequired[str]
     EbsVolumes: NotRequired[list[EbsVolumeTypeDef]]
+
+class ClusterTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    Status: NotRequired[ClusterStatusTypeDef]
+    Ec2InstanceAttributes: NotRequired[Ec2InstanceAttributesTypeDef]
+    InstanceCollectionType: NotRequired[InstanceCollectionTypeType]
+    LogUri: NotRequired[str]
+    LogEncryptionKmsKeyId: NotRequired[str]
+    RequestedAmiVersion: NotRequired[str]
+    RunningAmiVersion: NotRequired[str]
+    ReleaseLabel: NotRequired[str]
+    AutoTerminate: NotRequired[bool]
+    TerminationProtected: NotRequired[bool]
+    UnhealthyNodeReplacement: NotRequired[bool]
+    VisibleToAllUsers: NotRequired[bool]
+    Applications: NotRequired[list[ApplicationOutputTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    ServiceRole: NotRequired[str]
+    NormalizedInstanceHours: NotRequired[int]
+    MasterPublicDnsName: NotRequired[str]
+    Configurations: NotRequired[list[ConfigurationOutputTypeDef]]
+    SecurityConfiguration: NotRequired[str]
+    AutoScalingRole: NotRequired[str]
+    ScaleDownBehavior: NotRequired[ScaleDownBehaviorType]
+    CustomAmiId: NotRequired[str]
+    EbsRootVolumeSize: NotRequired[int]
+    RepoUpgradeOnBoot: NotRequired[RepoUpgradeOnBootType]
+    KerberosAttributes: NotRequired[KerberosAttributesTypeDef]
+    ClusterArn: NotRequired[str]
+    OutpostArn: NotRequired[str]
+    StepConcurrencyLevel: NotRequired[int]
+    PlacementGroups: NotRequired[list[PlacementGroupConfigTypeDef]]
+    OSReleaseLabel: NotRequired[str]
+    EbsRootVolumeIops: NotRequired[int]
+    EbsRootVolumeThroughput: NotRequired[int]
+    ExtendedSupport: NotRequired[bool]
+    MonitoringConfiguration: NotRequired[MonitoringConfigurationOutputTypeDef]
+
+MonitoringConfigurationUnionTypeDef = Union[
+    MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
+]
 
 class ListNotebookExecutionsOutputTypeDef(TypedDict):
     NotebookExecutions: list[NotebookExecutionSummaryTypeDef]
@@ -1558,10 +1571,6 @@ class ListClustersOutputTypeDef(TypedDict):
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DescribeClusterOutputTypeDef(TypedDict):
-    Cluster: ClusterTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class InstanceTypeConfigTypeDef(TypedDict):
     InstanceType: str
     WeightedCapacity: NotRequired[int]
@@ -1583,6 +1592,10 @@ ShrinkPolicyUnionTypeDef = Union[ShrinkPolicyTypeDef, ShrinkPolicyOutputTypeDef]
 class ListInstancesOutputTypeDef(TypedDict):
     Instances: list[InstanceTypeDef]
     Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeClusterOutputTypeDef(TypedDict):
+    Cluster: ClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InstanceFleetPaginatorTypeDef(TypedDict):

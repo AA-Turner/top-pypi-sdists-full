@@ -38,6 +38,9 @@ class PreExecution(Serializable):
     context: ClientContext
     execution_id: str
     user_jwt: Optional[str] = None
+    send_queue: Optional[str] = None
+    recv_queue: Optional[str] = None
+    queue_expire_ms: Optional[int] = None
 
 
 @dataclass
@@ -101,7 +104,8 @@ class LocalProducerRepository(ProducerRepository):
     ) -> None:
         execution_id = uuid4().__str__()
 
-        _, child_conn = Pipe()
+        parent_conn, child_conn = Pipe()
+        parent_conn.close()  # Not used in fire-and-forget — close to avoid fd leak
 
         preexecution = PreExecution(
             stage_id=stage_id,

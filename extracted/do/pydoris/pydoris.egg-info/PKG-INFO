@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydoris
-Version: 1.1.0
+Version: 1.2.0
 Summary: Python interface to Doris
 Author: liujiwen-up, bingquanzhao, catpineapple
 Maintainer-email: catpineapple <catpineapple1122@gmail.com>
@@ -19,8 +19,8 @@ Classifier: Topic :: Database :: Front-Ends
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sqlalchemy<2,>=1.4
-Requires-Dist: sqlalchemy-utils<0.39,>=0.38.3
+Requires-Dist: sqlalchemy>=1.4
+Requires-Dist: sqlalchemy-utils>=0.38.3
 Requires-Dist: mysqlclient<3,>=2.1.0
 Requires-Dist: requests
 Dynamic: license-file

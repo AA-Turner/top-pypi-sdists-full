@@ -22,8 +22,8 @@ from setuptools import setup
 from setuptools.command.sdist import sdist
 
 
-jar_version = '2.15.0-4.0'
-scala_version = '2.13.16'
+jar_version = '2.15.0-4.1'
+scala_version = '2.13.17'
 scala_compat_version = '.'.join(scala_version.split('.')[:2])
 spark_compat_version = jar_version.split('-')[1]
 jar_file = f"spark-extension_{scala_compat_version}-{jar_version}.jar"

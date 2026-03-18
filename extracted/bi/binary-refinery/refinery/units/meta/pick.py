@@ -43,8 +43,9 @@ class _PickState:
 
 class pick(Unit):
     """
-    Picks sequences from the array of multiple inputs. For example, `pick 0 2:`
-    will return all but the second ingested input (which has index `1`).
+    Selects specific chunks from a frame using Python slice syntax.
+
+    For example, `pick 0 2:` will return all but the second ingested input (which has index `1`).
     """
     def __init__(self, *bounds: Param[slice, Arg.Bounds(nargs='*', default=[0])]):
         super().__init__(bounds=[sliceobj(s) for s in bounds])
@@ -142,8 +143,10 @@ class p3(pick):
 
 class b2f(pick):
     """
-    Short for "back to front". This unit is a shortcut for `refinery.pick` with argument `::-1`:
-    It will reorder the chunks in the current frame in reverse order.
+    Reorder chunks in the current frame in reverse order.
+
+    Short for "back to front". This unit is a shortcut for `refinery.pick` with argument
+    `::-1`: It will reorder the chunks in the current frame in reverse order.
     """
     def __init__(self):
         super().__init__(slice(None, None, -1))

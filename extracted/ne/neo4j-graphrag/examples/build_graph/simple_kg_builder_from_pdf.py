@@ -64,11 +64,7 @@ async def define_and_run_pipeline(
 
 async def main() -> PipelineResult:
     llm = OpenAILLM(
-        model_name="gpt-4o",
-        model_params={
-            "max_tokens": 2000,
-            "response_format": {"type": "json_object"},
-        },
+        model_name="gpt-5",
     )
     with neo4j.GraphDatabase.driver(URI, auth=AUTH) as driver:
         res = await define_and_run_pipeline(driver, llm)

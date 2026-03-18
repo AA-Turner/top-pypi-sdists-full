@@ -16,9 +16,10 @@ from pytest_httpserver import HTTPServer
 from typer.testing import CliRunner
 from werkzeug import Response
 
-from cogames.auth import AuthConfigReaderWriter
+from cogames.auth import save_token
 from cogames.cli.submit import ensure_docker_daemon_access
 from cogames.main import app
+from cogames.token_storage import TokenKind
 from mettagrid.config.mettagrid_config import MettaGridConfig
 
 _SEASON_ID = "11111111-1111-1111-1111-111111111111"
@@ -54,8 +55,7 @@ def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create a fake HOME directory with a pre-configured auth token."""
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    writer = AuthConfigReaderWriter("cogames.yaml", "login_tokens")
-    writer.save_token("test-token-12345", "http://fake-login-server")
+    save_token(token_kind=TokenKind.COGAMES, token="test-token-12345", server="http://fake-login-server")
 
     return tmp_path
 
@@ -127,6 +127,7 @@ def test_upload_command_fails_without_auth(
         "version": 1,
         "canonical": True,
         "is_default": True,
+        "status": "in_progress",
         "created_at": "2026-01-01T00:00:00Z",
         "public": True,
         "tournament_type": "freeplay",
@@ -187,6 +188,7 @@ def _setup_mock_upload_server(
         "version": 1,
         "canonical": True,
         "is_default": True,
+        "status": "in_progress",
         "created_at": "2026-01-01T00:00:00Z",
         "public": True,
         "tournament_type": "freeplay",
@@ -516,6 +518,7 @@ _SEASON_WITH_ENTRY_CONFIG: list[dict[str, Any]] = [
         "version": 1,
         "canonical": True,
         "is_default": True,
+        "status": "in_progress",
         "created_at": "2026-01-01T00:00:00Z",
         "public": True,
         "tournament_type": "freeplay",
@@ -537,6 +540,7 @@ _SEASON_NO_ENTRY_CONFIG: list[dict[str, Any]] = [
         "version": 1,
         "canonical": True,
         "is_default": True,
+        "status": "in_progress",
         "created_at": "2026-01-01T00:00:00Z",
         "public": True,
         "tournament_type": "freeplay",
@@ -868,6 +872,7 @@ def test_upload_rejects_oversized_at_completion(
         "version": 1,
         "canonical": True,
         "is_default": True,
+        "status": "in_progress",
         "created_at": "2026-01-01T00:00:00Z",
         "public": True,
         "tournament_type": "freeplay",

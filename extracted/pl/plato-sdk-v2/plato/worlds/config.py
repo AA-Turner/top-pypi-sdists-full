@@ -127,6 +127,25 @@ class PreviewConfig(BaseModel):
     )
 
 
+class VerifyConfig(BaseModel):
+    """Configuration for world verify mode.
+
+    Verify restores workspaces and calls the world's verify() method
+    instead of the normal reset/step loop. Verifiers run against the
+    restored state and publish findings as annotations.
+    """
+
+    enabled: bool = False
+    target_session_id: str | None = Field(
+        default=None,
+        description="Session ID to publish verification annotations against. Defaults to current session.",
+    )
+    publish_annotations: bool = Field(
+        default=True,
+        description="Whether to publish verifier findings as annotations.",
+    )
+
+
 # =============================================================================
 # Agent Configuration
 # =============================================================================
@@ -250,6 +269,9 @@ class RunConfig(BaseModel):
 
     # Preview mode settings
     preview: PreviewConfig = Field(default_factory=PreviewConfig)
+
+    # Verify mode settings
+    verify: VerifyConfig = Field(default_factory=VerifyConfig)
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
     tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)

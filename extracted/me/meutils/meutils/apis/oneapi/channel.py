@@ -90,6 +90,14 @@ async def get_channel_keys_for_enable(id: int, base_url: str):
 
 
 async def get_channel_keys_for_disable(id: int, base_url: str, target_id: Optional[Union[int, list]] = None):
+    """
+        同步禁用相关渠道的 keys，保证多个渠道的 key 一致性
+        todo 跨站同步时，是否需要考虑 base_url 不同导致的 key 不一致问题？如果需要考虑，可以在 key_preview 中添加 base_url 的 hash 前缀，或者在 manage_multi_key 接口中添加 base_url 参数进行过滤。
+    :param id:
+    :param base_url:
+    :param target_id:
+    :return:
+    """
     df = await get_channel_keys(id, base_url, status=None)
     df = df[lambda df: df.status != 1]  # 禁用的
 
@@ -425,9 +433,12 @@ if __name__ == '__main__':
     # dff = pd.DataFrame(data['data']['keys'])
 
     # df = arun(get_channel_keys(21385, base_url))
-    base_url = "https://api.chatfire.ai"
+    base_url = "https://api.chatfire.cn"
 
-    df = arun(get_channel_keys_for_disable(21514, base_url, target_id=21385))
+    # df = arun(get_channel_keys_for_disable(21514, base_url, target_id=21385))
+    df = arun(get_channel_keys_for_disable(21523, base_url, target_id=21513))
+
     # df = arun(get_channel_keys_for_disable(21514, base_url))
+    # df = arun(get_channel_keys_for_disable(21522, base_url, target_id=21429))
 
     # df = arun(get_channel_keys(21520, status=None, base_url=base_url))

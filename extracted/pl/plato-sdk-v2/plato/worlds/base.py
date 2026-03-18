@@ -162,6 +162,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     # Class attributes
     name: ClassVar[str] = "base"
     description: ClassVar[str] = ""
+    review_models: ClassVar[list[type]] = []
     _state_class: ClassVar[type[PydanticBaseModel] | None] = None
 
     # Instance attributes
@@ -242,6 +243,15 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         silently run the normal reset/step loop.
         """
         raise NotImplementedError(f"World '{self.name}' does not implement preview mode")
+
+    async def verify(self) -> Observation:
+        """Run the world in verify mode.
+
+        Override this to run verifiers against the restored workspace state.
+        Called instead of the normal reset/step loop when config.verify.enabled=True.
+        The default raises NotImplementedError.
+        """
+        raise NotImplementedError(f"World '{self.name}' does not implement verify mode")
 
     async def close(self) -> None:
         """Cleanup resources. Called after run completes."""
@@ -1028,6 +1038,8 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             try:
                 if self.config.preview.enabled:
                     await self._run_preview_loop(tracer)
+                elif self.config.verify.enabled:
+                    await self._run_verify_loop(tracer)
                 else:
                     await self._run_loop(tracer)
             except Exception as e:
@@ -1354,6 +1366,37 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         self._final_result = obs_data
         self.logger.info("Preview loop complete, proceeding to finalize")
+
+    async def _run_verify_loop(self, tracer: Any) -> None:
+        """Execute the verify entrypoint after restoring runtime state."""
+        if self.session.otel_url and self.session.session_id:
+            instrument_system_metrics(
+                otlp_endpoint=self.session.otel_url,
+                session_id=self.session.session_id,
+                env_alias="world",
+                job_id=os.environ.get("JOB_ID", ""),
+            )
+
+        await self._init_declared_workspaces()
+        await self._setup_tailscale()
+
+        resumed = await self._try_resume()
+        if resumed:
+            self.logger.info("Resumed from saved state for verify")
+
+        await self._start_transport()
+
+        with tracer.start_as_current_span("verify") as verify_span:
+            verify_span.set_attribute("plato.phase", "verify")
+            verify_span.set_attribute("plato.world.name", self.name)
+            target_sid = self.config.verify.target_session_id or (self.session.session_id if self.session else "")
+            verify_span.set_attribute("plato.verify.target_session_id", target_sid)
+            obs = await self.verify()
+            obs_data = obs.model_dump()
+            verify_span.set_attribute("plato.verify.observation", json.dumps(obs_data, default=str))
+
+        self._final_result = obs_data
+        self.logger.info("Verify loop complete, proceeding to finalize")
 
     async def wait_for_preview_timeout(self) -> int:
         """Keep the preview session alive until the configured timeout elapses.

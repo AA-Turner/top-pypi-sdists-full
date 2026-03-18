@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: pyarmor
-Version: 9.2.3
+Version: 9.2.4
 Summary: A tool used to obfuscate python scripts, bind obfuscated scripts to fixed machine or expire obfuscated scripts.
 Home-page: https://github.com/dashingsoft/pyarmor
 Author: Jondy Zhao
@@ -14,7 +14,7 @@ Description: Protect Python Scripts By Pyarmor
         Key Features
         ------------
         
-        * The obfuscated scritpt is still a normal `.py` script, in most of cases the original python scripts can be replaced with obfuscated scripts seamlessly.
+        * The obfuscated script is still a normal `.py` script, in most of cases the original python scripts can be replaced with obfuscated scripts seamlessly.
         * Provide many ways to obfuscate the scripts to balance security and performance
         * Rename functions/methods/classes/variables/arguments, irreversible obfuscation
         * Convert part of Python functions to C function, compile to binary by high optimize option, irreversible obfuscation
@@ -24,7 +24,7 @@ Description: Protect Python Scripts By Pyarmor
         Support Platforms
         -----------------
         
-        * Python 3.7~3.13
+        * Python 3.7~3.15
         * Windows
         * Many linuxs, include embedded systems
         * Apple Intel and Apple Silicon

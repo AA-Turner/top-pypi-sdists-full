@@ -166,8 +166,7 @@ class Hub:
             self._last_http_stati.append(-1)
             if verify is not None:
                 raise
-            else:
-                self.fatal("SSL verification failed %r:\n%s" % (url, e))
+            self.fatal("SSL verification failed %r:\n%s" % (url, e))
         except self.http.Errors as e:
             self._last_http_stati.append(-1)
             self.fatal("could not connect to %r:\n%s" % (url, e))
@@ -691,8 +690,9 @@ def parse_args(argv, pm):
                 print_version(hub)
             parser.exit()
         if args.command is None:
-            raise parser.ArgumentError(
-                "the following arguments are required: command")
+            raise parser.ArgumentError(  # noqa: TRY301
+                "the following arguments are required: command"
+            )
     except parser.ArgumentError as e:
         if not argv[1:]:
             return parser.parse_args(["-h"])

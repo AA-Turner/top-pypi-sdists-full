@@ -139,6 +139,32 @@ class TestSessionSpanOverride:
         assert attrs["plato.agent.display_name"] == "backend-builder"
 
 
+class TestStepSpanHelpers:
+    def test_start_step_span_yields_live_atif_span(self, in_memory_exporter):
+        from plato.otel import start_step_span
+
+        tracer = trace.get_tracer("test")
+        with start_step_span(
+            tracer,
+            step_id=7,
+            source="agent",
+            message="running tool",
+            tool_calls=[{"function_name": "Read", "arguments": {"path": "/tmp/a.txt"}}],
+        ) as span:
+            span_context = span.get_span_context()
+            assert span_context.is_valid
+            assert format(span_context.trace_id, "032x")
+            assert format(span_context.span_id, "016x")
+
+        spans = [span for span in in_memory_exporter.get_finished_spans() if span.name == "atif.step.7"]
+        assert len(spans) == 1
+        attrs = spans[0].attributes
+        assert attrs["atif.step.id"] == 7
+        assert attrs["atif.step.source"] == "agent"
+        assert attrs["atif.step.message"] == "running tool"
+        assert "atif.step.tool_calls" in attrs
+
+
 # ---------------------------------------------------------------------------
 # init_tracing() with parent context
 # ---------------------------------------------------------------------------

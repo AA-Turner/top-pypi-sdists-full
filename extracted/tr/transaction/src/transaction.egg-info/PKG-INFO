@@ -1,33 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: transaction
-Version: 5.0
+Version: 5.1
 Summary: Transaction management for Python
-Home-page: https://github.com/zopefoundation/transaction
-Author: Zope Foundation and Contributors
-Author-email: zodb-dev@zope.dev
-License: ZPL 2.1
-Project-URL: Issue Tracker, https://github.com/zopefoundation/transaction/issues
-Project-URL: Sources, https://github.com/zopefoundation/transaction
-Platform: any
+Author-email: Zope Foundation and contributors <zodb-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Documentation, https://transaction.readthedocs.io/
+Project-URL: Source, https://github.com/zopefoundation/transaction
+Project-URL: Issues, https://github.com/zopefoundation/transaction/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/transaction/master/CHANGES.rst
 Classifier: Development Status :: 6 - Mature
-Classifier: License :: OSI Approved :: Zope Public License
-Classifier: Programming Language :: Python
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: ZODB
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: zope.interface
@@ -36,6 +33,7 @@ Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: testing
 Requires-Dist: coverage; extra == "testing"
+Dynamic: license-file
 
 ============
 Transactions
@@ -63,10 +61,19 @@ See http://transaction.readthedocs.org/en/latest for narrative documentation
 on its usage.
 
 
-
 =========
  Changes
 =========
+
+5.1 (2026-03-17)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.8, 3.9.
+
 
 5.0 (2024-09-18)
 ================

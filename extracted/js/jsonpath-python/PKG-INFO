@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonpath-python
-Version: 1.1.4
+Version: 1.1.5
 Summary: A lightweight and powerful JSONPath implementation for Python
 Project-URL: Homepage, https://github.com/sean2077/jsonpath-python
 Project-URL: Repository, https://github.com/sean2077/jsonpath-python

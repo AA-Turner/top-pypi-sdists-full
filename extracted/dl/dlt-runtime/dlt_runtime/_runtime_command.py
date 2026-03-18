@@ -141,9 +141,8 @@ def _stream_run_logs(
         "User-Agent": f"dlt-runtime-cli/{__version__}",
     }
 
-    # Add authorization header from api_client headers
-    if hasattr(api_client, "_headers") and "Authorization" in api_client._headers:
-        headers["Authorization"] = api_client._headers["Authorization"]
+    if auth_service.auth_info:
+        headers["Authorization"] = f"Bearer {auth_service.auth_info.jwt_token}"
 
     try:
         with httpx.stream(
@@ -328,6 +327,7 @@ def login(minimal_logging: bool = True) -> RuntimeAuthService:
                 fmt.bold(login_request.parsed.user_code),
             )
         )
+        webbrowser.open(login_request.parsed.verification_uri)
         fmt.echo("Waiting for authentication...\n")
         error_message = "Failed to complete authentication"
         while True:
@@ -354,7 +354,10 @@ def login(minimal_logging: bool = True) -> RuntimeAuthService:
             if isinstance(
                 token_response.parsed, workos_device_flow_complete.LoginResponse
             ):
-                auth_info = auth_service.login(token_response.parsed.jwt)
+                auth_info = auth_service.login(
+                    token_response.parsed.jwt,
+                    refresh_token=token_response.parsed.refresh_token,
+                )
                 fmt.secho("Logged in as %s" % fmt.bold(auth_info.email), fg="green")
                 web_ui_url = _get_web_ui_url()
                 if web_ui_url:
@@ -487,6 +490,11 @@ def _select_or_create_workspace(auth_service: RuntimeAuthService) -> str:
             )
         fmt.echo("No owned workspaces found. Let's create one.")
         return _prompt_and_create_new_workspace(auth_service)
+
+    if len(owned) == 1:
+        ws = owned[0]
+        fmt.echo("Auto-selected workspace: %s (only one available)" % fmt.bold(ws.name))
+        return str(ws.id)
 
     if viewer_only:
         fmt.echo("")
@@ -1352,6 +1360,7 @@ def serve(
             )
         if isinstance(res.parsed, get_script.DetailedScriptResponse):
             url = res.parsed.script_url
+            assert isinstance(url, str)
             fmt.echo(f"Opening {url}")
             webbrowser.open(url, new=2, autoraise=True)
     except Exception:
@@ -1462,8 +1471,7 @@ def enable_public_link(
         )
 
 
-@track_command(operation="serve", suboperation="unpublish")
-def disable_public_link(
+def _disable_public_link_impl(
     script_path: str, *, auth_service: RuntimeAuthService, api_client: ApiClient
 ) -> None:
     _ensure_profile_warning("access")
@@ -1494,6 +1502,15 @@ def disable_public_link(
         raise exception_from_response(
             "Failed to disable public link", disable_public_url_result
         )
+
+
+@track_command(operation="serve", suboperation="unpublish")
+def disable_public_link(
+    script_path: str, *, auth_service: RuntimeAuthService, api_client: ApiClient
+) -> None:
+    _disable_public_link_impl(
+        script_path, auth_service=auth_service, api_client=api_client
+    )
 
 
 def _run_script(
@@ -1677,8 +1694,7 @@ def schedule(
         raise exception_from_response("Failed to schedule script", upsert)
 
 
-@track_command(operation="schedule", suboperation="cancel")
-def schedule_cancel(
+def _schedule_cancel_impl(
     script_path: str,
     cancel_current: bool = False,
     *,
@@ -1723,6 +1739,47 @@ def schedule_cancel(
             )
         except (NoRunnableRun, NoRunsFound):
             pass
+
+
+@track_command(operation="schedule", suboperation="cancel")
+def schedule_cancel(
+    script_path: str,
+    cancel_current: bool = False,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    _schedule_cancel_impl(
+        script_path,
+        cancel_current,
+        auth_service=auth_service,
+        api_client=api_client,
+    )
+
+
+@track_command(operation="unschedule")
+def unschedule(
+    script_path: str,
+    cancel_current: bool = False,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    _schedule_cancel_impl(
+        script_path,
+        cancel_current,
+        auth_service=auth_service,
+        api_client=api_client,
+    )
+
+
+@track_command(operation="unpublish")
+def unpublish(
+    script_path: str, *, auth_service: RuntimeAuthService, api_client: ApiClient
+) -> None:
+    _disable_public_link_impl(
+        script_path, auth_service=auth_service, api_client=api_client
+    )
 
 
 @track_command(operation="dashboard")

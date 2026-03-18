@@ -9,6 +9,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -75,9 +76,9 @@ use crate::error::style::ErrorStyle;
 use crate::export::exports::LookupExport;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::VarRecurser;
-use crate::solver::solver::Variables;
 use crate::solver::type_order::TypeOrder;
 use crate::types::class::Class;
+use crate::types::class::ClassFields;
 use crate::types::equality::TypeEq;
 use crate::types::equality::TypeEqCtx;
 use crate::types::stdlib::Stdlib;
@@ -303,6 +304,7 @@ impl CalcStack {
                             BindingAction::Calculate
                         }
                         IterationNodeStateKind::InProgressWithPreviousAnswer => {
+                            self.mark_recursion_break(&current);
                             let answer = self.get_previous_answer(&current).expect(
                                 "InProgressWithPreviousAnswer but no previous answer found",
                             );
@@ -349,6 +351,7 @@ impl CalcStack {
                         BindingAction::Calculate
                     }
                     IterationNodeStateKind::InProgressWithPreviousAnswer => {
+                        self.mark_recursion_break(&current);
                         let answer = self
                             .get_previous_answer(&current)
                             .expect("InProgressWithPreviousAnswer but no previous answer found");
@@ -405,6 +408,7 @@ impl CalcStack {
                 }
                 IterationNodeStateKind::InProgressWithPreviousAnswer => {
                     // Back-edge with a warm-start answer from prior iteration.
+                    self.mark_recursion_break(&current);
                     let answer = self
                         .get_previous_answer(&current)
                         .expect("InProgressWithPreviousAnswer but no previous answer found");
@@ -493,14 +497,6 @@ impl CalcStack {
                     }
                 }
             }
-            SccState::BreakAt => {
-                // The break_at node is in node_state, so pop() will decrement
-                // segment_size for it. Increment here to keep the count symmetric
-                if let Some(top_scc) = self.scc_stack.borrow_mut().last_mut() {
-                    top_scc.segment_size += 1;
-                }
-                BindingAction::Unwind
-            }
             SccState::HasPlaceholder => {
                 // Check for new cycles: this node is already in the SCC with a
                 // placeholder, but the current traversal path may have introduced
@@ -579,9 +575,9 @@ impl CalcStack {
     }
 
     /// Retrieve the placeholder Var from NodeState::HasPlaceholder in the top SCC.
-    /// Returns `Some(var)` if the node is a break_at node with a placeholder,
-    /// `None` otherwise. Used during calculate_and_record_answer to determine
-    /// whether finalize_recursive_answer needs to be called.
+    /// Returns `Some(var)` if the node has a placeholder, `None` otherwise.
+    /// Used during calculate_and_record_answer to determine whether
+    /// finalize_recursive_answer needs to be called.
     fn get_scc_placeholder_var(&self, current: &CalcId) -> Option<Var> {
         let scc_stack = self.scc_stack.borrow();
         scc_stack
@@ -691,13 +687,8 @@ impl CalcStack {
 
     /// Handle an SCC we just detected.
     ///
-    /// Return whether to break immediately (which is relatively common, since
-    /// we break on the minimal idx which is often where we detect the problem)
-    /// or continue recursing.
-    ///
     /// When a new SCC overlaps with existing SCCs (shares participants),
-    /// we merge them to form a larger SCC. The merged SCC uses the minimum
-    /// break_at CalcId of the two, which is sufficient as a single break point.
+    /// we merge them to form a larger SCC.
     ///
     /// Optimization: We use stack depth to efficiently find overlapping SCCs.
     /// The cycle spans CalcStack positions [N, M] where M = stack_depth - 1 and
@@ -861,7 +852,7 @@ impl CalcStack {
         canonical
     }
 
-    /// Track that a placeholder has been recorded for a break_at node.
+    /// Track that a placeholder has been recorded for a cycle-breaking node.
     ///
     /// Only the top SCC is checked because each node appears in at most one
     /// SCC, and placeholder recording happens during active cycle breaking
@@ -1048,7 +1039,18 @@ impl CalcStack {
 
     /// Mark a target node as `Done` in the top SCC's iteration state.
     ///
-    /// Panics if the top SCC is not iterating.
+    /// Silently does nothing if the top SCC is not iterating, which has never
+    /// been observed but seems to occur in the LSP (possibly related to indexing).
+    ///
+    /// This shouldn't be a correctness bug, because if no Scc is found or the top
+    /// Scc is not iterating, then there's nothing to set - almost certainly it
+    /// already finished, and skipping the update is fine.
+    ///
+    /// TODO(stroxler): while I'm fairly confident that it's not a correctness bug
+    /// to skip this update, it would be good to understand more clearly what the
+    /// flow is where we try to update an iteration state on an Scc that does not
+    /// exist. It's likely related to the discovery phase and possibly something
+    /// in our handling of `anchor_pos`.
     fn set_iteration_node_done(
         &self,
         target: &CalcId,
@@ -1057,11 +1059,12 @@ impl CalcStack {
         traces: Option<TraceSideEffects>,
     ) {
         let mut scc_stack = self.scc_stack.borrow_mut();
-        let top_scc = scc_stack.last_mut().expect("no SCC on the stack");
-        let iter_state = top_scc
-            .iterative
-            .as_mut()
-            .expect("top SCC is not iterating");
+        let Some(top_scc) = scc_stack.last_mut() else {
+            return;
+        };
+        let Some(iter_state) = top_scc.iterative.as_mut() else {
+            return;
+        };
         iter_state.node_states.insert(
             target.dupe(),
             IterationNodeState::Done {
@@ -1077,15 +1080,38 @@ impl CalcStack {
     /// Called when a node's answer differs from its previous-iteration answer,
     /// indicating the fixpoint has not yet converged.
     ///
-    /// Panics if the top SCC is not iterating.
+    /// Silently does nothing if the top SCC is not iterating. This can occur
+    /// in the LSP when the SCC is prematurely popped from the stack due to a
+    /// stale `anchor_pos` (see pyrefly-docs/scc-stack-invariants/v0-doc.md).
+    /// In that case the SCC has already been committed by a nested driver, so
+    /// there is no iteration state left to update and skipping is safe.
     fn mark_iteration_changed(&self) {
+        let mut scc_stack = self.scc_stack.borrow_mut();
+        let Some(top_scc) = scc_stack.last_mut() else {
+            return;
+        };
+        let Some(iter_state) = top_scc.iterative.as_mut() else {
+            return;
+        };
+        iter_state.has_changed = true;
+    }
+
+    /// Record `target` as a recursion break point in the top SCC's iteration state.
+    ///
+    /// Called when a back-edge hits `InProgressWithPreviousAnswer` — i.e., when
+    /// the cycle is broken by returning the previous-iteration answer. These
+    /// break points are where non-convergence errors should be reported, since
+    /// other non-converging members are downstream consequences.
+    ///
+    /// Panics if the top SCC is not iterating.
+    fn mark_recursion_break(&self, target: &CalcId) {
         let mut scc_stack = self.scc_stack.borrow_mut();
         let top_scc = scc_stack.last_mut().expect("no SCC on the stack");
         let iter_state = top_scc
             .iterative
             .as_mut()
             .expect("top SCC is not iterating");
-        iter_state.has_changed = true;
+        iter_state.recursion_breaks.insert(target.dupe());
     }
 
     /// Look up the previous-iteration answer for a target in the top SCC.
@@ -1263,7 +1289,7 @@ impl CalcStack {
 /// This replaces the previous stack-based tracking (recursion_stack, unwind_stack)
 /// with explicit state tracking. The state transitions are:
 /// - Fresh → InProgress (when we first encounter the node as a Participant)
-/// - InProgress → HasPlaceholder (when this is a break_at node and we record a placeholder)
+/// - InProgress → HasPlaceholder (when a placeholder is recorded for cycle breaking)
 /// - InProgress/HasPlaceholder → Done (when the node's calculation completes)
 ///
 /// The variants are ordered by "advancement" (Fresh < InProgress < HasPlaceholder < Done).
@@ -1274,9 +1300,9 @@ enum NodeState {
     Fresh,
     /// Node is currently being processed (on the Rust call stack).
     InProgress,
-    /// This is a break_at node: we've recorded a placeholder in SCC-local state
-    /// but haven't computed the real answer yet.
-    /// The Var is the placeholder variable recorded for this break_at node.
+    /// A placeholder has been recorded in SCC-local state for cycle breaking,
+    /// but we haven't computed the real answer yet.
+    /// The Var is the placeholder variable recorded for this node.
     HasPlaceholder(Var),
     /// Node's calculation has completed. Stores the type-erased answer and
     /// error collector for thread-local SCC isolation.
@@ -1326,16 +1352,12 @@ enum SccState {
     /// The current idx is in an active SCC but its calculation has already completed
     /// (NodeState::Done). A preliminary answer should be available.
     RevisitingDone,
-    /// This idx is part of the active SCC, and we are either (if this is a pre-calculation
-    /// check) recursing out toward `break_at` or unwinding back toward `break_at`.
+    /// This idx is part of the active SCC, and we are recursing into it for the
+    /// first time as a known SCC participant.
     Participant,
     /// This idx has already recorded a placeholder but hasn't computed the real
     /// answer yet. We should return the placeholder value.
     HasPlaceholder,
-    /// This idx is the `break_at` for the active SCC (matches the break_at CalcId
-    /// but hasn't recorded a placeholder yet), which means we have reached the end
-    /// of the recursion and should return a placeholder to our parent frame.
-    BreakAt,
 }
 
 /// Check if the given stack length is within an SCC's segment.
@@ -1409,6 +1431,11 @@ pub struct SccIterationState {
     /// the loop completes, ensuring each member is visited at most once
     /// per iteration regardless of how many merges occur.
     pub merge_happened: bool,
+    /// Members whose cycle was broken by returning a previous-iteration answer
+    /// (i.e., hit `InProgressWithPreviousAnswer`). These are the actual recursion
+    /// break points; other non-converging members are downstream consequences.
+    /// Used to limit non-convergence error reporting to only the break points.
+    pub recursion_breaks: BTreeSet<CalcId>,
 }
 
 /// Tracks the state of a node within a single iteration of iterative SCC solving.
@@ -1488,17 +1515,10 @@ impl IterationNodeState {
 ///
 /// This simplified model tracks SCC participants with explicit state rather than
 /// using separate recursion and unwind stacks. The Rust call stack naturally
-/// enforces LIFO ordering, so we only need to track:
-/// - Which idx is the anchor where we break the SCC
-/// - The state of each participant (Fresh/InProgress/Done)
+/// enforces LIFO ordering, so we only need to track the state of each
+/// participant (Fresh/InProgress/Done).
 #[derive(Debug, Clone)]
 pub struct Scc {
-    /// Where do we want to break the SCC.
-    ///
-    /// This is the minimum CalcId of the cycle's members. When SCCs overlap
-    /// and are merged, we take the minimum of the two break points so that
-    /// a single break point is sufficient for the merged SCC.
-    break_at: CalcId,
     /// State of each participant in this SCC.
     /// Keys are all participants; values track their computation state.
     node_state: BTreeMap<CalcId, NodeState>,
@@ -1526,8 +1546,8 @@ impl Display for Scc {
         let states: Vec<_> = self.node_state.iter().collect();
         write!(
             f,
-            "Scc{{break_at: {}, node_state: {:?}, detected_at: {}}}",
-            self.break_at, states, self.detected_at,
+            "Scc{{node_state: {:?}, detected_at: {}}}",
+            states, self.detected_at,
         )
     }
 }
@@ -1536,7 +1556,6 @@ impl Scc {
     #[allow(clippy::mutable_key_type)] // CalcId's Hash impl doesn't depend on mutable parts
     fn new(raw: Vec1<CalcId>, calc_stack_vec: &[CalcId]) -> Self {
         let detected_at = raw.first().dupe();
-        let (_, break_at) = raw.iter().enumerate().min_by_key(|(_, c)| *c).unwrap();
 
         // Initialize all nodes as Fresh
         let node_state: BTreeMap<CalcId, NodeState> =
@@ -1554,7 +1573,6 @@ impl Scc {
         let segment_size = calc_stack_vec.len() - anchor_pos;
 
         Scc {
-            break_at: break_at.dupe(),
             node_state,
             detected_at,
             anchor_pos,
@@ -1566,7 +1584,6 @@ impl Scc {
     /// Check if the current idx is a participant in this SCC and determine its state.
     ///
     /// Returns the appropriate SccState:
-    /// - BreakAt if this is the anchor where we produce a placeholder
     /// - Participant if this is a Fresh node (marks it as InProgress)
     /// - RevisitingInProgress if this idx is InProgress (back-edge through in-progress node)
     /// - RevisitingDone if this idx is Done (preliminary answer should exist)
@@ -1574,25 +1591,7 @@ impl Scc {
     ///
     /// When a Fresh node is encountered, it transitions to InProgress.
     fn pre_calculate_state(&mut self, current: &CalcId) -> SccState {
-        if self.break_at == *current {
-            // For break_at nodes that already have a placeholder or are Done,
-            // return the state-appropriate response. BreakAt (which triggers
-            // Unwind -> attempt_to_unwind_cycle_from_here -> on_placeholder_recorded)
-            // should only fire when the node is Fresh or InProgress, i.e. the
-            // break has not happened yet.
-            //
-            // Without this guard, revisiting a Done break_at node would cause
-            // on_placeholder_recorded to overwrite Done back to HasPlaceholder,
-            // losing the stored answer needed for batch commit.
-            if let Some(state) = self.node_state.get(current) {
-                match state {
-                    NodeState::HasPlaceholder(_) => return SccState::HasPlaceholder,
-                    NodeState::Done { .. } => return SccState::RevisitingDone,
-                    NodeState::Fresh | NodeState::InProgress => {}
-                }
-            }
-            SccState::BreakAt
-        } else if let Some(state) = self.node_state.get_mut(current) {
+        if let Some(state) = self.node_state.get_mut(current) {
             match state {
                 NodeState::Fresh => {
                     *state = NodeState::InProgress;
@@ -1659,7 +1658,7 @@ impl Scc {
         }
     }
 
-    /// Track that a placeholder has been recorded for a break_at node.
+    /// Track that a placeholder has been recorded for a cycle-breaking node.
     fn on_placeholder_recorded(&mut self, current: &CalcId, var: Var) {
         if let Some(state) = self.node_state.get_mut(current) {
             // Only upgrade: do not overwrite Done back to HasPlaceholder.
@@ -1676,8 +1675,8 @@ impl Scc {
         self.detected_at.dupe()
     }
 
-    /// Merge two SCCs into one, taking the minimum break point and the
-    /// most advanced state for each participant.
+    /// Merge two SCCs into one, taking the most advanced state for each
+    /// participant.
     ///
     /// If either SCC has iteration state (`iterative: Some(...)`), the merged
     /// SCC preserves existing iteration node states (Done/InProgress) from both
@@ -1690,9 +1689,6 @@ impl Scc {
     /// `iterative: None` but still has members in `node_state`.
     #[allow(clippy::mutable_key_type)]
     fn merge(mut self, other: Scc) -> Self {
-        // Take the minimum break_at: a single break point is sufficient after merge.
-        // The non-minimum CalcId becomes a Participant in the merged SCC.
-        self.break_at = self.break_at.min(other.break_at);
         // Union node_state maps (keep the more advanced state)
         for (k, v) in other.node_state {
             self.node_state
@@ -1773,6 +1769,7 @@ impl Scc {
                     demoted: false,
                     has_changed: false,
                     merge_happened: true,
+                    recursion_breaks: BTreeSet::new(),
                 })
             }
         };
@@ -1874,6 +1871,7 @@ impl Scc {
             demoted: false,
             has_changed: false,
             merge_happened: false,
+            recursion_breaks: BTreeSet::new(),
         });
     }
 }
@@ -1891,8 +1889,6 @@ impl Scc {
 /// we always pass the current `ThreadState`.
 pub struct ThreadState {
     stack: CalcStack,
-    #[allow(dead_code)] // Used by upcoming thread-local solver plumbing.
-    variables: RefCell<Variables>,
     /// For debugging only: thread-global that allows us to control debug logging across components.
     debug: RefCell<bool>,
     /// Configuration for recursion depth limiting. None means disabled.
@@ -1921,7 +1917,6 @@ impl ThreadState {
     pub fn new(recursion_limit_config: Option<RecursionLimitConfig>) -> Self {
         Self {
             stack: CalcStack::new(),
-            variables: RefCell::new(Variables::default()),
             debug: RefCell::new(false),
             recursion_limit_config,
             partial_answers: RefCell::new(FxHashMap::default()),
@@ -1974,11 +1969,6 @@ impl ThreadState {
         if let Some(sink) = self.trace_sink.borrow_mut().as_mut() {
             sink.invoked_properties.insert(loc, ty);
         }
-    }
-
-    #[allow(dead_code)] // Used by upcoming thread-local solver plumbing.
-    pub(crate) fn variables(&self) -> &RefCell<Variables> {
-        &self.variables
     }
 }
 
@@ -2148,6 +2138,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn module(&self) -> &ModuleInfo {
         self.bindings.module()
+    }
+
+    /// Look up the fields of a class from binding metadata.
+    ///
+    /// For same-module classes, reads directly from local bindings metadata.
+    /// For cross-module classes, delegates to `LookupAnswer::get_class_fields`
+    /// which caches metadata per module and registers class-level dependencies
+    /// for proper incremental invalidation.
+    ///
+    /// Returns `None` if the `ClassDefIndex` is stale (cross-module only;
+    /// same-module indices are always valid).
+    pub fn get_class_fields(&self, cls: &Class) -> Option<&ClassFields> {
+        if cls.module_path() == self.module().path() {
+            return Some(&self.bindings.metadata().get_class(cls.index()).fields);
+        }
+        self.answers.get_class_fields(cls)
     }
 
     pub(crate) fn set_lambda_param_var(&self, id: LambdaParamId, var: Var) {
@@ -2381,7 +2387,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return self.calculate_and_record_answer_iterative(current, idx);
         }
 
-        // Install trace sink if tracing is enabled for this module.
+        // Skip trace sink setup during cold-start iterations: their answers and
+        // diagnostics are intentionally discarded, so collecting trace side
+        // effects would only add avoidable allocation churn.
         let tracing_enabled = self.current().tracing_enabled();
         if tracing_enabled {
             self.thread_state.install_trace_sink();
@@ -2419,9 +2427,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // SCC path: store in NodeState::Done with batch commits to Calculation.
             // Phase 0 traces are discarded; only final iterative traces are kept.
             //
-            // If this is a break_at node (has a placeholder Var), we must finalize
-            // the recursive answer now, before storing. Finalization mutates solver
-            // state (force_var) and must happen during computation, not at batch commit.
+            // If this node has a placeholder Var (from cycle breaking), we must
+            // finalize the recursive answer now, before storing. Finalization
+            // mutates solver state (force_var) and must happen during computation,
+            // not at batch commit.
             let answer = if let Some(var) = self.stack().get_scc_placeholder_var(&current) {
                 self.finalize_recursive_answer::<K>(idx, var, raw_answer, &local_errors)
             } else {
@@ -2447,17 +2456,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Non-SCC path: write directly to Calculation as before.
             // No recursive placeholder can exist in the Calculation cell because
             // placeholders are stored only in SCC-local NodeState::HasPlaceholder.
-            let answer_for_write = self.finalize_answer_for_calculation_write::<K>(
-                raw_answer,
-                "calculate_and_record_answer non-SCC path",
-            );
-            let (answer, did_write) = calculation.record_value(answer_for_write);
+            let (answer, did_write) = calculation.record_value(raw_answer);
             if did_write {
                 self.base_errors.extend(local_errors);
                 // Publish trace side effects alongside errors.
-                if let Some(mut traces) = trace_side_effects {
-                    traces.finalize(self.current().solver());
-                    traces.debug_assert_var_free();
+                if let Some(traces) = trace_side_effects {
                     self.current().merge_trace_side_effects(traces);
                 }
             }
@@ -2551,6 +2554,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let range = K::range_with(idx, self.bindings());
 
         // Install trace sink if tracing is enabled for this module.
+        // We must always install a sink (even during cold iteration) to prevent
+        // traces from leaking into an outer trace sink owned by a different module.
+        // During cold iteration, the traces are discarded (just like errors).
         let tracing_enabled = self.current().tracing_enabled();
         if tracing_enabled {
             self.thread_state.install_trace_sink();
@@ -2568,14 +2574,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let raw_answer = K::solve(self, binding, range, &local_errors);
 
-        // Take accumulated traces.
+        // Take accumulated traces. Discard during cold iteration (like errors).
         let trace_side_effects = if tracing_enabled {
+            let traces = self.thread_state.take_trace_sink();
             if self.stack().is_cold_iteration() {
-                // Discard cold-start traces (matching error swallowing).
-                self.thread_state.take_trace_sink();
                 None
             } else {
-                self.thread_state.take_trace_sink()
+                traces
             }
         } else {
             None
@@ -2701,8 +2706,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .downcast::<Arc<K::Answer>>()
                 .expect("write_unlock_same_module: type mismatch in batch commit"),
         );
-        let typed_answer = self
-            .finalize_answer_for_calculation_write::<K>(typed_answer, "write_unlock_same_module");
         let calculation = self.get_calculation(idx);
         let (_answer, did_write) = calculation.write_unlock(typed_answer);
         if did_write {
@@ -2713,9 +2716,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
                 self.base_errors.extend(errors);
             }
-            if let Some(mut traces) = traces {
-                traces.finalize(self.current().solver());
-                traces.debug_assert_var_free();
+            if let Some(traces) = traces {
                 self.current().merge_trace_side_effects(traces);
             }
         }
@@ -2998,9 +2999,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             iteration += 1;
         }
 
-        // Report per-member errors for non-converging SCC members.
-        // Each member uses its own module's bindings and error collector
-        // because SCCs can span modules.
+        // Report non-convergence errors only at the recursion break points —
+        // the bindings where `InProgressWithPreviousAnswer` was hit, i.e., where
+        // the cycle was broken by returning a previous-iteration answer. Other
+        // non-converging members are downstream consequences and would produce
+        // noisy duplicate errors.
         let non_convergent_members: Vec<(
             CalcId,
             Arc<dyn Any + Send + Sync>,
@@ -3013,12 +3016,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .node_states
                 .iter()
                 .filter_map(|(calc_id, node_state)| match node_state {
-                    IterationNodeState::Done { answer, .. } => Some((
-                        calc_id.dupe(),
-                        answer.dupe(),
-                        iter_state.previous_answers.get(calc_id).cloned(),
-                    )),
-                    IterationNodeState::Fresh | IterationNodeState::InProgress { .. } => None,
+                    IterationNodeState::Done { answer, .. }
+                        if iter_state.recursion_breaks.contains(calc_id) =>
+                    {
+                        Some((
+                            calc_id.dupe(),
+                            answer.dupe(),
+                            iter_state.previous_answers.get(calc_id).cloned(),
+                        ))
+                    }
+                    _ => None,
                 })
                 .collect()
         } else {
@@ -3635,14 +3642,12 @@ mod scc_tests {
     /// due to duplicate CalcIds during cycle breaking.
     #[allow(clippy::mutable_key_type)]
     fn make_test_scc(
-        break_at: CalcId,
         node_state: BTreeMap<CalcId, NodeState>,
         detected_at: CalcId,
         anchor_pos: usize,
     ) -> Scc {
         let segment_size = node_state.len();
         Scc {
-            break_at,
             node_state,
             detected_at,
             anchor_pos,
@@ -3842,30 +3847,24 @@ mod scc_tests {
     }
 
     #[test]
-    fn test_merge_many_preserves_break_point() {
+    fn test_merge_many_preserves_members() {
         let a = CalcId::for_test("m", 0);
         let b = CalcId::for_test("m", 1);
         let c = CalcId::for_test("m", 2);
         let d = CalcId::for_test("m", 3);
 
-        // Create two SCCs with different break points; a < c by Ord on CalcId.
         let scc1 = make_test_scc(
-            a.dupe(),
             fresh_nodes(&[a.dupe(), b.dupe()]),
             a.dupe(),
             0, // anchor_pos
         );
         let scc2 = make_test_scc(
-            c.dupe(),
             fresh_nodes(&[c.dupe(), d.dupe()]),
             c.dupe(),
             2, // anchor_pos
         );
 
         let merged = Scc::merge_many(vec1![scc1, scc2], a.dupe());
-
-        // The merged SCC should use the minimum break point (a < c).
-        assert_eq!(merged.break_at, a);
 
         // All nodes should be present
         assert_eq!(merged.node_state.len(), 4);
@@ -3876,48 +3875,26 @@ mod scc_tests {
 
     #[test]
     #[allow(clippy::mutable_key_type)]
-    fn test_merged_scc_single_break_point_phase0() {
-        // Regression test: after merging two SCCs, a single break_at CalcId
-        // is sufficient. `pre_calculate_state` must return `BreakAt` for the
-        // merged break_at node and `Participant` (Fresh → InProgress) for all
-        // other members.
-        //
-        // Setup: SCC1 = {a, b} with break_at = a,
-        //        SCC2 = {c, d} with break_at = c.
-        // a < c by CalcId::Ord, so the merged break_at should be a.
+    fn test_merged_scc_pre_calculate_state() {
+        // After merging two SCCs, `pre_calculate_state` returns Participant
+        // (Fresh → InProgress) for all members.
         let a = CalcId::for_test("m", 0);
         let b = CalcId::for_test("m", 1);
         let c = CalcId::for_test("m", 2);
         let d = CalcId::for_test("m", 3);
 
-        let scc1 = make_test_scc(a.dupe(), fresh_nodes(&[a.dupe(), b.dupe()]), a.dupe(), 0);
-        let scc2 = make_test_scc(c.dupe(), fresh_nodes(&[c.dupe(), d.dupe()]), c.dupe(), 2);
+        let scc1 = make_test_scc(fresh_nodes(&[a.dupe(), b.dupe()]), a.dupe(), 0);
+        let scc2 = make_test_scc(fresh_nodes(&[c.dupe(), d.dupe()]), c.dupe(), 2);
 
         let mut merged = Scc::merge_many(vec1![scc1, scc2], a.dupe());
 
-        // The merged break point is the minimum: a.
-        assert_eq!(merged.break_at, a);
-
-        // pre_calculate_state for the break_at node returns BreakAt.
-        assert!(
-            matches!(merged.pre_calculate_state(&a), SccState::BreakAt),
-            "break_at node should return BreakAt"
-        );
-
-        // pre_calculate_state for the other members (b, c, d) transitions
-        // Fresh → InProgress and returns Participant.
-        assert!(
-            matches!(merged.pre_calculate_state(&b), SccState::Participant),
-            "non-break_at node b should return Participant"
-        );
-        assert!(
-            matches!(merged.pre_calculate_state(&c), SccState::Participant),
-            "non-break_at node c should return Participant"
-        );
-        assert!(
-            matches!(merged.pre_calculate_state(&d), SccState::Participant),
-            "non-break_at node d should return Participant"
-        );
+        // All Fresh members return Participant and transition to InProgress.
+        for calc_id in [&a, &b, &c, &d] {
+            assert!(
+                matches!(merged.pre_calculate_state(calc_id), SccState::Participant),
+                "Fresh node should return Participant"
+            );
+        }
     }
 
     #[test]
@@ -3930,13 +3907,13 @@ mod scc_tests {
         let mut scc1_state = BTreeMap::new();
         scc1_state.insert(a.dupe(), done_for_test());
         scc1_state.insert(b.dupe(), NodeState::Fresh);
-        let scc1 = make_test_scc(a.dupe(), scc1_state, a.dupe(), 0);
+        let scc1 = make_test_scc(scc1_state, a.dupe(), 0);
 
         // SCC2 has M0 as Fresh, M1 as InProgress
         let mut scc2_state = BTreeMap::new();
         scc2_state.insert(a.dupe(), NodeState::Fresh);
         scc2_state.insert(b.dupe(), NodeState::InProgress);
-        let scc2 = make_test_scc(a.dupe(), scc2_state, a.dupe(), 0);
+        let scc2 = make_test_scc(scc2_state, a.dupe(), 0);
 
         let merged = Scc::merge_many(vec1![scc1, scc2], a.dupe());
 
@@ -3957,9 +3934,9 @@ mod scc_tests {
         let b = CalcId::for_test("m", 1);
         let c = CalcId::for_test("m", 2);
         // SCC1 detected at M1
-        let scc1 = make_test_scc(a.dupe(), fresh_nodes(&[a.dupe(), b.dupe()]), b.dupe(), 0);
+        let scc1 = make_test_scc(fresh_nodes(&[a.dupe(), b.dupe()]), b.dupe(), 0);
         // SCC2 detected at M2
-        let scc2 = make_test_scc(a.dupe(), fresh_nodes(&[a.dupe(), c.dupe()]), c.dupe(), 0);
+        let scc2 = make_test_scc(fresh_nodes(&[a.dupe(), c.dupe()]), c.dupe(), 0);
         // When merging with M0 as the new detected_at, should keep M0 (smallest)
         let merged = Scc::merge_many(vec1![scc1, scc2], a.dupe());
         assert_eq!(merged.detected_at, a);
@@ -3972,9 +3949,9 @@ mod scc_tests {
         let c = CalcId::for_test("m", 2);
 
         // SCC1 with anchor_pos = 5
-        let scc1 = make_test_scc(a.dupe(), fresh_nodes(&[a.dupe(), b.dupe()]), a.dupe(), 5);
+        let scc1 = make_test_scc(fresh_nodes(&[a.dupe(), b.dupe()]), a.dupe(), 5);
         // SCC2 with anchor_pos = 2
-        let scc2 = make_test_scc(c.dupe(), fresh_nodes(&[c.dupe()]), c.dupe(), 2);
+        let scc2 = make_test_scc(fresh_nodes(&[c.dupe()]), c.dupe(), 2);
 
         let merged = Scc::merge_many(vec1![scc1, scc2], a.dupe());
 
@@ -4049,7 +4026,6 @@ mod scc_tests {
             .into_iter()
             .collect();
             Scc {
-                break_at: a.dupe(),
                 node_state,
                 detected_at: a.dupe(),
                 anchor_pos: 0,
@@ -4061,6 +4037,7 @@ mod scc_tests {
                     demoted: false,
                     has_changed: false,
                     merge_happened: false,
+                    recursion_breaks: BTreeSet::new(),
                 }),
             }
         };
@@ -4077,7 +4054,6 @@ mod scc_tests {
             .into_iter()
             .collect();
             Scc {
-                break_at: d.dupe(),
                 node_state,
                 detected_at: d.dupe(),
                 anchor_pos: 3,
@@ -4089,6 +4065,7 @@ mod scc_tests {
                     demoted: false,
                     has_changed: false,
                     merge_happened: false,
+                    recursion_breaks: BTreeSet::new(),
                 }),
             }
         };
@@ -4233,7 +4210,6 @@ mod scc_tests {
             .into_iter()
             .collect();
             Scc {
-                break_at: a.dupe(),
                 node_state,
                 detected_at: a.dupe(),
                 anchor_pos: 0,
@@ -4245,6 +4221,7 @@ mod scc_tests {
                     demoted: false,
                     has_changed: false,
                     merge_happened: false,
+                    recursion_breaks: BTreeSet::new(),
                 }),
             }
         };
@@ -4261,7 +4238,6 @@ mod scc_tests {
             .into_iter()
             .collect();
             Scc {
-                break_at: d.dupe(),
                 node_state,
                 detected_at: d.dupe(),
                 anchor_pos: 3,
@@ -4273,6 +4249,7 @@ mod scc_tests {
                     demoted: false,
                     has_changed: false,
                     merge_happened: false,
+                    recursion_breaks: BTreeSet::new(),
                 }),
             }
         };

@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock, PropertyMock
 
@@ -15,10 +16,16 @@ from pycarlo.features.ingestion.models import (
     ColumnLineageSourceField,
     LineageAssetRef,
     LineageEvent,
+    QueryLogEntry,
     RelationalAsset,
     Tag,
 )
 from pycarlo.features.ingestion.service import IngestionService
+
+
+def _dt(iso: str) -> datetime:
+    """Parse ISO8601 string to datetime for tests."""
+    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
 def _mock_client(scope: str = "Ingestion") -> MagicMock:
@@ -366,6 +373,105 @@ class TestSendLineage(TestCase):
         assert "unauthorized" in str(ctx.exception)
 
 
+# ---------------------------------------------------------------
+# send_query_logs
+# ---------------------------------------------------------------
+
+
+class TestSendQueryLogs(TestCase):
+    def test_sends_correct_payload(self):
+        client = _mock_client()
+        client.make_request.return_value = {"status": "ok"}
+        svc = IngestionService(mc_client=client)
+
+        entry = QueryLogEntry(
+            start_time=_dt("2026-03-02T10:00:00Z"),
+            end_time=_dt("2026-03-02T10:00:05Z"),
+            query_text="SELECT * FROM orders",
+            query_id="q-123",
+            returned_rows=100,
+        )
+
+        result = svc.send_query_logs(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[entry],
+        )
+
+        assert result == {"status": "ok"}
+        client.make_request.assert_called_once()
+        call_kwargs = client.make_request.call_args
+        assert call_kwargs.kwargs["path"] == "/ingest/v1/querylogs"
+        assert call_kwargs.kwargs["method"] == "POST"
+
+        body = call_kwargs.kwargs["body"]
+        assert body["event_type"] == "QUERY_LOG"
+        assert body["resource"]["uuid"] == "res-001"
+        assert body["resource"]["resource_type"] == "snowflake"
+        assert len(body["events"]) == 1
+        assert body["events"][0]["start_time"] == "2026-03-02T10:00:00Z"
+        assert body["events"][0]["query_text"] == "SELECT * FROM orders"
+        assert body["events"][0]["query_id"] == "q-123"
+        assert body["events"][0]["returned_rows"] == 100
+
+    def test_sends_multiple_events(self):
+        client = _mock_client()
+        client.make_request.return_value = None
+        svc = IngestionService(mc_client=client)
+
+        events = [
+            QueryLogEntry(
+                start_time=_dt("2026-03-02T10:00:00Z"),
+                end_time=_dt("2026-03-02T10:00:01Z"),
+                query_text=f"SELECT {i}",
+            )
+            for i in range(3)
+        ]
+
+        svc.send_query_logs(
+            resource_uuid="res-002",
+            resource_type="bigquery",
+            events=events,
+        )
+
+        body = client.make_request.call_args.kwargs["body"]
+        assert len(body["events"]) == 3
+
+    def test_raises_on_empty_events(self):
+        client = _mock_client()
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(ValueError):
+            svc.send_query_logs(
+                resource_uuid="res-003",
+                resource_type="snowflake",
+                events=[],
+            )
+        client.make_request.assert_not_called()
+
+    def test_wraps_http_error_as_ingestion_error(self):
+        client = _mock_client()
+        response = Mock(spec=Response)
+        response.text = '{"error": "unauthorized"}'
+        client.make_request.side_effect = HTTPError(response=response)
+
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(IngestionError) as ctx:
+            svc.send_query_logs(
+                resource_uuid="res-004",
+                resource_type="snowflake",
+                events=[
+                    QueryLogEntry(
+                        start_time=_dt("2026-03-02T10:00:00Z"),
+                        end_time=_dt("2026-03-02T10:00:01Z"),
+                        query_text="SELECT 1",
+                    ),
+                ],
+            )
+        assert "unauthorized" in str(ctx.exception)
+
+
 class TestSendLineageRaw(TestCase):
     def test_sends_raw_payload(self):
         client = _mock_client()
@@ -414,3 +520,42 @@ class TestSendLineageRaw(TestCase):
 
         with self.assertRaises(IngestionError):
             svc.send_lineage_raw(payload={"event_type": "LINEAGE"})
+
+
+class TestSendQueryLogsRaw(TestCase):
+    def test_sends_raw_payload(self):
+        client = _mock_client()
+        client.make_request.return_value = {"status": "ok"}
+        svc = IngestionService(mc_client=client)
+
+        raw = {
+            "event_type": "QUERY_LOG",
+            "resource": {"uuid": "r1", "resource_type": "snowflake"},
+            "events": [
+                {
+                    "start_time": "2026-03-02T10:00:00Z",
+                    "end_time": "2026-03-02T10:00:05Z",
+                    "query_text": "SELECT 1",
+                },
+            ],
+        }
+
+        result = svc.send_query_logs_raw(payload=raw)
+
+        assert result == {"status": "ok"}
+        client.make_request.assert_called_once_with(
+            path="/ingest/v1/querylogs",
+            method="POST",
+            body=raw,
+        )
+
+    def test_wraps_http_error(self):
+        client = _mock_client()
+        response = Mock(spec=Response)
+        response.text = "Bad Request"
+        client.make_request.side_effect = HTTPError(response=response)
+
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(IngestionError):
+            svc.send_query_logs_raw(payload={"event_type": "QUERY_LOG"})

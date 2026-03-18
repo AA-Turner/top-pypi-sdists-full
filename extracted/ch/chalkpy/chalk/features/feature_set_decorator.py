@@ -12,7 +12,23 @@ import types
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 import pyarrow as pa
 
@@ -22,7 +38,7 @@ from chalk.features._class_property import classproperty, classproperty_support
 from chalk.features._encoding.pyarrow import pyarrow_to_primitive
 from chalk.features.dataframe._impl import DataFrameMeta
 from chalk.features.feature_field import Feature, VersionInfo
-from chalk.features.feature_set import ClassSource, Features, CURRENT_FEATURE_REGISTRY
+from chalk.features.feature_set import Features, CURRENT_FEATURE_REGISTRY
 from chalk.features.feature_time import feature_time
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.namespace_context import build_namespaced_name
@@ -48,13 +64,16 @@ from chalk.features.feature_cache_strategy import (
 )
 
 if TYPE_CHECKING:
-    from chalk_rs import FeatureFieldAST
+    from chalk_rs import FeatureClassAST, FeatureFieldAST
 
 T = TypeVar("T")
 
 GENERATED_OBSERVED_AT_NAME = "__chalk_observed_at__"
 
 __all__ = ["features"]
+
+def _get_class_definition_location(class_ast: FeatureClassAST | None) -> tuple[int, int, int, int] | None:
+    return None if class_ast is None else class_ast.class_definition_location
 
 
 @overload
@@ -182,12 +201,22 @@ def features(
         namespace = name if name is not None else to_snake_case(c.__name__)
         namespace = build_namespaced_name(name=namespace)
 
-        source_info = ClassSource(c)
-
+        try:
+            class_file_path = Path(inspect.getfile(c)).resolve()
+        except (OSError, TypeError):
+            class_file_path = None
+        ast_index = get_project_ast_context()
+        feature_class_ast = None
+        if class_file_path is not None:
+            feature_class_ast = ast_index.feature_class_ast_in_file(str(class_file_path), c.__name__)
+        if feature_class_ast is None:
+            feature_class_ast = ast_index.feature_class_ast(c.__module__, c.__name__)
+        class_source = None if feature_class_ast is None else feature_class_ast.source
+        class_filename = str(class_file_path) if class_file_path is not None else None
         error_builder = FeatureClassErrorBuilder(
-            uri=source_info.filename if source_info.filename is not None else "__main__",
+            uri=class_filename or "__main__",
             namespace=namespace,
-            node=source_info and source_info.tree,
+            range_node=feature_class_ast,
         )
         nonlocal max_staleness
         if name is not None and re.sub(r"[^a-z_0-9]", "", namespace) != namespace:
@@ -225,24 +254,28 @@ def features(
                     code="13",
                 )
 
-        cache_strategy = get_cache_strategy_from_cache_settings(
-            cache_nulls=cache_nulls,
-            cache_defaults=cache_defaults
-        )
+        cache_strategy = get_cache_strategy_from_cache_settings(cache_nulls=cache_nulls, cache_defaults=cache_defaults)
 
         registry = CURRENT_FEATURE_REGISTRY.get()
         registry_features = registry.get_feature_sets()
         previous_features_class = registry_features.get(namespace, None)
+        previous_feature_class_ast = (
+            None if previous_features_class is None else previous_features_class.__chalk_feature_class_ast__
+        )
+        class_definition_location = _get_class_definition_location(feature_class_ast)
+        previous_class_definition_location = _get_class_definition_location(previous_feature_class_ast)
 
         if (
             previous_features_class is not None
             and not notebook.is_notebook()
-            and source_info.tree is not None
-            and previous_features_class.__chalk_source_info__.tree is not None
             and (
-                source_info.filename != previous_features_class.__chalk_filename__
-                or source_info.tree.lineno != previous_features_class.__chalk_source_info__.tree.lineno
-                or source_info.class_source != previous_features_class.__chalk_source_info__.class_source
+                class_filename != previous_features_class.__chalk_filename__
+                or class_source != previous_features_class.__chalk_source__
+                or (
+                    class_definition_location is not None
+                    and previous_class_definition_location is not None
+                    and class_definition_location != previous_class_definition_location
+                )
             )
         ):
             error_builder.add_diagnostic(
@@ -269,7 +302,9 @@ def features(
 
         updated_class = _process_class(
             cls=c,
-            source_info=source_info,
+            class_filename=class_filename,
+            class_source=class_source,
+            feature_class_ast=feature_class_ast,
             error_builder=error_builder,
             owner=owner,
             tags=ensure_tuple(tags),
@@ -399,13 +434,18 @@ def _init_fn(
                     pass
 
             cls_field = getattr(self.__class__, actual_key, None)
-            if type(cls_field) is not FeatureWrapper and actual_key not in additional_inits and actual_key != ts_feature_name:
+            if (
+                type(cls_field) is not FeatureWrapper
+                and actual_key not in additional_inits
+                and actual_key != ts_feature_name
+            ):
                 raise TypeError(f"{self.__class__.__name__}.__init__() got an unexpected keyword argument '{k}'")
 
             setattr(self, actual_key, v)
 
     _init.__name__ = "__init__"
     return _init
+
 
 def _get_field(
     cls: Type,
@@ -573,11 +613,11 @@ def _process_field(
         f.max_staleness = class_max_staleness
 
     f_cache_nulls, f_cache_defaults = get_cache_settings_from_strategy(f.cache_strategy)
-    class_cache_nulls, class_cache_defaults =  get_cache_settings_from_strategy(class_cache_strategy)
+    class_cache_nulls, class_cache_defaults = get_cache_settings_from_strategy(class_cache_strategy)
 
     f.cache_strategy = get_cache_strategy_from_cache_settings(
-        cache_nulls= f_cache_nulls if f_cache_nulls is not None else class_cache_nulls,
-        cache_defaults= f_cache_defaults if f_cache_defaults is not None else class_cache_defaults,
+        cache_nulls=f_cache_nulls if f_cache_nulls is not None else class_cache_nulls,
+        cache_defaults=f_cache_defaults if f_cache_defaults is not None else class_cache_defaults,
     )
 
     # Using the private variable because the etl_offline_to_online is a read-only property
@@ -642,6 +682,7 @@ def _iter_fn(self: Features):
 
 
 _iter_fn.__name__ = "__iter__"
+
 
 def _expand_windowed_comment_metadata(
     metadata_by_field: Mapping[str, FeatureFieldAST],
@@ -861,7 +902,9 @@ def _validate_windowed(
 
 def _process_class(
     cls: Type[T],
-    source_info: ClassSource,
+    class_filename: str | None,
+    class_source: str | None,
+    feature_class_ast: FeatureClassAST | None,
     error_builder: FeatureClassErrorBuilder,
     owner: Optional[str],
     tags: Tuple[str, ...],
@@ -936,9 +979,7 @@ def _process_class(
                 }
 
                 # All versions must be windowed — mixing windowed() and feature() is not allowed
-                non_windowed_versions = {
-                    k: v for k, v in wind.version.reference.items() if not isinstance(v, Windowed)
-                }
+                non_windowed_versions = {k: v for k, v in wind.version.reference.items() if not isinstance(v, Windowed)}
                 if non_windowed_versions:
                     bad_keys = ", ".join(str(k) for k in sorted(non_windowed_versions.keys()))
                     error_builder.add_diagnostic(
@@ -989,8 +1030,7 @@ def _process_class(
                 # Create pseudo-features for each bucket across all versions
                 for bucket_s in sorted(all_bucket_seconds):
                     versions_with_bucket = {
-                        ver: w for ver, w in windowed_versions.items()
-                        if bucket_s in w.buckets_seconds
+                        ver: w for ver, w in windowed_versions.items() if bucket_s in w.buckets_seconds
                     }
                     default_has_bucket = default_ver in versions_with_bucket
                     source_ver = default_ver if default_has_bucket else min(versions_with_bucket.keys())
@@ -1042,9 +1082,7 @@ def _process_class(
                     if bucket_str is not None:
                         alias = f"{name}_{bucket_str}"
                         additional_inits.append(alias)
-                        alias_from_to[
-                            get_name_with_duration(name_or_fqn=name, duration=bucket_s)
-                        ] = alias
+                        alias_from_to[get_name_with_duration(name_or_fqn=name, duration=bucket_s)] = alias
 
                 # Set up the root feature with window_durations for all buckets
                 root_feat = default_wind._to_feature(bucket=None)
@@ -1229,13 +1267,9 @@ def _process_class(
         cls=cls, name="__chalk_online_store_config__", value=(online_store_config and online_store_config.id)
     )
     set_new_attribute(cls=cls, name="__chalk_error_builder__", value=error_builder)
-    cls_filename: str | None = None
-    module = getattr(cls, "__module__", None)
-    if module:
-        cls_filename = getattr(sys.modules.get(module), "__file__", None)
-    set_new_attribute(cls=cls, name="__chalk_filename__", value=cls_filename)
-    set_new_attribute(cls=cls, name="__chalk_source__", value=source_info.dedent_source)
-    set_new_attribute(cls=cls, name="__chalk_source_info__", value=source_info)
+    set_new_attribute(cls=cls, name="__chalk_filename__", value=class_filename)
+    set_new_attribute(cls=cls, name="__chalk_source__", value=class_source)
+    set_new_attribute(cls=cls, name="__chalk_feature_class_ast__", value=feature_class_ast)
     set_new_attribute(cls=cls, name="__chalk_materialized_windows__", value=materialized_windows)
     set_new_attribute(cls=cls, name="__chalk_group_by_materialized_windows__", value=group_by_materialized_windows)
     set_new_attribute(cls=cls, name="__chalk_expression_windows__", value=expression_windows)
@@ -1386,12 +1420,8 @@ def _process_class(
     )
 
     comment_metadata: Mapping[str, FeatureFieldAST] = {}
-    ast_index = get_project_ast_context()
-    if cls_filename is not None:
-        file_path = Path(cls_filename).resolve()
-        feature_class_ast = ast_index.feature_class_ast_in_file(str(file_path), cls.__name__)
-        if feature_class_ast is not None:
-            comment_metadata = _expand_windowed_comment_metadata(feature_class_ast.fields, cls.__annotations__)
+    if feature_class_ast is not None:
+        comment_metadata = _expand_windowed_comment_metadata(feature_class_ast.fields, cls.__annotations__)
 
     # Moving this line lower causes all kinds of problems.
     cls = classproperty_support(cls)

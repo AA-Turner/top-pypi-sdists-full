@@ -102,6 +102,7 @@ from .literals import (
     MLUserDataEncryptionModeStringType,
     NodeTypeType,
     OAuth2GrantTypeType,
+    OverwriteChildResourcePermissionsWithDefaultEnumType,
     ParamTypeType,
     ParquetCompressionTypeType,
     PartitionIndexStatusType,
@@ -7499,6 +7500,9 @@ class CatalogInputTypeDef(TypedDict):
     CreateTableDefaultPermissions: NotRequired[Sequence[PrincipalPermissionsUnionTypeDef]]
     CreateDatabaseDefaultPermissions: NotRequired[Sequence[PrincipalPermissionsUnionTypeDef]]
     AllowFullTableExternalDataAccess: NotRequired[AllowFullTableExternalDataAccessEnumType]
+    OverwriteChildResourcePermissionsWithDefault: NotRequired[
+        OverwriteChildResourcePermissionsWithDefaultEnumType
+    ]
 
 class DatabaseInputTypeDef(TypedDict):
     Name: str

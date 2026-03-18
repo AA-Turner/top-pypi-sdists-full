@@ -33,6 +33,8 @@ from legit_api_client.models.broker_dto import BrokerDto
 from legit_api_client.models.broker_status import BrokerStatus
 from legit_api_client.models.business_impact import BusinessImpact
 from legit_api_client.models.category import Category
+from legit_api_client.models.certificate_dto import CertificateDto
+from legit_api_client.models.certificate_status import CertificateStatus
 from legit_api_client.models.closing_reason import ClosingReason
 from legit_api_client.models.cloud_instance_dto import CloudInstanceDto
 from legit_api_client.models.cloud_instances_to_containers_operation_dto import CloudInstancesToContainersOperationDto
@@ -58,6 +60,7 @@ from legit_api_client.models.control_type import ControlType
 from legit_api_client.models.correlated_cloud_instance import CorrelatedCloudInstance
 from legit_api_client.models.correlated_repository_dto import CorrelatedRepositoryDto
 from legit_api_client.models.create_automatic_check_dto import CreateAutomaticCheckDto
+from legit_api_client.models.create_certificate_dto import CreateCertificateDto
 from legit_api_client.models.create_issues_tag_dto import CreateIssuesTagDto
 from legit_api_client.models.create_product_unit_bad_request_dto import CreateProductUnitBadRequestDto
 from legit_api_client.models.create_product_unit_dto import CreateProductUnitDto
@@ -196,6 +199,7 @@ from legit_api_client.models.source_dto import SourceDto
 from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto
 from legit_api_client.models.tag_source import TagSource
+from legit_api_client.models.upload_certificate_dto import UploadCertificateDto
 from legit_api_client.models.user_dto import UserDto
 from legit_api_client.models.user_permission import UserPermission
 from legit_api_client.models.user_role import UserRole

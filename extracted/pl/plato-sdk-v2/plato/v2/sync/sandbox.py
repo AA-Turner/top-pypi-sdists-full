@@ -1175,16 +1175,18 @@ class SandboxClient:
 
         plato_config = cast(dict[str, object], raw_plato_config)
         datasets = plato_config.get("datasets")
-        if not isinstance(datasets, dict):
-            raise ValueError(f"Invalid plato config in {config_source}: missing 'datasets' mapping")
-
-        datasets = cast(dict[str, object], datasets)
-        dataset_config = datasets.get(dataset)
-        if dataset_config is None:
-            available_datasets = sorted(str(name) for name in datasets.keys())
-            raise ValueError(
-                f"Dataset '{dataset}' not found in {config_source}. Available datasets: {available_datasets}"
-            )
+        if isinstance(datasets, dict):
+            datasets = cast(dict[str, object], datasets)
+            dataset_config = datasets.get(dataset)
+            if dataset_config is None:
+                available_datasets = sorted(str(name) for name in datasets.keys())
+                raise ValueError(
+                    f"Dataset '{dataset}' not found in {config_source}. Available datasets: {available_datasets}"
+                )
+        else:
+            # Config without a datasets wrapper — treat the top-level mapping as the
+            # dataset config directly (some artifacts store it this way).
+            dataset_config = plato_config
 
         return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
 

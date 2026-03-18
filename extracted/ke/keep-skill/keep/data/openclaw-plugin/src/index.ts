@@ -1,16 +1,8 @@
 /**
  * keep — OpenClaw plugin
  *
- * Context engine + legacy hooks for backward compatibility.
- *
- * When activated as a context engine (plugins.slots.contextEngine: keep),
- * keep owns context assembly and message ingestion via MCP.
- *
- * When running as a plain plugin (no context engine slot), falls back to
- * the original hook-based behavior (execFileSync to keep CLI).
- *
- * MCP transport: persistent `keep mcp` stdio process, spawned at gateway
- * start, all calls go through keep_flow / keep_prompt tools.
+ * Context engine for OpenClaw. Requires plugins.slots.contextEngine: 'keep'.
+ * Note remaining hook: session_end (no CE onSessionEnd lifecycle).
  */
 
 import { execFileSync } from "child_process";
@@ -19,7 +11,7 @@ import fs from "node:fs";
 import { KeepMcpTransport } from "./mcp-transport.js";
 
 // ---------------------------------------------------------------------------
-// Legacy CLI helpers (used when NOT in context-engine mode, or as fallback)
+// Startup check
 // ---------------------------------------------------------------------------
 
 function keepAvailable(): boolean {
@@ -28,30 +20,6 @@ function keepAvailable(): boolean {
     return true;
   } catch {
     return false;
-  }
-}
-
-function runKeep(args: string[], input?: string): string | null {
-  try {
-    return execFileSync("keep", args, {
-      encoding: "utf-8",
-      timeout: 5000,
-      input: input ?? "",
-    }).trim();
-  } catch {
-    return null;
-  }
-}
-
-function runKeepLong(args: string[], timeoutMs: number = 60000): string | null {
-  try {
-    return execFileSync("keep", args, {
-      encoding: "utf-8",
-      timeout: timeoutMs,
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
-  } catch {
-    return null;
   }
 }
 
@@ -87,23 +55,6 @@ function estimateTokens(text: string): number {
 
 // Roles worth ingesting into keep's now trace.
 const INGEST_ROLES = new Set(["user", "assistant"]);
-
-// Static practice instructions injected via appendSystemContext.
-// This goes into the cacheable system prompt (prompt caching friendly).
-const PRACTICE_INSTRUCTIONS = `## keep: Reflective Memory
-
-Context from keep is injected automatically. You also have voluntary access:
-
-\`\`\`
-keep prompt reflect                              # Full reflection practice
-keep flow get-context -p item_id=now             # Current intentions + context
-keep flow query-resolve -p query="topic"         # Semantic search
-keep flow put -p content="insight" -p 'tags={"type":"learning"}'  # Capture
-keep flow put -p content="next steps" -p id=now  # Update intentions
-\`\`\`
-
-Reflect before significant actions, capture learnings after.`;
-
 
 // ---------------------------------------------------------------------------
 // Plugin registration
@@ -214,12 +165,11 @@ export default function register(api: any) {
     },
   });
 
-  // Track whether we're operating as context engine.
-  // Set when the factory is invoked (slot activation), not in bootstrap.
-  let isContextEngine = false;
-
   // Track first assemble per session for session-start context.
   const sessionFirstAssemble = new Set<string>();
+
+  // Track whether workspace watches have been set up.
+  let watchesInitialized = false;
 
   // ---------------------------------------------------------------------------
   // Config helpers
@@ -228,6 +178,8 @@ export default function register(api: any) {
   function getConfig(): {
     contextBudgetRatio: number;
     captureHeartbeats: boolean;
+    indexPaths: string[];
+    indexExclude: string[];
   } {
     const cfg = api.pluginConfig ?? {};
     return {
@@ -235,7 +187,57 @@ export default function register(api: any) {
         ? Math.max(0, Math.min(1, cfg.contextBudgetRatio))
         : 0.3,
       captureHeartbeats: cfg.captureHeartbeats === true,
+      indexPaths: Array.isArray(cfg.indexPaths) ? cfg.indexPaths : ["./"],
+      indexExclude: Array.isArray(cfg.indexExclude) ? cfg.indexExclude : [],
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Workspace watches: use keep's daemon-driven --watch to keep index fresh
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Ensure watches exist for configured indexPaths. Uses `keep put --watch`
+   * via CLI (one-time setup). The daemon polls for changes automatically.
+   * Excludes are captured at watch-creation time.
+   */
+  function ensureWatches(workspaceDir: string): void {
+    if (watchesInitialized) return;
+    watchesInitialized = true;
+
+    const cfg = getConfig();
+
+    for (const relPath of cfg.indexPaths) {
+      const absPath = path.resolve(workspaceDir, relPath);
+      if (!fs.existsSync(absPath)) continue;
+
+      const stat = fs.statSync(absPath);
+      const source = stat.isDirectory() ? absPath : `file://${absPath}`;
+
+      // Build CLI args: keep put <path> -r --watch [--exclude ...]
+      const args: string[] = ["put", absPath];
+      if (stat.isDirectory()) args.push("-r");
+      args.push("--watch");
+      for (const pattern of cfg.indexExclude) {
+        args.push("--exclude", pattern);
+      }
+
+      try {
+        execFileSync("keep", args, {
+          encoding: "utf-8",
+          timeout: 30_000,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        api.logger?.info(`[keep] Watch set up for ${relPath}`);
+      } catch (err: any) {
+        // "Already watching" is fine — means a previous session set it up
+        if (err.stderr?.includes("Already watching") || err.message?.includes("Already watching")) {
+          api.logger?.debug(`[keep] Watch already active for ${relPath}`);
+        } else {
+          api.logger?.warn(`[keep] Failed to set up watch for ${relPath}: ${err.message}`);
+        }
+      }
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -262,15 +264,13 @@ export default function register(api: any) {
   // -----------------------------------------------------------------------
 
   api.registerContextEngine("keep", () => {
-    // Mark as active when factory is invoked by OpenClaw slot resolution.
-    isContextEngine = true;
     api.logger?.info("[keep] Context engine activated");
 
     return {
       info: {
         id: "keep",
         name: "keep reflective memory",
-        version: "0.100.0",
+        version: "0.103.0",
         ownsCompaction: false, // v0.99: don't own compaction yet
       },
 
@@ -476,12 +476,23 @@ export default function register(api: any) {
 
           const keepTokens = estimateTokens(contextText);
 
+          // Build systemPromptAddition
+          const parts: string[] = [];
+          if (contextText) parts.push(`\`keep context\`:\n${contextText}`);
+
+          // On first turn, hint that keep tools are available via MCP
+          if (isFirstAssemble) {
+            parts.push(
+              `\`keep tools\`: keep_flow, keep_help, and keep_prompt are available as tools. ` +
+              `If unfamiliar with keep, start with keep_help(topic="flow-actions") ` +
+              `and keep_help(topic="index") to learn the full capability set.`
+            );
+          }
+
           return {
             messages: params.messages,
             estimatedTokens: conversationTokens + keepTokens,
-            systemPromptAddition: contextText
-              ? `\`keep context\`:\n${contextText}`
-              : undefined,
+            systemPromptAddition: parts.length > 0 ? parts.join("\n\n") : undefined,
           };
         } catch (err: any) {
           api.logger?.warn(`[keep] assemble error: ${err.message}`);
@@ -509,6 +520,13 @@ export default function register(api: any) {
       }) {
         if (params.isHeartbeat) return;
         if (!mcp.connected) return;
+
+        // Ensure workspace watches are set up (once per gateway lifetime).
+        // Watches keep the index fresh via daemon polling — no per-turn walking.
+        const workspaceDir = params.runtimeContext?.workspaceDir as string;
+        if (workspaceDir && !watchesInitialized) {
+          try { ensureWatches(workspaceDir); } catch {}
+        }
 
         // Identify new messages from this turn
         const newMessages = params.messages.slice(params.prePromptMessageCount);
@@ -579,6 +597,10 @@ export default function register(api: any) {
             });
           }
 
+          // Workspace indexing is handled by daemon watches — no manual
+          // re-index needed here. Session file indexing above is kept
+          // because session transcripts aren't in the workspace.
+
           if (params.currentTokenCount) {
             api.logger?.debug(
               `[keep] compact advisory: ${params.currentTokenCount} tokens, ` +
@@ -596,145 +618,17 @@ export default function register(api: any) {
 
       async dispose() {
         sessionFirstAssemble.clear();
+        watchesInitialized = false;
         // Transport cleanup handled by gateway_stop hook
       },
     };
   });
 
   // -----------------------------------------------------------------------
-  // Legacy hooks (active when NOT in context-engine mode)
+  // Legacy hooks (session_end only)
   // -----------------------------------------------------------------------
 
-  // Before prompt build: update intentions with user prompt, inject context.
-  // Skipped when context engine is active (assemble() handles it).
-  api.on(
-    "before_prompt_build",
-    async (event: any, ctx: any) => {
-      // In context-engine mode, assemble() handles dynamic context.
-      // But we still use this hook for static practice instructions
-      // via appendSystemContext (cacheable by providers).
-      if (isContextEngine) {
-        return {
-          appendSystemContext: PRACTICE_INSTRUCTIONS,
-        };
-      }
-
-      const sid = ctx?.sessionId || ctx?.sessionKey;
-
-      let convInfo = "";
-      let userText = event.prompt || "";
-      const fenceEnd = userText.indexOf("```\n\n");
-      if (fenceEnd !== -1 && userText.startsWith("Conversation info")) {
-        convInfo = userText.slice(0, fenceEnd + 4);
-        userText = userText.slice(fenceEnd + 5);
-      }
-
-      let now: string | null = null;
-      const trimmed = userText.trim();
-
-      // Try MCP first, fall back to CLI
-      if (mcp.connected) {
-        try {
-          if (trimmed) {
-            const tags: Record<string, string> = {};
-            if (sid) tags.session = sid;
-
-            await mcp.flow({
-              state: "put",
-              params: {
-                content: truncate(trimmed, 500),
-                id: "now",
-                tags,
-              },
-            });
-          }
-          const result = await mcp.flow({
-            state: "get-context",
-            params: { item_id: "now" },
-            token_budget: 3000,
-          });
-          now = result.text || formatAssembleData(result.data || {});
-        } catch {
-          now = null; // fall through to CLI
-        }
-      }
-
-      // CLI fallback
-      if (!now) {
-        if (trimmed) {
-          const args = ["now", "-n", "10"];
-          if (sid) args.push("-t", `session=${sid}`);
-          now = runKeep(args, truncate(trimmed, 500));
-        } else {
-          now = runKeep(["now", "-n", "10"]);
-        }
-      }
-
-      if (!now) return;
-
-      const prefix = convInfo ? `${convInfo}\n\n` : "";
-      return {
-        prependContext: `${prefix}\`keep now\`:\n${now}`,
-      };
-    },
-    { priority: 10 },
-  );
-
-  // After compaction: index workspace memory files.
-  // Active in both modes — memory indexing is always useful.
-  api.on(
-    "after_compaction",
-    async (_event: any, ctx: any) => {
-      const workspaceDir = ctx?.workspaceDir;
-      if (!workspaceDir) return;
-
-      const memoryDir = path.join(workspaceDir, "memory");
-      const memoryMd = path.join(workspaceDir, "MEMORY.md");
-      let indexed = 0;
-
-      if (fs.existsSync(memoryDir)) {
-        api.logger?.debug("[keep] Indexing memory/ after compaction");
-        if (mcp.connected) {
-          try {
-            await mcp.flow({
-              state: "put",
-              params: { uri: `file://${memoryDir}/` },
-            });
-            indexed++;
-          } catch {
-            if (runKeepLong(["put", `${memoryDir}/`], 30000)) indexed++;
-          }
-        } else {
-          if (runKeepLong(["put", `${memoryDir}/`], 30000)) indexed++;
-        }
-      }
-
-      if (fs.existsSync(memoryMd)) {
-        api.logger?.debug("[keep] Indexing MEMORY.md after compaction");
-        if (mcp.connected) {
-          try {
-            await mcp.flow({
-              state: "put",
-              params: { uri: `file://${memoryMd}` },
-            });
-            indexed++;
-          } catch {
-            if (runKeepLong(["put", memoryMd], 10000)) indexed++;
-          }
-        } else {
-          if (runKeepLong(["put", memoryMd], 10000)) indexed++;
-        }
-      }
-
-      if (indexed > 0) {
-        api.logger?.info("[keep] Post-compaction memory sync complete");
-      }
-    },
-    { priority: 20 },
-  );
-
-  // Session end: archive session versions from now.
-  // Active in both modes.
+  // No CE onSessionEnd lifecycle exists, so this must stay as a hook
   api.on(
     "session_end",
     async (_event: any, ctx: any) => {
@@ -750,20 +644,19 @@ export default function register(api: any) {
               tags: { session: key },
             },
           });
+          api.logger?.info(`[keep] Session ${key} archived via MCP`);
           return;
-        } catch {
-          // fall through to CLI
+        } catch (err: any) {
+          api.logger?.error(`[keep] session_end MCP error: ${err.message}`);
         }
+      } else {
+        api.logger?.warn("[keep] session_end: MCP not connected, cannot archive");
       }
-      runKeepLong(["move", `session-${key}`, "-t", `session=${key}`]);
     },
     { priority: 10 },
   );
 
-  api.logger?.info(
-    "[keep] Registered: context engine + hooks " +
-      "(before_prompt_build, after_compaction, session_end)",
-  );
+  api.logger?.info("[keep] Registered: context engine + session_end hook");
 }
 
 // ---------------------------------------------------------------------------

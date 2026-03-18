@@ -18,6 +18,7 @@ from ..models.run_trigger_type import RunTriggerType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.pipeline_run_summary_response import PipelineRunSummaryResponse
     from ..models.script_response import ScriptResponse
 
 
@@ -41,6 +42,8 @@ class DetailedRunResponse:
         workspace_id (UUID): The ID of the workspace the run belongs to
         duration (Union[None, Unset, int]): The duration of the run in seconds (null if not yet completed)
         logs (Union[None, Unset, str]): A link to the logs of the run
+        pipeline_run_summaries (Union[Unset, list['PipelineRunSummaryResponse']]): Pipeline run summaries linked to this
+            job run, populated by telemetry
         profile (Union[None, Unset, str]): The name of the profile that was used for the run
         time_ended (Union[None, Unset, datetime.datetime]): The time the run ended
         time_started (Union[None, Unset, datetime.datetime]): The time the run started
@@ -60,6 +63,7 @@ class DetailedRunResponse:
     workspace_id: UUID
     duration: Union[None, Unset, int] = UNSET
     logs: Union[None, Unset, str] = UNSET
+    pipeline_run_summaries: Union[Unset, list["PipelineRunSummaryResponse"]] = UNSET
     profile: Union[None, Unset, str] = UNSET
     time_ended: Union[None, Unset, datetime.datetime] = UNSET
     time_started: Union[None, Unset, datetime.datetime] = UNSET
@@ -100,6 +104,13 @@ class DetailedRunResponse:
             logs = UNSET
         else:
             logs = self.logs
+
+        pipeline_run_summaries: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.pipeline_run_summaries, Unset):
+            pipeline_run_summaries = []
+            for pipeline_run_summaries_item_data in self.pipeline_run_summaries:
+                pipeline_run_summaries_item = pipeline_run_summaries_item_data.to_dict()
+                pipeline_run_summaries.append(pipeline_run_summaries_item)
 
         profile: Union[None, Unset, str]
         if isinstance(self.profile, Unset):
@@ -152,6 +163,8 @@ class DetailedRunResponse:
             field_dict["duration"] = duration
         if logs is not UNSET:
             field_dict["logs"] = logs
+        if pipeline_run_summaries is not UNSET:
+            field_dict["pipeline_run_summaries"] = pipeline_run_summaries
         if profile is not UNSET:
             field_dict["profile"] = profile
         if time_ended is not UNSET:
@@ -165,6 +178,7 @@ class DetailedRunResponse:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.pipeline_run_summary_response import PipelineRunSummaryResponse
         from ..models.script_response import ScriptResponse
 
         d = dict(src_dict)
@@ -207,6 +221,15 @@ class DetailedRunResponse:
             return cast(Union[None, Unset, str], data)
 
         logs = _parse_logs(d.pop("logs", UNSET))
+
+        pipeline_run_summaries = []
+        _pipeline_run_summaries = d.pop("pipeline_run_summaries", UNSET)
+        for pipeline_run_summaries_item_data in _pipeline_run_summaries or []:
+            pipeline_run_summaries_item = PipelineRunSummaryResponse.from_dict(
+                pipeline_run_summaries_item_data
+            )
+
+            pipeline_run_summaries.append(pipeline_run_summaries_item)
 
         def _parse_profile(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -282,6 +305,7 @@ class DetailedRunResponse:
             workspace_id=workspace_id,
             duration=duration,
             logs=logs,
+            pipeline_run_summaries=pipeline_run_summaries,
             profile=profile,
             time_ended=time_ended,
             time_started=time_started,

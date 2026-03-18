@@ -10,6 +10,7 @@
 
 use pyrefly_types::callable::Params;
 use pyrefly_types::class::Class;
+use pyrefly_types::literal::Lit;
 use pyrefly_types::literal::Literal;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::type_alias::TypeAliasData;
@@ -44,9 +45,13 @@ pub(crate) fn qname_to_full_string(qname: &pyrefly_python::qname::QName) -> Stri
 }
 
 /// Convert Callable/Function params and return type to a structured callable entry.
+///
+/// `defining_func` is the fully qualified name of the function (module + optional
+/// class + function name). It is `None` for purely structural `Type::Callable`.
 fn callable_to_structured(
     params: &Params,
     ret: &Type,
+    defining_func: Option<String>,
     table: &mut TypeTable,
     pending_class_traits: &mut Vec<(usize, Class)>,
 ) -> usize {
@@ -65,10 +70,11 @@ fn callable_to_structured(
     let ret_idx = type_to_structured(ret, table, pending_class_traits);
     let param_hashes: Vec<u64> = param_indices.iter().map(|&i| table.hash_at(i)).collect();
     let ret_hash = table.hash_at(ret_idx);
-    let hash = hash_callable(&param_hashes, ret_hash);
+    let hash = hash_callable(&param_hashes, ret_hash, defining_func.as_deref());
     let sty = StructuredType::Callable {
         params: param_indices,
         return_type: ret_idx,
+        defining_func,
     };
     table.insert(sty, hash)
 }
@@ -333,14 +339,26 @@ pub(crate) fn type_to_structured(
         Type::KwCall(box kc) => type_to_structured(&kc.return_ty, table, pending_class_traits),
         // Callable kinds
         Type::Callable(box c) => {
-            callable_to_structured(&c.params, &c.ret, table, pending_class_traits)
+            callable_to_structured(&c.params, &c.ret, None, table, pending_class_traits)
         }
-        Type::Function(box f) => callable_to_structured(
-            &f.signature.params,
-            &f.signature.ret,
-            table,
-            pending_class_traits,
-        ),
+        Type::Function(box f) => {
+            let defining_func = {
+                let kind = &f.metadata.kind;
+                let module = kind.module_name();
+                let class_prefix = match kind.class() {
+                    Some(cls) => format!("{}.", cls.name()),
+                    None => String::new(),
+                };
+                Some(format!("{module}.{class_prefix}{}", kind.function_name()))
+            };
+            callable_to_structured(
+                &f.signature.params,
+                &f.signature.ret,
+                defining_func,
+                table,
+                pending_class_traits,
+            )
+        }
         // Variable kinds
         Type::Quantified(box q) | Type::QuantifiedValue(box q) => {
             quantified_to_structured(q, table, pending_class_traits)
@@ -367,9 +385,22 @@ pub(crate) fn type_to_structured(
         }
         // Literal kind
         Type::Literal(box Literal { value, .. }) => {
+            let promoted_idx = match value {
+                Lit::Str(_) => insert_simple_class("builtins.str", table),
+                Lit::Int(_) => insert_simple_class("builtins.int", table),
+                Lit::Bool(_) => insert_simple_class("builtins.bool", table),
+                Lit::Bytes(_) => insert_simple_class("builtins.bytes", table),
+                Lit::Enum(e) => {
+                    type_to_structured(&e.class.clone().to_type(), table, pending_class_traits)
+                }
+            };
             let value_str = format!("{}", value);
-            let hash = hash_literal(&value_str);
-            let sty = StructuredType::Literal { value: value_str };
+            let promoted_hash = table.hash_at(promoted_idx);
+            let hash = hash_literal(&value_str, promoted_hash);
+            let sty = StructuredType::Literal {
+                value: value_str,
+                promoted_type: promoted_idx,
+            };
             table.insert(sty, hash)
         }
         // TODO(stroxler): These uncommon / internal types silently collapse to

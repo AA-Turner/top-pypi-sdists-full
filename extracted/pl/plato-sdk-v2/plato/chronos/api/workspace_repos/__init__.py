@@ -1,7 +1,11 @@
 """API endpoints."""
 
 from . import (
+    audit_events_summary,
+    bulk_ingest_ref_audit_events,
+    create_workspace_branch,
     create_workspace_ref,
+    create_workspace_step,
     delete_workspace_repo,
     download_workspace_files,
     get_downstream_sessions,
@@ -9,6 +13,7 @@ from . import (
     get_workspace_file_content,
     get_workspace_repo_credentials,
     get_workspace_repo_size,
+    list_audit_events,
     list_workspace_branches,
     list_workspace_files,
     list_workspace_refs,
@@ -16,6 +21,7 @@ from . import (
     promote_workspace_branch,
     resolve_workspace_repo,
     search_workspace_refs,
+    update_workspace_file,
 )
 
 __all__ = [
@@ -34,4 +40,10 @@ __all__ = [
     "get_session_lineage",
     "get_downstream_sessions",
     "delete_workspace_repo",
+    "create_workspace_branch",
+    "create_workspace_step",
+    "update_workspace_file",
+    "bulk_ingest_ref_audit_events",
+    "list_audit_events",
+    "audit_events_summary",
 ]

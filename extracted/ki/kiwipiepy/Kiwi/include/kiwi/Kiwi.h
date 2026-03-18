@@ -68,21 +68,69 @@ namespace kiwi
 
 	struct AnalyzeOption
 	{
+		/**
+		* @brief 형태소 분석 시 매칭 옵션
+		*/
 		Match match = Match::allWithNormalizing;
+
+		/**
+		* @brief 분석 결과에서 제외할 형태소 목록
+		*/
 		const std::unordered_set<const Morpheme*>* blocklist = nullptr;
+
+		/**
+		* @brief 열린 결말 허용 여부
+		*/
 		bool openEnding = false;
+
+		/**
+		* @brief 분석에 허용할 방언을 설정한다. 기본값은 표준어만 허용하는 `Dialect::standard`이다. 여러 방언을 허용하려면 비트 OR 연산자로 조합해서 설정할 수 있다.
+		*/
 		Dialect allowedDialects = Dialect::standard;
+
+		/**
+		* @brief 방언에 적용할 페널티 비용.
+		*/
 		float dialectCost = 3.f;
+
+		/**
+		* @brief 오타 교정에 사용할 PreparedTypoTransformer 객체
+		* 이 객체는 TypoTransformer::prepare(true)로 생성되어야 한다.
+		* allowedDialects에 방언을 포함하고 있고, typoTransformer가 nullptr인 경우 자동으로 getDefaultPreparedTypoSet(DefaultTypoSet::dialect)에서 생성된 PreparedTypoTransformer가 사용된다.
+		*/
+		const PreparedTypoTransformer* typoTransformer = nullptr;
+
+		/**
+		* @brief 오타 교정 시 허용할 최대 비용 임계값
+		*/
+		float typoThreshold = 2.5f;
 
 		AnalyzeOption() = default;
 		AnalyzeOption(Match m, 
 			const std::unordered_set<const Morpheme*>* bl = nullptr, 
 			bool oe = false,
 			Dialect ad = Dialect::standard,
-			float dc = 3.f
-			)
-			: match{ m }, blocklist{ bl }, openEnding{ oe }, allowedDialects{ ad }, dialectCost{ dc }
+			float dc = 3.f,
+			const PreparedTypoTransformer* tt = nullptr,
+			float tth = 2.5f
+		)
+		: match{ m }, blocklist{ bl }, openEnding{ oe }, allowedDialects{ ad }, dialectCost{ dc }, typoTransformer{ tt }, typoThreshold{ tth }
 		{}
+
+		AnalyzeOption withMatch(Match m) const
+		{
+			AnalyzeOption copy = *this;
+			copy.match = m;
+			return copy;
+		}
+
+		AnalyzeOption withTypoTransformer(const PreparedTypoTransformer* tt, float typoThreshold = 2.5f) const
+		{
+			AnalyzeOption copy = *this;
+			copy.typoTransformer = tt;
+			copy.typoThreshold = typoThreshold;
+			return copy;
+		}
 	};
 
 	struct MorphemeDef
@@ -103,11 +151,16 @@ namespace kiwi
 	{
 		bool integrateAllomorph = true;
 		float cutOffThreshold = 8;
-		float unkFormScoreScale = 5;
-		float unkFormScoreBias = 5;
+		float oovRuleScale = 4;
+		float oovRuleBias = 4;
+		float oovChrBias = 0;
+		float oovGlobalWeight = 35;
+		float oovLocalWeight = 3;
+		float oovGlobalMinFreq = 4;
 		float spacePenalty = 7;
 		float typoCostWeight = 6;
 		uint32_t maxUnkFormSize = 6;
+		uint32_t maxUnkFormSizeFollowedByJClass = (uint32_t)-1;
 		uint32_t spaceTolerance = 0;
 
 		void validate() const;
@@ -141,6 +194,7 @@ namespace kiwi
 		Vector<TypoForm> typoForms;
 		utils::FrozenTrie<kchar_t, const Form*> formTrie;
 		std::shared_ptr<lm::ILangModel> langMdl;
+		std::shared_ptr<lm::CoNgramModelBase> nounChrMdl;
 		std::shared_ptr<cmb::CompiledRule> combiningRule;
 		std::unique_ptr<utils::ThreadPool> pool;
 		
@@ -232,7 +286,7 @@ namespace kiwi
 			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const
 		{
-			return analyze(str, 1, option, pretokenized)[0];
+			return analyze(str, 1, option, pretokenized, overrideConfig)[0];
 		}
 
 		/**
@@ -249,7 +303,7 @@ namespace kiwi
 		{
 			std::vector<size_t> bytePositions;
 			auto u16str = utf8To16(str, bytePositions);
-			return analyze(u16str, option, mapPretokenizedSpansToU16(pretokenized, bytePositions));
+			return analyze(u16str, option, mapPretokenizedSpansToU16(pretokenized, bytePositions), overrideConfig);
 		}
 
 		/**
@@ -280,7 +334,7 @@ namespace kiwi
 		{
 			std::vector<size_t> bytePositions;
 			auto u16str = utf8To16(str, bytePositions);
-			return analyze(u16str, topN, option, mapPretokenizedSpansToU16(pretokenized, bytePositions));
+			return analyze(u16str, topN, option, mapPretokenizedSpansToU16(pretokenized, bytePositions), overrideConfig);
 		}
 
 		/**
@@ -537,6 +591,7 @@ namespace kiwi
 		Vector<MorphemeRaw> morphemes;
 		UnorderedMap<KString, size_t> formMap;
 		std::shared_ptr<lm::ILangModel> langMdl;
+		std::shared_ptr<lm::CoNgramModelBase> nounChrMdl;
 		std::shared_ptr<cmb::CompiledRule> combiningRule;
 		WordDetector detector;
 		Map<int, int> ruleProfilingCnt;

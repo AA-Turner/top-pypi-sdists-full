@@ -10,7 +10,7 @@ build:
   os: ubuntu-22.04
   tools:
     # PYVERSIONS: the version we use for building docs. Check tox.ini[doc] also.
-    python: "3.11"
+    python: "3.12"
 
 sphinx:
   builder: html

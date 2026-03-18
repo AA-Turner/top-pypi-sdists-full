@@ -216,6 +216,7 @@ use pyrefly_util::telemetry::TelemetryEventKind;
 use pyrefly_util::telemetry::TelemetryFileStats;
 use pyrefly_util::telemetry::TelemetryFileWatcherStats;
 use pyrefly_util::telemetry::TelemetryServerState;
+use pyrefly_util::telemetry::TelemetryTaskContext;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::watch_pattern::WatchPattern;
@@ -243,13 +244,14 @@ use crate::config::config::ConfigFile;
 use crate::error::error::Error;
 use crate::lsp::module_helpers::to_real_path;
 use crate::lsp::non_wasm::build_system::should_requery_build_system;
+use crate::lsp::non_wasm::call_hierarchy::convert_external_references_to_incoming_calls;
 use crate::lsp::non_wasm::call_hierarchy::find_function_at_position_in_ast;
 use crate::lsp::non_wasm::call_hierarchy::prepare_call_hierarchy_item;
 use crate::lsp::non_wasm::call_hierarchy::transform_incoming_calls;
 use crate::lsp::non_wasm::call_hierarchy::transform_outgoing_calls;
 use crate::lsp::non_wasm::convert_module_package::convert_module_package_code_actions;
-use crate::lsp::non_wasm::external_references::ExternalReferences;
-use crate::lsp::non_wasm::external_references::compute_qualified_name;
+use crate::lsp::non_wasm::external_provider::ExternalProvider;
+use crate::lsp::non_wasm::external_provider::compute_qualified_name;
 use crate::lsp::non_wasm::lsp::apply_change_events;
 use crate::lsp::non_wasm::lsp::as_notification;
 use crate::lsp::non_wasm::lsp::as_request;
@@ -826,7 +828,7 @@ pub struct Server {
     /// Accumulated file watcher events waiting to be processed as a batch.
     pending_watched_file_changes: Mutex<Vec<FileEvent>>,
     /// An external source which may be included to assist in finding global references
-    external_references: Arc<dyn ExternalReferences>,
+    external_references: Arc<dyn ExternalProvider>,
     /// The time at which the server was started, for telemetry.
     server_start_time: Instant,
 }
@@ -1275,7 +1277,7 @@ pub fn lsp_loop(
     build_system_blocking: bool,
     path_remapper: Option<PathRemapper>,
     telemetry: &impl Telemetry,
-    external_references: Arc<dyn ExternalReferences>,
+    external_references: Arc<dyn ExternalProvider>,
     wrapper: Option<ConfigConfigurerWrapper>,
 ) -> anyhow::Result<()> {
     info!("Reading messages");
@@ -1789,8 +1791,10 @@ impl Server {
                             telemetry,
                             self.telemetry_state(),
                             QueueName::LspQueue,
-                            telemetry_event.task_id,
-                            telemetry_event.activity_key.clone(),
+                            TelemetryTaskContext {
+                                activity_key: telemetry_event.activity_key.clone(),
+                                task_id: telemetry_event.task_id,
+                            },
                             telemetry_event.file_stats.clone(),
                         );
                         self.send_response(new_response(
@@ -2024,9 +2028,15 @@ impl Server {
                     {
                         self.send_response(new_response(
                             x.id,
-                            Ok(WorkspaceSymbolResponse::Flat(
-                                self.workspace_symbols(&transaction, &params.query),
-                            )),
+                            Ok(WorkspaceSymbolResponse::Flat(self.workspace_symbols(
+                                &transaction,
+                                &params.query,
+                                telemetry,
+                                TelemetryTaskContext {
+                                    activity_key: telemetry_event.activity_key.clone(),
+                                    task_id: telemetry_event.task_id,
+                                },
+                            ))),
                         ));
                     }
                 } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
@@ -2249,7 +2259,7 @@ impl Server {
         build_system_blocking: bool,
         surface: Option<String>,
         path_remapper: Option<PathRemapper>,
-        external_references: Arc<dyn ExternalReferences>,
+        external_references: Arc<dyn ExternalProvider>,
         wrapper: Option<ConfigConfigurerWrapper>,
     ) -> Self {
         let folders = if let Some(capability) = &initialize_params.capabilities.workspace
@@ -2520,10 +2530,12 @@ impl Server {
             Some(DisplayTypeErrors::Default) | None => match &config.source {
                 // In this case, we don't have a config file.
                 ConfigSource::Synthetic => TypeErrorDisplayStatus::NoConfigFile,
-                // In this case, we have a config file like mypy.ini, but we don't parse it.
-                // We only use it as a sensible project root, and create a default config anyways.
-                // Therefore, we should treat it as if we don't have any config.
-                ConfigSource::Marker(_) => TypeErrorDisplayStatus::NoConfigFile,
+                // In this case, we have a config file like mypy.ini, or a pyproject.toml
+                // with Python tool sections but no [tool.pyrefly]. We don't parse it for
+                // pyrefly config, so treat it as if we don't have any config.
+                ConfigSource::PythonToolMarker(_) | ConfigSource::Marker(_) => {
+                    TypeErrorDisplayStatus::NoConfigFile
+                }
                 // We actually have a pyrefly.toml, so we can decide based on the config.
                 ConfigSource::File(_) => {
                     if config.disable_type_errors_in_ide(path) {
@@ -3087,8 +3099,10 @@ impl Server {
                 telemetry,
                 server.telemetry_state(),
                 queue_name,
-                task_id,
-                telemetry_event.activity_key.clone(),
+                TelemetryTaskContext {
+                    activity_key: telemetry_event.activity_key.clone(),
+                    task_id,
+                },
                 None,
             );
             let (new_invalidated_source_dbs, rebuild_stats) =
@@ -3828,7 +3842,7 @@ impl Server {
                 ..Default::default()
             },
             activity_key,
-            move |transaction, handle, definition, _telemetry, _activity_key| {
+            move |transaction, handle, definition, _telemetry, _ctx| {
                 let FindDefinitionItemWithDocstring {
                     metadata: _,
                     definition_range,
@@ -4254,7 +4268,7 @@ impl Server {
             &Handle,
             FindDefinitionItemWithDocstring,
             &dyn Telemetry,
-            Option<ActivityKey>,
+            TelemetryTaskContext,
         ) -> Result<T, Cancelled>
         + Send
         + Sync
@@ -4275,7 +4289,7 @@ impl Server {
         };
         self.find_reference_queue.queue_task(
             TelemetryEventKind::FindFromDefinition,
-            Box::new(move |server, telemetry, telemetry_event, _, _| {
+            Box::new(move |server, telemetry, telemetry_event, _, task_id| {
                 telemetry_event.set_activity_key(activity_key);
                 let mut transaction = server.state.cancellable_transaction();
                 server
@@ -4287,13 +4301,11 @@ impl Server {
                     telemetry_event,
                     None,
                 );
-                match find_fn(
-                    &mut transaction,
-                    &handle,
-                    definition,
-                    telemetry,
-                    telemetry_event.activity_key.clone(),
-                ) {
+                let ctx = TelemetryTaskContext {
+                    activity_key: telemetry_event.activity_key.clone(),
+                    task_id,
+                };
+                match find_fn(&mut transaction, &handle, definition, telemetry, ctx) {
                     Ok(results) => {
                         server.cancellation_handles.lock().remove(&request_id);
                         server.connection.send(Message::Response(new_response(
@@ -4345,7 +4357,7 @@ impl Server {
                 ..Default::default()
             },
             activity_key,
-            move |transaction, handle, definition, telemetry, activity_key| {
+            move |transaction, handle, definition, telemetry, ctx| {
                 let qualified_name =
                     compute_qualified_name(transaction.as_ref(), handle, &definition);
 
@@ -4361,8 +4373,7 @@ impl Server {
                     telemetry,
                     server_state,
                     QueueName::FindReferenceQueue,
-                    None,
-                    activity_key,
+                    ctx,
                     None,
                 );
 
@@ -4674,28 +4685,77 @@ impl Server {
         transaction.symbols(&handle)
     }
 
-    #[allow(deprecated)] // The `deprecated` field
+    /// Run local and external workspace symbol queries in parallel, merging
+    /// results with local results taking priority (external results for files
+    /// already covered by local results are skipped).
+    #[allow(deprecated)] // SymbolInformation's `deprecated` field is itself marked #[deprecated]
     fn workspace_symbols(
         &self,
         transaction: &Transaction<'_>,
         query: &str,
+        telemetry: &impl Telemetry,
+        ctx: TelemetryTaskContext,
     ) -> Vec<SymbolInformation> {
-        transaction
-            .workspace_symbols(query, Some(&self.lsp_thread_pool))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|(name, kind, location)| {
-                self.to_lsp_location(&location)
-                    .map(|location| SymbolInformation {
-                        name,
-                        kind,
-                        location,
-                        tags: None,
-                        deprecated: None,
-                        container_name: None,
-                    })
-            })
-            .collect()
+        let external_provider = self.external_references.clone();
+        let workspace_uri = self
+            .initialize_params
+            .workspace_folders
+            .as_ref()
+            .and_then(|folders| folders.first())
+            .map(|f| f.uri.clone());
+        let server_state = self.telemetry_state();
+
+        let sub_task_telemetry =
+            SubTaskTelemetry::new(telemetry, server_state, QueueName::LspQueue, ctx, None);
+
+        // Use std::thread::scope so we can borrow sub_task_telemetry.
+        let (local_results, external_results) = std::thread::scope(|s| {
+            let ext_handle = workspace_uri.as_ref().map(|uri| {
+                s.spawn(|| {
+                    external_provider.workspace_symbols(
+                        query,
+                        uri,
+                        Duration::from_secs(5),
+                        Some(sub_task_telemetry),
+                    )
+                })
+            });
+
+            let local_results: Vec<SymbolInformation> = transaction
+                .workspace_symbols(query, Some(&self.lsp_thread_pool))
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|(name, kind, location)| {
+                    self.to_lsp_location(&location)
+                        .map(|location| SymbolInformation {
+                            name,
+                            kind,
+                            location,
+                            tags: None,
+                            deprecated: None,
+                            container_name: None,
+                        })
+                })
+                .collect();
+
+            let external_results = ext_handle
+                .map(|h| h.join().unwrap_or_default())
+                .unwrap_or_default();
+            (local_results, external_results)
+        });
+
+        // Local results take priority; skip external results for files already covered.
+        let local_uris: HashSet<Url> = local_results
+            .iter()
+            .map(|s| s.location.uri.clone())
+            .collect();
+        let mut merged = local_results;
+        for sym in external_results {
+            if !local_uris.contains(&sym.location.uri) {
+                merged.push(sym);
+            }
+        }
+        merged
     }
 
     fn append_unreachable_diagnostics(
@@ -5195,7 +5255,8 @@ impl Server {
     /// Asynchronously finds incoming calls (callers) of a function.
     ///
     /// This queues work on the find_reference_queue to avoid blocking the LSP server
-    /// while searching for callers across potentially many files.
+    /// while searching for callers across potentially many files. Runs local search
+    /// and Glean external search in parallel.
     fn async_call_hierarchy_incoming_calls<'a>(
         &'a self,
         request_id: RequestId,
@@ -5214,8 +5275,10 @@ impl Server {
         };
 
         let path_remapper = self.path_remapper.clone();
-        // The CallHierarchyItem we receive is already at the definition position
-        // (thanks to prepare_call_hierarchy doing the go-to-definition step).
+        let external_references = self.external_references.clone();
+        let source_uri = uri.clone();
+        let server_state = self.telemetry_state();
+
         self.async_find_from_definition_helper(
             request_id,
             transaction,
@@ -5224,17 +5287,65 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            |transaction, handle, definition, _telemetry, _activity_key| {
+            move |transaction, handle, definition, telemetry, ctx| {
+                let qualified_name =
+                    compute_qualified_name(transaction.as_ref(), handle, &definition);
+
                 let target_def =
                     TextRangeWithModule::new(definition.module.dupe(), definition.definition_range);
 
-                transaction.find_global_incoming_calls_from_function_definition(
-                    *handle.sys_info(),
-                    definition.metadata.clone(),
-                    &target_def,
-                )
+                let sub_task_telemetry = SubTaskTelemetry::new(
+                    telemetry,
+                    server_state,
+                    QueueName::FindReferenceQueue,
+                    ctx,
+                    None,
+                );
+
+                // Run local and external searches in parallel.
+                let (local_results, external_calls) = std::thread::scope(|s| {
+                    let ext_handle = qualified_name.as_ref().map(|qname| {
+                        s.spawn(|| {
+                            let external_refs = external_references.find_references(
+                                qname,
+                                &source_uri,
+                                Duration::from_secs(10),
+                                Some(sub_task_telemetry),
+                            );
+                            convert_external_references_to_incoming_calls(external_refs)
+                        })
+                    });
+
+                    let local_results = transaction
+                        .find_global_incoming_calls_from_function_definition(
+                            *handle.sys_info(),
+                            definition.metadata.clone(),
+                            &target_def,
+                        );
+
+                    let external_calls = ext_handle
+                        .map(|h| h.join().unwrap_or_default())
+                        .unwrap_or_default();
+                    (local_results, external_calls)
+                });
+
+                Ok((local_results?, external_calls))
             },
-            move |callers| transform_incoming_calls(callers, path_remapper.as_ref()),
+            move |(local_callers, external_calls)| {
+                let mut incoming_calls =
+                    transform_incoming_calls(local_callers, path_remapper.as_ref());
+
+                // Dedup: skip external calls from files already covered by local results
+                let existing_uris: HashSet<Url> =
+                    incoming_calls.iter().map(|c| c.from.uri.clone()).collect();
+                incoming_calls.extend(
+                    external_calls
+                        .into_iter()
+                        .filter(|c| !existing_uris.contains(&c.from.uri)),
+                );
+
+                incoming_calls
+            },
         );
     }
 
@@ -5272,7 +5383,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _activity_key| {
+            move |transaction, handle, definition, _telemetry, _ctx| {
                 // find_global_outgoing_calls_from_function_definition expects a position
                 let position = definition.definition_range.start();
 
@@ -5534,7 +5645,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _activity_key| {
+            move |transaction, handle, definition, _telemetry, _ctx| {
                 transaction.run(&[handle.dupe()], Require::Everything, None)?;
                 let Some(target) =
                     Self::type_hierarchy_target_from_definition(transaction, handle, &definition)
@@ -5591,7 +5702,7 @@ impl Server {
             params.item.selection_range.start,
             FindPreference::default(),
             activity_key,
-            move |transaction, handle, definition, _telemetry, _activity_key| {
+            move |transaction, handle, definition, _telemetry, _ctx| {
                 transaction.run(&[handle.dupe()], Require::Everything, None)?;
                 let Some(target) =
                     Self::type_hierarchy_target_from_definition(transaction, handle, &definition)

@@ -762,7 +762,8 @@ class YChildFuncStats(YStatsIndexable):
             2: ("tsub", 8),
             3: ("ttot", 8),
             4: ("tavg", 8)
-        }
+        },
+        limit=None
     ):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
@@ -775,7 +776,9 @@ class YChildFuncStats(YStatsIndexable):
 
         out.write(LINESEP)
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def strip_dirs(self):
@@ -932,21 +935,20 @@ class YFuncStats(YStatsIndexable):
         # add function definitions
         file_ids = ['']
         func_ids = ['']
-        func_idx_list = []
+        seen_indices = set()
         for func_stat in self:
-            file_ids += ['fl=(%d) %s' % (func_stat.index, func_stat.module)]
-            func_ids += [
-                'fn=(%d) %s %s:%s' % (
-                    func_stat.index, func_stat.name, func_stat.module,
-                    func_stat.lineno
-                )
-            ]
-            func_idx_list.append(func_stat.index)
-            
-            # also adds function information for children
+            if func_stat.index not in seen_indices:
+                file_ids += ['fl=(%d) %s' % (func_stat.index, func_stat.module)]
+                func_ids += [
+                    'fn=(%d) %s %s:%s' % (
+                        func_stat.index, func_stat.name, func_stat.module,
+                        func_stat.lineno
+                    )
+                ]
+                seen_indices.add(func_stat.index)
+
             for child in func_stat.children:
-                # ... but make sure to add each function only once
-                if child.index in func_idx_list:
+                if child.index in seen_indices:
                     continue
                 file_ids += ['fl=(%d) %s' % (child.index, child.module)]
                 func_ids += [
@@ -955,7 +957,7 @@ class YFuncStats(YStatsIndexable):
                         child.lineno
                     )
                 ]
-                func_idx_list.append(child.index)
+                seen_indices.add(child.index)
             
         lines += file_ids + func_ids
 
@@ -987,7 +989,7 @@ class YFuncStats(YStatsIndexable):
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
             raise NotImplementedError(
-                'Loading from (%s) format is not possible currently.'
+                f'Loading from "{type}" format is not possible currently.'
             )
         if isinstance(files, str):
             files = [
@@ -1019,7 +1021,8 @@ class YFuncStats(YStatsIndexable):
             2: ("tsub", 8),
             3: ("ttot", 8),
             4: ("tavg", 8)
-        }
+        },
+        limit=None
     ):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
@@ -1038,7 +1041,9 @@ class YFuncStats(YStatsIndexable):
         out.write(LINESEP)
 
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def sort(self, sort_type, sort_order="desc"):
@@ -1131,7 +1136,7 @@ class _YContextStats(YStats):
             self._SORT_TYPES[sort_type], SORT_ORDERS[sort_order]
         )
 
-    def print_all(self, out=sys.stdout, columns=None):
+    def print_all(self, out=sys.stdout, columns=None, limit=None):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
@@ -1147,7 +1152,9 @@ class _YContextStats(YStats):
 
         out.write(LINESEP)
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def strip_dirs(self):
@@ -1317,6 +1324,7 @@ def clear_stats():
     Clears all of the profile results.
     """
     _yappi._pause()
+    _yappi._wait_for_callbacks()
     try:
         _yappi.clear_stats()
     finally:
@@ -1498,7 +1506,7 @@ def main():
         start(options.profile_builtins, not options.profile_single_thread)
         try:
             exec(
-                compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
+                compile(open(sys.argv[0], encoding='utf8').read(), sys.argv[0], 'exec'),
                 sys._getframe(1).f_globals,
                 sys._getframe(1).f_locals
             )

@@ -15,13 +15,16 @@ developers cannot add validation to one path and forget the other.
 
 from __future__ import annotations
 
-import ast
-from collections import defaultdict
+from collections import Counter
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from chalk._lsp.error_builder import LSPErrorBuilder
+from chalk.parsed.ast_context import get_project_ast_context
 
 if TYPE_CHECKING:
+    from chalk_rs import AstProjectIndex
+
     from chalk.features.feature_field import Feature
     from chalk.features.feature_set import Features
     from chalk.features.resolver import ResolverRegistry
@@ -68,6 +71,8 @@ def validate_all_from_registries(
     # FEATURE VALIDATION
     # ========================================================================
 
+    ast_index = get_project_ast_context()
+
     for _, features_cls in features_registry.items():
         # --------------------------------------------------------------------
         # Error[51]: Multiple primary features (versioned primary keys)
@@ -84,33 +89,22 @@ def validate_all_from_registries(
                 # If it's not an LSP error, something else went wrong
                 raise
 
-        feature_definitions: defaultdict[str, list[int]] = defaultdict(list)
-        """Tracks line numbers of feature field definitions. This is relative
-        to the class, and not to the original file."""
-
-        if features_cls.__chalk_source__:
-            cls_ast = None
-            try:
-                cls_ast = ast.parse(features_cls.__chalk_source__)
-            except Exception:
-                pass
-
-            if cls_ast:
-                for stmt in cls_ast.body:
-                    if isinstance(stmt, ast.ClassDef) and stmt.name == features_cls.__name__:
-                        for field in stmt.body:
-                            if isinstance(field, ast.AnnAssign) and isinstance(field.target, ast.Name):
-                                feature_definitions[field.target.id].append(field.lineno)
+        feature_definition_counts = _get_feature_definition_counts(
+            features_cls=features_cls,
+            ast_index=ast_index,
+        )
 
         # --------------------------------------------------------------------
         # Iterate through all features in this feature set
         # --------------------------------------------------------------------
         for feature in features_cls.features:
-            if len(feature_definitions[feature.name]) >= 2:
+            feature_name = feature.attribute_name or feature.name
+
+            if feature_definition_counts[feature_name] >= 2:
                 # This feature has been defined multiple times.
                 feature.lsp_error_builder.add_diagnostic(
-                    message=f"Feature '{feature.attribute_name or feature.name}' has been defined multiple times on the feature class '{features_cls.__name__}'. This feature definition is overwritten by a later definition.",
-                    range=feature.lsp_error_builder.property_range(feature.attribute_name or feature.name),
+                    message=f"Feature '{feature_name}' has been defined multiple times on the feature class '{features_cls.__name__}'. This feature definition is overwritten by a later definition.",
+                    range=feature.lsp_error_builder.property_range(feature_name),
                     label="redefined feature",
                     code="28",
                 )
@@ -172,6 +166,25 @@ def validate_all_from_registries(
         except Exception as e:
             if not LSPErrorBuilder.promote_exception(e):
                 raise
+
+
+def _get_feature_definition_counts(
+    features_cls: type["Features"],
+    ast_index: "AstProjectIndex | None",
+) -> Counter[str]:
+    filename = features_cls.__chalk_filename__
+    if ast_index is None or filename is None:
+        return Counter()
+
+    feature_class_ast = ast_index.feature_class_ast_in_file(
+        str(Path(filename).resolve()),
+        features_cls.__name__,
+    )
+
+    if feature_class_ast is None:
+        return Counter()
+
+    return Counter(field.field_name for field in feature_class_ast.annotations)
 
 
 def _validate_feature_names_from_registry(feature: "Feature") -> None:

@@ -1,39 +1,41 @@
 Metadata-Version: 2.4
 Name: ibm-secrets-manager-sdk
-Version: 2.1.17
+Version: 2.1.19
 Summary: IBM Cloud Secrets Manager Python SDK
-Home-page: https://github.com/IBM/secrets-manager-python-sdk
+Project-URL: Repository, https://github.com/IBM/secrets-manager-python-sdk
+Project-URL: Documentation, https://cloud.ibm.com/apidocs/secrets-manager
+Project-URL: Issues, https://github.com/IBM/secrets-manager-python-sdk/issues
+Project-URL: Changelog, https://github.com/IBM/secrets-manager-python-sdk/blob/main/CHANGELOG.md
 Author: IBM
-License: Apache 2.0
-Keywords: ibm_secrets_manager_sdk
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+License-File: LICENSE
+Keywords: cloud,ibm,ibm cloud services,secrets manager
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: ibm-cloud-sdk-core<4.0.0,>=3.24.4
+Requires-Dist: python-dateutil<3.0.0,>=2.5.3
 Requires-Dist: requests<3.0.0,>=2.32.4
 Requires-Dist: urllib3<3.0.0,>=2.6.3
-Requires-Dist: python_dateutil<3.0.0,>=2.5.3
-Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.4
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
+Provides-Extra: dev
+Requires-Dist: black<26.3.2,>=26.3.1; extra == 'dev'
+Requires-Dist: coverage<8.0.0,>=7.3.2; extra == 'dev'
+Requires-Dist: pylint<4.1.0,>=4.0.5; extra == 'dev'
+Requires-Dist: pytest-cov<7.1.0,>=7.0.0; extra == 'dev'
+Requires-Dist: pytest-rerunfailures>=3.1; extra == 'dev'
+Requires-Dist: pytest<9.1.0,>=9.0.2; extra == 'dev'
+Requires-Dist: responses<1.0.0,>=0.23.3; extra == 'dev'
+Description-Content-Type: text/markdown
 
 # IBM Cloud Secrets Manager Python SDK
 A Python client library to interact with the [IBM Cloud® Secrets Manager APIs](https://cloud.ibm.com/apidocs/secrets-manager).

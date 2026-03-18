@@ -2,7 +2,7 @@ import json
 import pickle
 import threading
 import time
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from typing import Any, Optional, Type
 
 import pika
@@ -37,14 +37,18 @@ class RabbitMQConnection:
         execution_id: str,
         auto_start_consumer: bool = True,
         connection_factory: Type[BlockingConnection] = pika.BlockingConnection,
+        is_session: bool = False,
+        queue_expire_ms: Optional[int] = None,
     ):
         self.connection_uri = connection_uri
         self.send_queue = send_queue
         self.recv_queue = recv_queue
         self.execution_id = execution_id
         self.connection_factory = connection_factory
+        self.is_session = is_session
+        self.queue_expire_ms = queue_expire_ms or QUEUE_EXPIRES_MS
         self._closed = False
-        self._recv_buffer: Queue = Queue()
+        self._recv_buffer: Queue = Queue(maxsize=10000)
         self._consumer_thread: Optional[threading.Thread] = None
         self._heartbeat_thread: Optional[threading.Thread] = None
         self._consumer_started = False
@@ -105,12 +109,19 @@ class RabbitMQConnection:
 
         self._send_channel = self._send_connection.channel()
 
+        if self.is_session:
+            queue_args = self._session_queue_args()
+            auto_delete = False
+        else:
+            queue_args: dict = {"x-expires": self.queue_expire_ms}
+            auto_delete = True
+
         self._send_channel.queue_declare(
             queue=self.send_queue,
             durable=False,
             exclusive=False,
-            auto_delete=True,
-            arguments={"x-expires": QUEUE_EXPIRES_MS},
+            auto_delete=auto_delete,
+            arguments=queue_args,
         )
 
         self._recv_connection = self._connect_with_retry("receiver")
@@ -120,8 +131,8 @@ class RabbitMQConnection:
             queue=self.recv_queue,
             durable=False,
             exclusive=False,
-            auto_delete=True,
-            arguments={"x-expires": QUEUE_EXPIRES_MS},
+            auto_delete=auto_delete,
+            arguments=queue_args,
         )
 
     def _ensure_consumer_started(self):
@@ -156,6 +167,34 @@ class RabbitMQConnection:
         self._heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
 
+    def _session_queue_args(self) -> dict:
+        return {
+            "x-expires": self.queue_expire_ms,
+            "x-message-ttl": self.queue_expire_ms,
+            "x-max-length": 10000,
+        }
+
+    def _setup_recv_connection(self):
+        """Reconnect only the recv side. Called from consumer thread to avoid
+        replacing _send_connection without _send_lock."""
+        if self.is_session:
+            queue_args = self._session_queue_args()
+            auto_delete = False
+        else:
+            queue_args = {"x-expires": self.queue_expire_ms}
+            auto_delete = True
+
+        self._recv_connection = self._connect_with_retry("receiver-reconnect")
+        self._recv_channel = self._recv_connection.channel()
+
+        self._recv_channel.queue_declare(
+            queue=self.recv_queue,
+            durable=False,
+            exclusive=False,
+            auto_delete=auto_delete,
+            arguments=queue_args,
+        )
+
     def _reconnect_send_connection(self):
         AbstraLogger.warning(
             f"[RabbitMQConnection:{self.execution_id}] Reconnecting send connection..."
@@ -174,12 +213,20 @@ class RabbitMQConnection:
 
             self._send_connection = self._connect_with_retry("sender-reconnect")
             self._send_channel = self._send_connection.channel()
+
+            if self.is_session:
+                queue_args = self._session_queue_args()
+                auto_delete = False
+            else:
+                queue_args: dict = {"x-expires": self.queue_expire_ms}
+                auto_delete = True
+
             self._send_channel.queue_declare(
                 queue=self.send_queue,
                 durable=False,
                 exclusive=False,
-                auto_delete=True,
-                arguments={"x-expires": QUEUE_EXPIRES_MS},
+                auto_delete=auto_delete,
+                arguments=queue_args,
             )
             AbstraLogger.warning(
                 f"[RabbitMQConnection:{self.execution_id}] Send connection reconnected successfully"
@@ -210,7 +257,7 @@ class RabbitMQConnection:
                         AbstraLogger.warning(
                             f"[RabbitMQConnection:{self.execution_id}] Receiver connection lost, reconnecting..."
                         )
-                        self._setup_connections()
+                        self._setup_recv_connection()
 
                     assert self._recv_channel is not None, (
                         "Receive channel not initialized"
@@ -255,7 +302,18 @@ class RabbitMQConnection:
                                 else:
                                     message = body
 
-                            self._recv_buffer.put(message)
+                            try:
+                                self._recv_buffer.put_nowait(message)
+                            except Full:
+                                # Buffer full — drop oldest and retry
+                                try:
+                                    self._recv_buffer.get_nowait()
+                                except Empty:
+                                    pass
+                                try:
+                                    self._recv_buffer.put_nowait(message)
+                                except Full:
+                                    pass
                         except Exception as e:
                             AbstraLogger.error(
                                 f"[RabbitMQConnection:{self.execution_id}] Error processing message: {e}"

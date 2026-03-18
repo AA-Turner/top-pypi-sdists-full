@@ -17,6 +17,54 @@ from cfnlint.schema.resolver import RefResolver
 all_types = ("array", "boolean", "integer", "number", "object", "string")
 singular_types = ("boolean", "integer", "number", "string")
 
+# Schema keywords that constrain the resolved value of a function.
+# If a schema contains any of these keywords (at any level), resolution
+# is needed to validate the resolved value against them.
+_CONSTRAINING_SCHEMA_KEYS = frozenset(
+    {
+        "$ref",
+        "enum",
+        "const",
+        "pattern",
+        "minLength",
+        "maxLength",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "format",
+        "allOf",
+        "anyOf",
+        "oneOf",
+        "not",
+        "if",
+    }
+)
+
+
+def _has_schema_constraints(schema: Any) -> bool:
+    """Check if a schema has any keywords that constrain resolved values."""
+    if not isinstance(schema, dict):
+        return False
+    if schema.keys() & _CONSTRAINING_SCHEMA_KEYS:
+        return True
+    for key in ("items", "properties", "patternProperties", "additionalProperties"):
+        value = schema.get(key)
+        if isinstance(value, dict):
+            if key == "patternProperties":
+                for v in value.values():
+                    if _has_schema_constraints(v):
+                        return True
+            elif key == "properties":
+                for v in value.values():
+                    if _has_schema_constraints(v):
+                        return True
+            else:
+                if _has_schema_constraints(value):
+                    return True
+    return False
+
 
 class BaseFn(CfnLintJsonSchema):
     def __init__(
@@ -105,6 +153,12 @@ class BaseFn(CfnLintJsonSchema):
         if not self.resolved_rule:
             return
 
+        # Skip resolution if the schema has no keywords that would
+        # constrain the resolved value. Type checking is already
+        # handled by validate_fn_output_types.
+        if not _has_schema_constraints(s):
+            return
+
         key, _ = self.key_value(instance)
 
         validator = validator.evolve(
@@ -174,6 +228,14 @@ class BaseFn(CfnLintJsonSchema):
         instance: Any,
         schema: Any,
     ) -> ValidationResult:
+        # If in unresolvable mode, return unknown error immediately
+        if validator.context.unresolvable_function_mode:
+            yield ValidationError(
+                f"Cannot resolve {self.fn.name} in composite validation",
+                unknown=True,
+            )
+            return
+
         # validate this function will return the correct type
         errs = list(
             self.fix_errors(self.validate_fn_output_types(validator, s, instance))

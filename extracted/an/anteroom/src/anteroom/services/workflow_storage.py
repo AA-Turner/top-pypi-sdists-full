@@ -25,6 +25,7 @@ def _now() -> str:
 _VALID_RUN_STATUSES = frozenset(
     {
         "pending",
+        "claimed",
         "running",
         "paused",
         "waiting_for_approval",
@@ -55,6 +56,10 @@ _ALLOWED_RUN_UPDATE_COLUMNS: set[str] = {
     "definition_content",
     "budget_json",
     "budget_usage_json",
+    "trigger_source",
+    "trigger_meta_json",
+    "claimed_by",
+    "claimed_at",
 }
 
 
@@ -75,6 +80,8 @@ def create_workflow_run(
     definition_hash: str | None = None,
     definition_content: str | None = None,
     budget: dict[str, Any] | None = None,
+    trigger_source: str | None = None,
+    trigger_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rid = _uuid()
     now = _now()
@@ -93,12 +100,14 @@ def create_workflow_run(
         if budget
         else None
     )
+    trigger_meta_json = json.dumps(trigger_meta) if trigger_meta else None
     db.execute(
         "INSERT INTO workflow_runs"
         " (id, workflow_id, workflow_version, status, target_kind, target_ref,"
         "  inputs_json, space_id, definition_hash, definition_content,"
-        "  budget_json, budget_usage_json, created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "  budget_json, budget_usage_json, trigger_source, trigger_meta_json,"
+        "  created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             rid,
             workflow_id,
@@ -112,6 +121,8 @@ def create_workflow_run(
             definition_content,
             budget_json,
             budget_usage_json,
+            trigger_source,
+            trigger_meta_json,
             now,
             now,
         ),
@@ -137,6 +148,10 @@ def create_workflow_run(
         "definition_content": definition_content,
         "budget": budget,
         "budget_usage": json.loads(budget_usage_json) if budget_usage_json else None,
+        "trigger_source": trigger_source,
+        "trigger_meta": trigger_meta,
+        "claimed_by": None,
+        "claimed_at": None,
     }
 
 
@@ -154,7 +169,8 @@ def _deserialize_run(d: dict[str, Any]) -> dict[str, Any]:
     d["budget"] = json.loads(raw_budget) if raw_budget else None
     raw_usage = d.pop("budget_usage_json", None)
     d["budget_usage"] = json.loads(raw_usage) if raw_usage else None
-    # definition_hash and definition_content are plain text, no deserialization
+    raw_trigger_meta = d.pop("trigger_meta_json", None)
+    d["trigger_meta"] = json.loads(raw_trigger_meta) if raw_trigger_meta else None
     return d
 
 
@@ -232,6 +248,56 @@ def delete_workflow_run(db: ThreadSafeConnection, run_id: str) -> bool:
     return True
 
 
+def claim_pending_runs(
+    db: ThreadSafeConnection,
+    worker_id: str,
+    limit: int = 3,
+) -> list[dict[str, Any]]:
+    """Atomically claim up to *limit* pending runs for a worker.
+
+    Uses UPDATE ... WHERE id IN (subselect) + rowcount + follow-up SELECT
+    scoped by both *worker_id* and the exact *claimed_at* timestamp.
+    """
+    now_iso = _now()
+    cursor = db.execute(
+        "UPDATE workflow_runs SET status = 'claimed', claimed_by = ?, claimed_at = ?"
+        " WHERE id IN ("
+        "   SELECT id FROM workflow_runs"
+        "   WHERE status = 'pending' AND claimed_by IS NULL"
+        "   ORDER BY created_at ASC LIMIT ?"
+        " )",
+        (worker_id, now_iso, limit),
+    )
+    db.commit()
+    if cursor.rowcount == 0:
+        return []
+    rows = db.execute_fetchall(
+        "SELECT * FROM workflow_runs WHERE claimed_by = ? AND claimed_at = ?",
+        (worker_id, now_iso),
+    )
+    return [_deserialize_run(dict(r)) for r in rows]
+
+
+def reset_stale_claims(
+    db: ThreadSafeConnection,
+    stale_threshold_seconds: int = 50,
+) -> int:
+    """Reset claimed runs whose claim is older than threshold back to pending.
+
+    Returns the number of runs reset.
+    """
+    from datetime import timedelta
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_threshold_seconds)).isoformat()
+    cursor = db.execute(
+        "UPDATE workflow_runs SET status = 'pending', claimed_by = NULL, claimed_at = NULL,"
+        " updated_at = ? WHERE status = 'claimed' AND claimed_at < ?",
+        (_now(), cutoff),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
 def find_stale_runs(
     db: ThreadSafeConnection,
     stale_threshold_seconds: int = 60,
@@ -276,7 +342,7 @@ def list_completed_step_ids(
 # ---------------------------------------------------------------------------
 
 
-_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish"})
+_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish", "llm"})
 
 
 def create_workflow_step(
@@ -287,6 +353,7 @@ def create_workflow_step(
     step_type: str,
     runner_type: str | None = None,
     attempt: int = 1,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     if step_type not in _VALID_STEP_TYPES:
         raise ValueError(f"Invalid step_type: {step_type!r}")
@@ -294,9 +361,9 @@ def create_workflow_step(
     now = _now()
     db.execute(
         "INSERT INTO workflow_steps"
-        " (id, run_id, step_id, step_type, runner_type, status, attempt, created_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (sid, run_id, step_id, step_type, runner_type, "pending", attempt, now),
+        " (id, run_id, step_id, step_type, runner_type, status, attempt, idempotency_key, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (sid, run_id, step_id, step_type, runner_type, "pending", attempt, idempotency_key, now),
     )
     db.commit()
     return {
@@ -313,6 +380,7 @@ def create_workflow_step(
         "result_findings": None,
         "raw_output_path": None,
         "duration_ms": None,
+        "idempotency_key": idempotency_key,
         "created_at": now,
         "started_at": None,
         "completed_at": None,
@@ -349,6 +417,7 @@ def update_workflow_step(
     completed_at: str | None = None,
     approval_request_id: str | None = None,
     decision_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any] | None:
     parts: list[str] = []
     params: list[Any] = []
@@ -385,6 +454,9 @@ def update_workflow_step(
     if decision_id is not None:
         parts.append("decision_id = ?")
         params.append(decision_id)
+    if idempotency_key is not None:
+        parts.append("idempotency_key = ?")
+        params.append(idempotency_key)
     if not parts:
         return get_workflow_step(db, step_record_id)
     params.append(step_record_id)
@@ -704,3 +776,347 @@ def _deserialize_decision(d: dict[str, Any]) -> dict[str, Any]:
     raw_opts = d.pop("options_json", None)
     d["options"] = json.loads(raw_opts) if raw_opts else []
     return d
+
+
+# ---------------------------------------------------------------------------
+# Workflow Checkpoints (#979)
+# ---------------------------------------------------------------------------
+
+
+def create_checkpoint(
+    db: ThreadSafeConnection,
+    *,
+    run_id: str,
+    label: str,
+    step_id: str | None,
+    step_results: dict[str, Any],
+    budget_usage: dict[str, Any] | None,
+    run_status: str,
+) -> dict[str, Any]:
+    sid = _uuid()
+    now = _now()
+    db.execute(
+        "INSERT INTO workflow_checkpoints"
+        " (id, run_id, label, step_id, step_results_json, budget_usage_json, run_status, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            sid,
+            run_id,
+            label,
+            step_id,
+            json.dumps(step_results),
+            json.dumps(budget_usage) if budget_usage else None,
+            run_status,
+            now,
+        ),
+    )
+    db.commit()
+    return {
+        "id": sid,
+        "run_id": run_id,
+        "label": label,
+        "step_id": step_id,
+        "step_results": step_results,
+        "budget_usage": budget_usage,
+        "run_status": run_status,
+        "created_at": now,
+    }
+
+
+def list_checkpoints(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
+    rows = db.execute(
+        "SELECT id, run_id, label, step_id, step_results_json, budget_usage_json, run_status, created_at"
+        " FROM workflow_checkpoints WHERE run_id = ? ORDER BY created_at",
+        (run_id,),
+    ).fetchall()
+    return [_checkpoint_row_to_dict(r) for r in rows]
+
+
+def get_latest_checkpoint(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
+    row = db.execute(
+        "SELECT id, run_id, label, step_id, step_results_json, budget_usage_json, run_status, created_at"
+        " FROM workflow_checkpoints WHERE run_id = ? ORDER BY created_at DESC LIMIT 1",
+        (run_id,),
+    ).fetchone()
+    return _checkpoint_row_to_dict(row) if row else None
+
+
+def count_checkpoints(db: ThreadSafeConnection, run_id: str) -> int:
+    row = db.execute(
+        "SELECT COUNT(*) FROM workflow_checkpoints WHERE run_id = ?",
+        (run_id,),
+    ).fetchone()
+    return row[0] if row else 0
+
+
+def _checkpoint_row_to_dict(row: Any) -> dict[str, Any]:
+    if isinstance(row, dict):
+        d = dict(row)
+    else:
+        d = dict(row)
+    raw_results = d.pop("step_results_json", None)
+    d["step_results"] = json.loads(raw_results) if raw_results else {}
+    raw_budget = d.pop("budget_usage_json", None)
+    d["budget_usage"] = json.loads(raw_budget) if raw_budget else None
+    return d
+
+
+# ---------------------------------------------------------------------------
+# Workflow Schedules (#969)
+# ---------------------------------------------------------------------------
+
+
+_ALLOWED_SCHEDULE_UPDATE_COLUMNS: frozenset[str] = frozenset(
+    {
+        "enabled",
+        "cron_expr",
+        "inputs_json",
+        "target_kind",
+        "target_ref",
+        "missed_policy",
+        "min_interval_seconds",
+        "next_run_at",
+        "last_run_at",
+        "last_run_id",
+        "advance_after_run_id",
+        "claimed_by",
+        "claimed_at",
+        "updated_at",
+    }
+)
+
+_MAX_INPUTS_SIZE = 65536
+
+
+def _deserialize_schedule(d: dict[str, Any]) -> dict[str, Any]:
+    raw_inputs = d.pop("inputs_json", None)
+    d["inputs"] = json.loads(raw_inputs) if raw_inputs else None
+    return d
+
+
+def create_schedule(
+    db: ThreadSafeConnection,
+    *,
+    workflow_ref: str,
+    ref_type: str,
+    cron_expr: str,
+    target_ref: str,
+    next_run_at: str,
+    target_kind: str = "generic",
+    inputs: dict[str, Any] | None = None,
+    space_id: str | None = None,
+    missed_policy: str = "skip",
+    min_interval_seconds: int = 60,
+) -> dict[str, Any]:
+    """Create a new workflow schedule."""
+    from .cron import parse_cron
+
+    parse_cron(cron_expr)  # Validate expression
+
+    if ref_type not in ("builtin", "package", "path"):
+        raise ValueError(f"Invalid ref_type: {ref_type!r}")
+    if missed_policy not in ("skip", "queue"):
+        raise ValueError(f"Invalid missed_policy: {missed_policy!r}")
+    if min_interval_seconds < 60:
+        raise ValueError("min_interval_seconds must be >= 60")
+
+    inputs_json = json.dumps(inputs) if inputs else "{}"
+    if len(inputs_json.encode("utf-8")) > _MAX_INPUTS_SIZE:
+        raise ValueError("inputs_json exceeds 64KB limit")
+
+    sid = _uuid()
+    now = _now()
+    db.execute(
+        "INSERT INTO workflow_schedules"
+        " (id, workflow_ref, ref_type, cron_expr, inputs_json, target_kind, target_ref,"
+        "  space_id, enabled, missed_policy, min_interval_seconds, next_run_at,"
+        "  created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            sid,
+            workflow_ref,
+            ref_type,
+            cron_expr,
+            inputs_json,
+            target_kind,
+            target_ref,
+            space_id,
+            1,
+            missed_policy,
+            min_interval_seconds,
+            next_run_at,
+            now,
+            now,
+        ),
+    )
+    db.commit()
+    return {
+        "id": sid,
+        "workflow_ref": workflow_ref,
+        "ref_type": ref_type,
+        "cron_expr": cron_expr,
+        "inputs": inputs,
+        "target_kind": target_kind,
+        "target_ref": target_ref,
+        "space_id": space_id,
+        "enabled": 1,
+        "missed_policy": missed_policy,
+        "min_interval_seconds": min_interval_seconds,
+        "next_run_at": next_run_at,
+        "last_run_at": None,
+        "last_run_id": None,
+        "advance_after_run_id": None,
+        "claimed_by": None,
+        "claimed_at": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def get_schedule(db: ThreadSafeConnection, schedule_id: str) -> dict[str, Any] | None:
+    row = db.execute_fetchone("SELECT * FROM workflow_schedules WHERE id = ?", (schedule_id,))
+    if not row:
+        return None
+    return _deserialize_schedule(dict(row))
+
+
+def list_schedules(
+    db: ThreadSafeConnection,
+    *,
+    enabled_only: bool = False,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    conditions: list[str] = []
+    params: list[Any] = []
+    if enabled_only:
+        conditions.append("enabled = 1")
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.append(limit)
+    rows = db.execute_fetchall(
+        f"SELECT * FROM workflow_schedules {where} ORDER BY next_run_at ASC LIMIT ?",
+        tuple(params),
+    )
+    return [_deserialize_schedule(dict(r)) for r in rows]
+
+
+def update_schedule(
+    db: ThreadSafeConnection,
+    schedule_id: str,
+    **updates: Any,
+) -> dict[str, Any] | None:
+    if not updates:
+        return get_schedule(db, schedule_id)
+    updates["updated_at"] = _now()
+    parts: list[str] = []
+    params: list[Any] = []
+    for col, val in updates.items():
+        if col not in _ALLOWED_SCHEDULE_UPDATE_COLUMNS:
+            raise ValueError(f"Column {col!r} not in allowed schedule update columns")
+        parts.append(f"{col} = ?")
+        params.append(val)
+    params.append(schedule_id)
+    db.execute(f"UPDATE workflow_schedules SET {', '.join(parts)} WHERE id = ?", tuple(params))
+    db.commit()
+    return get_schedule(db, schedule_id)
+
+
+def delete_schedule(db: ThreadSafeConnection, schedule_id: str) -> bool:
+    row = db.execute_fetchone("SELECT id FROM workflow_schedules WHERE id = ?", (schedule_id,))
+    if not row:
+        return False
+    db.execute("DELETE FROM workflow_schedules WHERE id = ?", (schedule_id,))
+    db.commit()
+    return True
+
+
+def claim_due_schedules(
+    db: ThreadSafeConnection,
+    worker_id: str,
+    limit: int = 5,
+    now: str | None = None,
+) -> list[dict[str, Any]]:
+    """Atomically claim due schedules for processing."""
+    now_iso = now or _now()
+    cursor = db.execute(
+        "UPDATE workflow_schedules SET claimed_by = ?, claimed_at = ?"
+        " WHERE id IN ("
+        "   SELECT id FROM workflow_schedules"
+        "   WHERE enabled = 1 AND next_run_at <= ?"
+        "   AND claimed_by IS NULL AND advance_after_run_id IS NULL"
+        "   ORDER BY next_run_at ASC LIMIT ?"
+        " )",
+        (worker_id, now_iso, now_iso, limit),
+    )
+    db.commit()
+    if cursor.rowcount == 0:
+        return []
+    rows = db.execute_fetchall(
+        "SELECT * FROM workflow_schedules WHERE claimed_by = ? AND claimed_at = ?",
+        (worker_id, now_iso),
+    )
+    return [_deserialize_schedule(dict(r)) for r in rows]
+
+
+def release_schedule_claim(db: ThreadSafeConnection, schedule_id: str) -> None:
+    db.execute(
+        "UPDATE workflow_schedules SET claimed_by = NULL, claimed_at = NULL, updated_at = ? WHERE id = ?",
+        (_now(), schedule_id),
+    )
+    db.commit()
+
+
+def advance_schedule(
+    db: ThreadSafeConnection,
+    schedule_id: str,
+    *,
+    next_run_at: str,
+    last_run_at: str,
+    last_run_id: str,
+) -> None:
+    """Advance a schedule to its next occurrence after a successful enqueue."""
+    db.execute(
+        "UPDATE workflow_schedules SET next_run_at = ?, last_run_at = ?, last_run_id = ?,"
+        " advance_after_run_id = NULL, claimed_by = NULL, claimed_at = NULL, updated_at = ?"
+        " WHERE id = ?",
+        (next_run_at, last_run_at, last_run_id, _now(), schedule_id),
+    )
+    db.commit()
+
+
+def set_advance_after_run(db: ThreadSafeConnection, schedule_id: str, run_id: str) -> None:
+    """Set a schedule to wait for a specific run to complete before advancing (queue policy)."""
+    db.execute(
+        "UPDATE workflow_schedules SET advance_after_run_id = ?,"
+        " claimed_by = NULL, claimed_at = NULL, updated_at = ? WHERE id = ?",
+        (run_id, _now(), schedule_id),
+    )
+    db.commit()
+
+
+def check_pending_advances(db: ThreadSafeConnection) -> list[dict[str, Any]]:
+    """Find schedules waiting on a run that has reached terminal status."""
+    rows = db.execute_fetchall(
+        "SELECT s.* FROM workflow_schedules s"
+        " JOIN workflow_runs r ON s.advance_after_run_id = r.id"
+        " WHERE s.advance_after_run_id IS NOT NULL"
+        " AND r.status IN ('completed', 'failed', 'cancelled', 'blocked')"
+        " LIMIT 20",
+    )
+    return [_deserialize_schedule(dict(r)) for r in rows]
+
+
+def reset_stale_schedule_claims(
+    db: ThreadSafeConnection,
+    stale_threshold_seconds: int = 300,
+) -> int:
+    """Reset schedule claims older than threshold."""
+    from datetime import timedelta
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_threshold_seconds)).isoformat()
+    cursor = db.execute(
+        "UPDATE workflow_schedules SET claimed_by = NULL, claimed_at = NULL, updated_at = ?"
+        " WHERE claimed_by IS NOT NULL AND claimed_at < ?",
+        (_now(), cutoff),
+    )
+    db.commit()
+    return cursor.rowcount

@@ -15,11 +15,13 @@ class LoginResponse:
         email (str):
         id (UUID):
         jwt (str):
+        refresh_token (str):
     """
 
     email: str
     id: UUID
     jwt: str
+    refresh_token: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -29,6 +31,8 @@ class LoginResponse:
 
         jwt = self.jwt
 
+        refresh_token = self.refresh_token
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -36,6 +40,7 @@ class LoginResponse:
                 "email": email,
                 "id": id,
                 "jwt": jwt,
+                "refresh_token": refresh_token,
             }
         )
 
@@ -50,10 +55,13 @@ class LoginResponse:
 
         jwt = d.pop("jwt")
 
+        refresh_token = d.pop("refresh_token")
+
         login_response = cls(
             email=email,
             id=id,
             jwt=jwt,
+            refresh_token=refresh_token,
         )
 
         login_response.additional_properties = d
