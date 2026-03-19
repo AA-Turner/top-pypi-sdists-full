@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.123.0
+Version: 1.127.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -87,7 +87,7 @@ Dynamic: license-file
   <img src="https://img.shields.io/pypi/v/anteroom?style=for-the-badge&color=3b82f6&labelColor=0f1117" alt="PyPI Version">
   <img src="https://img.shields.io/badge/python-3.10%2B-10b981?style=for-the-badge&labelColor=0f1117" alt="Python 3.10+">
   <a href="https://codecov.io/gh/troylar/anteroom"><img src="https://img.shields.io/codecov/c/github/troylar/anteroom?style=for-the-badge&color=7c3aed&labelColor=0f1117&label=coverage" alt="Coverage"></a>
-  <img src="https://img.shields.io/badge/tests-6%2C000%2B-10b981?style=for-the-badge&labelColor=0f1117" alt="6,000+ Tests">
+  <img src="https://img.shields.io/badge/tests-8%2C400%2B-10b981?style=for-the-badge&labelColor=0f1117" alt="8,400+ Tests">
   <img src="https://img.shields.io/badge/license-Apache%202.0-e8913a?style=for-the-badge&labelColor=0f1117" alt="Apache 2.0 License">
 </p>
 
@@ -403,7 +403,7 @@ JPMorgan built a private AI gateway for 250,000 employees. Goldman Sachs built o
 ```bash
 git clone https://github.com/troylar/anteroom.git
 cd anteroom && pip install -e ".[dev]"
-pytest tests/ -v                    # 6000+ tests
+pytest tests/ -v                    # 8400+ tests
 ruff check src/ tests/              # lint
 ruff format src/ tests/             # format
 ```

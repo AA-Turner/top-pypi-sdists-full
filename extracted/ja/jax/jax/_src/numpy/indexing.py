@@ -267,7 +267,7 @@ class NDIndexer:
         continue
       if not core.is_concrete(idx.index):
         # TODO(mattjj): improve this error by tracking _why_ the indices are not concrete
-        raise errors.NonConcreteBooleanIndexError(core.get_aval(idx.index))
+        raise errors.NonConcreteBooleanIndexError(core.typeof(idx.index))
       assert isinstance(idx.index, (bool, np.ndarray, Array, literals.TypedNdArray, list))
       if np.ndim(idx.index) == 0:  # pyrefly: ignore[bad-argument-type]
         # Scalar booleans
@@ -1132,7 +1132,7 @@ def rewriting_take(
   if out_sharding is not None:
     out_sharding = canonicalize_sharding(out_sharding, 'take')
     return auto_axes(internal_gather, out_sharding=out_sharding,
-                     axes=out_sharding.mesh.explicit_axes,  # type: ignore
+                     axes=out_sharding.mesh.explicit_axes,
                      )(arr, dynamic_idx)
   return internal_gather(arr, dynamic_idx)
 
@@ -1508,7 +1508,7 @@ def eliminate_deprecated_list_indexing(idx):
 
 def _is_boolean_index(i):
   try:
-    abstract_i = core.get_aval(i)
+    abstract_i = core.typeof(i)
   except TypeError:
     abstract_i = None
   return (isinstance(abstract_i, core.ShapedArray) and dtypes.issubdtype(abstract_i.dtype, np.bool_)

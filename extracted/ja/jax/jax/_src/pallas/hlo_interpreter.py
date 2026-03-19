@@ -97,7 +97,7 @@ def _dynamic_slice(
   output = slicing.dynamic_slice(value, start_idx, slice_sizes=block_shape)
   squeeze_dims = tuple(np.arange(len(is_squeeze))[np.array(is_squeeze,
                                                            dtype=np.bool_)])
-  return lax.squeeze(output, squeeze_dims)  # type: ignore[arg-type]
+  return lax.squeeze(output, squeeze_dims)
 
 
 def _dynamic_update_slice(start_idx, block_shape, value, update, is_squeeze):
@@ -217,14 +217,14 @@ def eval_jaxpr_recursive(
         ans = _eval_jaxpr_hop_rules[eqn.primitive](
             recurse_hop_rule, *in_vals, **eqn.params)
       else:
-        subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
-        ans = eqn.primitive.bind(*subfuns, *in_vals, **bind_params)
+        bind_params = eqn.primitive.get_bind_params(eqn.params)
+        ans = eqn.primitive.bind(*in_vals, **bind_params)
     if eqn.primitive.multiple_results:
       foreach(write, eqn.outvars, ans)
     else:
       write(eqn.outvars[0], ans)
     jax_core.clean_up_dead_vars(eqn, env, lu)
-  return map(read, jaxpr.outvars)  # pyrefly: ignore[bad-return]  # pyrefly#2385
+  return map(read, jaxpr.outvars)
 
 # Higher-order primitive rules.
 _eval_jaxpr_hop_rules = {}
@@ -407,7 +407,7 @@ def pallas_call_hlo_interpret(
   # to catch OOB accesses.
 
   carry = map(_pad_to_block_dimension, carry, block_shapes)
-  carry.extend(scratch_values)  # pyrefly: ignore[missing-attribute]  # pyrefly#2385
+  carry.extend(scratch_values)
 
   num_inout_blocks = len(block_args) + len(out)
   grid_start_indices = (jnp.int32(0),) * len(grid)
@@ -439,7 +439,7 @@ def pallas_call_hlo_interpret(
     with pallas_core.grid_env(local_grid_env):
       for s in scalars:
         if isinstance(s.dtype, jax_core.bint):
-          aval = jax_core.get_aval(s)
+          aval = jax_core.typeof(s)
           s.aval = aval.update(dtype=jnp.int32)
       start_indices = [
           bm.compute_start_indices_interpret(loop_idx, *scalars)
@@ -448,12 +448,12 @@ def pallas_call_hlo_interpret(
     blocks = map(_dynamic_slice, start_indices, block_shapes,
                  carry_consts_ins, is_squeeze_dim)
     with pallas_core.grid_env(local_grid_env):
-      assert len(discharged_jaxpr.invars) == len(scalars) + len(blocks) + len(  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+      assert len(discharged_jaxpr.invars) == len(scalars) + len(blocks) + len(
           scratch_values
       ), (
           len(discharged_jaxpr.invars),
           len(scalars),
-          len(blocks),  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+          len(blocks),
           len(scratch_values),
       )
 

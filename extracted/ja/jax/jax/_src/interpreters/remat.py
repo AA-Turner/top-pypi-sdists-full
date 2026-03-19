@@ -58,9 +58,11 @@ def remat_transform(policy, f, *args):
     return tree_unflatten(out_tree, out_flat)
   return out_ft.unflatten(), Partial(f_rem, map(reduce_precision, rs))
 
-class RematTracer(core.Tracer):
+class RematTracer(core.Tracer['RematTrace']):
+  _trace: RematTrace
+
   def __init__(self, trace, x, jaxpr_tracer):
-    self._trace = trace  # type: ignore
+    self._trace = trace  # pytype: disable=name-error
     self.val = x
     self.tracer = jaxpr_tracer
 
@@ -83,7 +85,7 @@ class RematTrace(core.Trace):
     else:
       raise NotImplementedError  # TODO(mattjj)
 
-  def process_primitive(self, prim, tracers, params):
+  def process_primitive(self, prim, tracers, params, /):
     in_vals, in_vals2 = unzip2(map(self.to_val_tracer_pair, tracers))
     if prim in rules:
       with core.set_current_trace(self.parent_trace):
@@ -123,7 +125,7 @@ def _remat_jaxpr(jaxpr, policy):
   src = source_info_util.current()
 
   def new_arg(a):
-    return RematTracer(trace, fwd_trace.new_arg(a, src), rem_trace.new_arg(a, src))  # type: ignore  # noqa: F821
+    return RematTracer(trace, fwd_trace.new_arg(a, src), rem_trace.new_arg(a, src))  # noqa: F821  # pytype: disable=name-error
 
   tracers = map(new_arg, jaxpr.in_aval_qdds)
   with core.set_current_trace(trace, check_leaks=True):

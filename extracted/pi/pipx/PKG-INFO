@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipx
-Version: 1.9.0
+Version: 1.10.0
 Summary: Install and Run Python Applications in Isolated Environments
 Project-URL: Issue Tracker, https://github.com/pypa/pipx/issues
 Project-URL: Release Notes, https://pipx.pypa.io/latest/changelog/
@@ -44,8 +44,8 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
-<a href="https://github.com/pypa/pipx/actions">
-<img src="https://github.com/pypa/pipx/workflows/tests/badge.svg?branch=main" alt="image" /></a> <a href="https://badge.fury.io/py/pipx"><img src="https://badge.fury.io/py/pipx.svg" alt="PyPI version"></a> <a href="https://badge.fury.io/py/pipx"><img src="https://static.pepy.tech/badge/pipx"></a>
+<a href="https://github.com/pypa/pipx/actions/workflows/tests.yml">
+<img src="https://github.com/pypa/pipx/actions/workflows/tests.yml/badge.svg?event=push&branch=main" alt="image" /></a> <a href="https://badge.fury.io/py/pipx"><img src="https://badge.fury.io/py/pipx.svg" alt="PyPI version"></a> <a href="https://badge.fury.io/py/pipx"><img src="https://static.pepy.tech/badge/pipx"></a>
 
 </p>
 

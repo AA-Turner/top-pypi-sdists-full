@@ -12,16 +12,17 @@ use glide_core::request_type::RequestType;
 use glide_core::scripts_container;
 use glide_core::{
     DEFAULT_FLUSH_SIGNAL_INTERVAL_MS, GlideOpenTelemetry, GlideOpenTelemetryConfigBuilder,
-    GlideOpenTelemetrySignalsExporter, GlideSpan,
+    GlideOpenTelemetrySignalsExporter, GlideSpan, Telemetry,
 };
 use protobuf::Message;
 use redis::ErrorKind;
 use redis::ObjectType;
 use redis::ScanStateRC;
+use redis::cluster_routing::ResponsePolicy;
+use redis::cluster_routing::Routable;
 use redis::cluster_routing::{
     MultipleNodeRoutingInfo, Route, RoutingInfo, SingleNodeRoutingInfo, SlotAddr,
 };
-use redis::cluster_routing::{ResponsePolicy, Routable};
 use redis::{ClusterScanArgs, RedisError};
 use redis::{Cmd, Pipeline, PipelineRetryStrategy, RedisResult, Value};
 use std::ffi::CStr;
@@ -210,6 +211,11 @@ pub enum ResponseType {
     Ok = 8,
     Error = 9,
 }
+
+/// A Send-safe wrapper around a raw buffer pointer and length.
+/// The caller guarantees the buffer remains valid for the duration of the FFI call.
+struct ResponseBuffer(*mut u8, usize);
+unsafe impl Send for ResponseBuffer {}
 
 /// Success callback that is called when a command succeeds.
 ///
@@ -418,6 +424,7 @@ pub enum ClientType {
 pub struct ClientAdapter {
     runtime: Runtime,
     core: Arc<CommandExecutionCore>,
+    pubsub_callback: Arc<std::sync::RwLock<Option<PubSubCallback>>>,
 }
 
 struct CommandExecutionCore {
@@ -435,6 +442,18 @@ impl ClientAdapter {
     where
         Fut: Future<Output = RedisResult<Value>> + Send + 'static,
     {
+        self.execute_request_with_buffer(request_id, request_future, None)
+    }
+
+    fn execute_request_with_buffer<Fut>(
+        &self,
+        request_id: usize,
+        request_future: Fut,
+        response_buf: Option<ResponseBuffer>,
+    ) -> *mut CommandResult
+    where
+        Fut: Future<Output = RedisResult<Value>> + Send + 'static,
+    {
         match self.core.client_type {
             ClientType::AsyncClient {
                 success_callback,
@@ -448,6 +467,7 @@ impl ClientAdapter {
                         Some(success_callback),
                         Some(failure_callback),
                         request_id,
+                        response_buf,
                     );
                 });
                 std::ptr::null_mut()
@@ -455,7 +475,7 @@ impl ClientAdapter {
             ClientType::SyncClient => {
                 // Block on the request for sync client
                 let result = self.runtime.block_on(request_future);
-                Self::handle_result(result, None, None, request_id)
+                Self::handle_result(result, None, None, request_id, response_buf)
             }
         }
     }
@@ -471,33 +491,39 @@ impl ClientAdapter {
         success_callback: Option<SuccessCallback>,
         failure_callback: Option<FailureCallback>,
         request_id: usize,
+        response_buf: Option<ResponseBuffer>,
     ) -> *mut CommandResult {
         match result {
-            Ok(value) => match valkey_value_to_command_response(value) {
-                Ok(command_response) => {
-                    if let Some(success_callback) = success_callback {
-                        unsafe {
-                            (success_callback)(
-                                request_id,
-                                Box::into_raw(Box::new(command_response)),
-                            );
+            Ok(value) => {
+                let buf = response_buf.map(|rb| (rb.0, rb.1));
+                match valkey_value_to_command_response(value, buf) {
+                    Ok(command_response) => {
+                        if let Some(success_callback) = success_callback {
+                            unsafe {
+                                (success_callback)(
+                                    request_id,
+                                    Box::into_raw(Box::new(command_response)),
+                                );
+                            }
+                        } else {
+                            return Box::into_raw(Box::new(CommandResult {
+                                response: Box::into_raw(Box::new(command_response)),
+                                command_error: std::ptr::null_mut(),
+                            }));
                         }
-                    } else {
-                        return Box::into_raw(Box::new(CommandResult {
-                            response: Box::into_raw(Box::new(command_response)),
-                            command_error: std::ptr::null_mut(),
-                        }));
+                    }
+                    Err(err) => {
+                        if let Some(failure_callback) = failure_callback {
+                            unsafe {
+                                Self::send_async_redis_error(failure_callback, err, request_id)
+                            };
+                        } else {
+                            eprintln!("Error converting value to CommandResponse: {err:?}");
+                            return create_error_result_with_redis_error(err);
+                        }
                     }
                 }
-                Err(err) => {
-                    if let Some(failure_callback) = failure_callback {
-                        unsafe { Self::send_async_redis_error(failure_callback, err, request_id) };
-                    } else {
-                        eprintln!("Error converting value to CommandResponse: {err:?}");
-                        return create_error_result_with_redis_error(err);
-                    }
-                }
-            },
+            }
             Err(err) => {
                 if let Some(failure_callback) = failure_callback {
                     unsafe { Self::send_async_redis_error(failure_callback, err, request_id) };
@@ -735,7 +761,7 @@ unsafe fn process_push_notification(
 fn create_client_internal(
     connection_request_bytes: &[u8],
     client_type: ClientType,
-    pubsub_callback: PubSubCallback,
+    pubsub_callback: Option<PubSubCallback>,
 ) -> Result<*const ClientAdapter, String> {
     let request = connection_request::ConnectionRequest::parse_from_bytes(connection_request_bytes)
         .map_err(|err| err.to_string())?;
@@ -750,15 +776,14 @@ fn create_client_internal(
             errors::error_message(&redis_error)
         })?;
 
-    let is_subscriber = request.pubsub_subscriptions.is_some() && pubsub_callback as usize != 0;
+    // Always create push channels to support dynamic pubsub
     let (push_tx, mut push_rx) = tokio::sync::mpsc::unbounded_channel();
-    let tx = match is_subscriber {
-        true => Some(push_tx),
-        false => None,
-    };
 
     let client = runtime
-        .block_on(GlideClient::new(ConnectionRequest::from(request), tx))
+        .block_on(GlideClient::new(
+            ConnectionRequest::from(request),
+            Some(push_tx),
+        ))
         .map_err(|err| err.to_string())?;
 
     // Create the client adapter that will be returned and used as conn_ptr
@@ -766,25 +791,30 @@ fn create_client_internal(
         client,
         client_type,
     });
-    let client_adapter = Arc::new(ClientAdapter { runtime, core });
-    // Clone client_adapter before moving it into the async block
+    let pubsub_callback_store = Arc::new(std::sync::RwLock::new(pubsub_callback));
+    let client_adapter = Arc::new(ClientAdapter {
+        runtime,
+        core,
+        pubsub_callback: pubsub_callback_store.clone(),
+    });
     let client_adapter_ptr = Arc::as_ptr(&client_adapter).addr();
 
-    // If pubsub_callback is provided (not null), spawn a task to handle push notifications
-    if is_subscriber {
-        client_adapter.runtime.spawn(async move {
-            while let Some(push_msg) = push_rx.recv().await {
-                if push_msg.kind == redis::PushKind::Message
-                    || push_msg.kind == redis::PushKind::PMessage
-                    || push_msg.kind == redis::PushKind::SMessage
-                {
-                    unsafe {
-                        process_push_notification(push_msg, pubsub_callback, client_adapter_ptr);
-                    }
+    // Always spawn push handler to support dynamic pubsub
+    let callback_store = pubsub_callback_store.clone();
+    client_adapter.runtime.spawn(async move {
+        while let Some(push_msg) = push_rx.recv().await {
+            if (push_msg.kind == redis::PushKind::Message
+                || push_msg.kind == redis::PushKind::PMessage
+                || push_msg.kind == redis::PushKind::SMessage)
+                && let Ok(guard) = callback_store.read()
+                && let Some(callback) = *guard
+            {
+                unsafe {
+                    process_push_notification(push_msg, callback, client_adapter_ptr);
                 }
             }
-        });
-    }
+        }
+    });
 
     Ok(Arc::into_raw(client_adapter))
 }
@@ -797,6 +827,7 @@ fn create_client_internal(
 /// `connection_request_len` is the number of bytes in `connection_request_bytes`.
 /// `success_callback` is the callback that will be called when a command succeeds.
 /// `failure_callback` is the callback that will be called when a command fails.
+/// `pubsub_callback` is an optional callback for pubsub messages. Pass 0 (null) to create a client without pubsub support.
 ///
 /// # Safety
 ///
@@ -805,6 +836,7 @@ fn create_client_internal(
 /// * The `conn_ptr` pointer in the returned `ConnectionResponse` must live while the client is open/active and must be explicitly freed by calling [`close_client``].
 /// * The `connection_error_message` pointer in the returned `ConnectionResponse` must live until the returned `ConnectionResponse` pointer is passed to [`free_connection_response``].
 /// * Both the `success_callback` and `failure_callback` function pointers need to live while the client is open/active. The caller is responsible for freeing both callbacks.
+/// * If `pubsub_callback` is non-zero, it must be a valid function pointer that lives while the client is open/active.
 // TODO: Consider making this async
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn create_client(
@@ -817,8 +849,15 @@ pub unsafe extern "C-unwind" fn create_client(
     let request_bytes =
         unsafe { std::slice::from_raw_parts(connection_request_bytes, connection_request_len) };
     let client_type = unsafe { &*client_type };
-    let response = match create_client_internal(request_bytes, client_type.clone(), pubsub_callback)
-    {
+
+    // Convert callback pointer to Option - 0 means no callback
+    let callback_opt = if pubsub_callback as usize == 0 {
+        None
+    } else {
+        Some(pubsub_callback)
+    };
+
+    let response = match create_client_internal(request_bytes, client_type.clone(), callback_opt) {
         Err(err) => ConnectionResponse {
             conn_ptr: std::ptr::null(),
             connection_error_message: CString::into_raw(
@@ -998,7 +1037,10 @@ fn convert_vec_to_pointer<T>(mut vec: Vec<T>) -> (*mut T, c_long) {
     (vec_ptr, len)
 }
 
-fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse> {
+fn valkey_value_to_command_response(
+    value: Value,
+    response_buf: Option<(*mut u8, usize)>,
+) -> RedisResult<CommandResponse> {
     let mut command_response = CommandResponse::default();
     let result: RedisResult<CommandResponse> = match value {
         Value::Nil => Ok(command_response),
@@ -1010,8 +1052,29 @@ fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse
             command_response.response_type = ResponseType::String;
             Ok(command_response)
         }
-        Value::BulkString(text) => {
-            let (vec_ptr, len) = convert_vec_to_pointer(text);
+        Value::BulkString(data) => {
+            let data = if let Some((buf, buf_len)) = response_buf {
+                if data.len() > buf_len {
+                    return Err(RedisError::from((
+                        ErrorKind::ClientError,
+                        "Value size exceeds buffer capacity",
+                        format!(
+                            "value is {} bytes but buffer is {} bytes",
+                            data.len(),
+                            buf_len
+                        ),
+                    )));
+                }
+                // Copy data directly into the caller's buffer; the command response
+                // will carry the number of bytes written instead of the data itself.
+                unsafe {
+                    std::ptr::copy_nonoverlapping(data.as_ptr(), buf, data.len());
+                }
+                data.len().to_string().into_bytes()
+            } else {
+                data
+            };
+            let (vec_ptr, len) = convert_vec_to_pointer(data);
             command_response.string_value = vec_ptr as *mut c_char;
             command_response.string_value_len = len;
             command_response.response_type = ResponseType::String;
@@ -1047,7 +1110,7 @@ fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse
         Value::Array(array) => {
             let vec: Result<Vec<CommandResponse>, RedisError> = array
                 .into_iter()
-                .map(valkey_value_to_command_response)
+                .map(|v| valkey_value_to_command_response(v, None))
                 .collect();
             let (vec_ptr, len) = convert_vec_to_pointer(vec?);
             command_response.array_value = vec_ptr;
@@ -1061,13 +1124,13 @@ fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse
                 .map(|(key, val)| {
                     let mut map_response = CommandResponse::default();
 
-                    let map_key = match valkey_value_to_command_response(key) {
+                    let map_key = match valkey_value_to_command_response(key, None) {
                         Ok(map_key) => map_key,
                         Err(err) => return Err(err),
                     };
                     map_response.map_key = Box::into_raw(Box::new(map_key));
 
-                    let map_val = match valkey_value_to_command_response(val) {
+                    let map_val = match valkey_value_to_command_response(val, None) {
                         Ok(map_val) => map_val,
                         Err(err) => return Err(err),
                     };
@@ -1086,7 +1149,7 @@ fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse
         Value::Set(array) => {
             let vec: Result<Vec<CommandResponse>, RedisError> = array
                 .into_iter()
-                .map(valkey_value_to_command_response)
+                .map(|v| valkey_value_to_command_response(v, None))
                 .collect();
             let (vec_ptr, len) = convert_vec_to_pointer(vec?);
             command_response.sets_value = vec_ptr;
@@ -1111,18 +1174,18 @@ fn valkey_value_to_command_response(value: Value) -> RedisResult<CommandResponse
             // Create kind entry
             let mut kind_entry = CommandResponse::default();
             let map_key =
-                valkey_value_to_command_response(Value::SimpleString("kind".to_string()))?;
+                valkey_value_to_command_response(Value::SimpleString("kind".to_string()), None)?;
             kind_entry.map_key = Box::into_raw(Box::new(map_key));
             let map_val =
-                valkey_value_to_command_response(Value::SimpleString(format!("{:?}", kind)))?;
+                valkey_value_to_command_response(Value::SimpleString(format!("{:?}", kind)), None)?;
             kind_entry.map_value = Box::into_raw(Box::new(map_val));
 
             // Create values entry
             let mut values_entry = CommandResponse::default();
             let map_key =
-                valkey_value_to_command_response(Value::SimpleString("values".to_string()))?;
+                valkey_value_to_command_response(Value::SimpleString("values".to_string()), None)?;
             values_entry.map_key = Box::into_raw(Box::new(map_key));
-            let map_val = valkey_value_to_command_response(Value::Array(data))?;
+            let map_val = valkey_value_to_command_response(Value::Array(data), None)?;
             values_entry.map_value = Box::into_raw(Box::new(map_val));
 
             let (map_ptr, map_len) = convert_vec_to_pointer(vec![kind_entry, values_entry]);
@@ -1167,6 +1230,64 @@ pub unsafe extern "C-unwind" fn command(
     route_bytes_len: usize,
     span_ptr: u64,
 ) -> *mut CommandResult {
+    unsafe {
+        command_with_buffer(
+            client_adapter_ptr,
+            request_id,
+            command_type,
+            arg_count,
+            args,
+            args_len,
+            route_bytes,
+            route_bytes_len,
+            std::ptr::null_mut(),
+            0,
+            span_ptr,
+        )
+    }
+}
+
+/// Executes a command, optionally copying a BulkString response directly into a
+/// caller-provided buffer instead of returning it as a heap-allocated value.
+///
+/// When `response_buf` is null (and `response_buf_len` is 0), behaves identically
+/// to [`command`] — the response flows through the normal `execute_request` path.
+///
+/// When `response_buf` is non-null, the response is written directly into the buffer:
+/// - `response.string_value` = number of bytes written as a string, or Nil response for missing keys.
+/// - Errors if the value exceeds `response_buf_len`.
+///
+/// # Safety
+///
+/// * `client_adapter_ptr` must not be `null` and must be obtained from the `ConnectionResponse` returned from [`create_client`].
+/// * `client_adapter_ptr` must be able to be safely casted to a valid [`Arc<ClientAdapter>`] via [`Arc::from_raw`]. See the safety documentation of [`std::sync::Arc::from_raw`].
+/// * `request_id` must be a request ID from the foreign language and must be valid until either `success_callback` or `failure_callback` is finished.
+/// * `args` is an optional bytes pointers array. The array must be allocated by the caller and subsequently freed by the caller after this function returns.
+/// * `args_len` is an optional bytes length array. The array must be allocated by the caller and subsequently freed by the caller after this function returns.
+/// * `arg_count` the number of elements in `args` and `args_len`. It must also not be greater than the max value of a signed pointer-sized integer.
+/// * `arg_count` must be 0 if `args` and `args_len` are null.
+/// * `args` and `args_len` must either be both null or be both not null.
+/// * `route_bytes` is an optional array of bytes that will be parsed into a Protobuf `Routes` object. The array must be allocated by the caller and subsequently freed by the caller after this function returns.
+/// * `route_bytes_len` is the number of bytes in `route_bytes`. It must also not be greater than the max value of a signed pointer-sized integer.
+/// * `route_bytes_len` must be 0 if `route_bytes` is null.
+/// * When non-null, `response_buf` must point to a writable buffer of at least `response_buf_len` bytes.
+/// * `response_buf_len` must be 0 if `response_buf` is null.
+/// * `span_ptr` is a valid pointer to [`Arc<GlideSpan>`], a span created by [`create_otel_span`] or `0`. The span must be valid until the command is finished.
+/// * This function should only be called with a `client_adapter_ptr` created by [`create_client`], before [`close_client`] was called with the pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C-unwind" fn command_with_buffer(
+    client_adapter_ptr: *const c_void,
+    request_id: usize,
+    command_type: RequestType,
+    arg_count: c_ulong,
+    args: *const usize,
+    args_len: *const c_ulong,
+    route_bytes: *const u8,
+    route_bytes_len: usize,
+    response_buf: *mut u8,
+    response_buf_len: usize,
+    span_ptr: u64,
+) -> *mut CommandResult {
     let client_adapter = unsafe {
         // we increment the strong count to ensure that the client is not dropped just because we turned it into an Arc.
         Arc::increment_strong_count(client_adapter_ptr);
@@ -1188,9 +1309,43 @@ pub unsafe extern "C-unwind" fn command(
             return unsafe { client_adapter.handle_redis_error(err, request_id) };
         }
     };
-    for command_arg in arg_vec {
-        cmd.arg(command_arg);
+
+    // Check if compression is enabled before converting args
+    let compression_manager = client_adapter.core.client.compression_manager();
+    let should_process_compression = compression_manager
+        .as_ref()
+        .map(|cm| cm.is_enabled())
+        .unwrap_or(false);
+
+    if should_process_compression {
+        // Convert arg_vec to owned Vec<Vec<u8>> for compression processing
+        let mut owned_args: Vec<Vec<u8>> = arg_vec.iter().map(|&arg| arg.to_vec()).collect();
+
+        // Apply compression to command arguments
+        if let Err(err) = glide_core::compression::process_command_args_for_compression(
+            &mut owned_args,
+            command_type,
+            compression_manager.as_deref(),
+        ) {
+            let err = RedisError::from((
+                ErrorKind::ClientError,
+                "Compression failed",
+                err.to_string(),
+            ));
+            return unsafe { client_adapter.handle_redis_error(err, request_id) };
+        }
+
+        // Use the compressed arguments
+        for command_arg in &owned_args {
+            cmd.arg(command_arg);
+        }
+    } else {
+        // Use the original arguments
+        for command_arg in &arg_vec {
+            cmd.arg(command_arg);
+        }
     }
+
     if span_ptr != 0 {
         cmd.set_span(unsafe { get_unsafe_span_from_ptr(Some(span_ptr)) });
     }
@@ -1212,12 +1367,32 @@ pub unsafe extern "C-unwind" fn command(
         Routes::default()
     };
 
+    // Check inflight request limit
+    if !client_adapter.core.client.reserve_inflight_request() {
+        let err = RedisError::from((ErrorKind::ClientError, "Reached maximum inflight requests"));
+        return unsafe { client_adapter.handle_redis_error(err, request_id) };
+    }
+
     let child_span = create_child_span(cmd.span().as_ref(), "send_command");
     let mut client = client_adapter.core.client.clone();
-    let result = client_adapter.execute_request(request_id, async move {
-        let routing_info = get_route(route, Some(&cmd))?;
-        client.send_command(&cmd, routing_info).await
-    });
+    let client_for_release = client_adapter.core.client.clone();
+
+    let buf_option = if response_buf.is_null() {
+        None
+    } else {
+        Some(ResponseBuffer(response_buf, response_buf_len))
+    };
+
+    let result = client_adapter.execute_request_with_buffer(
+        request_id,
+        async move {
+            let routing_info = get_route(route, Some(&cmd))?;
+            let result = client.send_command(&mut cmd, routing_info).await;
+            client_for_release.release_inflight_request();
+            result
+        },
+        buf_option,
+    );
     if let Ok(span) = child_span {
         span.end();
     }
@@ -1868,8 +2043,11 @@ pub unsafe extern "C" fn batch(
     };
     let mut client = client_adapter.core.client.clone();
 
+    // Get compression manager for batch operations
+    let compression_manager = client_adapter.core.client.compression_manager();
+
     // TODO handle panics
-    let mut pipeline = match unsafe { create_pipeline(batch_ptr) } {
+    let mut pipeline = match unsafe { create_pipeline(batch_ptr, compression_manager.as_ref()) } {
         Ok(pipeline) => pipeline,
         Err(err) => {
             return unsafe {
@@ -1974,7 +2152,10 @@ pub(crate) unsafe fn create_route(
 /// * `args` and `args_len` in a referred [`CmdInfo`] structure must not be `null`.
 /// * `data` in a referred [`CmdInfo`] structure must point to `arg_count` consecutive string pointers.
 /// * `args_len` in a referred [`CmdInfo`] structure must point to `arg_count` consecutive string lengths. See the safety documentation of [`convert_double_pointer_to_vec`].
-pub(crate) unsafe fn create_cmd(ptr: *const CmdInfo) -> Result<Cmd, String> {
+pub(crate) unsafe fn create_cmd(
+    ptr: *const CmdInfo,
+    compression_manager: Option<&std::sync::Arc<glide_core::compression::CompressionManager>>,
+) -> Result<Cmd, String> {
     let info = unsafe { *ptr };
     let arg_vec = unsafe {
         convert_double_pointer_to_vec(
@@ -1987,9 +2168,37 @@ pub(crate) unsafe fn create_cmd(ptr: *const CmdInfo) -> Result<Cmd, String> {
     let Some(mut cmd) = info.request_type.get_command() else {
         return Err("Couldn't fetch command type".into());
     };
-    for command_arg in arg_vec {
-        cmd.arg(command_arg);
+
+    // Check if compression is enabled before converting args
+    let should_process_compression = compression_manager
+        .as_ref()
+        .map(|cm| cm.is_enabled())
+        .unwrap_or(false);
+
+    if should_process_compression {
+        // Convert arg_vec to owned Vec<Vec<u8>> for compression processing
+        let mut owned_args: Vec<Vec<u8>> = arg_vec.iter().map(|&arg| arg.to_vec()).collect();
+
+        // Apply compression to command arguments
+        if let Err(err) = glide_core::compression::process_command_args_for_compression(
+            &mut owned_args,
+            info.request_type,
+            compression_manager.map(|m| m.as_ref()),
+        ) {
+            return Err(format!("Compression failed: {}", err));
+        }
+
+        // Use the compressed arguments
+        for command_arg in &owned_args {
+            cmd.arg(command_arg);
+        }
+    } else {
+        // Use the original arguments
+        for command_arg in &arg_vec {
+            cmd.arg(command_arg);
+        }
     }
+
     Ok(cmd)
 }
 
@@ -2002,12 +2211,15 @@ pub(crate) unsafe fn create_cmd(ptr: *const CmdInfo) -> Result<Cmd, String> {
 ///   They must be able to be safely casted to a valid to a slice of the corresponding type via [`from_raw_parts`]. See the safety documentation of [`from_raw_parts`].
 /// * Every pointer stored in `cmds` must not be `null` and must point to a valid [`CmdInfo`] structure.
 /// * All data in referred [`CmdInfo`] structure(s) should be valid. See the safety documentation of [`create_cmd`].
-pub(crate) unsafe fn create_pipeline(ptr: *const BatchInfo) -> Result<Pipeline, String> {
+pub(crate) unsafe fn create_pipeline(
+    ptr: *const BatchInfo,
+    compression_manager: Option<&std::sync::Arc<glide_core::compression::CompressionManager>>,
+) -> Result<Pipeline, String> {
     let info = unsafe { *ptr };
     let cmd_pointers = unsafe { from_raw_parts(info.cmds, info.cmd_count) };
     let mut pipeline = Pipeline::with_capacity(info.cmd_count);
     for (i, cmd_ptr) in cmd_pointers.iter().enumerate() {
-        match unsafe { create_cmd(*cmd_ptr) } {
+        match unsafe { create_cmd(*cmd_ptr, compression_manager) } {
             Ok(cmd) => pipeline.add_command(cmd),
             Err(err) => return Err(format!("Coudln't create {i:?}'th command: {err:?}")),
         };
@@ -2046,44 +2258,36 @@ pub(crate) unsafe fn get_pipeline_options(
     )
 }
 
-/// Creates an OpenTelemetry span with the given name and returns a pointer to the span as u64.
-///
-#[unsafe(no_mangle)]
-pub extern "C" fn create_otel_span(request_type: RequestType) -> u64 {
+/// Helper function to extract and validate command name from RequestType.
+/// Returns the command name or None if validation fails.
+/// Falls back to "CustomCommand" for user-defined commands (e.g., EVAL, EVALSHA).
+fn extract_command_name(request_type: RequestType, context: &str) -> Option<String> {
     // Validate request type and extract command
     let cmd = match request_type.get_command() {
         Some(cmd) => cmd,
         None => {
             logger_core::log_error(
                 "ffi_otel",
-                "create_otel_span: RequestType has no command available",
+                format!("{context}: RequestType has no command available"),
             );
-            return 0;
+            return None;
         }
     };
 
-    // Validate command bytes
-    let cmd_bytes = match cmd.command() {
-        Some(bytes) => bytes,
-        None => {
-            logger_core::log_error(
-                "ffi_otel",
-                "create_otel_span: Command has no bytes available",
-            );
-            return 0;
-        }
-    };
-
-    // Validate UTF-8 encoding
-    let command_name = match std::str::from_utf8(cmd_bytes.as_slice()) {
-        Ok(name) => name,
-        Err(e) => {
-            logger_core::log_error(
-                "ffi_otel",
-                format!("create_otel_span: Command bytes are not valid UTF-8: {e}"),
-            );
-            return 0;
-        }
+    // Extract command name, falling back to "CustomCommand" for user-defined commands
+    // (e.g. EVAL) where the Cmd struct has no pre-set command bytes.
+    let command_name = match cmd.command() {
+        Some(bytes) => match std::str::from_utf8(bytes.as_slice()) {
+            Ok(name) => name.to_owned(),
+            Err(e) => {
+                logger_core::log_error(
+                    "ffi_otel",
+                    format!("{context}: Command bytes are not valid UTF-8: {e}"),
+                );
+                return None;
+            }
+        },
+        None => "CustomCommand".to_owned(),
     };
 
     // Validate command name length (reasonable limit to prevent abuse)
@@ -2091,15 +2295,26 @@ pub extern "C" fn create_otel_span(request_type: RequestType) -> u64 {
         logger_core::log_error(
             "ffi_otel",
             format!(
-                "create_otel_span: Command name too long ({} chars), max 256",
+                "{context}: Command name too long ({} chars), max 256",
                 command_name.len()
             ),
         );
-        return 0;
+        return None;
     }
 
+    Some(command_name)
+}
+
+/// Creates an OpenTelemetry span with the given name and returns a pointer to the span as u64.
+#[unsafe(no_mangle)]
+pub extern "C" fn create_otel_span(request_type: RequestType) -> u64 {
+    let command_name = match extract_command_name(request_type, "create_otel_span") {
+        Some(name) => name,
+        None => return 0,
+    };
+
     // Create span and convert to pointer
-    let span = GlideOpenTelemetry::new_span(command_name);
+    let span = GlideOpenTelemetry::new_span(&command_name);
     let arc = Arc::new(span);
     let ptr = Arc::into_raw(arc);
     let span_ptr = ptr as u64;
@@ -2312,53 +2527,10 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
     request_type: RequestType,
     parent_span_ptr: u64,
 ) -> u64 {
-    // Validate request type and extract command first (this should fail hard)
-    let cmd = match request_type.get_command() {
-        Some(cmd) => cmd,
-        None => {
-            logger_core::log_error(
-                "ffi_otel",
-                "create_otel_span_with_parent: RequestType has no command available",
-            );
-            return 0;
-        }
+    let command_name = match extract_command_name(request_type, "create_otel_span_with_parent") {
+        Some(name) => name,
+        None => return 0,
     };
-
-    // Validate command bytes
-    let cmd_bytes = match cmd.command() {
-        Some(bytes) => bytes,
-        None => {
-            logger_core::log_error(
-                "ffi_otel",
-                "create_otel_span_with_parent: Command has no bytes available",
-            );
-            return 0;
-        }
-    };
-
-    // Validate UTF-8 encoding
-    let command_name = match std::str::from_utf8(cmd_bytes.as_slice()) {
-        Ok(name) => name,
-        Err(e) => {
-            logger_core::log_error(
-                "ffi_otel",
-                format!("create_otel_span_with_parent: Command bytes are not valid UTF-8: {e}",),
-            );
-            return 0;
-        }
-    };
-
-    // Validate command name length (reasonable limit to prevent abuse)
-    if command_name.len() > 256 {
-        logger_core::log_error(
-            "ffi_otel",
-            format!(
-                "create_otel_span_with_parent: Command name too long ({} chars), max 256",
-                command_name.len()
-            ),
-        );
-        return 0;
-    }
 
     // Handle parent span pointer validation with graceful fallback
     if parent_span_ptr == 0 {
@@ -2367,7 +2539,7 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
             "create_otel_span_with_parent: parent_span_ptr is null (0), creating independent span as fallback",
         );
         // Graceful fallback: create independent span
-        let span = GlideOpenTelemetry::new_span(command_name);
+        let span = GlideOpenTelemetry::new_span(&command_name);
         let arc = Arc::new(span);
         let ptr = Arc::into_raw(arc);
         let span_ptr = ptr as u64;
@@ -2384,7 +2556,7 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
     let span = match unsafe { GlideOpenTelemetry::span_from_pointer(parent_span_ptr) } {
         Ok(parent_span) => {
             // Use existing add_span method to create child span
-            match parent_span.add_span(command_name) {
+            match parent_span.add_span(&command_name) {
                 Ok(child_span) => child_span,
                 Err(e) => {
                     logger_core::log_warn(
@@ -2394,7 +2566,7 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
                         ),
                     );
                     // Graceful fallback: create independent span
-                    GlideOpenTelemetry::new_span(command_name)
+                    GlideOpenTelemetry::new_span(&command_name)
                 }
             }
         }
@@ -2406,7 +2578,7 @@ pub unsafe extern "C" fn create_otel_span_with_parent(
                 ),
             );
             // Graceful fallback: create independent span
-            GlideOpenTelemetry::new_span(command_name)
+            GlideOpenTelemetry::new_span(&command_name)
         }
     };
 
@@ -2885,5 +3057,136 @@ pub unsafe extern "C" fn free_log_result(result_ptr: *mut LogResult) {
         if !result.log_error.is_null() {
             free_c_string(result.log_error);
         }
+    }
+}
+
+/// Statistics structure containing telemetry data.
+///
+/// This struct provides compression and connection statistics for the client.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Statistics {
+    /// Total number of connections opened to Valkey
+    pub total_connections: c_ulong,
+    /// Total number of GLIDE clients
+    pub total_clients: c_ulong,
+    /// Total number of values compressed
+    pub total_values_compressed: c_ulong,
+    /// Total number of values decompressed
+    pub total_values_decompressed: c_ulong,
+    /// Total original bytes before compression
+    pub total_original_bytes: c_ulong,
+    /// Total bytes after compression
+    pub total_bytes_compressed: c_ulong,
+    /// Total bytes after decompression
+    pub total_bytes_decompressed: c_ulong,
+    /// Number of times compression was skipped
+    pub compression_skipped_count: c_ulong,
+    /// Number of times subscriptions were out of sync during reconciliation
+    pub subscription_out_of_sync_count: c_ulong,
+    /// Timestamp of last successful subscription sync (milliseconds since epoch)
+    pub subscription_last_sync_timestamp: c_ulong,
+}
+
+/// Get compression and connection statistics.
+///
+/// Returns a `Statistics` struct containing current telemetry data.
+/// This function is thread-safe and can be called at any time.
+///
+/// # Returns
+///
+/// A `Statistics` struct with the current statistics values.
+#[unsafe(no_mangle)]
+pub extern "C" fn get_statistics() -> Statistics {
+    Statistics {
+        total_connections: Telemetry::total_connections() as c_ulong,
+        total_clients: Telemetry::total_clients() as c_ulong,
+        total_values_compressed: Telemetry::total_values_compressed() as c_ulong,
+        total_values_decompressed: Telemetry::total_values_decompressed() as c_ulong,
+        total_original_bytes: Telemetry::total_original_bytes() as c_ulong,
+        total_bytes_compressed: Telemetry::total_bytes_compressed() as c_ulong,
+        total_bytes_decompressed: Telemetry::total_bytes_decompressed() as c_ulong,
+        compression_skipped_count: Telemetry::compression_skipped_count() as c_ulong,
+        subscription_out_of_sync_count: Telemetry::subscription_out_of_sync_count() as c_ulong,
+        subscription_last_sync_timestamp: Telemetry::subscription_last_sync_timestamp() as c_ulong,
+    }
+}
+
+/// Returns the minimum size in bytes for compression.
+///
+/// This constant represents the minimum size a value must be to be eligible for compression.
+/// It is calculated as `HEADER_SIZE + 1` to ensure that compressed data is always larger
+/// than just the compression header itself.
+///
+/// This function allows language bindings to validate compression configuration without
+/// hardcoding the constant, ensuring consistency with the Rust core implementation.
+///
+/// # Returns
+///
+/// The minimum compression size in bytes (currently 6 bytes: 5-byte header + 1 byte data).
+#[unsafe(no_mangle)]
+pub extern "C" fn get_min_compressed_size() -> c_ulong {
+    glide_core::compression::MIN_COMPRESSED_SIZE as c_ulong
+}
+
+/// Register a pubsub callback for an existing client.
+///
+/// # Safety
+/// * `client_adapter_ptr` must be a valid client pointer from create_client
+/// * `pubsub_callback` must be a valid function pointer that lives while the client is active
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn register_pubsub_callback(
+    client_adapter_ptr: *const c_void,
+    pubsub_callback: PubSubCallback,
+) -> *const c_char {
+    if client_adapter_ptr.is_null() {
+        return CString::new("Client adapter pointer is null")
+            .unwrap()
+            .into_raw();
+    }
+
+    let client_adapter = unsafe {
+        Arc::increment_strong_count(client_adapter_ptr);
+        Arc::from_raw(client_adapter_ptr as *const ClientAdapter)
+    };
+
+    match client_adapter.pubsub_callback.write() {
+        Ok(mut guard) => {
+            *guard = Some(pubsub_callback);
+            std::ptr::null()
+        }
+        Err(_) => CString::new("Failed to acquire write lock on pubsub callback")
+            .unwrap()
+            .into_raw(),
+    }
+}
+
+/// Unregister pubsub callback for a client.
+///
+/// # Safety
+/// * `client_adapter_ptr` must be a valid client pointer from create_client
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn unregister_pubsub_callback(
+    client_adapter_ptr: *const c_void,
+) -> *const c_char {
+    if client_adapter_ptr.is_null() {
+        return CString::new("Client adapter pointer is null")
+            .unwrap()
+            .into_raw();
+    }
+
+    let client_adapter = unsafe {
+        Arc::increment_strong_count(client_adapter_ptr);
+        Arc::from_raw(client_adapter_ptr as *const ClientAdapter)
+    };
+
+    match client_adapter.pubsub_callback.write() {
+        Ok(mut guard) => {
+            *guard = None;
+            std::ptr::null()
+        }
+        Err(_) => CString::new("Failed to acquire write lock on pubsub callback")
+            .unwrap()
+            .into_raw(),
     }
 }

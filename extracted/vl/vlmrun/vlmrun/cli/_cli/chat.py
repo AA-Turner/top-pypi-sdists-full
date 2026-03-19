@@ -21,7 +21,7 @@ from rich.status import Status
 from rich.tree import Tree
 
 from vlmrun.client import VLMRun
-from vlmrun.client.types import FileResponse
+from vlmrun.client.types import AgentSkill, AgentToolset, FileResponse
 from vlmrun.constants import (
     DEFAULT_BASE_URL,
     SUPPORTED_INPUT_FILETYPES,
@@ -95,7 +95,7 @@ class handle_api_errors:
         return False
 
 
-CHAT_HELP = """Process images, videos, and documents with natural language.
+CHAT_HELP = """Chat with Orion to process images, videos, and documents via natural language.
 
 \b
 PROMPT SOURCES (precedence order):
@@ -126,7 +126,9 @@ FILES: .jpg .png .gif .mp4 .mov .pdf .doc .mp3 .wav (and more)
 
 app = typer.Typer(
     help=CHAT_HELP,
+    add_completion=False,
     no_args_is_help=True,
+    invoke_without_command=True,
 )
 
 # Available models
@@ -135,6 +137,9 @@ AVAILABLE_MODELS = [
     "vlmrun-orion-1:auto",
     "vlmrun-orion-1:pro",
 ]
+
+# Available toolsets (must match AgentToolset literal values)
+AVAILABLE_TOOLSETS: List[str] = list(AgentToolset.__args__)
 
 DEFAULT_MODEL = "vlmrun-orion-1:auto"
 
@@ -460,7 +465,21 @@ def print_rich_output(
         console.print(f"  [dim]Artifacts:[/dim] {artifact_dir}")
 
 
-@app.command()
+def _build_inline_skill_from_directory(directory: Path) -> AgentSkill:
+    """Build an inline AgentSkill from a local skill directory.
+
+    Thin CLI wrapper around :func:`vlmrun.client.skills.inline_skill_from_directory`
+    that converts ``FileNotFoundError`` into a ``typer.Exit``.
+    """
+    from vlmrun.client.skills import inline_skill_from_directory
+
+    try:
+        return inline_skill_from_directory(directory)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/] {e}")
+        raise typer.Exit(1) from e
+
+
 def chat(
     ctx: typer.Context,
     prompt: Optional[str] = typer.Argument(
@@ -479,6 +498,19 @@ def chat(
         "-i",
         help="Input file (image/video/document). Repeatable.",
         exists=True,
+        readable=True,
+    ),
+    skill_dirs: Optional[List[Path]] = typer.Option(
+        None,
+        "--skill",
+        "-k",
+        help=(
+            "Path to a skill directory (must contain SKILL.md). Repeatable. "
+            "The skill is sent inline with the request (no server-side upload). "
+            "To create a persistent server-side skill, use `vlmrun skills upload`."
+        ),
+        exists=True,
+        file_okay=False,
         readable=True,
     ),
     output_dir: Optional[Path] = typer.Option(
@@ -516,6 +548,16 @@ def chat(
         "-nd",
         help="Skip artifact download.",
     ),
+    toolsets: Optional[List[str]] = typer.Option(
+        None,
+        "--toolset",
+        "-t",
+        help=(
+            "Tool category to enable (repeatable). "
+            "Available: core, image, image-gen, world-gen, viz, document, video, web. "
+            "When specified, only tools from these categories will be available."
+        ),
+    ),
     session_id: Optional[str] = typer.Option(
         None,
         "--session-id",
@@ -528,14 +570,14 @@ def chat(
     client: VLMRun = ctx.obj
     if client is None:
         console.print("[red]Error:[/] Client not initialized. Check your API key.")
-        raise typer.Exit(1)
+        sys.exit(1)
 
     # Resolve prompt from various sources
     try:
         final_prompt = resolve_prompt(prompt, prompt_file)
     except (FileNotFoundError, ValueError) as e:
         console.print(f"[red]Error:[/] {e}")
-        raise typer.Exit(1)
+        sys.exit(1)
 
     if not final_prompt:
         console.print("[red]Error:[/] No prompt provided.")
@@ -544,7 +586,15 @@ def chat(
         console.print("  vlmrun chat -p prompt.txt -i file.jpg")
         console.print('  echo "Your prompt" | vlmrun chat - -i file.jpg')
         console.print("\nRun [green]vlmrun chat --help[/] for more options.")
-        raise typer.Exit(1)
+        sys.exit(1)
+
+    # Validate toolsets if provided
+    if toolsets:
+        for ts in toolsets:
+            if ts not in AVAILABLE_TOOLSETS:
+                console.print(f"[red]Error:[/] Invalid toolset '{ts}'")
+                console.print(f"\nAvailable toolsets: {', '.join(AVAILABLE_TOOLSETS)}")
+                sys.exit(1)
 
     # Validate model
     if model not in AVAILABLE_MODELS:
@@ -553,7 +603,7 @@ def chat(
         for m in AVAILABLE_MODELS:
             default_marker = " (default)" if m == DEFAULT_MODEL else ""
             console.print(f"  - {m}{default_marker}")
-        raise typer.Exit(1)
+        sys.exit(1)
 
     # Validate input files if provided
     if input_files:
@@ -564,7 +614,7 @@ def chat(
                 console.print(
                     f"\nSupported types: {', '.join(SUPPORTED_INPUT_FILETYPES)}"
                 )
-                raise typer.Exit(1)
+                sys.exit(1)
 
     try:
         # Upload input files concurrently if provided
@@ -598,9 +648,28 @@ def chat(
         response_content = ""
         usage_data: Optional[Dict[str, Any]] = None
         response_id: Optional[str] = None
-        extra_body: Optional[Dict[str, Any]] = (
-            {"session_id": session_id} if session_id else None
-        )
+        # Build skills list from --skill directories
+        agent_skills: Optional[List[Dict[str, Any]]] = None
+        if skill_dirs:
+            agent_skills = []
+            for skill_dir in skill_dirs:
+                skill = _build_inline_skill_from_directory(skill_dir)
+                agent_skills.append(skill.model_dump(exclude_none=True))
+
+            if not output_json:
+                console.print(
+                    f"  [green]\u2713[/green] Loaded {len(agent_skills)} skill(s) (inline)"
+                )
+
+        extra_body: Optional[Dict[str, Any]] = {}
+        if session_id:
+            extra_body["session_id"] = session_id
+        if agent_skills:
+            extra_body["skills"] = agent_skills
+        if toolsets:
+            extra_body["toolsets"] = toolsets
+        if not extra_body:
+            extra_body = None
 
         start_time = time.time()
 

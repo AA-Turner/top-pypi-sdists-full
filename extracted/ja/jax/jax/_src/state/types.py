@@ -386,6 +386,10 @@ class AbstractRef(core.AbstractValue):
   def update_vma(self, vma):
     return self.update(inner_aval=self.inner_aval.update_vma(vma))
 
+  def update_unreduced_reduced(self, unreduced, reduced):
+    return self.update(inner_aval=self.inner_aval.update_unreduced_reduced(
+        unreduced, reduced))
+
   def update(self, inner_aval=None, memory_space=None, kind=None):  # pyrefly: ignore[bad-override]
     inner_aval = self.inner_aval if inner_aval is None else inner_aval
     memory_space = self.memory_space if memory_space is None else memory_space
@@ -510,8 +514,8 @@ class AbstractRef(core.AbstractValue):
     return AbstractRef(self.inner_aval.to_tangent_aval(), self.memory_space,
                        kind=self.kind)
 
-  def to_cotangent_aval(self):
-    return AbstractRef(self.inner_aval.to_cotangent_aval(), self.memory_space,
+  def to_ct_aval(self):
+    return AbstractRef(self.inner_aval.to_ct_aval(), self.memory_space,
                        kind=self.kind)
 
   def __eq__(self, other):
@@ -566,7 +570,7 @@ _ref_type_aval_mappings: dict[
 
 def _default_value_to_ref_aval(x: Any) -> tuple[AbstractRef, Array]:
   # Default type mapping just creates an AbstractRef from the array's aval.
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   return AbstractRef(aval), x
 
 
@@ -592,6 +596,6 @@ class AbstractLinVal(core.AbstractValue):
   inner_aval: core.AbstractValue
   memory_space: Any = None
 
-  shape = property(lambda self: self.inner_aval.shape)  # type: ignore
-  dtype = property(lambda self: self.inner_aval.dtype)  # type: ignore
-  ndim = property(lambda self: self.inner_aval.ndim)  # type: ignore
+  shape = property(lambda self: self.inner_aval.shape)  # pytype: disable=attribute-error
+  dtype = property(lambda self: self.inner_aval.dtype)  # pytype: disable=attribute-error
+  ndim = property(lambda self: self.inner_aval.ndim)  # pytype: disable=attribute-error

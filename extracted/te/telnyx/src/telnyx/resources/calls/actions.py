@@ -52,6 +52,7 @@ from ...types.calls import (
     action_start_recording_params,
     action_start_streaming_params,
     action_resume_recording_params,
+    action_join_ai_assistant_params,
     action_stop_ai_assistant_params,
     action_gather_using_audio_params,
     action_gather_using_speak_params,
@@ -105,6 +106,7 @@ from ...types.calls.action_pause_recording_response import ActionPauseRecordingR
 from ...types.calls.action_start_recording_response import ActionStartRecordingResponse
 from ...types.calls.action_start_streaming_response import ActionStartStreamingResponse
 from ...types.calls.action_resume_recording_response import ActionResumeRecordingResponse
+from ...types.calls.action_join_ai_assistant_response import ActionJoinAIAssistantResponse
 from ...types.calls.action_stop_ai_assistant_response import ActionStopAIAssistantResponse
 from ...types.calls.transcription_start_request_param import TranscriptionStartRequestParam
 from ...types.calls.action_gather_using_audio_response import ActionGatherUsingAudioResponse
@@ -1259,6 +1261,62 @@ class ActionsResource(SyncAPIResource):
             cast_to=ActionHangupResponse,
         )
 
+    def join_ai_assistant(
+        self,
+        call_control_id: str,
+        *,
+        conversation_id: str,
+        participant: action_join_ai_assistant_params.Participant,
+        client_state: str | Omit = omit,
+        command_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ActionJoinAIAssistantResponse:
+        """Add a participant to an existing AI assistant conversation.
+
+        Use this command to
+        bring an additional call leg into a running AI conversation.
+
+        Args:
+          conversation_id: The ID of the AI assistant conversation to join.
+
+          client_state: Use this field to add state to every subsequent webhook. It must be a valid
+              Base-64 encoded string.
+
+          command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
+              the same `command_id` for the same `call_control_id`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not call_control_id:
+            raise ValueError(f"Expected a non-empty value for `call_control_id` but received {call_control_id!r}")
+        return self._post(
+            f"/calls/{call_control_id}/actions/ai_assistant_join",
+            body=maybe_transform(
+                {
+                    "conversation_id": conversation_id,
+                    "participant": participant,
+                    "client_state": client_state,
+                    "command_id": command_id,
+                },
+                action_join_ai_assistant_params.ActionJoinAIAssistantParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ActionJoinAIAssistantResponse,
+        )
+
     def leave_queue(
         self,
         call_control_id: str,
@@ -1859,6 +1917,9 @@ class ActionsResource(SyncAPIResource):
         command_id: str | Omit = omit,
         greeting: str | Omit = omit,
         interruption_settings: InterruptionSettingsParam | Omit = omit,
+        message_history: Iterable[action_start_ai_assistant_params.MessageHistory] | Omit = omit,
+        participants: Iterable[action_start_ai_assistant_params.Participant] | Omit = omit,
+        send_message_history_updates: bool | Omit = omit,
         transcription: TranscriptionConfigParam | Omit = omit,
         voice: str | Omit = omit,
         voice_settings: action_start_ai_assistant_params.VoiceSettings | Omit = omit,
@@ -1891,6 +1952,14 @@ class ActionsResource(SyncAPIResource):
               for `AWS.Polly.<voice_id>` voices. There is a 3,000 character limit.
 
           interruption_settings: Settings for handling user interruptions during assistant speech
+
+          message_history: A list of messages to seed the conversation history before the assistant starts.
+              Follows the same message format as the `ai_assistant_add_messages` command.
+
+          participants: A list of participants to add to the conversation when it starts.
+
+          send_message_history_updates: When `true`, a webhook is sent each time the conversation message history is
+              updated.
 
           transcription: The settings associated with speech to text for the voice assistant. This is
               only relevant if the assistant uses a text-to-text language model. Any assistant
@@ -1943,6 +2012,9 @@ class ActionsResource(SyncAPIResource):
                     "command_id": command_id,
                     "greeting": greeting,
                     "interruption_settings": interruption_settings,
+                    "message_history": message_history,
+                    "participants": participants,
+                    "send_message_history_updates": send_message_history_updates,
                     "transcription": transcription,
                     "voice": voice,
                     "voice_settings": voice_settings,
@@ -4782,6 +4854,62 @@ class AsyncActionsResource(AsyncAPIResource):
             cast_to=ActionHangupResponse,
         )
 
+    async def join_ai_assistant(
+        self,
+        call_control_id: str,
+        *,
+        conversation_id: str,
+        participant: action_join_ai_assistant_params.Participant,
+        client_state: str | Omit = omit,
+        command_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ActionJoinAIAssistantResponse:
+        """Add a participant to an existing AI assistant conversation.
+
+        Use this command to
+        bring an additional call leg into a running AI conversation.
+
+        Args:
+          conversation_id: The ID of the AI assistant conversation to join.
+
+          client_state: Use this field to add state to every subsequent webhook. It must be a valid
+              Base-64 encoded string.
+
+          command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
+              the same `command_id` for the same `call_control_id`.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not call_control_id:
+            raise ValueError(f"Expected a non-empty value for `call_control_id` but received {call_control_id!r}")
+        return await self._post(
+            f"/calls/{call_control_id}/actions/ai_assistant_join",
+            body=await async_maybe_transform(
+                {
+                    "conversation_id": conversation_id,
+                    "participant": participant,
+                    "client_state": client_state,
+                    "command_id": command_id,
+                },
+                action_join_ai_assistant_params.ActionJoinAIAssistantParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ActionJoinAIAssistantResponse,
+        )
+
     async def leave_queue(
         self,
         call_control_id: str,
@@ -5382,6 +5510,9 @@ class AsyncActionsResource(AsyncAPIResource):
         command_id: str | Omit = omit,
         greeting: str | Omit = omit,
         interruption_settings: InterruptionSettingsParam | Omit = omit,
+        message_history: Iterable[action_start_ai_assistant_params.MessageHistory] | Omit = omit,
+        participants: Iterable[action_start_ai_assistant_params.Participant] | Omit = omit,
+        send_message_history_updates: bool | Omit = omit,
         transcription: TranscriptionConfigParam | Omit = omit,
         voice: str | Omit = omit,
         voice_settings: action_start_ai_assistant_params.VoiceSettings | Omit = omit,
@@ -5414,6 +5545,14 @@ class AsyncActionsResource(AsyncAPIResource):
               for `AWS.Polly.<voice_id>` voices. There is a 3,000 character limit.
 
           interruption_settings: Settings for handling user interruptions during assistant speech
+
+          message_history: A list of messages to seed the conversation history before the assistant starts.
+              Follows the same message format as the `ai_assistant_add_messages` command.
+
+          participants: A list of participants to add to the conversation when it starts.
+
+          send_message_history_updates: When `true`, a webhook is sent each time the conversation message history is
+              updated.
 
           transcription: The settings associated with speech to text for the voice assistant. This is
               only relevant if the assistant uses a text-to-text language model. Any assistant
@@ -5466,6 +5605,9 @@ class AsyncActionsResource(AsyncAPIResource):
                     "command_id": command_id,
                     "greeting": greeting,
                     "interruption_settings": interruption_settings,
+                    "message_history": message_history,
+                    "participants": participants,
+                    "send_message_history_updates": send_message_history_updates,
                     "transcription": transcription,
                     "voice": voice,
                     "voice_settings": voice_settings,
@@ -7200,6 +7342,9 @@ class ActionsResourceWithRawResponse:
         self.hangup = to_raw_response_wrapper(
             actions.hangup,
         )
+        self.join_ai_assistant = to_raw_response_wrapper(
+            actions.join_ai_assistant,
+        )
         self.leave_queue = to_raw_response_wrapper(
             actions.leave_queue,
         )
@@ -7316,6 +7461,9 @@ class AsyncActionsResourceWithRawResponse:
         )
         self.hangup = async_to_raw_response_wrapper(
             actions.hangup,
+        )
+        self.join_ai_assistant = async_to_raw_response_wrapper(
+            actions.join_ai_assistant,
         )
         self.leave_queue = async_to_raw_response_wrapper(
             actions.leave_queue,
@@ -7434,6 +7582,9 @@ class ActionsResourceWithStreamingResponse:
         self.hangup = to_streamed_response_wrapper(
             actions.hangup,
         )
+        self.join_ai_assistant = to_streamed_response_wrapper(
+            actions.join_ai_assistant,
+        )
         self.leave_queue = to_streamed_response_wrapper(
             actions.leave_queue,
         )
@@ -7550,6 +7701,9 @@ class AsyncActionsResourceWithStreamingResponse:
         )
         self.hangup = async_to_streamed_response_wrapper(
             actions.hangup,
+        )
+        self.join_ai_assistant = async_to_streamed_response_wrapper(
+            actions.join_ai_assistant,
         )
         self.leave_queue = async_to_streamed_response_wrapper(
             actions.leave_queue,

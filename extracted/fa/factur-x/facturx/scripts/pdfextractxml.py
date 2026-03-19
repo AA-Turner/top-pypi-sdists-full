@@ -9,8 +9,8 @@ import logging
 from os.path import isfile, isdir
 
 __author__ = "Alexis de Lattre <alexis.delattre@akretion.com>"
-__date__ = "July 2025"
-__version__ = "0.3"
+__date__ = "March 2026"
+__version__ = "0.4"
 
 
 def pdfextractxml(args):
@@ -42,13 +42,12 @@ def pdfextractxml(args):
             'output XML filename)', out_xml_filename)
         sys.exit(1)
     pdf_file = open(pdf_filename, 'rb')
-    check_xsd = True
-    if args.disable_xsd_check:
-        check_xsd = False
+    check_xsd = not args.disable_xsd_check
+    check_schematron = not args.disable_schematron_check
     # The important line of code is below !
     try:
         (xml_filename, xml_string) = get_xml_from_pdf(
-            pdf_file, check_xsd=check_xsd)
+            pdf_file, check_xsd=check_xsd, check_schematron=check_schematron)
     except Exception as e:
         logger.error(e)
         sys.exit(1)
@@ -81,6 +80,11 @@ def main(args=None):
         '-d', '--disable-xsd-check', dest='disable_xsd_check',
         action='store_true',
         help="De-activate XML Schema Definition check on Factur-X/Order-X XML file "
+        "(the check is enabled by default)")
+    parser.add_argument(
+        '-ds', '--disable-schematron-check', dest='disable_schematron_check',
+        action='store_true',
+        help="De-activate Schematron check on Factur-X/Order-X XML file "
         "(the check is enabled by default)")
     parser.add_argument(
         "facturx_orderx_file", help="PDF Factur-X or Order-X file")

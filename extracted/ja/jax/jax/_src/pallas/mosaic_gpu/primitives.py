@@ -19,15 +19,17 @@ from __future__ import annotations
 from collections.abc import Callable, Hashable, Sequence
 import contextlib
 import dataclasses
+import enum
 import functools
 import itertools
 import math
-from typing import Any, Literal
+from typing import Any, Literal, assert_never
 
 import jax
 from jax._src import core as jax_core
 from jax._src import debugging
 from jax._src import dtypes
+from jax._src import lax
 from jax._src import literals
 from jax._src import pretty_printer as pp
 from jax._src import state
@@ -50,6 +52,7 @@ from jax.experimental.mosaic import gpu as mgpu
 from jax.experimental.mosaic.gpu import layouts as mgpu_layouts
 from jax.experimental.mosaic.gpu import tcgen05
 from jax.experimental.mosaic.gpu import utils as mgpu_utils
+from jax.experimental.mosaic.gpu.launch_context import CopyPartition
 import jax.numpy as jnp
 import numpy as np
 
@@ -98,7 +101,7 @@ def _print_layout_lowering(
   if transforms_leaves:
     assert isinstance(ctx.avals_in[0], state_types.AbstractRef)
     transform_avals = transforms_tree.unflatten(ctx.avals_in[1:])
-    x, _, remaining_transforms = lowering._handle_transforms(
+    x, _, remaining_transforms = lowering._handle_transforms(  # pyrefly: ignore[bad-specialization]
         ctx, ctx.avals_in[0], x, transform_avals,
         transforms_tree.unflatten(transforms_leaves),
     )
@@ -107,7 +110,7 @@ def _print_layout_lowering(
           f"Unsupported transforms {remaining_transforms}."
       )
   if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Lane:
-    print(fmt.format(mgpu.dialect_lowering.pprint_layout(x)))
+    print(fmt.format(mgpu.dialect_lowering.pprint_layout(x)))  # pyrefly: ignore[bad-argument-type]
   else:
     assert isinstance(x, ir.Value)
     mgpu.dialect.print_layout(fmt, x)
@@ -500,7 +503,7 @@ def _copy_gmem_to_smem_lowering(
     dst_transforms_treedef,
     barrier_transforms_treedef,
     collective_axes,
-    partitioned_axis,
+    leader_tracked,
     for_warpgroup: bool = True,
 ):
   flat_src_transforms, flat_dst_transforms, flat_barrier_transforms = (
@@ -555,7 +558,8 @@ def _copy_gmem_to_smem_lowering(
         lowering._resolve_cluster_axis(ctx.module_ctx.axis_names, axis)
         for axis in collective_axes
     )
-  is_partitioned_copy = collective and partitioned_axis is not None
+
+  is_leader_tracked_copy = collective and leader_tracked is not None
   dst_ty = ir.MemRefType(dst.type)
   bits = math.prod(dst_ty.shape) * mgpu.bitwidth(dst_ty.element_type)
   if bits % 8:
@@ -565,11 +569,10 @@ def _copy_gmem_to_smem_lowering(
     )
   bytes = bits // 8
 
-  if is_partitioned_copy:
-    # Bytes is the destination size, which is only half of the total
-    # size of the partitioned transfer so we need to double it.
+  if is_leader_tracked_copy:
+    # Leader receives the completion messages from both CTAs.
     bytes *= 2
-    if len(collective) != 1:  # type: ignore
+    if len(collective) != 1:
       raise ValueError(
           f"Expected exactly one collective axis, got {collective_axes=}"
       )
@@ -595,10 +598,10 @@ def _copy_gmem_to_smem_lowering(
       bytes //= WARPGROUP_SIZE
       if ctx.module_ctx.auto_barriers:
         mgpu.warpgroup_barrier()  # Make sure all reads have completed.
-      if is_partitioned_copy:
+      if is_leader_tracked_copy:
         first_block = arith_dialect.cmpi(
             arith_dialect.CmpIPredicate.eq,
-            mgpu.utils.cluster_idx(collective[0]),  # type: ignore
+            mgpu.utils.cluster_idx(collective[0]),
             mgpu.c(0, ir.IndexType.get()),
         )
         barrier.arrive_expect_tx(bytes, predicate=first_block)
@@ -611,10 +614,10 @@ def _copy_gmem_to_smem_lowering(
       # TODO(justinfu): The arrival counts are wrong if called outside of a
       # single warp. Figure out how to guard against this in user code.
       bytes = bytes // WARP_SIZE
-      if is_partitioned_copy:
+      if is_leader_tracked_copy:
         first_block = arith_dialect.cmpi(
             arith_dialect.CmpIPredicate.eq,
-            mgpu.utils.cluster_idx(collective[0]),  # type: ignore
+            mgpu.utils.cluster_idx(collective[0]),
             mgpu.c(0, ir.IndexType.get()),
         )
         with mgpu.when(first_block):
@@ -636,9 +639,9 @@ def _copy_gmem_to_smem_lowering(
         barrier=barrier,
         arrive=False,
         collective=collective,
-        partitioned=partitioned_axis,
+        leader_tracked=leader_tracked,
         **copy_params,
-        **predicate_kwarg,
+        **predicate_kwarg,  # pyrefly: ignore[bad-argument-type]
     )
     return ()
   i32 = ir.IntegerType.get_signless(32)
@@ -681,7 +684,7 @@ def copy_gmem_to_smem(
     barrier: _Ref,
     *,
     collective_axes: str | tuple[str, ...] | None = None,
-    partitioned_axis: int | None = None,
+    leader_tracked: CopyPartition | None = None,
 ) -> None:
   """Asynchronously copies a GMEM reference to a SMEM reference.
 
@@ -689,12 +692,21 @@ def copy_gmem_to_smem(
   all CUDA blocks that share the same index along the collective axis
   receive a copy of the same block of data loaded from `dst` to `src`.
 
-  If both collective_axes and partitioned_axis are specified, this will perform
-  a partitioned collective copy where each block in the cluster will receive
-  a tile of `transfer_size // cluster_size` data from the `src` Ref.
-  For example, if `src` has a shape of (256, 256) and a partitioned
-  copy is performed along axis 0 with cluster size 2, then the first block will
-  receive `src[0:128, :]` and the second will receive `src[128:256, :]`.
+  If both ``collective_axes`` and ``leader_tracked`` are specified as
+  ``CopyPartition.PARTITIONED(axis)``, this will perform a partitioned
+  collective copy where each block in the cluster will receive a tile of
+  ``transfer_size // cluster_size`` data from the ``src`` Ref.
+  For example, if ``src`` has a shape of (256, 256) and a partitioned
+  copy is performed along axis 0 with cluster size 2, then the first block
+  will receive ``src[0:128, :]`` and the second will receive
+  ``src[128:256, :]``.
+
+  If both ``collective_axes`` and ``leader_tracked`` are specified as
+  ``CopyPartition.REPLICATED``, this will perform a replicated copy where
+  all blocks load the same data but only the first block in the collective
+  tracks progress via barrier arrivals.
+
+
   NOTE: Only the first block in the cluster will arrive on the barrier,
   and an additional cluster barrier is necessary to ensure that all blocks in
   the cluster have finished the copy.
@@ -704,9 +716,10 @@ def copy_gmem_to_smem(
     dst: The destination Ref. Must be in SMEM.
     barrier: The barrier to use for tracking completion of the copy.
     collective_axes: The collective axes to use for the copy.
-    partitioned_axis: Indicates which array axis along the src/dst Refs to
-     partition across during a partitioned collective copy. Requires
-     collective_axes to also be specified.
+    leader_tracked: If specified, only the leader block in the cluster will
+     observe the completion of the copy. If ``CopyPartition.PARTITIONED(axis)``,
+     performs a partitioned collective copy along the given axis. If
+     ``CopyPartition.REPLICATED``, all blocks load the same data.
 
   See also:
     :func:`jax.experimental.pallas.mosaic_gpu.barrier_arrive`
@@ -732,6 +745,10 @@ def copy_gmem_to_smem(
   )
   if isinstance(collective_axes, str):
     collective_axes = (collective_axes,)
+  if leader_tracked is not None and collective_axes is None:
+    raise ValueError(
+        "`collective_axes` must be specified when `leader_tracked` is set"
+    )
   copy_gmem_to_smem_p.bind(
       src,
       dst,
@@ -743,7 +760,7 @@ def copy_gmem_to_smem(
       dst_transforms_treedef=dst_transforms_treedef,
       barrier_transforms_treedef=barrier_transforms_treedef,
       collective_axes=collective_axes,
-      partitioned_axis=partitioned_axis,
+      leader_tracked=leader_tracked,
   )
   return None
 
@@ -772,7 +789,7 @@ def _async_prefetch_lowering(
     *flat_ref_transforms,
     ref_transforms_treedef,
     collective_axes,
-    partitioned_axis,
+    leader_tracked,
 ):
   ref_transforms = ref_transforms_treedef.unflatten(flat_ref_transforms)
   copy_params = _extract_gmem_copy_params(ctx, ref_transforms)
@@ -790,12 +807,13 @@ def _async_prefetch_lowering(
       # Gathers are a warpgroup-level collective and can't take a predicate.
       if isinstance(first_idx, mgpu.FragmentedArray) and first_idx.shape:
         predicate_kwarg = {}
+
     ctx.launch_ctx.async_prefetch(
         gmem_ref=ref,
         collective=collective,
-        partitioned=partitioned_axis,
+        leader_tracked=leader_tracked,
         **copy_params,
-        **predicate_kwarg,
+        **predicate_kwarg,  # type: ignore[arg-type]
     )
     return ()
 
@@ -821,7 +839,7 @@ def async_prefetch(
     ref: _Ref,
     *,
     collective_axes: str | tuple[str, ...] | None = None,
-    partitioned_axis: int | None = None,
+    leader_tracked: CopyPartition | None = None,
 ) -> None:
   """Asynchronously prefetches a GMEM reference to the L2 cache.
 
@@ -829,16 +847,14 @@ def async_prefetch(
   the ``ref``, with other parts covered by blocks that share the same index
   along the collective axis.
 
-  If both ``collective_axes`` and ``partitioned_axis`` are specified, the
-  ``partitioned_axis`` indicates the logical axis used to split the prefetch
-  across the collective axes.
+  Specifying leader_tracked and collective_axes doesn't change the semantics
+  of the prefetch, but if it's followed by a GMEM to SMEM copy, then it allows
+  us to reuse the same TMA descriptor.
 
   Args:
     ref: The source Ref. Must be in GMEM.
     collective_axes: The collective axes to use for the prefetch.
-    partitioned_axis: Indicates which axis of the ``ref`` to partition across
-      during a collective prefetch. Requires collective_axes to also be
-      specified.
+    leader_tracked: The partitioning to use for the prefetch.
   """
   ref, ref_transforms = state_primitives.get_ref_and_transforms(
       ref, None, "async_prefetch"
@@ -853,7 +869,7 @@ def async_prefetch(
       *flat_ref_transforms,
       ref_transforms_treedef=ref_transforms_treedef,
       collective_axes=collective_axes,
-      partitioned_axis=partitioned_axis,
+      leader_tracked=leader_tracked,
   )
   return None
 
@@ -861,7 +877,7 @@ def async_prefetch(
 def _extract_barrier_slice_base(transforms) -> ir.Value | None:
   if not transforms:
     return None
-  base_index = None
+  base_index: ir.Value | None = None
   while transforms:
     match transforms:
       case [indexing.NDIndexer(indices=[idx]) as indexer, *transforms]:
@@ -934,19 +950,14 @@ def _barrier_arrive_lowering(
     barrier = barrier[base_index]
   sem_dtype = barrier_aval.inner_aval.dtype  # type: ignore
   orders_tensor_core = getattr(sem_dtype, "orders_tensor_core", False)
-  if orders_tensor_core:
-    # We arrive on only one lane for barriers with orders_tensor_core=True,
-    # so we need to perfom a separate warpgroup barrier.
-    mgpu_utils.warpgroup_barrier()
 
   if isinstance(barrier, mgpu.CollectiveBarrierRef):
     barrier.arrive(orders_tensor_core)
+  elif ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Warpgroup:
+    barrier.arrive(orders_tensor_core)
   else:
-    if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Warpgroup:
-      barrier.arrive(orders_tensor_core)
-    else:
-      pred = ctx.module_ctx.single_lane_predicate if orders_tensor_core else None
-      barrier.arrive(orders_tensor_core=orders_tensor_core, predicate=pred)
+    pred = ctx.module_ctx.single_lane_predicate if orders_tensor_core else None
+    barrier.arrive(orders_tensor_core=orders_tensor_core, predicate=pred)
   return ()
 
 
@@ -1343,6 +1354,7 @@ def _wgmma_lowering(
       raise NotImplementedError("WGMMA rhs tiling does not fit swizzle")
 
   if lhs_transpose:
+    assert isinstance(a, ir.Value)
     a = mgpu.memref_transpose(a, (1, 0, 3, 2))
   if rhs_transpose:
     b = mgpu.memref_transpose(b, (1, 0, 3, 2))
@@ -1397,7 +1409,7 @@ def _wgmma_warpgroup_lowering(
     a_transforms_num_leaves = a_transforms_tree.num_leaves
   else:
     a_transforms_num_leaves = 0
-    b_transforms_leaves = transforms_leaves  # type: ignore
+    b_transforms_leaves = transforms_leaves
 
   if b_transforms_tree is not None:
     b_transforms = b_transforms_tree.unflatten(b_transforms_leaves)
@@ -1521,6 +1533,7 @@ def _wgmma_accumulator_store_abstract_eval(acc, val):
   # the discharge rule re-binds the primitive and acc becomes a ShapedArray.
   if isinstance(acc, gpu_core.WGMMAAbstractAccumulatorRef):
     inner = acc.inner_aval
+    assert isinstance(inner, jax_core.ShapedArray)
   elif isinstance(acc, jax_core.ShapedArray):
     inner = acc
   else:
@@ -1533,7 +1546,7 @@ def _wgmma_accumulator_store_abstract_eval(acc, val):
     raise ValueError(
         f"Accumulator dtype {inner.dtype} does not match value dtype {val.dtype}"
     )
-  effects = {gpu_core._wgmma_pipeline_effect}
+  effects: set[jax_core.Effect] = {gpu_core._wgmma_pipeline_effect}
   if isinstance(acc, gpu_core.WGMMAAbstractAccumulatorRef):
     effects.add(state.WriteEffect(0))
   return inner, effects
@@ -1882,7 +1895,7 @@ def _tcgen05_mma_lowering(
       ):
         lhs_transpose = True
       case () if isinstance(a_ref, tcgen05.TMEMRef):
-        lhs_tiling = None  # type: ignore
+        lhs_tiling = None
       case _:
         raise NotImplementedError(
             f"Unsupported transforms for LHS: {a_transforms}."
@@ -1991,7 +2004,7 @@ def _tcgen05_mma_lowering(
     )
     assert isinstance(a_sparse_metadata_ref_aval, state_types.AbstractRef)
     a_sparse_metadata_ref, _, a_sparse_metadata_transforms = (
-        lowering._handle_transforms(
+        lowering._handle_transforms(  # pyrefly: ignore[bad-specialization]
             ctx, a_sparse_metadata_ref_aval, a_sparse_metadata_ref,
             a_sparse_metadata_transform_avals, a_sparse_metadata_transforms)
     )
@@ -2015,13 +2028,14 @@ def _tcgen05_mma_lowering(
               b_ref,
               a_swizzle=int(lhs_swizzle),
               b_swizzle=int(rhs_swizzle),
-              a_scale=a_scale_ref,
-              b_scale=b_scale_ref,
+              a_scale=a_scale_ref,  # pyrefly: ignore[bad-argument-type]
+              b_scale=b_scale_ref,  # pyrefly: ignore[bad-argument-type]
               a_sparse_metadata=a_sparse_metadata_ref,
               accumulate=accumulate,
               collective=collective,
           )
     if arrive:
+      assert barrier_ref is not None
       tcgen05.commit_arrive(barrier_ref,
                             collective=collective,
                             ctx=ctx.launch_ctx)
@@ -2425,196 +2439,6 @@ def _closed_call_resource_estimator(ctx, *args, call_jaxpr):
   return lowering._estimate_resources(ctx, call_jaxpr.jaxpr)
 
 
-jaxpr_call_p = jax_core.Primitive("jaxpr_call")
-jaxpr_call_p.multiple_results = True
-
-
-@jaxpr_call_p.def_abstract_eval
-def _jaxpr_call_abstract_eval(*args, jaxpr: jax_core.Jaxpr, **params):
-  del args, params  # Unused.
-  return [v.aval for v in jaxpr.outvars]
-
-
-def _jaxpr_call_pp_eqn(
-    eqn: jax_core.JaxprEqn,
-    context: jax_core.JaxprPpContext,
-    settings: jax_core.JaxprPpSettings,
-):
-  flat_args = eqn.invars
-  ref_treedefs = eqn.params["ref_treedefs"]
-  flat_refs, _ = util.split_list(
-      flat_args, [sum(treedef.num_leaves for treedef in ref_treedefs)]
-  )
-  flat_refs = util.split_list(
-      flat_refs,
-      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
-  )
-  trailer = []
-  for treedef, flat_ref in zip(ref_treedefs, flat_refs):
-    ref = treedef.unflatten(flat_ref)
-    transforms = []
-    if isinstance(ref, tuple):
-      ref, transforms = ref
-    trailer.append(pp.text(" "))
-    trailer.append(state_primitives.pp_ref_transforms(context, ref, transforms))
-  return pp.concat([
-      pp.text("jaxpr_call"),
-      pp.text("["),
-      jax_core.pp_kv_pair("jaxpr", eqn.params["jaxpr"], context, settings),
-      pp.text("]"),
-      pp.concat(trailer),
-  ])
-
-
-jax_core.pp_eqn_rules[jaxpr_call_p] = _jaxpr_call_pp_eqn
-
-
-@lowering.register_lowering_rule(jaxpr_call_p, mgpu.LoweringSemantics.Lane)
-@lowering.register_lowering_rule(jaxpr_call_p, mgpu.LoweringSemantics.Warpgroup)
-def _jaxpr_call_lowering_rule(
-    ctx: lowering.LoweringRuleContext,
-    *flat_args,
-    jaxpr: jax_core.Jaxpr,
-    ref_treedefs,
-    program_ids_treedef,
-):
-  args = []
-  flat_refs, flat_program_ids = util.split_list(
-      flat_args, [sum(treedef.num_leaves for treedef in ref_treedefs)]
-  )
-  flat_ref_avals, flat_program_ids_avals = util.split_list(
-      ctx.avals_in, [sum(treedef.num_leaves for treedef in ref_treedefs)]
-  )
-  del flat_program_ids_avals  # Unused.
-  flat_refs = util.split_list(
-      flat_refs,
-      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
-  )
-  flat_ref_avals = util.split_list(
-      flat_ref_avals,
-      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
-  )
-  for treedef, flat_ref, ref_aval in zip(
-      ref_treedefs, flat_refs, flat_ref_avals
-  ):
-    ref = treedef.unflatten(flat_ref)
-    ref_aval = treedef.unflatten(ref_aval)
-    if isinstance(ref, tuple):
-      ref, transforms = ref
-      ref_aval, transform_avals = ref_aval  # type: ignore
-      # We ignore other transforms here, because they are already embedded
-      # in the jaxpr.
-      assert isinstance(ref_aval, state.AbstractRef)
-      ref, _, _ = lowering._handle_transforms(
-          ctx, ref_aval, ref, transform_avals, transforms,
-          handle_reshapes=False, handle_transposes=False
-      )
-    args.append(ref)
-  program_ids = program_ids_treedef.unflatten(flat_program_ids)
-  for axis, pid in enumerate(program_ids):
-    if pid is not None:
-      continue
-    program_ids[axis] = lowering._program_id(
-        axis, ctx.module_ctx.squashed_dims, len(program_ids)
-    )
-  new_module_ctx = dataclasses.replace(ctx.module_ctx, program_ids=program_ids)
-  return lowering.lower_jaxpr_to_mosaic_gpu(
-      new_module_ctx, ctx.launch_ctx, jaxpr, args
-  )
-
-
-@lowering._register_resource_estimator(jaxpr_call_p)
-def _jaxpr_call_resource_estimator(
-    ctx: lowering.ResourceEstimatorContext,
-    *args,
-    jaxpr: jax_core.Jaxpr,
-    **params,
-):
-  del args, params  # Unused.
-  return lowering._estimate_resources(ctx, jaxpr)
-
-
-@discharge.register_partial_discharge_rule(jaxpr_call_p)
-def _jaxpr_call_discharge(
-    flat_should_discharge,
-    in_avals,
-    out_avals,
-    *flat_args,
-    jaxpr,
-    ref_treedefs,
-    program_ids_treedef,
-):
-  del in_avals, out_avals  # Unused.
-  flat_should_discharge = util.split_list(
-      flat_should_discharge,
-      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
-  )
-  should_discharge = [*map(any, flat_should_discharge)]
-  discharged_jaxpr, discharged_consts = discharge.discharge_state(
-      jaxpr, (), should_discharge=should_discharge
-  )
-  assert not discharged_consts
-  outs = jaxpr_call_p.bind(
-      *flat_args,
-      jaxpr=discharged_jaxpr,
-      ref_treedefs=tuple(ref_treedefs),
-      program_ids_treedef=program_ids_treedef,
-  )
-  discharged_outs_it = iter(outs[len(jaxpr.outvars) :])
-  new_in_vals = tuple(
-      itertools.chain.from_iterable(
-          [next(discharged_outs_it) if discharged else None]
-          * ref_treedefs[idx].num_leaves
-          for idx, discharged in enumerate(should_discharge)
-      )
-  ) + (None,) * program_ids_treedef.num_leaves
-  return new_in_vals, outs[: len(jaxpr.outvars)]
-
-
-def jaxpr_call(
-    jaxpr: jax_core.Jaxpr,
-    *refs: state.AbstractRef | state_types.TransformedRef,
-    program_ids: Sequence[jax.Array | None],
-) -> Sequence[jax.Array]:
-  """Internal primitive for calling a kernel jaxpr inside ``emit_pipeline``.
-
-  This is *not* a general purpose primitive. In particular, it assumes that
-  the transformed references have been indexed.
-
-  Args:
-    jaxpr: The jaxpr to call.
-    *refs: The references to pass into the jaxpr.
-    program_ids: The loop-bound program IDs to pass into the jaxpr, or None
-      if the program ID corresponds to a parallel dimension.
-
-  Returns:
-    The outputs of the jaxpr.
-  """
-  assert not jaxpr.outvars
-  flat_refs = []
-  ref_treedefs = []
-  ref: Any
-  for ref in refs:
-    if isinstance(ref, state_types.TransformedRef):
-      if not isinstance(ref.transforms[-1], indexing.NDIndexer):
-        raise ValueError(
-            "TransformedRef must have been indexed before passing into"
-            f" jaxpr_call. Got {ref}."
-        )
-      ref = (ref.ref, ref.transforms)
-    flat_ref, treedef = jax.tree.flatten(ref)
-    flat_refs.extend(flat_ref)
-    ref_treedefs.append(treedef)
-  flat_program_ids, program_ids_treedef = jax.tree.flatten(program_ids)
-  return jaxpr_call_p.bind(
-      *flat_refs,
-      *flat_program_ids,
-      jaxpr=jaxpr,
-      ref_treedefs=tuple(ref_treedefs),
-      program_ids_treedef=program_ids_treedef,
-  )
-
-
 @dataclasses.dataclass(frozen=True)
 class ShapeDtypeStruct:
   shape: tuple[int, ...]
@@ -2688,7 +2512,7 @@ def inline_mgpu(*, arg_types=(), return_type=None):
         if isinstance(a, state_types.TransformedRef) and isinstance(t, RefType):
           raw_flat_args.append(a.ref)
           ref_transforms.append(a.transforms)
-        elif isinstance(aval := jax_core.get_aval(a), jax_core.ShapedArray) and isinstance(t, SomeLayout):
+        elif isinstance(aval := jax_core.typeof(a), jax_core.ShapedArray) and isinstance(t, SomeLayout):
           raw_flat_args.append(a)
           ref_transforms.append(None)
         elif isinstance(aval, state.AbstractRef) and isinstance(t, RefType):
@@ -2786,9 +2610,22 @@ def _inline_mgpu_flat_transformed_args(
   is_wg_semantics = (
       ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Warpgroup
   )
+  is_warp_semantics = (
+      ctx.module_ctx.primitive_semantics == gpu_core.PrimitiveSemantics.Warp
+  )
 
   if not is_wg_semantics:
-    for a, t in zip(flat_args, flat_arg_types):
+    flat_args = [
+        lowering._ensure_fa(a, aval.dtype) if not isinstance(t, RefType) else a
+        for a, aval, t in zip(flat_args, flat_arg_avals, flat_arg_types)
+    ]
+    for a, aval, t in zip(flat_args, flat_arg_avals, flat_arg_types):
+      if is_warp_semantics and not isinstance(t, RefType):
+        if not isinstance(aval, jax_core.ShapedArray) or aval.shape:
+          raise ValueError(
+              "inline_mgpu in a single-warp context only supports scalar"
+              f" arrays (and Refs). Got {aval}."
+          )
       _type_check_mgpu_lane_semantics(a, t)
 
   flat_transformed : list[ir.Value] = []
@@ -2837,6 +2674,7 @@ def _inline_mgpu_flat_transformed_args(
 
 
 @lowering.register_lowering_rule(inline_mgpu_p, mgpu.LoweringSemantics.Lane)
+@lowering.register_lowering_rule(inline_mgpu_p, *gpu_core.LANExWARP_SEMANTICS)
 def _inline_mgpu_lowering_rule(
     ctx: lowering.LoweringRuleContext,
     *flat_args_and_transforms,
@@ -2847,6 +2685,17 @@ def _inline_mgpu_lowering_rule(
     pytree_ref_transforms,
     pytree_ret_ty,
 ):
+  is_warp_semantics = (
+      ctx.module_ctx.primitive_semantics == gpu_core.PrimitiveSemantics.Warp
+  )
+  if is_warp_semantics:
+    for r in flat_ret_ty:
+      if isinstance(r, ShapeDtypeStruct) and r.shape:
+        raise ValueError(
+            "inline_mgpu in a single-warp context only supports scalar return"
+            f" types. Got shape={r.shape}."
+        )
+
   flat_transformed = _inline_mgpu_flat_transformed_args(
       ctx,
       flat_args_and_transforms,
@@ -2874,7 +2723,7 @@ def _inline_mgpu_lowering_rule(
 
 def _ref_type_to_transforms(ref_type: RefType) -> ir.ArrayAttr:
   """Returns the Mosaic GPU transforms for the given ref type."""
-  transform_attrs = [gpu_core.to_gpu_transform(t).to_attr()
+  transform_attrs = [gpu_core.to_transform_attr(t)
                      for t in ref_type.transforms]
   return ir.ArrayAttr.get(transform_attrs)
 
@@ -3021,7 +2870,7 @@ def _populate_custom_primitive_op_block(
   are returned.
   """
   with ir.InsertionPoint(block):
-    fn_inputs = []
+    fn_inputs: list[ir.Value | mgpu.FragmentedArray] = []
     in_layouts_it = iter(in_layouts)
     in_transforms_it = iter(in_transforms)
     avals_in = ctx.avals_in[:pytree_args.num_leaves]
@@ -3380,6 +3229,7 @@ def _wait_load_tmem_abstract_eval():
 
 
 @lowering.register_lowering_rule(wait_load_tmem_p, mgpu.LoweringSemantics.Lane)
+@lowering.register_lowering_rule(wait_load_tmem_p, mgpu.LoweringSemantics.Warpgroup)
 def _wait_load_tmem_lowering(_):
   tcgen05.wait_load_tmem()
   return ()
@@ -3762,6 +3612,62 @@ def _async_copy_smem_to_tmem_lowering_rule(
   return ()
 
 
+@lowering.register_lowering_rule(
+    async_copy_smem_to_tmem_p, mgpu.LoweringSemantics.Warpgroup
+)
+def _async_copy_smem_to_tmem_lowering_rule_wg(
+    ctx: lowering.LoweringRuleContext, smem_ref, tmem_ref, *leaves,
+    smem_tree, tmem_tree, collective_axis,
+):
+  # TODO(olechwierowicz): remove this check once minimum jaxlib version is 0.9.2.
+  if not hasattr(mgpu.dialect, "async_store_smem_to_tmem"):
+    raise NotImplementedError(
+        "async_copy_smem_to_tmem_p WG lowering is not implemented."
+    )
+  smem_leaves, tmem_leaves = util.split_list(leaves, [smem_tree.num_leaves])
+  smem_transforms = jax.tree.unflatten(smem_tree, smem_leaves)
+  tmem_transforms = jax.tree.unflatten(tmem_tree, tmem_leaves)
+  smem_aval = ctx.avals_in[0]
+  assert isinstance(smem_aval, state_types.AbstractRef)
+  tmem_aval = ctx.avals_in[1]
+  assert isinstance(tmem_aval, state_types.AbstractRef)
+  transform_avals = util.split_list(
+      ctx.avals_in[2:], [smem_tree.num_leaves]
+  )
+  smem_transform_avals = smem_tree.unflatten(transform_avals[0])
+  tmem_transform_avals = tmem_tree.unflatten(transform_avals[1])
+  smem_ref, _, smem_transforms = lowering._handle_transforms(
+      ctx, smem_aval, smem_ref, smem_transform_avals, smem_transforms,
+      handle_transposes=False
+  )
+  if smem_transforms:
+    raise NotImplementedError(
+        f"Unimplemented transforms for SMEM ref: {smem_transforms}"
+    )
+  tmem_ref, _, tmem_transforms = lowering._handle_transforms(
+      ctx, tmem_aval, tmem_ref, tmem_transform_avals, tmem_transforms
+  )
+  if tmem_transforms:
+    raise NotImplementedError(
+        f"Unimplemented transforms for TMEM refs: {tmem_transforms}"
+    )
+
+  predicate_ctx: contextlib.AbstractContextManager[None]
+  if collective_axis is not None:
+    predicate_ctx = mgpu.when(_collective_mma_predicate(ctx, collective_axis))
+    collective = True
+  else:
+    predicate_ctx = contextlib.nullcontext()
+    collective = False
+
+  with predicate_ctx:
+    mgpu.dialect.async_store_smem_to_tmem(
+        smem_ref, tmem_ref, collective=collective
+    )
+
+  return []
+
+
 semaphore_signal_parallel_p = jax_core.Primitive('semaphore_signal_parallel')
 semaphore_signal_parallel_p.multiple_results = True
 
@@ -3924,7 +3830,7 @@ def try_cluster_cancel_lowering(
           f"Unimplemented transforms for result ref: {res_transforms}"
       )
   else:
-    barrier_transforms_leaves = transforms_leaves  # type: ignore
+    barrier_transforms_leaves = transforms_leaves
 
   if barrier_transforms_tree is not None:
     base_index = _extract_barrier_slice_base(
@@ -4105,6 +4011,255 @@ def query_cluster_cancel(
       grid_names=grid_names,
       transforms_tree=result_transforms_tree)
   return tuple(result[:-1]), result[-1]
+
+
+class AtomicOpType(enum.Enum):
+  ADD = "add"
+  MAX = "max"
+  MIN = "min"
+  AND = "and"
+  OR = "or"
+  XOR = "xor"
+
+
+atomic_store_p = jax_core.Primitive("mgpu_atomic_store")
+atomic_store_p.multiple_results = True
+
+
+@atomic_store_p.def_effectful_abstract_eval
+def _atomic_store_abstract_eval(*avals_flat, args_tree, atomic_type):
+  del atomic_type
+  ref, transforms, val = args_tree.unflatten(avals_flat)
+  if transforms is not None:
+    ref = pallas_core.TransformedRef(ref, transforms)
+  if ref.shape != val.shape:
+    raise ValueError(
+        f"Invalid shape for `swap`. Ref shape: {ref.shape}. "
+        f"Value shape: {val.shape}."
+    )
+  if ref.dtype != val.dtype:
+    raise ValueError(
+        f"Invalid dtype for `swap`. Ref dtype: {ref.dtype}. "
+        f"Value dtype: {val.dtype}."
+    )
+  return (), {state.WriteEffect(0)}
+
+
+@discharge.register_discharge_rule(atomic_store_p)
+def _atomic_store_discharge_rule(
+    in_avals, out_avals, *args_flat, args_tree, atomic_type: AtomicOpType
+):
+  del out_avals
+  ref, transforms, val, mask = args_tree.unflatten(args_flat)
+  *prev_transforms, idx = transforms
+  ref = discharge.transform_array(ref, prev_transforms)
+
+  if mask is not None:
+    raise NotImplementedError
+
+  if atomic_type == AtomicOpType.ADD:
+    monoid = lambda x, y: x + y
+  elif atomic_type == AtomicOpType.MAX:
+    monoid = jnp.maximum
+  elif atomic_type == AtomicOpType.MIN:
+    monoid = jnp.minimum
+  else:
+    raise NotImplementedError(atomic_type)
+
+  if all(
+      (isinstance(s, indexing.Slice) or not s.shape) for s in idx.indices
+  ):
+    indices = idx.indices
+    scalar_dims = [
+        not isinstance(s, indexing.Slice) and not s.shape for s in indices
+    ]
+    slice_starts = [
+        s.start if isinstance(s, indexing.Slice) else s for s in indices
+    ]
+    slice_sizes = tuple(
+        s.size if isinstance(s, indexing.Slice) else 1 for s in indices
+    )
+    out_ones = lax.dynamic_slice(ref, slice_starts, slice_sizes=slice_sizes)
+    val_indexer = tuple(
+        None if scalar else slice(None) for scalar in scalar_dims
+    )
+    val = val[val_indexer]
+    val = monoid(val, out_ones)
+    x_new = lax.dynamic_update_slice(ref, val, start_indices=slice_starts)
+  elif all(not isinstance(s, indexing.Slice) for s in idx.indices):
+    out = ref[idx.indices]
+    x_new = ref.at[idx.indices].set(monoid(out, val))
+  else:
+    raise NotImplementedError
+  return (x_new,) + (None,) * (len(in_avals) - 1), ()
+
+
+def _atomic_store(
+    x_ref_or_view,
+    val,
+    *,
+    atomic_type: AtomicOpType,
+):
+  x_ref, transforms = state_primitives.get_ref_and_transforms(
+      x_ref_or_view, None, "atomic_store"
+  )
+  args_flat, args_tree = tree_util.tree_flatten((x_ref, transforms, val))
+  atomic_store_p.bind(
+      *args_flat, args_tree=args_tree, atomic_type=atomic_type
+  )
+
+
+@lowering.register_lowering_rule(
+    atomic_store_p, mgpu.LoweringSemantics.Warpgroup
+)
+def _atomic_store_lowering_rule_wg(
+    ctx: lowering.LoweringRuleContext,
+    *args_flat,
+    args_tree,
+    atomic_type: AtomicOpType,
+):
+  ref, transforms, value = args_tree.unflatten(args_flat)
+  ref_aval, transforms_avals, value_aval = args_tree.unflatten(ctx.avals_in)
+  value = lowering._ensure_ir_value(value, value_aval.dtype)  # pylint: disable=protected-access
+  assert isinstance(ref_aval, state_types.AbstractRef)
+  ref, _, remaining_transforms = lowering._handle_transforms(  # pylint: disable=protected-access
+      ctx, ref_aval, ref, list(transforms_avals), list(transforms)
+  )
+  if remaining_transforms:
+    raise NotImplementedError(
+        f"Unsupported transforms for atomic_store: {remaining_transforms}"
+    )
+
+  def to_int_attr(atomic_type: AtomicOpType):
+    match atomic_type:
+      case AtomicOpType.ADD:
+        return 0
+      case AtomicOpType.MIN:
+        return 1
+      case AtomicOpType.MAX:
+        return 2
+      case AtomicOpType.AND:
+        return 3
+      case AtomicOpType.OR:
+        return 4
+      case AtomicOpType.XOR:
+        return 5
+      case _:
+        assert_never(atomic_type)
+
+  # TODO(allanrenucci): Remove the pyrefly annotation when .pyi files are updated.
+  mgpu.dialect.vector_store(value, ref, atomic_type=to_int_attr(atomic_type))  # pyrefly: ignore[unexpected-keyword]
+  return ()
+
+
+@lowering.register_lowering_rule(atomic_store_p, mgpu.LoweringSemantics.Lane)
+def _atomic_store_lowering_rule(
+    ctx: lowering.LoweringRuleContext,
+    *args_flat,
+    args_tree,
+    atomic_type: AtomicOpType,
+):
+  ref, transforms, value = args_tree.unflatten(args_flat)
+  ref_aval, transforms_avals, value_aval = args_tree.unflatten(ctx.avals_in)
+  value = lowering._ensure_fa(value, value_aval.dtype)  # pylint: disable=protected-access
+  assert isinstance(ref_aval, state_types.AbstractRef)
+  ref, _, remaining_transforms = lowering._handle_transforms(  # pylint: disable=protected-access
+      ctx, ref_aval, ref, list(transforms_avals), list(transforms)
+  )
+  match remaining_transforms:
+    case (
+        gpu_core.UnswizzleRef(swizzle),
+        gpu_core.UntilingTransform(tiling),
+    ):
+      if len(tiling) != 2:
+        raise NotImplementedError(
+            f"Only 2D tiling is supported, got: {tiling}"
+        )
+      value.store_tiled(
+          ref, swizzle=swizzle, tiling_rank=len(tiling),
+          atomic=atomic_type.value,  # type: ignore
+      )
+    case ():
+      value.store_untiled(ref, optimized=False, atomic=atomic_type.value)  # type: ignore
+    case _:
+      raise NotImplementedError(
+          f"Unsupported transforms for atomic_store: {remaining_transforms}"
+      )
+  return ()
+
+
+def atomic_add(ref: _Ref, val) -> None:
+  """Performs an atomic store-add of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level
+  and that floating-point addition is not associative, so this op
+  can introduce non-determinism into the kernels.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.ADD)
+
+
+def atomic_max(ref: _Ref, val) -> None:
+  """Performs an atomic store-max of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.MAX)
+
+
+def atomic_min(ref: _Ref, val) -> None:
+  """Performs an atomic store-min of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.MIN)
+
+
+def atomic_and(ref: _Ref, val) -> None:
+  """Performs an atomic store-and of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.AND)
+
+
+def atomic_or(ref: _Ref, val) -> None:
+  """Performs an atomic store-or of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.OR)
+
+
+def atomic_xor(ref: _Ref, val) -> None:
+  """Performs an atomic store-xor of the value to the reference.
+
+  Note that atomicity is only guaranteed on the element-level.
+
+  Args:
+    ref: The reference to store the value to.
+    val: The value to store.
+  """
+  _atomic_store(ref, val, atomic_type=AtomicOpType.XOR)
 
 
 multimem_store_p = jax_core.Primitive("multimem_store")

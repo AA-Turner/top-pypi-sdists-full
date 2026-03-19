@@ -41,6 +41,11 @@ class SelectiveTestRunner:
                 "file_pattern": r"policyengine_us/(parameters|variables)/gov/local/([^/]+)",
                 "test_pattern": r"policyengine_us/tests/policy/baseline/gov/local/\2",
             },
+            # Match state-specific reforms to state-specific contrib tests
+            {
+                "file_pattern": r"policyengine_us/reforms/states/([^/]+)",
+                "test_pattern": r"policyengine_us/tests/policy/contrib/states/\1",
+            },
             # Match reforms in specific organization folders to their contrib test folders
             # (exclude states/, congress/, and local/ which have their own patterns below)
             {
@@ -67,9 +72,14 @@ class SelectiveTestRunner:
                 "file_pattern": r"policyengine_us/parameters/contrib/",
                 "test_pattern": r"policyengine_us/tests/policy/contrib",
             },
+            # Match gov/contrib/states parameters to state-specific contrib tests
+            {
+                "file_pattern": r"policyengine_us/parameters/gov/contrib/states/([^/]+)",
+                "test_pattern": r"policyengine_us/tests/policy/contrib/states/\1",
+            },
             # Match gov/contrib parameters to their specific contrib subfolder tests
             {
-                "file_pattern": r"policyengine_us/parameters/gov/contrib/([^/]+)/",
+                "file_pattern": r"policyengine_us/parameters/gov/contrib/(?!states/)([^/]+)/",
                 "test_pattern": r"policyengine_us/tests/policy/contrib/\1",
             },
             # Match household variables to household tests

@@ -55,6 +55,7 @@ import numpy as np
 
 import jax
 from jax import lax
+from jax._src import tree_util
 from jax._src import api_util
 from jax._src import config
 from jax._src import core
@@ -278,8 +279,8 @@ def spvalues_to_avals(
 # ------------------------------------------------------------------------------
 # Implementation of sparsify() using tracers.
 
-class SparseTracer(core.Tracer):
-  def __init__(self, trace: core.Trace, *, spvalue):
+class SparseTracer(core.Tracer['SparseTrace']):
+  def __init__(self, trace: SparseTrace, *, spvalue):
     self._spvalue = spvalue
     self._trace = trace
 
@@ -307,14 +308,14 @@ class SparseTrace(core.Trace):
     self.spenv = spenv
 
   def to_sparse_tracer(self, val):
-    if isinstance(val, SparseTracer) and self.tag is val._trace.tag:
+    if isinstance(val, SparseTracer) and self.tag is val._trace.tag:  # pyrefly: ignore[missing-attribute]
       return val
     else:
       with core.set_current_trace(self.parent_trace):
         spvalue, = arrays_to_spvalues(self.spenv, [val])
       return SparseTracer(self, spvalue=spvalue)
 
-  def process_primitive(self, primitive, tracers, params):
+  def process_primitive(self, primitive, tracers, params, /):
     tracers = [self.to_sparse_tracer(t) for t in tracers]
     spvalues = [t._spvalue for t in tracers]
     if any(spvalue.is_sparse() for spvalue in spvalues):
@@ -323,12 +324,14 @@ class SparseTrace(core.Trace):
       with core.set_current_trace(self.parent_trace):
         out_spvalues = sparse_rules_bcoo[primitive](self.spenv, *(t._spvalue for t in tracers), **params)
     else:
-      out_bufs = primitive.bind_with_trace(self.parent_trace, tuple(self.spenv.data(spvalue) for spvalue in spvalues), params)
+      args = tuple(self.spenv.data(spvalue) for spvalue in spvalues)
+      avals = tuple(core.typeof(x) for x in args)
+      out_bufs = primitive.bind_with_trace(self.parent_trace, args, avals, params)
       out_spvalues = arrays_to_spvalues(self.spenv, out_bufs if primitive.multiple_results else [out_bufs])
     out_tracers = tuple(SparseTracer(self, spvalue=spvalue) for spvalue in out_spvalues)
     return out_tracers if primitive.multiple_results else out_tracers[0]
 
-  def process_call(self, call_primitive, f: lu.WrappedFun, tracers, params):
+  def process_call(self, call_primitive, f: lu.WrappedFun, tracers, params, /):
     assert False
     spvalues = tuple(t._spvalue for t in tracers)
     in_bufs = self.spenv._buffers
@@ -339,7 +342,7 @@ class SparseTrace(core.Trace):
     _bufs_out = call_primitive.bind(fun, *in_bufs, **params)
     return [SparseTracer(self, spvalue=spvalue) for spvalue in out_spvalues()]
 
-  def process_custom_jvp_call(self, primitive, fun, jvp, tracers, *, symbolic_zeros):
+  def process_custom_jvp_call(self, primitive, fun, jvp, tracers, /, *, symbolic_zeros):
     # TODO(jakevdp): handle the jvp here
     del primitive, jvp, symbolic_zeros
     with core.set_current_trace(self):
@@ -404,7 +407,7 @@ def eval_sparse(
       return
     env[var] = spenv.dense(a)
 
-  def write(var: core.Var, a: SparsifyValue) -> None:
+  def write(var: core.Var, a: SparsifyValue | None) -> None:
     if isinstance(var, core.DropVar):
       return
     assert a is not None
@@ -750,7 +753,7 @@ def _sparsify_jaxpr(spenv: SparsifyEnv,
 
   args = spvalues_to_arrays(spenv, spvalues)
   args_flat, in_tree = tree_flatten(args)
-  avals_flat = [core.get_aval(arg) for arg in args_flat]
+  avals_flat = [core.typeof(arg) for arg in args_flat]
   sp_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
       lu.wrap_init(wrapped, debug_info=jaxpr.jaxpr.debug_info.with_unknown_names()), avals_flat)
   sp_jaxpr = pe.ClosedJaxpr(sp_jaxpr, consts)
@@ -881,15 +884,20 @@ def _custom_jvp_sparse_rule(spenv, *spvalues, **params):
   jvp_jaxpr_fun: lu.WrappedFun = params.pop('jvp_jaxpr_fun')
   num_consts: int = params.pop('num_consts')
   sp_call_jaxpr, out_tree = _sparsify_jaxpr(spenv, call_jaxpr, *spvalues)
-  def fun(*arrs):
+  def fun(*flat_arrs):
+    arrs = tree_util.tree_unflatten(out_tree, flat_arrs)
     sparrs = arrays_to_spvalues(spenv, arrs)
     out = eval_sparse(call_jaxpr.jaxpr, call_jaxpr.consts, sparrs, spenv)
-    return spvalues_to_arrays(spenv, out)
+    return tree_util.tree_flatten(spvalues_to_arrays(spenv, out))[0]
   jvp = lift_jvp(num_consts, jvp_jaxpr_fun)
   invals = spvalues_to_arrays(spenv, spvalues)
-  outvals = jax.custom_derivatives.custom_jvp_call_p.bind(
-      lu.wrap_init(fun, debug_info=call_jaxpr.jaxpr.debug_info),
-      jvp, *invals, **params)
+  flat_invals, _ = tree_util.tree_flatten(invals)
+
+  flat_outvals = jax.custom_derivatives.custom_jvp_call_p.bind(
+      *flat_invals,
+      subfuns=(lu.wrap_init(fun, debug_info=call_jaxpr.jaxpr.debug_info), jvp),
+      **params)
+  outvals = tree_util.tree_unflatten(out_tree, flat_outvals)
   return arrays_to_spvalues(spenv, outvals)
 
 sparse_rules_bcoo[jax.custom_derivatives.custom_jvp_call_p] = _custom_jvp_sparse_rule

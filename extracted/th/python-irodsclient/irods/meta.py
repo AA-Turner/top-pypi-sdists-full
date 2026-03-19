@@ -1,14 +1,49 @@
+import base64
+import copy
+
+
 class iRODSMeta:
+    def _to_column_triple(self):
+        return (self.name, self.forward_translate(self.value)) + (
+            ('',) if not self.units else (self.forward_translate(self.units),)
+        )
+
+    def _from_column_triple(self, name, value, units, **kw):
+        self.__low_level_init(
+            name, self.reverse_translate(value), units=None if not units else self.reverse_translate(units), **kw
+        )
+        return self
+
+    reverse_translate = forward_translate = staticmethod(lambda _: _)
+
+    INIT_KW_ARGS = ['units', 'avu_id', 'create_time', 'modify_time']
 
     def __init__(
-        self, name, value, units=None, avu_id=None, create_time=None, modify_time=None
+        self,
+        name,
+        value,
+        /,
+        units=None,
+        *,
+        avu_id=None,
+        create_time=None,
+        modify_time=None,
     ):
-        self.avu_id = avu_id
+        # Defer initialization for iRODSMeta(attribute,value,...) if neither attribute nor value is True under
+        # a 'bool' transformation.  In so doing we streamline initialization for iRODSMeta (and any subclasses)
+        # for alternatively populating via _from_column_triple(...).
+        # This is the pathway for allowing user-defined encodings of the iRODSMeta (byte-)string AVU components.
+        if name or value:
+            # Note: calling locals() inside the dict comprehension would not access variables in this frame.
+            local_vars = locals()
+            kw = {name: local_vars.get(name) for name in self.INIT_KW_ARGS}
+            self.__low_level_init(name, value, **kw)
+
+    def __low_level_init(self, name, value, **kw):
         self.name = name
         self.value = value
-        self.units = units
-        self.create_time = create_time
-        self.modify_time = modify_time
+        for attr in self.INIT_KW_ARGS:
+            setattr(self, attr, kw.get(attr))
 
     def __eq__(self, other):
         return tuple(self) == tuple(other)
@@ -20,7 +55,22 @@ class iRODSMeta:
             yield self.units
 
     def __repr__(self):
-        return "<iRODSMeta {avu_id} {name} {value} {units}>".format(**vars(self))
+        return f"<{self.__class__.__name__} {self.avu_id} {self.name} {self.value} {self.units}>"
+
+    def __hash__(self):
+        return hash(tuple(self))
+
+
+class iRODSBinOrStringMeta(iRODSMeta):
+    @staticmethod
+    def reverse_translate(value):
+        """Translate an AVU field from its iRODS object-database form into the client representation of that field."""
+        return value if value[0] != '\\' else base64.decodebytes(value[1:].encode('utf8'))
+
+    @staticmethod
+    def forward_translate(value):
+        """Translate an AVU field from the form it takes in the client, into an iRODS object-database compatible form."""
+        return b'\\' + base64.encodebytes(value).strip() if isinstance(value, (bytes, bytearray)) else value
 
 
 class BadAVUOperationKeyword(Exception):
@@ -32,7 +82,6 @@ class BadAVUOperationValue(Exception):
 
 
 class AVUOperation(dict):
-
     @property
     def operation(self):
         return self["operation"]
@@ -53,19 +102,14 @@ class AVUOperation(dict):
 
     def _check_avu(self, avu_param):
         if not isinstance(avu_param, iRODSMeta):
-            error_msg = (
-                "Nonconforming avu {!r} of type {}; must be an iRODSMeta."
-                "".format(avu_param, type(avu_param).__name__)
+            error_msg = "Nonconforming avu {!r} of type {}; must be an iRODSMeta.".format(
+                avu_param, type(avu_param).__name__
             )
             raise BadAVUOperationValue(error_msg)
 
     def _check_operation(self, operation):
         if operation not in ("add", "remove"):
-            error_msg = (
-                "Nonconforming operation {!r}; must be 'add' or 'remove'.".format(
-                    operation
-                )
-            )
+            error_msg = "Nonconforming operation {!r}; must be 'add' or 'remove'.".format(operation)
             raise BadAVUOperationValue(error_msg)
 
     def __init__(self, operation, avu, **kw):
@@ -77,21 +121,79 @@ class AVUOperation(dict):
         self._check_operation(operation)
         self._check_avu(avu)
         if kw:
-            raise BadAVUOperationKeyword(
-                """Nonconforming keyword (s) {}.""".format(list(kw.keys()))
-            )
+            raise BadAVUOperationKeyword("""Nonconforming keyword (s) {}.""".format(list(kw.keys())))
         for atr in ("operation", "avu"):
             setattr(self, atr, locals()[atr])
 
 
-import copy
-
-
 class iRODSMetaCollection:
+    def __setattr__(self, name, value):
+        """
+        Override __setattr__.
 
-    def __call__(self, admin=False, timestamps=False, **opts):
+        Protect the virtual, read-only attributes such as 'admin', 'timestamps', etc.,
+        from being written or created as concrete attributes, which would interfere with
+        __getattr__'s intended operation for these cases.
+
+        Args:
+            name: the name of the attribute to be written.
+            value: the value to be written to the attribute.
+
+        Raises:
+            AttributeError: on any attempt to write to these special attributes.
+        """
+        from irods.manager.metadata_manager import _MetadataManager_opts_initializer
+
+        if name in _MetadataManager_opts_initializer:
+            msg = (
+                f"""The "{name}" attribute is a special one, settable only via a """
+                f"""call on the object.  For example: admin_view = data_obj.metadata({name}=<value>)"""
+            )
+            raise AttributeError(msg)
+
+        super().__setattr__(name, value)
+
+    def __getattr__(self, name):
+        """
+        Override __getattr__.
+
+        Expose certain settable flags (e.g. "admin", "timestamps") as virtual, read-only
+        "attributes."  The names of these special attributes appear as the keys of the
+        _MetadataManager_opts_initializer dictionary.
+
+        Args:
+            name: the name of the attribute to be fetched.
+
+        Returns:
+            the value of the named attribute.
+
+        Raises:
+            AttributeError: because this is the protocol for deferring to __getattr__'s
+            default behavior for the case in which none of the special attribute keys are
+            a match for 'name'.
+        """
+        from irods.manager.metadata_manager import _MetadataManager_opts_initializer
+
+        # Separating _MetadataManager_opts_initializer from the MetadataManager class
+        # prevents the possibility of arbitrary access by copy.copy() to parts of
+        # our object's state before they have been initialized, as it is known to do
+        # by calling hasattr on the "__setstate__" attribute. The result of such
+        # unfettered access is infinite recursion.  See:
+        # https://nedbatchelder.com/blog/201010/surprising_getattr_recursion
+
+        if name in _MetadataManager_opts_initializer:
+            return self._manager._opts[name]  # noqa: SLF001
+        raise AttributeError
+
+    def __call__(self, **opts):
+        """
+        Optional parameters in **opts are:
+
+        admin (default: False): apply ADMIN_KW to future metadata operations.
+        timestamps (default: False): attach (ctime,mtime) timestamp attributes to AVUs received from iRODS.
+        """
         x = copy.copy(self)
-        x._manager = (x._manager)(admin, timestamps, **opts)
+        x._manager = (x._manager)(**opts)
         x._reset_metadata()
         return x
 
@@ -102,7 +204,11 @@ class iRODSMetaCollection:
         self._reset_metadata()
 
     def _reset_metadata(self):
-        self._meta = self._manager.get(self._model_cls, self._path)
+        m = self._manager
+        if not hasattr(self, "_meta"):
+            self._meta = m.get(None, "")
+        if m._opts.setdefault('reload', True):
+            self._meta = m.get(self._model_cls, self._path)
 
     def get_all(self, key):
         """
@@ -129,7 +235,7 @@ class iRODSMetaCollection:
     def _get_meta(self, *args):
         if not len(args):
             raise ValueError("Must specify an iRODSMeta object or key, value, units)")
-        return args[0] if len(args) == 1 else iRODSMeta(*args)
+        return args[0] if len(args) == 1 else self._manager._opts['iRODSMeta_type'](*args)
 
     def apply_atomic_operations(self, *avu_ops):
         self._manager.apply_atomic_operations(self._model_cls, self._path, *avu_ops)

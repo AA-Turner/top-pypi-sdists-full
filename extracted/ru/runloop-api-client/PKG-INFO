@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 1.11.0
+Version: 1.12.1
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -28,7 +28,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=2.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Requires-Dist: uuid-utils>=0.11.0
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deptry
-Version: 0.24.0
+Version: 0.25.1
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -15,33 +15,32 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: License :: OSI Approved :: MIT License
 Requires-Dist: click>=8.0.0,<9
 Requires-Dist: colorama>=0.4.6 ; sys_platform == 'win32'
 Requires-Dist: packaging>=23.2
 Requires-Dist: requirements-parser>=0.11.0,<1
-Requires-Dist: tomli>=2.0.1 ; python_full_version < '3.11'
+Requires-Dist: tomli>=2.0.1 ; python_full_version < '3.15'
 License-File: LICENSE
 Summary: A command line utility to check for unused, missing and transitive dependencies in a Python project.
-Author-email: Florian Maas <fpgmaas@gmail.com>
-Maintainer-email: Mathieu Kniewallner <mathieu.kniewallner@gmail.com>
+Author-email: Florian Maas <fpgmaas@gmail.com>, Mathieu Kniewallner <mathieu.kniewallner@gmail.com>
+License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: homepage, https://deptry.com
-Project-URL: repository, https://github.com/fpgmaas/deptry
+Project-URL: changelog, https://github.com/osprey-oss/deptry/blob/main/CHANGELOG.md
 Project-URL: documentation, https://deptry.com
-Project-URL: changelog, https://github.com/fpgmaas/deptry/blob/main/CHANGELOG.md
+Project-URL: homepage, https://deptry.com
+Project-URL: repository, https://github.com/osprey-oss/deptry
 
 <p align="center">
-  <img alt="deptry logo" width="460" height="300" src="https://raw.githubusercontent.com/fpgmaas/deptry/main/docs/static/deptry_Logo-01.svg">
+  <img alt="deptry logo" width="460" height="300" src="https://raw.githubusercontent.com/osprey-oss/deptry/main/docs/static/deptry_Logo-01.svg">
 </p>
 
-[![Release](https://img.shields.io/github/v/release/fpgmaas/deptry)](https://pypi.org/project/deptry/)
-[![Build status](https://github.com/fpgmaas/deptry/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/fpgmaas/deptry/actions/workflows/main.yml)
+[![Release](https://img.shields.io/github/v/release/osprey-oss/deptry)](https://pypi.org/project/deptry/)
+[![Build status](https://github.com/osprey-oss/deptry/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/osprey-oss/deptry/actions/workflows/main.yml)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/deptry)](https://pypi.org/project/deptry/)
-[![codecov](https://codecov.io/gh/fpgmaas/deptry/branch/main/graph/badge.svg)](https://codecov.io/gh/fpgmaas/deptry)
+[![codecov](https://codecov.io/gh/osprey-oss/deptry/branch/main/graph/badge.svg)](https://codecov.io/gh/osprey-oss/deptry)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/deptry)](https://pypistats.org/packages/deptry)
-[![License](https://img.shields.io/github/license/fpgmaas/deptry)](https://img.shields.io/github/license/fpgmaas/deptry)
+[![License](https://img.shields.io/github/license/osprey-oss/deptry)](https://img.shields.io/github/license/osprey-oss/deptry)
 
 _deptry_ is a command line tool to check for issues with dependencies in a Python project, such as unused or missing
 dependencies. It supports projects

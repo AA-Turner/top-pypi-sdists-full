@@ -19,6 +19,44 @@ else:
     import importlib.metadata as importlib_metadata
 
 
+def _python_version_matches_required(actual_ver_str, required_ver_str):
+    """Return True if *actual_ver_str* satisfies *required_ver_str*.
+
+    ``required_ver_str`` comes from the Pipfile ``[requires]`` section and may
+    be either a ``python_version`` (``"X.Y"``, major.minor only) or a
+    ``python_full_version`` (``"X.Y.Z"``).
+
+    ``actual_ver_str`` is the full version string reported by the Python
+    interpreter (e.g. ``"3.13.11"``).
+
+    A simple substring/``in`` check is **wrong** here: ``"3.11" in "3.13.11"``
+    is ``True`` because ``"3.11"`` happens to appear as a substring of
+    ``"3.13.11"``, causing an incompatible Python version to be silently
+    accepted.  See https://github.com/pypa/pipenv/issues/6514.
+
+    Instead, this function:
+    * When *required_ver_str* has fewer than three dot-separated components
+      (i.e. only ``major.minor``), compares just the ``major`` and ``minor``
+      fields of both parsed versions.
+    * When *required_ver_str* has three or more components (``major.minor.patch``),
+      requires an exact match of the parsed versions.
+    """
+    if not actual_ver_str or not required_ver_str:
+        return False
+    try:
+        actual = parse_version(actual_ver_str)
+        required = parse_version(required_ver_str)
+        if len(required_ver_str.split(".")) >= 3:
+            # python_full_version specified — must match exactly.
+            return actual == required
+        else:
+            # python_version (major.minor only) — compare only those components.
+            return actual.major == required.major and actual.minor == required.minor
+    except Exception:
+        # Fallback for any unparseable version strings.
+        return actual_ver_str == required_ver_str
+
+
 def ensure_project(
     project,
     python=None,
@@ -51,6 +89,35 @@ def ensure_project(
                 "Please ensure Python is installed and available in PATH.",
             )
 
+    # If --python was explicitly specified and the existing virtualenv uses a different
+    # Python version, allow ensure_virtualenv to handle recreation.
+    if (
+        python
+        and project.virtualenv_exists
+        and not system
+        and not project.s.PIPENV_USE_SYSTEM
+    ):
+        try:
+            venv_python_path = project._which("python") or project._which("py")
+            if venv_python_path:
+                venv_python_ver = python_version(str(venv_python_path))
+                if os.path.isabs(python):
+                    # python is an absolute path; get its version for comparison.
+                    requested_ver = python_version(python)
+                else:
+                    # python is a version specifier like "3.12".
+                    requested_ver = python
+                if (
+                    venv_python_ver
+                    and requested_ver
+                    and not _python_version_matches_required(
+                        venv_python_ver, requested_ver
+                    )
+                ):
+                    system_or_exists = False
+        except Exception:
+            pass  # If version detection fails, fall through to default behavior
+
     # Skip virtualenv creation when --system was used.
     if not system_or_exists:
         ensure_virtualenv(
@@ -73,8 +140,8 @@ def ensure_project(
         else:
             path_to_python = project._which("python") or project._which("py")
 
-        if path_to_python and project.required_python_version not in (
-            python_version(path_to_python) or ""
+        if path_to_python and not _python_version_matches_required(
+            python_version(path_to_python) or "", project.required_python_version
         ):
             err.print(
                 f"[red][bold]Warning[/bold][/red]: Your Pipfile requires "

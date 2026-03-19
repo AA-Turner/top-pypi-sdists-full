@@ -933,9 +933,10 @@ class Generator(metaclass=_Generator):
         comment = " " + comment if comment[0].strip() else comment
         comment = comment + " " if comment[-1].strip() else comment
 
-        if not self.dialect.tokenizer_class.NESTED_COMMENTS:
-            # Necessary workaround to avoid syntax errors due to nesting: /* ... */ ... */
-            comment = comment.replace("*/", "* /")
+        # Escape block comment markers to prevent premature closure or unintended nesting.
+        # This is necessary because single-line comments (--) are converted to block comments
+        # (/* */) on output, and any */ in the original text would close the comment early.
+        comment = comment.replace("*/", "* /").replace("/*", "/ *")
 
         return comment
 
@@ -4086,6 +4087,8 @@ class Generator(metaclass=_Generator):
 
             if isinstance(exprs, exp.Tuple):
                 exprs = exprs.expressions
+            else:
+                exprs = [exprs]
 
             connective = exp.or_ if isinstance(rhs, exp.Any) else exp.and_
 

@@ -32,6 +32,7 @@ from jax._src import util
 from jax._src import source_info_util
 from jax._src import xla_bridge as xb
 from jax._src import mesh_utils
+from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir.dialects import sdy
 from jax._src.named_sharding import (  # noqa: F401
@@ -156,7 +157,7 @@ class SingleDeviceSharding(jsharding.Sharding):
   def with_memory_kind(self, kind: str) -> SingleDeviceSharding:
     return SingleDeviceSharding(self._device, memory_kind=kind)
 
-  def devices_indices_map(self, global_shape: Shape) -> Mapping[Device, Index]:  # type: ignore
+  def devices_indices_map(self, global_shape: Shape) -> Mapping[Device, Index]:
     return {self._device: (slice(None),) * len(global_shape)}
 
   @property
@@ -480,7 +481,7 @@ def prepare_axis_resources(axis_resources, arg_name,
       axis_resources, is_leaf=lambda x: x is None)
   what = f"{arg_name} leaf specifications"
 
-  new_entries = []
+  new_entries: list[Any] = []
   for entry in entries:
     if isinstance(entry, (UnspecifiedValue, AUTO)) or entry is None:
       new_entries.append(entry)
@@ -678,6 +679,27 @@ def explode_superdims(sizes, dims):
     final_dims += reversed(new_dims)
   return final_dims
 
+
+def _hlo_sharding_v3_to_pspec(
+    hlo_sharding: xc.HloSharding, mesh: mesh_lib.Mesh | mesh_lib.AbstractMesh
+) -> PartitionSpec:
+  hlo_sharding_v3 = hlo_sharding.hlo_sharding_v3()
+  v3_mesh = hlo_sharding_v3.mesh()
+
+  if tuple(v3_mesh.axis_names) != tuple(mesh.axis_names):
+    raise ValueError(
+        f'The axis names of the HloShardingV3 mesh ({v3_mesh.axis_names}) '
+        f'do not match the axis names of the JAX mesh ({mesh.axis_names}).')
+
+  if tuple(v3_mesh.axis_sizes) != tuple(mesh.axis_sizes):
+    raise ValueError(
+        'The axis sizes of the HloShardingV3 mesh'
+        f' ({tuple(v3_mesh.axis_sizes)}) do not match the axis sizes of the'
+        f' JAX mesh ({tuple(mesh.axis_sizes)}).')
+
+  return PartitionSpec(*hlo_sharding_v3.partitions())
+
+
 def parse_flatten_op_sharding(
     hlo_sharding: xc.OpSharding | xc.HloSharding,
     mesh: mesh_lib.Mesh | mesh_lib.AbstractMesh) -> Sequence[PartitionSpec]:
@@ -692,6 +714,8 @@ def parse_flatten_op_sharding(
     return [PartitionSpec()]
   elif hlo_sharding.is_maximal() and mesh.size == 1:
     return [PartitionSpec()]
+  elif jaxlib_extension_version >= 417 and hlo_sharding.is_hlo_sharding_v3():
+    return [_hlo_sharding_v3_to_pspec(hlo_sharding, mesh)]
   elif hlo_sharding.is_tiled():
     mesh_shape = mesh.shape
     mesh_axis_order = unflatten_array(
@@ -1042,7 +1066,7 @@ def logical_sharding(logical_shape, dtype, phys_sharding) -> jsharding.Sharding:
       phys_spec = (*phys_sharding.spec,
                    *[None] * (len(phys_shape) - len(phys_sharding.spec)))
     else:
-      phys_spec = phys_sharding.spec  # type: ignore
+      phys_spec = phys_sharding.spec
     return phys_sharding.update(spec=phys_spec[:-elt_aval.ndim])
   else:
     return get_logical_gspmd_sharding(logical_shape, dtype, phys_sharding)

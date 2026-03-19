@@ -1,9 +1,10 @@
 import contextlib
 import os
 import sys
-from irods import env_filename_from_keyword_args
+
 import irods.exception as ex
-from irods.message import ET, XML_Parser_Type, IRODS_VERSION
+from irods import env_filename_from_keyword_args
+from irods.message import _IRODS_VERSION, ET, XML_Parser_Type
 from irods.path import iRODSPath
 from irods.session import iRODSSession
 
@@ -15,8 +16,8 @@ __all__ = [
     "get_data_object",
 ]
 
-class StopTestsException(Exception):
 
+class StopTestsException(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if "unittest" in sys.modules.keys():
@@ -29,9 +30,7 @@ class iRODS_Server_Too_Recent_For_Testing(StopTestsException):
 
 
 def _get_server_version_for_test(session, curtail_length):
-    return session._server_version(session.GET_SERVER_VERSION_WITHOUT_AUTH)[
-        :curtail_length
-    ]
+    return session._server_version(session.GET_SERVER_VERSION_WITHOUT_AUTH)[:curtail_length]
 
 
 # Create a connection for test, based on ~/.irods environment by default.
@@ -54,9 +53,12 @@ def make_session(test_server_version=False, **kwargs):
 
     env_file = env_filename_from_keyword_args(kwargs)
     session = iRODSSession(irods_env_file=env_file, **kwargs)
+    # irods.test.helpers version of this function sets test_server_version True by default, so
+    # that sessions generated for the test methods will abort on connecting with a server that
+    # is too recent.  This is a way to ensure that tests don't fail due to a server mismatch.
     if test_server_version:
         connected_version = _get_server_version_for_test(session, curtail_length=3)
-        advertised_version = IRODS_VERSION[:3]
+        advertised_version = _IRODS_VERSION[:3]
         if connected_version > advertised_version:
             msg = (
                 "Connected server is {connected_version}, "
@@ -100,9 +102,7 @@ class _unlikely_value:
 
 
 @contextlib.contextmanager
-def temporarily_assign_attribute(
-    target, attr, value, not_set_indicator=_unlikely_value()
-):
+def temporarily_assign_attribute(target, attr, value, not_set_indicator=_unlikely_value()):
     save = not_set_indicator
     try:
         save = getattr(target, attr, not_set_indicator)
@@ -146,13 +146,13 @@ def get_collection(sess, logical_path):
 
 
 # Utility class and factory function for storing the original value of variables within the given namespace.
-def create_value_cache(namespace:dict):
+def create_value_cache(namespace: dict):
     class CachedValues:
         __namespace = namespace
 
         @classmethod
         def make_entry(cls, name):
             cached_value = cls.__namespace[name]
-            setattr(cls,name,property(lambda self: cached_value))
+            setattr(cls, name, property(lambda self: cached_value))
 
     return CachedValues()

@@ -41,8 +41,21 @@ from .paginator import (
     ListExportErrorsPaginator,
     ListExportsPaginator,
     ListImportErrorsPaginator,
+    ListImportFileEnrichmentsPaginator,
     ListImportsPaginator,
     ListManagedAccountsPaginator,
+    ListNetworkMigrationAnalysesPaginator,
+    ListNetworkMigrationAnalysisResultsPaginator,
+    ListNetworkMigrationCodeGenerationSegmentsPaginator,
+    ListNetworkMigrationCodeGenerationsPaginator,
+    ListNetworkMigrationDefinitionsPaginator,
+    ListNetworkMigrationDeployedStacksPaginator,
+    ListNetworkMigrationDeploymentsPaginator,
+    ListNetworkMigrationExecutionsPaginator,
+    ListNetworkMigrationMapperSegmentConstructsPaginator,
+    ListNetworkMigrationMapperSegmentsPaginator,
+    ListNetworkMigrationMappingsPaginator,
+    ListNetworkMigrationMappingUpdatesPaginator,
     ListSourceServerActionsPaginator,
     ListTemplateActionsPaginator,
     ListWavesPaginator,
@@ -58,12 +71,14 @@ from .type_defs import (
     CreateApplicationRequestTypeDef,
     CreateConnectorRequestTypeDef,
     CreateLaunchConfigurationTemplateRequestTypeDef,
+    CreateNetworkMigrationDefinitionRequestTypeDef,
     CreateReplicationConfigurationTemplateRequestTypeDef,
     CreateWaveRequestTypeDef,
     DeleteApplicationRequestTypeDef,
     DeleteConnectorRequestTypeDef,
     DeleteJobRequestTypeDef,
     DeleteLaunchConfigurationTemplateRequestTypeDef,
+    DeleteNetworkMigrationDefinitionRequestTypeDef,
     DeleteReplicationConfigurationTemplateRequestTypeDef,
     DeleteSourceServerRequestTypeDef,
     DeleteVcenterClientRequestTypeDef,
@@ -86,6 +101,9 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     FinalizeCutoverRequestTypeDef,
     GetLaunchConfigurationRequestTypeDef,
+    GetNetworkMigrationDefinitionRequestTypeDef,
+    GetNetworkMigrationMapperSegmentConstructRequestTypeDef,
+    GetNetworkMigrationMapperSegmentConstructResponseTypeDef,
     GetReplicationConfigurationRequestTypeDef,
     LaunchConfigurationTemplateResponseTypeDef,
     LaunchConfigurationTypeDef,
@@ -99,10 +117,36 @@ from .type_defs import (
     ListExportsResponseTypeDef,
     ListImportErrorsRequestTypeDef,
     ListImportErrorsResponseTypeDef,
+    ListImportFileEnrichmentsRequestTypeDef,
+    ListImportFileEnrichmentsResponseTypeDef,
     ListImportsRequestTypeDef,
     ListImportsResponseTypeDef,
     ListManagedAccountsRequestTypeDef,
     ListManagedAccountsResponseTypeDef,
+    ListNetworkMigrationAnalysesRequestTypeDef,
+    ListNetworkMigrationAnalysesResponseTypeDef,
+    ListNetworkMigrationAnalysisResultsRequestTypeDef,
+    ListNetworkMigrationAnalysisResultsResponseTypeDef,
+    ListNetworkMigrationCodeGenerationSegmentsRequestTypeDef,
+    ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef,
+    ListNetworkMigrationCodeGenerationsRequestTypeDef,
+    ListNetworkMigrationCodeGenerationsResponseTypeDef,
+    ListNetworkMigrationDefinitionsRequestTypeDef,
+    ListNetworkMigrationDefinitionsResponseTypeDef,
+    ListNetworkMigrationDeployedStacksRequestTypeDef,
+    ListNetworkMigrationDeployedStacksResponseTypeDef,
+    ListNetworkMigrationDeployerJobResponseTypeDef,
+    ListNetworkMigrationDeploymentsRequestTypeDef,
+    ListNetworkMigrationExecutionsRequestTypeDef,
+    ListNetworkMigrationExecutionsResponseTypeDef,
+    ListNetworkMigrationMapperSegmentConstructsRequestTypeDef,
+    ListNetworkMigrationMapperSegmentConstructsResponseTypeDef,
+    ListNetworkMigrationMapperSegmentsRequestTypeDef,
+    ListNetworkMigrationMapperSegmentsResponseTypeDef,
+    ListNetworkMigrationMappingsRequestTypeDef,
+    ListNetworkMigrationMappingsResponseTypeDef,
+    ListNetworkMigrationMappingUpdatesRequestTypeDef,
+    ListNetworkMigrationMappingUpdatesResponseTypeDef,
     ListSourceServerActionsRequestTypeDef,
     ListSourceServerActionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -112,6 +156,8 @@ from .type_defs import (
     ListWavesRequestTypeDef,
     ListWavesResponseTypeDef,
     MarkAsArchivedRequestTypeDef,
+    NetworkMigrationDefinitionTypeDef,
+    NetworkMigrationMapperSegmentResponseTypeDef,
     PauseReplicationRequestTypeDef,
     PutSourceServerActionRequestTypeDef,
     PutTemplateActionRequestTypeDef,
@@ -127,8 +173,20 @@ from .type_defs import (
     StartCutoverResponseTypeDef,
     StartExportRequestTypeDef,
     StartExportResponseTypeDef,
+    StartImportFileEnrichmentRequestTypeDef,
+    StartImportFileEnrichmentResponseTypeDef,
     StartImportRequestTypeDef,
     StartImportResponseTypeDef,
+    StartNetworkMigrationAnalysisRequestTypeDef,
+    StartNetworkMigrationAnalysisResponseTypeDef,
+    StartNetworkMigrationCodeGenerationRequestTypeDef,
+    StartNetworkMigrationCodeGenerationResponseTypeDef,
+    StartNetworkMigrationDeployerJobResponseTypeDef,
+    StartNetworkMigrationDeploymentRequestTypeDef,
+    StartNetworkMigrationMappingRequestTypeDef,
+    StartNetworkMigrationMappingResponseTypeDef,
+    StartNetworkMigrationMappingUpdateRequestTypeDef,
+    StartNetworkMigrationMappingUpdateResponseTypeDef,
     StartReplicationRequestTypeDef,
     StartTestRequestTypeDef,
     StartTestResponseTypeDef,
@@ -144,6 +202,8 @@ from .type_defs import (
     UpdateConnectorRequestTypeDef,
     UpdateLaunchConfigurationRequestTypeDef,
     UpdateLaunchConfigurationTemplateRequestTypeDef,
+    UpdateNetworkMigrationDefinitionRequestTypeDef,
+    UpdateNetworkMigrationMapperSegmentRequestTypeDef,
     UpdateReplicationConfigurationRequestTypeDef,
     UpdateReplicationConfigurationTemplateRequestTypeDef,
     UpdateSourceServerReplicationTypeRequestTypeDef,
@@ -286,6 +346,17 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#create_launch_configuration_template)
         """
 
+    async def create_network_migration_definition(
+        self, **kwargs: Unpack[CreateNetworkMigrationDefinitionRequestTypeDef]
+    ) -> NetworkMigrationDefinitionTypeDef:
+        """
+        Creates a new network migration definition that specifies the source and target
+        network configuration for a migration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/create_network_migration_definition.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#create_network_migration_definition)
+        """
+
     async def create_replication_configuration_template(
         self, **kwargs: Unpack[CreateReplicationConfigurationTemplateRequestTypeDef]
     ) -> ReplicationConfigurationTemplateResponseTypeDef:
@@ -340,6 +411,16 @@ class MgnClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/delete_launch_configuration_template.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#delete_launch_configuration_template)
+        """
+
+    async def delete_network_migration_definition(
+        self, **kwargs: Unpack[DeleteNetworkMigrationDefinitionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a network migration definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/delete_network_migration_definition.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#delete_network_migration_definition)
         """
 
     async def delete_replication_configuration_template(
@@ -491,6 +572,28 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_launch_configuration)
         """
 
+    async def get_network_migration_definition(
+        self, **kwargs: Unpack[GetNetworkMigrationDefinitionRequestTypeDef]
+    ) -> NetworkMigrationDefinitionTypeDef:
+        """
+        Retrieves the details of a network migration definition including source and
+        target configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_network_migration_definition.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_network_migration_definition)
+        """
+
+    async def get_network_migration_mapper_segment_construct(
+        self, **kwargs: Unpack[GetNetworkMigrationMapperSegmentConstructRequestTypeDef]
+    ) -> GetNetworkMigrationMapperSegmentConstructResponseTypeDef:
+        """
+        Retrieves detailed information about a specific construct within a mapper
+        segment, including its properties and configuration data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_network_migration_mapper_segment_construct.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_network_migration_mapper_segment_construct)
+        """
+
     async def get_replication_configuration(
         self, **kwargs: Unpack[GetReplicationConfigurationRequestTypeDef]
     ) -> ReplicationConfigurationTypeDef:
@@ -559,6 +662,16 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_import_errors)
         """
 
+    async def list_import_file_enrichments(
+        self, **kwargs: Unpack[ListImportFileEnrichmentsRequestTypeDef]
+    ) -> ListImportFileEnrichmentsResponseTypeDef:
+        """
+        Lists import file enrichment jobs with optional filtering by job IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_import_file_enrichments.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_import_file_enrichments)
+        """
+
     async def list_imports(
         self, **kwargs: Unpack[ListImportsRequestTypeDef]
     ) -> ListImportsResponseTypeDef:
@@ -577,6 +690,135 @@ class MgnClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_managed_accounts.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_managed_accounts)
+        """
+
+    async def list_network_migration_analyses(
+        self, **kwargs: Unpack[ListNetworkMigrationAnalysesRequestTypeDef]
+    ) -> ListNetworkMigrationAnalysesResponseTypeDef:
+        """
+        Lists network migration analysis jobs for a specified execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_analyses.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_analyses)
+        """
+
+    async def list_network_migration_analysis_results(
+        self, **kwargs: Unpack[ListNetworkMigrationAnalysisResultsRequestTypeDef]
+    ) -> ListNetworkMigrationAnalysisResultsResponseTypeDef:
+        """
+        Lists the results of network migration analyses, showing connectivity and
+        compatibility findings for migrated resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_analysis_results.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_analysis_results)
+        """
+
+    async def list_network_migration_code_generation_segments(
+        self, **kwargs: Unpack[ListNetworkMigrationCodeGenerationSegmentsRequestTypeDef]
+    ) -> ListNetworkMigrationCodeGenerationSegmentsResponseTypeDef:
+        """
+        Lists code generation segments, which represent individual infrastructure
+        components generated as code templates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_code_generation_segments.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_code_generation_segments)
+        """
+
+    async def list_network_migration_code_generations(
+        self, **kwargs: Unpack[ListNetworkMigrationCodeGenerationsRequestTypeDef]
+    ) -> ListNetworkMigrationCodeGenerationsResponseTypeDef:
+        """
+        Lists network migration code generation jobs, which convert network mappings
+        into infrastructure-as-code templates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_code_generations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_code_generations)
+        """
+
+    async def list_network_migration_definitions(
+        self, **kwargs: Unpack[ListNetworkMigrationDefinitionsRequestTypeDef]
+    ) -> ListNetworkMigrationDefinitionsResponseTypeDef:
+        """
+        Lists all network migration definitions in the account, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_definitions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_definitions)
+        """
+
+    async def list_network_migration_deployed_stacks(
+        self, **kwargs: Unpack[ListNetworkMigrationDeployedStacksRequestTypeDef]
+    ) -> ListNetworkMigrationDeployedStacksResponseTypeDef:
+        """
+        Lists CloudFormation stacks that have been deployed as part of the network
+        migration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_deployed_stacks.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_deployed_stacks)
+        """
+
+    async def list_network_migration_deployments(
+        self, **kwargs: Unpack[ListNetworkMigrationDeploymentsRequestTypeDef]
+    ) -> ListNetworkMigrationDeployerJobResponseTypeDef:
+        """
+        Lists network migration deployment jobs and their current status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_deployments.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_deployments)
+        """
+
+    async def list_network_migration_executions(
+        self, **kwargs: Unpack[ListNetworkMigrationExecutionsRequestTypeDef]
+    ) -> ListNetworkMigrationExecutionsResponseTypeDef:
+        """
+        Lists network migration execution instances for a given definition, showing the
+        status and progress of each execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_executions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_executions)
+        """
+
+    async def list_network_migration_mapper_segment_constructs(
+        self, **kwargs: Unpack[ListNetworkMigrationMapperSegmentConstructsRequestTypeDef]
+    ) -> ListNetworkMigrationMapperSegmentConstructsResponseTypeDef:
+        """
+        Lists constructs within a mapper segment, representing individual
+        infrastructure components like VPCs, subnets, or security groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_mapper_segment_constructs.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_mapper_segment_constructs)
+        """
+
+    async def list_network_migration_mapper_segments(
+        self, **kwargs: Unpack[ListNetworkMigrationMapperSegmentsRequestTypeDef]
+    ) -> ListNetworkMigrationMapperSegmentsResponseTypeDef:
+        """
+        Lists mapper segments, which represent logical groupings of network resources
+        to be migrated together.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_mapper_segments.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_mapper_segments)
+        """
+
+    async def list_network_migration_mapping_updates(
+        self, **kwargs: Unpack[ListNetworkMigrationMappingUpdatesRequestTypeDef]
+    ) -> ListNetworkMigrationMappingUpdatesResponseTypeDef:
+        """
+        Lists mapping update jobs, which apply customer modifications to the generated
+        network mappings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_mapping_updates.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_mapping_updates)
+        """
+
+    async def list_network_migration_mappings(
+        self, **kwargs: Unpack[ListNetworkMigrationMappingsRequestTypeDef]
+    ) -> ListNetworkMigrationMappingsResponseTypeDef:
+        """
+        Lists network migration mapping jobs, which analyze and create relationships
+        between source and target network resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_mappings.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#list_network_migration_mappings)
         """
 
     async def list_source_server_actions(
@@ -732,6 +974,72 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_import)
         """
 
+    async def start_import_file_enrichment(
+        self, **kwargs: Unpack[StartImportFileEnrichmentRequestTypeDef]
+    ) -> StartImportFileEnrichmentResponseTypeDef:
+        """
+        Starts an import file enrichment job to process and enrich network migration
+        import files with additional metadata and IP assignment strategies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_import_file_enrichment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_import_file_enrichment)
+        """
+
+    async def start_network_migration_analysis(
+        self, **kwargs: Unpack[StartNetworkMigrationAnalysisRequestTypeDef]
+    ) -> StartNetworkMigrationAnalysisResponseTypeDef:
+        """
+        Starts a network migration analysis job to evaluate connectivity and
+        compatibility of the migration mappings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_network_migration_analysis.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_network_migration_analysis)
+        """
+
+    async def start_network_migration_code_generation(
+        self, **kwargs: Unpack[StartNetworkMigrationCodeGenerationRequestTypeDef]
+    ) -> StartNetworkMigrationCodeGenerationResponseTypeDef:
+        """
+        Starts a code generation job to convert network migration mappings into
+        infrastructure-as-code templates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_network_migration_code_generation.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_network_migration_code_generation)
+        """
+
+    async def start_network_migration_deployment(
+        self, **kwargs: Unpack[StartNetworkMigrationDeploymentRequestTypeDef]
+    ) -> StartNetworkMigrationDeployerJobResponseTypeDef:
+        """
+        Starts a deployment job to create the target network infrastructure based on
+        the generated code templates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_network_migration_deployment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_network_migration_deployment)
+        """
+
+    async def start_network_migration_mapping(
+        self, **kwargs: Unpack[StartNetworkMigrationMappingRequestTypeDef]
+    ) -> StartNetworkMigrationMappingResponseTypeDef:
+        """
+        Starts the network migration mapping process for a given network migration
+        execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_network_migration_mapping.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_network_migration_mapping)
+        """
+
+    async def start_network_migration_mapping_update(
+        self, **kwargs: Unpack[StartNetworkMigrationMappingUpdateRequestTypeDef]
+    ) -> StartNetworkMigrationMappingUpdateResponseTypeDef:
+        """
+        Starts a job to apply customer modifications to network migration mappings,
+        such as changing properties.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_network_migration_mapping_update.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_network_migration_mapping_update)
+        """
+
     async def start_replication(
         self, **kwargs: Unpack[StartReplicationRequestTypeDef]
     ) -> SourceServerResponseTypeDef:
@@ -852,6 +1160,27 @@ class MgnClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_launch_configuration_template.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#update_launch_configuration_template)
+        """
+
+    async def update_network_migration_definition(
+        self, **kwargs: Unpack[UpdateNetworkMigrationDefinitionRequestTypeDef]
+    ) -> NetworkMigrationDefinitionTypeDef:
+        """
+        Updates an existing network migration definition with new source or target
+        configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_network_migration_definition.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#update_network_migration_definition)
+        """
+
+    async def update_network_migration_mapper_segment(
+        self, **kwargs: Unpack[UpdateNetworkMigrationMapperSegmentRequestTypeDef]
+    ) -> NetworkMigrationMapperSegmentResponseTypeDef:
+        """
+        Updates a mapper segment's configuration, such as changing its scope tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_network_migration_mapper_segment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#update_network_migration_mapper_segment)
         """
 
     async def update_replication_configuration(
@@ -1026,6 +1355,17 @@ class MgnClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_import_file_enrichments"]
+    ) -> ListImportFileEnrichmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_imports"]
     ) -> ListImportsPaginator:
         """
@@ -1039,6 +1379,138 @@ class MgnClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_managed_accounts"]
     ) -> ListManagedAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_analyses"]
+    ) -> ListNetworkMigrationAnalysesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_analysis_results"]
+    ) -> ListNetworkMigrationAnalysisResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_code_generation_segments"]
+    ) -> ListNetworkMigrationCodeGenerationSegmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_code_generations"]
+    ) -> ListNetworkMigrationCodeGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_definitions"]
+    ) -> ListNetworkMigrationDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_deployed_stacks"]
+    ) -> ListNetworkMigrationDeployedStacksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_deployments"]
+    ) -> ListNetworkMigrationDeploymentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_executions"]
+    ) -> ListNetworkMigrationExecutionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_mapper_segment_constructs"]
+    ) -> ListNetworkMigrationMapperSegmentConstructsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_mapper_segments"]
+    ) -> ListNetworkMigrationMapperSegmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_mapping_updates"]
+    ) -> ListNetworkMigrationMappingUpdatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_mappings"]
+    ) -> ListNetworkMigrationMappingsPaginator:
         """
         Create a paginator for an operation.
 

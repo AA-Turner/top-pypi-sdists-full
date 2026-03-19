@@ -17,6 +17,9 @@ AUTH_PLUGIN_PACKAGE = "irods.auth"
 _NoneType = type(None)
 
 
+_logger = logging.getLogger(__name__)
+
+
 class AuthStorage:
     """A class that facilitates flexible means of password storage.
 
@@ -141,9 +144,7 @@ def throw_if_request_message_is_missing_key(request, required_keys):
 
 def _auth_api_request(conn, data):
     message_body = JSON_Message(data, conn.server_version)
-    message = iRODSMessage(
-        "RODS_API_REQ", msg=message_body, int_info=api_number["AUTHENTICATION_APN"]
-    )
+    message = iRODSMessage("RODS_API_REQ", msg=message_body, int_info=api_number["AUTHENTICATION_APN"])
     conn.send(message)
     response = conn.recv()
     return response.get_json_encoded_struct()
@@ -159,14 +160,13 @@ STORE_PASSWORD_IN_MEMORY = "store_password_in_memory"
 
 
 class authentication_base:
-
     def __init__(self, connection, scheme):
         self.conn = connection
         self.loggedIn = 0
         self.scheme = scheme
 
     def call(self, next_operation, request):
-        logging.debug("next operation = %r", next_operation)
+        _logger.debug("next operation = %r", next_operation)
         old_func = func = next_operation
         # One level of indirection should be sufficient to get a callable method.
         if not callable(func):
@@ -175,12 +175,10 @@ class authentication_base:
         if not callable(func):
             raise RuntimeError("client request contains no callable 'next_operation'")
         resp = func(request)
-        logging.debug("resp = %r", resp)
+        _logger.debug("resp = %r", resp)
         return resp
 
-    def authenticate_client(
-        self, next_operation="auth_client_start", initial_request=()
-    ):
+    def authenticate_client(self, next_operation="auth_client_start", initial_request=()):
         if not isinstance(initial_request, dict):
             initial_request = dict(initial_request)
 
@@ -193,13 +191,9 @@ class authentication_base:
                 break
             next_operation = resp.get(__NEXT_OPERATION__)
             if next_operation is None:
-                raise ClientAuthError(
-                    "next_operation key missing; cannot determine next operation"
-                )
+                raise ClientAuthError("next_operation key missing; cannot determine next operation")
             if next_operation in (__FLOW_COMPLETE__, ""):
-                raise ClientAuthError(
-                    f"authentication flow stopped without success: scheme = {self.scheme}"
-                )
+                raise ClientAuthError(f"authentication flow stopped without success: scheme = {self.scheme}")
             to_send = resp
 
-        logging.debug("fully authenticated")
+        _logger.debug("fully authenticated")

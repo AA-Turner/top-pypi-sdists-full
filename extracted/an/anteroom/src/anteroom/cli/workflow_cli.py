@@ -119,7 +119,24 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
     except Exception as exc:
         logger.debug("Could not initialize artifact/skill registries: %s", exc)
 
+    # Register spec phase gate conditions (#997)
+    try:
+        from ..services.spec_gates import register_spec_gates
+
+        register_spec_gates(db)
+    except Exception:
+        logger.debug("Could not register spec gates")
+
     registry = create_default_registry()
+
+    audit_writer = None
+    try:
+        from ..services.audit import create_audit_writer
+
+        audit_writer = create_audit_writer(config)
+    except Exception:
+        logger.debug("Could not create audit writer for workflow engine")
+
     engine = WorkflowEngine(
         db,
         config.workflow,
@@ -135,6 +152,7 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
         artifact_registry=artifact_registry,
         skill_registry=skill_registry,
         model_costs=config.cli.usage.model_costs,
+        audit_writer=audit_writer,
     )
     return engine, event_bus
 
@@ -217,7 +235,17 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
     """Dispatch `aroom workflow` subcommands."""
     action = getattr(args, "workflow_action", None)
     if not action:
-        console.print("Usage: aroom workflow {run,status,list,history,resume,cancel,approve,deny,respond}")
+        console.print(
+            "Usage: aroom workflow"
+            " {run,status,list,history,resume,cancel,approve,deny,respond,watch,triggers,schedule,validate,simulate}"
+        )
+        return
+
+    if action == "validate":
+        _handle_validate(args)
+        return
+    if action == "simulate":
+        _handle_simulate(args)
         return
 
     from ..db import get_db
@@ -1080,3 +1108,76 @@ def _handle_schedule(config: AppConfig, db: Any, args: argparse.Namespace) -> No
         console.print(
             f"[green]Schedule created: {schedule['id']}[/green]  cron={trigger.cron}  next={next_at.isoformat()}"
         )
+
+
+def _handle_validate(args: argparse.Namespace) -> None:
+    """Validate a workflow definition without executing it (#968)."""
+    from ..services.workflow_simulator import WorkflowSimulator
+
+    path = getattr(args, "workflow_path", None)
+    if not path:
+        console.print("[red]Usage: aroom workflow validate <workflow_path>[/red]")
+        return
+
+    simulator = WorkflowSimulator()
+    result = simulator.validate(path)
+
+    if result.is_valid:
+        defn = result.definition
+        step_count = len(defn.steps) if defn else 0
+        console.print(f"[green]Valid[/green]: {path} ({step_count} steps)")
+        if result.warnings:
+            for w in result.warnings:
+                console.print(f"  [yellow]Warning[/yellow]: {w}")
+    else:
+        console.print(f"[red]Invalid[/red]: {path}")
+        for e in result.errors:
+            console.print(f"  [red]Error[/red]: {e}")
+
+
+def _handle_simulate(args: argparse.Namespace) -> None:
+    """Simulate a workflow with stub runners (#968)."""
+    import yaml
+
+    from ..services.workflow_simulator import WorkflowSimulator
+
+    path = getattr(args, "workflow_path", None)
+    if not path:
+        console.print("[red]Usage: aroom workflow simulate <workflow_path>[/red]")
+        return
+
+    stubs_path = getattr(args, "stubs", None)
+    stub_results: dict[str, dict[str, Any]] = {}
+    if stubs_path:
+        from pathlib import Path
+
+        stubs_file = Path(stubs_path)
+        if not stubs_file.exists():
+            console.print(f"[red]Stubs file not found: {stubs_path}[/red]")
+            return
+        with open(stubs_file) as f:
+            stub_results = yaml.safe_load(f) or {}
+
+    simulator = WorkflowSimulator(stub_results=stub_results)
+
+    # Validate first
+    vr = simulator.validate(path)
+    if not vr.is_valid:
+        console.print("[red]Definition invalid — cannot simulate[/red]")
+        for e in vr.errors:
+            console.print(f"  [red]Error[/red]: {e}")
+        return
+
+    console.print(f"[blue]Simulating[/blue]: {path}")
+    result = simulator.simulate(path)
+
+    for step in result.steps_executed:
+        status_color = "green" if step.get("result_status") == "success" else "red"
+        step_id = step.get("step_id", "?")
+        result_status = step.get("result_status", "?")
+        console.print(f"  [{status_color}]{result_status}[/{status_color}] {step_id}")
+
+    status_color = "green" if result.final_status == "completed" else "red"
+    console.print(f"\n[{status_color}]Final status: {result.final_status}[/{status_color}]")
+    if result.error:
+        console.print(f"  [red]Error[/red]: {result.error}")

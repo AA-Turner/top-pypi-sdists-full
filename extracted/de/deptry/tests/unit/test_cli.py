@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -7,8 +8,15 @@ from unittest.mock import patch
 
 import click
 import pytest
+from click.testing import CliRunner
 
-from deptry.cli import CommaSeparatedMappingParamType, CommaSeparatedTupleParamType, display_deptry_version
+from deptry.cli import (
+    CommaSeparatedMappingParamType,
+    CommaSeparatedTupleParamType,
+    cli,
+    display_deptry_version,
+    set_debug_level,
+)
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping, Sequence
@@ -210,3 +218,54 @@ def test_display_deptry_version_none(resilient_parsing: bool, value: bool, capsy
 
     display_deptry_version(ctx, param, value)
     assert capsys.readouterr().out == ""
+
+
+def test_set_debug_level_verbose() -> None:
+    ctx = mock.Mock(spec=click.Context)
+    param = mock.Mock(spec=click.Parameter)
+
+    with mock.patch("logging.Logger.setLevel") as mock_set_level:
+        set_debug_level(ctx, param, True)
+        mock_set_level.assert_called_with(logging.DEBUG)
+
+
+def test_set_debug_level_not_verbose() -> None:
+    ctx = mock.Mock(spec=click.Context)
+    param = mock.Mock(spec=click.Parameter)
+
+    with mock.patch("logging.Logger.setLevel") as mock_set_level:
+        set_debug_level(ctx, param, False)
+        mock_set_level.assert_not_called()
+
+
+def test_deprecated_arguments(caplog: pytest.LogCaptureFixture) -> None:
+    with mock.patch("deptry.core.Core.run"):
+        result = CliRunner().invoke(cli, ". --pep621-dev-dependency-groups dev")
+
+    assert result.exit_code == 0
+    assert (
+        "Warning: In an upcoming release, support for the `--pep621-dev-dependency-groups` command-line option and the `pep621_dev_dependency_groups` configuration parameter will be discontinued. Instead, use `--optional-dependencies-dev-groups` or `optional_dependencies_dev_groups` under the `[tool.deptry]` section in pyproject.toml."
+        in caplog.text
+    )
+
+
+def test_deprecated_options(caplog: pytest.LogCaptureFixture) -> None:
+    with mock.patch("deptry.core.Core.run"):
+        result = CliRunner().invoke(cli, ". --config tests/fixtures/deprecated_options/pyproject.toml")
+
+    assert result.exit_code == 0
+    assert (
+        "Warning: In an upcoming release, support for the `--pep621-dev-dependency-groups` command-line option and the `pep621_dev_dependency_groups` configuration parameter will be discontinued. Instead, use `--optional-dependencies-dev-groups` or `optional_dependencies_dev_groups` under the `[tool.deptry]` section in pyproject.toml."
+        in caplog.text
+    )
+
+
+def test_deprecated_conflict(caplog: pytest.LogCaptureFixture) -> None:
+    with mock.patch("deptry.core.Core.run"):
+        result = CliRunner().invoke(cli, ". --pep621-dev-dependency-groups dev --optional-dependencies-dev-groups dev")
+
+    assert result.exit_code == 2
+    assert (
+        "Error: Cannot use both `--pep621-dev-dependency-groups` and `--optional-dependencies-dev-groups`. Only use the latter, as the former is deprecated."
+        in caplog.text
+    )

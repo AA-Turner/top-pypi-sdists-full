@@ -69,6 +69,8 @@ export type KeepPromptParams = {
   id?: string;
   tags?: Record<string, string>;
   since?: string;
+  scope?: string;
+  token_budget?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -134,7 +136,7 @@ export class KeepMcpTransport {
     });
 
     this.client = new Client(
-      { name: "keep-openclaw-plugin", version: "0.99.0" },
+      { name: "keep-openclaw-plugin", version: "0.105.2" },
       { capabilities: {} },
     );
 
@@ -247,8 +249,15 @@ export class KeepMcpTransport {
     if (params.id) args.id = params.id;
     if (params.tags) args.tags = params.tags;
     if (params.since) args.since = params.since;
+    if (params.scope) args.scope = params.scope;
+    if (params.token_budget != null) args.token_budget = params.token_budget;
 
-    const result = await this.callTool("keep_prompt", args, LONG_CALL_TIMEOUT_MS);
+    // Assemble prompts are on the hot path — use assemble timeout
+    const timeout = params.name === "openclaw-assemble"
+      ? ASSEMBLE_TIMEOUT_MS
+      : LONG_CALL_TIMEOUT_MS;
+
+    const result = await this.callTool("keep_prompt", args, timeout);
     return typeof result === "string" ? result : JSON.stringify(result);
   }
 
@@ -282,6 +291,10 @@ export class KeepMcpTransport {
       case "find-deep":
       case "stats":
         return ASSEMBLE_TIMEOUT_MS;
+
+      // Memory search — single find but may need embedding cold start
+      case "memory-search":
+        return WRITE_CALL_TIMEOUT_MS;
 
       // Write operations — may trigger background work
       case "put":

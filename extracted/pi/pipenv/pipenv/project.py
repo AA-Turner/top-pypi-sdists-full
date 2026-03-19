@@ -141,6 +141,80 @@ class SourceNotFound(KeyError):
     pass
 
 
+def _parse_pip_conf_indexes(
+    configuration: Configuration,
+) -> tuple[list[dict], list[dict]]:
+    """Parse ``index-url`` and ``extra-index-url`` entries from a loaded pip
+    :class:`Configuration` object.
+
+    Returns a 2-tuple ``(pip_conf_indexes, pip_conf_extra_indexes)`` where:
+
+    * *pip_conf_indexes* – sources built from ``index-url`` keys.
+    * *pip_conf_extra_indexes* – sources built from ``extra-index-url`` keys.
+
+    Each source dict has the shape ``{"url": str, "verify_ssl": bool, "name": str}``.
+
+    The ``trusted-host`` value for a section is handled correctly whether pip
+    returns a single hostname, a whitespace/newline-separated list, or a Python
+    list (future-proof).
+    """
+    pip_conf_indexes: list[dict] = []
+    pip_conf_extra_indexes: list[dict] = []
+
+    # Build a flat merged config respecting pip's priority order (later
+    # entries, i.e. higher-priority files, override earlier ones).
+    merged_conf: dict[str, str] = {}
+    for config_dict in configuration._dictionary.values():
+        merged_conf.update(config_dict)
+
+    for section_key, value in merged_conf.items():
+        key_parts = section_key.split(".", 1)
+        if len(key_parts) <= 1:
+            continue
+        section, option = key_parts
+
+        if option not in ("index-url", "extra-index-url"):
+            continue
+
+        # Retrieve trusted-host for this section and normalise to a list of
+        # hostnames.  Pip may return a single string (possibly containing
+        # whitespace/newline-separated hostnames) or a list.
+        try:
+            trusted_hosts_raw = configuration.get_value(f"{section}.trusted-host")
+            if isinstance(trusted_hosts_raw, str):
+                trusted_hosts = trusted_hosts_raw.split()
+            else:
+                trusted_hosts = list(trusted_hosts_raw) if trusted_hosts_raw else []
+        except ConfigurationError:
+            trusted_hosts = []
+
+        if option == "index-url":
+            pip_conf_indexes.append(
+                {
+                    "url": value,
+                    "verify_ssl": not any(th in value for th in trusted_hosts)
+                    and "https://" in value,
+                    "name": f"pip_conf_index_{section}",
+                }
+            )
+        else:
+            # extra-index-url may list multiple URLs separated by whitespace
+            # or newlines (pip supports multi-line values in config files).
+            extra_urls = [u for u in value.split() if u]
+            for i, url in enumerate(extra_urls):
+                name_suffix = f"_{i}" if len(extra_urls) > 1 else ""
+                pip_conf_extra_indexes.append(
+                    {
+                        "url": url,
+                        "verify_ssl": not any(th in url for th in trusted_hosts)
+                        and "https://" in url,
+                        "name": f"pip_conf_extra_index_{section}{name_suffix}",
+                    }
+                )
+
+    return pip_conf_indexes, pip_conf_extra_indexes
+
+
 class Project:
     """docstring for Project"""
 
@@ -161,32 +235,12 @@ class Project:
         self.python_version = python_version
         self.sessions = {}  # pip requests sessions
         self.s = Setting()
-        # Load Pip configuration and get items
+        # Load Pip configuration and merge index-url / extra-index-url entries.
         self.configuration = Configuration(isolated=False, load_only=None)
         self.configuration.load()
-        pip_conf_indexes = []
-        # In pip 25.3+, _dictionary is a dict of {filename: config_dict} pairs
-        # where config_dict contains the actual key-value pairs like {"global.index-url": "..."}
-        for config_dict in self.configuration._dictionary.values():
-            for section_key, value in config_dict.items():
-                key_parts = section_key.split(".", 1)
-                if len(key_parts) > 1 and key_parts[1] == "index-url":
-                    try:
-                        trusted_hosts = self.configuration.get_value(
-                            f"{key_parts[0]}.trusted-host"
-                        )
-                    except ConfigurationError:
-                        trusted_hosts = []
-                    pip_conf_indexes.append(
-                        {
-                            "url": value,
-                            "verify_ssl": not any(
-                                trusted_host in value for trusted_host in trusted_hosts
-                            )
-                            and "https://" in value,
-                            "name": f"pip_conf_index_{key_parts[0]}",
-                        }
-                    )
+        pip_conf_indexes, pip_conf_extra_indexes = _parse_pip_conf_indexes(
+            self.configuration
+        )
 
         if pip_conf_indexes:
             self.default_source = None
@@ -212,6 +266,10 @@ class Project:
         default_sources_toml = f"[[source]]\n{tomlkit.dumps(self.default_source)}"
         for pip_conf_index in pip_conf_indexes:
             default_sources_toml += f"\n\n[[source]]\n{tomlkit.dumps(pip_conf_index)}"
+        for pip_conf_extra_index in pip_conf_extra_indexes:
+            default_sources_toml += (
+                f"\n\n[[source]]\n{tomlkit.dumps(pip_conf_extra_index)}"
+            )
         plette.pipfiles.DEFAULT_SOURCE_TOML = default_sources_toml
 
         # Hack to skip this during pipenv run, or -r.
@@ -407,10 +465,29 @@ class Project:
     def requirements_exists(self) -> bool:
         return bool(self.requirements_location)
 
+    def _pipfile_venv_in_project(self) -> bool | None:
+        """Check the [pipenv] section of the Pipfile for venv_in_project setting.
+
+        Returns True/False if explicitly set, None if not set.
+        """
+        if self.pipfile_exists:
+            value = self.parsed_pipfile.get("pipenv", {}).get("venv_in_project")
+            if value is not None:
+                return bool(value)
+        return None
+
     def is_venv_in_project(self) -> bool:
+        # Environment variable takes precedence over Pipfile setting.
         if self.s.PIPENV_VENV_IN_PROJECT is False:
             return False
-        return self.s.PIPENV_VENV_IN_PROJECT or (
+        if self.s.PIPENV_VENV_IN_PROJECT is True:
+            return True
+        # If env var is not set, check Pipfile [pipenv] section.
+        pipfile_setting = self._pipfile_venv_in_project()
+        if pipfile_setting is not None:
+            return pipfile_setting
+        # Fall back to auto-detection of .venv directory.
+        return bool(
             self.project_directory and Path(self.project_directory, ".venv").is_dir()
         )
 
@@ -446,6 +523,18 @@ class Project:
         # If there's no .venv in project root or it is a folder, set location based on config.
         if not dot_venv.exists() or dot_venv.is_dir():
             if self.is_venv_in_project():
+                # When PIPENV_VENV_IN_PROJECT is not explicitly set, the .venv dir
+                # was detected automatically. If a pipenv-managed virtualenv already
+                # exists in WORKON_HOME (e.g. created before the user independently
+                # ran `python -m venv .venv`), prefer that one so that `pipenv --rm`
+                # does not accidentally remove the user-created .venv directory.
+                if (
+                    not self.s.PIPENV_VENV_IN_PROJECT
+                    and not self._pipfile_venv_in_project()
+                ):
+                    workon_home_venv = get_workon_home() / self.virtualenv_name
+                    if workon_home_venv.exists():
+                        return workon_home_venv
                 return dot_venv
             return get_workon_home().joinpath(self.virtualenv_name)
 
@@ -1226,7 +1315,7 @@ class Project:
         self.write_toml(parsed)
 
     def generate_package_pipfile_entry(
-        self, package, pip_line, category=None, index_name=None
+        self, package, pip_line, category=None, index_name=None, no_binary=False
     ):
         """Generate a package entry from pip install line
         given the installreq package and the pip line that generated it.
@@ -1255,11 +1344,23 @@ class Project:
             entry["extras"] = list(extras)
         if path_specifier:
             editable = pip_line.startswith("-e")
-            entry["file"] = unquote(
-                normalize_editable_path_for_pip(path_specifier)
-                if editable
-                else str(path_specifier)
-            )
+            # Strip "-e" prefix to get the raw package reference from the install line.
+            raw_ref = pip_line[2:].strip() if editable else pip_line.strip()
+            raw_ref = raw_ref.strip('"').strip("'")
+            # Use "file" for remote HTTP/HTTPS URLs and explicit file:// URLs;
+            # use "path" for plain local filesystem paths (e.g. ".", "./lib").
+            is_http_url = path_specifier.startswith(("http:", "https:"))
+            is_file_url = raw_ref.startswith("file:")
+            key = "file" if (is_http_url or is_file_url) else "path"
+            if is_file_url:
+                # Preserve the original file:// URL exactly as the user typed it.
+                entry[key] = unquote(raw_ref)
+            else:
+                entry[key] = unquote(
+                    normalize_editable_path_for_pip(path_specifier)
+                    if editable
+                    else str(path_specifier)
+                )
             if editable:
                 entry["editable"] = editable
         elif vcs_specifier:
@@ -1300,16 +1401,22 @@ class Project:
         if package.markers:
             entry["markers"] = str(package.markers)
 
+        # Store no_binary flag so pipenv re-applies --no-binary on future installs
+        if no_binary:
+            entry["no_binary"] = True
+
         if len(entry) == 1 and "version" in entry:
             return name, normalized_name, specifier
         else:
             return name, normalized_name, entry
 
-    def add_package_to_pipfile(self, package, pip_line, dev=False, category=None):
+    def add_package_to_pipfile(
+        self, package, pip_line, dev=False, category=None, no_binary=False
+    ):
         category = category if category else "dev-packages" if dev else "packages"
 
         name, normalized_name, entry = self.generate_package_pipfile_entry(
-            package, pip_line, category=category
+            package, pip_line, category=category, no_binary=no_binary
         )
 
         return self.add_pipfile_entry_to_pipfile(

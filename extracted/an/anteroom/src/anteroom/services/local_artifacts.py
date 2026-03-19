@@ -75,7 +75,12 @@ def discover_local_artifacts(
         return []
 
     artifacts: list[dict[str, Any]] = []
+    # Spec artifacts are DB-native only — never discovered from filesystem.
+    # See #996: prevents restart-clobber of approval state.
+    skip_discovery = frozenset({ArtifactType.SPEC})
     for art_type in ArtifactType:
+        if art_type in skip_discovery:
+            continue
         subdir_name = _TYPE_DIRS.get(art_type, art_type.value)
         subdir = local_dir / subdir_name
         if not subdir.is_dir():

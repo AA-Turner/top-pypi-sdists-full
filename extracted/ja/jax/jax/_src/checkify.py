@@ -87,12 +87,12 @@ class JaxException(Exception):
   def __init_subclass__(cls):
     jtu.register_pytree_node_class(cls)
 
-  def tree_flatten(self):
+  def tree_flatten(self, /):
     return ([], self.traceback_info)
 
   @classmethod
-  def tree_unflatten(cls, metadata, payload):
-    del payload
+  def tree_unflatten(cls, metadata, payload, /):
+    del payload  # Unused.
     return cls(metadata)
 
   def get_effect_type(self) -> ErrorEffect:
@@ -134,7 +134,8 @@ class NaNError(JaxException):
     return ([], (self.traceback_info, self.prim))
 
   @classmethod
-  def tree_unflatten(cls, metadata, _):
+  def tree_unflatten(cls, metadata, payload):
+    del payload
     return cls(*metadata)
 
   def get_effect_type(self):
@@ -156,7 +157,7 @@ class OOBError(JaxException):
 
   @classmethod
   def tree_unflatten(cls, metadata, payload):
-    return cls(*metadata, payload[0])
+    return cls(*metadata, payload=payload[0])
 
   def __str__(self):
     return (f'out-of-bounds indexing for array of '
@@ -227,11 +228,11 @@ class Error:
 
   def get_exception(self) -> JaxException | None:
     """Returns Python exception if error happened, None if no error happened."""
-    if any(map(np.shape, self._pred.values())):
+    if any(np.shape(v) for v in self._pred.values()):
       return self._get_batched_exception()
     else:
-      min_code = None
-      cur_effect = None
+      min_code: Int | None = None
+      cur_effect: ErrorEffect | None = None
       for error_effect, code in self._code.items():
         if self._pred[error_effect]:
           if min_code is None or code < min_code:
@@ -255,8 +256,8 @@ class Error:
     shape = np.shape(list(self._pred.values())[0])
     error_mapping = {}
     for idx in np.ndindex(*shape):
-      min_code = None
-      cur_effect = None
+      min_code: Int | None = None
+      cur_effect: ErrorEffect | None = None
       for error_effect, code in self._code.items():
         if self._pred[error_effect][idx]:   # type: ignore
           if min_code is None or code[idx] < min_code:  # type: ignore[index]
@@ -380,7 +381,8 @@ def default_checkify_rule(primitive: core.Primitive, error: Error,
                   in_axes=(*(None,)*num_error_vals, *params['in_axes']),
                   out_axes_thunk=out_axes_thunk)
 
-  all_vals = primitive.bind(partial_checkify, *err_vals, *invals, **params)
+  all_vals = primitive.bind(*err_vals, *invals, subfuns=(partial_checkify,),
+                            **params)
 
   out_tree, _ = metadata()
   error, out_vals = tree_unflatten(out_tree, all_vals)
@@ -430,7 +432,7 @@ def checkify_jaxpr_flat(jaxpr: core.Jaxpr, consts: Sequence[core.Value],
       write_env(eqn.outvars[0], outvals)
     core.clean_up_dead_vars(eqn, env, last_used)
 
-  return error, map(read_env, jaxpr.outvars)  # pyrefly: ignore[bad-return]  # pyrefly#2385
+  return error, map(read_env, jaxpr.outvars)
 
 def checkify_jaxpr_flat_hashable(jaxpr, hashable_consts, enabled_errors,
                                  err_tree, *args):
@@ -462,7 +464,7 @@ def _reduce_any_error(error: Error):
 ## check_p primitive
 
 check_p = core.Primitive('check')
-check_p.is_effectful = lambda _: True  # type: ignore
+check_p.is_effectful = lambda _: True
 check_p.multiple_results = True  # zero results
 
 
@@ -769,7 +771,7 @@ def cond_error_check(error: Error, enabled_errors, index, *ops,
   # Get the error-effects out of all branches so the cond can be called with
   # a merged error with all these effects.
   err_vals, err_tree = jtu.tree_flatten(error)
-  in_avals = map(core.get_aval, [*err_vals, *ops])
+  in_avals = map(core.typeof, [*err_vals, *ops])
   def get_error_effects_from_jaxpr(jxpr):
     _, _, effects = jaxpr_to_checkify_jaxpr(jxpr, enabled_errors, err_tree,
                                             *in_avals)
@@ -779,7 +781,7 @@ def cond_error_check(error: Error, enabled_errors, index, *ops,
   err_vals, err_tree = jtu.tree_flatten(merged_error)
 
   # Update branch jaxprs to be checkified jaxprs.
-  in_avals = map(core.get_aval, [*err_vals, *ops])
+  in_avals = map(core.typeof, [*err_vals, *ops])
   new_branches, out_trees, _ = unzip3(
       jaxpr_to_checkify_jaxpr(
           jxpr, enabled_errors, err_tree, *in_avals) for jxpr in branches)
@@ -801,11 +803,11 @@ def scan_error_check(error, enabled_errors, *in_flat, reverse, length, jaxpr,
                      num_consts, num_carry, linear, unroll, _split_transpose):
 
   consts, carry, xs = split_list(in_flat, [num_consts, num_carry])
-  xs_mapped = [core.mapped_aval(length, 0, core.get_aval(val)) for val in xs]
+  xs_mapped = [core.mapped_aval(length, 0, core.typeof(val)) for val in xs]
   # Query body effects to create a merged error containing all effects (such
   # that in and out carried error are of the same type).
   err_vals, err_tree = jtu.tree_flatten(error)
-  new_in_aval = map(core.get_aval, [*err_vals, *consts, *carry]) + xs_mapped  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
+  new_in_aval = map(core.typeof, [*err_vals, *consts, *carry]) + xs_mapped
   _, _, effects = jaxpr_to_checkify_jaxpr(jaxpr, enabled_errors,
                                           err_tree, *new_in_aval)
 
@@ -813,7 +815,7 @@ def scan_error_check(error, enabled_errors, *in_flat, reverse, length, jaxpr,
   err_vals, err_tree = jtu.tree_flatten(merged_error)
 
   # Create checked-jaxpr, with the needed pre-processing on the inputs.
-  new_in_aval = map(core.get_aval, [*err_vals, *consts, *carry]) + xs_mapped  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
+  new_in_aval = map(core.typeof, [*err_vals, *consts, *carry]) + xs_mapped
   checked_jaxpr_, out_tree, _ = jaxpr_to_checkify_jaxpr(jaxpr, enabled_errors,
                                                         err_tree, *new_in_aval)
 
@@ -850,7 +852,7 @@ def checkify_while_body_jaxpr(
       FlatTree.flatten(((*c_consts_avals, *body_jaxpr.in_avals), {})),
       debug_info=body_jaxpr.jaxpr.debug_info.with_unknown_names())
   err_vals, err_tree = jtu.tree_flatten(error)
-  err_vals = map(core.get_aval, err_vals)
+  err_vals = map(core.typeof, err_vals)
   flat_err_and_in_vals = [*err_vals, *c_consts_avals, *body_jaxpr.in_avals]
   jaxpr, out_tree, error_effects = jaxpr_to_checkify_jaxpr(
       jaxpr, enabled_errors, err_tree, *flat_err_and_in_vals)
@@ -892,7 +894,7 @@ def while_loop_error_check(error, enabled_errors, *in_flat, cond_nconsts,
   checked_body_jaxpr = pe.move_binders_to_front(checked_body_jaxpr_, to_move)
 
   cond_in_flat = [*err_vals, *c_consts, *carry]
-  cond_in_flat = map(core.get_aval, cond_in_flat)
+  cond_in_flat = map(core.typeof, cond_in_flat)
   checked_cond_jaxpr, _, _ = jaxpr_to_checkify_jaxpr(cond_jaxpr, enabled_errors,
                                                      err_tree, *cond_in_flat)
   compat_cond_jaxpr_ = ignore_error_output_jaxpr(checked_cond_jaxpr, num_error_vals)
@@ -916,7 +918,7 @@ def pjit_error_check(error, enabled_errors, *vals_in, jaxpr,
   # jaxpr to checked_jaxpr
   err_vals, err_tree = jtu.tree_flatten(error)
   new_vals_in = [*err_vals, *vals_in]
-  in_avals = tuple(map(core.get_aval, new_vals_in))
+  in_avals = tuple(map(core.typeof, new_vals_in))
   checked_jaxpr, out_tree, _ = jaxpr_to_checkify_jaxpr(jaxpr, enabled_errors,
                                                        err_tree, *in_avals)
 
@@ -952,7 +954,7 @@ error_checks[pjit.jit_p] = pjit_error_check
 def remat_error_check(error, enabled_errors, *vals_in, jaxpr, **params):
   err_vals, err_tree = jtu.tree_flatten(error)
   new_vals_in = [*err_vals, *vals_in]
-  in_avals = tuple(map(core.get_aval, new_vals_in))
+  in_avals = tuple(map(core.typeof, new_vals_in))
   checked_jaxpr_, out_tree, _ = jaxpr_to_checkify_jaxpr(
       pe.close_jaxpr(jaxpr), enabled_errors, err_tree, *in_avals)
   checked_jaxpr, () = checked_jaxpr_.jaxpr, checked_jaxpr_.consts
@@ -974,7 +976,7 @@ def shard_map_error_check(
   # Replicated sharding for in errors.
   new_in_specs = (*([P()] * num_error_vals), *in_specs)
   new_vals_in = [*err_vals, *vals_in]
-  in_avals = list(map(core.get_aval, new_vals_in))
+  in_avals = list(map(core.typeof, new_vals_in))
   manual_axes = kwargs.get('manual_axes')
   check_vma = kwargs.get('check_vma')
   for i, v in enumerate(in_avals):
@@ -983,7 +985,7 @@ def shard_map_error_check(
     in_avals[i] = sharder(mesh, manual_axes, check_vma, new_in_specs[i], v)
 
   with (jshmap._extend_axis_env(mesh, manual_axes),
-        mesh_lib.use_abstract_mesh(jshmap._as_manual_mesh(mesh, manual_axes)),  # type: ignore[arg-type]
+        mesh_lib.use_abstract_mesh(jshmap._as_manual_mesh(mesh, manual_axes)),
         config._check_vma(check_vma)):
     # jaxpr to checked_jaxpr
     checked_jaxpr, out_tree, _ = jaxpr_to_checkify_jaxpr(
@@ -1006,19 +1008,16 @@ def shard_map_error_check(
   # Update shard_map params to account for extra error values.
   # Use fully sharded partitioning for out errors.
   new_out_specs = (*([P(mesh.axis_names)] * num_out_error_vals), *out_specs)
-  subfun = lu.hashable_partial(
-      lu.wrap_init(core.eval_jaxpr, debug_info=checked_jaxpr.jaxpr.debug_info),
-      checked_jaxpr.jaxpr, checked_jaxpr.consts
-  )
   new_params = dict(
       jaxpr=checked_jaxpr.jaxpr,
       in_specs=new_in_specs,
       out_specs=new_out_specs,
       **kwargs,
   )
-  _, new_params = jshmap.shard_map_p.get_bind_params(new_params)
+  new_params = jshmap.shard_map_p.get_bind_params(new_params)
 
-  err_and_out = jshmap.shard_map_p.bind(subfun, *new_vals_in, **new_params)
+  err_and_out = jshmap.shard_map_p.bind(
+    *new_vals_in, **new_params)
   return tree_unflatten(out_tree, err_and_out)
 error_checks[jshmap.shard_map_p] = shard_map_error_check
 
@@ -1045,7 +1044,7 @@ def custom_jvp_call_rule(in_err: Error,
   jvp = lift_jvp(err_tree.num_leaves, num_consts, jvp_jaxpr_fun)
   jvp, jvp_out_tree = flatten_fun_output(jvp)
   all_outs = custom_derivatives.custom_jvp_call_p.bind(
-      partial_checkify, jvp, *err_vals, *in_vals, **params)
+      *err_vals, *in_vals, subfuns=(partial_checkify, jvp), **params)
   fst, out_metadata = lu.merge_linear_aux(f_metadata, jvp_out_tree)
   if fst:
     err_and_out_tree, _ = out_metadata
@@ -1074,7 +1073,7 @@ def lift_jvp(num_errs: int, num_consts: int,
     out = core.eval_jaxpr(jvp_jaxpr, jvp_consts, *primals, *nonzero_tangents)
     out_primals, nz_out_tangents = split_list(out, [len(out_zeros)])
     nz_out_tangents_ = iter(nz_out_tangents)
-    out_tangents = [SymbolicZero(core.get_aval(p).to_tangent_aval())
+    out_tangents = [SymbolicZero(core.typeof(p).to_tangent_aval())
                     if z else next(nz_out_tangents_)
                     for p, z in zip(out_primals, out_zeros)]
     assert next(nz_out_tangents_, None) is None
@@ -1112,9 +1111,8 @@ def custom_vjp_call_rule(in_err, enabled_errors, *in_vals,
                       debug_info=bwd.debug_info)
   checkified_fwd_wrapped, fwd_out_tree = flatten_fun_output(checkified_fwd_wrapped)
   all_outs = custom_derivatives.custom_vjp_call_p.bind(
-      checkified_fun, checkified_fwd_wrapped,
-      bwd_, *err_vals, *in_vals, out_trees=out_trees,
-      symbolic_zeros=symbolic_zeros)
+      *err_vals, *in_vals, out_trees=out_trees, symbolic_zeros=symbolic_zeros,
+      subfuns=(checkified_fun, checkified_fwd_wrapped, bwd_))
   fst, out_metadata = lu.merge_linear_aux(fun_metadata, fwd_out_tree)
   if fst:
     err_and_out_tree, _ = out_metadata

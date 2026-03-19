@@ -61,7 +61,7 @@ def profiled_import(path: str, top_n: int = 10):
         module_file = path.split(":")[0].rsplit("/", 1)[-1]
 
         stats_obj = pstats.Stats(pr)
-        stats = cast("dict", stats_obj.stats)  # type: ignore[attr-defined]
+        stats = cast("dict", stats_obj.stats)
         slow_calls: list[_SlowCall] = []
 
         for (filename, lineno, funcname), (

@@ -184,15 +184,18 @@ def ensure_virtualenv(project, python=None, site_packages=None, pypi_mirror=None
             else:  # It's a Path object
                 python = python.as_posix()
 
-        err.print("[red]Virtualenv already exists![/red]")
+        err.print(
+            "[bold yellow]Virtualenv already exists but Python version differs. "
+            "Recreating virtualenv...[/bold yellow]"
+        )
         # If VIRTUAL_ENV is set, there is a possibility that we are
         # going to remove the active virtualenv that the user cares
         # about, so confirm first.
         if "VIRTUAL_ENV" in os.environ and not (
-            project.s.PIPENV_YES or Confirm.ask("Use existing virtualenv?", default=True)
+            project.s.PIPENV_YES
+            or Confirm.ask("Recreate existing virtualenv?", default=True)
         ):
             sys.exit(1)
-        err.print("[bold]Using existing virtualenv...[/bold]")
         # Remove the virtualenv.
         cleanup_virtualenv(project, bare=True)
         # Call this function again.
@@ -284,7 +287,13 @@ def ensure_python(project, python=None):
             "was not found on your system..."
         )
         # check for python installers
-        from pipenv.installers import Asdf, InstallerError, InstallerNotFound, Pyenv
+        from pipenv.installers import (
+            Asdf,
+            InstallerError,
+            InstallerNotFound,
+            Pyenv,
+            PyManager,
+        )
 
         # prefer pyenv if both pyenv and asdf are installed as it's
         # dedicated to python installs so probably the preferred
@@ -298,10 +307,24 @@ def ensure_python(project, python=None):
             with contextlib.suppress(InstallerNotFound):
                 installer = Asdf(project)
 
+        # On Windows, fall back to the Python Install Manager (pymanager) if
+        # neither pyenv nor asdf are available. pymanager is the tool recommended
+        # by the Python documentation for installing Python on Windows.
+        # See: https://docs.python.org/3/using/windows.html#python-install-manager
+        if (
+            installer is None
+            and os.name == "nt"
+            and not project.s.PIPENV_DONT_USE_PYMANAGER
+        ):
+            with contextlib.suppress(InstallerNotFound):
+                installer = PyManager(project)
+
         if not installer:
             if os.name == "nt":
                 abort(
-                    "Python was not found on your system and neither 'pyenv' nor 'asdf' could be found to install Python."
+                    "Python was not found on your system and none of 'pyenv', 'asdf', "
+                    "or 'pymanager' (Python Install Manager) could be found to install Python. "
+                    "Install pymanager from https://www.python.org/downloads/ or via the Microsoft Store."
                 )
             else:
                 abort("Neither 'pyenv' nor 'asdf' could be found to install Python.")
@@ -434,6 +457,14 @@ def find_a_system_python(line):
     """
 
     from pipenv.vendor.pythonfinder import Finder
+
+    # Short-circuit: if an absolute path was given and it exists, use it
+    # directly without scanning PATH (avoids PermissionError on restricted
+    # Windows system directories such as C:\WINDOWS\system32\config\...).
+    if line and os.path.isabs(line):
+        path_obj = Path(line)
+        if path_obj.is_file() and os.access(str(path_obj), os.X_OK):
+            return str(path_obj)
 
     finder = Finder(system=True, global_search=True)
     if not line:

@@ -12,6 +12,7 @@ import click
 
 from deptry.config import read_configuration_from_pyproject_toml
 from deptry.core import Core
+from deptry.deprecations import handle_deprecations
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, MutableMapping, Sequence
@@ -24,6 +25,8 @@ if sys.platform == "win32":
 DEFAULT_EXCLUDE = ("venv", r"\.venv", r"\.direnv", "tests", r"\.git", r"setup\.py")
 
 DEFAULT_REQUIREMENTS_FILES = ("requirements.txt",)
+
+logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()], format="%(message)s")
 
 
 class CommaSeparatedTupleParamType(click.ParamType):
@@ -93,9 +96,9 @@ class CommaSeparatedMappingParamType(click.ParamType):
 COMMA_SEPARATED_MAPPING = CommaSeparatedMappingParamType()
 
 
-def configure_logger(_ctx: click.Context, _param: click.Parameter, value: bool) -> None:
-    log_level = logging.DEBUG if value else logging.INFO
-    logging.basicConfig(level=log_level, handlers=[logging.StreamHandler()], format="%(message)s")
+def set_debug_level(_ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    if value:
+        logging.getLogger().setLevel(logging.DEBUG)
 
 
 def display_deptry_version(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
@@ -118,7 +121,7 @@ def display_deptry_version(ctx: click.Context, _param: click.Parameter, value: b
     ),
     expose_value=False,
     is_eager=True,
-    callback=configure_logger,
+    callback=set_debug_level,
 )
 @click.option(
     "--config",
@@ -241,13 +244,29 @@ def display_deptry_version(ctx: click.Context, _param: click.Parameter, value: b
     show_default=False,
 )
 @click.option(
-    "--pep621-dev-dependency-groups",
-    "-ddg",
+    "--optional-dependencies-dev-groups",
+    "-oddg",
     type=COMMA_SEPARATED_TUPLE,
     help="""For projects that use PEP621 and that do not use a build tool that has its own method of declaring development dependencies,
     this argument provides the option to specify which groups under [project.optional-dependencies] in pyproject.toml
-    should be considered development dependencies. For example, use `--pep621-dev-dependency-groups tests,docs` to mark the dependencies in
+    should be considered development dependencies. For example, use `--dev-optional-dependencies tests,docs` to mark the dependencies in
     the groups 'tests' and 'docs' as development dependencies.""",
+    default=(),
+    show_default=False,
+)
+@click.option(
+    "--pep621-dev-dependency-groups",
+    "-ddg",
+    type=COMMA_SEPARATED_TUPLE,
+    help="[DEPRECATED] Use --dev-optional-dependencies instead.",
+    default=(),
+    show_default=False,
+)
+@click.option(
+    "--non-dev-dependency-groups",
+    "-nddg",
+    type=COMMA_SEPARATED_TUPLE,
+    help="Specify which groups in [dependency-groups] should be considered as groups containing regular dependencies instead of development ones",
     default=(),
     show_default=False,
 )
@@ -256,7 +275,16 @@ def display_deptry_version(ctx: click.Context, _param: click.Parameter, value: b
     is_flag=True,
     help="Enable experimental support for namespace package (PEP 420) when detecting local modules (https://peps.python.org/pep-0420/).",
 )
+# This flag is not exposed because it is used in functional tests to have consistent output between platforms.
+@click.option(
+    "--enforce-posix-paths",
+    is_flag=True,
+    hidden=True,
+    help="Enforce posix paths in reporters.",
+)
+@click.pass_context
 def cli(
+    ctx: click.Context,
     root: tuple[Path, ...],
     config: Path,
     no_ansi: bool,
@@ -273,7 +301,10 @@ def cli(
     github_warning_errors: tuple[str, ...],
     package_module_name_map: MutableMapping[str, tuple[str, ...]],
     pep621_dev_dependency_groups: tuple[str, ...],
+    optional_dependencies_dev_groups: tuple[str, ...],
+    non_dev_dependency_groups: tuple[str, ...],
     experimental_namespace_package: bool,
+    enforce_posix_paths: bool,
 ) -> None:
     """Find dependency issues in your Python project.
 
@@ -288,6 +319,8 @@ def cli(
         deptry src worker
 
     """
+
+    handle_deprecations(ctx)
 
     Core(
         root=root,
@@ -307,8 +340,10 @@ def cli(
         github_output=github_output,
         github_warning_errors=github_warning_errors,
         package_module_name_map=package_module_name_map,
-        pep621_dev_dependency_groups=pep621_dev_dependency_groups,
+        optional_dependencies_dev_groups=pep621_dev_dependency_groups or optional_dependencies_dev_groups,
+        non_dev_dependency_groups=non_dev_dependency_groups,
         experimental_namespace_package=experimental_namespace_package,
+        enforce_posix_paths=enforce_posix_paths,
     ).run()
 
 

@@ -1,4 +1,4 @@
-__version__ = "3.4.0"
+__version__ = "3.5.2"
 
 from .rapidata_client import (
     RapidataClient,
@@ -23,14 +23,24 @@ from .rapidata_client import (
     ShufflingSelection,
     RapidataSettings,
     TranslationBehaviourOptions,
+    AlertOnFastResponseSetting,
     AlertOnFastResponse,
+    TranslationBehaviourSetting,
     TranslationBehaviour,
+    FreeTextMinimumCharactersSetting,
     FreeTextMinimumCharacters,
+    NoShuffleSetting,
     NoShuffle,
+    PlayVideoUntilTheEndSetting,
     PlayVideoUntilTheEnd,
+    MuteVideoSetting,
     MuteVideo,
+    MarkdownSetting,
+    Markdown,
     CustomSetting,
+    AllowNeitherBothSetting,
     AllowNeitherBoth,
+    SwapContextInstructionSetting,
     SwapContextInstruction,
     CountryFilter,
     LanguageFilter,

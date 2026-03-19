@@ -1532,8 +1532,8 @@ class ChartDrawer:  # type: ignore[no-redef]
             element/quality distributions, and other analytical data. This is the ONLY source
             of chart information - no calculations are performed by ChartDrawer.
         theme (KerykeionChartTheme, optional):
-            CSS theme for the chart. Available: 'classic', 'dark', 'dark_high_contrast',
-            'light', 'light_high_contrast', 'strawberry'. If None, no styles applied.
+            CSS theme for the chart. Available: 'classic', 'dark', 'dark-high-contrast',
+            'light', 'strawberry', 'black-and-white'. If None, no styles applied.
             Defaults to 'classic'.
         double_chart_aspect_grid_type (Literal['list', 'table'], optional):
             Specifies rendering style for double-chart aspect grids. Defaults to 'list'.
@@ -3966,12 +3966,12 @@ class ChartDrawer:  # type: ignore[no-redef]
             template_dict["background_color"] = self.chart_colors_settings["paper_1"]
 
         # ---------------------------------------------------------------------
-        # COLORS: Planet colors for all 62 possible celestial points
+        # COLORS: Planet colors for all 63 possible celestial points
         # ---------------------------------------------------------------------
         # Initialize all slots with default black, then override with settings.
         # This ensures template substitution never fails on missing colors.
         default_color = "#000000"
-        for i in range(62):  # Support all 62 celestial points (0-61)
+        for i in range(63):  # Support all 63 celestial points (0-62)
             template_dict[f"planets_color_{i}"] = default_color
 
         for planet in self.planets_settings:

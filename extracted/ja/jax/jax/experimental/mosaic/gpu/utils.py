@@ -20,10 +20,12 @@ import dataclasses
 import enum
 import functools
 import math
-from typing import Any, Literal
+import typing
+from typing import Any, Literal, overload
 
 import jax
 from jax import numpy as jnp
+from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import mosaic_gpu_dialect as dialect  # noqa: F401
 from jax.interpreters import mlir
 from jaxlib.mlir import ir
@@ -434,7 +436,10 @@ def single_thread_predicate(scope: ThreadSubset = ThreadSubset.BLOCK):
       example, if the scope is BLOCK, only one thread per block will be
       selected.
   """
-  elected = nvvm.elect_sync(ir.IntegerType.get_signless(1))
+  if typing.TYPE_CHECKING or jaxlib_extension_version >= 412:
+    elected = nvvm.elect_sync()
+  else:
+    elected = nvvm.elect_sync(ir.IntegerType.get_signless(1))
   if scope == ThreadSubset.WARP:
     return elected
   warp = warp_idx()
@@ -665,6 +670,12 @@ def _reshape(ref: ir.Value, sh0: list[int], sh1: list[int]):
 
   return ref
 
+
+@overload
+def memref_reshape(ref: ir.Value, shape: tuple[int, ...]) -> ir.Value: ...
+
+@overload
+def memref_reshape(ref: MultimemRef, shape: tuple[int, ...]) -> MultimemRef: ...  # type: ignore[overload-cannot-match]
 
 def memref_reshape(
     ref: ir.Value | MultimemRef, shape: tuple[int, ...]
@@ -1014,13 +1025,7 @@ class BarrierRef:
     parity = arith.extui(i32, parity)
     nvvm.mbarrier_try_wait_parity(self.get_ptr(), parity, ticks)
     if orders_tensor_core:
-      llvm.inline_asm(
-          ir.Type.parse("!llvm.void"),
-          [],
-          "tcgen05.fence::after_thread_sync;",
-          "",
-          has_side_effects=True,
-      )
+      nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.AFTER_THREAD_SYNC)
 
   def wait(self, orders_tensor_core: bool = False):
     parities = memref.load(self.phases, [])
@@ -1045,13 +1050,12 @@ class BarrierRef:
   ):
     i64 = ir.IntegerType.get_signless(64)
     if orders_tensor_core:
-      llvm.inline_asm(
-          ir.Type.parse("!llvm.void"),
-          [],
-          "tcgen05.fence::before_thread_sync;",
-          "",
-          has_side_effects=True,
-      )
+      nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.BEFORE_THREAD_SYNC)
+      if predicate is not None:
+        # We need to synchronize the threads after `::before_thread_sync`, as
+        # not all threads arrive on the barrier.
+        warpgroup_barrier()
+
     if can_complete:
       pred_ptx = pred_constraint = ""
       if predicate is not None:
@@ -1071,7 +1075,10 @@ class BarrierRef:
             "Predicate not supported for no-complete arrive"
         )
       count = c(arrival_count, ir.IntegerType.get_signless(32))
-      nvvm.mbarrier_arrive_nocomplete(i64, self.get_ptr(), count)
+      if typing.TYPE_CHECKING or jaxlib_extension_version >= 412:
+        nvvm.mbarrier_arrive_nocomplete(self.get_ptr(), count)
+      else:
+        nvvm.mbarrier_arrive_nocomplete(i64, self.get_ptr(), count)
 
   def arrive_expect_tx(
       self, bytes: int | ir.Value, predicate: ir.Value | None = None
@@ -1249,20 +1256,21 @@ class CollectiveBarrierRef:
 
     Note that unlike in arrive, each warpgroup arrives once.
     """
-    if orders_tensor_core:
-      llvm.inline_asm(
-          ir.Type.parse("!llvm.void"),
-          [],
-          "tcgen05.fence::before_thread_sync;",
-          "",
-          has_side_effects=True,
-      )
     if self.barrier.num_barriers != 1:
       raise ValueError("Can only arrive on a single barrier")
+
     if self.cluster_mask is None:
-      with single_thread(scope=ThreadSubset.WARPGROUP):
-        self.barrier.arrive()
-      return
+      return self.barrier.arrive(
+          predicate=single_thread_predicate(ThreadSubset.WARPGROUP),
+          orders_tensor_core=orders_tensor_core,
+      )
+
+    if orders_tensor_core:
+      nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.BEFORE_THREAD_SYNC)
+      # We need to synchronize the threads after `::before_thread_sync`, as not
+      # all threads arrive on the barrier.
+      warpgroup_barrier()
+
     i32 = ir.IntegerType.get_signless(32)
     thread_in_warpgroup = arith.remui(thread_idx(), c(WARPGROUP_SIZE, i32))
     signaled_block = arith.divui(
@@ -1762,12 +1770,7 @@ def shfl_bfly(x: ir.Value, distance: int | ir.Value):
   return bitcast(y, result_type)
 
 
-# TODO(bchetioui): Clean this up once minimum jaxlib version is at least 0.9.1.
-if hasattr(nvvm, "ReductionKind"):
-  ReductionKind = nvvm.ReductionKind
-else:
-  assert hasattr(nvvm, "ReduxKind")
-  ReductionKind = nvvm.ReduxKind
+ReductionKind = nvvm.ReductionKind
 
 
 def redux(x: ir.Value, mask: ir.Value, kind: ReductionKind):  # type: ignore
@@ -1795,7 +1798,10 @@ def redux(x: ir.Value, mask: ir.Value, kind: ReductionKind):  # type: ignore
   extra_kwargs = {}
   if kind == ReductionKind.FMAX or kind == ReductionKind.FMIN:
     extra_kwargs = dict(nan=True)
-  return nvvm.redux_sync(x.type, x, kind, mask, **extra_kwargs)
+  if typing.TYPE_CHECKING or jaxlib_extension_version >= 412:
+    return nvvm.redux_sync(x, kind, mask, **extra_kwargs)
+  else:
+    return nvvm.redux_sync(x.type, x, kind, mask, **extra_kwargs)
 
 
 def prmt(high: ir.Value, low: ir.Value, permutation: ir.Value):
@@ -2000,17 +2006,13 @@ def try_cluster_cancel(
   if predicate is None:
     predicate = single_thread_predicate(ThreadSubset.BLOCK)
 
-  pred_ptx = "@$2"
-  pred_constraint = ",b"
-
   addr = memref_ptr(result_ref, memory_space=3)
   llvm.inline_asm(
       ir.Type.parse("!llvm.void"),
-      [addr, barrier.get_ptr()]
-      + ([predicate] if predicate is not None else []),
-      f"{pred_ptx} clusterlaunchcontrol.try_cancel.async.shared::cta.mbarrier::complete_tx::bytes.multicast::cluster::all.b128"
+      [addr, barrier.get_ptr(), predicate],
+      "@$2 clusterlaunchcontrol.try_cancel.async.shared::cta.mbarrier::complete_tx::bytes.multicast::cluster::all.b128"
       " [$0], [$1];",
-      "r,r" + pred_constraint,
+      "r,r,b",
       has_side_effects=True,
   )
 
@@ -2154,3 +2156,16 @@ def get_arch() -> Arch:
       )
     op = op.parent
   raise ValueError("Cannot retrieve the architecture: no module found")
+
+
+def reduce_shape(
+    shape: Sequence[int], axes: Sequence[int], keep_dims: bool = False
+) -> tuple[int, ...]:
+  res = []
+  for i, dim in enumerate(shape):
+    if i in axes:
+      if keep_dims:
+        res.append(1)
+    else:
+      res.append(dim)
+  return tuple(res)

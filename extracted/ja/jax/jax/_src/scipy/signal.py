@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from functools import partial
 import math
 import operator
-from typing import Any
+from typing import Any, Literal
 import warnings
 
 import numpy as np
@@ -42,8 +42,9 @@ from jax._src.third_party.scipy import signal_helper
 from jax._src.typing import Array, ArrayLike
 from jax._src.util import canonicalize_axis, tuple_delete, tuple_insert
 
+ModeString = Literal["full", "same", "valid"]
 
-def fftconvolve(in1: ArrayLike, in2: ArrayLike, mode: str = "full",
+def fftconvolve(in1: ArrayLike, in2: ArrayLike, mode: ModeString = "full",
                 axes: Sequence[int] | None = None) -> Array:
   """
   Convolve two N-dimensional arrays using Fast Fourier Transform (FFT).
@@ -158,7 +159,7 @@ def _fftconvolve_unbatched(in1: Array, in2: Array, mode: str) -> Array:
 # Note: we do not reuse the code from jax.numpy.convolve here, because the handling
 # of padding differs slightly between the two implementations (particularly for
 # mode='same').
-def _convolve_nd(in1: Array, in2: Array, mode: str, *, precision: PrecisionLike) -> Array:
+def _convolve_nd(in1: Array, in2: Array, mode: ModeString, *, precision: PrecisionLike) -> Array:
   if mode not in ["full", "same", "valid"]:
     raise ValueError("mode must be one of ['full', 'same', 'valid']")
   if in1.ndim != in2.ndim:
@@ -185,6 +186,8 @@ def _convolve_nd(in1: Array, in2: Array, mode: str, *, precision: PrecisionLike)
                for (s, s_o) in zip(shape, shape_o)]
   elif mode == 'full':
     padding = [(s - 1, s - 1) for s in shape]
+  else:
+    raise ValueError(f'unsupported mode: {mode}')
 
   strides = tuple(1 for s in shape)
   result = lax.conv_general_dilated(in1[None, None], in2[None, None], strides,
@@ -192,7 +195,7 @@ def _convolve_nd(in1: Array, in2: Array, mode: str, *, precision: PrecisionLike)
   return result[0, 0]
 
 
-def convolve(in1: Array, in2: Array, mode: str = 'full', method: str = 'auto',
+def convolve(in1: Array, in2: Array, mode: ModeString = 'full', method: str = 'auto',
              precision: PrecisionLike = None) -> Array:
   """Convolution of two N-dimensional arrays.
 
@@ -257,7 +260,7 @@ def convolve(in1: Array, in2: Array, mode: str = 'full', method: str = 'auto',
     raise ValueError(f"Got {method=}; expected 'auto', 'fft', or 'direct'.")
 
 
-def convolve2d(in1: Array, in2: Array, mode: str = 'full', boundary: str = 'fill',
+def convolve2d(in1: Array, in2: Array, mode: ModeString = 'full', boundary: str = 'fill',
                fillvalue: float = 0, precision: PrecisionLike = None) -> Array:
   """Convolution of two 2-dimensional arrays.
 
@@ -331,7 +334,7 @@ def convolve2d(in1: Array, in2: Array, mode: str = 'full', boundary: str = 'fill
   return _convolve_nd(in1, in2, mode, precision=precision)
 
 
-def correlate(in1: Array, in2: Array, mode: str = 'full', method: str = 'auto',
+def correlate(in1: Array, in2: Array, mode: ModeString = 'full', method: str = 'auto',
               precision: PrecisionLike = None) -> Array:
   """Cross-correlation of two N-dimensional arrays.
 
@@ -391,7 +394,7 @@ def correlate(in1: Array, in2: Array, mode: str = 'full', method: str = 'auto',
   return convolve(in1, jnp.flip(in2.conj()), mode, precision=precision, method=method)
 
 
-def correlate2d(in1: Array, in2: Array, mode: str = 'full', boundary: str = 'fill',
+def correlate2d(in1: Array, in2: Array, mode: ModeString = 'full', boundary: str = 'fill',
                 fillvalue: float = 0, precision: PrecisionLike = None) -> Array:
   """Cross-correlation of two 2-dimensional arrays.
 
@@ -765,7 +768,7 @@ def _spectral_helper(x: Array, y: ArrayLike | None, fs: ArrayLike = 1.0,
       # reasonably expect to receive.
       def detrend_func(d):
         d = jnp.moveaxis(d, axis, -1)
-        d = detrend_type(d)
+        d = detrend_type(d)  # type: ignore[not-callable]  # pyrefly#40
         return jnp.moveaxis(d, -1, axis)
     else:
       detrend_func = detrend_type
@@ -799,6 +802,8 @@ def _spectral_helper(x: Array, y: ArrayLike | None, fs: ArrayLike = 1.0,
     freqs = jnp_fft.fftfreq(nfft_int, 1/fs, dtype=freq_dtype)
   elif sides == 'onesided':
     freqs = jnp_fft.rfftfreq(nfft_int, 1/fs, dtype=freq_dtype)
+  else:
+    raise ValueError(f'incorrect value of sides {sides}')
 
   # Perform the windowed FFTs
   result = _fft_helper(x, win, detrend_func,
@@ -1156,7 +1161,7 @@ def istft(Zxx: Array, fs: ArrayLike = 1.0, window: str = 'hann',
   elif isinstance(window, (str, tuple)):
     # TODO(jakevdp): implement get_window() in JAX to remove optional scipy dependency
     try:
-      from scipy.signal import get_window  # pytype: disable=import-error
+      from scipy.signal import get_window  # type: ignore[import-error]  # pytype: disable=import-error
     except ImportError as err:
       raise ImportError(f"scipy must be available to use {window=}") from err
     win = get_window(window, nperseg_int)

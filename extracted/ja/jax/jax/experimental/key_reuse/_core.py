@@ -177,7 +177,7 @@ class KeyReuseSignature:
         if context:
           msg += " {context}"
         raise key_reuse_error_with_source_traceback(
-            msg, key._source_info and key._source_info.traceback)
+            msg, None if key._source_info is None else key._source_info.traceback)
 
   def update_consumption(self, args_in, args_out):
     for sink in self.sinks:
@@ -386,13 +386,13 @@ def jaxpr_type_signature(jaxpr: core.Jaxpr) -> KeyReuseSignature:
           raise KeyReuseError(f"In {eqn.primitive}, source {src.idx} out of range [0, {len(eqn.outvars)}]")
         source(eqn.outvars[src.idx])
 
-  all_inputs = [*jaxpr.invars, *jaxpr.constvars]
+  all_inputs: list[core.Atom] = [*jaxpr.invars, *jaxpr.constvars]
   return KeyReuseSignature(
     *(Sink(i, consumed[v]) for i, v in enumerate(all_inputs)
       if is_key(v) and np.any(consumed.get(v, False))),
     *(Source(i) for i, v in enumerate(jaxpr.outvars)
       if is_key(v) and resolve_forwards(v) not in all_inputs and not consumed.get(v, False)),
-    *(Forward(all_inputs.index(resolve_forwards(outvar)), idx_out)  # type: ignore[arg-type]
+    *(Forward(all_inputs.index(resolve_forwards(outvar)), idx_out)
       for idx_out, outvar in enumerate(jaxpr.outvars)
       if is_key(outvar) and resolve_forwards(outvar) in all_inputs)
   )
@@ -400,7 +400,7 @@ def jaxpr_type_signature(jaxpr: core.Jaxpr) -> KeyReuseSignature:
 
 def function_type_signature(fun: Callable[..., Any], *args: Any) -> KeyReuseSignature:
   args_flat, in_tree = tree_util.tree_flatten(args)
-  in_avals_flat = [core.get_aval(arg) for arg in args_flat]
+  in_avals_flat = [core.typeof(arg) for arg in args_flat]
   wrapped_fun, _ = api_util.flatten_fun_nokwargs(
       lu.wrap_init(fun,
                    debug_info=api_util.debug_info("key_reuse", fun, args, {})),
@@ -425,8 +425,10 @@ def check_key_reuse(fun: Callable[..., Any], /, *args: Any) -> None:
 @dynamic_key_reuse_signature
 def _slice_signature(eqn):
   in_aval = eqn.invars[0].aval
+  assert hasattr(in_aval, "dtype")
   if not jax.dtypes.issubdtype(in_aval.dtype, jax.dtypes.prng_key):
     return KeyReuseSignature(Forward(0, 0))
+  assert hasattr(in_aval, "shape")
   if any(core.is_symbolic_dim(s) for s in in_aval.shape):
     return KeyReuseSignature(Forward(0, 0))
   start_indices = eqn.params['start_indices']

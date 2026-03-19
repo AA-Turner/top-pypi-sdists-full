@@ -22,7 +22,7 @@ import warnings
 
 filelock: Any | None = None
 try:
-  import filelock  # type: ignore[no-redef]
+  import filelock  # pyrefly: ignore[missing-import]
 except ImportError:
   pass
 
@@ -118,7 +118,7 @@ class LRUCache(CacheInterface):
       if self.eviction_enabled:
         self.lock.release()
 
-  def put(self, key: str, val: bytes) -> None:
+  def put(self, key: str, value: bytes) -> None:
     """Adds a new entry to the cache.
 
     If a cache item with the same key already exists, no action
@@ -132,8 +132,8 @@ class LRUCache(CacheInterface):
       raise ValueError("key cannot be empty")
 
     # prevent adding entries that exceed the maximum size limit of the cache
-    if self.eviction_enabled and len(val) > self.max_size:
-      msg = (f"Cache value for key {key!r} of size {len(val)} bytes exceeds "
+    if self.eviction_enabled and len(value) > self.max_size:
+      msg = (f"Cache value for key {key!r} of size {len(value)} bytes exceeds "
              f"the maximum cache size of {self.max_size} bytes")
       warnings.warn(msg)
       return
@@ -147,9 +147,9 @@ class LRUCache(CacheInterface):
       if cache_path.exists():
         return
 
-      self._evict_if_needed(additional_size=len(val))
+      self._evict_if_needed(additional_size=len(value))
 
-      cache_path.write_bytes(val)
+      cache_path.write_bytes(value)
 
       if self.eviction_enabled:
         timestamp = time.time_ns().to_bytes(8, "little")
@@ -181,7 +181,7 @@ class LRUCache(CacheInterface):
       # `pathlib` and `etils[epath]` have different API for obtaining the size
       # of a file, and we need to support them both.
       # See also https://github.com/google/etils/issues/630
-      file_size = file_stat.st_size if not pathlib.epath_installed else file_stat.length  # pytype: disable=attribute-error
+      file_size = file_stat.st_size if not pathlib.epath_installed else file_stat.length  # type: ignore[missing-attribute]
 
       key = cache_path.name.removesuffix(_CACHE_SUFFIX)
       atime_path = self.path / f"{key}{_ATIME_SUFFIX}"

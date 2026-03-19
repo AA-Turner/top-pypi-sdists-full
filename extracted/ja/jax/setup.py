@@ -19,11 +19,11 @@ from setuptools import setup, find_packages
 
 project_name = 'jax'
 
-_current_jaxlib_version = '0.9.1'
+_current_jaxlib_version = '0.9.2'
 # The following should be updated after each new jaxlib release.
-_latest_jaxlib_version_on_pypi = '0.9.0'
+_latest_jaxlib_version_on_pypi = '0.9.1'
 
-_libtpu_version = '0.0.35.*'
+_libtpu_version = '0.0.37.*'
 
 def load_version_module(pkg_path):
   spec = importlib.util.spec_from_file_location(
@@ -113,10 +113,13 @@ setup(
           f"jax-cuda13-plugin>={_current_jaxlib_version},<={_jax_version}",
         ],
 
-        # ROCm support for ROCm 7.0 and above.
-        'rocm': [
+        # Target that does not depend on ROCm runtime pip wheels, until
+        # ROCm wheels are distributed.
+        # TODO(gulsumgudukbay): add rocm and rocm8 extras once they are
+        # distributed.
+        'rocm7-local': [
           f"jaxlib>={_current_jaxlib_version},<={_jax_version}",
-          f"jax-rocm7-plugin>={_current_jaxlib_version},<={_jax_version}",
+          f"jax-rocm7-plugin=={_jax_version}.*",
         ],
 
         # For automatic bootstrapping distributed jobs in Kubernetes

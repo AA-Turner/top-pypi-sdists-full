@@ -20,14 +20,13 @@ import inspect
 import random
 import threading
 from typing import Any
-import weakref
 
 import jax
 from jax._src import api_util
 from jax._src import config
 from jax._src import tree_util
+from jax._src import util
 from jax._src.traceback_util import api_boundary
-from jax._src.util import wraps
 from jax.experimental.colocated_python import func
 from jax.experimental.colocated_python import obj_backend
 
@@ -35,7 +34,7 @@ from jax.experimental.colocated_python import obj_backend
 # default, once the behavior has been declared stable.
 _USE_WEAKREFS = config.bool_state(
     'jax_experimental_colocated_python_object_use_weakrefs_at_backend',
-    False,
+    True,
     help=(
         'Unstable in-development feature that switches the colocated-python'
         ' implementation to internally use reference counting for destructing'
@@ -74,7 +73,7 @@ class _InstanceRegistry:
 SINGLETON_INSTANCE_REGISTRY = _InstanceRegistry()
 
 
-@jax._src.util.cache(max_size=4096)
+@util.cache(max_size=4096)
 def _update_instance_devices(
     uid: int, shardings: tuple[jax.sharding.Sharding, ...]
 ) -> None:
@@ -106,25 +105,19 @@ def _make_method(
       return type(self), ()
 
     def _first_call(self):
-      # Temporarily hold a strong reference to a new object if it is created
-      # using initializer.
-      temp_strong_ref = None
-
       def initializer():
         if not use_weakrefs:
           return obj_backend._ClassWrapperForGarbageCollection(  # pylint: disable=protected-access
               cls(*init_args, **init_kwargs)
           )
-        nonlocal temp_strong_ref
-        temp_strong_ref = cls(*init_args, **init_kwargs)
-        return weakref.ref(temp_strong_ref)
+        return obj_backend._ConsumableRef(cls(*init_args, **init_kwargs))  # pylint: disable=protected-access
 
       retrieved = obj_backend.SINGLETON_OBJECT_STORE.get_or_create(
           uid, initializer
       )
 
       if use_weakrefs:
-        self.obj = temp_strong_ref
+        self.obj = retrieved()
       else:
         self.obj = retrieved
 
@@ -140,6 +133,14 @@ def _make_method(
             self.obj, obj_backend._ClassWrapperForGarbageCollection
         )
         return getattr(self.obj.obj, method_name)(*args, **kwargs)
+
+    def __del__(self):
+      if use_weakrefs and not hasattr(self, 'obj'):
+        # It is possible that no one has ever consumed the _ConsumableRef. So
+        # consume it now.
+        obj_backend.SINGLETON_OBJECT_STORE.get_or_create(
+            uid, lambda: obj_backend._ConsumableRef(None)  # pylint: disable=protected-access
+        )()
 
   # Colocated Python callable for the controller.
   callable = func_maker.make_callable(
@@ -179,8 +180,8 @@ def _make_method(
     def specialize(*args, **kwargs):
       return make_method_wrapper(callable.specialize(*args, **kwargs))
 
-    method_wrapper = wraps(original_method)(method_wrapper)
-    method_wrapper.specialize = specialize
+    method_wrapper = util.wraps(original_method)(method_wrapper)
+    method_wrapper.specialize = specialize  # pyrefly: ignore[missing-attribute]
     return method_wrapper
 
   method_wrapper = make_method_wrapper(callable)
@@ -193,7 +194,7 @@ def wrap_class(
 ) -> type[object]:
   class WrappedClass:
 
-    @wraps(cls.__init__)
+    @util.wraps(cls.__init__)
     def __init__(self, *init_args, **init_kwargs) -> None:
       uid = self._colocated_python_uid = (
           SINGLETON_INSTANCE_REGISTRY.new_instance()

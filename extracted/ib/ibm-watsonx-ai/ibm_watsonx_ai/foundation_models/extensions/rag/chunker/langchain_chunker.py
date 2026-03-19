@@ -5,8 +5,8 @@
 
 from typing import Any, Iterable, Literal, Sequence
 
-from langchain.text_splitter import TextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import TextSplitter
 
 from .base_chunker import BaseChunker
 
@@ -85,7 +85,7 @@ class LangChainChunker(BaseChunker[Document]):
 
         match self.method:
             case "recursive":
-                from langchain.text_splitter import RecursiveCharacterTextSplitter
+                from langchain_text_splitters import RecursiveCharacterTextSplitter
 
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=self.chunk_size,
@@ -96,7 +96,7 @@ class LangChainChunker(BaseChunker[Document]):
                 )
 
             case "character":
-                from langchain.text_splitter import CharacterTextSplitter
+                from langchain_text_splitters import CharacterTextSplitter
 
                 text_splitter = CharacterTextSplitter(
                     chunk_size=self.chunk_size,
@@ -105,7 +105,7 @@ class LangChainChunker(BaseChunker[Document]):
                 )
 
             case "token":
-                from langchain.text_splitter import TokenTextSplitter
+                from langchain_text_splitters import TokenTextSplitter
 
                 text_splitter = TokenTextSplitter(
                     chunk_size=self.chunk_size,

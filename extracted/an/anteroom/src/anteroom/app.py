@@ -429,6 +429,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             ai_svc = create_ai_service(config.ai)
             cred_resolver = CredentialResolver(config.workflow.credentials)
+            # Register spec phase gate conditions (#997)
+            try:
+                from .services.spec_gates import register_spec_gates
+
+                register_spec_gates(app.state.db)
+            except Exception:
+                pass
+
             registry = create_default_registry()
             return WorkflowEngine(
                 app.state.db,
@@ -441,6 +449,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 skill_registry=getattr(app.state, "skill_registry", None),
                 egress_allowed_domains=config.ai.allowed_domains,
                 egress_block_localhost=config.ai.block_localhost_api,
+                audit_writer=getattr(app.state, "audit_writer", None),
             )
 
         executor_worker = WorkflowExecutorWorker(config.workflow, _make_engine, app.state.db)
@@ -963,6 +972,12 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     app.include_router(packs_router.router, prefix="/api")
     app.include_router(spaces_router.router, prefix="/api")
     app.include_router(workflows_router.router, prefix="/api")
+
+    # Specs router — stale/diff endpoints use {fqn:path} so must come before
+    # the catch-all show endpoint. Route ordering within the router handles this.
+    from .routers import specs as specs_router
+
+    app.include_router(specs_router.router, prefix="/api")
 
     if config.proxy.enabled:
         from .routers import proxy

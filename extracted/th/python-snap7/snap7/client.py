@@ -18,7 +18,7 @@ from ctypes import (
 from .connection import ISOTCPConnection
 from .s7protocol import S7Protocol, get_return_code_description
 from .datatypes import S7Area, S7WordLen
-from .error import S7Error, S7ConnectionError, S7ProtocolError
+from .error import S7Error, S7ConnectionError, S7ProtocolError, S7StalePacketError
 
 from .type import (
     Area,
@@ -54,6 +54,8 @@ class Client:
         >>> data = client.db_read(1, 0, 4)
         >>> client.disconnect()
     """
+
+    MAX_VARS = 20  # Max variables per multi-read/multi-write request
 
     def __init__(self, lib_location: Optional[str] = None, **kwargs: Any):
         """
@@ -111,6 +113,41 @@ class Client:
         if self.connection is None:
             raise S7ConnectionError("Not connected to PLC")
         return self.connection
+
+    def _send_receive(self, request: bytes, max_stale_retries: int = 3) -> dict[str, Any]:
+        """Send a request and receive/parse the response with stale packet retry.
+
+        Wraps the repeated send_data -> receive_data -> parse_response pattern
+        with PDU reference validation and automatic retry on stale packets.
+
+        Args:
+            request: Complete S7 PDU to send.
+            max_stale_retries: Max times to retry receive on stale packets.
+
+        Returns:
+            Parsed S7 response dict.
+
+        Raises:
+            S7PacketLostError: If a packet loss is detected.
+            S7ProtocolError: If all retries are exhausted or other protocol error.
+        """
+        conn = self._get_connection()
+        conn.send_data(request)
+
+        for attempt in range(max_stale_retries + 1):
+            response_data = conn.receive_data()
+            response = self.protocol.parse_response(response_data)
+
+            try:
+                self.protocol.validate_pdu_reference(response["sequence"])
+                return response
+            except S7StalePacketError:
+                if attempt < max_stale_retries:
+                    logger.warning(f"Stale packet (attempt {attempt + 1}/{max_stale_retries}), retrying receive")
+                    continue
+                raise S7ProtocolError(f"Max stale packet retries ({max_stale_retries}) exceeded")
+
+        raise S7ProtocolError("Failed to receive valid response")  # Should not reach here
 
     def connect(self, address: str, rack: int, slot: int, tcp_port: int = 102) -> "Client":
         """
@@ -184,8 +221,14 @@ class Client:
         self.disconnect()
 
     def get_connected(self) -> bool:
-        """Check if client is connected to PLC."""
-        return self.connected and self.connection is not None and self.connection.connected
+        """Check if client is connected to PLC.
+
+        Performs an active check on the underlying TCP socket to detect
+        broken connections, rather than just checking a cached flag.
+        """
+        if not self.connected or self.connection is None:
+            return False
+        return self.connection.check_connection()
 
     def db_read(self, db_number: int, start: int, size: int) -> bytearray:
         """
@@ -226,8 +269,9 @@ class Client:
         Get entire DB.
 
         Uses get_block_info() to determine the DB size automatically.
-        If the PLC does not support get_block_info(), pass the size
-        parameter explicitly.
+        If the PLC does not support get_block_info() or reports an
+        incorrect size (common on S7-1200/1500), pass the size parameter
+        explicitly.
 
         Args:
             db_number: DB number to read
@@ -240,15 +284,23 @@ class Client:
         if size <= 0:
             block_info = self.get_block_info(Block.DB, db_number)
             size = block_info.MC7Size if block_info.MC7Size > 0 else 65536
-        return self.db_read(db_number, 0, size)
+        try:
+            return self.db_read(db_number, 0, size)
+        except S7Error:
+            raise S7Error(
+                f"db_get failed for DB{db_number} with auto-detected size {size}. "
+                f"Some PLCs (e.g. S7-1200) report incorrect MC7Size in block info. "
+                f"Try passing the actual DB size explicitly: client.db_get({db_number}, size=<actual_size>)"
+            )
 
     def db_fill(self, db_number: int, filler: int, size: int = 0) -> int:
         """
         Fill a DB with a filler byte.
 
         Uses get_block_info() to determine the DB size automatically.
-        If the PLC does not support get_block_info(), pass the size
-        parameter explicitly.
+        If the PLC does not support get_block_info() or reports an
+        incorrect size (common on S7-1200/1500), pass the size parameter
+        explicitly.
 
         Args:
             db_number: DB number to fill
@@ -263,92 +315,133 @@ class Client:
             block_info = self.get_block_info(Block.DB, db_number)
             size = block_info.MC7Size if block_info.MC7Size > 0 else 65536
         data = bytearray([filler] * size)
-        return self.db_write(db_number, 0, data)
+        try:
+            return self.db_write(db_number, 0, data)
+        except S7Error:
+            raise S7Error(
+                f"db_fill failed for DB{db_number} with auto-detected size {size}. "
+                f"Some PLCs (e.g. S7-1200) report incorrect MC7Size in block info. "
+                f"Try passing the actual DB size explicitly: client.db_fill({db_number}, {filler}, size=<actual_size>)"
+            )
 
-    def read_area(self, area: Area, db_number: int, start: int, size: int) -> bytearray:
+    def read_area(self, area: Area, db_number: int, start: int, size: int, word_len: Optional[WordLen] = None) -> bytearray:
         """
         Read data from memory area.
+
+        Automatically splits into multiple requests if size exceeds PDU capacity.
 
         Args:
             area: Memory area to read from
             db_number: DB number (for DB area only)
             start: Start address
             size: Number of items to read (for TM/CT: timers/counters, for others: bytes)
+            word_len: Optional word length override. If None, defaults to area-based logic
+                (TIMER for TM, COUNTER for CT, BYTE for others).
 
         Returns:
             Data read from area
         """
-        conn = self._get_connection()
-
         start_time = time.time()
 
         # Map area enum to native area
         s7_area = self._map_area(area)
 
-        # Determine word length based on area type
-        if area == Area.TM:
-            word_len = S7WordLen.TIMER
+        # Determine word length
+        if word_len is not None:
+            s7_word_len = S7WordLen(word_len)
+        elif area == Area.TM:
+            s7_word_len = S7WordLen.TIMER
         elif area == Area.CT:
-            word_len = S7WordLen.COUNTER
+            s7_word_len = S7WordLen.COUNTER
         else:
-            word_len = S7WordLen.BYTE
+            s7_word_len = S7WordLen.BYTE
 
-        # Build and send read request
-        request = self.protocol.build_read_request(area=s7_area, db_number=db_number, start=start, word_len=word_len, count=size)
+        max_chunk = self._max_read_size()
+        if size <= max_chunk:
+            # Single request
+            request = self.protocol.build_read_request(
+                area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, count=size
+            )
+            response = self._send_receive(request)
+            values = self.protocol.extract_read_data(response, s7_word_len, size)
+            self._exec_time = int((time.time() - start_time) * 1000)
+            return bytearray(values)
 
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Extract data from response - pass item count, not byte count
-        values = self.protocol.extract_read_data(response, word_len, size)
+        # Split into chunks
+        result = bytearray()
+        offset = 0
+        remaining = size
+        while remaining > 0:
+            chunk_size = min(remaining, max_chunk)
+            request = self.protocol.build_read_request(
+                area=s7_area, db_number=db_number, start=start + offset, word_len=s7_word_len, count=chunk_size
+            )
+            response = self._send_receive(request)
+            values = self.protocol.extract_read_data(response, s7_word_len, chunk_size)
+            result.extend(values)
+            offset += chunk_size
+            remaining -= chunk_size
 
         self._exec_time = int((time.time() - start_time) * 1000)
-        return bytearray(values)
+        return result
 
-    def write_area(self, area: Area, db_number: int, start: int, data: bytearray) -> int:
+    def write_area(self, area: Area, db_number: int, start: int, data: bytearray, word_len: Optional[WordLen] = None) -> int:
         """
         Write data to memory area.
+
+        Automatically splits into multiple requests if data exceeds PDU capacity.
 
         Args:
             area: Memory area to write to
             db_number: DB number (for DB area only)
             start: Start address
             data: Data to write
+            word_len: Optional word length override. If None, defaults to area-based logic
+                (TIMER for TM, COUNTER for CT, BYTE for others).
 
         Returns:
             0 on success
         """
-        conn = self._get_connection()
-
         start_time = time.time()
 
         # Map area enum to native area
         s7_area = self._map_area(area)
 
-        # Determine word length based on area type
-        if area == Area.TM:
-            word_len = S7WordLen.TIMER
+        # Determine word length
+        if word_len is not None:
+            s7_word_len = S7WordLen(word_len)
+        elif area == Area.TM:
+            s7_word_len = S7WordLen.TIMER
         elif area == Area.CT:
-            word_len = S7WordLen.COUNTER
+            s7_word_len = S7WordLen.COUNTER
         else:
-            word_len = S7WordLen.BYTE
+            s7_word_len = S7WordLen.BYTE
 
-        # Build and send write request
-        request = self.protocol.build_write_request(
-            area=s7_area, db_number=db_number, start=start, word_len=word_len, data=bytes(data)
-        )
+        max_chunk = self._max_write_size()
+        if len(data) <= max_chunk:
+            # Single request
+            request = self.protocol.build_write_request(
+                area=s7_area, db_number=db_number, start=start, word_len=s7_word_len, data=bytes(data)
+            )
+            response = self._send_receive(request)
+            self.protocol.check_write_response(response)
+            self._exec_time = int((time.time() - start_time) * 1000)
+            return 0
 
-        conn.send_data(request)
+        # Split into chunks
+        offset = 0
+        remaining = len(data)
+        while remaining > 0:
+            chunk_size = min(remaining, max_chunk)
+            chunk_data = data[offset : offset + chunk_size]
+            request = self.protocol.build_write_request(
+                area=s7_area, db_number=db_number, start=start + offset, word_len=s7_word_len, data=bytes(chunk_data)
+            )
+            response = self._send_receive(request)
+            self.protocol.check_write_response(response)
+            offset += chunk_size
+            remaining -= chunk_size
 
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for write errors
-        self.protocol.check_write_response(response)
         self._exec_time = int((time.time() - start_time) * 1000)
         return 0
 
@@ -361,9 +454,15 @@ class Client:
 
         Returns:
             Tuple of (result, items with data)
+
+        Raises:
+            ValueError: If more than MAX_VARS items are requested
         """
         if not items:
             return (0, items)
+
+        if len(items) > self.MAX_VARS:
+            raise ValueError(f"Too many items: {len(items)} exceeds MAX_VARS ({self.MAX_VARS})")
 
         # Handle S7DataItem array (ctypes)
         if hasattr(items, "_type_") and hasattr(items[0], "Area"):
@@ -405,9 +504,15 @@ class Client:
 
         Returns:
             0 on success
+
+        Raises:
+            ValueError: If more than MAX_VARS items are requested
         """
         if not items:
             return 0
+
+        if len(items) > self.MAX_VARS:
+            raise ValueError(f"Too many items: {len(items)} exceeds MAX_VARS ({self.MAX_VARS})")
 
         # Handle S7DataItem list (ctypes)
         if hasattr(items[0], "Area"):
@@ -450,19 +555,9 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Build and send list blocks request
         request = self.protocol.build_list_blocks_request()
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
-        if response.get("error_code", 0) != 0:
-            logger.warning(f"List blocks returned error code: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -520,15 +615,7 @@ class Client:
 
         # Build and send list blocks of type request
         request = self.protocol.build_list_blocks_of_type_request(type_code)
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
-        if response.get("error_code", 0) != 0:
-            logger.warning(f"List blocks of type returned error code: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -623,13 +710,8 @@ class Client:
         Returns:
             CPU state string
         """
-        conn = self._get_connection()
-
         request = self.protocol.build_cpu_state_request()
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
+        response = self._send_receive(request)
 
         return self.protocol.extract_cpu_state(response)
 
@@ -649,8 +731,6 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Map Block enum to S7 block type code
         block_type_map = {
             Block.OB: 0x38,
@@ -665,15 +745,7 @@ class Client:
 
         # Build and send get block info request
         request = self.protocol.build_get_block_info_request(type_code, db_number)
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Get block info failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -757,20 +829,12 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Block type 0x41 = DB
         block_type = 0x41
 
         # Step 1: Start upload
         request = self.protocol.build_start_upload_request(block_type, block_num)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Start upload failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Parse upload ID from response
         upload_info = self.protocol.parse_start_upload_response(response)
@@ -778,27 +842,14 @@ class Client:
 
         # Step 2: Upload (get data)
         request = self.protocol.build_upload_request(upload_id)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Upload failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Extract block data
         block_data = self.protocol.parse_upload_response(response)
 
         # Step 3: End upload
         request = self.protocol.build_end_upload_request(upload_id)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # End upload errors are not fatal
-        if response.get("error_code", 0) != 0:
-            logger.warning(f"End upload returned error: {response['error_code']}")
+        response = self._send_receive(request)
 
         logger.info(f"Uploaded {len(block_data)} bytes from block {block_num}")
         return bytearray(block_data)
@@ -833,13 +884,7 @@ class Client:
 
         # Step 1: Request download
         request = self.protocol.build_download_request(block_type, block_num, bytes(data))
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Request download failed with error: {response['error_code']}")
+        self._send_receive(request)
 
         # Step 2: Download block (send data)
         # Build a simple download block PDU
@@ -866,10 +911,7 @@ class Client:
         conn.send_data(header + param_data + data_section)
 
         response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Download block failed with error: {response['error_code']}")
+        self.protocol.parse_response(response_data)
 
         # Step 3: Download ended
         param_data = struct.pack(">B", 0x1C)  # S7Function.DOWNLOAD_ENDED
@@ -887,11 +929,7 @@ class Client:
         conn.send_data(header + param_data)
 
         response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Download ended errors are not fatal
-        if response.get("error_code", 0) != 0:
-            logger.warning(f"Download ended returned error: {response['error_code']}")
+        self.protocol.parse_response(response_data)
 
         logger.info(f"Downloaded {len(data)} bytes to block {block_num}")
         return 0
@@ -911,8 +949,6 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Map Block enum to S7 block type code
         block_type_map = {
             Block.OB: 0x38,
@@ -927,13 +963,7 @@ class Client:
 
         # Build and send delete request
         request = self.protocol.build_delete_block_request(type_code, block_num)
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
 
         logger.info(f"Deleted block {block_type.name} {block_num}")
@@ -958,8 +988,6 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Map Block enum to S7 block type code
         block_type_map = {
             Block.OB: 0x38,
@@ -974,13 +1002,7 @@ class Client:
 
         # Step 1: Start upload
         request = self.protocol.build_start_upload_request(type_code, block_num)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Start upload failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Parse upload ID from response
         upload_info = self.protocol.parse_start_upload_response(response)
@@ -988,27 +1010,14 @@ class Client:
 
         # Step 2: Upload (get data)
         request = self.protocol.build_upload_request(upload_id)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Upload failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Extract block data
         block_data = self.protocol.parse_upload_response(response)
 
         # Step 3: End upload
         request = self.protocol.build_end_upload_request(upload_id)
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # End upload errors are not fatal
-        if response.get("error_code", 0) != 0:
-            logger.warning(f"End upload returned error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Build full block with MC7 header
         # S7 block structure: MC7 header + data + footer
@@ -1037,14 +1046,8 @@ class Client:
         Returns:
             0 on success
         """
-        conn = self._get_connection()
-
         request = self.protocol.build_plc_control_request("stop")
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
         return 0
 
@@ -1054,14 +1057,8 @@ class Client:
         Returns:
             0 on success
         """
-        conn = self._get_connection()
-
         request = self.protocol.build_plc_control_request("hot_start")
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
         return 0
 
@@ -1071,14 +1068,8 @@ class Client:
         Returns:
             0 on success
         """
-        conn = self._get_connection()
-
         request = self.protocol.build_plc_control_request("cold_start")
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
         return 0
 
@@ -1103,20 +1094,9 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Build and send get clock request
         request = self.protocol.build_get_clock_request()
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
-        if response.get("error_code", 0) != 0:
-            logger.warning("Get clock failed, returning system time")
-            return datetime.now().replace(microsecond=0)
+        response = self._send_receive(request)
 
         # Parse clock response
         return self.protocol.parse_get_clock_response(response)
@@ -1136,19 +1116,9 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Build and send set clock request
         request = self.protocol.build_set_clock_request(dt)
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Set clock failed with error: {response['error_code']}")
+        self._send_receive(request)
 
         logger.info(f"Set PLC datetime to {dt}")
         return 0
@@ -1182,17 +1152,9 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Build and send compress request
         request = self.protocol.build_compress_request()
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
 
         logger.info(f"Compress PLC memory completed (timeout={timeout}ms)")
@@ -1213,17 +1175,9 @@ class Client:
         if not self.get_connected():
             raise S7ConnectionError("Not connected to PLC")
 
-        conn = self._get_connection()
-
         # Build and send copy RAM to ROM request
         request = self.protocol.build_copy_ram_to_rom_request()
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors
+        response = self._send_receive(request)
         self.protocol.check_control_response(response)
 
         logger.info(f"Copy RAM to ROM completed (timeout={timeout}ms)")
@@ -1364,15 +1318,7 @@ class Client:
 
         # Build and send read SZL request
         request = self.protocol.build_read_szl_request(ssl_id, index)
-        conn.send_data(request)
-
-        # Receive and parse response
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
-
-        # Check for errors in header (for ACK/ACK_DATA)
-        if response.get("error_code", 0) != 0:
-            raise RuntimeError(f"Read SZL failed with error: {response['error_code']}")
+        response = self._send_receive(request)
 
         # Check for errors in data section (for USERDATA - return_code != 0xFF means error)
         data_info = response.get("data", {})
@@ -1921,13 +1867,9 @@ class Client:
 
     def _setup_communication(self) -> None:
         """Setup communication and negotiate PDU length."""
-        conn = self._get_connection()
         request = self.protocol.build_setup_communication_request(max_amq_caller=1, max_amq_callee=1, pdu_length=self.pdu_length)
 
-        conn.send_data(request)
-
-        response_data = conn.receive_data()
-        response = self.protocol.parse_response(response_data)
+        response = self._send_receive(request)
 
         if response.get("parameters"):
             params = response["parameters"]
@@ -1935,6 +1877,22 @@ class Client:
                 self.pdu_length = params["pdu_length"]
                 self._params[Parameter.PDURequest] = self.pdu_length
                 logger.info(f"Negotiated PDU length: {self.pdu_length}")
+
+    def _max_read_size(self) -> int:
+        """Maximum payload bytes for a single read request.
+
+        Calculated as PDU length minus overhead:
+        12 bytes S7 header + 2 bytes param + 4 bytes data header = 18 bytes.
+        """
+        return self.pdu_length - 18
+
+    def _max_write_size(self) -> int:
+        """Maximum payload bytes for a single write request.
+
+        Calculated as PDU length minus overhead:
+        12 bytes S7 header + 14 bytes param + 4 bytes data header + 5 bytes padding = 35 bytes.
+        """
+        return self.pdu_length - 35
 
     def _map_area(self, area: Area) -> S7Area:
         """Map library area enum to native S7 area."""

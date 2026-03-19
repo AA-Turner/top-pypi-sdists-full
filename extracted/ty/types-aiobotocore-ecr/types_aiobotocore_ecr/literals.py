@@ -132,6 +132,7 @@ TagStatusType = Literal["ANY", "TAGGED", "UNTAGGED"]
 TargetStorageClassType = Literal["ARCHIVE", "STANDARD"]
 UpstreamRegistryType = Literal[
     "azure-container-registry",
+    "chainguard",
     "docker-hub",
     "ecr",
     "ecr-public",
@@ -243,6 +244,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -506,6 +508,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

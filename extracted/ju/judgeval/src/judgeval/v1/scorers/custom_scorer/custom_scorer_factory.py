@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 import io
 import os
+from typing import Literal, Optional, Tuple, List
 import tarfile
-from typing import Literal, Optional, Tuple
 import typer
 
 from judgeval.logger import judgeval_logger
@@ -16,6 +16,7 @@ from judgeval.v1.internal.api.api_types import (
 from judgeval.v1.scorers.custom_scorer.custom_scorer import CustomScorer
 from judgeval.utils.guards import expect_project_id
 from judgeval.exceptions import JudgmentAPIError
+from judgeval.v1.hosted.responses import Category
 from judgeval.v1.scorers.custom_scorer.utils import TarFilter
 
 RESPONSE_TYPE_MAP: dict[str, Literal["binary", "categorical", "numeric"]] = {
@@ -28,13 +29,69 @@ V2_SCORER_BASES = {"TraceCustomScorer", "ExampleCustomScorer"}
 V3_SCORER_BASES = {"Judge"}
 
 
-def _extract_generic_arg(node: ast.expr) -> Optional[str]:
+def _parse_category_list(node: ast.expr) -> Optional[List[Category]]:
+    if not isinstance(node, ast.List):
+        return None
+    result = []
+    for elt in node.elts:
+        if not isinstance(elt, ast.Call) or elt.args:
+            return None
+        if not isinstance(elt.func, ast.Name) or elt.func.id != "Category":
+            return None
+        kw = {k.arg: k.value for k in elt.keywords}
+        v = kw.get("value")
+        if not isinstance(v, ast.Constant) or not isinstance(v.value, str):
+            return None
+        d = kw.get("description")
+        desc = (
+            d.value if isinstance(d, ast.Constant) and isinstance(d.value, str) else ""
+        )
+        result.append(Category(value=v.value, description=desc))
+    return result or None
+
+
+def _extract_generic_arg(
+    node: ast.expr,
+    tree: ast.AST,
+) -> Tuple[Optional[str], Optional[List[Category]]]:
+    name = None
     if isinstance(node, ast.Subscript):
         if isinstance(node.slice, ast.Name):
-            return node.slice.id
-        if isinstance(node.slice, ast.Attribute):
-            return node.slice.attr
-    return None
+            name = node.slice.id
+        elif isinstance(node.slice, ast.Attribute):
+            name = node.slice.attr
+    if name is None:
+        return (None, None)
+
+    if name in RESPONSE_TYPE_MAP:
+        if name == "CategoricalResponse":
+            raise ValueError(
+                "Judge[CategoricalResponse] is not supported. "
+                "Define a CategoricalResponse subclass with categories."
+            )
+        return (name, None)
+
+    for resolved in ast.walk(tree):
+        if not isinstance(resolved, ast.ClassDef) or resolved.name != name:
+            continue
+        for base in resolved.bases:
+            base_name = _get_base_name(base)
+            if base_name not in RESPONSE_TYPE_MAP:
+                continue
+            if base_name != "CategoricalResponse":
+                return base_name, None
+            for item in resolved.body:
+                if not isinstance(item, ast.Assign):
+                    continue
+                for target in item.targets:
+                    if not (isinstance(target, ast.Name) and target.id == "categories"):
+                        continue
+                    categories = _parse_category_list(item.value)
+                    if categories is not None:
+                        return (base_name, categories)
+                    return (None, None)
+            return (base_name, None)
+    return (None, None)
 
 
 def _get_base_name(node: ast.expr) -> Optional[str]:
@@ -54,6 +111,7 @@ def parse_judge(
         str,
         Optional[Literal["trace", "example"]],
         Literal["binary", "categorical", "numeric"],
+        Optional[List[Category]],
     ]
 ]:
     for node in ast.walk(tree):
@@ -63,15 +121,15 @@ def parse_judge(
             base_name = _get_base_name(base)
             if base_name not in V2_SCORER_BASES and base_name not in V3_SCORER_BASES:
                 continue
-            generic_arg = _extract_generic_arg(base)
+            generic_arg, categories = _extract_generic_arg(base, tree)
             if generic_arg not in RESPONSE_TYPE_MAP:
                 continue
             if base_name in V3_SCORER_BASES:
-                return (node.name, None, RESPONSE_TYPE_MAP[generic_arg])
+                return (node.name, None, RESPONSE_TYPE_MAP[generic_arg], categories)
             scorer_type: Literal["trace", "example"] = (
                 "trace" if base_name == "TraceCustomScorer" else "example"
             )
-            return (node.name, scorer_type, RESPONSE_TYPE_MAP[generic_arg])
+            return (node.name, scorer_type, RESPONSE_TYPE_MAP[generic_arg], categories)
     return None
 
 
@@ -185,12 +243,27 @@ class CustomScorerFactory:
         result = parse_judge(tree)
         if result is None:
             raise ValueError(
-                f"No Judge, TraceCustomScorer, or ExampleCustomScorer class found in {entrypoint_path}. "
+                f"No valid Judge, TraceCustomScorer, or ExampleCustomScorer class found in {entrypoint_path}. "
                 "Ensure the class inherits from Judge[ResponseType], TraceCustomScorer[ResponseType], "
-                "or ExampleCustomScorer[ResponseType]."
+                "or ExampleCustomScorer[ResponseType].\n\n"
+                "For categorical response types, define a CategoricalResponse subclass with a 'categories' class variable as a list of Category models, then use it as the generic argument. For example:\n\n"
+                "class MyResponse(CategoricalResponse):\n"
+                "    categories = [\n"
+                "        Category(value='Passed', description='The agent passed the test'),\n"
+                "        Category(value='Not Passed', description='The agent failed the test'),\n"
+                "    ]\n\n"
+                "class CategoricalScorer(Judge[MyResponse]):\n"
+                "    async def score(self, data: Example) -> MyResponse:\n "
+                "        return MyResponse(value='Passed', reason='The agent passed the test')\n"
             )
 
-        class_name, scorer_type, response_type = result
+        class_name, scorer_type, response_type, categories = result
+
+        if response_type == "categorical" and categories is None:
+            raise ValueError(
+                f"Categorical response type requires categories to be defined in {entrypoint_path}. "
+                "Ensure the class defines a 'categories' class variable as a list of Category models."
+            )
 
         if unique_name is None:
             unique_name = class_name
@@ -213,6 +286,9 @@ class CustomScorerFactory:
             "scorer_type": scorer_type,
             "response_type": response_type,
             "version": 3 if scorer_type is None else 2,
+            "categories": [category.model_dump() for category in categories]
+            if categories
+            else None,
             "bump_major": bump_major,
         }
 

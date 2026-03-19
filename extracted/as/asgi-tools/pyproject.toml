@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel", "Cython"]
 
 [project]
 name = "asgi-tools"
-version = "1.4.0"
+version = "2.1.0"
 description = "ASGI Toolkit to build web applications"
 readme = "README.rst"
 requires-python = ">=3.10,<4"
@@ -57,7 +57,14 @@ tests = [
 ujson = ["ujson"]
 orjson = ["orjson"]
 examples = ["uvicorn[standard]", "jinja2", "httpx"]
-dev = ["bump2version", "tox", "cython", "pre-commit", "sphinx", "pydata-sphinx-theme"]
+dev = [
+  "bump2version",
+  "tox",
+  "cython",
+  "pre-commit",
+  "sphinx",
+  "pydata-sphinx-theme",
+]
 
 [tool.setuptools]
 packages = ['asgi_tools']
@@ -90,6 +97,7 @@ commands =
 fix = false
 line-length = 100
 target-version = "py310"
+include = ["asgi_tools/*.py", "tests/*.py"]
 exclude = [".venv", "docs", "examples"]
 
 [tool.ruff.lint]
@@ -117,9 +125,26 @@ ignore = [
 required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["ARG", "ASYNC", "TRY", "F", "PGH", "PLR", "PLW", "PTH", "RET504", "SIM"]
+"tests/*.py" = [
+  "ARG",
+  "ASYNC",
+  "TRY",
+  "F",
+  "PGH",
+  "PLR",
+  "PLW",
+  "PTH",
+  "RET504",
+  "SIM",
+]
 
-[tool.black]
-line-length = 100
-target-version = ["py310", "py311", "py312", "py313", "py314"]
-preview = true
+[tool.bumpversion]
+current_version = "2.1.0"
+commit = true
+tag = true
+message = "build: Bump version: {current_version} → {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

@@ -20,7 +20,7 @@ import io
 
 RE_Plugins_installed_run_condition_args = (
     os.environ.get("PYTHON_RULE_ENGINE_INSTALLED", "*").lower()[:1] == "y",
-    "Test depends on server having Python-REP installed beyond the default options",
+    "Test depends on server having Python-REP installed (set PYTHON_RULE_ENGINE_INSTALLED=yes in environment).",
 )
 
 
@@ -65,9 +65,7 @@ class TestRule(unittest.TestCase):
                                     msiAssociateKeyValuePairsToObj(*attribute, *object, "-d")
                                 }}
                                 INPUT *object="{object_path}",*name="{attr_name}",*value="{attr_value}"
-                                OUTPUT ruleExecOut""".format(
-                **locals()
-            )
+                                OUTPUT ruleExecOut""".format(**locals())
         )
 
         with open(rule_file_path, "w") as rule_file:
@@ -151,7 +149,6 @@ class TestRule(unittest.TestCase):
         err_hash = {}
 
         for i in rule_instances_list:
-
             if rule_dict:
                 rule_to_call = rule_dict[i]
 
@@ -173,13 +170,7 @@ class TestRule(unittest.TestCase):
         self.assertEqual(len(err_hash), len(rule_instances_list))
         self.assertEqual(
             len(err_hash),
-            len(
-                [
-                    val
-                    for val in err_hash.values()
-                    if val[0].startswith("rule exec failed")
-                ]
-            ),
+            len([val for val in err_hash.values() if val[0].startswith("rule exec failed")]),
         )
         return err_hash
 
@@ -209,7 +200,7 @@ class TestRule(unittest.TestCase):
             session,
             body="defined_in_both",
             output="ruleExecOut",
-            **{key: val for key, val in kw.items() if key == "instance_name"}
+            **{key: val for key, val in kw.items() if key == "instance_name"},
         )
         output = rule.execute()
         buf = output.MsParam_PI[0].inOutStruct.stdoutBuf.buf
@@ -236,9 +227,7 @@ class TestRule(unittest.TestCase):
         rule_body = textwrap.dedent(
             """\
                                     writeLine("{stream_name}","*value")
-                                    """.format(
-                **locals()
-            )
+                                    """.format(**locals())
         )
 
         input_params = {"*value": output_string}
@@ -251,13 +240,7 @@ class TestRule(unittest.TestCase):
         if rule_engine_instance:
             extra_options["instance_name"] = rule_engine_instance
 
-        myrule = Rule(
-            session,
-            body=rule_body,
-            params=input_params,
-            output=output_param,
-            **extra_options
-        )
+        myrule = Rule(session, body=rule_body, params=input_params, output=output_param, **extra_options)
         output = myrule.execute()
 
         buf = None
@@ -357,9 +340,7 @@ class TestRule(unittest.TestCase):
                                     writeLine("stderr", *err_string);
                                 }}
                                 INPUT *some_string="{some_string}",*some_other_string="{some_other_string}",*err_string="{err_string}"
-                                OUTPUT ruleExecOut""".format(
-                **locals()
-            )
+                                OUTPUT ruleExecOut""".format(**locals())
         )
 
         with io_open(rule_file_path, "w", encoding="utf-8") as rule_file:
@@ -420,7 +401,7 @@ class TestRule(unittest.TestCase):
         )
         output = r.execute()
         lines = self.lines_from_stdout_buf(output)
-        self.assertRegexpMatches(lines[0], r".*\[Hello world!\]")
+        self.assertRegex(lines[0], r".*\[Hello world!\]")
 
     def test_rulefile_in_file_like_object_2__336(self):
 
@@ -442,8 +423,8 @@ class TestRule(unittest.TestCase):
         r = Rule(self.sess, rule_file=io.BytesIO(rule_file_contents.encode("utf-8")))
         output = r.execute()
         lines = self.lines_from_stdout_buf(output)
-        self.assertRegexpMatches(lines[0], r"\[STRING\]\[\]")
-        self.assertRegexpMatches(lines[1], r"\[STRING\]\[\]")
+        self.assertRegex(lines[0], r"\[STRING\]\[\]")
+        self.assertRegex(lines[1], r"\[STRING\]\[\]")
 
         r = Rule(
             self.sess,
@@ -452,8 +433,8 @@ class TestRule(unittest.TestCase):
         )
         output = r.execute()
         lines = self.lines_from_stdout_buf(output)
-        self.assertRegexpMatches(lines[0], r"\[INTEGER\]\[5\]")
-        self.assertRegexpMatches(lines[1], r"\[STRING\]\[A String\]")
+        self.assertRegex(lines[0], r"\[INTEGER\]\[5\]")
+        self.assertRegex(lines[1], r"\[STRING\]\[A String\]")
 
 
 if __name__ == "__main__":

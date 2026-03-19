@@ -6,6 +6,7 @@ from rocketchat_API.APIExceptions.RocketExceptions import (
     RocketMissingParamException,
     RocketApiException,
 )
+from tests.conftest import get_tests_passowrd
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +26,10 @@ def testuser_id(logged_rocket):
     except RocketApiException as e:
         if e.error == "User not found.":
             testuser = logged_rocket.users_create(
-                "testuser1@domain.com", "testuser1", "password", "testuser1"
+                "testuser1@domain.com",
+                "testuser1",
+                get_tests_passowrd(),
+                "testuser1",
             )
         else:
             raise e
@@ -48,8 +52,8 @@ def test_channels_list(logged_rocket):
         assert "_id" in channel
         assert "name" in channel
 
-    iterated_channels_custom = list(logged_rocket.channels_list(count=1))
-    assert len(iterated_channels_custom) > 0
+    iterated_channels_custom = list(logged_rocket.channels_list(max_count=1))
+    assert len(iterated_channels_custom) == 1
 
     for channel in logged_rocket.channels_list():
         assert "_id" in channel
@@ -63,8 +67,8 @@ def test_channels_list_joined(logged_rocket):
         assert "_id" in channel
         assert "name" in channel
 
-    iterated_channels_custom = list(logged_rocket.channels_list_joined(count=1))
-    assert len(iterated_channels_custom) > 0
+    iterated_channels_custom = list(logged_rocket.channels_list_joined(max_count=1))
+    assert len(iterated_channels_custom) == 1
 
     for channel in logged_rocket.channels_list_joined():
         assert "_id" in channel
@@ -92,8 +96,11 @@ def test_channels_history(logged_rocket):
 
     # Test with custom count parameter
     iterated_messages_custom = list(
-        logged_rocket.channels_history(room_id="GENERAL", count=1)
+        logged_rocket.channels_history(room_id="GENERAL", max_count=1)
     )
+
+    assert len(iterated_messages_custom) == 1
+
     for message in iterated_messages_custom:
         assert "_id" in message
 
@@ -169,13 +176,23 @@ def test_channels_create_delete(logged_rocket):
 
 
 def test_channels_get_integrations(logged_rocket):
-    channels_get_integrations = logged_rocket.channels_get_integrations(
-        room_id="GENERAL"
+    created = logged_rocket.integrations_create(
+        integrations_type="webhook-incoming",
+        name="test_channels_integration",
+        enabled=True,
+        username=logged_rocket.me().get("username"),
+        channel="#general",
+        script_enabled=False,
     )
-    assert all(
-        key in channels_get_integrations
-        for key in ["integrations", "count", "offset", "total"]
-    )
+    integration_id = created.get("integration").get("_id")
+
+    integrations = list(logged_rocket.channels_get_integrations(room_id="GENERAL"))
+    assert len(integrations) > 0
+    for integration in integrations:
+        assert "_id" in integration
+        assert "type" in integration
+
+    logged_rocket.integrations_remove("webhook-incoming", integration_id)
 
 
 def test_channels_invite(logged_rocket, testuser_id):
@@ -370,9 +387,9 @@ def test_channels_members(logged_rocket):
 
     # Test with custom count parameter
     iterated_members_custom = list(
-        logged_rocket.channels_members(room_id="GENERAL", count=1)
+        logged_rocket.channels_members(room_id="GENERAL", max_count=1)
     )
-    assert len(iterated_members_custom) > 0
+    assert len(iterated_members_custom) == 1
 
     for member in logged_rocket.channels_members(room_id="GENERAL"):
         assert "_id" in member

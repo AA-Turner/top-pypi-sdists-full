@@ -166,6 +166,9 @@ def list_artifacts(
         # Standalone artifacts (no pack link) OR artifacts from attached packs
         clauses.append("(pa.pack_id IS NULL OR att.id IS NOT NULL)")
 
+        # JOIN params must come before WHERE params in the final param list.
+        # Build them separately and prepend.
+        join_params: list[Any] = []
         if project_path is not None:
             from .pack_attachments import _normalize_project_path
 
@@ -180,7 +183,7 @@ def list_artifacts(
                 "            OR SUBSTR(?, 1, LENGTH(att.project_path) + 1)"
                 "               = att.project_path || '/')))"
             )
-            params.extend([space_id or "", project_path, project_path])
+            join_params = [space_id or "", project_path, project_path]
         else:
             sql = (
                 f"SELECT {cols} FROM artifacts a"
@@ -189,7 +192,8 @@ def list_artifacts(
                 "   AND (att.scope = 'global'"
                 "        OR (att.scope = 'space' AND att.space_id = ?))"
             )
-            params.append(space_id or "")
+            join_params = [space_id or ""]
+        params = join_params + params
     else:
         sql = f"SELECT {_ARTIFACT_COLUMNS} FROM artifacts"
 
@@ -327,6 +331,62 @@ def upsert_artifact(
                 commit=commit,
             )
         return None
+
+
+def is_pack_owned(db: ThreadSafeConnection, artifact_id: str) -> bool:
+    """Return True if the artifact is linked to any pack via pack_artifacts."""
+    row = db.execute_fetchone(
+        "SELECT 1 FROM pack_artifacts WHERE artifact_id = ? LIMIT 1",
+        (artifact_id,),
+    )
+    return row is not None
+
+
+def is_artifact_attached(
+    db: ThreadSafeConnection,
+    artifact_id: str,
+    *,
+    space_id: str | None = None,
+    project_path: str | None = None,
+) -> bool:
+    """Return True if the artifact is visible in the given context.
+
+    An artifact is visible if it is either:
+    - standalone (not linked to any pack), or
+    - linked to a pack that has an active attachment (global, matching
+      space_id, or matching project_path with ancestor matching).
+    """
+    pack_row = db.execute_fetchone(
+        "SELECT pack_id FROM pack_artifacts WHERE artifact_id = ? LIMIT 1",
+        (artifact_id,),
+    )
+    if pack_row is None:
+        return True  # standalone artifact
+
+    pack_id = pack_row[0] if isinstance(pack_row, (tuple, list)) else pack_row["pack_id"]
+
+    if project_path is not None:
+        from .pack_attachments import _normalize_project_path
+
+        project_path = _normalize_project_path(project_path)
+        att = db.execute_fetchone(
+            """SELECT 1 FROM pack_attachments WHERE pack_id = ?
+               AND (scope = 'global'
+                    OR (scope = 'space' AND space_id = ?)
+                    OR (scope = 'project' AND (project_path = ?
+                        OR SUBSTR(?, 1, LENGTH(project_path) + 1) = project_path || '/')))
+               LIMIT 1""",
+            (pack_id, space_id or "", project_path, project_path),
+        )
+    else:
+        att = db.execute_fetchone(
+            """SELECT 1 FROM pack_attachments WHERE pack_id = ?
+               AND (scope = 'global'
+                    OR (scope = 'space' AND space_id = ?))
+               LIMIT 1""",
+            (pack_id, space_id or ""),
+        )
+    return att is not None
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:

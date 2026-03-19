@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-ai
-Version: 2.25.2
+Version: 2.26.0
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: docstring-parser
@@ -79,9 +80,9 @@ The simplest way to get Haystack is via pip:
 pip install haystack-ai
 ```
 
-Install from the `main` branch to try the newest features:
+Install nightly pre-releases to try the newest features:
 ```sh
-pip install git+https://github.com/deepset-ai/haystack.git@main
+pip install --pre haystack-ai
 ```
 
 Haystack supports multiple installation methods, including Docker images. For a comprehensive guide, please refer

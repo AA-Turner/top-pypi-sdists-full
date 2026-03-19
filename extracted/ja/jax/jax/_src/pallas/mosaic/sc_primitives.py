@@ -52,7 +52,7 @@ Ref: TypeAlias = state_types.AbstractRef | TransformedRef
 _T = TypeVar("_T")
 
 load_p = jax_core.Primitive("load")
-load_p.is_effectful = lambda params: True  # type: ignore
+load_p.is_effectful = lambda params: True
 
 
 @load_p.def_effectful_abstract_eval
@@ -112,7 +112,7 @@ def load_expanded(ref: Ref, *, mask: jax.Array) -> jax.Array:
 
 
 swap_p = jax_core.Primitive("swap")
-swap_p.is_effectful = lambda params: True  # type: ignore
+swap_p.is_effectful = lambda params: True
 
 
 @swap_p.def_effectful_abstract_eval
@@ -240,7 +240,7 @@ def _indexed_shape(ref: Ref, indices: Sequence[jax.Array]) -> tuple[int, ...]:
 
 
 gather_p = jax_core.Primitive("gather")
-gather_p.is_effectful = lambda params: True  # type: ignore
+gather_p.is_effectful = lambda params: True
 
 
 @gather_p.def_effectful_abstract_eval
@@ -305,7 +305,7 @@ def load_gather(
 
 
 scatter_p = jax_core.Primitive("scatter")
-scatter_p.is_effectful = lambda params: True  # type: ignore
+scatter_p.is_effectful = lambda params: True
 scatter_p.multiple_results = True
 
 
@@ -550,10 +550,10 @@ def _masked_cumop_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, mask,
   sign_bit_vec = None
   # tpu.scan comparisons assume unsigned int predicates, so we compare
   # with the sign bit flipped.
-  if ctx.avals_in[0].dtype == jnp.int32 and reduction_kind in ("max", "min"):
-    u32 = ir.IntegerType.get_signless(32)
+  if ctx.avals_in[0].dtype == jnp.dtype(jnp.int32) and reduction_kind in ("max", "min"):
+    i32 = ir.IntegerType.get_signless(32)
     sign_bit_vec = vector.broadcast(
-        x.type, arith.constant(u32, ir.IntegerAttr.get(u32, 0x80000000)))
+        x.type, arith.constant(i32, ir.IntegerAttr.get(i32, 0x80000000)))
     x = arith.xori(x, sign_bit_vec)
   result = tpu.scan(
       x.type, x, ir.Attribute.parse(f"#tpu.reduction_kind<{reduction_kind}>"),
@@ -677,9 +677,10 @@ masked_sort_p.multiple_results = True
 def _masked_sort_abstract_eval(keys, values, *maybe_mask, descending):
   del descending  # Unused.
   supported_shape = (sc_core.get_sparse_core_info().num_lanes,)
-  if keys.dtype not in (jnp.int32, jnp.float32):
+  if keys.dtype not in (jnp.uint32, jnp.int32, jnp.float32):
     raise NotImplementedError(
-        f"sort_key_val: keys dtype {keys.dtype} should be int32 or float32")
+        f"sort_key_val: keys dtype {keys.dtype} should be uint32, int32 or"
+        " float32")
   if keys.shape != supported_shape:
     raise ValueError(f"keys shape {keys.shape} must be {supported_shape}")
   if jnp.dtype(values.dtype).itemsize != 4:
@@ -698,7 +699,6 @@ def _masked_sort_abstract_eval(keys, values, *maybe_mask, descending):
 @sc_lowering.register_lowering_rule(masked_sort_p)
 def _masked_sort_lowering_rule(
     ctx: sc_lowering.LoweringRuleContext, keys, values, *maybe_mask, descending):
-  del ctx  # Unused.
   if maybe_mask:
     [mask] = maybe_mask
   else:
@@ -707,10 +707,20 @@ def _masked_sort_lowering_rule(
         ir.IntegerType.get_signless(1))
     mask = arith.constant(mask_type, ir.DenseElementsAttr.get_splat(
         mask_type, ir.BoolAttr.get(True)))
+  # tpu.sort comparisons assume unsigned int predicates, so we sort
+  # with the sign bit flipped to get correct signed int32 ordering.
+  sign_bit_vec = None
+  if ctx.avals_in[0].dtype == jnp.dtype(jnp.int32):
+    i32 = ir.IntegerType.get_signless(32)
+    sign_bit_vec = vector.broadcast(
+        keys.type, arith.constant(i32, ir.IntegerAttr.get(i32, 0x80000000)))
+    keys = arith.xori(keys, sign_bit_vec)
   out_mask, sorted_keys, sorted_values = tpu.sort(
       mask.type, keys.type, values.type, keys, values, mask=mask,
       descending=descending
   )
+  if sign_bit_vec is not None:
+    sorted_keys = arith.xori(sorted_keys, sign_bit_vec)
   if maybe_mask:
     return sorted_keys, sorted_values, out_mask
   return sorted_keys, sorted_values
@@ -737,7 +747,7 @@ def sort_key_val(
 
 
 parallel_loop_p = jax_core.Primitive("parallel_loop")
-parallel_loop_p.is_effectful = lambda params: bool(params["jaxpr"].effects)  # type: ignore
+parallel_loop_p.is_effectful = lambda params: bool(params["jaxpr"].effects)
 parallel_loop_p.multiple_results = True
 
 

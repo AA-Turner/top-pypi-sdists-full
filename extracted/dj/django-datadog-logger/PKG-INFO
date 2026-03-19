@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-datadog-logger
-Version: 0.8.0
+Version: 0.9.0
 Summary: Django Datadog Logger integration package.
 Project-URL: Homepage, https://github.com/namespace-ee/django-datadog-logger
 Author-email: Lenno Nagel <lenno@namespace.ee>

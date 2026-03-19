@@ -251,7 +251,7 @@ async def astream_state(
             kwargs["context"] = context
         async with (
             stack,
-            aclosing(  # type: ignore[invalid-argument-type]
+            aclosing(
                 graph.astream_events(
                     input,
                     config,
@@ -313,11 +313,11 @@ async def astream_state(
                                     or "chunk" in msg_.get("role", "").lower()
                                 ):
                                     if "ai" in msg_.get("role", "").lower():
-                                        msg = AIMessageChunk(**msg_)  # type: ignore[arg-type]
+                                        msg = AIMessageChunk(**msg_)
                                     elif "tool" in msg_.get("role", "").lower():
-                                        msg = ToolMessageChunk(**msg_)  # type: ignore[arg-type]
+                                        msg = ToolMessageChunk(**msg_)
                                     else:
-                                        msg = BaseMessageChunk(**msg_)  # type: ignore[arg-type]
+                                        msg = BaseMessageChunk(**msg_)
                                     is_chunk = True
                                 else:
                                     msg = convert_to_messages([msg_])[0]
@@ -413,11 +413,11 @@ async def astream_state(
                                 or "chunk" in msg_.get("role", "").lower()
                             ):
                                 if "ai" in msg_.get("role", "").lower():
-                                    msg = AIMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    msg = AIMessageChunk(**msg_)
                                 elif "tool" in msg_.get("role", "").lower():
-                                    msg = ToolMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    msg = ToolMessageChunk(**msg_)
                                 else:
-                                    msg = BaseMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    msg = BaseMessageChunk(**msg_)
                                 is_chunk = True
                             else:
                                 msg = convert_to_messages([msg_])[0]
@@ -491,7 +491,7 @@ async def consume(
         stream_modes.add("messages")
     stream_modes.add("metadata")
 
-    async with aclosing(stream):  # type: ignore[invalid-argument-type]
+    async with aclosing(stream):
         try:
             async for mode, payload in stream:
                 await Runs.Stream.publish(

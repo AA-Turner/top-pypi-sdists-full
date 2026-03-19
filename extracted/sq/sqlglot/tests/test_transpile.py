@@ -118,7 +118,7 @@ class TestTranspile(unittest.TestCase):
     def test_comments(self):
         self.validate(
             "select /* asfd /* asdf */ asdf */ 1",
-            "/* asfd /* asdf */ asdf */ SELECT 1",
+            "/* asfd / * asdf * / asdf */ SELECT 1",
         )
         self.validate(
             "SELECT c /* foo */ AS alias",
@@ -163,6 +163,10 @@ class TestTranspile(unittest.TestCase):
             "SELECT * FROM table /* comment 1 */ /* comment 2 */",
         )
         self.validate("SELECT 1 FROM foo -- comment", "SELECT 1 FROM foo /* comment */")
+        self.validate(
+            "SELECT * FROM\n/* comment */\ndb.schema1.tbl PIVOT (SUM(a) FOR b IN ('x', 'y'))",
+            "SELECT * FROM db.schema1.tbl PIVOT(SUM(a) FOR b IN ('x', 'y')) /* comment */",
+        )
         self.validate("SELECT --+5\nx FROM foo", "/* +5 */ SELECT x FROM foo")
         self.validate("SELECT --!5\nx FROM foo", "/* !5 */ SELECT x FROM foo")
         self.validate(
@@ -633,6 +637,27 @@ WHERE
 ORDER BY
   n /* g */ /* h */""",
             pretty=True,
+        )
+
+    def test_comment_single_line_with_block_close(self):
+        # Single-line comments containing */ must be escaped when converted to block comments,
+        # otherwise the */ prematurely closes the block comment and turns comment text into SQL.
+        self.validate(
+            "-- aa */ SELECT * FROM secret_table --\nSELECT 1",
+            "/* aa * / SELECT * FROM secret_table -- */ SELECT 1",
+        )
+        self.validate(
+            "-- comment */ DROP TABLE users --\nSELECT 1",
+            "/* comment * / DROP TABLE users -- */ SELECT 1",
+        )
+        # Nested block comments have their inner markers escaped to prevent misparse on re-emit
+        self.validate(
+            "SELECT c /* c1 /* c2 */ c3 */",
+            "SELECT c /* c1 / * c2 * / c3 */",
+        )
+        self.validate(
+            "SELECT c /* c1 /* c2 /* c3 */ */ */",
+            "SELECT c /* c1 / * c2 / * c3 * / * / */",
         )
 
     def test_types(self):

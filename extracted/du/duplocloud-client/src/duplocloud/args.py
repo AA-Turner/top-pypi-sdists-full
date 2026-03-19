@@ -1,6 +1,13 @@
 import argparse
 import logging
-from .argtype import Arg, YamlAction, JsonPatchAction, DataMapAction
+from .argtype import (
+    Arg,
+    YamlAction,
+    JsonPatchAction,
+    DataMapAction,
+    MetadataAction,
+    ALLOWED_METADATA_TYPES,
+)
 from .commander import available_resources, available_formats, VERSION
 
 # the global args for the CLI
@@ -233,6 +240,42 @@ DELETEVAR = Arg("deletevar", "-D",
             action='append',
             help='a key to delete from the environment variables')
 
+METADATA = Arg(
+    "metadata", "--metadata",
+    action=MetadataAction,
+    help=(
+        "A typed key-value metadata entry: --metadata <key> <type> <value> "
+        f"(repeatable). Type must be one of: "
+        f"{', '.join(sorted(ALLOWED_METADATA_TYPES))}."
+    ),
+)
+"""Metadata Entry
+
+Repeatable flag that appends a ``(key, type, value)`` tuple. Used by commands
+such as ``tenant set_metadata`` to create typed metadata entries.
+
+Example:
+  ```sh
+  duploctl tenant set_metadata -T myenv \\
+    --metadata featureFlag text enabled \\
+    --metadata dashboard url https://internal.example.com
+  ```
+"""
+
+DELETES = Arg("deletes", "--delete",
+              action='append',
+              help='A key to delete (repeatable).')
+"""Delete Key
+
+Repeatable flag that collects key names to delete. Used alongside
+:data:`METADATA` by commands such as ``tenant set_metadata``.
+
+Example:
+  ```sh
+  duploctl tenant set_metadata -T myenv --delete featureFlag
+  ```
+"""
+
 SCHEDULE = Arg("schedule","-s",
                help='The schedule to use')
 
@@ -260,6 +303,11 @@ WAIT = Arg("wait", "-w",
            help='Wait for the operation to complete',
            type=bool,
            action='store_true')
+
+FORCE = Arg("force", "--force",
+            help='Force the operation, bypassing safety guards such as delete protection',
+            type=bool,
+            action='store_true')
 
 STREAM = Arg("stream", "--stream",
              help='Stream the response (follow live output until complete)',
@@ -371,3 +419,8 @@ BATCH_QUEUE = Arg("queue", "-BQ", "-bq", "--batch-queue",
 
 ALLOCATION_TAGS = Arg("allocationtags",
              help='Allocation tag used to specify custom allocation rules')
+
+RESOURCE_TYPE = Arg("resource_type", "--type",
+            help='Filter by cloud resource type number (e.g. 17 for ECR)',
+            type=int,
+            default=None)

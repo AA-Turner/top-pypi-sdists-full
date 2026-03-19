@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-hosting-container-standards
-Version: 0.1.13
+Version: 0.1.14
 Summary: Python toolkit for standardized model hosting container implementations with Amazon SageMaker integration
 License: Apache-2.0
 Author: Amazon Web Services

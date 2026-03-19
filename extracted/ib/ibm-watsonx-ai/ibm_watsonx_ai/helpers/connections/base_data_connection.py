@@ -13,7 +13,7 @@ import os
 from abc import ABC, abstractmethod
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Literal, Tuple, Union
 from warnings import warn
 
 import httpx
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from pandas import DataFrame
 
     from ibm_watsonx_ai import APIClient
-    from ibm_watsonx_ai.helpers.connections import DataConnection
 
 
 class BaseDataConnection(ABC):
@@ -58,6 +57,23 @@ class BaseDataConnection(ABC):
         self._datasource_type = None
         self._s3_type: Literal["ibm", "aws"] | None = None
         self._connection_details: dict | None = None
+        self.__connectable_self: BaseDataConnection | None = None
+
+    @property
+    def _connectable_self(self):
+        """The property's purpose is to store a copy of `self` object
+        (reconstructed by `to_dict` and `from_dict` methods)
+        that is updated with `connection` and `location.bucket` attributes
+        during initialization of S3 connection within `_init_s3_connection` call.
+        This approach prevent from modifying public attributes of the original `self` object.
+        If the S3 connection is not initialized, so the property is not set,
+        it returns original `self` object to avoid facing an error.
+        """
+        return self.__connectable_self or self
+
+    @_connectable_self.setter
+    def _connectable_self(self, var: BaseDataConnection):
+        self.__connectable_self = var
 
     @abstractmethod
     def _to_dict(self) -> dict:
@@ -143,7 +159,9 @@ class BaseDataConnection(ABC):
                 cos_client = self._init_cos_client()
 
                 try:
-                    file = cos_client.Object(self.location.bucket, path).get()
+                    file = cos_client.Object(
+                        self._connectable_self.location.bucket, path
+                    ).get()
                     content = file["Body"].read()
                     df = pd.read_csv(io.BytesIO(content))
 
@@ -188,7 +206,9 @@ class BaseDataConnection(ABC):
             cos_client = self._init_cos_client()
 
             try:
-                file = cos_client.Object(self.location.bucket, path).get()
+                file = cos_client.Object(
+                    self._connectable_self.location.bucket, path
+                ).get()
                 content = file["Body"].read()
                 json_content = json.loads(content.decode("utf-8"))
             except Exception as cos_access_exception:
@@ -239,7 +259,7 @@ class BaseDataConnection(ABC):
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
             if self._is_connection_asset_s3:
                 cos_client = self._init_cos_client()
-                data_conn = self.to_dict()
+                data_conn = self._connectable_self.to_dict()
                 bucket = get_from_json(
                     data_conn, ["location", "bucket"]
                 ) or get_from_json(
@@ -446,6 +466,10 @@ class BaseDataConnection(ABC):
         Helper function that initializes internal `S3Connection` or `_AmazonS3Connection` object based on `_s3_type`.
         Raises `NotS3Connection` if connection asset is not S3.
         """
+        if self.__connectable_self is not None:
+            # To avoid multiple s3 connection init for the same object
+            return
+
         if not self._is_connection_asset_s3:
             raise NotS3Connection()
 
@@ -459,6 +483,10 @@ class BaseDataConnection(ABC):
         Helper function that initializes internal `S3Connection` object based on connection_details retrieved
          from connection asset or container (IBM Cloud).
         """
+        data_connection = self.__class__._from_dict(self._to_dict())
+        if self._api_client is not None:
+            data_connection.set_client(self._api_client)
+
         connection_props = self._connection_details["entity"]["properties"]
 
         connection_values = {
@@ -477,10 +505,10 @@ class BaseDataConnection(ABC):
                 "secret_access_key"
             ]
 
-        if self.connection is None:
+        if data_connection.connection is None:
             from .connections import S3Connection
 
-            self.connection = S3Connection(
+            data_connection.connection = S3Connection(
                 **connection_values,
                 _internal_use=True,
             )
@@ -488,19 +516,21 @@ class BaseDataConnection(ABC):
         else:
             for key, val in connection_values.items():
                 if val is not None:
-                    setattr(self.connection, key, val)
+                    setattr(data_connection.connection, key, val)
 
         if not ("api_key" in connection_props and "iam_url" in connection_props):
             [
-                delattr(self.connection, attr)
+                delattr(data_connection.connection, attr)
                 for attr in ["auth_endpoint", "resource_instance_id", "api_key"]
-                if hasattr(self.connection, attr)
+                if hasattr(data_connection.connection, attr)
             ]
 
-        if self.type == DataConnectionTypes.CN:
-            self.location.bucket = connection_props["bucket_name"]
+        if data_connection.type == DataConnectionTypes.CN:
+            data_connection.location.bucket = connection_props["bucket_name"]
 
-        self.connection.is_s3 = True
+        data_connection.connection.is_s3 = True
+
+        self._connectable_self = data_connection
 
     def _init_s3_aws_connection(self) -> None:
         """
@@ -509,9 +539,13 @@ class BaseDataConnection(ABC):
         """
         from .connections import _AmazonS3Connection
 
+        data_connection = self.__class__._from_dict(self._to_dict())
+        if self._api_client is not None:
+            data_connection.set_client(self._api_client)
+
         connection_props = self._connection_details["entity"]["properties"]
 
-        self.connection = _AmazonS3Connection(
+        data_connection.connection = _AmazonS3Connection(
             access_key=connection_props["credentials"]["access_key_id"],
             bucket=connection_props["bucket_name"],
             region=connection_props["bucket_region"],
@@ -521,17 +555,22 @@ class BaseDataConnection(ABC):
         )
 
         if (
-            self.type == DataConnectionTypes.CN
-            and self.connection._shared_credentials
-            and self._api_client is not None
+            data_connection.type == DataConnectionTypes.CN
+            and data_connection.connection._shared_credentials
+            and data_connection._api_client is not None
         ):
             container_path_prefix = (
-                self._api_client.default_project_id or self._api_client.default_space_id
+                data_connection._api_client.default_project_id
+                or data_connection._api_client.default_space_id
             )
-            if container_path_prefix and not self.location.path.startswith(
+            if container_path_prefix and not data_connection.location.path.startswith(
                 container_path_prefix
             ):
-                self.location.path = f"{container_path_prefix}/{self.location.path}"
+                data_connection.location.path = (
+                    f"{container_path_prefix}/{data_connection.location.path}"
+                )
+
+        self._connectable_self = data_connection
 
     def _is_data_asset_normal(self) -> bool:
         """Returns `True` if data asset is normal data asset - not connected data asset."""
@@ -1017,16 +1056,20 @@ class BaseDataConnection(ABC):
             else self.location.path
         )
         try:
-            file = cos_client.Object(self.location.bucket, location).get()
+            file = cos_client.Object(
+                self._connectable_self.location.bucket, location
+            ).get()
         except Exception as e:
             cos_objects_list = list(
-                cos_client.Bucket(self.location.bucket).objects.filter(Prefix=location)
+                cos_client.Bucket(
+                    self._connectable_self.location.bucket
+                ).objects.filter(Prefix=location)
             )
             if len(cos_objects_list) > 0:
                 file = list(
-                    cos_client.Bucket(self.location.bucket).objects.filter(
-                        Prefix=location
-                    )
+                    cos_client.Bucket(
+                        self._connectable_self.location.bucket
+                    ).objects.filter(Prefix=location)
                 )[0].get()
             else:
                 raise e
@@ -1163,6 +1206,7 @@ class BaseDataConnection(ABC):
         self,
         experiment_iterable_dataset_setup_parameters: dict = None,
         return_data_as_iterator: bool = False,
+        get_headers: Callable | None = None,
     ) -> "ExperimentDataLoader":
         # import the class only if flight scenario is enabled - do not import it in main import section
         from ibm_watsonx_ai.data_loaders.datasets.experiment import (
@@ -1171,7 +1215,7 @@ class BaseDataConnection(ABC):
         from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
 
         iterable_dataset = TabularIterableDataset(
-            **experiment_iterable_dataset_setup_parameters
+            **experiment_iterable_dataset_setup_parameters, get_headers=get_headers
         )
         data_loader = ExperimentDataLoader(dataset=iterable_dataset)
 
@@ -1183,11 +1227,10 @@ class BaseDataConnection(ABC):
 
     def _download_data_from_flight_service(
         self,
-        data_location: "DataConnection",
         binary: bool = False,
         read_to_file: str | Path | None = None,
         flight_parameters: dict | None = None,
-        headers: dict | None = None,
+        get_headers: Callable | None = None,
         number_of_batch_rows: int | None = None,
         sampling_type: str = DEFAULT_SAMPLING_TYPE,
         return_data_as_iterator: bool = False,
@@ -1204,7 +1247,7 @@ class BaseDataConnection(ABC):
         if flight_parameters is None:
             flight_parameters = {"num_partitions": 4}
 
-        dict_connection = data_location._to_dict()
+        dict_connection = self._to_dict()
 
         if get_from_json(dict_connection, ["location", "container"]) == "":
             dict_connection["location"].pop("container", None)
@@ -1215,7 +1258,6 @@ class BaseDataConnection(ABC):
             "prediction_type": self.auto_pipeline_params.get("prediction_type"),
             "project_id": self._api_client.default_project_id,
             "space_id": self._api_client.default_space_id,
-            "headers": self._api_client._get_headers() if headers is None else headers,
         }
 
         experiment_metadata.update(self.auto_pipeline_params)
@@ -1245,6 +1287,9 @@ class BaseDataConnection(ABC):
             return self._create_data_loader(
                 experiment_iterable_dataset_setup_parameters=experiment_iterable_dataset_setup_parameters,
                 return_data_as_iterator=return_data_as_iterator,
+                get_headers=self._api_client._get_headers
+                if get_headers is None
+                else get_headers,
             )
 
         except FlightUnavailableError as e:
@@ -1261,6 +1306,9 @@ class BaseDataConnection(ABC):
                 return self._create_data_loader(
                     experiment_iterable_dataset_setup_parameters=fallback_params,
                     return_data_as_iterator=return_data_as_iterator,
+                    get_headers=self._api_client._get_headers
+                    if get_headers is None
+                    else get_headers,
                 )
             else:
                 raise e
@@ -1277,6 +1325,9 @@ class BaseDataConnection(ABC):
                 return self._create_data_loader(
                     experiment_iterable_dataset_setup_parameters=experiment_iterable_dataset_setup_parameters,
                     return_data_as_iterator=return_data_as_iterator,
+                    get_headers=self._api_client._get_headers
+                    if get_headers is None
+                    else get_headers,
                 )
             except Exception as e2:
                 raise DataStreamError(
@@ -1286,12 +1337,11 @@ class BaseDataConnection(ABC):
 
     def _upload_data_via_flight_service(
         self,
-        data_location: "DataConnection",
         data: DataFrame | None = None,
         file_path: str | Path | None = None,
         remote_name: str | None = None,
         flight_parameters: dict | None = None,
-        headers: dict | None = None,
+        get_headers: Callable | None = None,
         binary: bool = False,
     ):
         import pandas as pd
@@ -1315,7 +1365,7 @@ class BaseDataConnection(ABC):
         if flight_parameters is None:
             flight_parameters = {"num_partitions": 1}
 
-        dict_connection = data_location._to_dict()
+        dict_connection = self._to_dict()
 
         if get_from_json(dict_connection, ["location", "container"]) == "":
             dict_connection["location"].pop("container", None)
@@ -1333,7 +1383,6 @@ class BaseDataConnection(ABC):
             "n_parallel_data_connections": flight_parameters.get("num_partitions", 1),
             "project_id": self._api_client.default_project_id,
             "space_id": self._api_client.default_space_id,
-            "headers": self._api_client._get_headers() if headers is None else headers,
         }
 
         experiment_metadata.update(self.auto_pipeline_params)
@@ -1366,6 +1415,9 @@ class BaseDataConnection(ABC):
             ),
             _api_client=self._api_client,
             extra_interaction_properties=extra_interaction_properties,
+            get_headers=self._api_client._get_headers
+            if get_headers is None
+            else get_headers,
         )
 
         if data is not None:

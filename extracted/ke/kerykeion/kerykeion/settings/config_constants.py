@@ -237,7 +237,7 @@ DEFAULT_ACTIVE_POINTS: List[AstrologicalPoint] = [
     # "Ixion",
     # "Orcus",
     # "Quaoar",
-    # --- Fixed Stars (22 total, expanded in v5.12 from 2) ---
+    # --- Fixed Stars (23 total, expanded in v5.12 from 2) ---
     # "Regulus",
     # "Spica",
     # "Aldebaran",
@@ -260,6 +260,7 @@ DEFAULT_ACTIVE_POINTS: List[AstrologicalPoint] = [
     # "Alphecca",
     # "Algorab",
     # "Deneb_Algedi",
+    # "Alkaid",
     "Ascendant",
     "Medium_Coeli",
     "Descendant",
@@ -312,7 +313,7 @@ ALL_ACTIVE_POINTS: List[AstrologicalPoint] = [
     "Ixion",
     "Orcus",
     "Quaoar",
-    # Fixed Stars (22 total -- expanded in v5.12 from 2)
+    # Fixed Stars (23 total -- expanded in v5.12 from 2)
     "Regulus",
     "Spica",
     "Aldebaran",
@@ -335,6 +336,7 @@ ALL_ACTIVE_POINTS: List[AstrologicalPoint] = [
     "Alphecca",
     "Algorab",
     "Deneb_Algedi",
+    "Alkaid",
     # Angular Points
     "Ascendant",
     "Medium_Coeli",

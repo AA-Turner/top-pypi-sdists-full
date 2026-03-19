@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import collections
-from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence, Set
+from collections.abc import Callable, Hashable, Iterable, Generator, Mapping, Sequence, Set
 import contextlib
 import copy
 import dataclasses
@@ -25,7 +25,7 @@ import enum
 import functools
 import itertools
 import threading
-from typing import Any, ClassVar, Protocol, TypeAlias, Union, runtime_checkable
+from typing import Any, ClassVar, Optional, Protocol, TypeAlias, Union, runtime_checkable
 
 from jax._src import api_util
 from jax._src import config
@@ -130,6 +130,26 @@ class CompilerParams(Protocol):
   # Subclasses must be dataclasses.
   __dataclass_fields__: ClassVar[dict[str, dataclasses.Field[Any]]]
 
+
+@enum.unique
+class RevisitMode(enum.Enum):
+  """Specifies whether an output buffer supports revisiting.
+
+  By default, buffers can only be safely revisited at the next iteration
+  (immediate revisiting). If revisited at any other iteration, the buffer state
+  should be considered undefined.
+
+  If revisiting at any arbitrary iteration is required, use RevisitMode.ANY.
+  This will insert additional DMAs as needed to restore the buffer state.
+
+  Input buffers ignore revisit mode: as inputs read data from memory, their
+  buffers state is correct regardless of revisit order.
+  """
+
+  IMMEDIATE = "immediate"
+  ANY = "any"
+
+
 @dataclasses.dataclass(frozen=True)
 class Buffered:
   """Specifies how a block should be buffered for a pipeline.
@@ -140,9 +160,17 @@ class Buffered:
       buffer. Enabling lookahead allows the pipeline to begin fetching the next
       changed block as soon as a slot is available, no matter how many
       iterations ahead that block is.
+    revisit: optional RevisitMode, determines how revisiting the same output
+      block at different iterations is handled. RevisitMode.IMMEDIATE is the
+      default for outputs. In this mode, the same block can only be revisited in
+      subsequent kernel invocations. Once another block is visited, the old one
+      should not be visited again. RevisitMode.ANY relaxes this restriction, at
+      a cost of addition DMAs. Input blocks ignore this field and can be visited
+      at any iteration, as they read the state from memory in any case.
   """
   buffer_count: int
   use_lookahead: bool = False
+  revisit: Optional[RevisitMode] = None
 
 split_list = util.split_list
 
@@ -319,7 +347,7 @@ class GridAxis:
 GridEnv = Sequence[GridAxis]
 
 @contextlib.contextmanager
-def grid_env(env: GridEnv) -> Iterator[None]:
+def grid_env(env: GridEnv) -> Generator[None, None, None]:
   _pallas_tracing_env.grid_env_stack.append(env)
   try:
     yield
@@ -653,7 +681,8 @@ def undo_transforms(
   transforms: list[state_types.Transform] = []
   avals = [aval]
   for t in memory_transforms[:-1]:
-    avals.append(t.transform_type(aval))
+    aval = t.transform_type(aval)
+    avals.append(aval)
   for t, a in reversed(list(zip(memory_transforms, avals))):
     transforms.append(t.undo(a))
   return transforms
@@ -710,8 +739,12 @@ class BlockMapping:
     """Returns the abstract value of the Ref after transformations."""
     if not self.transforms:
       return self.transformed_block_aval
+    ref_block_shape = _get_ref_block_shape(self.block_shape)
+    logical_ref_aval = state.AbstractRef(
+        self.array_aval.update(shape=ref_block_shape),
+        self.transformed_block_aval.memory_space)
     reverse_transforms = tuple(undo_transforms(
-        self.transformed_block_aval, self.transforms
+        logical_ref_aval, self.transforms
     ))
     return TransformedRef(self.transformed_block_aval, reverse_transforms)
 
@@ -940,7 +973,7 @@ class GridMapping:
       axis_env_ctx = contextlib.nullcontext()
     else:
       axis_env_ctx = jax_core.extend_axis_env_nd(
-          zip(self.grid_names, self.grid)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+          zip(self.grid_names, self.grid)  # pyrefly: ignore[bad-argument-type]
       )
     with tracing_grid_env(self.grid, self.vmapped_dims), axis_env_ctx:
       yield
@@ -1103,7 +1136,7 @@ class ScratchShape(Protocol):
 
 
 ScratchShapeTree = (
-    Sequence[Union[ScratchShape, "ScratchShapeTree"]]
+    Sequence[Union[ScratchShape, "ScratchShapeTree", None]]
     | Mapping[str, Union[ScratchShape, "ScratchShapeTree"]]
 )
 
@@ -1171,9 +1204,9 @@ def get_grid_mapping(
     debug: bool = False,
 ) -> tuple[tuple[jax_core.AbstractValue, ...], GridMapping]:
   if dynamic_shapes_export_enabled():
-    dim_check : Any = jax_core.is_dim
+    dim_check: Any = jax_core.is_dim
   else:
-    dim_check : Any = jax_core.is_constant_dim  # type: ignore[no-redef]
+    dim_check: Any = jax_core.is_constant_dim
   assert all(i is None or dim_check(i) for i in grid_spec.grid)
   grid_mapping_grid = tuple(
       dynamic_grid_dim if (
@@ -1235,7 +1268,7 @@ def get_grid_mapping(
           _convert_block_spec_to_block_mapping,
           index_map_avals=index_map_avals,
           index_map_tree=index_map_tree,
-          grid=grid_mapping_grid,  # type: ignore[arg-type]
+          grid=grid_mapping_grid,
           vmapped_dims=(),
           debug=debug,
       ),
@@ -1258,7 +1291,7 @@ def get_grid_mapping(
           _convert_block_spec_to_block_mapping,
           index_map_avals=index_map_avals,
           index_map_tree=index_map_tree,
-          grid=grid_mapping_grid,  # type: ignore[arg-type]
+          grid=grid_mapping_grid,
           vmapped_dims=(),
           debug=debug,
       ),
@@ -1295,9 +1328,9 @@ def get_grid_mapping(
 def unzip_dynamic_grid_bounds(
     grid_spec: GridSpec) -> tuple[GridSpec, tuple[Any, ...]]:
   if dynamic_shapes_export_enabled():
-    new_grid : Any = grid_spec.grid
+    new_grid: Any = grid_spec.grid
   else:
-    new_grid : Any = tuple(d if isinstance(d, int) else None for d in grid_spec.grid)  # type: ignore[no-redef]
+    new_grid: Any = tuple(d if isinstance(d, int) else None for d in grid_spec.grid)
   dynamic_bounds = tuple(d for d in grid_spec.grid if not isinstance(d, int))
   # We can't use dataclasses.replace, because our fields are incompatible
   # with __init__'s signature.
@@ -1742,9 +1775,12 @@ def _convert_out_shape_to_aval(out_shape: Any) -> jax_core.AbstractValue:
               " output should be varying across mesh axes using the `vma`"
               " argument of `jax.ShapeDtypeStruct` or set `check_vma=False` on"
               " `jax.shard_map`.")
+        # TODO(yashkatariya): Remove this once we have `aval.mt`
+        spec = (out_shape.sharding.spec
+                if isinstance(out_shape.sharding, jax_core.NamedSharding) else None)
         return jax_core.ShapedArray(
             shape=out_shape.shape, dtype=out_shape.dtype,
-            sharding=jax_core.get_cur_mesh_sharding(), vma=out_shape.vma)
+            sharding=jax_core.get_cur_mesh_sharding(spec), vma=out_shape.vma)
       return jax_core.ShapedArray(shape=out_shape.shape, dtype=out_shape.dtype,
                                   sharding=jax_core.get_cur_mesh_sharding())
     case MemoryRef():

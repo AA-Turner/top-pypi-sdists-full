@@ -13,10 +13,11 @@ from __future__ import annotations
 import pprint
 import re
 import json
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.serializers.field import AnnotatedField
 
 
 class OAuth1Credential(BaseModel):
@@ -24,10 +25,10 @@ class OAuth1Credential(BaseModel):
     OAuth 1.0a credential model. This auth type is not used much, handling is done per-connector.
     """
 
-    consumer_key: StrictStr
-    consumer_secret: StrictStr
-    token_id: StrictStr
-    token_secret: StrictStr
+    consumer_key: StrictStr = Field(description="Consumer Key")
+    consumer_secret: StrictStr = AnnotatedField(description="Consumer Secret", secret=True)
+    token_id: StrictStr = Field(description="Token ID")
+    token_secret: StrictStr = AnnotatedField(description="Token Secret", secret=True)
     __properties: ClassVar[List[str]] = [
         "consumer_key",
         "consumer_secret",

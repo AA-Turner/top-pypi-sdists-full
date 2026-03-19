@@ -849,6 +849,29 @@ def count_checkpoints(db: ThreadSafeConnection, run_id: str) -> int:
     return row[0] if row else 0
 
 
+def list_runs_by_spec(db: ThreadSafeConnection, spec_fqn: str) -> list[dict[str, Any]]:
+    """List workflow runs linked to a spec artifact via ``inputs_json``.
+
+    Returns run summaries with ``task_id`` extracted from inputs.
+    """
+    rows = db.execute_fetchall(
+        "SELECT id, workflow_id, status, inputs_json, created_at, completed_at"
+        " FROM workflow_runs"
+        " WHERE json_extract(inputs_json, '$.spec_fqn') = ?"
+        " ORDER BY created_at DESC",
+        (spec_fqn,),
+    )
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        d = dict(row)
+        raw_inputs = d.pop("inputs_json", None)
+        inputs = json.loads(raw_inputs) if raw_inputs else {}
+        d["task_id"] = inputs.get("task_id")
+        d["spec_fqn"] = inputs.get("spec_fqn")
+        results.append(d)
+    return results
+
+
 def _checkpoint_row_to_dict(row: Any) -> dict[str, Any]:
     if isinstance(row, dict):
         d = dict(row)

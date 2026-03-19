@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-ldap3
-Version: 2.9.13.20251121
+Version: 2.9.13.20260319
 Summary: Typing stubs for ldap3
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: types-pyasn1
@@ -32,8 +32,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`3e1b90bb2d772781c2b6f318e0f44ef791cf5160`](https://github.com/python/typeshed/commit/3e1b90bb2d772781c2b6f318e0f44ef791cf5160).
+[`50ec9108eb191ab96d9ab766e506a7c680d5f3d6`](https://github.com/python/typeshed/commit/50ec9108eb191ab96d9ab766e506a7c680d5f3d6).

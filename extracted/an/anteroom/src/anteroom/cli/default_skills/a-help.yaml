@@ -165,6 +165,7 @@ prompt: |
   | /compact         | Compact conversation to reduce token usage          |
   | /usage           | Show token usage and cost statistics                |
   | /tools           | Show available tools with tier assignments          |
+  | /spec            | Manage specs (list/show/create/approve/unapprove/diff) |
   | /pack            | Manage packs (list/install/update/remove/attach/detach) |
   | /mcp             | Show MCP server status and tools                    |
   | /conventions     | Display space conventions (ANTEROOM.md)             |
@@ -200,6 +201,8 @@ prompt: |
   **Security**: `docs/security/tool-safety.md` (tiers, approval modes), `docs/security/bash-sandboxing.md` (bash sandbox), `docs/security/authentication.md` (auth, sessions, IP allowlist), `docs/security/audit-log.md` (audit logging), `docs/security/hardening.md` (hardening guide), `docs/security/prompt-injection-defense.md`, `docs/security/index.md`
 
   **Packs & Artifacts**: `docs/packs/index.md` (overview), `docs/packs/concepts.md` (types, FQN, precedence), `docs/packs/pack-commands.md` (CLI commands), `docs/packs/manifest-format.md` (pack.yaml), `docs/packs/artifact-types.md` (7 types), `docs/packs/health-check.md`, `docs/packs/troubleshooting.md`
+
+  **Specs**: `docs/specs/index.md` (overview), `docs/specs/quickstart.md`, `docs/specs/concepts.md` (phases, invalidation, gates), `docs/specs/commands.md` (CLI ref), `docs/specs/schema-reference.md` (YAML format), `docs/specs/api-reference.md` (REST endpoints), `docs/specs/troubleshooting.md`
 
   **Spaces**: `docs/spaces/index.md` (overview), `docs/spaces/commands.md` (space commands), `docs/spaces/space-file-format.md`, `docs/spaces/config-overlay.md`
 

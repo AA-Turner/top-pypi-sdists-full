@@ -72,7 +72,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.85"
+version = "0.0.86"
 authors = [
   "jesse k. rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -208,7 +208,7 @@ tracing = { version = "0.1.44", default-features = false, features = [
   "attributes",
 ] }
 tracing-log = { version = "0.2.0", default-features = false, features = [] }
-tracing-subscriber = { version = "0.3.20", default-features = false, features = [
+tracing-subscriber = { version = "0.3.23", default-features = false, features = [
   "default",
   "serde",
   "serde_json",
@@ -218,9 +218,9 @@ rand = { version = "0.10.0", default-features = false, features = [] }
 ulid = { version = "1.2.1", default-features = false, features = ["std"] }
 unindent = { version = "0.2.4", default-features = false, features = [] }
 url = { version = "2.5.4", default-features = false, features = ["std"] }
-uuid = { version = "1.21.0", default-features = false, features = [] }
+uuid = { version = "1.22.0", default-features = false, features = [] }
 walkdir = { version = "2.5.0", default-features = false, features = [] }
-which = { version = "8.0.0", default-features = false, features = [] }
+which = { version = "8.0.2", default-features = false, features = [] }
 zstd = { version = "0.13.3", default-features = false, features = [] }
 zstd-safe = { version = "7.2.4", default-features = false, features = [] }
 

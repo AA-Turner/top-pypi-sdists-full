@@ -1,5 +1,11 @@
-from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from rocketchat_API.APISections.base import RocketChatBase, paginated
+from rocketchat_API.APIExceptions.RocketExceptions import (
+    ROOM_ID_OR_USERNAME_REQUIRED,
+    RocketMissingParamException,
+)
+from rocketchat_API.APISections.base import (
+    RocketChatBase,
+    paginated,
+)
 
 
 class RocketChatDM(RocketChatBase):
@@ -36,9 +42,10 @@ class RocketChatDM(RocketChatBase):
         """Removes the direct message from the user's list of direct messages."""
         return self.call_api_post("dm.close", roomId=room_id, kwargs=kwargs)
 
-    def dm_members(self, room_id):
+    @paginated("members")
+    def dm_members(self, room_id, **kwargs):
         """Retrieves members of a direct message."""
-        return self.call_api_get("dm.members", roomId=room_id)
+        return self.call_api_get("dm.members", roomId=room_id, kwargs=kwargs)
 
     @paginated("messages")
     def dm_messages(self, room_id=None, username=None, **kwargs):
@@ -49,8 +56,9 @@ class RocketChatDM(RocketChatBase):
         if username:
             return self.call_api_get("dm.messages", username=username, kwargs=kwargs)
 
-        raise RocketMissingParamException("roomId or username required")
+        raise RocketMissingParamException(ROOM_ID_OR_USERNAME_REQUIRED)
 
+    @paginated("messages")
     def dm_messages_others(self, room_id, **kwargs):
         """Retrieves the messages from any direct message in the server"""
         return self.call_api_get("dm.messages.others", roomId=room_id, kwargs=kwargs)
@@ -68,7 +76,7 @@ class RocketChatDM(RocketChatBase):
             return self.call_api_get("dm.files", roomId=room_id, kwargs=kwargs)
         if user_name:
             return self.call_api_get("dm.files", username=user_name, kwargs=kwargs)
-        raise RocketMissingParamException("roomId or username required")
+        raise RocketMissingParamException(ROOM_ID_OR_USERNAME_REQUIRED)
 
     def dm_counters(self, room_id, user_name=None):
         """Gets counters of direct messages."""

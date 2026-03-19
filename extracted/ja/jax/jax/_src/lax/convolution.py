@@ -791,7 +791,7 @@ def _conv_general_dilated_lower(
     return complex_conv(ctx, lhs, rhs)
 
   lhs_spec, rhs_spec, out_spec = dimension_numbers
-  dnums = hlo.ConvDimensionNumbers.get(  # pyrefly: ignore[missing-attribute]
+  dnums = hlo.ConvDimensionNumbers.get(
     input_batch_dimension=lhs_spec[0],
     input_feature_dimension=lhs_spec[1],
     input_spatial_dimensions=list(lhs_spec[2:]),
@@ -928,6 +928,7 @@ def conv_transpose_shape_tuple(lhs_shape, rhs_shape, window_strides, padding,
                      for i, k, s in zip(lhs_trans[2:],
                                         rhs_trans[2:],
                                         window_strides)]
+  # pyrefly: ignore[no-matching-overload]
   out_space = np.sum([unpad_out_space, padding], axis=0).tolist()
   out_trans = tuple((lhs_trans[0], rhs_trans[0]) + tuple(out_space))
   return tuple(np.take(out_trans, np.argsort(out_perm)))

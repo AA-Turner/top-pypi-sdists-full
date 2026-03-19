@@ -91,7 +91,14 @@ class VirtualEnvironment:
         if self.project_path.exists():
             return
 
-        virtual_env = venv.EnvBuilder(with_pip=True)
+        virtual_env = venv.EnvBuilder(
+            with_pip=True,
+            # Use symlinks so the venv python binary is a symlink back to the original interpreter
+            # rather than a copy. Copied binaries break on shared-library Python builds (e.g. uv-managed
+            # CPython) because the binary locates libpython via $ORIGIN/../lib/, which resolves relative
+            # to the binary's actual location — a copy in the new venv where the .so doesn't exist.
+            symlinks=True,
+        )
         virtual_env.create(self.project_path)
 
         shutil.copytree(deptry_directory / "tests/fixtures" / self.project, self.project_path / "project")
@@ -116,6 +123,19 @@ class VirtualEnvironment:
             check=check,
             cwd=cwd,
         )
+
+    def run_deptry(
+        self, arguments: str = "", enforce_posix_paths: bool = True, no_ansi: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        command = f"deptry {arguments}"
+
+        if enforce_posix_paths:
+            command += " --enforce-posix-paths"
+
+        if no_ansi:
+            command += " --no-ansi"
+
+        return self.run(command)
 
     @staticmethod
     def _get_path_to_wheel_file(directory: Path) -> Path:

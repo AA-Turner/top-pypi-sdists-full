@@ -90,7 +90,7 @@ def _reduce_window(
     return monoid_reducer(operand, window_dimensions, window_strides, padding,
                           base_dilation, window_dilation)
   else:
-    flat_init_avals = map(core.get_aval, flat_init_values)
+    flat_init_avals = map(core.typeof, flat_init_values)
     jaxpr, out_tree = lax._variadic_reduction_jaxpr(
         computation, comp_debug, tuple(flat_init_avals), init_value_tree
     )
@@ -182,7 +182,7 @@ def _get_monoid_window_reducer(
   if len(xs) != 1:
     return None
   x, = xs
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   if core.is_concrete(x) and aval.shape == ():
     val = core.to_concrete_value(x)
     if monoid_op is lax.add:
@@ -217,7 +217,7 @@ def _reduce_window_prod(operand: Array, window_dimensions: core.Shape,
                         base_dilation: Sequence[int] | None = None,
                         window_dilation: Sequence[int] | None = None) -> Array:
   init_value = lax._const(operand, 1)
-  jaxpr, consts = lax._reduction_jaxpr(lax.mul, core.get_aval(init_value))
+  jaxpr, consts = lax._reduction_jaxpr(lax.mul, core.typeof(init_value))
   if base_dilation is None:
     base_dilation = (1,) * len(window_dimensions)
   if window_dilation is None:
@@ -267,7 +267,7 @@ def _reduce_window_logaddexp(
     base_dilation: Sequence[int] | None = None,
     window_dilation: Sequence[int] | None = None) -> Array:
   init_value = lax._const(operand, -np.inf)
-  jaxpr, consts = lax._reduction_jaxpr(logaddexp, core.get_aval(init_value))
+  jaxpr, consts = lax._reduction_jaxpr(logaddexp, core.typeof(init_value))
   if base_dilation is None:
     base_dilation = (1,) * len(window_dimensions)
   if window_dilation is None:
@@ -286,9 +286,9 @@ def _select_and_scatter(operand: Array, select: Callable,
                         padding: Sequence[tuple[int, int]], source: Array,
                         init_value: Array, scatter: Callable) -> Array:
   select_jaxpr, select_consts = lax._reduction_jaxpr(
-    select, core.get_aval(init_value))
+    select, core.typeof(init_value))
   scatter_jaxpr, scatter_consts = lax._reduction_jaxpr(
-    scatter, core.get_aval(init_value))
+    scatter, core.typeof(init_value))
   operand, source, init_value = core.standard_insert_pvary(
       operand, source, init_value)
   return select_and_scatter_p.bind(
@@ -442,7 +442,7 @@ def reduce_window_jvp(
 
   init_value_tangent = map(ad_util.instantiate, init_value_tangent)
   c_reduction_jaxpr = ClosedJaxpr(reduction_jaxpr, consts)
-  jvp_reduction = ad.jvp_jaxpr(c_reduction_jaxpr, (True,) * len(tangents), [False] * len(init_value_tangent))[0]  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+  jvp_reduction = ad.jvp_jaxpr(c_reduction_jaxpr, (True,) * len(tangents), [False] * len(init_value_tangent))[0]
 
   def wrapper(left, right):
     pl, tl = util.split_list(left, [n])
@@ -487,7 +487,7 @@ def _generic_reduce_window_lower(
     if jaxpr.effects:
       raise NotImplementedError('Cannot lower effectful `reduce_window`.')
     out_nodes, _ = mlir.jaxpr_subcomp(ctx.module_context, jaxpr, ctx.name_stack,
-        mlir.TokenSet(), consts, *reducer.arguments,  # type: ignore[misc]
+        mlir.TokenSet(), consts, *reducer.arguments,
         dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
         outer_traceback=ctx.traceback)
     return mlir.flatten_ir_values(out_nodes)
@@ -726,6 +726,7 @@ def _select_and_scatter_lower(
     window_strides, padding):
   operand_aval, source_aval, init_value_aval = ctx.avals_in
   aval_out, = ctx.avals_out
+  assert isinstance(operand_aval, ShapedArray)
   scalar_aval = operand_aval.update(
       shape=(), sharding=operand_aval.sharding.update(spec=()))
   scalar_type = mlir.aval_to_ir_type(scalar_aval)
@@ -840,9 +841,9 @@ def _select_and_scatter_add_impl(source, operand, *,
   dtype = source.dtype
   select = lambda x, y: select_prim.bind(x, y)
   scatter = lax.bitwise_or if dtype == np.bool_ else lax.add
+  original_padding = padding
+  operand_shape = operand.shape
   if expand_padding:
-    operand_shape = operand.shape
-    original_padding = padding
     identity = (lax._get_max_identity if select_prim is lax.ge_p
                 else lax._get_min_identity)
     pads = [(lo, hi, 0) for (lo, hi) in padding]
@@ -921,7 +922,7 @@ def _select_and_gather_add_lowering(
     # 2k-bit unsigned integer using bit tricks.
     word_dtype = lax._UINT_DTYPES[nbits]
     double_word_dtype = lax._UINT_DTYPES[nbits * 2]
-    word_type = mlir.dtype_to_ir_type(word_dtype)  # type: ignore
+    word_type = mlir.dtype_to_ir_type(word_dtype)
     # Packs two values into a double_word_type.
     def pack(a, b, ab_aval):
       word_type_ab_aval = ab_aval.update(dtype=word_dtype)
@@ -996,7 +997,7 @@ def _select_and_gather_add_lowering(
   def reducer_body(reducer: ir.Block) -> Sequence[ir.Value]:
     x: ir.Value
     y: ir.Value
-    x, y = reducer.arguments  # type: ignore
+    x, y = reducer.arguments
     assert select_prim is lax.ge_p or select_prim is lax.le_p
     cmp_op = "GE" if select_prim is lax.ge_p else "LE"
     out = hlo.SelectOp(mlir.compare_hlo(fst(x), fst(y), cmp_op), x, y)

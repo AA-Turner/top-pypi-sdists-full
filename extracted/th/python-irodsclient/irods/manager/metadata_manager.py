@@ -27,25 +27,44 @@ class InvalidAtomicAVURequest(Exception):
     pass
 
 
+# This was necessarily made separate from the MetadataManager definition
+# in order to avoid infinite recursion in iRODSMetaCollection.__getattr__
+_MetadataManager_opts_initializer = {'admin': False, 'timestamps': False, 'iRODSMeta_type': iRODSMeta, 'reload': True}
+
+
 class MetadataManager(Manager):
+    def __init__(self, *_):
+        self._opts = _MetadataManager_opts_initializer.copy()
+        super().__init__(*_)
 
     @property
     def use_timestamps(self):
-        return getattr(self, "_use_ts", False)
+        return self._opts['timestamps']
 
-    __kw : Dict[str, Any] = {}  # default (empty) keywords
+    __kw: Dict[str, Any] = {}  # default (empty) keywords
 
     def _updated_keywords(self, opts):
         kw_ = self.__kw.copy()
         kw_.update(opts)
         return kw_
 
-    def __call__(self, admin=False, timestamps=False, **irods_kw_opt):
-        if admin:
-            irods_kw_opt.update([(kw.ADMIN_KW, "")])
+    def get_api_keywords(self):
+        return self.__kw.copy()
+
+    def __call__(self, **flags):
+        # Make a new shallow copy of the manager object, but update options from parameter list.
         new_self = copy.copy(self)
-        new_self._use_ts = timestamps
-        new_self.__kw = irods_kw_opt
+        new_self._opts = copy.copy(self._opts)
+
+        # Update the flags that do bookkeeping in the returned(new) manager object.
+        new_self._opts.update((key, val) for key, val in flags.items() if val is not None)
+
+        # Update the ADMIN_KW flag in the returned(new) object.
+        if new_self._opts.get('admin'):
+            self.__kw[kw.ADMIN_KW] = ""
+        else:
+            self.__kw.pop(kw.ADMIN_KW, None)
+
         return new_self
 
     @staticmethod
@@ -67,6 +86,9 @@ class MetadataManager(Manager):
         }[model_cls]
 
     def get(self, model_cls, path):
+        if not path:
+            # Short circuit.  This should be of the same type as the object returned at the function's end.
+            return []
         resource_type = self._model_class_to_resource_type(model_cls)
         model = {
             "d": DataObjectMeta,
@@ -96,7 +118,7 @@ class MetadataManager(Manager):
             return opts
 
         return [
-            iRODSMeta(
+            self._opts['iRODSMeta_type'](None, None, None)._from_column_triple(
                 row[model.name], row[model.value], row[model.units], **meta_opts(row)
             )
             for row in results
@@ -106,17 +128,9 @@ class MetadataManager(Manager):
 
         resource_type = self._model_class_to_resource_type(model_cls)
         message_body = MetadataRequest(
-            "add",
-            "-" + resource_type,
-            path,
-            meta.name,
-            meta.value,
-            meta.units,
-            **self._updated_keywords(opts)
+            "add", "-" + resource_type, path, *meta._to_column_triple(), **self._updated_keywords(opts)
         )
-        request = iRODSMessage(
-            "RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"]
-        )
+        request = iRODSMessage("RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"])
         with self.sess.pool.get_connection() as conn:
             conn.send(request)
             response = conn.recv()
@@ -125,17 +139,9 @@ class MetadataManager(Manager):
     def remove(self, model_cls, path, meta, **opts):
         resource_type = self._model_class_to_resource_type(model_cls)
         message_body = MetadataRequest(
-            "rm",
-            "-" + resource_type,
-            path,
-            meta.name,
-            meta.value,
-            meta.units,
-            **self._updated_keywords(opts)
+            "rm", "-" + resource_type, path, *meta._to_column_triple(), **self._updated_keywords(opts)
         )
-        request = iRODSMessage(
-            "RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"]
-        )
+        request = iRODSMessage("RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"])
         with self.sess.pool.get_connection() as conn:
             conn.send(request)
             response = conn.recv()
@@ -145,16 +151,9 @@ class MetadataManager(Manager):
         src_resource_type = self._model_class_to_resource_type(src_model_cls)
         dest_resource_type = self._model_class_to_resource_type(dest_model_cls)
         message_body = MetadataRequest(
-            "cp",
-            "-" + src_resource_type,
-            "-" + dest_resource_type,
-            src,
-            dest,
-            **self._updated_keywords(opts)
+            "cp", "-" + src_resource_type, "-" + dest_resource_type, src, dest, **self._updated_keywords(opts)
         )
-        request = iRODSMessage(
-            "RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"]
-        )
+        request = iRODSMessage("RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"])
 
         with self.sess.pool.get_connection() as conn:
             conn.send(request)
@@ -164,17 +163,9 @@ class MetadataManager(Manager):
     def set(self, model_cls, path, meta, **opts):
         resource_type = self._model_class_to_resource_type(model_cls)
         message_body = MetadataRequest(
-            "set",
-            "-" + resource_type,
-            path,
-            meta.name,
-            meta.value,
-            meta.units,
-            **self._updated_keywords(opts)
+            "set", "-" + resource_type, path, *meta._to_column_triple(), **self._updated_keywords(opts)
         )
-        request = iRODSMessage(
-            "RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"]
-        )
+        request = iRODSMessage("RODS_API_REQ", msg=message_body, int_info=api_number["MOD_AVU_METADATA_AN"])
         with self.sess.pool.get_connection() as conn:
             conn.send(request)
             response = conn.recv()
@@ -193,9 +184,7 @@ class MetadataManager(Manager):
 
     def apply_atomic_operations(self, model_cls, path, *avu_ops):
         if not all(isinstance(op, AVUOperation) for op in avu_ops):
-            raise InvalidAtomicAVURequest(
-                "avu_ops must contain 1 or more AVUOperations"
-            )
+            raise InvalidAtomicAVURequest("avu_ops must contain 1 or more AVUOperations")
         request = {
             "admin_mode": True if kw.ADMIN_KW in self.__kw.keys() else False,
             "entity_name": path,

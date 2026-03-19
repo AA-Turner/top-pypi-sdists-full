@@ -6,7 +6,7 @@ isort:skip_file
 from collections import abc as _abc
 from grpc import aio as _aio
 import abc as _abc_1
-import encryption_pb2 as _encryption_pb2
+from . import encryption_pb2 as _encryption_pb2
 import grpc as _grpc
 import sys
 import typing as _typing

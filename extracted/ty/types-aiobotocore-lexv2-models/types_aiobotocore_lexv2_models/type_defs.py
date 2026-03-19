@@ -50,6 +50,7 @@ from .literals import (
     BedrockTraceStatusType,
     BotAliasReplicationStatusType,
     BotAliasStatusType,
+    BotAnalyzerStatusType,
     BotFilterNameType,
     BotFilterOperatorType,
     BotLocaleFilterOperatorType,
@@ -79,6 +80,7 @@ from .literals import (
     MergeStrategyType,
     MessageSelectionStrategyType,
     ObfuscationSettingTypeType,
+    PriorityType,
     PromptAttemptType,
     SearchOrderType,
     SlotConstraintType,
@@ -176,6 +178,8 @@ __all__ = (
     "BotAliasReplicaSummaryTypeDef",
     "BotAliasSummaryTypeDef",
     "BotAliasTestExecutionTargetTypeDef",
+    "BotAnalyzerHistorySummaryTypeDef",
+    "BotAnalyzerRecommendationTypeDef",
     "BotExportSpecificationTypeDef",
     "BotFilterTypeDef",
     "BotImportSpecificationOutputTypeDef",
@@ -270,6 +274,7 @@ __all__ = (
     "DefaultConditionalBranchTypeDef",
     "DeleteBotAliasRequestTypeDef",
     "DeleteBotAliasResponseTypeDef",
+    "DeleteBotAnalyzerRecommendationRequestTypeDef",
     "DeleteBotLocaleRequestTypeDef",
     "DeleteBotLocaleResponseTypeDef",
     "DeleteBotReplicaRequestTypeDef",
@@ -296,6 +301,9 @@ __all__ = (
     "DescribeBotAliasRequestTypeDef",
     "DescribeBotAliasRequestWaitTypeDef",
     "DescribeBotAliasResponseTypeDef",
+    "DescribeBotAnalyzerRecommendationRequestPaginateTypeDef",
+    "DescribeBotAnalyzerRecommendationRequestTypeDef",
+    "DescribeBotAnalyzerRecommendationResponseTypeDef",
     "DescribeBotLocaleRequestTypeDef",
     "DescribeBotLocaleRequestWaitExtraExtraTypeDef",
     "DescribeBotLocaleRequestWaitExtraTypeDef",
@@ -406,6 +414,7 @@ __all__ = (
     "IntentStatisticsTypeDef",
     "IntentSummaryTypeDef",
     "InvokedIntentSampleTypeDef",
+    "IssueLocationTypeDef",
     "KendraConfigurationTypeDef",
     "LambdaCodeHookTypeDef",
     "LexTranscriptFilterOutputTypeDef",
@@ -416,6 +425,9 @@ __all__ = (
     "ListBotAliasReplicasResponseTypeDef",
     "ListBotAliasesRequestTypeDef",
     "ListBotAliasesResponseTypeDef",
+    "ListBotAnalyzerHistoryRequestPaginateTypeDef",
+    "ListBotAnalyzerHistoryRequestTypeDef",
+    "ListBotAnalyzerHistoryResponseTypeDef",
     "ListBotLocalesRequestTypeDef",
     "ListBotLocalesResponseTypeDef",
     "ListBotRecommendationsRequestTypeDef",
@@ -485,6 +497,7 @@ __all__ = (
     "OutputContextTypeDef",
     "OverallTestResultItemTypeDef",
     "OverallTestResultsTypeDef",
+    "PaginatorConfigTypeDef",
     "ParentBotNetworkTypeDef",
     "PathFormatOutputTypeDef",
     "PathFormatTypeDef",
@@ -557,6 +570,8 @@ __all__ = (
     "SpeechFoundationModelTypeDef",
     "SpeechModelConfigTypeDef",
     "SpeechRecognitionSettingsTypeDef",
+    "StartBotAnalyzerRequestTypeDef",
+    "StartBotAnalyzerResponseTypeDef",
     "StartBotRecommendationRequestTypeDef",
     "StartBotRecommendationResponseTypeDef",
     "StartBotResourceGenerationRequestTypeDef",
@@ -569,6 +584,8 @@ __all__ = (
     "StartTestSetGenerationResponseTypeDef",
     "StillWaitingResponseSpecificationOutputTypeDef",
     "StillWaitingResponseSpecificationTypeDef",
+    "StopBotAnalyzerRequestTypeDef",
+    "StopBotAnalyzerResponseTypeDef",
     "StopBotRecommendationRequestTypeDef",
     "StopBotRecommendationResponseTypeDef",
     "SubSlotSettingOutputTypeDef",
@@ -956,6 +973,18 @@ class BotAliasTestExecutionTargetTypeDef(TypedDict):
     localeId: str
 
 
+class BotAnalyzerHistorySummaryTypeDef(TypedDict):
+    botAnalyzerStatus: BotAnalyzerStatusType
+    botAnalyzerRequestId: str
+    creationDateTime: NotRequired[datetime]
+
+
+class IssueLocationTypeDef(TypedDict):
+    botLocale: NotRequired[str]
+    intentId: NotRequired[str]
+    slotId: NotRequired[str]
+
+
 class BotExportSpecificationTypeDef(TypedDict):
     botId: str
     botVersion: str
@@ -1262,6 +1291,11 @@ class DeleteBotAliasRequestTypeDef(TypedDict):
     skipResourceInUseCheck: NotRequired[bool]
 
 
+class DeleteBotAnalyzerRecommendationRequestTypeDef(TypedDict):
+    botId: str
+    botAnalyzerRequestId: str
+
+
 class DeleteBotLocaleRequestTypeDef(TypedDict):
     botId: str
     botVersion: str
@@ -1355,6 +1389,19 @@ class WaiterConfigTypeDef(TypedDict):
 class ParentBotNetworkTypeDef(TypedDict):
     botId: str
     botVersion: str
+
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class DescribeBotAnalyzerRecommendationRequestTypeDef(TypedDict):
+    botId: str
+    botAnalyzerRequestId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class DescribeBotLocaleRequestTypeDef(TypedDict):
@@ -1602,6 +1649,14 @@ class ListBotAliasesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListBotAnalyzerHistoryRequestTypeDef(TypedDict):
+    botId: str
+    localeId: NotRequired[str]
+    botVersion: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListBotRecommendationsRequestTypeDef(TypedDict):
     botId: str
     botVersion: str
@@ -1777,11 +1832,23 @@ class SpeechFoundationModelTypeDef(TypedDict):
     voiceId: NotRequired[str]
 
 
+class StartBotAnalyzerRequestTypeDef(TypedDict):
+    botId: str
+    analysisScope: Literal["BotLocale"]
+    localeId: NotRequired[str]
+    botVersion: NotRequired[str]
+
+
 class StartBotResourceGenerationRequestTypeDef(TypedDict):
     generationInputPrompt: str
     botId: str
     botVersion: str
     localeId: str
+
+
+class StopBotAnalyzerRequestTypeDef(TypedDict):
+    botId: str
+    botAnalyzerRequestId: str
 
 
 class StopBotRecommendationRequestTypeDef(TypedDict):
@@ -2130,6 +2197,16 @@ class SearchAssociatedTranscriptsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartBotAnalyzerResponseTypeDef(TypedDict):
+    botId: str
+    botVersion: str
+    localeId: str
+    botAnalyzerStatus: BotAnalyzerStatusType
+    botAnalyzerRequestId: str
+    creationDateTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartBotResourceGenerationResponseTypeDef(TypedDict):
     generationInputPrompt: str
     generationId: str
@@ -2138,6 +2215,15 @@ class StartBotResourceGenerationResponseTypeDef(TypedDict):
     localeId: str
     generationStatus: GenerationStatusType
     creationDateTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopBotAnalyzerResponseTypeDef(TypedDict):
+    botId: str
+    botVersion: str
+    localeId: str
+    botAnalyzerStatus: BotAnalyzerStatusType
+    botAnalyzerRequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2194,6 +2280,22 @@ class ListBotAliasesResponseTypeDef(TypedDict):
 
 class TestExecutionTargetTypeDef(TypedDict):
     botAliasTarget: NotRequired[BotAliasTestExecutionTargetTypeDef]
+
+
+class ListBotAnalyzerHistoryResponseTypeDef(TypedDict):
+    botId: str
+    localeId: str
+    botVersion: str
+    botAnalyzerHistoryList: list[BotAnalyzerHistorySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class BotAnalyzerRecommendationTypeDef(TypedDict):
+    issueLocation: IssueLocationTypeDef
+    priority: PriorityType
+    issueDescription: str
+    proposedFix: str
 
 
 class BotImportSpecificationOutputTypeDef(TypedDict):
@@ -2642,6 +2744,19 @@ class DescribeBotVersionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeBotAnalyzerRecommendationRequestPaginateTypeDef(TypedDict):
+    botId: str
+    botAnalyzerRequestId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListBotAnalyzerHistoryRequestPaginateTypeDef(TypedDict):
+    botId: str
+    localeId: NotRequired[str]
+    botVersion: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class UpdateBotRecommendationRequestTypeDef(TypedDict):
     botId: str
     botVersion: str
@@ -3073,6 +3188,17 @@ class TestExecutionSummaryTypeDef(TypedDict):
     target: NotRequired[TestExecutionTargetTypeDef]
     apiMode: NotRequired[TestExecutionApiModeType]
     testExecutionModality: NotRequired[TestExecutionModalityType]
+
+
+class DescribeBotAnalyzerRecommendationResponseTypeDef(TypedDict):
+    botId: str
+    botVersion: str
+    localeId: str
+    botAnalyzerStatus: BotAnalyzerStatusType
+    creationDateTime: datetime
+    botAnalyzerRecommendationList: list[BotAnalyzerRecommendationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class BotRecommendationResultsTypeDef(TypedDict):

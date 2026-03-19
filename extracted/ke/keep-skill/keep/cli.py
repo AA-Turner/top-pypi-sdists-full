@@ -1933,7 +1933,9 @@ def _put_store(
         if id is not None:
             typer.echo("Error: --id cannot be used with directory mode", err=True)
             raise typer.Exit(1)
-        files = _list_directory_files(resolved_path, recurse=recurse, exclude=exclude)
+        from .ignore import merge_excludes
+        combined_exclude = merge_excludes(kp._load_ignore_patterns(), exclude)
+        files = _list_directory_files(resolved_path, recurse=recurse, exclude=combined_exclude or None)
         if not files:
             typer.echo(f"Error: no eligible files in {resolved_path}/", err=True)
             hint = "hidden files and symlinks are skipped"
@@ -1976,6 +1978,23 @@ def _put_store(
                 typer.echo(f"  error: {e}", err=True)
         if results:
             typer.echo(_format_items(results, as_json=_get_json_output()))
+
+        # Git changelog ingest: find all git repos in the tree
+        from .git_ingest import discover_git_roots
+        git_roots = discover_git_roots(files)
+        for root_str in sorted(git_roots):
+            try:
+                kp._get_work_queue().enqueue(
+                    "ingest_git",
+                    {"item_id": f"file://{root_str}", "directory": root_str},
+                    supersede_key=f"git:{root_str}",
+                    priority=1,
+                )
+            except Exception as e:
+                logger.warning("Failed to queue git ingest for %s: %s", root_str, e)
+        if git_roots:
+            typer.echo(f"git: {len(git_roots)} repo(s) queued for changelog ingest", err=True)
+
         _handle_watch(kp, watch, unwatch, str(resolved_path), "directory",
                       parsed_tags, recurse=recurse, exclude=exclude, interval=interval)
         return None
@@ -2501,6 +2520,10 @@ def prompt(
         "--deep", "-D",
         help="Follow tags from results to discover related items"
     )] = False,
+    scope: Annotated[Optional[str], typer.Option(
+        "--scope", "-S",
+        help="ID glob to constrain search results (e.g. 'file:///path/to/dir*')"
+    )] = None,
     token_budget: Annotated[Optional[int], typer.Option(
         "--tokens",
         help="Token budget for {find} context (template default if not set)"
@@ -2540,7 +2563,7 @@ def prompt(
     tags_dict = _parse_tags(tag) if tag else None
     result = kp.render_prompt(
         name, text, id=id, since=since, until=until, tags=tags_dict,
-        deep=deep, token_budget=token_budget,
+        deep=deep, scope=scope, token_budget=token_budget,
     )
     if result is None:
         typer.echo(f"Prompt not found: {name}", err=True)
@@ -2972,6 +2995,59 @@ def _get_one(
     if _get_ids_output():
         return _format_versioned_id(ctx.item)
     return render_context(ctx, as_json=_get_json_output())
+
+
+@app.command("edit")
+def edit_cmd(
+    id: Annotated[str, typer.Argument(help="ID of note to edit")],
+    store: StoreOption = None,
+):
+    """Edit a note's content in $EDITOR.
+
+    Opens the current content in your editor. On save, updates the note
+    if the content changed. Useful for editing prompts, .ignore, and
+    other system docs.
+
+    \b
+    Examples:
+        keep edit .ignore                    # Edit global ignore patterns
+        keep edit .prompt/agent/reflect      # Edit a prompt template
+        keep edit now                        # Edit current intentions
+        EDITOR=code keep edit .ignore        # Use VS Code
+    """
+    kp = _get_keeper(store)
+    item = kp.get(id)
+    if item is None:
+        typer.echo(f"Not found: {id}", err=True)
+        raise typer.Exit(1)
+
+    import tempfile
+    import subprocess
+    editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
+
+    suffix = ".md" if not id.endswith((".py", ".js", ".ts", ".json", ".yaml", ".yml", ".toml")) else ""
+    with tempfile.NamedTemporaryFile(suffix=suffix or Path(id).suffix, mode="w", delete=False, prefix="keep-edit-") as f:
+        f.write(item.summary)
+        tmp = f.name
+
+    try:
+        subprocess.run([editor, tmp], check=True)
+        new_content = Path(tmp).read_text()
+    except (subprocess.CalledProcessError, KeyboardInterrupt):
+        typer.echo("Editor exited abnormally, no changes saved", err=True)
+        Path(tmp).unlink(missing_ok=True)
+        raise typer.Exit(1)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+
+    if new_content == item.summary:
+        typer.echo("No changes", err=True)
+        return
+
+    result = kp.put(new_content, id=id)
+    typer.echo(f"Updated {id}", err=True)
+    if _get_json_output():
+        typer.echo(_format_items([result], as_json=True))
 
 
 @app.command("del")

@@ -24,7 +24,7 @@ from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY, get_enc
 from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
 
 if TYPE_CHECKING:
-    from grpc import aio as grpc_aio  # type: ignore[import]
+    from grpc import aio as grpc_aio
 
     from langgraph_api.encryption.custom import ModelType
 

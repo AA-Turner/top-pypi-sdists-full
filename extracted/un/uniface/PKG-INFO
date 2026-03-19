@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniface
-Version: 3.1.0
+Version: 3.1.1
 Summary: UniFace: A Comprehensive Library for Face Detection, Recognition, Tracking, Landmark Analysis, Face Parsing, Gaze Estimation, Age, and Gender Detection
 Author-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
 Maintainer-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
@@ -16,17 +16,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0
 Requires-Dist: opencv-python>=4.5.0
 Requires-Dist: onnxruntime>=1.16.0
-Requires-Dist: scikit-image>=0.19.0
+Requires-Dist: scikit-image>=0.26.0
 Requires-Dist: scipy>=1.7.0
 Requires-Dist: requests>=2.28.0
 Requires-Dist: tqdm>=4.64.0
@@ -42,7 +42,7 @@ Dynamic: license-file
 <div align="center">
 
 [![PyPI Version](https://img.shields.io/pypi/v/uniface.svg?label=Version)](https://pypi.org/project/uniface/)
-[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Github Build Status](https://github.com/yakhyo/uniface/actions/workflows/ci.yml/badge.svg)](https://github.com/yakhyo/uniface/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/uniface?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=BLUE&left_text=Downloads)](https://pepy.tech/projects/uniface)

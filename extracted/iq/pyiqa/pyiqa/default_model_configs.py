@@ -354,33 +354,6 @@ DEFAULT_CONFIGS = OrderedDict(
             'metric_mode': 'NR',
             'score_range': '~0, ~1',
         },
-        'fid': {
-            'metric_opts': {
-                'type': 'FID',
-            },
-            'metric_mode': 'NR',
-            'lower_better': True,
-            'score_range': '0, ~',
-        },
-        # sFID used in: https://github.com/openai/guided-diffusion
-        'sfid': {
-            'metric_opts': {
-                'type': 'FID',
-                'dims': 768,
-            },
-            'metric_mode': 'NR',
-            'lower_better': True,
-            'score_range': '0, ~',
-        },
-        'fid_dinov2': {
-            'metric_opts': {
-                'type': 'FID',
-                'backbone': 'dinov2',
-            },
-            'metric_mode': 'NR',
-            'lower_better': True,
-            'score_range': '0, ~',
-        },
         'maniqa': {
             'metric_opts': {
                 'type': 'MANIQA',
@@ -669,14 +642,6 @@ DEFAULT_CONFIGS = OrderedDict(
             'metric_mode': 'NR',
             'score_range': '~-3, ~3',
         },
-        'inception_score': {
-            'metric_opts': {
-                'type': 'InceptionScore',
-            },
-            'metric_mode': 'NR',
-            'lower_better': False,
-            'score_range': '0, ~',
-        },
         'arniqa': {
             'metric_opts': {
                 'type': 'ARNIQA',
@@ -749,6 +714,22 @@ DEFAULT_CONFIGS = OrderedDict(
             'score_range': '0, ~10',
             'lower_better': True,
         },
+        'dmm': {
+            'metric_opts': {
+                'type': 'DMM',
+                'model_type': 'dmm',
+            },
+            'metric_mode': 'FR',
+            'score_range': '0, ~',
+        },
+        'maclip': {
+            'metric_opts': {
+                'type': 'MACLIP',
+                'model_type': 'maclip',
+            },
+            'metric_mode': 'NR',
+            'score_range': '0, 1',
+        },
         'qualiclip': {
             'metric_opts': {
                 'type': 'QualiCLIP',
@@ -792,6 +773,84 @@ DEFAULT_CONFIGS = OrderedDict(
             },
             'metric_mode': 'NR',
             'score_range': '0, 1',
+        },
+        # =============================================================
+        # Generative metrics
+        # =============================================================
+        'fid': {
+            'metric_opts': {
+                'type': 'FID',
+            },
+            'metric_mode': 'NR',
+            'lower_better': True,
+            'score_range': '0, ~',
+        },
+        # sFID used in: https://github.com/openai/guided-diffusion
+        'sfid': {
+            'metric_opts': {
+                'type': 'FID',
+                'dims': 'mixed_6a',
+            },
+            'metric_mode': 'NR',
+            'lower_better': True,
+            'score_range': '0, ~',
+        },
+        'fid_dinov2': {
+            'metric_opts': {
+                'type': 'FID',
+                'backbone': 'dinov2',
+            },
+            'metric_mode': 'NR',
+            'lower_better': True,
+            'score_range': '0, ~',
+        },
+        'inception_score': {
+            'metric_opts': {
+                'type': 'InceptionScore',
+            },
+            'metric_mode': 'NR',
+            'lower_better': False,
+            'score_range': '0, ~',
+        },
+        'afine_nr': {
+            'metric_opts': {
+                'type': 'AFINE',
+                'model_type': 'afine_nr',
+                'pretrained': True,
+            },
+            'metric_mode': 'NR',
+            'lower_better': True,
+            'score_range': '-2, 2',
+        },
+        'afine_fr': {
+            'metric_opts': {
+                'type': 'AFINE',
+                'model_type': 'afine_fr',
+                'pretrained': True,
+            },
+            'metric_mode': 'FR',
+            'lower_better': True,
+            'score_range': '-2, 2',
+        },
+        'afine_all_scale': {
+            'metric_opts': {
+                'type': 'AFINE',
+                'model_type': 'afine_all_scale',
+                'pretrained': True,
+            },
+            'metric_mode': 'FR',
+            'lower_better': True,
+            'score_range': '0, 100',
+        },
+        'afine_all': {
+            'metric_opts': {
+                'type': 'AFINE',
+                'model_type': 'afine_all',
+                'pretrained': True,
+            },
+            'metric_mode': 'FR',
+            'lower_better': True,
+            'score_range': '~, 2',
         },
     }
 )

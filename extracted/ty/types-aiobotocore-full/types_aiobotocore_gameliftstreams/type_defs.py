@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_gameliftstreams.type_defs import LocationConfigurationTypeDef
+    from types_aiobotocore_gameliftstreams.type_defs import ResponseMetadataTypeDef
 
-    data: LocationConfigurationTypeDef = ...
+    data: ResponseMetadataTypeDef = ...
     ```
 """
 
@@ -104,28 +104,10 @@ __all__ = (
     "UpdateApplicationOutputTypeDef",
     "UpdateStreamGroupInputTypeDef",
     "UpdateStreamGroupOutputTypeDef",
+    "VpcTransitConfigurationResponseTypeDef",
+    "VpcTransitConfigurationTypeDef",
     "WaiterConfigTypeDef",
 )
-
-
-class LocationConfigurationTypeDef(TypedDict):
-    LocationName: str
-    AlwaysOnCapacity: NotRequired[int]
-    OnDemandCapacity: NotRequired[int]
-    TargetIdleCapacity: NotRequired[int]
-    MaximumCapacity: NotRequired[int]
-
-
-class LocationStateTypeDef(TypedDict):
-    LocationName: NotRequired[str]
-    Status: NotRequired[StreamGroupLocationStatusType]
-    AlwaysOnCapacity: NotRequired[int]
-    OnDemandCapacity: NotRequired[int]
-    TargetIdleCapacity: NotRequired[int]
-    MaximumCapacity: NotRequired[int]
-    RequestedCapacity: NotRequired[int]
-    AllocatedCapacity: NotRequired[int]
-    IdleCapacity: NotRequired[int]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -249,6 +231,18 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
 
+class VpcTransitConfigurationTypeDef(TypedDict):
+    VpcId: str
+    Ipv4CidrBlocks: Sequence[str]
+
+
+class VpcTransitConfigurationResponseTypeDef(TypedDict):
+    VpcId: NotRequired[str]
+    Ipv4CidrBlocks: NotRequired[list[str]]
+    TransitGatewayId: NotRequired[str]
+    TransitGatewayResourceShareArn: NotRequired[str]
+
+
 class RemoveStreamGroupLocationsInputTypeDef(TypedDict):
     Identifier: str
     Locations: Sequence[str]
@@ -274,33 +268,6 @@ class UpdateApplicationInputTypeDef(TypedDict):
     Description: NotRequired[str]
     ApplicationLogPaths: NotRequired[Sequence[str]]
     ApplicationLogOutputUri: NotRequired[str]
-
-
-class AddStreamGroupLocationsInputTypeDef(TypedDict):
-    Identifier: str
-    LocationConfigurations: Sequence[LocationConfigurationTypeDef]
-
-
-class CreateStreamGroupInputTypeDef(TypedDict):
-    Description: str
-    StreamClass: StreamClassType
-    DefaultApplicationIdentifier: NotRequired[str]
-    LocationConfigurations: NotRequired[Sequence[LocationConfigurationTypeDef]]
-    Tags: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
-
-
-class UpdateStreamGroupInputTypeDef(TypedDict):
-    Identifier: str
-    LocationConfigurations: NotRequired[Sequence[LocationConfigurationTypeDef]]
-    Description: NotRequired[str]
-    DefaultApplicationIdentifier: NotRequired[str]
-
-
-class AddStreamGroupLocationsOutputTypeDef(TypedDict):
-    Identifier: str
-    Locations: list[LocationStateTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AssociateApplicationsOutputTypeDef(TypedDict):
@@ -404,38 +371,6 @@ class UpdateApplicationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateStreamGroupOutputTypeDef(TypedDict):
-    Arn: str
-    Description: str
-    DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: list[LocationStateTypeDef]
-    StreamClass: StreamClassType
-    Id: str
-    Status: StreamGroupStatusType
-    StatusReason: StreamGroupStatusReasonType
-    LastUpdatedAt: datetime
-    CreatedAt: datetime
-    ExpiresAt: datetime
-    AssociatedApplications: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetStreamGroupOutputTypeDef(TypedDict):
-    Arn: str
-    Description: str
-    DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: list[LocationStateTypeDef]
-    StreamClass: StreamClassType
-    Id: str
-    Status: StreamGroupStatusType
-    StatusReason: StreamGroupStatusReasonType
-    LastUpdatedAt: datetime
-    CreatedAt: datetime
-    ExpiresAt: datetime
-    AssociatedApplications: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class StreamGroupSummaryTypeDef(TypedDict):
     Arn: str
     Id: NotRequired[str]
@@ -446,22 +381,6 @@ class StreamGroupSummaryTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
     ExpiresAt: NotRequired[datetime]
-
-
-class UpdateStreamGroupOutputTypeDef(TypedDict):
-    Arn: str
-    Description: str
-    DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: list[LocationStateTypeDef]
-    StreamClass: StreamClassType
-    Id: str
-    Status: StreamGroupStatusType
-    StatusReason: StreamGroupStatusReasonType
-    LastUpdatedAt: datetime
-    CreatedAt: datetime
-    ExpiresAt: datetime
-    AssociatedApplications: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 StreamSessionSummaryTypeDef = TypedDict(
@@ -602,6 +521,29 @@ class ListStreamSessionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class LocationConfigurationTypeDef(TypedDict):
+    LocationName: str
+    AlwaysOnCapacity: NotRequired[int]
+    OnDemandCapacity: NotRequired[int]
+    TargetIdleCapacity: NotRequired[int]
+    MaximumCapacity: NotRequired[int]
+    VpcTransitConfiguration: NotRequired[VpcTransitConfigurationTypeDef]
+
+
+class LocationStateTypeDef(TypedDict):
+    LocationName: NotRequired[str]
+    Status: NotRequired[StreamGroupLocationStatusType]
+    AlwaysOnCapacity: NotRequired[int]
+    OnDemandCapacity: NotRequired[int]
+    TargetIdleCapacity: NotRequired[int]
+    MaximumCapacity: NotRequired[int]
+    RequestedCapacity: NotRequired[int]
+    AllocatedCapacity: NotRequired[int]
+    IdleCapacity: NotRequired[int]
+    InternalVpcIpv4CidrBlock: NotRequired[str]
+    VpcTransitConfiguration: NotRequired[VpcTransitConfigurationResponseTypeDef]
+
+
 class ListApplicationsOutputTypeDef(TypedDict):
     Items: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -624,3 +566,78 @@ class ListStreamSessionsOutputTypeDef(TypedDict):
     Items: list[StreamSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class AddStreamGroupLocationsInputTypeDef(TypedDict):
+    Identifier: str
+    LocationConfigurations: Sequence[LocationConfigurationTypeDef]
+
+
+class CreateStreamGroupInputTypeDef(TypedDict):
+    Description: str
+    StreamClass: StreamClassType
+    DefaultApplicationIdentifier: NotRequired[str]
+    LocationConfigurations: NotRequired[Sequence[LocationConfigurationTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+
+class UpdateStreamGroupInputTypeDef(TypedDict):
+    Identifier: str
+    LocationConfigurations: NotRequired[Sequence[LocationConfigurationTypeDef]]
+    Description: NotRequired[str]
+    DefaultApplicationIdentifier: NotRequired[str]
+
+
+class AddStreamGroupLocationsOutputTypeDef(TypedDict):
+    Identifier: str
+    Locations: list[LocationStateTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateStreamGroupOutputTypeDef(TypedDict):
+    Arn: str
+    Description: str
+    DefaultApplication: DefaultApplicationTypeDef
+    LocationStates: list[LocationStateTypeDef]
+    StreamClass: StreamClassType
+    Id: str
+    Status: StreamGroupStatusType
+    StatusReason: StreamGroupStatusReasonType
+    LastUpdatedAt: datetime
+    CreatedAt: datetime
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetStreamGroupOutputTypeDef(TypedDict):
+    Arn: str
+    Description: str
+    DefaultApplication: DefaultApplicationTypeDef
+    LocationStates: list[LocationStateTypeDef]
+    StreamClass: StreamClassType
+    Id: str
+    Status: StreamGroupStatusType
+    StatusReason: StreamGroupStatusReasonType
+    LastUpdatedAt: datetime
+    CreatedAt: datetime
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateStreamGroupOutputTypeDef(TypedDict):
+    Arn: str
+    Description: str
+    DefaultApplication: DefaultApplicationTypeDef
+    LocationStates: list[LocationStateTypeDef]
+    StreamClass: StreamClassType
+    Id: str
+    Status: StreamGroupStatusType
+    StatusReason: StreamGroupStatusReasonType
+    LastUpdatedAt: datetime
+    CreatedAt: datetime
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef

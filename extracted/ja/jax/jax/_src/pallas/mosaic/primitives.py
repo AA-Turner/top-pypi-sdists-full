@@ -390,15 +390,15 @@ def _dma_start_to_lojax(*args, tree, device_id_type, priority, add):
       src_sem_transforms,
       device_id,
   ) = tree_util.tree_unflatten(tree, args)
-  src_ref_aval = jax_core.get_aval(src_ref)
-  dst_ref_aval = jax_core.get_aval(dst_ref)
+  src_ref_aval = jax_core.typeof(src_ref)
+  dst_ref_aval = jax_core.typeof(dst_ref)
   if not (src_ref_aval.is_high and dst_ref_aval.is_high):
     raise NotImplementedError("dma_start not implemented in LoJAX yet.")
-  dst_sem_aval = jax_core.get_aval(dst_sem)
+  dst_sem_aval = jax_core.typeof(dst_sem)
   if dst_sem_aval.is_high:
     raise NotImplementedError("dma_start not implemented in LoJAX yet.")
   if src_sem is not None:
-    if jax_core.get_aval(src_sem).is_high:
+    if jax_core.typeof(src_sem).is_high:
       raise NotImplementedError("dma_start not implemented in LoJAX yet.")
   src_transformed_ref = state.TransformedRef(src_ref, src_transforms)
   dst_transformed_ref = state.TransformedRef(dst_ref, dst_transforms)
@@ -698,15 +698,15 @@ def _dma_wait_to_lojax(*args, tree, device_id_type):
       src_sem_transforms,
       device_id,
   ) = tree_util.tree_unflatten(tree, args)
-  src_ref_aval = jax_core.get_aval(src_ref)
-  dst_ref_aval = jax_core.get_aval(dst_ref)
+  src_ref_aval = jax_core.typeof(src_ref)
+  dst_ref_aval = jax_core.typeof(dst_ref)
   if not (src_ref_aval.is_high and dst_ref_aval.is_high):
     raise NotImplementedError("dma_wait not implemented in LoJAX yet.")
-  dst_sem_aval = jax_core.get_aval(dst_sem)
+  dst_sem_aval = jax_core.typeof(dst_sem)
   if dst_sem_aval.is_high:
     raise NotImplementedError("dma_wait not implemented in LoJAX yet.")
   if src_sem is not None:
-    if jax_core.get_aval(src_sem).is_high:
+    if jax_core.typeof(src_sem).is_high:
       raise NotImplementedError("dma_wait not implemented in LoJAX yet.")
   src_transformed_ref = state.TransformedRef(src_ref, src_transforms)
   dst_transformed_ref = state.TransformedRef(dst_ref, dst_transforms)
@@ -1279,7 +1279,11 @@ matmul_push_rhs_p.multiple_results = True
 
 
 def matmul_push_rhs(
-    rhs: jax.Array, staging_register: int, mxu_index: int
+    rhs: jax.Array,
+    staging_register: int,
+    mxu_index: int,
+    *,
+    transpose: bool = False,
 ) -> None:
   """Prepares the RHS for a matrix multiplication in the chosen MXU.
 
@@ -1299,9 +1303,13 @@ def matmul_push_rhs(
     rhs: The right-hand side operand. Must be 256x256.
     staging_register: The staging register to use.
     mxu_index: The MXU to use.
+    transpose: Whether to transpose the RHS.
   """
   matmul_push_rhs_p.bind(
-      rhs, staging_register=staging_register, mxu_index=mxu_index
+      rhs,
+      staging_register=staging_register,
+      mxu_index=mxu_index,
+      transpose=transpose,
   )
 
 

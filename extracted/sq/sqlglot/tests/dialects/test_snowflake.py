@@ -685,7 +685,7 @@ class TestSnowflake(Validator):
         self.validate_identity("ALTER TABLE a SWAP WITH b")
         self.validate_identity("SELECT MATCH_CONDITION")
         self.validate_identity("SELECT OBJECT_AGG(key, value) FROM tbl")
-        self.validate_identity("1 /* /* */")
+        self.validate_identity("1 /* /* */", "1 /* / * */")
         self.validate_identity("TO_TIMESTAMP(col, fmt)")
         self.validate_identity("SELECT TO_CHAR(CAST('12:05:05' AS TIME))")
         self.validate_identity("SELECT TRIM(COALESCE(TO_CHAR(CAST(c AS TIME)), '')) FROM t")
@@ -726,15 +726,31 @@ class TestSnowflake(Validator):
         self.validate_identity(
             "SELECT DATEADD(DAY, -7, DATEADD(t.m, 1, CAST('2023-01-03' AS DATE))) FROM (SELECT 'month' AS m) AS t"
         ).selects[0].this.unit.assert_is(exp.Column)
-        self.validate_identity(
-            "SELECT STRTOK('hello world')", "SELECT SPLIT_PART('hello world', ' ', 1)"
+
+        self.validate_all(
+            "SELECT STRTOK('a$b$c', SUBSTRING('.$^', 1, 2), 2)",
+            write={
+                "snowflake": "SELECT STRTOK('a$b$c', SUBSTRING('.$^', 1, 2), 2)",
+                "duckdb": r"""SELECT CASE WHEN SUBSTRING('.$^', 1, 2) = '' AND 'a$b$c' = '' THEN NULL WHEN SUBSTRING('.$^', 1, 2) = '' AND 2 = 1 THEN 'a$b$c' WHEN SUBSTRING('.$^', 1, 2) = '' THEN NULL WHEN 2 < 0 THEN NULL WHEN 'a$b$c' IS NULL OR SUBSTRING('.$^', 1, 2) IS NULL OR 2 IS NULL THEN NULL ELSE LIST_FILTER(REGEXP_SPLIT_TO_ARRAY('a$b$c', CASE WHEN SUBSTRING('.$^', 1, 2) = '' THEN '' ELSE '[' || REGEXP_REPLACE(SUBSTRING('.$^', 1, 2), '([\[\]^.\-*+?(){}|$\\])', '\\\1', 'g') || ']' END), x -> NOT x = '')[2] END""",
+            },
         )
-        self.validate_identity(
-            "SELECT STRTOK('hello world', ' ')", "SELECT SPLIT_PART('hello world', ' ', 1)"
+
+        self.validate_all(
+            "SELECT STRTOK('a$b/cg', '$/.')",
+            write={
+                "snowflake": "SELECT STRTOK('a$b/cg', '$/.', 1)",
+                "duckdb": r"""SELECT CASE WHEN '$/.' = '' AND 'a$b/cg' = '' THEN NULL WHEN '$/.' = '' AND 1 = 1 THEN 'a$b/cg' WHEN '$/.' = '' THEN NULL WHEN 1 < 0 THEN NULL WHEN 'a$b/cg' IS NULL OR '$/.' IS NULL OR 1 IS NULL THEN NULL ELSE LIST_FILTER(REGEXP_SPLIT_TO_ARRAY('a$b/cg', CASE WHEN '$/.' = '' THEN '' ELSE '[' || REGEXP_REPLACE('$/.', '([\[\]^.\-*+?(){}|$\\])', '\\\1', 'g') || ']' END), x -> NOT x = '')[1] END""",
+            },
         )
-        self.validate_identity(
-            "SELECT STRTOK('hello world', ' ', 2)", "SELECT SPLIT_PART('hello world', ' ', 2)"
+
+        self.validate_all(
+            "SELECT STRTOK('ab')",
+            write={
+                "snowflake": "SELECT STRTOK('ab', ' ', 1)",
+                "duckdb": r"""SELECT CASE WHEN ' ' = '' AND 'ab' = '' THEN NULL WHEN ' ' = '' AND 1 = 1 THEN 'ab' WHEN ' ' = '' THEN NULL WHEN 1 < 0 THEN NULL WHEN 'ab' IS NULL OR ' ' IS NULL OR 1 IS NULL THEN NULL ELSE LIST_FILTER(REGEXP_SPLIT_TO_ARRAY('ab', CASE WHEN ' ' = '' THEN '' ELSE '[' || REGEXP_REPLACE(' ', '([\[\]^.\-*+?(){}|$\\])', '\\\1', 'g') || ']' END), x -> NOT x = '')[1] END""",
+            },
         )
+
         self.validate_identity("SELECT FILE_URL FROM DIRECTORY(@mystage) WHERE SIZE > 100000").args[
             "from_"
         ].this.this.assert_is(exp.DirectoryStage).this.assert_is(exp.Var)
@@ -1867,14 +1883,25 @@ class TestSnowflake(Validator):
             },
         )
         self.validate_all(
-            "ARRAY_TO_STRING(x, '')",
-            read={
-                "duckdb": "ARRAY_TO_STRING(x, '')",
-            },
+            "SELECT ARRAY_TO_STRING(x, '')",
             write={
-                "spark": "ARRAY_JOIN(x, '')",
-                "snowflake": "ARRAY_TO_STRING(x, '')",
-                "duckdb": "ARRAY_TO_STRING(x, '')",
+                "spark": "SELECT ARRAY_JOIN(x, '')",
+                "snowflake": "SELECT ARRAY_TO_STRING(x, '')",
+                "duckdb": "SELECT CASE WHEN '' IS NULL THEN NULL ELSE ARRAY_TO_STRING(LIST_TRANSFORM(x, x -> COALESCE(CAST(x AS TEXT), '')), '') END",
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_TO_STRING(x, NULL)",
+            write={
+                "snowflake": "SELECT ARRAY_TO_STRING(x, NULL)",
+                "duckdb": "SELECT CASE WHEN NULL IS NULL THEN NULL ELSE ARRAY_TO_STRING(LIST_TRANSFORM(x, x -> COALESCE(CAST(x AS TEXT), '')), NULL) END",
+            },
+        )
+        self.validate_all(
+            "SELECT ARRAY_TO_STRING([], ',')",
+            write={
+                "snowflake": "SELECT ARRAY_TO_STRING([], ',')",
+                "duckdb": "SELECT CASE WHEN ',' IS NULL THEN NULL ELSE ARRAY_TO_STRING(LIST_TRANSFORM([], x -> COALESCE(CAST(x AS TEXT), '')), ',') END",
             },
         )
         self.validate_all(
@@ -3177,6 +3204,21 @@ class TestSnowflake(Validator):
 
         self.validate_identity("SELECT CURRENT_DATABASE()")
         self.validate_identity("SELECT CURRENT_SCHEMA()")
+
+        self.validate_all(
+            "SELECT 1 WHERE 'abc' ILIKE ANY('%a%')",
+            write={
+                "snowflake": "SELECT 1 WHERE 'abc' ILIKE ANY('%a%')",
+                "duckdb": "SELECT 1 WHERE 'abc' ILIKE '%a%'",
+            },
+        )
+        self.validate_all(
+            "SELECT 1 WHERE 'abc' LIKE ALL ('%a%')",
+            write={
+                "snowflake": "SELECT 1 WHERE 'abc' LIKE ALL ('%a%')",
+                "duckdb": "SELECT 1 WHERE 'abc' LIKE '%a%'",
+            },
+        )
 
     def test_null_treatment(self):
         self.validate_all(

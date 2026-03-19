@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conductor-python
-Version: 1.3.6
+Version: 1.3.7
 Summary: Python SDK for working with https://github.com/conductor-oss/conductor
 License: Apache-2.0
 Author: Orkes

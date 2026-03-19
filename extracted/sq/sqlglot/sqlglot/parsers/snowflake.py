@@ -23,18 +23,6 @@ if t.TYPE_CHECKING:
     from sqlglot._typing import B, E
 
 
-def _build_strtok(args: t.List) -> exp.SplitPart:
-    # Add default delimiter (space) if missing - per Snowflake docs
-    if len(args) == 1:
-        args.append(exp.Literal.string(" "))
-
-    # Add default part_index (1) if missing
-    if len(args) == 2:
-        args.append(exp.Literal.number(1))
-
-    return exp.SplitPart.from_arg_list(args)
-
-
 def _build_approx_top_k(args: t.List) -> exp.ApproxTopK:
     """
     Normalizes APPROX_TOP_K arguments to match Snowflake semantics.
@@ -327,6 +315,7 @@ def _show_parser(*args: t.Any, **kwargs: t.Any) -> t.Callable[[SnowflakeParser],
 
 class SnowflakeParser(parser.Parser):
     IDENTIFY_PIVOT_STRINGS = True
+    TYPED_LAMBDA_ARGS = True
     DEFAULT_SAMPLING_METHOD = "BERNOULLI"
     COLON_IS_VARIANT_EXTRACT = True
     JSON_EXTRACT_REQUIRES_JSON_EXPRESSION = True
@@ -433,6 +422,12 @@ class SnowflakeParser(parser.Parser):
         ),
         "ARRAY_SORT": _build_array_sort,
         "ARRAY_FLATTEN": exp.Flatten.from_arg_list,
+        "ARRAY_TO_STRING": lambda args: exp.ArrayToString(
+            this=seq_get(args, 0),
+            expression=seq_get(args, 1),
+            null_is_empty=True,
+            null_delim_is_null=True,
+        ),
         "ARRAYS_OVERLAP": lambda args: exp.ArrayOverlaps(
             this=seq_get(args, 0), expression=seq_get(args, 1), null_safe=True
         ),
@@ -561,7 +556,6 @@ class SnowflakeParser(parser.Parser):
         ),
         "SQUARE": lambda args: exp.Pow(this=seq_get(args, 0), expression=exp.Literal.number(2)),
         "STDDEV_SAMP": exp.Stddev.from_arg_list,
-        "STRTOK": _build_strtok,
         "SYSDATE": lambda args: exp.CurrentTimestamp(this=seq_get(args, 0), sysdate=True),
         "TABLE": lambda args: exp.TableFromRows(this=seq_get(args, 0)),
         "TIMEADD": lambda args: exp.TimeAdd(
@@ -686,6 +680,11 @@ class SnowflakeParser(parser.Parser):
             part_index=seq_get(args, 2),
             part_index_zero_as_one=True,
             empty_delimiter_returns_whole=True,
+        ),
+        "STRTOK": lambda args: exp.Strtok(
+            this=seq_get(args, 0),
+            delimiter=seq_get(args, 1) or exp.Literal.string(" "),
+            part_index=seq_get(args, 2) or exp.Literal.number("1"),
         ),
         "SYSTIMESTAMP": exp.CurrentTimestamp.from_arg_list,
         "WEEKISO": exp.WeekOfYear.from_arg_list,
@@ -853,7 +852,7 @@ class SnowflakeParser(parser.Parser):
 
     def _parse_directory(self) -> exp.DirectoryStage:
         table = self._parse_table_parts()
-        this: exp.Expr = table.this if isinstance(table, exp.Table) else table
+        this = table.this if isinstance(table, exp.Table) else table
         return self.expression(exp.DirectoryStage(this=this))
 
     def _parse_describe(self) -> exp.Describe:
@@ -987,8 +986,12 @@ class SnowflakeParser(parser.Parser):
         return lateral
 
     def _parse_table_parts(
-        self, schema: bool = False, is_db_reference: bool = False, wildcard: bool = False
-    ) -> exp.Table:
+        self,
+        schema: bool = False,
+        is_db_reference: bool = False,
+        wildcard: bool = False,
+        fast: bool = False,
+    ) -> t.Optional[exp.Table | exp.Dot]:
         # https://docs.snowflake.com/en/user-guide/querying-stage
         if self._match(TokenType.STRING, advance=False):
             table = self._parse_string()
@@ -1016,7 +1019,11 @@ class SnowflakeParser(parser.Parser):
 
             table = self.expression(exp.Table(this=table, format=file_format, pattern=pattern))
         else:
-            table = super()._parse_table_parts(schema=schema, is_db_reference=is_db_reference)
+            table = super()._parse_table_parts(
+                schema=schema,
+                is_db_reference=is_db_reference,
+                fast=fast,
+            )
 
         return table
 

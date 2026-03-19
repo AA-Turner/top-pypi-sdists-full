@@ -2468,8 +2468,9 @@ def main() -> None:
     artifact_parser = subparsers.add_parser("artifact", help="Manage artifacts")
     artifact_subparsers = artifact_parser.add_subparsers(dest="artifact_action")
     art_list_parser = artifact_subparsers.add_parser("list", help="List all artifacts")
-    _art_types = ["skill", "rule", "instruction", "context", "memory", "mcp_server", "config_overlay"]
-    art_list_parser.add_argument("--type", choices=_art_types)
+    _art_filter_types = ["skill", "rule", "instruction", "context", "memory", "mcp_server", "config_overlay", "spec"]
+    _art_create_types = ["skill", "rule", "instruction", "context", "memory", "mcp_server", "config_overlay"]
+    art_list_parser.add_argument("--type", choices=_art_filter_types)
     art_list_parser.add_argument("--namespace")
     art_list_parser.add_argument("--source", choices=["built_in", "global", "team", "project", "local", "inline"])
     art_show_parser = artifact_subparsers.add_parser("show", help="Show artifact details by FQN")
@@ -2627,6 +2628,11 @@ def main() -> None:
     triggers_disable_parser.add_argument("schedule_id", help="Schedule identifier")
     workflow_schedule_parser = workflow_subparsers.add_parser("schedule", help="Register triggers from a workflow")
     workflow_schedule_parser.add_argument("workflow_path", help="Workflow ID or YAML path")
+    workflow_validate_parser = workflow_subparsers.add_parser("validate", help="Validate a workflow definition")
+    workflow_validate_parser.add_argument("workflow_path", help="Workflow ID or YAML path")
+    workflow_simulate_parser = workflow_subparsers.add_parser("simulate", help="Simulate a workflow with stub runners")
+    workflow_simulate_parser.add_argument("workflow_path", help="Workflow ID or YAML path")
+    workflow_simulate_parser.add_argument("--stubs", help="Path to stub results YAML")
 
     # `aroom start` subcommand
     start_parser = subparsers.add_parser("start", help="Start the web UI server in the background")
@@ -2646,7 +2652,7 @@ def main() -> None:
 
     # `aroom artifact create` subcommand
     art_create_parser = artifact_subparsers.add_parser("create", help="Create a new local artifact from template")
-    art_create_parser.add_argument("type", choices=_art_types, help="Artifact type")
+    art_create_parser.add_argument("type", choices=_art_create_types, help="Artifact type")
     art_create_parser.add_argument("name", help="Artifact name")
     art_create_parser.add_argument("--project", action="store_true", help="Create in project .anteroom/local/")
 

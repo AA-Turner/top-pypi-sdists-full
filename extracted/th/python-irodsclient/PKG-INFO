@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: python-irodsclient
-Version: 3.2.0
-Summary: A python API for iRODS
-Home-page: https://github.com/irods/python-irodsclient
-Author: iRODS Consortium
-Author-email: support@irods.org
-License: BSD
+Version: 3.3.0
+Summary: A Python API for iRODS
+Author-email: iRODS Consortium <support@irods.org>
+License-Expression: BSD-3-Clause
+Project-URL: Repository, https://github.com/irods/python-irodsclient
+Project-URL: Issues, https://github.com/irods/python-irodsclient/issues
 Keywords: irods
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -15,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: PrettyTable>=0.7.2
@@ -26,18 +26,7 @@ Requires-Dist: unittest-xml-reporting; extra == "tests"
 Requires-Dist: types-defusedxml; extra == "tests"
 Requires-Dist: progressbar; extra == "tests"
 Requires-Dist: types-tqdm; extra == "tests"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 Python iRODS Client (PRC)
 =========================
@@ -352,6 +341,105 @@ Since v0.9.0, data object transfers using `put()` and `get()`
 will spawn a number of threads in order to optimize performance for
 iRODS server versions 4.2.9+ and file sizes larger than a default
 threshold value of 32 Megabytes.
+
+Because multithreaded processes under Unix-type operating systems sometimes
+need special handling, it is recommended that any put or get of a large file
+be appropriately handled in the case that a terminating signal aborts the
+transfer:
+
+```python
+from irods.parallel import abort_parallel_transfers
+
+def handler(signal, _):
+    abort_parallel_transfers()
+
+signal(SIGTERM, handler)
+
+try:
+    # A multi-1247 put or get can leave non-daemon threads running if not treated with care.
+    session.data_objects.put(...)
+except KeyboardInterrupt:
+    # Internally, the library has likely already started a shutdown for the
+    # present put operation, but we can non-destructively issue the following
+    # call to ensure any other ongoing transfers are aborted, prior to re-raising:
+    abort_parallel_transfers()
+
+    printf('Due to a SIGINT or Control-C, the put failed.')
+    # Raise again, as is customary when catching a directly BaseException-derived object.
+    raise
+except RuntimeError:
+    printf('The put failed.')
+# ...
+```
+
+In general it is better (for applications wanting to gracefully handle
+interrupted lengthy data transfers to/from iRODS data objects) to anticipate
+control-C by handling both `KeyboardInterrupt` and `RuntimeError`, as shown
+above.
+
+Of course, had we intercepted SIGINT (meaning we assigned it a custom
+handler), we could avoid the need to handle the `KeyboardInterrupt` in an
+exception clause.
+
+Internally, of course, the PRC must handle all eventualities, including
+`KeyboardInterrupt`, by closing down the current transfer being setup or
+waited on, in consideration of very simple applications which might do no
+signal or exception handling of their own.  Otherwise we would risk some
+non-daemon threads not finishing, which could risk preventing a prompt and
+orderly exit from the main program.
+
+When a signal or exception handler calls `abort_parallel_transfers()`, all
+parallel transfers are aborted immediately. Upon return to the normal flow
+of the main program, the affected transfers will raise `RuntimeError` to
+indicate the PUT or GET operation has failed.
+
+Note that `abort_parallel_transfers()` is designed to be safe for inclusion
+in signal handlers (e.g. it may be called several times without detrimental
+effects); and that it returns promptly after having initiated the process of
+shutting down the data transfer threads, rather than waiting for them to
+terminate first.  This owes to the best practice of minimizing time spent in
+signal handlers.  However, if desired, `abort_parallel_transfers()` may be
+iterated subsequently with `(dry_run=True, ...)` to track the progress of the
+shutdown.  The default object returned (a dictionary whose keys are weak
+references to the thread managers) will have a boolean value of `False` once
+all transfer threads have exited.
+
+The following example shows how to abort all synchronous ("foreground") puts
+while leaving background transfers alone:
+
+```python
+import irods.helpers, threading
+from irods.parallel import abort_parallel_transfers, FILTER_FUNCTIONS, io_main, Oper
+
+session = irods.helpers.make_session()
+hc = irods.helpers.home_collection(session)
+
+sessions_for_threads = [session.clone() for _ in range(3)]
+
+# Launch an asynchronous (i.e. "background") transfer
+io_main(session, '{hc}/target_0', Oper.PUT|Oper.NONBLOCKING, 'my_large_file')
+
+Threads = [ threading.Thread(target=lambda _sess, put_args: _sess.data_objects.put(*put_args, num_threads=2),
+                        args=(sess,["my_large_file", f"{hc}/target_"+str(i+1)]))
+       for i, sess in enumerate(sessions_for_threads) ]
+
+try:
+    # Launch transfer threads
+    for t in Threads:
+        t.start()
+    # Wait on transfer threads
+    for t in Threads:
+        t.join()
+except KeyboardInterrupt:
+    # Trapping control-C, stop transfers launched synchronously, i.e. in the foreground of each transfer thread
+    # explicitly launched above.
+    abort_parallel_transfers(filter_function = FILTER_FUNCTIONS.foreground)
+
+# As the main application continues (or exits), the asynchronous transfer will be the only one to finish
+# successfully after this call to `abort_parallel_transfers`.  Note:  Although care is taken not to
+# leave replicas in a locked state, these relics of unfinished transfers can still remain in the
+# object catalog.
+```
 
 Progress bars
 -------------
@@ -872,6 +960,82 @@ of create and modify timestamps for every AVU returned from the server:
 >>> avus[0].create_time
 datetime.datetime(2022, 9, 19, 15, 26, 7)
 ```
+
+Disabling AVU reloads from the iRODS server
+-------------------------------------------
+
+With the default setting of `reload = True`, an `iRODSMetaCollection` will
+proactively read all current AVUs back from the iRODS server after any
+metadata write done by the client.  This helps methods such as `keys()` and `items()`
+to return an up-to-date result.   Setting `reload = False` can, however, greatly
+increase code efficiency if for example a lot of AVUs must be added or deleted
+at once without reading any back again.
+
+```py
+# Make a metadata view in which AVUs are not reloaded, for quick update:
+non_current_metadata_view = obj.metadata(reload = False)
+for i in range(10):
+    non_current_metadata_view.add("my_key", "my_value_"+str(i))
+
+# Force reload of AVUs and display:
+current_metadata = obj.metadata().items()
+print(f"{current_metadata = }")
+```
+
+By way of explanation, please note that calls of the form
+`obj.metadata([opt1=value1[,opt2=value2...]])` will always
+produce new `iRODSMetaCollection` objects - which nevertheless share the same
+session object as the original, as the copy is shallow in most respects.
+This avoids always mutating the current instance and thus prevents any need to
+implement context manager semantics when temporarily altering options such
+as `reload` and `admin`.
+
+Additionally note that the call `obj.metadata()` without option parameters
+always syncs the AVU list within the resulting `iRODSMetaCollection` object to
+what is currently in the catalog, because the original object is unmutated with
+respect to all options (meaning `obj.metadata.reload` is always `True`) -- that
+is, absent any low-level meddling within reserved fields by the application.
+Thus, `obj.metadata().items()` will always agree with the in-catalog AVU list
+whereas `obj.metadata.items()` might not.
+
+Subclassing `iRODSMeta`
+---------------------
+The keyword option `iRODSMeta_type` can be used to set up any `iRODSMeta`
+subclass as the translator between native iRODS metadata APIs
+and the way in which the AVUs thus conveyed should be represented to the
+client.
+
+An example is the `irods.meta.iRODSBinOrStringMeta` class which uses the
+`base64` module to "hide" arbitrary bytestrings within the `value` and
+`units` attributes of an iRODS metadata AVU:
+
+```py
+from irods.meta import iRODSBinOrStringMeta as MyMeta
+d = session.data_objects.get('/path/to/object')
+unencodable_octets = '\u1000'.encode('utf8')[:-1]
+
+# Use our custom client-metadata type to store arbitrary octet strings.
+meta_view = d.metadata(iRODSMeta_type = MyMeta)
+meta_view.set(m1 := MyMeta('mybinary', unencodable_octets, b'\x02'))
+
+# Show that traditional AVU's can exist alongside the custom kind.
+irods.client_configuration.connections.xml_parser_default = 'QUASI_XML'
+meta_view.set(m2 := MyMeta('mytext', '\1', '\2'))
+
+try:
+    # These two lines are equivalent.
+    assert {m1,m2} <= (all_avus := set(meta_view.items()))
+    assert {tuple(m1),tuple(m2)} <= all_avus
+finally:
+    del meta_view['mytext'], meta_view['mybinary']
+```
+
+Whereas the content of native iRODS AVUs must obey some valid text encoding as
+determined by the resident iRODS catalog, the above is a possible alternative - albeit
+one semantically bound to the local application that defines the needed
+translations.  Still, this can be a valid usage for users who need a guarantee
+that any given octet string they might generate can be placed into metadata without
+violating standard text encodings.
 
 Atomic operations on metadata
 -----------------------------
@@ -1714,6 +1878,65 @@ relations:
 ...                                                            TicketQuery.DataObject.name == 'data_object')
 >>> print ([ _[TicketQuery.Ticket.expiry_ts] for _ in Q ])
 ['1636757427']
+```
+
+Listing All Tickets
+-------------------
+
+In PRC v3.3.0 and later, Ticket objects constructed using a query `result` will contain
+attributes (such as `id`, `string`, `create_time`, `modify_time`, etc.) reflecting
+the columns fetched from that query.
+
+As before, of course, we can still construct the 'raw' Ticket object from a session object and
+optional ticket string (leaving out the `result` parameter) and then use that object to generate
+a new ticket or delete an existing ticket of the given name.
+
+A free function also exists, irods.ticket.ticket_iterator, which by default (like `iticket ls`)
+iterates over a query of the `TicketQuery.Ticket` model to enumerate the set of
+ticket objects visible to the current user.  Note that for a rodsadmin, this will include
+not only their own tickets, but (unlike `iticket ls`) also those generated by rodsusers as well, including
+possibly some tickets belonging to users no longer existing.  To avoid this, we can query in
+following manner:
+
+```py
+from pprint import pp
+from irods.ticket import TicketQuery
+pp([vars(t) for t in
+    ticket_iterator(session, filter_args=[TicketQuery.Owner.name != ''])
+])
+```
+
+The above should produce a listing fairly close to what one would expect from `iticket ls`.
+
+Removing orphan tickets
+-----------------------
+
+It is also possible that a query could turn up "orphan" tickets: those which are no longer
+assigned to any valid user.  These cannot be selected in the query by negating the filter
+shown in the example just shown; so, another way is needed.
+
+To single out and remove tickets not corresponding to any extant user account, a rods admin
+could do something like the following:
+
+```py
+import collections, itertools
+import irods.keywords as kw
+from irods.models import User
+from irods.ticket import ticket_iterator
+
+def delete_ticket_and_ignore_result(ticket):
+    ticket.delete(**{kw.ADMIN_KW:''})
+    return True
+
+existing_users = [row[User.id] for row in session.query(User.id)]
+
+# 'deque' will exhaust the ticket iterator without the storage overhead of 'list' or 'tuple'
+collections.deque(
+    itertools.dropwhile(
+        delete_ticket_and_ignore_result,
+        (_ for _ in ticket_iterator(session) if _.user_id not in existing_users)
+    ),
+    maxlen=0)
 ```
 
 Tracking and manipulating replicas of Data Objects

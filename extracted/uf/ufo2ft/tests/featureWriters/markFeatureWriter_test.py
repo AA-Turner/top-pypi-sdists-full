@@ -86,8 +86,8 @@ class MarkFeatureWriterTest(FeatureWriterTest):
 
         assert len(feaFile.markClasses) == 2
         assert [str(mcd) for mcd in markClassDefs] == [
-            "markClass cedilla <anchor 100 0> @MC_bottom;",
-            "markClass grave <anchor 100 200> @MC_top;",
+            "markClass cedilla <anchor 100 0> @mark_bottom;",
+            "markClass grave <anchor 100 200> @mark_top;",
         ]
 
     def test__makeMarkClassDefinitions_non_empty(self, FontClass):
@@ -96,12 +96,10 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         ufo.newGlyph("c").appendAnchor({"name": "bottom", "x": 250, "y": -100})
         ufo.newGlyph("grave").appendAnchor({"name": "_top", "x": 100, "y": 200})
         ufo.newGlyph("cedilla").appendAnchor({"name": "_bottom", "x": 100, "y": 0})
-        ufo.features.text = dedent(
-            """\
-            markClass cedilla <anchor 200 0> @MC_bottom;
-            markClass grave <anchor 100 200> @MC_top;
-            """
-        )
+        ufo.features.text = dedent("""\
+            markClass cedilla <anchor 200 0> @mark_bottom;
+            markClass grave <anchor 100 200> @mark_top;
+            """)
 
         writer = MarkFeatureWriter()
         feaFile = parseLayoutFeatures(ufo)
@@ -110,10 +108,10 @@ class MarkFeatureWriterTest(FeatureWriterTest):
 
         assert len(markClassDefs) == 1
         assert len(feaFile.markClasses) == 3
-        assert "MC_bottom" in feaFile.markClasses
-        assert "MC_top" in feaFile.markClasses
+        assert "mark_bottom" in feaFile.markClasses
+        assert "mark_top" in feaFile.markClasses
         assert [str(mcd) for mcd in markClassDefs] == [
-            "markClass cedilla <anchor 100 0> @MC_bottom_1;"
+            "markClass cedilla <anchor 100 0> @mark_bottom_1;"
         ]
 
     def test_skip_empty_feature(self, FontClass):
@@ -189,67 +187,60 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert re.search(r"ligComponent\s+<anchor NULL>", str(generated))
 
     def test_skip_existing_feature(self, testufo):
-        testufo.features.text = dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        testufo.features.text = dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
             } mark;
-            """
-        )
+            """)
 
         generated = self.writeFeatures(testufo)
 
         # only mkmk is generated, mark was already present
-        assert str(generated) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mkmk {
                 lookup mark2mark_top {
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_append_feature(self, testufo):
-        testufo.features.text = dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        testufo.features.text = dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
             } mark;
-            """
-        )
+            """)
 
         generated = self.writeFeatures(testufo, mode="append")
 
-        assert str(generated) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -259,49 +250,45 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_insert_comment_before(self, testufo):
         writer = MarkFeatureWriter()
-        testufo.features.text = dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        testufo.features.text = dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 #
                 # Automatic Code
                 #
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
             } mark;
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
-            markClass acutecomb <anchor 100 200> @MC_top;
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -311,7 +298,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 #
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
 
             } mark;
@@ -321,30 +308,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
         # test append mode ignores insert marker
         generated = self.writeFeatures(testufo, mode="append")
-        assert str(generated) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -354,42 +339,38 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_insert_comment_after(self, testufo):
         writer = MarkFeatureWriter()
-        testufo.features.text = dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        testufo.features.text = dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
                 #
                 # Automatic Code
                 #
             } mark;
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
-            markClass acutecomb <anchor 100 200> @MC_top;
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
 
                 #
@@ -399,14 +380,14 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -416,30 +397,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
         # test append mode ignores insert marker
         generated = self.writeFeatures(testufo, mode="append")
-        assert str(generated) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -449,45 +428,41 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_insert_comment_middle(self, testufo):
         writer = MarkFeatureWriter()
-        testufo.features.text = dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        testufo.features.text = dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
                 #
                 # Automatic Code
                 #
                 lookup mark2 {
                     pos base a
-                        <anchor 150 250> mark @MC_top;
+                        <anchor 150 250> mark @mark_top;
                 } mark2;
             } mark;
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         writer.write(testufo, feaFile)
-        assert str(feaFile) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
-            markClass acutecomb <anchor 100 200> @MC_top;
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
 
                 #
@@ -496,14 +471,14 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -512,7 +487,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 #
                 lookup mark2 {
                     pos base a
-                        <anchor 150 250> mark @MC_top;
+                        <anchor 150 250> mark @mark_top;
                 } mark2;
 
             } mark;
@@ -522,30 +497,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
         # test append mode ignores insert marker
         generated = self.writeFeatures(testufo, mode="append")
-        assert str(generated) == dedent(
-            """\
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -555,41 +528,36 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_insert_comment_outside_block(self, testufo):
         writer = MarkFeatureWriter()
-        testufo.features.text = dedent(
-            """\
+        testufo.features.text = dedent("""\
             #
             # Automatic Code
             #
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         assert writer.write(testufo, feaFile)
 
-        testufo.features.text = dedent(
-            """\
+        testufo.features.text = dedent("""\
             #
             # Automatic Code
             #
-            markClass acutecomb <anchor 100 200> @MC_top;
+            markClass acutecomb <anchor 100 200> @mark_top;
             feature mark {
                 lookup mark1 {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark1;
 
             } mark;
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         assert writer.write(testufo, feaFile)
@@ -601,8 +569,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
     def test_defs_and_lookups_first(self, testufo):
         testufo.newGlyph("circumflexcomb")
         writer = MarkFeatureWriter()
-        testufo.features.text = dedent(
-            """\
+        testufo.features.text = dedent("""\
             feature mkmk {
                 # Automatic Code
                 # Move acutecomb down and right if preceded by circumflexcomb
@@ -611,28 +578,26 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     pos circumflexcomb acutecomb' <0 20 0 20>;
                 } move_acutecomb;
             } mkmk;
-            """
-        )
+            """)
         feaFile = parseLayoutFeatures(testufo)
 
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -642,7 +607,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
@@ -655,30 +620,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 } move_acutecomb;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_mark_mkmk_features(self, testufo):
         writer = MarkFeatureWriter()  # by default both mark + mkmk are built
         feaFile = ast.FeatureFile()
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -688,12 +651,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_write_only_one(self, testufo):
         writer = MarkFeatureWriter(features=["mkmk"])  # only builds "mkmk"
@@ -750,23 +712,22 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         feaFile = ast.FeatureFile()
         writer.write(ufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass cedillacomb <anchor 200 0> @MC_markbottom;
-            markClass gravecomb <anchor 160 780> @MC_marktop;
+        assert str(feaFile) == dedent("""\
+            markClass cedillacomb <anchor 200 0> @mark_markbottom;
+            markClass gravecomb <anchor 160 780> @mark_marktop;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 250 -100> mark @MC_markbottom
-                        <anchor 250 600> mark @MC_marktop;
+                        <anchor 250 -100> mark @mark_markbottom
+                        <anchor 250 600> mark @mark_marktop;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 200 700> mark @MC_marktop
+                            <anchor 200 700> mark @mark_marktop
                         ligComponent
-                            <anchor 500 700> mark @MC_marktop;
+                            <anchor 500 700> mark @mark_marktop;
                 } mark2liga;
 
             } mark;
@@ -776,36 +737,34 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_bottom = [cedillacomb gravecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_bottom;
                     pos mark gravecomb
-                        <anchor 150 600> mark @MC_markbottom;
+                        <anchor 150 600> mark @mark_markbottom;
                 } mark2mark_bottom;
 
                 lookup mark2mark_top {
                     @MFS_mark2mark_top = [gravecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark gravecomb
-                        <anchor 150 800> mark @MC_marktop;
+                        <anchor 150 800> mark @mark_marktop;
                 } mark2mark_top;
 
             } mkmk;
-            """  # noqa: B950
-        )
+            """)  # noqa: B950
 
     @pytest.mark.parametrize(
         "groupMarkClasses, expected",
         [
             (
                 True,
-                dedent(
-                    """\
-                    markClass nukta-kannada <anchor 0 0> @MC_bottom;
-                    markClass candrabindu-kannada <anchor 0 547> @MC_top;
-                    markClass halant-kannada <anchor -456 460> @MC_topright;
+                dedent("""\
+                    markClass nukta-kannada <anchor 0 0> @mark_bottom;
+                    markClass candrabindu-kannada <anchor 0 547> @mark_top;
+                    markClass halant-kannada <anchor -456 460> @mark_topright;
 
                     feature abvm {
                         lookup abvm_mark2base {
                             pos base ka-kannada.base
-                                <anchor 291 547> mark @MC_top
-                                <anchor 391 460> mark @MC_topright;
+                                <anchor 291 547> mark @mark_top
+                                <anchor 391 460> mark @mark_topright;
                         } abvm_mark2base;
 
                     } abvm;
@@ -813,9 +772,9 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature blwm {
                         lookup blwm_mark2base {
                             pos base ka-kannada
-                                <anchor 290 0> mark @MC_bottom;
+                                <anchor 290 0> mark @mark_bottom;
                             pos base ka-kannada.base
-                                <anchor 290 0> mark @MC_bottom;
+                                <anchor 290 0> mark @mark_bottom;
                         } blwm_mark2base;
 
                     } blwm;
@@ -823,32 +782,30 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature mark {
                         lookup mark2base {
                             pos base dottedCircle
-                                <anchor 297 0> mark @MC_bottom
-                                <anchor 297 552> mark @MC_top
-                                <anchor 491 458> mark @MC_topright;
+                                <anchor 297 0> mark @mark_bottom
+                                <anchor 297 552> mark @mark_top
+                                <anchor 491 458> mark @mark_topright;
                         } mark2base;
 
                     } mark;
-                    """  # noqa: B950
-                ),
+                    """),  # noqa: B950
             ),
             (
                 False,
-                dedent(
-                    """\
-                    markClass nukta-kannada <anchor 0 0> @MC_bottom;
-                    markClass candrabindu-kannada <anchor 0 547> @MC_top;
-                    markClass halant-kannada <anchor -456 460> @MC_topright;
+                dedent("""\
+                    markClass nukta-kannada <anchor 0 0> @mark_bottom;
+                    markClass candrabindu-kannada <anchor 0 547> @mark_top;
+                    markClass halant-kannada <anchor -456 460> @mark_topright;
 
                     feature abvm {
                         lookup abvm_mark2base {
                             pos base ka-kannada.base
-                                <anchor 291 547> mark @MC_top;
+                                <anchor 291 547> mark @mark_top;
                         } abvm_mark2base;
 
                         lookup abvm_mark2base_1 {
                             pos base ka-kannada.base
-                                <anchor 391 460> mark @MC_topright;
+                                <anchor 391 460> mark @mark_topright;
                         } abvm_mark2base_1;
 
                     } abvm;
@@ -856,9 +813,9 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature blwm {
                         lookup blwm_mark2base {
                             pos base ka-kannada
-                                <anchor 290 0> mark @MC_bottom;
+                                <anchor 290 0> mark @mark_bottom;
                             pos base ka-kannada.base
-                                <anchor 290 0> mark @MC_bottom;
+                                <anchor 290 0> mark @mark_bottom;
                         } blwm_mark2base;
 
                     } blwm;
@@ -866,22 +823,21 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature mark {
                         lookup mark2base {
                             pos base dottedCircle
-                                <anchor 297 0> mark @MC_bottom;
+                                <anchor 297 0> mark @mark_bottom;
                         } mark2base;
 
                         lookup mark2base_1 {
                             pos base dottedCircle
-                                <anchor 297 552> mark @MC_top;
+                                <anchor 297 552> mark @mark_top;
                         } mark2base_1;
 
                         lookup mark2base_2 {
                             pos base dottedCircle
-                                <anchor 491 458> mark @MC_topright;
+                                <anchor 491 458> mark @mark_topright;
                         } mark2base_2;
 
                     } mark;
-                    """  # noqa: B950
-                ),
+                    """),  # noqa: B950
             ),
         ],
     )
@@ -918,8 +874,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         ka_base.appendAnchor({"name": "topright", "x": 391, "y": 460})
         ka_base.appendAnchor({"name": "bottom", "x": 290, "y": 0})
 
-        ufo.features.text = dedent(
-            """\
+        ufo.features.text = dedent("""\
             languagesystem DFLT dflt;
             languagesystem knda dflt;
             languagesystem knd2 dflt;
@@ -927,8 +882,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             feature psts {
                 sub ka-kannada' halant-kannada by ka-kannada.base;
             } psts;
-            """
-        )
+            """)
         generated = self.writeFeatures(ufo, groupMarkClasses=groupMarkClasses)
 
         assert str(generated) == expected
@@ -974,42 +928,41 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert str(feaFile) == ""
         assert writer.write(ufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass ka-khmer.below <anchor 276 0> @MC_bottom;
-            markClass iMark-khmer <anchor 412 600> @MC_topright;
-            markClass iiMark-khmer <anchor 412 600> @MC_topright;
+        assert str(feaFile) == dedent("""\
+            markClass ka-khmer.below <anchor 276 0> @mark_bottom;
+            markClass iMark-khmer <anchor 412 600> @mark_topright;
+            markClass iiMark-khmer <anchor 412 600> @mark_topright;
 
             lookup abvm_mark2base {
                 pos base ka-khmer
-                    <anchor 470 600> mark @MC_topright;
+                    <anchor 470 600> mark @mark_topright;
             } abvm_mark2base;
 
             lookup ContextualAbvm_0 {
                 pos base ka-khmer
-                    <anchor 276 700> mark @MC_topright;
+                    <anchor 276 700> mark @mark_topright;
             } ContextualAbvm_0;
 
             lookup ContextualAbvmDispatch_0 {
                 lookupflag UseMarkFilteringSet [iMark-khmer];
                 # * ka-khmer iMark-khmer
-                pos [ka-khmer] @MC_topright' lookup ContextualAbvm_0 ka-khmer iMark-khmer;
+                pos [ka-khmer] @mark_topright' lookup ContextualAbvm_0 ka-khmer iMark-khmer;
             } ContextualAbvmDispatch_0;
 
             lookup blwm_mark2base {
                 pos base ka-khmer
-                    <anchor 276 0> mark @MC_bottom;
+                    <anchor 276 0> mark @mark_bottom;
             } blwm_mark2base;
 
             lookup ContextualBlwm_0 {
                 pos base ka-khmer
-                    <anchor 276 100> mark @MC_bottom;
+                    <anchor 276 100> mark @mark_bottom;
             } ContextualBlwm_0;
 
             lookup ContextualBlwmDispatch_0 {
                 lookupflag UseMarkFilteringSet [ka-khmer.below];
                 # *
-                pos [ka-khmer] @MC_bottom' lookup ContextualBlwm_0;
+                pos [ka-khmer] @mark_bottom' lookup ContextualBlwm_0;
             } ContextualBlwmDispatch_0;
 
             feature abvm {
@@ -1021,8 +974,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 lookup blwm_mark2base;
                 lookup ContextualBlwmDispatch_0;
             } blwm;
-            """
-        )
+            """)
 
     def test_shared_script_char(self, FontClass):
         ufo = FontClass()
@@ -1043,39 +995,34 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         nukta.unicode = 0x0650
         nukta.appendAnchor({"name": "_bottom", "x": 0, "y": 547})
 
-        ufo.features.text = dedent(
-            """\
+        ufo.features.text = dedent("""\
             languagesystem DFLT dflt;
             languagesystem arab dflt;
-            """
-        )
+            """)
         generated = self.writeFeatures(ufo, groupMarkClasses=True)
 
-        assert str(generated) == dedent(
-            """\
-            markClass kasra-ar <anchor 0 547> @MC_bottom;
-            markClass fatha-ar <anchor 0 0> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass kasra-ar <anchor 0 547> @mark_bottom;
+            markClass fatha-ar <anchor 0 0> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base kashida-ar
-                        <anchor 100 -100> mark @MC_bottom
-                        <anchor 100 100> mark @MC_top;
+                        <anchor 100 -100> mark @mark_bottom
+                        <anchor 100 100> mark @mark_top;
                 } mark2base;
 
             } mark;
-            """  # noqa: B950
-        )
+            """)  # noqa: B950
 
-        expected = dedent(
-            """\
-            markClass kasra-ar <anchor 0 547> @MC_bottom;
-            markClass fatha-ar <anchor 0 0> @MC_top;
+        expected = dedent("""\
+            markClass kasra-ar <anchor 0 547> @mark_bottom;
+            markClass fatha-ar <anchor 0 0> @mark_top;
 
             feature abvm {
                 lookup abvm_mark2base {
                     pos base kashida-ar
-                        <anchor 100 100> mark @MC_top;
+                        <anchor 100 100> mark @mark_top;
                 } abvm_mark2base;
 
             } abvm;
@@ -1083,7 +1030,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             feature blwm {
                 lookup blwm_mark2base {
                     pos base kashida-ar
-                        <anchor 100 -100> mark @MC_bottom;
+                        <anchor 100 -100> mark @mark_bottom;
                 } blwm_mark2base;
 
             } blwm;
@@ -1091,25 +1038,22 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             feature mark {
                 lookup mark2base {
                     pos base kashida-ar
-                        <anchor 100 -100> mark @MC_bottom
-                        <anchor 100 100> mark @MC_top;
+                        <anchor 100 -100> mark @mark_bottom
+                        <anchor 100 100> mark @mark_top;
                 } mark2base;
 
             } mark;
-            """  # noqa: B950
-        )
+            """)  # noqa: B950
 
         ufo.features.text = ""
         generated = self.writeFeatures(ufo, groupMarkClasses=True)
         assert str(generated) == expected
 
-        ufo.features.text = dedent(
-            """\
+        ufo.features.text = dedent("""\
             languagesystem DFLT dflt;
             languagesystem arab dflt;
             languagesystem adlm dflt;
-            """
-        )
+            """)
         generated = self.writeFeatures(ufo, groupMarkClasses=True)
         assert str(generated) == expected
 
@@ -1118,42 +1062,41 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         [
             (
                 True,
-                dedent(
-                    """\
-                    markClass barcomb <anchor 100 40> @MC_bar;
-                    markClass cedillacomb <anchor 10 -5> @MC_bottom;
-                    markClass bazcomb <anchor 90 320> @MC_bottom;
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass tildecomb <anchor 100 200> @MC_top;
-                    markClass foocomb <anchor 100 40> @MC_top;
+                dedent("""\
+                    markClass barcomb <anchor 100 40> @mark_bar;
+                    markClass cedillacomb <anchor 10 -5> @mark_bottom;
+                    markClass bazcomb <anchor 90 320> @mark_bottom;
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass tildecomb <anchor 100 200> @mark_top;
+                    markClass foocomb <anchor 100 40> @mark_top;
 
                     feature abvm {
                         lookup abvm_mark2liga {
                             pos ligature foo_bar_baz
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 1100 499> mark @MC_bar
-                                    <anchor 1000 500> mark @MC_top;
+                                    <anchor 1100 499> mark @mark_bar
+                                    <anchor 1000 500> mark @mark_top;
                             pos ligature bar_foo
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 600 501> mark @MC_top;
+                                    <anchor 600 501> mark @mark_top;
                         } abvm_mark2liga;
 
                         lookup abvm_mark2mark_bar {
                             @MFS_abvm_mark2mark_bar = [barcomb];
                             lookupflag UseMarkFilteringSet @MFS_abvm_mark2mark_bar;
                             pos mark barcomb
-                                <anchor 100 440> mark @MC_bar;
+                                <anchor 100 440> mark @mark_bar;
                         } abvm_mark2mark_bar;
 
                         lookup abvm_mark2mark_top {
                             @MFS_abvm_mark2mark_top = [foocomb];
                             lookupflag UseMarkFilteringSet @MFS_abvm_mark2mark_top;
                             pos mark foocomb
-                                <anchor 100 190> mark @MC_top;
+                                <anchor 100 190> mark @mark_top;
                         } abvm_mark2mark_top;
 
                     } abvm;
@@ -1161,7 +1104,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature blwm {
                         lookup blwm_mark2liga {
                             pos ligature foo_bar_baz
-                                    <anchor 100 10> mark @MC_bottom
+                                    <anchor 100 10> mark @mark_bottom
                                 ligComponent
                                     <anchor NULL>
                                 ligComponent
@@ -1172,7 +1115,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                             @MFS_blwm_mark2mark_bottom = [bazcomb];
                             lookupflag UseMarkFilteringSet @MFS_blwm_mark2mark_bottom;
                             pos mark bazcomb
-                                <anchor 100 -34> mark @MC_bottom;
+                                <anchor 100 -34> mark @mark_bottom;
                         } blwm_mark2mark_bottom;
 
                     } blwm;
@@ -1180,20 +1123,20 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature mark {
                         lookup mark2base {
                             pos base a
-                                <anchor 100 200> mark @MC_top;
+                                <anchor 100 200> mark @mark_top;
                             pos base c
-                                <anchor 240 0> mark @MC_bottom;
+                                <anchor 240 0> mark @mark_bottom;
                             pos base dottedCircle
-                                <anchor 491 458> mark @MC_bar
-                                <anchor 297 0> mark @MC_bottom
-                                <anchor 297 552> mark @MC_top;
+                                <anchor 491 458> mark @mark_bar
+                                <anchor 297 0> mark @mark_bottom
+                                <anchor 297 552> mark @mark_top;
                         } mark2base;
 
                         lookup mark2liga {
                             pos ligature f_i
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
-                                    <anchor 600 500> mark @MC_top;
+                                    <anchor 600 500> mark @mark_top;
                         } mark2liga;
 
                     } mark;
@@ -1203,30 +1146,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                             @MFS_mark2mark_bottom = [cedillacomb];
                             lookupflag UseMarkFilteringSet @MFS_mark2mark_bottom;
                             pos mark cedillacomb
-                                <anchor 20 -309> mark @MC_bottom;
+                                <anchor 20 -309> mark @mark_bottom;
                         } mark2mark_bottom;
 
                         lookup mark2mark_top {
                             @MFS_mark2mark_top = [acutecomb tildecomb];
                             lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                             pos mark tildecomb
-                                <anchor 100 300> mark @MC_top;
+                                <anchor 100 300> mark @mark_top;
                         } mark2mark_top;
 
                     } mkmk;
-                    """  # noqa: B950
-                ),
+                    """),  # noqa: B950
             ),
             (
                 False,
-                dedent(
-                    """\
-                    markClass barcomb <anchor 100 40> @MC_bar;
-                    markClass cedillacomb <anchor 10 -5> @MC_bottom;
-                    markClass bazcomb <anchor 90 320> @MC_bottom;
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass tildecomb <anchor 100 200> @MC_top;
-                    markClass foocomb <anchor 100 40> @MC_top;
+                dedent("""\
+                    markClass barcomb <anchor 100 40> @mark_bar;
+                    markClass cedillacomb <anchor 10 -5> @mark_bottom;
+                    markClass bazcomb <anchor 90 320> @mark_bottom;
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass tildecomb <anchor 100 200> @mark_top;
+                    markClass foocomb <anchor 100 40> @mark_top;
 
                     feature abvm {
                         lookup abvm_mark2liga {
@@ -1235,34 +1176,34 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                                 ligComponent
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 1100 499> mark @MC_bar;
+                                    <anchor 1100 499> mark @mark_bar;
                         } abvm_mark2liga;
 
                         lookup abvm_mark2liga_1 {
                             pos ligature foo_bar_baz
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 1000 500> mark @MC_top;
+                                    <anchor 1000 500> mark @mark_top;
                             pos ligature bar_foo
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 600 501> mark @MC_top;
+                                    <anchor 600 501> mark @mark_top;
                         } abvm_mark2liga_1;
 
                         lookup abvm_mark2mark_bar {
                             @MFS_abvm_mark2mark_bar = [barcomb];
                             lookupflag UseMarkFilteringSet @MFS_abvm_mark2mark_bar;
                             pos mark barcomb
-                                <anchor 100 440> mark @MC_bar;
+                                <anchor 100 440> mark @mark_bar;
                         } abvm_mark2mark_bar;
 
                         lookup abvm_mark2mark_top {
                             @MFS_abvm_mark2mark_top = [foocomb];
                             lookupflag UseMarkFilteringSet @MFS_abvm_mark2mark_top;
                             pos mark foocomb
-                                <anchor 100 190> mark @MC_top;
+                                <anchor 100 190> mark @mark_top;
                         } abvm_mark2mark_top;
 
                     } abvm;
@@ -1270,7 +1211,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature blwm {
                         lookup blwm_mark2liga {
                             pos ligature foo_bar_baz
-                                    <anchor 100 10> mark @MC_bottom
+                                    <anchor 100 10> mark @mark_bottom
                                 ligComponent
                                     <anchor NULL>
                                 ligComponent
@@ -1281,7 +1222,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                             @MFS_blwm_mark2mark_bottom = [bazcomb];
                             lookupflag UseMarkFilteringSet @MFS_blwm_mark2mark_bottom;
                             pos mark bazcomb
-                                <anchor 100 -34> mark @MC_bottom;
+                                <anchor 100 -34> mark @mark_bottom;
                         } blwm_mark2mark_bottom;
 
                     } blwm;
@@ -1289,28 +1230,28 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     feature mark {
                         lookup mark2base {
                             pos base dottedCircle
-                                <anchor 491 458> mark @MC_bar;
+                                <anchor 491 458> mark @mark_bar;
                         } mark2base;
 
                         lookup mark2base_1 {
                             pos base c
-                                <anchor 240 0> mark @MC_bottom;
+                                <anchor 240 0> mark @mark_bottom;
                             pos base dottedCircle
-                                <anchor 297 0> mark @MC_bottom;
+                                <anchor 297 0> mark @mark_bottom;
                         } mark2base_1;
 
                         lookup mark2base_2 {
                             pos base a
-                                <anchor 100 200> mark @MC_top;
+                                <anchor 100 200> mark @mark_top;
                             pos base dottedCircle
-                                <anchor 297 552> mark @MC_top;
+                                <anchor 297 552> mark @mark_top;
                         } mark2base_2;
 
                         lookup mark2liga {
                             pos ligature f_i
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
-                                    <anchor 600 500> mark @MC_top;
+                                    <anchor 600 500> mark @mark_top;
                         } mark2liga;
 
                     } mark;
@@ -1320,19 +1261,18 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                             @MFS_mark2mark_bottom = [cedillacomb];
                             lookupflag UseMarkFilteringSet @MFS_mark2mark_bottom;
                             pos mark cedillacomb
-                                <anchor 20 -309> mark @MC_bottom;
+                                <anchor 20 -309> mark @mark_bottom;
                         } mark2mark_bottom;
 
                         lookup mark2mark_top {
                             @MFS_mark2mark_top = [acutecomb tildecomb];
                             lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                             pos mark tildecomb
-                                <anchor 100 300> mark @MC_top;
+                                <anchor 100 300> mark @mark_top;
                         } mark2mark_top;
 
                     } mkmk;
-                    """  # noqa: B950
-                ),
+                    """),  # noqa: B950
             ),
         ],
     )
@@ -1401,12 +1341,10 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "foo_bar_baz",
             "bar_foo",
         ]
-        ufo.features.text = dedent(
-            """\
+        ufo.features.text = dedent("""\
             languagesystem DFLT dflt;
             languagesystem taml dflt;
-            """
-        )
+            """)
         generated = self.writeFeatures(testufo, groupMarkClasses=groupMarkClasses)
 
         assert str(generated) == expected
@@ -1430,15 +1368,13 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             {"name": "_top", "x": 0, "y": 0},
             {"name": "top", "x": 0, "y": 300},
         ]
-        testufo.features.text = dedent(
-            """\
+        testufo.features.text = dedent("""\
             @Bases = [a D];
             @Marks = [acutecomb tildecomb dotaccentcomb];
             table GDEF {
                 GlyphClassDef @Bases, [f_i], @Marks, ;
             } GDEF;
-            """
-        )
+            """)
         testufo.glyphOrder = [
             "Alpha",
             "D",
@@ -1452,31 +1388,30 @@ class MarkFeatureWriterTest(FeatureWriterTest):
 
         generated = self.writeFeatures(testufo)
 
-        assert str(generated) == dedent(
-            """\
-            markClass dotaccentcomb <anchor 0 0> @MC_center;
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass dotaccentcomb <anchor 0 0> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass dotaccentcomb <anchor 0 0> @mark_center;
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass dotaccentcomb <anchor 0 0> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base D
-                        <anchor 320 360> mark @MC_center;
+                        <anchor 320 360> mark @mark_center;
                 } mark2base;
 
                 lookup mark2base_1 {
                     pos base D
-                        <anchor 300 700> mark @MC_top;
+                        <anchor 300 700> mark @mark_top;
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base_1;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -1486,14 +1421,13 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb dotaccentcomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark dotaccentcomb
-                        <anchor 0 300> mark @MC_top;
+                        <anchor 0 300> mark @mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_mark_mkmk_features_with_GDEF_and_openTypeCategories(self, testufo):
         # this glyph has compatible anchors and has an openTypeCategories "base"
@@ -1522,15 +1456,13 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "dotaccentcomb": "mark",
             "tildecomb": "base",
         }
-        testufo.features.text = dedent(
-            """\
+        testufo.features.text = dedent("""\
             @Bases = [a];
             @Marks = [acutecomb tildecomb];
             table GDEF {
                 GlyphClassDef @Bases, [f_i], @Marks, ;
             } GDEF;
-            """
-        )
+            """)
         testufo.glyphOrder = [
             "Alpha",
             "D",
@@ -1544,22 +1476,21 @@ class MarkFeatureWriterTest(FeatureWriterTest):
 
         generated = self.writeFeatures(testufo)
 
-        assert str(generated) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -1569,12 +1500,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_multiple_anchor_classes_base(self, FontClass):
         dirname = os.path.dirname(os.path.dirname(__file__))
@@ -1582,102 +1512,96 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         testufo = FontClass(fontPath)
         generated = self.writeFeatures(testufo)
 
-        assert str(generated) == dedent(
-            """\
-            markClass acutecomb <anchor -175 589> @MC_topA;
-            markClass acutecomb <anchor -175 572> @MC_topE;
+        assert str(generated) == dedent("""\
+            markClass acutecomb <anchor -175 589> @mark_topA;
+            markClass acutecomb <anchor -175 572> @mark_topE;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 515 581> mark @MC_topA;
+                        <anchor 515 581> mark @mark_topA;
                 } mark2base;
 
                 lookup mark2base_1 {
                     pos base e
-                        <anchor -21 396> mark @MC_topE;
+                        <anchor -21 396> mark @mark_topE;
                 } mark2base_1;
 
             } mark;
-            """
-        )
+            """)
 
     @pytest.mark.parametrize(
         "groupMarkClasses, expected",
         [
             (
                 True,
-                # 'MC_top' should be last thanks to the anchorSortKey. Arguably
+                # 'mark_top' should be last thanks to the anchorSortKey. Arguably
                 # this is wrong and might not match current Glyphs.app's behavior
                 # but we decided to keep for backward compatibility with existing
                 # projects.
-                dedent(
-                    """\
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass acutecomb <anchor 150 250> @MC_topOther;
+                dedent("""\
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass acutecomb <anchor 150 250> @mark_topOther;
 
                     feature mark {
                         lookup mark2liga {
                             pos ligature f_f
-                                    <anchor 101 501> mark @MC_topOther
+                                    <anchor 101 501> mark @mark_topOther
                                 ligComponent
-                                    <anchor 601 501> mark @MC_topOther;
+                                    <anchor 601 501> mark @mark_topOther;
                             pos ligature f_l
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 602 502> mark @MC_topOther;
+                                    <anchor 602 502> mark @mark_topOther;
                         } mark2liga;
 
                         lookup mark2liga_1 {
                             pos ligature f_i
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
-                                    <anchor 600 500> mark @MC_top;
+                                    <anchor 600 500> mark @mark_top;
                             pos ligature f_l
-                                    <anchor 102 502> mark @MC_top
+                                    <anchor 102 502> mark @mark_top
                                 ligComponent
                                     <anchor NULL>;
                         } mark2liga_1;
 
                     } mark;
-                    """
-                ),
+                    """),
             ),
             (
                 False,
                 # with groupMarkClasses=False, lookups are simply sorted by mark
-                # class name alphabetically so 'MC_topOther' is last and wins
-                dedent(
-                    """\
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass acutecomb <anchor 150 250> @MC_topOther;
+                # class name alphabetically so 'mark_topOther' is last and wins
+                dedent("""\
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass acutecomb <anchor 150 250> @mark_topOther;
 
                     feature mark {
                         lookup mark2liga {
                             pos ligature f_i
-                                    <anchor 100 500> mark @MC_top
+                                    <anchor 100 500> mark @mark_top
                                 ligComponent
-                                    <anchor 600 500> mark @MC_top;
+                                    <anchor 600 500> mark @mark_top;
                             pos ligature f_l
-                                    <anchor 102 502> mark @MC_top
+                                    <anchor 102 502> mark @mark_top
                                 ligComponent
                                     <anchor NULL>;
                         } mark2liga;
 
                         lookup mark2liga_1 {
                             pos ligature f_f
-                                    <anchor 101 501> mark @MC_topOther
+                                    <anchor 101 501> mark @mark_topOther
                                 ligComponent
-                                    <anchor 601 501> mark @MC_topOther;
+                                    <anchor 601 501> mark @mark_topOther;
                             pos ligature f_l
                                     <anchor NULL>
                                 ligComponent
-                                    <anchor 602 502> mark @MC_topOther;
+                                    <anchor 602 502> mark @mark_topOther;
                         } mark2liga_1;
 
                     } mark;
-                    """
-                ),
+                    """),
             ),
         ],
     )
@@ -1705,51 +1629,47 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         [
             (
                 True,
-                # 'MC_top' should be last thanks to the anchorSortKey
-                "MC_topOther, MC_top",
-                dedent(
-                    """\
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass acutecomb <anchor 150 250> @MC_topOther;
+                # 'mark_top' should be last thanks to the anchorSortKey
+                "mark_topOther, mark_top",
+                dedent("""\
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass acutecomb <anchor 150 250> @mark_topOther;
 
                     feature mark {
                         lookup mark2base {
                             pos base a
-                                <anchor 150 550> mark @MC_topOther;
+                                <anchor 150 550> mark @mark_topOther;
                         } mark2base;
 
                         lookup mark2base_1 {
                             pos base a
-                                <anchor 100 500> mark @MC_top;
+                                <anchor 100 500> mark @mark_top;
                         } mark2base_1;
 
                     } mark;
-                    """
-                ),
+                    """),
             ),
             (
                 False,
-                # 'MC_topOther' (sorted alphabetically) should be last
-                "MC_top, MC_topOther",
-                dedent(
-                    """\
-                    markClass acutecomb <anchor 100 200> @MC_top;
-                    markClass acutecomb <anchor 150 250> @MC_topOther;
+                # 'mark_topOther' (sorted alphabetically) should be last
+                "mark_top, mark_topOther",
+                dedent("""\
+                    markClass acutecomb <anchor 100 200> @mark_top;
+                    markClass acutecomb <anchor 150 250> @mark_topOther;
 
                     feature mark {
                         lookup mark2base {
                             pos base a
-                                <anchor 100 500> mark @MC_top;
+                                <anchor 100 500> mark @mark_top;
                         } mark2base;
 
                         lookup mark2base_1 {
                             pos base a
-                                <anchor 150 550> mark @MC_topOther;
+                                <anchor 150 550> mark @mark_topOther;
                         } mark2base_1;
 
                     } mark;
-                    """
-                ),
+                    """),
             ),
         ],
     )
@@ -1784,19 +1704,17 @@ class MarkFeatureWriterTest(FeatureWriterTest):
 
         generated = self.writeFeatures(testufo)
 
-        assert str(generated) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
             } mark;
-            """
-        )
+            """)
 
     def test_quantize(self, testufo):
         testufo.newGlyph("ogonekcomb").anchors = [
@@ -1805,20 +1723,18 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         testufo.lib["public.skipExportGlyphs"] = ["f_i", "tildecomb"]
         generated = self.writeFeatures(testufo, quantization=50)
 
-        assert str(generated) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass ogonekcomb <anchor 250 200> @MC_top;
+        assert str(generated) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass ogonekcomb <anchor 250 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
             } mark;
-            """
-        )
+            """)
 
     def test_extra_substitutions(self, FontClass):
         dirname = os.path.dirname(os.path.dirname(__file__))
@@ -1852,14 +1768,13 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert writer.write(testufo, feaFile)
 
         assert len(feaFile.markClasses) == 2
-        assert "MC_bottom" in feaFile.markClasses
+        assert "mark_bottom" in feaFile.markClasses
 
         feature = feaFile.statements[-1]
         assert feature.name == "mark"
         # note there are two mark2base lookups because ufo2ft v3 generates one lookup
         # per mark class (previously 'top' and 'bottom' would go into one lookup)
-        assert str(feature) == dedent(
-            """\
+        assert str(feature) == dedent("""\
             feature mark {
                 lookup mark2base;
                 lookup mark2base_1;
@@ -1867,8 +1782,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 lookup ContextualMarkDispatch_1;
                 lookup ContextualMarkDispatch_2;
             } mark;
-            """
-        )
+            """)
 
         lookup = feature.statements[-3].lookup
         assert str(lookup) == (
@@ -1876,7 +1790,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "    lookupflag UseMarkFilteringSet [twodotshorizontalbelow-ar];\n"
             "    # reh-ar * behDotless-ar.medi &\n"
             "    pos reh-ar [behDotless-ar.init] behDotless-ar.medi"
-            " @MC_bottom'"
+            " @mark_bottom'"
             " lookup ContextualMark_0;\n"
             "} ContextualMarkDispatch_0;\n"
         )
@@ -1887,11 +1801,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "    lookupflag UseMarkFilteringSet [twodotsverticalbelow-ar];\n"
             "    # dotbelow-ar *\n"
             "    pos dotbelow-ar [behDotless-ar.init.alt]"
-            " @MC_bottom'"
+            " @mark_bottom'"
             " lookup ContextualMark_1;\n"
             "    # reh-ar *\n"
             "    pos reh-ar [behDotless-ar.init behDotless-ar.init.alt]"
-            " @MC_bottom'"
+            " @mark_bottom'"
             " lookup ContextualMark_2;\n"
             "} ContextualMarkDispatch_1;\n"
         )
@@ -1901,7 +1815,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "lookup ContextualMarkDispatch_2 {\n"
             "    # reh-ar *\n"
             "    pos reh-ar [behDotless-ar.init]"
-            " @MC_bottom'"
+            " @mark_bottom'"
             " lookup ContextualMark_3;\n"
             "} ContextualMarkDispatch_2;\n"
         )
@@ -1921,53 +1835,50 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert str(feaFile) == ""
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mkmk {
                 lookup mark2mark_top {
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
         writer = MarkFeatureWriter()
         feaFile = ast.FeatureFile()
         assert str(feaFile) == ""
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             lookup mark2base {
                 pos base a
-                    <anchor 100 200> mark @MC_top;
+                    <anchor 100 200> mark @mark_top;
             } mark2base;
 
             lookup mark2liga {
                 pos ligature f_i
-                        <anchor 100 500> mark @MC_top
+                        <anchor 100 500> mark @mark_top
                     ligComponent
-                        <anchor 600 500> mark @MC_top;
+                        <anchor 600 500> mark @mark_top;
             } mark2liga;
 
             lookup ContextualMark_0 {
                 pos base a
-                    <anchor 200 200> mark @MC_top;
+                    <anchor 200 200> mark @mark_top;
             } ContextualMark_0;
 
             lookup ContextualMarkDispatch_0 {
                 # f *
-                pos f [a] @MC_top' lookup ContextualMark_0;
+                pos f [a] @mark_top' lookup ContextualMark_0;
             } ContextualMarkDispatch_0;
 
             feature mark {
@@ -1981,12 +1892,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_contextual_liga_anchors(self, testufo):
         a = testufo["a"]
@@ -2029,57 +1939,56 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert str(feaFile) == ""
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             lookup mark2base {
                 pos base a
-                    <anchor 100 200> mark @MC_top;
+                    <anchor 100 200> mark @mark_top;
             } mark2base;
 
             lookup mark2liga {
                 pos ligature f_i
-                        <anchor 100 500> mark @MC_top
+                        <anchor 100 500> mark @mark_top
                     ligComponent
-                        <anchor 600 500> mark @MC_top;
+                        <anchor 600 500> mark @mark_top;
                 pos ligature f_l
-                        <anchor 200 400> mark @MC_top
+                        <anchor 200 400> mark @mark_top
                     ligComponent
-                        <anchor 500 400> mark @MC_top;
+                        <anchor 500 400> mark @mark_top;
             } mark2liga;
 
             lookup ContextualMark_0 {
                 pos base a
-                    <anchor 200 200> mark @MC_top;
+                    <anchor 200 200> mark @mark_top;
             } ContextualMark_0;
 
             lookup ContextualMark_1 {
                 pos ligature f_i
-                        <anchor 300 500> mark @MC_top
+                        <anchor 300 500> mark @mark_top
                     ligComponent
                         <anchor NULL>;
                 pos ligature f_l
                         <anchor NULL>
                     ligComponent
-                        <anchor 100 400> mark @MC_top;
+                        <anchor 100 400> mark @mark_top;
             } ContextualMark_1;
 
             lookup ContextualMark_2 {
                 pos ligature f_i
-                        <anchor 200 300> mark @MC_top
+                        <anchor 200 300> mark @mark_top
                     ligComponent
                         <anchor NULL>;
             } ContextualMark_2;
 
             lookup ContextualMarkDispatch_0 {
                 # f *
-                pos f [a] @MC_top' lookup ContextualMark_0;
+                pos f [a] @mark_top' lookup ContextualMark_0;
                 # * tildecomb
-                pos [f_i f_l] @MC_top' lookup ContextualMark_1 tildecomb;
+                pos [f_i f_l] @mark_top' lookup ContextualMark_1 tildecomb;
                 # * acutecomb
-                pos [f_i] @MC_top' lookup ContextualMark_2 acutecomb;
+                pos [f_i] @mark_top' lookup ContextualMark_2 acutecomb;
             } ContextualMarkDispatch_0;
 
             feature mark {
@@ -2093,12 +2002,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_contextual_liga_anchor_no_number(self, testufo):
         fi = testufo["f_i"]
@@ -2121,40 +2029,39 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         feaFile = ast.FeatureFile()
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             lookup mark2base {
                 pos base a
-                    <anchor 100 200> mark @MC_top;
+                    <anchor 100 200> mark @mark_top;
             } mark2base;
 
             lookup mark2liga {
                 pos ligature f_i
-                        <anchor 100 500> mark @MC_top
+                        <anchor 100 500> mark @mark_top
                     ligComponent
-                        <anchor 600 500> mark @MC_top;
+                        <anchor 600 500> mark @mark_top;
             } mark2liga;
 
             lookup ContextualMark_0 {
                 pos base f_i
-                    <anchor 300 500> mark @MC_top;
+                    <anchor 300 500> mark @mark_top;
             } ContextualMark_0;
 
             lookup ContextualMark_1 {
                 pos ligature f_i
-                        <anchor 200 300> mark @MC_top
+                        <anchor 200 300> mark @mark_top
                     ligComponent
                         <anchor NULL>;
             } ContextualMark_1;
 
             lookup ContextualMarkDispatch_0 {
                 # * tildecomb
-                pos [f_i] @MC_top' lookup ContextualMark_0 tildecomb;
+                pos [f_i] @mark_top' lookup ContextualMark_0 tildecomb;
                 # * acutecomb
-                pos [f_i] @MC_top' lookup ContextualMark_1 acutecomb;
+                pos [f_i] @mark_top' lookup ContextualMark_1 acutecomb;
             } ContextualMarkDispatch_0;
 
             feature mark {
@@ -2168,12 +2075,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_contextual_mkmk_anchors(self, testufo):
         tildecomb = testufo["tildecomb"]
@@ -2192,39 +2098,38 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert str(feaFile) == ""
         assert writer.write(testufo, feaFile)
 
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             lookup mark2mark_top {
                 @MFS_mark2mark_top = [acutecomb tildecomb];
                 lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                 pos mark tildecomb
-                    <anchor 100 300> mark @MC_top;
+                    <anchor 100 300> mark @mark_top;
             } mark2mark_top;
 
             lookup ContextualMarkToMark_0 {
                 pos mark tildecomb
-                    <anchor 120 400> mark @MC_top;
+                    <anchor 120 400> mark @mark_top;
             } ContextualMarkToMark_0;
 
             lookup ContextualMarkToMarkDispatch_0 {
                 # f *
-                pos f [tildecomb] @MC_top' lookup ContextualMarkToMark_0;
+                pos f [tildecomb] @mark_top' lookup ContextualMarkToMark_0;
             } ContextualMarkToMarkDispatch_0;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -2233,8 +2138,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                 lookup mark2mark_top;
                 lookup ContextualMarkToMarkDispatch_0;
             } mkmk;
-            """
-        )
+            """)
 
     def test_contextual_anchor_no_context(self, testufo, caplog):
         a = testufo["a"]
@@ -2253,22 +2157,21 @@ class MarkFeatureWriterTest(FeatureWriterTest):
             "contextual anchor '*top' in glyph 'a' has no context data; skipped"
             in caplog.text
         )
-        assert str(feaFile) == dedent(
-            """\
-            markClass acutecomb <anchor 100 200> @MC_top;
-            markClass tildecomb <anchor 100 200> @MC_top;
+        assert str(feaFile) == dedent("""\
+            markClass acutecomb <anchor 100 200> @mark_top;
+            markClass tildecomb <anchor 100 200> @mark_top;
 
             feature mark {
                 lookup mark2base {
                     pos base a
-                        <anchor 100 200> mark @MC_top;
+                        <anchor 100 200> mark @mark_top;
                 } mark2base;
 
                 lookup mark2liga {
                     pos ligature f_i
-                            <anchor 100 500> mark @MC_top
+                            <anchor 100 500> mark @mark_top
                         ligComponent
-                            <anchor 600 500> mark @MC_top;
+                            <anchor 600 500> mark @mark_top;
                 } mark2liga;
 
             } mark;
@@ -2278,12 +2181,11 @@ class MarkFeatureWriterTest(FeatureWriterTest):
                     @MFS_mark2mark_top = [acutecomb tildecomb];
                     lookupflag UseMarkFilteringSet @MFS_mark2mark_top;
                     pos mark tildecomb
-                        <anchor 100 300> mark @MC_top;
+                        <anchor 100 300> mark @mark_top;
                 } mark2mark_top;
 
             } mkmk;
-            """
-        )
+            """)
 
     def test_ignorable_anchors(self, FontClass):
         dirname = os.path.dirname(os.path.dirname(__file__))
@@ -2296,7 +2198,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         assert writer.write(testufo, feaFile)
 
         assert len(feaFile.markClasses) == 1
-        assert "MC_top" in feaFile.markClasses
+        assert "mark_top" in feaFile.markClasses
 
         feature = feaFile.statements[-2]
         assert feature.name == "mark"
@@ -2307,7 +2209,7 @@ class MarkFeatureWriterTest(FeatureWriterTest):
         for statement in lookup.statements:
             assert isinstance(statement, ast.MarkBasePosStatement)
             assert len(statement.marks) == 1
-            assert statement.marks[0][1].name == "MC_top"
+            assert statement.marks[0][1].name == "mark_top"
 
 
 if __name__ == "__main__":

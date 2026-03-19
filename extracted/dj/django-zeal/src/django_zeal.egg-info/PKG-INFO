@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-zeal
-Version: 2.0.4
+Version: 2.1.0
 Summary: Detect N+1s in your Django app
 License: Copyright 2016 Joshua Carp
         Copyright 2024 Tao Bojlén
@@ -26,6 +26,7 @@ License: Copyright 2016 Joshua Carp
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # django-zeal
 
@@ -69,10 +70,10 @@ if DEBUG:
 This will detect N+1s that happen in web requests. To catch N+1s in more places,
 read on!
 
-> [!WARNING]  
+> [!WARNING]
 > You probably don't want to run zeal in production:
-> there is significant overhead to detecting N+1s, and my benchmarks show that it
-> can make your code between 2.5x - 7x slower.
+> there is some overhead to detecting N+1s. Benchmarks show ~3-5% overhead
+> on a typical workload.
 
 ### Celery
 

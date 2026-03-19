@@ -79,6 +79,7 @@ class InstallState:
         self.extra_pip_args = []
         self.categories = []
         self.skip_lock = False
+        self.all_categories = False
 
 
 class LockOptions:
@@ -87,6 +88,12 @@ class LockOptions:
 
 
 pass_state = make_pass_decorator(State, ensure=True)
+
+
+def parse_categories(value):
+    if not value:
+        return []
+    return [category for category in re.split(r", *| ", value) if category]
 
 
 def index_option(f):
@@ -164,7 +171,7 @@ def categories_option(f):
     def callback(ctx, param, value):
         state = ctx.ensure_object(State)
         if value:
-            state.installstate.categories += re.split(r", *| ", value)
+            state.installstate.categories += parse_categories(value)
         return value
 
     return option(
@@ -174,6 +181,22 @@ def categories_option(f):
         callback=callback,
         expose_value=True,
         type=click_types.STRING,
+    )(f)
+
+
+def all_categories_option(f):
+    def callback(ctx, param, value):
+        state = ctx.ensure_object(State)
+        state.installstate.all_categories = value
+        return value
+
+    return option(
+        "--all",
+        is_flag=True,
+        default=False,
+        help="Install packages from all categories defined in the Pipfile.",
+        callback=callback,
+        expose_value=False,
     )(f)
 
 
@@ -609,6 +632,7 @@ def sync_options(f):
     f = install_base_options(f)
     f = install_dev_option(f)
     f = categories_option(f)
+    f = all_categories_option(f)
     return f
 
 

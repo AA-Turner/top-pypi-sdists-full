@@ -43,6 +43,9 @@ map = util.safe_map
 zip = util.safe_zip
 T = TypeVar('T')
 
+class PipelineCallback(Protocol):
+  """A callback that returns the same type as the input."""
+  def __call__(self, arg: T, /) -> T: ...
 
 BlockSpecPytree: TypeAlias = Sequence[Union[pl.BlockSpec, "BlockSpecPytree"]]
 AbstractRefPytree: TypeAlias = Sequence[
@@ -124,7 +127,6 @@ class BufferedRef:
     gpu_primitives.copy_gmem_to_smem(
         # pyrefly: ignore[bad-index]
         self.gmem_ref.at[gmem_slices],  # pytype: disable=unsupported-operands
-        # pyrefly: ignore[bad-index]
         self.smem_ref.at[slot],  # pytype: disable=unsupported-operands
         barrier_ref.at[barrier_slot if barrier_slot is not None else slot],
         collective_axes=getattr(self.spec, "collective_axes", ()),
@@ -136,7 +138,6 @@ class BufferedRef:
     assert self.smem_ref is not None
     gmem_slices = self.compute_gmem_slice(grid_indices)
     gpu_primitives.copy_smem_to_gmem(
-        # pyrefly: ignore[bad-index]
         self.smem_ref.at[slot],  # pytype: disable=unsupported-operands
         # pyrefly: ignore[bad-index]
         self.gmem_ref.at[gmem_slices],  # pytype: disable=unsupported-operands
@@ -275,7 +276,7 @@ def emit_pipeline(
     in_smem_refs, out_smem_refs = util.split_list(
         [
             gpu_core.SMEM(
-                (max_concurrent_steps, *_get_block_shape(spec)),  # type: ignore
+                (max_concurrent_steps, *_get_block_shape(spec)),
                 ref.dtype,
                 transforms=tuple(
                     gpu_core.batch_transform(t, 1)
@@ -496,7 +497,7 @@ class ComputeContext(Protocol):
   ```
 
   """
-  def __call__(self, pipeline: Callable[[T], T]) -> None:
+  def __call__(self, pipeline: PipelineCallback, /) -> None:
     ...
 
 
@@ -697,7 +698,7 @@ def emit_pipeline_warp_specialized(
       slots = max_concurrent_steps if has_seq_dim else 1
       smem_allocs.append(
           gpu_core.SMEM(
-              (slots, *_get_block_shape(spec)),   # type: ignore
+              (slots, *_get_block_shape(spec)),
               gmem_ref.dtype,
               transforms=getattr(spec, "transforms", ()),
           )
@@ -712,7 +713,7 @@ def emit_pipeline_warp_specialized(
     consumed_barrier_type: Any
     if collective_axes:
       consumed_barrier_type = functools.partial(
-          gpu_core.ClusterBarrier, collective_axes=collective_axes  # type: ignore
+          gpu_core.ClusterBarrier, collective_axes=collective_axes
       )
     else:
       consumed_barrier_type = gpu_core.Barrier

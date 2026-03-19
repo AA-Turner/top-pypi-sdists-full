@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,296 +22,185 @@ import pytest
 
 import nvtx
 from nvtx.nvtx import dummy_domain
+from .conftest import (verify_registration_events, verify_push, verify_pop, verify_mark,
+                       verify_start, verify_end)
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-        "green",
-        "blue"
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        1,
-        1.0
-    ]
-)
-def test_annotate_context_manager(message, color, domain, payload):
-    with nvtx.annotate(message=message, color=color, domain=domain, payload=payload):
+def test_annotate_context_manager(nvtx_events, message, color, domain, payload, category):
+    ann = nvtx.annotate(
+        message=message, color=color, domain=domain, payload=payload, category=category)
+    with ann:
         pass
 
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_push(nvtx_events, domain, message, color=color, payload=payload, category=category)
+        verify_pop(nvtx_events, domain)
+    else:
+        assert ann.domain is dummy_domain
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-        "green",
-        "blue"
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        1,
-        1.0
-    ]
-)
-def test_annotate_decorator(message, color, domain, payload):
-    @nvtx.annotate(message=message, color=color, domain=domain, payload=payload)
+
+def test_annotate_decorator(nvtx_events, message, color, domain, payload, category):
     def foo():
         pass
+    orig_foo = foo
+    foo = nvtx.annotate(message=message, color=color, domain=domain, payload=payload,
+                        category=category)(foo)
 
     foo()
 
-
-def test_pickle_annotate():
-    orig = nvtx.annotate(message="foo", color="blue", domain="test")
-    pickled = pickle.dumps(orig)
-    unpickled = pickle.loads(pickled)
-
-    assert orig.init_args == unpickled.init_args
-
-
-def test_disabled_domain():
-    assert nvtx.get_domain("x") is dummy_domain
+    if nvtx_events:
+        if message is None:
+            message = "foo"
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_push(nvtx_events, domain, message, color=color, payload=payload, category=category)
+        verify_pop(nvtx_events, domain)
+    else:
+        assert orig_foo is foo
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-        "green",
-        "blue"
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "",
-        "x",
-        "abc",
-        "abc def"
-    ]
-)
-@pytest.mark.parametrize(
-    "category",
-    [
-        None,
-        "",
-        "y"
-        "x",
-        "abc",
-        "abc def",
-        0,
-        1,
-    ]
-)
-def test_categories_basic(message, color, domain, category):
-    with nvtx.annotate(message=message, domain=domain, category=category):
-        pass
+def test_annotate_context_manager_with_exception(nvtx_events, message, color, domain, category,
+                                                 payload):
+    ann = nvtx.annotate(message=message, color=color, domain=domain, category=category,
+                        payload=payload)
+    with pytest.raises(Exception):
+        with ann:
+            raise Exception()
+
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_push(nvtx_events, domain, message, color=color, category=category, payload=payload)
+        verify_pop(nvtx_events, domain)
+    else:
+        assert ann.domain is dummy_domain
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "category",
-    [
-        None,
-        "abc",
-        1,
-    ]
-)
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        1,
-        1.0
-    ]
-)
-def test_start_end(message, color, domain, category, payload):
-    rng = nvtx.start_range(message, color, domain, category, payload)
-    nvtx.end_range(rng)
+def test_annotate_decorator_with_exception(nvtx_events, message, color, domain, category, payload):
+    @nvtx.annotate(message=message, color=color, domain=domain, category=category, payload=payload)
+    def foo():
+        raise Exception()
 
-    domain = nvtx.get_domain(domain)
-    attributes = domain.get_event_attributes(message, color, category, payload)
-    domain.end_range(domain.start_range(attributes))
+    with pytest.raises(Exception):
+        foo()
+
+    if nvtx_events:
+        if message is None:
+            message = "foo"
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_push(nvtx_events, domain, message, color=color, category=category, payload=payload)
+        verify_pop(nvtx_events, domain)
 
 
+def foo():
+    """
+    Dummy function to be annotated by the below test.
+    It must be global to be picklable.
+    """
+    pass
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "category",
-    [
-        None,
-        "abc",
-        1,
-    ]
-)
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        1,
-        1.0
-    ]
-)
-def test_push_pop(message, color, domain, category, payload):
+def test_pickle_annotate(nvtx_events, message, color, domain, category, payload):
+    global foo
+    orig_foo = foo
+    foo = nvtx.annotate(
+        message=message, color=color, domain=domain, category=category, payload=payload)(foo)
+    try:
+        unpickled = pickle.loads(pickle.dumps(foo))
+        unpickled()
+        if nvtx_events:
+            if message is None:
+                message = "foo"
+            verify_registration_events(nvtx_events, domain, message, category)
+            verify_push(nvtx_events, domain, message, color=color, category=category,
+                        payload=payload)
+            verify_pop(nvtx_events, domain)
+        else:
+            assert orig_foo is foo
+    finally:
+        foo = orig_foo
+
+
+def test_start_end(nvtx_events, message, color, domain, category, payload):
+    range_ids = []
+    range_id = nvtx.start_range(message, color, domain, category, payload)
+    nvtx.end_range(range_id)
+    range_ids.append(range_id)
+
+    domain_obj = nvtx.get_domain(domain)
+    range_id = domain_obj.start_range(
+        domain_obj.get_event_attributes(
+            message=message, color=color, category=category, payload=payload))
+    domain_obj.end_range(range_id)
+    range_ids.append(range_id)
+
+    range_id = domain_obj.start_range(
+        message=message, color=color, category=category, payload=payload)
+    domain_obj.end_range(range_id)
+    range_ids.append(range_id)
+
+    range_id = domain_obj.start_range(domain_obj.get_event_attributes(),
+        message=message, color=color, category=category, payload=payload)
+    domain_obj.end_range(range_id)
+    range_ids.append(range_id)    
+
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        for range_id in range_ids:
+            verify_start(nvtx_events, domain, message, color=color, category=category,
+                        payload=payload)
+            verify_end(nvtx_events, domain, range_id)
+    else:
+        assert domain_obj is dummy_domain
+
+
+def test_push_pop(nvtx_events, message, color, domain, category, payload):
     nvtx.push_range(message, color, domain, category, payload)
-    nvtx.pop_range()
+    nvtx.pop_range(domain)
 
-    domain = nvtx.get_domain(domain)
-    attributes = domain.get_event_attributes(message, color, category, payload)
-    domain.push_range(attributes)
-    domain.pop_range()
+    domain_obj = nvtx.get_domain(domain)
+    domain_obj.push_range(domain_obj.get_event_attributes(message, color, category, payload))
+    domain_obj.pop_range()
+    domain_obj.push_range(message=message, color=color, category=category, payload=payload)
+    domain_obj.pop_range()
+    domain_obj.push_range(domain_obj.get_event_attributes(),
+                          message=message, color=color, category=category, payload=payload)
+    domain_obj.pop_range()
+    push_pop_count = 4
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        for _ in range(push_pop_count):
+            verify_push(nvtx_events, domain, message, color=color, category=category,
+                        payload=payload)
+            verify_pop(nvtx_events, domain)
+    else:
+        assert domain_obj is dummy_domain
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "color",
-    [
-        None,
-        "red",
-    ]
-)
-@pytest.mark.parametrize(
-    "domain",
-    [
-        None,
-        "abc",
-    ]
-)
-@pytest.mark.parametrize(
-    "category",
-    [
-        None,
-        "abc",
-        1,
-    ]
-)
-@pytest.mark.parametrize(
-    "payload",
-    [
-        None,
-        1,
-        1.0
-    ]
-)
-def test_mark(message, color, domain, category, payload):
+def test_mark(nvtx_events, message, color, domain, category, payload):
     nvtx.mark(message, color, domain, category, payload)
 
-    domain = nvtx.get_domain(domain)
-    attributes = domain.get_event_attributes(message, color, category, payload)
-    domain.mark(attributes)
+    domain_obj = nvtx.get_domain(domain)
+    attributes = domain_obj.get_event_attributes(message, color, category, payload)
+    domain_obj.mark(attributes)
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_mark(nvtx_events, domain, message, color=color, category=category,
+                    payload=payload)
+        verify_mark(nvtx_events, domain, message, color=color, category=category,
+                    payload=payload)
+    else:
+        assert domain_obj is dummy_domain
 
 
-def test_domain_disabled_no_func_annotation():
-    def foo():
-        pass
-
-    assert nvtx.annotate()(foo) is foo
+def test_set_event_attributes(nvtx_events, message, color, domain, category, payload):
+    domain_obj = nvtx.get_domain(domain)
+    attributes = domain_obj.get_event_attributes()
+    domain_obj.set_event_attributes(
+        attributes, message=message, color=color, category=category, payload=payload)
+    domain_obj.mark(attributes)
+    if nvtx_events:
+        verify_registration_events(nvtx_events, domain, message, category)
+        verify_mark(nvtx_events, domain, message, color=color, category=category,
+                    payload=payload)
+    else:
+        assert domain_obj is dummy_domain

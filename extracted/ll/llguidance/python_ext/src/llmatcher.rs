@@ -265,8 +265,7 @@ impl LLMatcher {
     }
 
     fn eos_token_set(&self) -> SimpleVob {
-        let trie = self.tok_env.tok_trie();
-        trie.singleton_token_set(trie.eos_token())
+        self.tok_env.tok_trie().eos_token_set()
     }
 
     fn compute_mask_or_eos(&mut self) -> SimpleVob {
@@ -280,7 +279,13 @@ impl LLMatcher {
     }
 
     fn consume_token_inner(&mut self, sampled_token: TokenId) -> bool {
-        if self.inner.is_stopped() && sampled_token == self.tok_env.tok_trie().eos_token() {
+        if self.inner.is_stopped()
+            && self
+                .tok_env
+                .tok_trie()
+                .eos_tokens()
+                .contains(&sampled_token)
+        {
             true
         } else {
             self.inner.consume_token(sampled_token).is_ok()
@@ -549,6 +554,18 @@ impl LLMatcher {
 
     fn get_error(&self) -> String {
         self.inner.get_error().unwrap_or_default()
+    }
+
+    fn get_capture(&self, name: String) -> Option<Cow<'_, [u8]>> {
+        self.inner.get_capture(&name).map(Cow::Borrowed)
+    }
+
+    fn get_captures(&self) -> Vec<(String, Cow<'_, [u8]>)> {
+        self.inner
+            .captures()
+            .iter()
+            .map(|(name, bytes)| (name.clone(), Cow::Borrowed(bytes.as_slice())))
+            .collect()
     }
 }
 

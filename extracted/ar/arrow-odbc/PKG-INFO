@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arrow-odbc
-Version: 9.3.7
+Version: 10.0.0
 Requires-Dist: cffi
 Requires-Dist: pyarrow>=8.0.0
 License-File: LICENSE
@@ -39,10 +39,11 @@ Fill Apache Arrow arrays from ODBC data sources. This package is build on top of
 ```python
 from arrow_odbc import connect
 
-connection_string=
-    "Driver={ODBC Driver 18 for SQL Server};" \
-    "Server=localhost;" \
+connection_string = (
+    "Driver={ODBC Driver 18 for SQL Server};"
+    "Server=localhost;"
     "TrustServerCertificate=yes;"
+)
 
 connection = connect(
     connection_string=connection_string,
@@ -51,7 +52,6 @@ connection = connect(
 )
 reader = connection.read_arrow_batches(
     query=f"SELECT * FROM MyTable WHERE a=?",
-    connection_string=connection_string,
     parameters=["I'm a positional query parameter"],
 )
 
@@ -197,12 +197,8 @@ uv run maturin build --features narrow
 | Arrow                 | ODBC               |
 | --------------------- | ------------------ |
 | Utf8                  | VarChar            |
-| Decimal128(p, s = 0)  | VarChar(p + 1)     |
-| Decimal128(p, s != 0) | VarChar(p + 2)     |
-| Decimal128(p, s < 0)  | VarChar(p - s + 1) |
-| Decimal256(p, s = 0)  | VarChar(p + 1)     |
-| Decimal256(p, s != 0) | VarChar(p + 2)     |
-| Decimal256(p, s < 0)  | VarChar(p - s + 1) |
+| Decimal128(p,s)       | Decimal(p,s)       |
+| Decimal256(p,s)       | Decimal(p,s)       |
 | Int8                  | TinyInt            |
 | Int16                 | SmallInt           |
 | Int32                 | Integer            |

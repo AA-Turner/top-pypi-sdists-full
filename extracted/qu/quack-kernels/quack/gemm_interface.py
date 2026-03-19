@@ -14,6 +14,7 @@ from quack.gemm import gemm as gemm_sm90_sm100
 from quack.gemm_act import gemm_act as gemm_act_sm90_sm100
 from quack.gemm_dact import gemm_dact as gemm_dact_sm90_sm100
 from quack.gemm_symmetric import gemm_symmetric as gemm_symmetric_sm90_sm100
+from quack.rounding import RoundingMode
 
 
 # Dictionary mapping activation names to PyTorch functions
@@ -50,8 +51,6 @@ Activation = Literal[
     "glu",
 ]
 
-default_device_capacity = get_device_capacity(torch.device("cuda"))
-
 
 def default_config(device):
     if get_device_capacity(device)[0] != 10:
@@ -62,20 +61,22 @@ def default_config(device):
 
 def prune_invalid_gemm_configs(configs, named_args: dict, **kwargs):
     kwargs = named_args | kwargs
+    device_capacity = get_device_capacity(kwargs["A"].device)[0]
+    configs = [conf for conf in configs if conf.kwargs["config"].device_capacity == device_capacity]
     gather_A = kwargs.get("A_idx", None) is not None
     varlen_m = kwargs.get("cu_seqlens_m", None) is not None
     if varlen_m or gather_A:  # Doesn't support swap_ab
         configs = [conf for conf in configs if not conf.kwargs["config"].swap_ab]
     if gather_A:
         configs = [conf for conf in configs if conf.kwargs["config"].cluster_n == 1]
-        if get_device_capacity(kwargs["A"].device)[0] == 9:
+        if device_capacity == 9:
             # tile_n == 208 causes register spills, as gather_A requires more registers for the producer
             configs = [conf for conf in configs if conf.kwargs["config"].tile_n != 208]
     return configs
 
 
 @autotune(
-    configs=[AutotuneConfig(config=c) for c in get_all_configs(default_device_capacity[0])],
+    configs=[AutotuneConfig(config=c) for c in get_all_configs()],
     key=["dynamic_scheduler"],
     prune_configs_by={"early_config_prune": prune_invalid_gemm_configs},
 )
@@ -95,6 +96,8 @@ def gemm_tuned(
     add_to_output: bool = False,
     dynamic_scheduler: bool = False,
     config: Optional[GemmConfig] = None,
+    rounding_mode: int = RoundingMode.RN,
+    sr_seed: int | Tensor = 0,
 ) -> None:
     if config is None:
         config = default_config(A.device)
@@ -151,11 +154,13 @@ def gemm_tuned(
         A_idx=A_idx,
         batch_idx_permute=batch_idx_permute,
         add_to_output=add_to_output,
+        rounding_mode=rounding_mode,
+        sr_seed=sr_seed,
     )
 
 
 @autotune(
-    configs=[AutotuneConfig(config=c) for c in get_all_configs(default_device_capacity[0])],
+    configs=[AutotuneConfig(config=c) for c in get_all_configs()],
     key=["activation", "dynamic_scheduler"],
     prune_configs_by={"early_config_prune": prune_invalid_gemm_configs},
 )
@@ -222,7 +227,7 @@ def gemm_act_tuned(
 
 
 @autotune(
-    configs=[AutotuneConfig(config=c) for c in get_all_configs(default_device_capacity[0])],
+    configs=[AutotuneConfig(config=c) for c in get_all_configs()],
     key=["activation", "dynamic_scheduler"],
     prune_configs_by={"early_config_prune": prune_invalid_gemm_configs},
 )
@@ -296,6 +301,8 @@ def gemm(
     batch_idx_permute: Optional[Tensor] = None,  # (L,) permutation of batch indices for scheduler
     dynamic_scheduler: bool = False,
     tuned: bool = True,
+    rounding_mode: int = RoundingMode.RN,
+    sr_seed: int | Tensor = 0,
 ) -> Tensor:
     """GEMM with optional output tensor and tuning control."""
     if out is None:
@@ -316,6 +323,8 @@ def gemm(
         out = torch.empty(out_shape, dtype=out_dtype, device=A.device)
     alpha_tensor = alpha if not isinstance(alpha, float) else None
     alpha = alpha if isinstance(alpha, float) else 1.0
+    sr_seed_tensor = sr_seed if isinstance(sr_seed, Tensor) else None
+    sr_seed_int = sr_seed if isinstance(sr_seed, int) else 0
     gemm_out(
         A,
         B,
@@ -329,6 +338,9 @@ def gemm(
         batch_idx_permute=batch_idx_permute,
         dynamic_scheduler=dynamic_scheduler,
         tuned=tuned,
+        rounding_mode=rounding_mode,
+        sr_seed=sr_seed_int,
+        sr_seed_tensor=sr_seed_tensor,
     )
     return out
 
@@ -355,10 +367,14 @@ def gemm_out(
     batch_idx_permute: Optional[Tensor] = None,  # (L,) permutation of batch indices for scheduler
     dynamic_scheduler: bool = False,
     tuned: bool = True,
+    rounding_mode: int = RoundingMode.RN,
+    sr_seed: int = 0,
+    sr_seed_tensor: Optional[Tensor] = None,
 ) -> None:
     """GEMM with pre-allocated output tensor."""
     fn = gemm_tuned if tuned else partial(gemm_tuned.fn, config=None)
     alpha = alpha_tensor if alpha_tensor is not None else alpha
+    sr_seed_arg = sr_seed_tensor if sr_seed_tensor is not None else sr_seed
     fn(
         A,
         B,
@@ -371,6 +387,8 @@ def gemm_out(
         A_idx=A_idx,
         batch_idx_permute=batch_idx_permute,
         dynamic_scheduler=dynamic_scheduler,
+        rounding_mode=rounding_mode,
+        sr_seed=sr_seed_arg,
     )
 
 
@@ -1037,9 +1055,7 @@ def gemm_symmetric(
 
 
 @autotune(
-    configs=[
-        AutotuneConfig(config=c) for c in get_all_configs(default_device_capacity[0], "gated")
-    ],
+    configs=[AutotuneConfig(config=c) for c in get_all_configs("gated")],
     key=["activation", "dynamic_scheduler"],
     prune_configs_by={"early_config_prune": prune_invalid_gemm_configs},
 )
@@ -1114,9 +1130,7 @@ def prune_invalid_gemm_dgated_configs(configs, named_args: dict, **kwargs):
 
 
 @autotune(
-    configs=[
-        AutotuneConfig(config=c) for c in get_all_configs(default_device_capacity[0], "dgated")
-    ],
+    configs=[AutotuneConfig(config=c) for c in get_all_configs("dgated")],
     key=["activation", "colvec_reduce", "dynamic_scheduler"],
     prune_configs_by={"early_config_prune": prune_invalid_gemm_dgated_configs},
 )
@@ -1314,7 +1328,7 @@ def _precompile_default_config(autotuned_fn, *args, **kwargs):
     """Compile the default config in COMPILE_ONLY mode.
 
     Checks COMPILE_ONLY flag and SymInt guard, then calls the unwrapped function with
-    config=None (which selects the default config), triggering compilation (exports .so)
+    config=None (which selects the default config), triggering compilation (exports .o)
     without benchmarking or kernel launch.
     Tests use tuned=False which also selects the default config, so this is sufficient.
     """

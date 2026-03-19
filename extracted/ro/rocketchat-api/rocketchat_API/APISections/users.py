@@ -1,8 +1,14 @@
 import mimetypes
 import os
 
-from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from rocketchat_API.APISections.base import RocketChatBase, paginated
+from rocketchat_API.APIExceptions.RocketExceptions import (
+    USER_ID_OR_USERNAME_REQUIRED,
+    RocketMissingParamException,
+)
+from rocketchat_API.APISections.base import (
+    RocketChatBase,
+    paginated,
+)
 
 
 class RocketChatUsers(RocketChatBase):
@@ -16,7 +22,7 @@ class RocketChatUsers(RocketChatBase):
             return self.call_api_get("users.info", userId=user_id, kwargs=kwargs)
         if username:
             return self.call_api_get("users.info", username=username, kwargs=kwargs)
-        raise RocketMissingParamException("userID or username required")
+        raise RocketMissingParamException(USER_ID_OR_USERNAME_REQUIRED)
 
     @paginated("users")
     def users_list(self, **kwargs):
@@ -31,7 +37,7 @@ class RocketChatUsers(RocketChatBase):
             return self.call_api_get(
                 "users.getPresence", username=username, kwargs=kwargs
             )
-        raise RocketMissingParamException("userID or username required")
+        raise RocketMissingParamException(USER_ID_OR_USERNAME_REQUIRED)
 
     def users_create(self, email, name, password, username, **kwargs):
         """Creates a user"""
@@ -67,7 +73,7 @@ class RocketChatUsers(RocketChatBase):
             return self.call_api_get(
                 "users.getAvatar", username=username, kwargs=kwargs
             )
-        raise RocketMissingParamException("userID or username required")
+        raise RocketMissingParamException(USER_ID_OR_USERNAME_REQUIRED)
 
     def users_set_avatar(self, avatar_url, **kwargs):
         """Set a user's avatar"""
@@ -87,7 +93,11 @@ class RocketChatUsers(RocketChatBase):
         return self.call_api_post("users.setAvatar", files=avatar_file, kwargs=kwargs)
 
     def users_reset_avatar(self, user_id=None, username=None, **kwargs):
-        """Reset a user's avatar"""
+        """
+        Reset a user's avatar to the default icon. By default, icons contain the user's initials. Permissions required, if the setting AllowUserAvatarChange is enabled:
+        - edit-other-user-avatar: Permission to change other user's avatar
+        - manage-moderation-actions: Permission to manage moderation actions, perform actions on reported users
+        """
         if user_id:
             return self.call_api_post(
                 "users.resetAvatar", userId=user_id, kwargs=kwargs
@@ -96,7 +106,7 @@ class RocketChatUsers(RocketChatBase):
             return self.call_api_post(
                 "users.resetAvatar", username=username, kwargs=kwargs
             )
-        raise RocketMissingParamException("userID or username required")
+        raise RocketMissingParamException(USER_ID_OR_USERNAME_REQUIRED)
 
     def users_create_token(self, user_id, secret, **kwargs):
         """Create a user authentication token."""

@@ -147,12 +147,12 @@ def test_check_property_type_no_backtick_quoting():
 def test_prepare_query_snowflake_field_quoting():
     """Test that field placeholders use double quotes for snowflake."""
     quality = DataQuality(type="sql", query="SELECT {field} FROM {model}")
-    quoting_config = QuotingConfig(quote_field_name=True, quote_model_name=True)
+    quoting_config = QuotingConfig(quote_model_name=True)
     server = Server(**{"type": "snowflake", "schema": "my_schema"})
 
     result = prepare_query(quality, "my_table", "name", quoting_config, server)
 
-    assert result == 'SELECT "name" FROM "my_table"'
+    assert result == 'SELECT name FROM "my_table"'
 
 
 def test_prepare_query_snowflake_schema_model_quoting():
@@ -199,5 +199,24 @@ def test_check_property_is_present_no_snowflake_quoting():
 
     impl = yaml.safe_load(check.implementation)
     checks = impl['checks for "my_table"']
+    schema_check = checks[0]["schema"]
+    assert schema_check["fail"]["when required column missing"] == ["name"]
+
+
+def test_check_property_required_duckdb_hyphenated_model_name():
+    """Test that model names with hyphens are double-quoted in required checks for DuckDB-backed sources (s3/gcs/azure/local)."""
+    quoting_config = QuotingConfig(quote_model_name=True)
+    check = check_property_required("test-1", "name", quoting_config)
+    impl = yaml.safe_load(check.implementation)
+    checks = impl['checks for "test-1"']
+    assert any("missing_count(name) = 0" in str(c) for c in checks)
+
+
+def test_check_property_is_present_duckdb_hyphenated_model_name():
+    """Test that model names with hyphens are double-quoted for DuckDB-backed sources (s3/gcs/azure/local)."""
+    quoting_config = QuotingConfig(quote_model_name=True)
+    check = check_property_is_present("test-1", "name", quoting_config)
+    impl = yaml.safe_load(check.implementation)
+    checks = impl['checks for "test-1"']
     schema_check = checks[0]["schema"]
     assert schema_check["fail"]["when required column missing"] == ["name"]

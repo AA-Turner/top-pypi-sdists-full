@@ -182,6 +182,7 @@ class TabularIterableDataset(IterableDataset):
             self._api_client = kwargs.get(
                 "api_client", kwargs.get("_api_client", kwargs.get("_wml_client"))
             )
+        self._get_headers = kwargs.get("get_headers")  # refreshable Service headers
         self.binary_data = binary_data
         self.sampling_type = sampling_type
         self.read_to_file: str | Path | None = kwargs.get("read_to_file")
@@ -240,12 +241,14 @@ class TabularIterableDataset(IterableDataset):
                 )
                 == "bluemixcloudobjectstorage"
             )
-            # first used headers from experiment metadata if they were set.
-            headers_: dict | None = None
-            if self.experiment_metadata.get("headers"):
-                headers_ = self.experiment_metadata.get("headers")
+            # first used get_headers passed function, then headers from experiment metadata if they were set,
+            # if no other option get headers function from api_client from connection
+            if self._get_headers is not None:
+                get_headers = self._get_headers
+            elif self.experiment_metadata.get("headers"):
+                get_headers = lambda: self.experiment_metadata.get("headers")
             elif self._api_client is not None:
-                headers_ = self._api_client._get_headers()
+                get_headers = self._api_client._get_headers
 
             from ibm_watsonx_ai.helpers.connections.flight_service import (
                 FlightConnection,
@@ -257,7 +260,6 @@ class TabularIterableDataset(IterableDataset):
                 api_client=self._api_client,
             )
 
-            headers_ = cast(dict, headers_)
             number_of_batch_rows = cast(int, number_of_batch_rows)
             prediction_column = cast(
                 str, self.experiment_metadata.get("prediction_column")
@@ -266,7 +268,7 @@ class TabularIterableDataset(IterableDataset):
 
             def get_flight_conn() -> FlightConnection:
                 conn = FlightConnection(
-                    headers=headers_,
+                    get_headers=get_headers,
                     sampling_type=self.sampling_type,
                     label=prediction_column,
                     learning_type=prediction_type,
@@ -390,6 +392,9 @@ class TabularIterableDataset(IterableDataset):
         If the client is properly initialized, True will be returned.
         """
         if self._api_client is not None:
+            return True
+
+        if self._get_headers is not None:
             return True
 
         if self.experiment_metadata is None:

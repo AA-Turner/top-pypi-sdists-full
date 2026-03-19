@@ -194,15 +194,16 @@ class APIClient:
             # Mumbai (AWS)
             "https://ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
             "https://private.ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
+            # US-EAST (AWS)
+            "https://us-east-1.aws.wxai.ibm.com": "https://api.us-east-1.aws.data.ibm.com",
+            "https://private.us-east-1.aws.wxai.ibm.com": "https://api.us-east-1.aws.data.ibm.com",
             # TODO ensure private platform url is correct - changed mapping to private -> public
             # AWS GovCloud
             "https://wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
-            "https://private.wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
+            "https://private.internal.wxai.ibmforusgov.com": "https://internal.api.dai.ibmforusgov.com",
             # PreProd AWS GovCloud
             "https://wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
-            "https://private.wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
-            # TODO ensure private platform url is correct - changed mapping to private -> public
+            "https://private.internal.wxai.prep.ibmforusgov.com": "https://internal.api.dai.prep.ibmforusgov.com",
             # YPCR
             "https://yp-cr.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
             "https://private.yp-cr.ml.cloud.ibm.com": "https://private.api.dataplatform.test.cloud.ibm.com",

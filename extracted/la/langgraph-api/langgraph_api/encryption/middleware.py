@@ -539,7 +539,7 @@ async def decrypt_response(
             )
             result["error"] = json_loads(error_bytes)
             return result
-        return obj  # type: ignore[return-value]
+        return obj
 
     result = dict(obj)
     await _decrypt_object(result, model_type, fields, encryption_instance)
@@ -595,9 +595,9 @@ async def decrypt_responses(
                     result["error"] = json_loads(error_bytes)
                     results.append(result)
                 else:
-                    results.append(obj)  # type: ignore[arg-type]
+                    results.append(obj)
             return results
-        return objects  # type: ignore[return-value]
+        return objects
 
     results = [dict(obj) for obj in objects]
     await asyncio.gather(
@@ -728,7 +728,7 @@ async def encrypt_request(
     """
     encryption_instance = get_encryption()
     if encryption_instance is None:
-        return data  # type: ignore[return-value]
+        return data
 
     result = dict(data)
     encrypted_fields = await asyncio.gather(

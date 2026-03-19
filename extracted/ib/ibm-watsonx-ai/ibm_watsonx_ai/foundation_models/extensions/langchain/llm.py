@@ -10,6 +10,7 @@ from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 if not is_lib_installed(ext := "langchain-core"):
     raise MissingExtension(ext, extra_info="rag")
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import LLM
 
 if not is_lib_installed(ext := "langchain-community"):
@@ -84,7 +85,13 @@ class WatsonxLLM(LLM):
         """Return type of llm."""
         return self.llm_type
 
-    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:  # type: ignore[override]
+    def _call(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
         """Call the IBM watsonx.ai inference endpoint.
         Args:
             prompt: The prompt to pass into the model.

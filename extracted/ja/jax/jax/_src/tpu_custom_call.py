@@ -14,7 +14,6 @@
 
 """JAX bindings for Mosaic."""
 
-# mypy: ignore-errors
 from __future__ import annotations
 
 import base64
@@ -45,6 +44,13 @@ try:
 except ImportError:
   FLAGS = {}
 
+_extra_dialect_loaders: list[Callable[[ir.Context], None]] = []
+
+# TODO(b/489398450): Remove this
+def register_extra_dialect(loader: Callable[[ir.Context], None]):
+  _extra_dialect_loaders.append(loader)
+
+
 _MOSAIC_ALLOW_HLO = config.bool_state(
     name="jax_mosaic_allow_hlo",
     default=False,
@@ -63,6 +69,7 @@ _MOSAIC_ALLOW_HLO = config.bool_state(
 #    return None
 #
 # We should also add a TODO to remove the conditional one month later.
+_FWD_COMPAT_VERSION = 9
 def get_ir_version(ctx: mlir.LoweringRuleContext) -> int | None:
   backend = ctx.module_context.get_backend(optional=True)
   # TODO(apaszke): remove the forward compatibility check after 2025-4-1.
@@ -71,7 +78,14 @@ def get_ir_version(ctx: mlir.LoweringRuleContext) -> int | None:
       or backend is None
       or is_cloud_tpu_older_than(2026, 3, 1, backend)
   ):
-    return 9
+    return _FWD_COMPAT_VERSION
+  # TODO(tlongeri): remove the forward compatibility check after 2025-4-12.
+  if (
+      ctx.is_forward_compat()
+      or backend is None
+      or is_cloud_tpu_older_than(2026, 3, 12, backend)
+  ):
+    return 10
   return None
 
 
@@ -154,6 +168,7 @@ class Tiling(enum.Enum):
 class CustomCallBackendConfig:
   """Represents an unserialized backend config for custom calls."""
   lowered_module_asm: bytes
+  lowered_module_asm_version: int | None
   has_communication: bool
   collective_id: int | None
   device_type: str | None
@@ -186,6 +201,35 @@ class CustomCallBackendConfig:
   # in HLO metadata, and the body blows up its size.
   def __repr__(self):
     return "CustomCallBackendConfig(<omitted>)"
+
+  def downgrade_lowered_module_asm(
+      self, version: int
+  ) -> CustomCallBackendConfig:
+    """Downgrades the lowered module asm to the given version."""
+    assert (
+        self.lowered_module_asm_version is None
+        or self.lowered_module_asm_version > version
+    )
+    ctx = mlir.make_ir_context()
+    tpu.register_dialect(ctx)
+    for loader in _extra_dialect_loaders:
+      loader(ctx)
+    with ctx, ir.Location.unknown():
+      ctx.allow_unregistered_dialects = True
+      module = ir.Module.parse(self.lowered_module_asm)
+      pipeline = PassManager.parse(
+          "builtin.module(mosaic-serde{serialize=false},mosaic-serde{serialize=true"
+          f" target-version={version}}})",
+      )
+      pipeline.run(module.operation)
+      bytecode_buffer = io.BytesIO()
+      module.operation.write_bytecode(bytecode_buffer, desired_version=0)
+      new_lowered_module_asm = bytecode_buffer.getvalue()
+    return dataclasses.replace(
+        self,
+        lowered_module_asm=new_lowered_module_asm,
+        lowered_module_asm_version=version,
+    )
 
   def to_json(self) -> bytes:
     """Serializes the backend config into JSON."""
@@ -370,15 +414,24 @@ def _tpu_custom_call_lowering(
   if all(core.is_constant_shape(aval_out.shape) for aval_out in ctx.avals_out):
     result_shapes = None
   else:
-    result_shapes = [
+    result_shapes = mlir.flatten_ir_values(
         mlir.shape_tensor(mlir.eval_dynamic_shape(ctx, aval_out.shape))
-        for aval_out in ctx.avals_out]
+        for aval_out in ctx.avals_out
+    )
   extra_attributes: dict[str, ir.Attribute] | None = None
   # Add kernel_name and kernel_metadata as attributes to the custom call op.
   # This is because we do not want to pollute the backend_config with this
   # information.
   if kernel_name is not None:
     extra_attributes = dict(kernel_name=ir.StringAttr.get(kernel_name))
+  # If the IR version we originally generated the ASM string with is not the
+  # same as the one we should have used, we need to downgrade the ASM string.
+  ir_version = get_ir_version(ctx)
+  if (
+      ir_version is not None and
+      ir_version != config.lowered_module_asm_version
+  ):
+    config = config.downgrade_lowered_module_asm(ir_version)
   call = mlir.custom_call(
       "tpu_custom_call",
       result_types=result_types,
@@ -414,7 +467,7 @@ def _lower_mosaic_module_to_asm(
     *,
     ir_version: int | None = None,
 ) -> tuple[bytes, tuple[bool, bool]]:
-  has_communication, has_custom_barrier = tpu.private_has_communication(  # pyrefly: ignore[missing-attribute]
+  has_communication, has_custom_barrier = tpu.private_has_communication(
       module.operation
   )
   # We'll mutate the module, so clone it
@@ -590,6 +643,7 @@ def _lower_to_custom_call_config(
   active_core_count = _get_active_core_count(module)
   return _lowered_to_custom_call_config(
       lowered_module_asm,
+      lowered_module_asm_version=ir_version,
       vmem_limit_bytes=vmem_limit_bytes,
       cost_estimate=cost_estimate,
       flags=flags,
@@ -617,6 +671,7 @@ def _lower_to_custom_call_config(
 def _lowered_to_custom_call_config(
     lowered_module_asm: bytes,
     *,
+    lowered_module_asm_version: int | None,
     vmem_limit_bytes: int | None,
     cost_estimate: CostEstimate | None,
     flags: dict[str, bool | int | float] | None,
@@ -660,6 +715,7 @@ def _lowered_to_custom_call_config(
     )
   return CustomCallBackendConfig(
       lowered_module_asm,
+      lowered_module_asm_version,
       has_communication,
       collective_id,
       device_type,
@@ -834,6 +890,7 @@ def lowered_as_tpu_kernel(
     )
   config = _lowered_to_custom_call_config(
       lowered_module_asm,
+      lowered_module_asm_version=None,
       vmem_limit_bytes=vmem_limit_bytes,
       cost_estimate=cost_estimate,
       flags=flags,

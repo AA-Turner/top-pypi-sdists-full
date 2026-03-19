@@ -69,13 +69,13 @@ def version(
 
 def show_config(path: Path = Path("./.codecarbon.config")) -> None:
     d = get_config(path)
-    api_endpoint = get_api_endpoint(path)
-    api = ApiClient(endpoint_url=api_endpoint)
-    api.set_access_token(get_access_token())
     print("Current configuration : \n")
     print("Config file content : ")
     print(d)
     try:
+        api_endpoint = get_api_endpoint(path)
+        api = ApiClient(endpoint_url=api_endpoint)
+        api.set_access_token(get_access_token())
         if "organization_id" not in d:
             print(
                 "No organization_id in config, follow setup instruction to complete your configuration file!",
@@ -102,8 +102,8 @@ def show_config(path: Path = Path("./.codecarbon.config")) -> None:
                     print("\nOrganization :")
                     print(org)
     except Exception as e:
-        raise ValueError(
-            f"Your configuration is invalid, please verify your configuration file at {path}. To start from scratch, run `codecarbon config` and overwrite your configuration file. (error: {e})"
+        print(
+            f"[yellow]Could not validate remote configuration details[/yellow]. You can continue with local configuration setup. (error: {e})"
         )
 
 
@@ -345,7 +345,8 @@ def monitor(
     if offline:
         if not country_iso_code:
             print(
-                "ERROR: country_iso_code is required for offline mode", file=sys.stderr
+                "ERROR: Country ISO code is required for offline mode. Add it to your configuration or provide it via the command line: `--country-iso-code FRA`",
+                file=sys.stderr,
             )
             raise typer.Exit(1)
 
@@ -358,7 +359,7 @@ def monitor(
         experiment_id = get_existing_local_exp_id()
         if api and experiment_id is None:
             print(
-                "ERROR: No experiment id, call 'codecarbon config' first.",
+                "ERROR: No experiment id, call 'codecarbon config' first. Or run in offline mode with `--offline --country-iso-code FRA` flag if you don't want to connect to the API.",
                 file=sys.stderr,
             )
             raise typer.Exit(1)

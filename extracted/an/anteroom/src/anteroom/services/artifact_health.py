@@ -293,6 +293,22 @@ def check_malformed_artifacts(db: ThreadSafeConnection) -> list[HealthIssue]:
                     )
                 )
 
+        if art_type == "spec":
+            content = a.get("content", "")
+            try:
+                from .spec_schema import parse_spec_content
+
+                parse_spec_content(content)
+            except Exception as exc:
+                issues.append(
+                    HealthIssue(
+                        severity=HealthSeverity.ERROR,
+                        category="malformed",
+                        message=f"Invalid spec content in {fqn}: {exc}",
+                        details={"fqn": fqn, "type": art_type},
+                    )
+                )
+
     return issues
 
 

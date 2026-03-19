@@ -1,6 +1,6 @@
 [project]
 name = "hyperscan"
-version = "0.8.1"
+version = "0.8.2"
 description = "Python bindings for Hyperscan."
 readme = "README.md"
 authors = [{ name = "David Gidwani", email = "david.gidwani@atomweight.io" }]
@@ -184,4 +184,9 @@ docs = [
   "mkdocs>=1.6",
   "mkdocs-material>=9.5",
   "pymdown-extensions>=10.9",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow",
 ]

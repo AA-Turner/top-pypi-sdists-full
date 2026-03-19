@@ -6,6 +6,7 @@ from rocketchat_API.APIExceptions.RocketExceptions import (
     RocketMissingParamException,
     RocketApiException,
 )
+from tests.conftest import get_tests_passowrd
 
 
 @pytest.fixture
@@ -15,7 +16,10 @@ def testuser_id(logged_rocket):
     except RocketApiException as e:
         if e.error == "User not found":
             testuser = logged_rocket.users_create(
-                "testuser1@domain.com", "testuser1", "password", "testuser1"
+                "testuser1@domain.com",
+                "testuser1",
+                get_tests_passowrd(),
+                "testuser1",
             )
         else:
             raise e
@@ -52,8 +56,8 @@ def test_groups_list_all(logged_rocket):
         assert "_id" in group
         assert "name" in group
 
-    iterated_groups_custom = list(logged_rocket.groups_list_all(count=1))
-    assert len(iterated_groups_custom) > 0
+    iterated_groups_custom = list(logged_rocket.groups_list_all(max_count=1))
+    assert len(iterated_groups_custom) == 1
 
     for group in logged_rocket.groups_list_all():
         assert "_id" in group
@@ -158,11 +162,24 @@ def test_groups_create_delete(logged_rocket):
         logged_rocket.groups_delete()
 
 
-def test_groups_get_integrations(logged_rocket, test_group_id):
-    groups_get_integrations = logged_rocket.groups_get_integrations(
-        room_id=test_group_id
+def test_groups_get_integrations(logged_rocket, test_group_name, test_group_id):
+    created = logged_rocket.integrations_create(
+        integrations_type="webhook-incoming",
+        name="test_groups_integration",
+        enabled=True,
+        username=logged_rocket.me().get("username"),
+        channel="#" + test_group_name,
+        script_enabled=False,
     )
-    assert "integrations" in groups_get_integrations
+    integration_id = created.get("integration").get("_id")
+
+    integrations = list(logged_rocket.groups_get_integrations(room_id=test_group_id))
+    assert len(integrations) > 0
+    for integration in integrations:
+        assert "_id" in integration
+        assert "type" in integration
+
+    logged_rocket.integrations_remove("webhook-incoming", integration_id)
 
 
 def test_groups_invite(logged_rocket, testuser_id, test_group_id):
@@ -236,6 +253,26 @@ def test_groups_set_topic(logged_rocket, test_group_id):
     topic = str(uuid.uuid1())
     groups_set_topic = logged_rocket.groups_set_topic(test_group_id, topic)
     assert groups_set_topic.get("topic") == topic, "Topic does not match"
+
+
+def test_groups_set_encrypted(logged_rocket):
+    # Ensure E2E is enabled
+    logged_rocket.settings_update("E2E_Enable", True)
+
+    name = str(uuid.uuid1())
+    groups_create = logged_rocket.groups_create(name)
+    room_id = groups_create.get("group").get("_id")
+
+    try:
+        logged_rocket.groups_set_encrypted(room_id, True)
+        group_info = logged_rocket.groups_info(room_id=room_id).get("group")
+        assert group_info.get("encrypted") is True
+
+        logged_rocket.groups_set_encrypted(room_id, False)
+        group_info = logged_rocket.groups_info(room_id=room_id).get("group")
+        assert group_info.get("encrypted") is False
+    finally:
+        logged_rocket.groups_delete(room_id=room_id)
 
 
 def test_groups_set_type(logged_rocket):
@@ -326,9 +363,44 @@ def test_groups_members(logged_rocket, test_group_name, test_group_id):
 
     # Test with custom count parameter
     iterated_members_custom = list(
-        logged_rocket.groups_members(room_id=test_group_id, count=1)
+        logged_rocket.groups_members(room_id=test_group_id, max_count=1)
     )
-    assert len(iterated_members_custom) > 0
+    assert len(iterated_members_custom) == 1
 
     with pytest.raises(RocketMissingParamException):
         logged_rocket.groups_members()
+
+
+def test_groups_online(logged_rocket, test_group_id):
+    logged_rocket.users_set_status(message="", status="online")
+    groups_online = logged_rocket.groups_online(room_id=test_group_id)
+    assert "online" in groups_online
+
+    assert len(groups_online.get("online")) > 0, "No online users found in the group"
+    for user in groups_online.get("online"):
+        assert "_id" in user
+        assert "username" in user
+
+
+def test_groups_convert_to_team(logged_rocket):
+    name = str(uuid.uuid1())
+    groups_create = logged_rocket.groups_create(name)
+    room_id = groups_create.get("group").get("_id")
+
+    groups_convert_to_team = logged_rocket.groups_convert_to_team(room_id=room_id)
+    assert groups_convert_to_team.get("success")
+
+    # Cleanup: delete the team
+    logged_rocket.teams_delete(team_name=name)
+
+    # Test with room_name
+    name = str(uuid.uuid1())
+    logged_rocket.groups_create(name)
+    groups_convert_to_team = logged_rocket.groups_convert_to_team(room_name=name)
+    assert groups_convert_to_team.get("success")
+
+    # Cleanup: delete the team
+    logged_rocket.teams_delete(team_name=name)
+
+    with pytest.raises(RocketMissingParamException):
+        logged_rocket.groups_convert_to_team()

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 import structlog
-from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
+from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from grpc import StatusCode
 from grpc.aio import EOF, AioRpcError
 from langgraph_grpc_common.conversion.config import config_from_proto
@@ -405,7 +405,7 @@ class Runs(Authenticated):
         status: RunStatus | None = None,
         select: list[RunSelectField] | None = None,
         ctx: Any = None,
-    ) -> AsyncIterator[Run]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Run]:
         """List all runs by thread."""
         auth_filters = await Runs.handle_event(
             ctx,
@@ -473,7 +473,7 @@ class Runs(Authenticated):
         *,
         thread_id: UUID,
         ctx: Any = None,
-    ) -> AsyncIterator[Run]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Run]:
         """Get a run by ID."""
         auth_filters = await Runs.handle_event(
             ctx,
@@ -504,7 +504,7 @@ class Runs(Authenticated):
         *,
         thread_id: UUID,
         ctx: Any = None,
-    ) -> AsyncIterator[UUID]:  # type: ignore[return-value]
+    ) -> AsyncIterator[UUID]:
         """Delete a run by ID."""
         auth_filters = await Runs.handle_event(
             ctx,
@@ -544,7 +544,7 @@ class Runs(Authenticated):
         if_not_exists: IfNotExists = "reject",
         after_seconds: int = 0,
         ctx: Any = None,
-    ) -> AsyncIterator[Run]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Run]:
         """Create a run."""
         metadata = metadata or {}
         kwargs = kwargs or {}
@@ -663,7 +663,7 @@ class Runs(Authenticated):
             ctx,
             "update",
             Auth.types.ThreadsUpdate(
-                thread_id=thread_id,  # type: ignore
+                thread_id=thread_id,
                 action=action,
                 metadata={"run_ids": run_ids, "status": status},
             ),
@@ -687,14 +687,14 @@ class Runs(Authenticated):
         else:
             request_kwargs["run_ids"] = pb.CancelRunIdsTarget(
                 thread_id=pb.UUID(value=str(thread_id)),
-                run_ids=[pb.UUID(value=str(rid)) for rid in run_ids],  # type: ignore
+                run_ids=[pb.UUID(value=str(rid)) for rid in run_ids],
             )
 
         client = await get_shared_client()
         await client.runs.Cancel(pb.CancelRunRequest(**request_kwargs))
 
     @staticmethod
-    async def stats(conn) -> QueueStats:  # type: ignore[return-value]
+    async def stats(conn) -> QueueStats:
         """Get queue statistics (not exposed via API, no auth)."""
         client = await get_shared_client()
         response = await client.runs.Stats(Empty())

@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.feature_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -115,6 +116,7 @@ class ContractMetadata(google.protobuf.message.Message):
     PACKAGE_METADATA_FIELD_NUMBER: builtins.int
     FEATURES_FIELD_NUMBER: builtins.int
     CUSTOM_OPTIONS_FIELD_NUMBER: builtins.int
+    BILLING_FEATURES_FIELD_NUMBER: builtins.int
     id: builtins.int
     organization_id: builtins.int
     ruleset_version: builtins.str
@@ -125,12 +127,16 @@ class ContractMetadata(google.protobuf.message.Message):
 
     @property
     def features(self) -> global___FeatureOptions:
-        """Entitlements, used in frontend features or gating access to certain features."""
+        """Entitlements, used in frontend features or gating access to certain features.
+        DEPRECATED: use billing_features instead
+        """
 
     @property
     def custom_options(self) -> global___MetadataOptions:
         """Catch-all for overrides and information not covered above."""
 
+    @property
+    def billing_features(self) -> sentry_protos.billing.v1.feature_pb2.FeatureOptions: ...
     def __init__(
         self,
         *,
@@ -140,8 +146,9 @@ class ContractMetadata(google.protobuf.message.Message):
         package_metadata: global___MetadataOptions | None = ...,
         features: global___FeatureOptions | None = ...,
         custom_options: global___MetadataOptions | None = ...,
+        billing_features: sentry_protos.billing.v1.feature_pb2.FeatureOptions | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["custom_options", b"custom_options", "features", b"features", "package_metadata", b"package_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_metadata", b"package_metadata", "ruleset_version", b"ruleset_version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "package_metadata", b"package_metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["billing_features", b"billing_features", "custom_options", b"custom_options", "features", b"features", "id", b"id", "organization_id", b"organization_id", "package_metadata", b"package_metadata", "ruleset_version", b"ruleset_version"]) -> None: ...
 
 global___ContractMetadata = ContractMetadata

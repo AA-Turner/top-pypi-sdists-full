@@ -106,6 +106,20 @@ class LiteLLMService:
             }
         return kwargs
 
+    def _estimate_fallback_usage(
+        self,
+        full_messages: list[dict[str, Any]],
+        response_content: str,
+    ) -> dict[str, Any] | None:
+        """Estimate usage via tiktoken when the API omits streaming usage."""
+        try:
+            from .token_estimator import estimate_usage
+
+            return estimate_usage(full_messages, response_content, self.config.model)
+        except Exception:
+            logger.debug("Token estimation fallback failed", exc_info=True)
+            return None
+
     async def stream_chat(
         self,
         messages: list[dict[str, Any]],
@@ -140,6 +154,7 @@ class LiteLLMService:
 
                 current_tool_calls: dict[int, dict[str, Any]] = {}
                 usage_data: dict[str, Any] | None = None
+                _response_parts: list[str] = []
 
                 async for chunk in stream:
                     if cancel_event and cancel_event.is_set():
@@ -160,6 +175,7 @@ class LiteLLMService:
                     delta = choice.delta
 
                     if hasattr(delta, "content") and delta.content:
+                        _response_parts.append(delta.content)
                         yield {"event": "token", "data": {"content": delta.content}}
 
                     if hasattr(delta, "tool_calls") and delta.tool_calls:
@@ -200,17 +216,23 @@ class LiteLLMService:
                                     "arguments": args,
                                 },
                             }
+                        if not usage_data:
+                            usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
                         if usage_data:
                             yield {"event": "usage", "data": usage_data}
                         return
 
                     if choice.finish_reason == "stop":
+                        if not usage_data:
+                            usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
                         if usage_data:
                             yield {"event": "usage", "data": usage_data}
                         yield {"event": "done", "data": {}}
                         return
 
                 # Stream ended without explicit finish_reason
+                if not usage_data:
+                    usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
                 if usage_data:
                     yield {"event": "usage", "data": usage_data}
                 yield {"event": "done", "data": {}}

@@ -63,6 +63,7 @@ else:
 __all__ = ("BillingandCostManagementDataExportsClient",)
 
 class Exceptions(BaseClientExceptions):
+    AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]

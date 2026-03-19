@@ -1,8 +1,15 @@
 import requests
+from cachetools import cachedmethod, TTLCache
 from urllib.parse import unquote, quote
 from duplocloud.commander import Client
 from duplocloud.controller import DuploCtl
 from duplocloud.errors import DuploError, DuploConnectionError
+
+
+class _NullCache(dict):
+  """A cache that never stores anything, effectively disabling caching."""
+  def __setitem__(self, key, value):
+    pass  # never store
 
 
 @Client("argo_wf")
@@ -19,9 +26,42 @@ class DuploArgoClient():
   def __init__(self, duplo: DuploCtl):
     self.duplo = duplo
     self.jit = duplo.load("jit")
+    self._argo_verified = False
+    self._ttl_cache = TTLCache(maxsize=128, ttl=10)
+
+  def _ensure_argo_enabled(self):
+    """Check that Argo Workflows is enabled on the tenant infrastructure.
+
+    Looks for DuploCiTenant in the infrastructure CustomData. Only runs
+    once per client instance.
+
+    Raises:
+      DuploError: If Argo Workflows is not enabled.
+    """
+    if self._argo_verified:
+      return
+    tenant = self.duplo.load("tenant").find()
+    plan_id = tenant.get("PlanID")
+    if not plan_id:
+      raise DuploError("Tenant has no associated infrastructure plan", 400)
+    infra = self.duplo.load("infrastructure").find(plan_id)
+    custom_data = infra.get("CustomData", []) or []
+    ci_tenant = next(
+      (item.get("Value") for item in custom_data
+       if item.get("Key") == "DuploCiTenant"),
+      None,
+    )
+    if not ci_tenant:
+      raise DuploError(
+        "Argo Workflows is not enabled for this infrastructure. "
+        "Please contact your administrator.",
+        400,
+      )
+    self._argo_verified = True
 
   def _get_auth(self) -> dict:
     """Get Argo auth data (Token and TenantId) via jit."""
+    self._ensure_argo_enabled()
     return self.jit.argo_wf()
 
   def _headers(self, auth: dict) -> dict:
@@ -57,8 +97,16 @@ class DuploArgoClient():
       raise DuploConnectionError("Argo request failed") from e
     return self._validate_response(response)
 
+  @cachedmethod(lambda self: self._ttl_cache)
+  def _get_cached(self, api_path: str, tenant_id: str):
+    return self._request("GET", api_path, tenant_id)
+
   def get(self, api_path: str, tenant_id: str, **kwargs):
     """GET request to the Argo proxy.
+
+    Simple GETs (no extra kwargs) are cached for 10 seconds. Requests
+    with streaming or query params bypass the cache to avoid
+    unhashable-key errors and stale streaming responses.
 
     Args:
       api_path: Argo API path relative to /api/v1/.
@@ -69,7 +117,13 @@ class DuploArgoClient():
     Returns:
       The HTTP response object.
     """
-    return self._request("GET", api_path, tenant_id, **kwargs)
+    if kwargs:
+      return self._request("GET", api_path, tenant_id, **kwargs)
+    return self._get_cached(api_path, tenant_id)
+
+  def disable_get_cache(self) -> None:
+    """Disable the GET cache for this client."""
+    self._ttl_cache = _NullCache()
 
   def post(self, api_path: str, tenant_id: str, data: dict = {}):
     """POST request to the Argo proxy.

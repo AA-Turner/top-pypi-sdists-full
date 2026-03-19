@@ -6,13 +6,14 @@ from ._tokenizer import TokenizerWrapper
 class LLTokenizer:
     vocab_size: int
     eos_token: TokenId
+    eos_tokens: List[TokenId]
     is_canonical: bool
 
     def __new__(
         cls,
         tokenizer: Union[str, TokenizerWrapper],
         n_vocab: Optional[int] = None,
-        eos_token: Optional[TokenId] = None,
+        eos_token: Optional[Union[TokenId, List[TokenId]]] = None,
         slices: Optional[List[str]] = None,
     ) -> "LLTokenizer":
         """
@@ -23,6 +24,7 @@ class LLTokenizer:
         Args:
             tokenizer: str or TokenizerWrapper - if str, it is the name or path to the HF tokenizers tokenizer; otherwise it is a TokenizerWrapper
             n_vocab: int - override the size of the vocabulary
+            eos_token: int or list of ints - override the EOS token(s)
             slices: List[str] - configuration for slicer optimization; pass [] to disable,
                 or None to use general_slices()
         """
@@ -425,6 +427,21 @@ class LLMatcher:
         """
         Compute the token mask directly into memory at the specified pointer.
         This drops the GIL; prefer to use fill_next_token_bitmask() or fill_next_token_bitmask_par().
+        """
+
+    def get_capture(self, name: str) -> Optional[bytes]:
+        """
+        Get the captured bytes for a named capture group.
+        If there are multiple captures with the same name (e.g., due to repetition of rules),
+        returns the last matching capture.
+        Returns None if no capture with the given name exists.
+        """
+
+    def get_captures(self) -> List[Tuple[str, bytes]]:
+        """
+        Get all captured groups as a list of (name, bytes) tuples.
+        Includes all captures, even when there are multiple captures
+        with the same name (e.g., due to repetition of rules).
         """
 
 

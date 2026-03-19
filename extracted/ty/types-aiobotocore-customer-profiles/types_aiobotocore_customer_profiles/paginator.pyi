@@ -18,6 +18,7 @@ Usage::
         ListEventStreamsPaginator,
         ListEventTriggersPaginator,
         ListObjectTypeAttributesPaginator,
+        ListRecommenderFiltersPaginator,
         ListRecommenderRecipesPaginator,
         ListRecommendersPaginator,
         ListRuleBasedMatchesPaginator,
@@ -35,6 +36,7 @@ Usage::
         list_event_streams_paginator: ListEventStreamsPaginator = client.get_paginator("list_event_streams")
         list_event_triggers_paginator: ListEventTriggersPaginator = client.get_paginator("list_event_triggers")
         list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator("list_object_type_attributes")
+        list_recommender_filters_paginator: ListRecommenderFiltersPaginator = client.get_paginator("list_recommender_filters")
         list_recommender_recipes_paginator: ListRecommenderRecipesPaginator = client.get_paginator("list_recommender_recipes")
         list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
         list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
@@ -63,6 +65,8 @@ from .type_defs import (
     ListEventTriggersResponseTypeDef,
     ListObjectTypeAttributesRequestPaginateTypeDef,
     ListObjectTypeAttributesResponseTypeDef,
+    ListRecommenderFiltersRequestPaginateTypeDef,
+    ListRecommenderFiltersResponseTypeDef,
     ListRecommenderRecipesRequestPaginateTypeDef,
     ListRecommenderRecipesResponseTypeDef,
     ListRecommendersRequestPaginateTypeDef,
@@ -87,6 +91,7 @@ __all__ = (
     "ListEventStreamsPaginator",
     "ListEventTriggersPaginator",
     "ListObjectTypeAttributesPaginator",
+    "ListRecommenderFiltersPaginator",
     "ListRecommenderRecipesPaginator",
     "ListRecommendersPaginator",
     "ListRuleBasedMatchesPaginator",
@@ -200,6 +205,24 @@ class ListObjectTypeAttributesPaginator(_ListObjectTypeAttributesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListObjectTypeAttributes.html#CustomerProfiles.Paginator.ListObjectTypeAttributes.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listobjecttypeattributespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRecommenderFiltersPaginatorBase = AioPaginator[ListRecommenderFiltersResponseTypeDef]
+else:
+    _ListRecommenderFiltersPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListRecommenderFiltersPaginator(_ListRecommenderFiltersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListRecommenderFilters.html#CustomerProfiles.Paginator.ListRecommenderFilters)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listrecommenderfilterspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecommenderFiltersRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRecommenderFiltersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListRecommenderFilters.html#CustomerProfiles.Paginator.ListRecommenderFilters.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/paginators/#listrecommenderfilterspaginator)
         """
 
 if TYPE_CHECKING:

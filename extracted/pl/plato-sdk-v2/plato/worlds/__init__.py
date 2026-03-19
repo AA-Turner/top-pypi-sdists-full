@@ -63,7 +63,6 @@ from plato.worlds.config import (
     LLMConfig,
     RunConfig,
     SessionConfig,
-    SlackNotificationConfig,
     StateConfig,
 )
 from plato.worlds.durable import (
@@ -84,6 +83,13 @@ from plato.worlds.human_annotation import (
 from plato.worlds.models import Observation, StepResult
 from plato.worlds.result_store import ResultStore
 from plato.worlds.runner import run_world
+from plato.worlds.session_review_models import (
+    DEFAULT_REVIEW_MODELS,
+    SessionChunkSummary,
+    SessionReviewIssue,
+    SessionReviewRecommendation,
+    SessionReviewSummary,
+)
 from plato.worlds.verifier import (
     VerificationOutputContract,
     VerifierMode,
@@ -116,7 +122,6 @@ __all__ = [
     "CheckpointConfig",
     "DevConfig",
     "SessionConfig",
-    "SlackNotificationConfig",
     "StateConfig",
     "AgentConfig",
     "Agent",
@@ -162,4 +167,10 @@ __all__ = [
     "verifier_mode_for_stage",
     # Runner
     "run_world",
+    # Session review models (built-in)
+    "DEFAULT_REVIEW_MODELS",
+    "SessionChunkSummary",
+    "SessionReviewIssue",
+    "SessionReviewRecommendation",
+    "SessionReviewSummary",
 ]

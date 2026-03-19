@@ -403,9 +403,10 @@ impl PyTubeRegistry {
                 let tube = REGISTRY.get_by_tube_id(&tube_id_owned);
 
                 if let Some(tube) = tube {
-                    let offer = tube.create_offer().await.map_err(|e| {
+                    let mut offer = tube.create_offer().await.map_err(|e| {
                         PyRuntimeError::new_err(format!("Failed to create offer: {e}"))
                     })?;
+                    crate::tube_registry::inject_keeper_webrtc_version(&mut offer);
 
                     // Encode to base64 for Python/Rust API boundary
                     use base64::prelude::*;
@@ -429,9 +430,10 @@ impl PyTubeRegistry {
                 let tube = REGISTRY.get_by_tube_id(&tube_id_owned);
 
                 if let Some(tube) = tube {
-                    let answer = tube.create_answer().await.map_err(|e| {
+                    let mut answer = tube.create_answer().await.map_err(|e| {
                         PyRuntimeError::new_err(format!("Failed to create answer: {e}"))
                     })?;
+                    crate::tube_registry::inject_keeper_webrtc_version(&mut answer);
 
                     // Encode to base64 for Python/Rust API boundary
                     use base64::prelude::*;
@@ -488,9 +490,10 @@ impl PyTubeRegistry {
 
                 // If this is an offer, create an answer
                 if !is_answer {
-                    let answer = tube.create_answer().await.map_err(|e| {
+                    let mut answer = tube.create_answer().await.map_err(|e| {
                         PyRuntimeError::new_err(format!("Failed to create answer: {}", e))
                     })?;
+                    crate::tube_registry::inject_keeper_webrtc_version(&mut answer);
 
                     return Ok(Some(BASE64_STANDARD.encode(answer))); // Encode the answer to base64
                 }
@@ -2211,15 +2214,19 @@ impl PyTubeRegistry {
     /// # Arguments
     /// * `conversation_id` - The conversation/channel ID
     /// * `conn_no` - The connection number to open
+    /// * `connect_as_payload` - Optional ConnectAs payload for credential passing (bytes)
+    ///                          Format: [encrypted_data_len: 4 bytes] + [public_key: 65 bytes] + [nonce: 12 bytes] + [encrypted_data]
     ///
     /// # Returns
     /// * Ok(()) on success - the remote peer will send ConnectionOpened when ready
     /// * Err if the conversation/channel is not found or sending fails
+    #[pyo3(signature = (conversation_id, conn_no, connect_as_payload = None))]
     fn open_handler_connection(
         &self,
         py: Python<'_>,
         conversation_id: &str,
         conn_no: u32,
+        connect_as_payload: Option<Vec<u8>>,
     ) -> PyResult<()> {
         let conversation_id_owned = conversation_id.to_string();
 
@@ -2233,9 +2240,13 @@ impl PyTubeRegistry {
                     ))
                 })?;
 
-            // Send OpenConnection command via the tube
+            // Send OpenConnection command via the tube with optional payload
             tube_arc
-                .open_handler_connection(&conversation_id_owned, conn_no)
+                .open_handler_connection(
+                    &conversation_id_owned,
+                    conn_no,
+                    connect_as_payload.as_deref(),
+                )
                 .await
                 .map_err(|e| {
                     PyRuntimeError::new_err(format!("Failed to open handler connection: {e}"))

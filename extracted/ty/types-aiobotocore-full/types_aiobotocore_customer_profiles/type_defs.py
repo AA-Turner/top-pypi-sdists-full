@@ -55,6 +55,7 @@ from .literals import (
     ProfileTypeType,
     QueryResultType,
     ReadinessStatusType,
+    RecommenderFilterStatusType,
     RecommenderRecipeNameType,
     RecommenderStatusType,
     RuleBasedMatchingStatusType,
@@ -144,6 +145,8 @@ __all__ = (
     "CreateIntegrationWorkflowResponseTypeDef",
     "CreateProfileRequestTypeDef",
     "CreateProfileResponseTypeDef",
+    "CreateRecommenderFilterRequestTypeDef",
+    "CreateRecommenderFilterResponseTypeDef",
     "CreateRecommenderRequestTypeDef",
     "CreateRecommenderResponseTypeDef",
     "CreateSegmentDefinitionRequestTypeDef",
@@ -178,6 +181,8 @@ __all__ = (
     "DeleteProfileObjectTypeResponseTypeDef",
     "DeleteProfileRequestTypeDef",
     "DeleteProfileResponseTypeDef",
+    "DeleteRecommenderFilterRequestTypeDef",
+    "DeleteRecommenderFilterResponseTypeDef",
     "DeleteRecommenderRequestTypeDef",
     "DeleteSegmentDefinitionRequestTypeDef",
     "DeleteSegmentDefinitionResponseTypeDef",
@@ -261,6 +266,8 @@ __all__ = (
     "GetProfileObjectTypeTemplateResponseTypeDef",
     "GetProfileRecommendationsRequestTypeDef",
     "GetProfileRecommendationsResponseTypeDef",
+    "GetRecommenderFilterRequestTypeDef",
+    "GetRecommenderFilterResponseTypeDef",
     "GetRecommenderRequestTypeDef",
     "GetRecommenderResponseTypeDef",
     "GetSegmentDefinitionRequestTypeDef",
@@ -287,6 +294,7 @@ __all__ = (
     "GroupUnionTypeDef",
     "IdentityResolutionJobTypeDef",
     "IncrementalPullConfigTypeDef",
+    "InferenceConfigTypeDef",
     "IntegrationConfigTypeDef",
     "JobScheduleTypeDef",
     "JobStatsTypeDef",
@@ -337,6 +345,9 @@ __all__ = (
     "ListProfileObjectsItemTypeDef",
     "ListProfileObjectsRequestTypeDef",
     "ListProfileObjectsResponseTypeDef",
+    "ListRecommenderFiltersRequestPaginateTypeDef",
+    "ListRecommenderFiltersRequestTypeDef",
+    "ListRecommenderFiltersResponseTypeDef",
     "ListRecommenderRecipesRequestPaginateTypeDef",
     "ListRecommenderRecipesRequestTypeDef",
     "ListRecommenderRecipesResponseTypeDef",
@@ -366,6 +377,7 @@ __all__ = (
     "MatchingRuleUnionTypeDef",
     "MergeProfilesRequestTypeDef",
     "MergeProfilesResponseTypeDef",
+    "MetadataConfigTypeDef",
     "ObjectAttributeOutputTypeDef",
     "ObjectAttributeTypeDef",
     "ObjectAttributeUnionTypeDef",
@@ -406,6 +418,9 @@ __all__ = (
     "RecommenderConfigOutputTypeDef",
     "RecommenderConfigTypeDef",
     "RecommenderConfigUnionTypeDef",
+    "RecommenderFilterSummaryTypeDef",
+    "RecommenderFilterTypeDef",
+    "RecommenderPromotionalFilterTypeDef",
     "RecommenderRecipeTypeDef",
     "RecommenderSummaryTypeDef",
     "RecommenderUpdateTypeDef",
@@ -669,6 +684,14 @@ class CreateEventStreamRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
+class CreateRecommenderFilterRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderFilterName: str
+    RecommenderFilterExpression: str
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
+
 class CreateSegmentSnapshotRequestTypeDef(TypedDict):
     DomainName: str
     SegmentDefinitionName: str
@@ -752,6 +775,11 @@ class DeleteProfileRequestTypeDef(TypedDict):
     DomainName: str
 
 
+class DeleteRecommenderFilterRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderFilterName: str
+
+
 class DeleteRecommenderRequestTypeDef(TypedDict):
     DomainName: str
     RecommenderName: str
@@ -808,6 +836,7 @@ class DomainStatsTypeDef(TypedDict):
 class EventParametersTypeDef(TypedDict):
     EventType: str
     EventValueThreshold: NotRequired[float]
+    EventWeight: NotRequired[float]
 
 
 class EventStreamDestinationDetailsTypeDef(TypedDict):
@@ -993,12 +1022,25 @@ class GetProfileObjectTypeTemplateRequestTypeDef(TypedDict):
     TemplateId: str
 
 
-class GetProfileRecommendationsRequestTypeDef(TypedDict):
+class MetadataConfigTypeDef(TypedDict):
+    MetadataColumns: NotRequired[Sequence[str]]
+
+
+class RecommenderFilterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Mapping[str, str]]
+
+
+class RecommenderPromotionalFilterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Values: NotRequired[Mapping[str, str]]
+    PromotionName: NotRequired[str]
+    PercentPromotedItems: NotRequired[int]
+
+
+class GetRecommenderFilterRequestTypeDef(TypedDict):
     DomainName: str
-    ProfileId: str
-    RecommenderName: str
-    Context: NotRequired[Mapping[str, str]]
-    MaxResults: NotRequired[int]
+    RecommenderFilterName: str
 
 
 class GetRecommenderRequestTypeDef(TypedDict):
@@ -1089,6 +1131,10 @@ class SourceSegmentTypeDef(TypedDict):
 
 class IncrementalPullConfigTypeDef(TypedDict):
     DatetimeTypeFieldName: NotRequired[str]
+
+
+class InferenceConfigTypeDef(TypedDict):
+    MinProvisionedTPS: NotRequired[int]
 
 
 class JobScheduleTypeDef(TypedDict):
@@ -1292,6 +1338,22 @@ class ListProfileObjectsItemTypeDef(TypedDict):
 class ObjectFilterTypeDef(TypedDict):
     KeyName: str
     Values: Sequence[str]
+
+
+class ListRecommenderFiltersRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class RecommenderFilterSummaryTypeDef(TypedDict):
+    RecommenderFilterName: NotRequired[str]
+    RecommenderFilterExpression: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    Description: NotRequired[str]
+    Status: NotRequired[RecommenderFilterStatusType]
+    FailureReason: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListRecommenderRecipesRequestTypeDef(TypedDict):
@@ -1525,6 +1587,12 @@ class CreateProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateRecommenderFilterResponseTypeDef(TypedDict):
+    RecommenderFilterArn: str
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateRecommenderResponseTypeDef(TypedDict):
     RecommenderArn: str
     Tags: dict[str, str]
@@ -1598,6 +1666,11 @@ class DeleteProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteRecommenderFilterResponseTypeDef(TypedDict):
+    Message: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteSegmentDefinitionResponseTypeDef(TypedDict):
     Message: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1659,6 +1732,17 @@ class GetProfileHistoryRecordResponseTypeDef(TypedDict):
     ProfileObjectUniqueKey: str
     Content: str
     PerformedBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecommenderFilterResponseTypeDef(TypedDict):
+    RecommenderFilterName: str
+    RecommenderFilterExpression: str
+    CreatedAt: datetime
+    Status: RecommenderFilterStatusType
+    Description: str
+    FailureReason: str
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2079,6 +2163,18 @@ class GetObjectTypeAttributeStatisticsStatsTypeDef(TypedDict):
     Percentiles: GetObjectTypeAttributeStatisticsPercentilesTypeDef
 
 
+class GetProfileRecommendationsRequestTypeDef(TypedDict):
+    DomainName: str
+    ProfileId: str
+    RecommenderName: str
+    Context: NotRequired[Mapping[str, str]]
+    RecommenderFilters: NotRequired[Sequence[RecommenderFilterTypeDef]]
+    RecommenderPromotionalFilters: NotRequired[Sequence[RecommenderPromotionalFilterTypeDef]]
+    CandidateIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    MetadataConfig: NotRequired[MetadataConfigTypeDef]
+
+
 class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
     DomainName: str
     MatchType: MatchTypeType
@@ -2110,6 +2206,11 @@ class ListEventTriggersRequestPaginateTypeDef(TypedDict):
 class ListObjectTypeAttributesRequestPaginateTypeDef(TypedDict):
     DomainName: str
     ObjectTypeName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRecommenderFiltersRequestPaginateTypeDef(TypedDict):
+    DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2230,6 +2331,12 @@ class ListProfileObjectsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     ObjectFilter: NotRequired[ObjectFilterTypeDef]
+
+
+class ListRecommenderFiltersResponseTypeDef(TypedDict):
+    RecommenderFilters: list[RecommenderFilterSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListRecommenderRecipesResponseTypeDef(TypedDict):
@@ -2425,13 +2532,15 @@ class DetectProfileObjectTypeResponseTypeDef(TypedDict):
 
 
 class RecommenderConfigOutputTypeDef(TypedDict):
-    EventsConfig: EventsConfigOutputTypeDef
+    EventsConfig: NotRequired[EventsConfigOutputTypeDef]
     TrainingFrequency: NotRequired[int]
+    InferenceConfig: NotRequired[InferenceConfigTypeDef]
 
 
 class RecommenderConfigTypeDef(TypedDict):
-    EventsConfig: EventsConfigTypeDef
+    EventsConfig: NotRequired[EventsConfigTypeDef]
     TrainingFrequency: NotRequired[int]
+    InferenceConfig: NotRequired[InferenceConfigTypeDef]
 
 
 class EventTriggerConditionOutputTypeDef(TypedDict):

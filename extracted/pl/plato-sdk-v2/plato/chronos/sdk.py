@@ -304,8 +304,17 @@ class Chronos(_ChronosBase):
             body=UpdateNotesRequest(notes=notes),
         )
 
-    def get_logs(self, session_id: str) -> SessionLogsResponse:
-        return get_session_logs.sync(self._client, public_id=session_id)
+    def get_logs(
+        self,
+        session_id: str,
+        *,
+        include_audit_events: bool = False,
+    ) -> SessionLogsResponse:
+        return get_session_logs.sync(
+            self._client,
+            public_id=session_id,
+            include_audit_events=include_audit_events,
+        )
 
     def get_envs(self, session_id: str) -> SessionEnvsResponse:
         return get_session_envs.sync(self._client, public_id=session_id)
@@ -652,8 +661,17 @@ class AsyncChronos(_ChronosBase):
             body=UpdateNotesRequest(notes=notes),
         )
 
-    async def get_logs(self, session_id: str) -> SessionLogsResponse:
-        return await get_session_logs.asyncio(self._client, public_id=session_id)
+    async def get_logs(
+        self,
+        session_id: str,
+        *,
+        include_audit_events: bool = False,
+    ) -> SessionLogsResponse:
+        return await get_session_logs.asyncio(
+            self._client,
+            public_id=session_id,
+            include_audit_events=include_audit_events,
+        )
 
     async def get_envs(self, session_id: str) -> SessionEnvsResponse:
         return await get_session_envs.asyncio(self._client, public_id=session_id)

@@ -143,6 +143,8 @@ def color_filter(
         1.0,
         1.0,
     ),
+    use_immediate: bool | None = False,
+    use_secondary_color: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the active color attribute
 
@@ -183,6 +185,8 @@ def color_filter(
     BLUE
     Blue -- Change blue channel.
         :param fill_color: Fill Color, (array of 3 items, in [0, inf], optional)
+        :param use_immediate: Immediate Apply, Apply once without entering modal interaction (optional)
+        :param use_secondary_color: Use Secondary Color, (optional)
         :return: Result of the operator call.
     """
 

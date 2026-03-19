@@ -76,7 +76,7 @@ class Request(TASGIScope):
 
         return f"{scope_type} {self.method} {self.url.path}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the request."""
         return f"<Request {self}>"
 
@@ -104,7 +104,7 @@ class Request(TASGIScope):
         """Proxy the request's unknown attributes to scope."""
         return self.scope[name]
 
-    def __copy__(self, **mutations) -> Request:
+    def __copy__(self, **mutations: Any) -> Request:
         """Copy the request to a new one."""
         return Request(dict(self.scope, **mutations), self.receive, self.send)
 
@@ -126,19 +126,19 @@ class Request(TASGIScope):
         if self._url is None:
             scope = self.scope
             host = self.headers.get("host")
+            if host is None and "server" in scope:
+                host, port = scope["server"]
+                if port:
+                    host = f"{host}:{port}"
+
             if host is None:
-                if "server" in scope:
-                    host, port = scope["server"]
-                    if port:
-                        host = f"{host}:{port}"
-                else:
-                    host = "localhost"
+                host = "localhost"
 
             self._url = URL.build(
                 host=host,
                 scheme=scope.get("scheme", "http"),
                 encoded=True,
-                path=f"{ scope.get('root_path', '') }{ scope['path'] }",
+                path=f"{scope.get('root_path', '')}{scope['path']}",
                 query_string=scope["query_string"].decode(encoding="ascii"),
             )
 
@@ -211,7 +211,7 @@ class Request(TASGIScope):
         """Get a content type for the current scope."""
         return self.media["content_type"]
 
-    async def stream(self) -> AsyncGenerator:
+    async def stream(self) -> AsyncGenerator[bytes, None]:
         """Stream the request's body.
 
         The method provides byte chunks without storing the entire body to memory.
@@ -272,10 +272,7 @@ class Request(TASGIScope):
             raise ASGIDecodeError from exc
 
     async def form(
-        self,
-        max_size: int = 0,
-        upload_to: UploadHandler | None = None,
-        file_memory_limit: int = 1024 * 1024,
+        self, max_size: int = 1014 * 1024 * 10, upload_to: UploadHandler | None = None
     ) -> MultiDict:
         """Read and return the request's form data.
 
@@ -283,20 +280,13 @@ class Request(TASGIScope):
         :type max_size: int
         :param upload_to: Callable to handle file uploads
         :type upload_to: Optional[UploadHandler]
-        :param file_memory_limit: Maximum size of file to keep in memory
-        :type file_memory_limit: int
         :return: Form data as MultiDict
         :rtype: MultiDict
 
         `formdata = await request.form()`
         """
         if self._form is None:
-            self._form = await read_formdata(
-                self,
-                max_size=max_size,
-                upload_to=upload_to,
-                file_memory_limit=file_memory_limit,
-            )
+            self._form = await read_formdata(self, max_size=max_size, upload_to=upload_to)
         return self._form
 
     async def data(self, *, raise_errors: bool = False) -> str | bytes | MultiDict | TJSON:

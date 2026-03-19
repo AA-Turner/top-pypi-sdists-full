@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openfoodfacts
-Version: 4.0.0
+Version: 5.0.1
 Summary: Official Python SDK of Open Food Facts
 Author-email: The Open Food Facts team <contact@openfoodfacts.org>
 License-Expression: MIT
@@ -76,7 +76,7 @@ or manually from source:
 
 ## Examples
 
-All the examples below assume that you have imported the SDK and instanciated the API object:
+All the examples below assume that you have imported the SDK and instantiated the API object:
 
 ```python
 import openfoodfacts

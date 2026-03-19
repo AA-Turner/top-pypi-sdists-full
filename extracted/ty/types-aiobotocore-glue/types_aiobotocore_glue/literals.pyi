@@ -136,6 +136,7 @@ __all__ = (
     "MetadataOperationType",
     "NodeTypeType",
     "OAuth2GrantTypeType",
+    "OverwriteChildResourcePermissionsWithDefaultEnumType",
     "PaginatorName",
     "ParamTypeType",
     "ParquetCompressionTypeType",
@@ -578,6 +579,7 @@ MaterializedViewRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 MetadataOperationType = Literal["CREATE"]
 NodeTypeType = Literal["CRAWLER", "JOB", "TRIGGER"]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
+OverwriteChildResourcePermissionsWithDefaultEnumType = Literal["Accept", "Deny"]
 ParamTypeType = Literal["bool", "complex", "float", "int", "list", "null", "str"]
 ParquetCompressionTypeType = Literal[
     "brotli", "gzip", "lz4", "lzo", "none", "snappy", "uncompressed"
@@ -772,6 +774,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -1035,6 +1038,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

@@ -46,7 +46,7 @@ def sync(
     repo_name: str,
     ref_public_id: str | None = None,
     x_api_key: str | None = None,
-) -> Any:
+) -> bytes:
     """Stream a ZIP archive of all files in a workspace ref.
 
     Files are streamed directly from S3 through the ZIP compressor to the
@@ -62,7 +62,7 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return response.content
 
 
 async def asyncio(
@@ -72,7 +72,7 @@ async def asyncio(
     repo_name: str,
     ref_public_id: str | None = None,
     x_api_key: str | None = None,
-) -> Any:
+) -> bytes:
     """Stream a ZIP archive of all files in a workspace ref.
 
     Files are streamed directly from S3 through the ZIP compressor to the
@@ -88,4 +88,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return response.json()
+    return response.content

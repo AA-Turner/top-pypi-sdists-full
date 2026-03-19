@@ -126,6 +126,15 @@ class Setting:
         this configuration.
         """
 
+        self.PIPENV_DEFAULT_CATEGORIES = get_from_env(
+            "DEFAULT_CATEGORIES", check_for_negation=False
+        )
+        """Comma- or space-delimited default dependency categories.
+
+        When set, category-aware commands can use these categories when neither
+        ``--categories`` nor ``--dev`` was explicitly provided.
+        """
+
         self.PIPENV_DONT_LOAD_ENV = bool(
             get_from_env("DONT_LOAD_ENV", check_for_negation=False)
         )
@@ -148,6 +157,14 @@ class Setting:
         """If set, Pipenv does not attempt to install Python with asdf.
 
         Default is to install Python automatically via asdf when needed, if possible.
+        """
+
+        self.PIPENV_DONT_USE_PYMANAGER = bool(
+            get_from_env("DONT_USE_PYMANAGER", check_for_negation=False)
+        )
+        """If set, Pipenv does not attempt to install Python with the Python Install Manager (pymanager) on Windows.
+
+        Default is to install Python automatically via pymanager when needed on Windows, if possible.
         """
 
         self.PIPENV_PYENV_AUTO_INSTALL = bool(get_from_env("PYENV_AUTO_INSTALL"))

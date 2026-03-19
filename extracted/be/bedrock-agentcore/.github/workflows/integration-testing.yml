@@ -22,7 +22,7 @@ jobs:
       should-run: ${{ steps.safety-check.outputs.result }}
     steps:
       - name: Checkout base branch for safety check
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
 
@@ -65,7 +65,7 @@ jobs:
             return 'true';
 
       - name: Collaborator Check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         id: collab-check
         with:
           result-encoding: string
@@ -128,16 +128,21 @@ jobs:
             timeout: 15
             extra-deps: "strands-agents-evals"
             ignore: ""
+          - group: services
+            path: tests_integ/services
+            timeout: 5
+            extra-deps: ""
+            ignore: ""
     steps:
       - name: Configure Credentials
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
          role-to-assume: ${{ secrets.AGENTCORE_INTEG_TEST_ROLE }}
          aws-region: us-west-2
          mask-aws-account-id: true
 
       - name: Checkout PR head commit
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -159,6 +164,9 @@ jobs:
           PYTHONUNBUFFERED: 1
           MEMORY_KINESIS_ARN: ${{ secrets.MEMORY_KINESIS_ARN }}
           MEMORY_ROLE_ARN: ${{ secrets.MEMORY_ROLE_ARN }}
+          MEMORY_PREPOPULATED_ID: ${{ secrets.MEMORY_PREPOPULATED_ID }}
+          RESOURCE_POLICY_TEST_ARN: ${{ secrets.RESOURCE_POLICY_TEST_ARN }}
+          RESOURCE_POLICY_TEST_PRINCIPAL: ${{ secrets.RESOURCE_POLICY_TEST_PRINCIPAL }}
         id: tests
         timeout-minutes: ${{ matrix.timeout }}
         run: |

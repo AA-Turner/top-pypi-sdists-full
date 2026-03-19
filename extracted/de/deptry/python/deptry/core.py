@@ -38,8 +38,10 @@ class Core:
     known_first_party: tuple[str, ...]
     json_output: str
     package_module_name_map: Mapping[str, tuple[str, ...]]
-    pep621_dev_dependency_groups: tuple[str, ...]
+    optional_dependencies_dev_groups: tuple[str, ...]
+    non_dev_dependency_groups: tuple[str, ...]
     experimental_namespace_package: bool
+    enforce_posix_paths: bool
     github_output: bool
     github_warning_errors: tuple[str, ...]
 
@@ -49,7 +51,8 @@ class Core:
         dependency_getter = DependencyGetterBuilder(
             self.config,
             self.package_module_name_map,
-            self.pep621_dev_dependency_groups,
+            self.optional_dependencies_dev_groups,
+            self.non_dev_dependency_groups,
             self.requirements_files,
             self.using_default_requirements_files,
             self.requirements_files_dev,
@@ -84,13 +87,17 @@ class Core:
             self.per_rule_ignores,
             standard_library_modules,
         )
-        TextReporter(violations, use_ansi=not self.no_ansi).report()
+        TextReporter(violations, enforce_posix_paths=self.enforce_posix_paths, use_ansi=not self.no_ansi).report()
 
         if self.json_output:
-            JSONReporter(violations, self.json_output).report()
+            JSONReporter(
+                violations, enforce_posix_paths=self.enforce_posix_paths, json_output=self.json_output
+            ).report()
 
         if self.github_output:
-            GithubReporter(violations, warning_ids=self.github_warning_errors).report()
+            GithubReporter(
+                violations, enforce_posix_paths=self.enforce_posix_paths, warning_ids=self.github_warning_errors
+            ).report()
 
         self._exit(violations)
 

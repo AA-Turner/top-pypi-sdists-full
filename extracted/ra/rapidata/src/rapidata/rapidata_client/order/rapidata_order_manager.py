@@ -224,7 +224,7 @@ class RapidataOrderManager:
 
         Example:
             ```python
-            from rapidata import RapidataClient, NoShuffle
+            from rapidata import RapidataClient, NoShuffleSetting
 
             rapi = RapidataClient()
             order = rapi.order.create_classification_order(
@@ -233,7 +233,7 @@ class RapidataOrderManager:
                 answer_options=["1: Poor", "2: Fair", "3: Good", "4: Excellent"],
                 datapoints=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
                 responses_per_datapoint=15,
-                settings=[NoShuffle()],  # Keep options in order for Likert scale
+                settings=[NoShuffleSetting()],  # Keep options in order for Likert scale
             ).run()
 
             results = order.get_results()
@@ -574,7 +574,7 @@ class RapidataOrderManager:
 
         Example:
             ```python
-            from rapidata import RapidataClient, FreeTextMinimumCharacters
+            from rapidata import RapidataClient, FreeTextMinimumCharactersSetting
 
             rapi = RapidataClient()
             order = rapi.order.create_free_text_order(
@@ -582,7 +582,7 @@ class RapidataOrderManager:
                 instruction="Describe what you see in this image in detail",
                 datapoints=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
                 responses_per_datapoint=5,
-                settings=[FreeTextMinimumCharacters(20)],  # Require at least 20 characters
+                settings=[FreeTextMinimumCharactersSetting(20)],  # Require at least 20 characters
             ).run()
 
             results = order.get_results()
@@ -617,6 +617,7 @@ class RapidataOrderManager:
         datapoints: list[str],
         sentences: list[str],
         responses_per_datapoint: int = 10,
+        media_contexts: list[str] | None = None,
         validation_set_id: str | None = None,
         filters: Sequence[RapidataFilter] | None = None,
         settings: Sequence[RapidataSetting] | None = None,
@@ -636,6 +637,8 @@ class RapidataOrderManager:
             sentences (list[str]): The list of sentences for the select words - Will be split up by spaces and shown along side each datapoint.\n
                 Must be the same length as datapoints.
             responses_per_datapoint (int, optional): The number of responses that will be collected per datapoint. Defaults to 10.
+            media_contexts (list[str], optional): The list of media contexts for the select words i.e links to the images / videos. Defaults to None.\n
+                If provided has to be the same length as datapoints and will be shown in addition to the instruction. (Therefore will be different for each datapoint)
             validation_set_id (str, optional): The ID of the validation set. Defaults to None.\n
                 If provided, one validation task will be shown infront of the datapoints that will be labeled.
             filters (Sequence[RapidataFilter], optional): The list of filters for the select words. Defaults to []. Decides who the tasks should be shown to.
@@ -669,6 +672,7 @@ class RapidataOrderManager:
             datapoints_instances = DatapointsValidator.map_datapoints(
                 datapoints=datapoints,
                 sentences=sentences,
+                media_contexts=media_contexts,
                 private_metadata=private_metadata,
             )
             return self._create_general_order(
@@ -925,32 +929,15 @@ class RapidataOrderManager:
             list[RapidataOrder]: A list of RapidataOrder instances.
         """
         with tracer.start_as_current_span("RapidataOrderManager.find_orders"):
-            from rapidata.api_client.models.page_info import PageInfo
-            from rapidata.api_client.models.query_model import QueryModel
-            from rapidata.api_client.models.root_filter import RootFilter
-            from rapidata.api_client.models.filter import Filter
-            from rapidata.api_client.models.filter_operator import FilterOperator
-            from rapidata.api_client.models.sort_criterion import SortCriterion
-            from rapidata.api_client.models.sort_direction import SortDirection
+            from rapidata.api_client.models.flow_get_name_parameter import (
+                FlowGetNameParameter,
+            )
 
             order_page_result = self.__openapi_service.order.order_api.orders_get(
-                QueryModel(
-                    page=PageInfo(index=1, size=amount),
-                    filter=RootFilter(
-                        filters=[
-                            Filter(
-                                field="OrderName",
-                                operator=FilterOperator.CONTAINS,
-                                value=name,
-                            )
-                        ]
-                    ),
-                    sortCriteria=[
-                        SortCriterion(
-                            direction=SortDirection.DESC, propertyName="OrderDate"
-                        )
-                    ],
-                )
+                page=1,
+                page_size=amount,
+                order_name=FlowGetNameParameter(contains=name),
+                sort=["-order_date"],
             )
 
             orders = [

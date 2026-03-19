@@ -50,6 +50,7 @@ from jax._src.lax import utils as lax_utils
 from jax._src.lib import xla_client as xc
 from jax._src.numpy.array_constructors import array, asarray
 from jax._src.numpy import array_creation
+from jax._src.numpy import hijax
 from jax._src.numpy import indexing
 from jax._src.numpy import reductions
 from jax._src.numpy import tensor_contractions
@@ -3404,7 +3405,7 @@ def clip(
   if min is not None:
     arr = ufuncs.maximum(min, arr)
   if max is not None:
-    arr = ufuncs.minimum(max, arr) # type: ignore
+    arr = ufuncs.minimum(max, arr)
   return asarray(arr)
 
 
@@ -3487,7 +3488,7 @@ def round(a: ArrayLike, decimals: int = 0, out: None = None) -> Array:
 @api.jit(static_argnames=('decimals',))
 def around(a: ArrayLike, decimals: int = 0, out: None = None) -> Array:
   """Alias of :func:`jax.numpy.round`"""
-  return round(a, decimals, out)  # pyrefly: ignore[no-matching-overload]
+  return round(a, decimals, out)
 
 
 @export
@@ -6422,13 +6423,13 @@ def _auto_repeat(fun, a, repeats, axis, total_repeat_length, out_sharding):
     return auto_axes(partial(fun, repeats, axis=axis,
                              total_repeat_length=total_repeat_length),
                      out_sharding=out_sharding,
-                     axes=out_sharding.mesh.explicit_axes  # type: ignore
+                     axes=out_sharding.mesh.explicit_axes
                      )(a)
   else:
     return auto_axes(
         partial(fun, axis=axis, total_repeat_length=total_repeat_length),
         out_sharding=out_sharding,
-        axes=out_sharding.mesh.explicit_axes  # type: ignore
+        axes=out_sharding.mesh.explicit_axes
         )(repeats, a)
 
 def _repeat(repeats, arr, *, axis: int,
@@ -6454,7 +6455,7 @@ def _repeat(repeats, arr, *, axis: int,
       axis = _canonicalize_axis(axis, len(input_shape))
       aux_axis = axis + 1
       aux_shape: list[DimSize] = list(input_shape)
-      aux_shape.insert(aux_axis, operator.index(repeats) if core.is_constant_dim(repeats) else repeats)  # type: ignore
+      aux_shape.insert(aux_axis, operator.index(repeats) if core.is_constant_dim(repeats) else repeats)
       arr = lax.broadcast_in_dim(
         arr, aux_shape, [i for i in range(len(aux_shape)) if i != aux_axis])
       result_shape: list[DimSize] = list(input_shape)
@@ -6690,7 +6691,9 @@ def tril(m: ArrayLike, k: int = 0) -> Array:
     raise ValueError("Argument to jax.numpy.tril must be at least 2D")
   N, M = m_shape[-2:]
   mask = tri(N, M, k=k, dtype=bool)
-  return lax.select(lax.broadcast(mask, m_shape[:-2]), m, array_creation.zeros_like(m))
+  which = lax.broadcast(mask, m_shape[:-2], out_sharding=core.typeof(m).sharding)
+  assert which.shape == m_shape
+  return lax.select(which, m, array_creation.zeros_like(m))
 
 
 @export
@@ -6757,7 +6760,9 @@ def triu(m: ArrayLike, k: int = 0) -> Array:
     raise ValueError("Argument to jax.numpy.triu must be at least 2D")
   N, M = m_shape[-2:]
   mask = tri(N, M, k=k - 1, dtype=bool)
-  return lax.select(lax.broadcast(mask, m_shape[:-2]), array_creation.zeros_like(m), m)
+  which = lax.broadcast(mask, m_shape[:-2], out_sharding=core.typeof(m).sharding)
+  assert which.shape == m_shape
+  return lax.select(which, array_creation.zeros_like(m), m)
 
 
 @export
@@ -7738,7 +7743,7 @@ def delete(
     obj = asarray(obj).ravel()
     obj = clip(where(obj < 0, obj + a.shape[axis], obj), 0, a.shape[axis])
     obj = sort(obj)
-    obj -= arange(len(obj), dtype=obj.dtype)  # type: ignore
+    obj -= arange(len(obj), dtype=obj.dtype)
     i = arange(a.shape[axis] - obj.size, dtype=obj.dtype)
     i += (i[None, :] >= obj[:, None]).sum(0, dtype=i.dtype)
     return a[(slice(None),) * axis + (i,)]
@@ -9377,46 +9382,6 @@ def corrcoef(x: ArrayLike, y: ArrayLike | None = None, rowvar: bool = True,
   return c
 
 
-@partial(vectorize, excluded={0, 1, 3, 4})
-def _searchsorted_via_scan(unrolled: bool, sorted_arr: Array, query: Array,
-                           side: str, dtype: type) -> Array:
-  op = lax._sort_le_comparator if side == 'left' else lax._sort_lt_comparator
-  unsigned_dtype = np.uint32 if dtype == np.int32 else np.uint64
-  def body_fun(state, _):
-    low, high = state
-    mid = low.astype(unsigned_dtype) + high.astype(unsigned_dtype)
-    mid = lax.div(mid, array(2, dtype=unsigned_dtype)).astype(dtype)
-    go_left = op(query, sorted_arr[mid])
-    return (where(go_left, low, mid), where(go_left, mid, high)), ()
-  n_levels = int(np.ceil(np.log2(len(sorted_arr) + 1)))
-  init = (array(0, dtype=dtype), array(len(sorted_arr), dtype=dtype))
-  vma = core.typeof(sorted_arr).vma
-  init = tuple(core.pvary(i, tuple(vma)) for i in init)
-  carry, _ = control_flow.scan(body_fun, init, (), length=n_levels,
-                               unroll=n_levels if unrolled else 1)
-  return carry[1]
-
-
-def _searchsorted_via_sort(sorted_arr: Array, query: Array, side: str, dtype: type) -> Array:
-  working_dtype = lax_utils.int_dtype_for_dim(sorted_arr.size + query.size,
-                                              signed=False)
-  def _rank(x):
-    idx = lax.iota(working_dtype, x.shape[0])
-    return array_creation.zeros_like(idx).at[argsort(x)].set(idx)
-  query_flat = query.ravel()
-  if side == 'left':
-    index = _rank(lax.concatenate([query_flat, sorted_arr], 0))[:query.size]
-  else:
-    index = _rank(lax.concatenate([sorted_arr, query_flat], 0))[sorted_arr.size:]
-  return lax.reshape(lax.sub(index, _rank(query_flat)), np.shape(query)).astype(dtype)
-
-
-def _searchsorted_via_compare_all(sorted_arr: Array, query: Array, side: str, dtype: type) -> Array:
-  op = lax._sort_lt_comparator if side == 'left' else lax._sort_le_comparator
-  comparisons = api.vmap(op, in_axes=(0, None))(sorted_arr, query)
-  return comparisons.sum(dtype=dtype, axis=0)
-
-
 @export
 @api.jit(static_argnames=('side', 'method'))
 def searchsorted(a: ArrayLike, v: ArrayLike, side: str = 'left',
@@ -9483,29 +9448,15 @@ def searchsorted(a: ArrayLike, v: ArrayLike, side: str = 'left',
     a, v = util.ensure_arraylike("searchsorted", a, v)
   else:
     a, v, sorter = util.ensure_arraylike("searchsorted", a, v, sorter)
-  if side not in ['left', 'right']:
-    raise ValueError(f"{side!r} is an invalid value for keyword 'side'. "
-                     "Expected one of ['left', 'right'].")
-  if method not in ['scan', 'scan_unrolled', 'sort', 'compare_all']:
-    raise ValueError(
-        f"{method!r} is an invalid value for keyword 'method'. "
-        "Expected one of ['sort', 'scan', 'scan_unrolled', 'compare_all'].")
-  if np.ndim(a) != 1:
+  if a.ndim != 1:
     raise ValueError("a should be 1-dimensional")
   a, v = util.promote_dtypes(a, v)
   if sorter is not None:
     a = a[sorter]
   dtype = lax_utils.int_dtype_for_dim(a.shape[0], signed=True)
-  if a.shape[0] == 0:
-    return array_creation.zeros_like(v, dtype=dtype)
-  impl = {
-      'scan': partial(_searchsorted_via_scan, False),
-      'scan_unrolled': partial(_searchsorted_via_scan, True),
-      'sort': _searchsorted_via_sort,
-      'compare_all': _searchsorted_via_compare_all,
-  }[method]
-  a, v = core.standard_insert_pvary(a, v)
-  return impl(a, v, side, dtype)  # type: ignore
+
+  # TODO(jakevdp): fix hijax primitive corner cases and use hijax.searchsorted direcly.
+  return hijax.searchsorted_via_expand(a, v, side=side, method=method, dtype=dtype)
 
 
 @export

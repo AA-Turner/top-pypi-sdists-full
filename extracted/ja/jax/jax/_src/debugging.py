@@ -628,7 +628,7 @@ def _inspect_sharding_jvp_rule(primals, _, **params):
   return inspect_sharding_p.bind(*primals, **params), []
 ad.primitive_jvps[inspect_sharding_p] = _inspect_sharding_jvp_rule
 
-sharding_callbacks = weakref.WeakValueDictionary()  # type: ignore
+sharding_callbacks = weakref.WeakValueDictionary()
 _INSPECT_SHARDING_CALL_NAME = "InspectSharding"
 
 class ShardingCallbackInfo:
@@ -663,7 +663,7 @@ def _inspect_sharding_lowering_rule(ctx: mlir.LoweringRuleContext, value, *,
   def _hlo_sharding_callback(hlo_sharding: xc.HloSharding):
     if mesh.empty:
       return callback(
-          sharding_impls.GSPMDSharding(devices, hlo_sharding))  # pyrefly: ignore[bad-argument-type]
+          sharding_impls.GSPMDSharding(devices, hlo_sharding))
     pspec = (P() if hlo_sharding.is_manual() else
              parse_flatten_op_sharding(hlo_sharding, mesh)[0])
     return callback(NamedSharding(mesh, pspec))

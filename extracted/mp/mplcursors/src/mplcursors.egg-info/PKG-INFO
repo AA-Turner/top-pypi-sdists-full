@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mplcursors
-Version: 0.7
+Version: 0.7.1
 Summary: Interactive data selection cursors for Matplotlib.
 Author: Antony Lee
 Project-URL: Repository, https://github.com/anntzer/mplcursors

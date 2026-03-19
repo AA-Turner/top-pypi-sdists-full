@@ -1,6 +1,6 @@
 from . import args
 from .controller import DuploCtl
-from .errors import DuploError, DuploFailedResource, DuploStillWaiting, DuploConnectionError
+from .errors import DuploError, DuploFailedResource, DuploNotFound, DuploStillWaiting, DuploConnectionError
 from .commander import get_parser, extract_args, get_command_schema, Command
 import math
 import time
@@ -45,21 +45,25 @@ class DuploResource():
       pargs = vars(parser.parse_args(args))
       pargs.update(kwargs)
       # if validation was enabled then the body will be validated
-      if model and "body" in pargs:
+      if model and "body" in pargs and pargs["body"] is not None:
         pargs["body"] = self.duplo.validate_model(model, pargs["body"])
       return command(**pargs)
     return wrapped
   
   def wait(self, wait_check: callable, timeout: int=3600, poll: int=10):
     """Wait for Resource
-    
+
     Waits for a the given wait_check callable to complete successfully. If the global wait_timeout is set on the DuploCtl, it will override the timeout parameter so that a user can always choose their own timeout for waiting operations. The timeout param for other functions is just a default value for that particular resource operation.
-    
+
+    The GET cache is disabled for the duration of the wait so that each
+    poll reflects the live API state rather than a stale cached response.
+
     Args:
       wait_check: A callable function to check if the resource is ready.
       timeout: The maximum time to wait in seconds. Default is 3600 seconds (1 hour).
       poll: The polling interval in seconds. Default is 10 seconds.
     """
+    self.client.disable_get_cache()
     timeout = self.duplo.wait_timeout or timeout
     exp = math.ceil(timeout / poll)
     max_connection_errors = 10
@@ -137,7 +141,7 @@ class DuploResourceV2(DuploResource):
     try:
       return [s for s in self.list() if self.name_from_body(s) == name][0]
     except IndexError:
-      raise DuploError(f"{self.kind} '{name}' not found", 404)
+      raise DuploNotFound(name, self.kind)
       
   @Command()
   def apply(self,
@@ -147,9 +151,9 @@ class DuploResourceV2(DuploResource):
     name = self.name_from_body(body)
     try:
       self.find(name)
-      return self.update(name, body, wait)
-    except DuploError:
-      return self.create(body, wait)
+      return self.update(name, body)
+    except DuploNotFound:
+      return self.create(body)
   
 
 class DuploResourceV3(DuploResource):
@@ -336,7 +340,7 @@ class DuploResourceV3(DuploResource):
     try:
       self.find(name)
       return self.update(name=name, body=body, patches=patches)
-    except DuploError:
+    except DuploNotFound:
       return self.create(body)
 
 

@@ -148,7 +148,7 @@ def test_users_set_avatar_from_file(logged_rocket):
 def test_users_set_avatar_from_url(logged_rocket):
     # ToDo: Modify this test so it can run while offline
     logged_rocket.users_set_avatar(
-        avatar_url="https://upload.wikimedia.org/wikipedia/commons/7/77/Wikipedia_svg_logo.svg"
+        avatar_url="https://files.akiel.dev/Wikipedia_svg_logo.svg"
     )
 
 
@@ -173,13 +173,6 @@ def test_users_list(logged_rocket):
     for user in iterated_users:
         assert "_id" in user
         assert "username" in user
-
-    iterated_users_custom = list(logged_rocket.users_list(count=1))
-    assert len(iterated_users_custom) > 0
-    assert len(iterated_users_custom) == len(iterated_users)
-
-    for user in logged_rocket.users_list():
-        assert "_id" in user
 
 
 def test_users_set_status(logged_rocket):

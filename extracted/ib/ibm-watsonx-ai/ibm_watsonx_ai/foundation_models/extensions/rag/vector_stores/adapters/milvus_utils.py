@@ -3,7 +3,7 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from langchain_core.embeddings import Embeddings as LCEmbeddings
 from langchain_milvus.function import BM25BuiltInFunction
@@ -20,6 +20,9 @@ DEFAULT_INDEX_PARAM = {
     "index_type": "HNSW",
     "params": {"M": 8, "efConstruction": 64},
 }
+
+if TYPE_CHECKING:
+    from pymilvus import Function
 
 
 class _LangchainEmbeddings(LCEmbeddings):
@@ -72,14 +75,18 @@ class MilvusBM25BuiltinFunction(BM25BuiltInFunction):
         :return: dict for the from_dict initialization
         :rtype: dict
         """
+
+        # Always present as it's included in BM25BuiltInFunction's __init__ method
+        function = cast("Function", self._function)
+
         return {
             "__class__": self.__class__.__name__,
             "__module__": self.__module__,
-            "input_field_names": self._function._input_field_names,  # type: ignore[union-attr]
-            "output_field_names": self._function._output_field_names,  # type: ignore[union-attr]
+            "input_field_names": function._input_field_names,  # pylint: disable=protected-access
+            "output_field_names": function._output_field_names,  # pylint: disable=protected-access
             "analyzer_params": self.analyzer_params,
             "enable_match": self.enable_match,
-            "function_name": self._function._name,  # type: ignore[union-attr]
+            "function_name": function._name,  # pylint: disable=protected-access
         }
 
 

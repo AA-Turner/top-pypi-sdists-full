@@ -21,6 +21,7 @@
 from collections.abc import Callable, Iterable, Sequence
 import dataclasses
 import functools
+import inspect
 import itertools
 import math
 import operator
@@ -494,11 +495,16 @@ def _vector_load_op_lowering_rule(
 
   return [_fragmented_array_to_ir(fragmented_array)]
 
-
 @_register_lowering(mgpu.VectorStoreOp)
 def _vector_store_op_lowering_rule(
     ctx: LoweringContext, op: mgpu.VectorStoreOp
 ) -> Sequence[ir.Value]:
+  # TODO(allanrenucci): remove this check once minimum jaxlib version is 0.9.2.
+  if hasattr(op, "atomic_type") and op.atomic_type is not None:
+    atomic = str(mgpu.AtomicOpType(op.atomic_type.value))
+  else:
+    atomic = None
+
   [to_store_layout] = inference_utils.in_layouts(op)
   fragmented_array = _fragmented_array_from_ir(op.valueToStore, to_store_layout)
 
@@ -510,7 +516,9 @@ def _vector_store_op_lowering_rule(
   optimized = op.optimized.value if op.optimized is not None else None
 
   if ref_type.memory_space is None:  # GMEM
-    fragmented_array.store_untiled(ref, optimized=bool(optimized))
+    fragmented_array.store_untiled(
+        ref, optimized=bool(optimized), atomic=atomic
+    )
   elif ref_type.memory_space == utils.smem():
     transforms_attr = inference_utils.in_transforms(op)[0]
     swizzle, transforms = swizzle_and_transforms_from_transforms_attr(
@@ -522,14 +530,13 @@ def _vector_store_op_lowering_rule(
       unwrapped_ref = unwrap_transformed_memref(ref, transforms_attr)
 
       def store_tiled(optimized: bool):
-        fragmented_array.store_tiled(unwrapped_ref, swizzle, optimized)
+        fragmented_array.store_tiled(unwrapped_ref, swizzle, optimized, atomic=atomic)  # pytype: disable=wrong-arg-types
 
       _retry_on_failure(store_tiled, optimized)
     else:
 
       def store_untiled(optimized: bool):
-        fragmented_array.store_untiled(ref, optimized=optimized)
-
+        fragmented_array.store_untiled(ref, optimized=optimized, atomic=atomic)  # pytype: disable=wrong-arg-types
       _retry_on_failure(store_untiled, optimized)
   else:
     raise ValueError(f"Unsupported memory space: {ref_type.memory_space}")
@@ -796,19 +803,14 @@ def _mgpu_layout_cast_op_lowering_rule(
 def _mgpu_broadcast_in_dim_op_lowering_rule(
     _: LoweringContext, op: mgpu.BroadcastInDimOp
 ) -> Sequence[ir.Value]:
-  in_ty = ir.VectorType(op.operand.type)
   out_ty = ir.VectorType(op.result.type)
-  if len(in_ty.shape) != 1 or len(out_ty.shape) != 2:
-    raise NotImplementedError(
-        "Broadcast in dim with non-trivial broadcast dimensions is not"
-        f" supported: {op}"
-    )
-
   broadcast_dims = tuple(op.broadcast_dimensions)
   in_layout_attr = inference_utils.in_layouts(op)[0]
   operand_fa = _fragmented_array_from_ir(op.operand, in_layout_attr)
   out_layout = layouts_lib.from_layout_attr(inference_utils.out_layouts(op)[0])
-  out = operand_fa.broadcast_in_dim(out_ty.shape, broadcast_dims, out_layout)
+  out = operand_fa.broadcast_in_dim(
+      tuple(out_ty.shape), broadcast_dims, out_layout
+  )
   return [fragmented_array_to_ir(out, out_ty)]
 
 
@@ -1130,6 +1132,29 @@ def _mgpu_async_store_op_lowering_rule(
   return []
 
 
+# TODO(olechwierowicz): remove this check once minimum jaxlib version is 0.9.2.
+if hasattr(mgpu, "AsyncStoreSmemToTmemOp"):
+  @_register_lowering(mgpu.AsyncStoreSmemToTmemOp)
+  def _async_copy_smem_to_tmem_lowering_rule(
+      ctx: LoweringContext, op: mgpu.AsyncStoreSmemToTmemOp
+  ) -> Sequence[ir.Value]:
+    [transforms_attr] = inference_utils.in_transforms(op)
+    swizzle, transforms = swizzle_and_transforms_from_transforms_attr(
+        transforms_attr
+    )
+    smem_ref = unwrap_transformed_memref(op.source, transforms_attr)
+    smem_ref_ty = op.source.type
+    _check_transforms_and_swizzle_are_supported(smem_ref_ty, transforms, swizzle)
+
+    [in_layout_attr] = inference_utils.in_tmem_layouts(op)
+    tmem_ref = _tmem_ref_from_ir(op.destination, in_layout_attr)
+    with utils.when(ctx.single_thread_per_warpgroup_predicate):
+      tcgen05.async_copy_smem_to_tmem(
+          smem_ref, tmem_ref, swizzle, collective=op.collective
+      )
+    return []
+
+
 @_register_lowering(mgpu.TmemLayoutCastOp)
 def _tmem_layout_cast_lowering_rule(
     ctx: LoweringContext,
@@ -1261,7 +1286,6 @@ for _op, _binary_impl, _is_signed in [
     (arith.MulFOp, operator.mul, None),
     (arith.FloorDivSIOp, operator.floordiv, True),
     (arith.DivUIOp, operator.floordiv, False),
-    (arith.DivFOp, operator.truediv, None),
     (arith.RemSIOp, operator.mod, True),
     (arith.RemUIOp, operator.mod, False),
     (arith.RemFOp, operator.mod, None),
@@ -1280,6 +1304,30 @@ for _op, _binary_impl, _is_signed in [
   _lowerings[_op.OPERATION_NAME] = functools.partial(
       _binary_op_lowering_rule, impl=_binary_impl, is_signed=_is_signed
   )
+
+
+def _divf_lowering_rule(
+    ctx: LoweringContext, op: Any
+) -> Sequence[ir.Value]:
+  [layout] = inference_utils.out_layouts(op)
+  lhs_ty = ir.VectorType(op.lhs.type)
+  if isinstance(lhs_ty.element_type, ir.Float8E8M0FNUType):
+    lhs_layout = layouts_lib.from_layout_attr(
+        op.lhs.owner.attributes["layout"]
+    )
+    if isinstance(lhs_layout, fa.WGSplatFragLayout):
+      [source] = op.lhs.owner.opview.operands
+      if (
+          isinstance(source.owner.opview, arith.ConstantOp)
+          and float(ir.FloatAttr(source.owner.opview.value)) == 1.0
+      ):
+        rhs = _fragmented_array_from_ir(op.rhs, layout)
+        return [fragmented_array_to_ir(1 / rhs, op.result.type)]
+  return _binary_op_lowering_rule(
+      ctx, op, is_signed=None, impl=operator.truediv
+  )
+
+_lowerings[arith.DivFOp.OPERATION_NAME] = _divf_lowering_rule
 
 
 CMPI_IMPLS = {
@@ -2011,10 +2059,17 @@ def _tmem_ref_to_ir(ref: tcgen05.TMEMRef) -> ir.Value:
   return conversion_cast.result
 
 
+# TODO(bchetioui): remove this once minimum jaxlib version is 0.9.1.
+_sparse_metadata_available = "a_sparse_metadata" in inspect.signature(mgpu.tcgen05_mma).parameters
+
+
 @_register_lowering(mgpu.TcGen05MMAOp)
 def _tcgen05_mma_op_lowering_rule(
     ctx: LoweringContext, op: mgpu.TcGen05MMAOp
 ) -> Sequence[ir.Value]:
+  if _sparse_metadata_available and op.a_sparse_metadata is not None:
+    raise NotImplementedError("Sparse metadata not yet implemented.")
+
   ctx.check_collective(op)
 
   in_tmem_layouts = inference_utils.in_tmem_layouts(op)
@@ -2034,7 +2089,7 @@ def _tcgen05_mma_op_lowering_rule(
     a_swizzle = b_swizzle
     b_ref = unwrap_transformed_memref(op.b, b_transforms)
 
-  with utils.when(ctx.single_thread_per_block_predicate):
+  with utils.when(ctx.single_thread_per_warpgroup_predicate):
     tcgen05.mma(
         acc_ref,
         a_ref,

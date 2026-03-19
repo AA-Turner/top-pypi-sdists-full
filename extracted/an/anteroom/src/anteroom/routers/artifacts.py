@@ -15,13 +15,39 @@ router = APIRouter(tags=["artifacts"])
 @router.get("/artifacts")
 async def list_artifacts(
     request: Request,
-    type: str | None = Query(None, pattern="^(skill|rule|instruction|context|memory|mcp_server|config_overlay)$"),
+    type: str | None = Query(None, pattern="^(skill|rule|instruction|context|memory|mcp_server|config_overlay|spec)$"),
     namespace: str | None = Query(None, max_length=64),
     source: str | None = Query(None, pattern="^(built_in|global|team|project|local|inline)$"),
+    attached_only: bool = Query(False),
+    space_id: str | None = Query(None),
+    project_path: str | None = Query(None),
 ) -> list[dict[str, Any]]:
-    """List all artifacts with optional filtering by type, namespace, or source."""
+    """List all artifacts with optional filtering by type, namespace, or source.
+
+    When *attached_only* is True, only returns artifacts that are standalone
+    or from packs with active attachments in the given context.
+    """
     db = request.app.state.db
-    results = artifact_storage.list_artifacts(db, artifact_type=type, namespace=namespace, source=source)
+
+    # Resolve context defaults for attachment filtering when not explicitly provided
+    if attached_only and space_id is None:
+        space_id = getattr(request.app.state, "space_id", None)
+    if attached_only and project_path is None and space_id:
+        from ..services.space_storage import get_space_local_dirs
+
+        local_dirs = get_space_local_dirs(db, space_id)
+        if local_dirs:
+            project_path = local_dirs[0]
+
+    results = artifact_storage.list_artifacts(
+        db,
+        artifact_type=type,
+        namespace=namespace,
+        source=source,
+        attached_only=attached_only,
+        space_id=space_id,
+        project_path=project_path,
+    )
     # Batch-fetch latest version for all artifacts in a single query
     artifact_ids = [r["id"] for r in results]
     version_map: dict[str, int] = {}
@@ -39,6 +65,7 @@ async def list_artifacts(
     for r in results:
         r.pop("content", None)
         r["version"] = version_map.get(r["id"])
+        r["pack_owned"] = artifact_storage.is_pack_owned(db, r["id"])
     return results
 
 
@@ -46,6 +73,9 @@ async def list_artifacts(
 async def get_artifact(
     request: Request,
     fqn: str,
+    attached_only: bool = Query(False),
+    space_id: str | None = Query(None),
+    project_path: str | None = Query(None),
 ) -> dict[str, Any]:
     """Get a single artifact by FQN (e.g. @core/skill/greet)."""
     if not validate_fqn(fqn):
@@ -56,9 +86,15 @@ async def get_artifact(
     if not art:
         raise HTTPException(status_code=404, detail="Artifact not found")
 
+    if attached_only and not artifact_storage.is_artifact_attached(
+        db, art["id"], space_id=space_id, project_path=project_path
+    ):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
     versions = artifact_storage.list_artifact_versions(db, art["id"])
     art["versions"] = versions
     art["version"] = versions[0]["version"] if versions else None
+    art["pack_owned"] = artifact_storage.is_pack_owned(db, art["id"])
     return art
 
 
@@ -78,6 +114,9 @@ async def delete_artifact(
 
     if art.get("source") == "built_in":
         raise HTTPException(status_code=403, detail="Cannot delete built-in artifacts")
+
+    if artifact_storage.is_pack_owned(db, art["id"]):
+        raise HTTPException(status_code=403, detail="Cannot delete pack-owned artifacts. Remove the pack instead.")
 
     artifact_storage.delete_artifact(db, art["id"])
 

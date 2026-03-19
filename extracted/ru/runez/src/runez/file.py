@@ -5,8 +5,9 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from typing import overload
 
-from runez.system import _R, abort, Anchored, decode, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
+from runez.system import _R, abort, Anchored, flattened, resolved_path, short, SYMBOLIC_TMP, SYS_INFO, UNSET
 
 
 def basename(path, extension_marker=os.extsep, follow=False):
@@ -33,29 +34,24 @@ def basename(path, extension_marker=os.extsep, follow=False):
     return path
 
 
-def checksum(path, hash=hashlib.sha256, blocksize=65536):
+def checksum(path, hash=hashlib.sha256, blocksize=65536) -> str:
     """
     Args:
         path (str | Path | None): Path to file
-        hash: Hash algorithm to use
-        blocksize (int):
+        hash (callable): Hash algorithm to use (eg hashlib.sha256)
+        blocksize (int): Read block size
 
     Returns:
         (str): Hex-digest
     """
-    if isinstance(hash, str):
-        hash = getattr(hashlib, hash)
-
-    if callable(hash):
-        hash = hash()
-
+    h = hash()
     with open(path, "rb") as fh:
         buf = fh.read(blocksize)
         while len(buf) > 0:
-            hash.update(buf)
+            h.update(buf)
             buf = fh.read(blocksize)
 
-    return hash.hexdigest()
+    return h.hexdigest()
 
 
 def copy(source, destination, ignore=None, overwrite=True, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -98,10 +94,12 @@ def delete(path, fatal=True, logger=UNSET, dryrun=UNSET):
     try:
         _do_delete(path, islink, fatal)
         _R.hlog(logger, "Deleted %s" % short(path))
-        return 1
 
     except Exception as e:
         return abort("Can't delete %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1
 
 
 def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
@@ -143,10 +141,11 @@ def ensure_folder(path, clean=False, fatal=True, logger=UNSET, dryrun=UNSET):
         os.makedirs(path)
         _R.hlog(logger, "Created folder %s" % short(path))
 
-        return 1
-
     except Exception as e:
         return abort("Can't create folder %s" % short(path), exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1
 
 
 def filesize(*paths, logger=False):
@@ -161,17 +160,17 @@ def filesize(*paths, logger=False):
     size = 0
     for path in flattened(paths, unique=True):
         path = to_path(path)
-        if path and path.exists() and not path.is_symlink():
-            if path.is_dir():
-                for sf in path.iterdir():
-                    size += filesize(sf)
+        try:
+            if path and path.exists() and not path.is_symlink():
+                if path.is_dir():
+                    for sf in path.iterdir():
+                        size += filesize(sf)
 
-            elif path.is_file():
-                try:
+                elif path.is_file():
                     size += path.stat().st_size
 
-                except Exception as e:  # pragma: no cover, ignore cases like permission denied, file name too long, etc
-                    _R.hlog(logger, "Can't stat %s: %s" % (short(path), short(e, size=32)))
+        except Exception as e:  # Ignore cases like permission denied, file name too long, etc
+            _R.hlog(logger, f"Can't stat {short(path)}: {short(e, size=32)}")
 
     return size
 
@@ -216,22 +215,6 @@ def ini_to_dict(path, keep_empty=False, fatal=False, logger=False):
         result = {k: v for k, v in result.items() if k and v}
 
     return result
-
-
-def is_subfolder(path, root_folder):
-    """
-    Args:
-        path (str | Path): Path to file or folder
-        root_folder (str | Path): Path to folder to consider as root
-
-    Returns:
-        (bool): True if 'path' is a sub-folder of 'root_folder'
-    """
-    if path and root_folder:
-        abs_path = os.path.abspath(path)
-        abs_root = os.path.abspath(root_folder)
-        prefix = os.path.commonprefix([abs_path, abs_root])
-        return prefix == abs_root
 
 
 def is_younger(path, age, default=False):
@@ -301,9 +284,9 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
                 if first == 0:
                     return
 
-                line = decode(line)
                 if transform:
                     line = transform(line)
+
                 yield line
                 first -= 1
 
@@ -315,10 +298,18 @@ def readlines(path, first=None, errors="ignore", fatal=False, logger=False, tran
         _R.hlog(logger, message, exc_info=e)
 
 
+@overload
+def to_path(path: "str | Path", no_spaces=False) -> Path: ...
+
+
+@overload
+def to_path(path: None, no_spaces=False) -> None: ...
+
+
 def to_path(path, no_spaces=False):
     """
     Args:
-        path (str | Path): Path to convert
+        path (str | Path | None): Path to convert
         no_spaces (type | bool | None): If True-ish, abort if 'path' contains a space
 
     Returns:
@@ -527,10 +518,12 @@ def write(path, contents, fatal=True, logger=UNSET, dryrun=UNSET):
                 fh.write(contents)
 
         _R.hlog(logger, "%s %s" % ("Wrote" if contents else "Touched", short_path))
-        return 1
 
     except Exception as e:
         return abort("Can't write to %s" % short_path, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1
 
 
 def _copy(source, destination, ignore=None):
@@ -608,13 +601,7 @@ def _untar(source, destination, simplify):
     with TempFolder():
         extracted_source = to_path(source.name)
         with tarfile.open(source) as fh:
-            for member in fh.getmembers():
-                # See https://www.trellix.com/en-us/about/newsroom/stories/research/tarfile-exploiting-the-world.html
-                member_path = os.path.join(extracted_source, member.name)
-                if not is_subfolder(member_path, extracted_source):  # pragma: no cover, don't have an exploit sample handy
-                    raise Exception("Attempted Path Traversal in Tar File")
-
-            fh.extractall(extracted_source, filter="fully_trusted")  # noqa: S202, taken care of
+            fh.extractall(extracted_source, filter="data")
 
         _move_extracted(extracted_source, destination, simplify)
 
@@ -706,14 +693,14 @@ def _file_op(source, destination, func, overwrite, fatal, logger, dryrun, must_e
         if ignore is not None:
             if not callable(ignore):
                 given = ignore
-
-                def ignore(*_):
-                    return given
+                ignore = lambda *_: given  # noqa: E731
 
             extra["ignore"] = ignore
 
         func(source, destination, **extra)
-        return 1
 
     except Exception as e:
         return abort("Can't %s" % description, exc_info=e, return_value=-1, fatal=fatal, logger=logger)
+
+    else:
+        return 1

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 3.2.1
+Version: 3.3.0
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.12.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.42.62,>=1.42.53
+Requires-Dist: botocore<1.42.71,>=1.42.62
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
@@ -36,15 +36,15 @@ Dynamic: license-file
 
 aiobotocore
 ===========
-.. |ci badge| image:: https://github.com/aio-libs/aiobotocore/actions/workflows/ci-cd.yml/badge.svg?branch=master
+.. |ci badge| image:: https://github.com/aio-libs/aiobotocore/actions/workflows/ci-cd.yml/badge.svg?branch=main
     :target: https://github.com/aio-libs/aiobotocore/actions/workflows/ci-cd.yml
-    :alt: CI status of master branch
-.. |pre-commit badge| image:: https://results.pre-commit.ci/badge/github/aio-libs/aiobotocore/master.svg
-    :target: https://results.pre-commit.ci/latest/github/aio-libs/aiobotocore/master
+    :alt: CI status of main branch
+.. |pre-commit badge| image:: https://results.pre-commit.ci/badge/github/aio-libs/aiobotocore/main.svg
+    :target: https://results.pre-commit.ci/latest/github/aio-libs/aiobotocore/main
     :alt: pre-commit.ci status
-.. |coverage badge| image:: https://codecov.io/gh/aio-libs/aiobotocore/branch/master/graph/badge.svg
+.. |coverage badge| image:: https://codecov.io/gh/aio-libs/aiobotocore/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/aio-libs/aiobotocore
-    :alt: Coverage status on master branch
+    :alt: Coverage status on main branch
 .. |docs badge| image:: https://readthedocs.org/projects/aiobotocore/badge/?version=latest
     :target: https://aiobotocore.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
@@ -255,6 +255,10 @@ Requirements
 
 Changes
 -------
+
+3.3.0 (2026-03-18)
+^^^^^^^^^^^^^^^^^^
+* bump botocore dependency specification to support ``"botocore >= 1.42.62, < 1.42.71"``
 
 3.2.1 (2026-03-04)
 ^^^^^^^^^^^^^^^^^^

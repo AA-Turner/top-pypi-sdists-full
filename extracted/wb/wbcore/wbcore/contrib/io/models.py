@@ -210,6 +210,11 @@ class DataBackend(models.Model):
     class Meta:
         verbose_name = _("Data Backend")
         verbose_name_plural = _("Data Backends")
+        constraints = [
+            models.UniqueConstraint(
+                name="unique_databackend_path", fields=["backend_class_path", "backend_class_name"]
+            )
+        ]
 
     @cached_property
     def backend_class(self) -> Any:

@@ -135,7 +135,7 @@ def run_server(
         mount_prefix = os.environ.get("LANGGRAPH_MOUNT_PREFIX")
     if isinstance(env, str | pathlib.Path):
         try:
-            from dotenv.main import (  # type: ignore[unresolved-import]  # noqa: PLC0415
+            from dotenv.main import (  # noqa: PLC0415
                 DotEnv,
             )
 
@@ -149,7 +149,7 @@ def run_server(
 
     if debug_port is not None:
         try:
-            import debugpy  # type: ignore[unresolved-import]  # noqa: PLC0415
+            import debugpy  # noqa: PLC0415  # ty: ignore[unresolved-import]
         except ImportError:
             logger.warning("debugpy is not installed. Debugging will not be available.")
             logger.info("To enable debugging, install debugpy: pip install debugpy")
@@ -226,7 +226,7 @@ def run_server(
             if k in to_patch:
                 logger.debug(f"Skipping loaded env var {k}={v}")
                 continue
-            to_patch[k] = v  # type: ignore[invalid-assignment]
+            to_patch[k] = v
     with patch_environment(
         **to_patch,
     ):

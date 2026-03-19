@@ -16,31 +16,32 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable, Sequence
 import enum
 import functools
+import itertools
 import math
 import string
 from typing import Any
 
-import jax._src.lax as lax
-from jax._src import tree_util
 from jax._src import ad_util
 from jax._src import api_util
-from jax._src import core as jax_core
 from jax._src import config
+from jax._src import core as jax_core
 from jax._src import debugging
 from jax._src import dtypes
-from jax._src import typing as jax_typing
 from jax._src import effects
 from jax._src import linear_util as lu
+from jax._src import numpy as jnp
 from jax._src import pretty_printer as pp
 from jax._src import source_info_util
 from jax._src import state
+from jax._src import tree_util
+from jax._src import typing as jax_typing
 from jax._src import util
 from jax._src.interpreters import ad
 from jax._src.interpreters import partial_eval as pe
+import jax._src.lax as lax
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
 from jax._src.pallas import core as pallas_core
@@ -50,7 +51,7 @@ from jax._src.state import indexing
 from jax._src.state import primitives as sp
 from jax._src.state import types as state_types
 from jax.interpreters import mlir
-from jax._src import numpy as jnp
+
 
 Slice = indexing.Slice
 NDIndexer = indexing.NDIndexer
@@ -74,7 +75,7 @@ def program_id(axis: int) -> jax_typing.Array:
   """
   return program_id_p.bind(axis=axis)
 
-def program_id_bind_with_trace(trace, _, params):
+def program_id_bind_with_trace(trace, _, avals, params):
   axis = params.pop("axis")
   grid_env = pallas_core.current_grid_env()
   if grid_env:
@@ -83,7 +84,8 @@ def program_id_bind_with_trace(trace, _, params):
   # Query the size of the axis to make sure it's a valid axis (and error
   # otherwise).
   _ = frame.size(axis)
-  return jax_core.Primitive.bind_with_trace(program_id_p, trace, (), dict(axis=axis))
+  return jax_core.Primitive.bind_with_trace(program_id_p, trace, (), avals,
+                                            dict(axis=axis))
 # TODO(dougalm): figure out how put the grid_env contest on the relevant trace
 program_id_p.def_bind_with_trace(program_id_bind_with_trace)
 
@@ -97,7 +99,7 @@ def num_programs(axis: int) -> int | jax_typing.Array:
   """Returns the size of the grid along the given axis."""
   return num_programs_p.bind(axis=axis)
 
-def _num_programs_bind_with_trace(trace, _, params):
+def _num_programs_bind_with_trace(trace, _, avals, params):
   axis = params.pop("axis")
   # We might be using a local grid env
   grid_env = pallas_core.current_grid_env()
@@ -107,257 +109,14 @@ def _num_programs_bind_with_trace(trace, _, params):
   frame = pallas_core.axis_frame()
   size = frame.size(axis)
   if size is pallas_core.dynamic_grid_dim:
-    return jax_core.Primitive.bind_with_trace(num_programs_p, trace, (), dict(axis=axis))
+    return jax_core.Primitive.bind_with_trace(num_programs_p, trace, (), avals,
+                                              dict(axis=axis))
   return size
 num_programs_p.def_bind_with_trace(_num_programs_bind_with_trace)
 
 @num_programs_p.def_abstract_eval
 def _num_programs_abstract_eval(**_):
   return jax_core.ShapedArray((), jnp.int32)
-
-class AtomicOpType(enum.Enum):
-  XCHG = "xchg"
-  ADD = "add"
-  MAX = "max"
-  MIN = "min"
-  AND = "and"
-  OR = "or"
-  XOR = "xor"
-
-atomic_rmw_p = jax_core.Primitive("atomic_rmw")
-
-
-def _atomic_rmw_discharge_rule(
-    in_avals, out_avals, *args_flat, args_tree, atomic_type: AtomicOpType
-):
-  del out_avals  # Unused.
-  ref, transforms, val, mask = args_tree.unflatten(args_flat)
-  *prev_transforms, idx = transforms
-  ref = state_discharge.transform_array(ref, prev_transforms)
-
-  if mask is not None:
-    raise NotImplementedError
-
-  if atomic_type == AtomicOpType.ADD:
-    monoid = lambda x, y: x + y
-  elif atomic_type == AtomicOpType.MAX:
-    monoid = jnp.maximum
-  elif atomic_type == AtomicOpType.MIN:
-    monoid = jnp.minimum
-  else:
-    raise NotImplementedError(atomic_type)
-
-  if all((isinstance(s, Slice) or not s.shape) for s in idx.indices):
-    indices = idx.indices
-    scalar_dims = [not isinstance(s, Slice) and not s.shape for s in indices]
-    slice_starts = [s.start if isinstance(s, Slice) else s for s in indices]
-    slice_sizes = tuple(s.size if isinstance(s, Slice) else 1 for s in indices)
-    out_ones = lax.dynamic_slice(ref, slice_starts, slice_sizes=slice_sizes)
-    val_indexer = tuple(None if scalar else slice(None) for scalar in scalar_dims)
-    val = val[val_indexer]
-    val = monoid(val, out_ones)
-    x_new = lax.dynamic_update_slice(ref, val, start_indices=slice_starts)
-    out_indexer = tuple(0 if scalar else slice(None) for scalar in scalar_dims)
-    out = out_ones[out_indexer]
-  elif all(not isinstance(s, Slice) for s in idx.indices):
-    out = ref[idx.indices]
-    x_new = ref.at[idx.indices].set(monoid(out, val))
-  else:
-    raise NotImplementedError
-  return (x_new,) + (None,) * (len(in_avals) - 1), out
-
-
-state_discharge.register_discharge_rule(atomic_rmw_p)(_atomic_rmw_discharge_rule)
-
-
-@atomic_rmw_p.def_effectful_abstract_eval
-def _atomic_abstract_eval(*avals_flat, args_tree, atomic_type: AtomicOpType):
-  ref, _, _, _ = args_tree.unflatten(avals_flat)
-  if ref.dtype == jnp.dtype("float16") and atomic_type != AtomicOpType.ADD:
-    raise ValueError(f"`atomic_{atomic_type.value}` does not support f16.")
-  if ref.dtype in {
-      jnp.dtype("bool"),
-      jnp.dtype("int8"),
-      jnp.dtype("int16"),
-      jnp.bfloat16,
-  }:
-    raise ValueError(
-        f"`atomic_{atomic_type.value}` does not support {ref.dtype}."
-    )
-  return _swap_abstract_eval(*avals_flat, args_tree=args_tree)
-
-
-def _atomic_rmw(x_ref_or_view, idx, val, *, mask: Any | None = None,
-                atomic_type: AtomicOpType):
-  x_ref, transforms = sp.get_ref_and_transforms(
-      x_ref_or_view, idx, "atomic_rmw"
-  )
-  args_flat, args_tree = tree_util.tree_flatten((x_ref, transforms, val, mask))
-  return atomic_rmw_p.bind(
-      *args_flat, args_tree=args_tree, atomic_type=atomic_type
-  )
-
-def atomic_xchg(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically exchanges the given value with the value at the given index.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the aupdate.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.XCHG
-  )
-
-
-def atomic_add(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] += val``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.ADD
-  )
-
-
-def atomic_max(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] = max(x_ref_or_view[idx], val)``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.MAX
-  )
-
-
-def atomic_min(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] = min(x_ref_or_view[idx], val)``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.MIN
-  )
-
-
-def atomic_and(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] &= val``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.AND
-  )
-
-
-def atomic_or(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] |= val``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.OR
-  )
-
-
-def atomic_xor(x_ref_or_view, idx, val, *, mask: Any | None = None):
-  """Atomically computes ``x_ref_or_view[idx] ^= val``.
-
-  Args:
-    x_ref_or_view: The ref to operate on.
-    idx: The indexer to use.
-    mask: TO BE DOCUMENTED.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return _atomic_rmw(
-      x_ref_or_view, idx, val, mask=mask, atomic_type=AtomicOpType.XOR
-  )
-
-atomic_cas_p = jax_core.Primitive("atomic_cas")
-
-@atomic_cas_p.def_effectful_abstract_eval
-def _atomic_cas_abstract_eval(ref_aval, cmp_aval, val_aval):
-  if cmp_aval.dtype != val_aval.dtype or cmp_aval.shape != val_aval.shape:
-    raise ValueError("cmp and val must have identical dtypes and shapes")
-  if ref_aval.shape:
-    raise ValueError("ref must be scalar.")
-  if cmp_aval.shape:
-    raise ValueError("cmp must be scalar.")
-  if val_aval.shape:
-    raise ValueError("val must be scalar.")
-  return jax_core.ShapedArray(val_aval.shape, val_aval.dtype), {state.WriteEffect(0)}
-
-
-def atomic_cas(ref, cmp, val):
-  """Performs an atomic compare-and-swap of the value in the ref with the
-  given value.
-
-  Args:
-    ref: The ref to operate on.
-    cmp: The expected value to compare against.
-    val: The value to swap in.
-
-  Returns:
-    The value at the given index prior to the atomic operation.
-  """
-  return atomic_cas_p.bind(ref, cmp, val)
-
-@state_discharge.register_discharge_rule(atomic_cas_p)
-def _atomic_cas_discharge_rule(in_avals, out_avals, ref, cmp, val):
-  del in_avals, out_avals
-  new_val = jnp.where(ref == cmp, val, ref)
-  return (new_val, None, None), ref
-
-max_contiguous_p = jax_core.Primitive("max_contiguous")
-
-max_contiguous_p.def_impl(lambda x, **_: x)
-mlir.register_lowering(max_contiguous_p, lambda _, x, **__: [x])
-
-def max_contiguous(x, values):
-  """A compiler hint that asserts the ``values`` first values of ``x`` are contiguous.
-  """
-  if not isinstance(values, (list, tuple)):
-    values = (values,)
-  return max_contiguous_p.bind(x, values=tuple(values))
-
-@max_contiguous_p.def_abstract_eval
-def _max_contiguous_abstract_eval(aval, **_):
-  return aval
 
 multiple_of_p = jax_core.Primitive("multiple_of")
 
@@ -771,7 +530,12 @@ def dot(a, b, trans_a: bool = False, trans_b: bool = False,
     precision = lax.Precision.HIGH if allow_tf32 else lax.Precision.HIGHEST
 
   dtype = jnp.promote_types(_handle_small(a.dtype), _handle_small(b.dtype))
-  out_dtype = jnp.int32 if jnp.issubdtype(dtype, jnp.integer) else jnp.float32
+  if jnp.issubdtype(dtype, jnp.integer):
+    out_dtype = jnp.int32
+  elif dtype == jnp.float64:
+    out_dtype = jnp.float64
+  else:
+    out_dtype = jnp.float32
   return lax.dot_general(
       a,
       b,
@@ -783,19 +547,38 @@ def dot(a, b, trans_a: bool = False, trans_b: bool = False,
 reciprocal_p = jax_core.Primitive("reciprocal")
 
 
-def reciprocal(x, *, approx=False):
-  return reciprocal_p.bind(x, approx=approx)
+def reciprocal(x, *, approx=False, full_range=True):
+  """Computes the reciprocal of an array.
+
+  Args:
+    x: The array to compute the reciprocal of.
+    approx: Whether to use an approximate reciprocal.
+    full_range: Whether to use the full range of the input. If False, compilers
+      may produce non-IEEE compliant results for edge cases, but may be faster.
+      On TPU, setting it to `False` may produce incorrect results when `x` or
+      output is ±inf or NaN; or when `x` is ±1/flt_min or ±0.
+
+  Returns:
+    The reciprocal of the array.
+  """
+  return reciprocal_p.bind(x, approx=approx, full_range=full_range)
 
 
 @reciprocal_p.def_abstract_eval
-def _reciprocal_abstract_eval(x, *, approx):
-  del approx
+def _reciprocal_abstract_eval(x, *, approx, full_range):
+  del approx, full_range
   return x
 
 
 def _reciprocal_lowering_rule(
-    ctx: mlir.LoweringRuleContext, x, *, approx=False
+    ctx: mlir.LoweringRuleContext,
+    x,
+    *,
+    approx=False,
+    full_range=True,
 ):
+  del full_range
+
   def _reciprocal(x, *, approx=False):
     if approx:
       return jnp.reciprocal(x.astype(jnp.bfloat16)).astype(jnp.float32)
@@ -1487,7 +1270,7 @@ def device_id_to_logical(
         ),
     ), non_mesh_axes
   elif device_id_type is DeviceIdType.LOGICAL:
-    return device_id, non_mesh_axes
+    return device_id, non_mesh_axes  # pyrefly: ignore[bad-return]
   raise NotImplementedError(f"Unsupported device id type: {device_id_type}")
 
 
@@ -1511,3 +1294,136 @@ def _delay_abstract_eval(nanos):
 def delay(nanos: int | jax_typing.Array) -> None:
   """Sleeps for the given number of nanoseconds."""
   delay_p.bind(nanos)
+
+
+jaxpr_call_p = jax_core.Primitive("jaxpr_call")
+jaxpr_call_p.multiple_results = True
+
+
+@jaxpr_call_p.def_effectful_abstract_eval
+def _jaxpr_call_abstract_eval(*args, jaxpr: jax_core.Jaxpr, **params):
+  del args, params  # Unused.
+  # Filter out input effects, since they are only relevant in the context
+  # of this ``jaxpr_call``.
+  out_effects = {
+      e for e in jaxpr.effects if not isinstance(e, effects.JaxprInputEffect)
+  }
+  return jaxpr.out_avals, out_effects
+
+
+def _jaxpr_call_pp_eqn(
+    eqn: jax_core.JaxprEqn,
+    context: jax_core.JaxprPpContext,
+    settings: jax_core.JaxprPpSettings,
+):
+  flat_args = eqn.invars
+  ref_treedefs = eqn.params["ref_treedefs"]
+  flat_refs, _ = util.split_list(
+      flat_args, [sum(treedef.num_leaves for treedef in ref_treedefs)]
+  )
+  flat_refs = util.split_list(
+      flat_refs,
+      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
+  )
+  trailer = []
+  for treedef, flat_ref in zip(ref_treedefs, flat_refs):
+    ref = treedef.unflatten(flat_ref)
+    transforms = []
+    if isinstance(ref, tuple):
+      ref, transforms = ref
+    trailer.append(pp.text(" "))
+    trailer.append(sp.pp_ref_transforms(context, ref, transforms))
+  return pp.concat([
+      pp.text("jaxpr_call"),
+      pp.text("["),
+      jax_core.pp_kv_pair("jaxpr", eqn.params["jaxpr"], context, settings),
+      pp.text("]"),
+      pp.concat(trailer),
+  ])
+
+
+jax_core.pp_eqn_rules[jaxpr_call_p] = _jaxpr_call_pp_eqn
+
+
+@state_discharge.register_partial_discharge_rule(jaxpr_call_p)
+def _jaxpr_call_discharge(
+    flat_should_discharge,
+    in_avals,
+    out_avals,
+    *flat_args,
+    jaxpr,
+    ref_treedefs,
+    program_ids_treedef,
+):
+  del in_avals, out_avals  # Unused.
+  flat_should_discharge = util.split_list(
+      flat_should_discharge,
+      [treedef.num_leaves for treedef in ref_treedefs[: len(ref_treedefs) - 1]],
+  )
+  should_discharge = [*map(any, flat_should_discharge)]
+  discharged_jaxpr, discharged_consts = state_discharge.discharge_state(
+      jaxpr, (), should_discharge=should_discharge
+  )
+  assert not discharged_consts
+  outs = jaxpr_call_p.bind(
+      *flat_args,
+      jaxpr=discharged_jaxpr,
+      ref_treedefs=tuple(ref_treedefs),
+      program_ids_treedef=program_ids_treedef,
+  )
+  discharged_outs_it = iter(outs[len(jaxpr.outvars) :])
+  new_in_vals = (
+      tuple(
+          itertools.chain.from_iterable(
+              [next(discharged_outs_it) if discharged else None]
+              * ref_treedefs[idx].num_leaves
+              for idx, discharged in enumerate(should_discharge)
+          )
+      )
+      + (None,) * program_ids_treedef.num_leaves
+  )
+  return new_in_vals, outs[: len(jaxpr.outvars)]
+
+
+def _jaxpr_call(
+    jaxpr: jax_core.Jaxpr,
+    *refs: state_types.AbstractRef | state_types.TransformedRef,
+    program_ids: Sequence[jax_typing.Array | None],
+) -> Sequence[jax_typing.Array]:
+  """Internal primitive for calling a kernel jaxpr inside ``emit_pipeline``.
+
+  This is *not* a general purpose primitive. In particular, it assumes that
+  the transformed references have been indexed.
+
+  Args:
+    jaxpr: The jaxpr to call.
+    *refs: The references to pass into the jaxpr.
+    program_ids: The loop-bound program IDs to pass into the jaxpr, or None if
+      the program ID corresponds to a parallel dimension.
+
+  Returns:
+    The outputs of the jaxpr.
+  """
+  assert not jaxpr.outvars
+  flat_refs = []
+  ref_treedefs = []
+  ref: Any
+  for ref in refs:
+    if isinstance(ref, state_types.TransformedRef):
+      if not isinstance(ref.transforms[-1], indexing.NDIndexer):
+        raise ValueError(
+            "TransformedRef must have been indexed before passing into"
+            f" jaxpr_call. Got {ref}."
+        )
+      ref = (ref.ref, ref.transforms)
+    flat_ref, treedef = tree_util.tree_flatten(ref)
+    flat_refs.extend(flat_ref)
+    ref_treedefs.append(treedef)
+  flat_program_ids, program_ids_treedef = tree_util.tree_flatten(program_ids)
+  return jaxpr_call_p.bind(
+      *flat_refs,
+      *flat_program_ids,
+      jaxpr=jaxpr,
+      ref_treedefs=tuple(ref_treedefs),
+      program_ids_treedef=program_ids_treedef,
+  )

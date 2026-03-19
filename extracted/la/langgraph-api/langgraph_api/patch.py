@@ -16,7 +16,7 @@ def Response_render(self, content: Any) -> bytes:
         return b""
     if isinstance(content, (bytes, bytearray, memoryview)):
         return content
-    return content.encode(self.charset)  # type: ignore
+    return content.encode(self.charset)
 
 
 async def StreamingResponse_stream_response(self, send: Send) -> None:
@@ -43,8 +43,8 @@ async def StreamingResponse_stream_response(self, send: Send) -> None:
 
 # patch StreamingResponse.stream_response
 
-StreamingResponse.stream_response = StreamingResponse_stream_response  # type: ignore[invalid-assignment]
+StreamingResponse.stream_response = StreamingResponse_stream_response
 
 # patch Response.render
 
-Response.render = Response_render  # type: ignore[invalid-assignment]
+Response.render = Response_render

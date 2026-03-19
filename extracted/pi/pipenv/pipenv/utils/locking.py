@@ -85,8 +85,26 @@ def format_requirement_for_lockfile(
             entry["version"] = str(req.req.specifier)
         elif req.specifier:
             entry["version"] = str(req.specifier)
-        if req.link and req.link.is_file:
-            entry["file"] = req.link.url
+        if req.link:
+            if req.link.is_file:
+                # Only record the file path when the *Pipfile itself* explicitly
+                # declares this as a file/path dependency.  When the resolver
+                # locates an index-published package via the local pip wheel cache
+                # (common for platform-specific packages resolved cross-platform,
+                # e.g. a win32-only package locked on Linux), req.link is a
+                # file:// URL pointing at the cache – storing that path would
+                # break installs on any machine without that exact cache layout.
+                if isinstance(pipfile_entry, dict) and (
+                    pipfile_entry.get("file") or pipfile_entry.get("path")
+                ):
+                    entry["file"] = req.link.url
+            elif req.link.scheme in ("http", "https") and req.req and req.req.url:
+                # Handle direct URL dependencies (PEP 508 style: package @ https://...)
+                # Only when the requirement itself has a URL (req.req.url is set),
+                # NOT when the URL is simply a download link from a package index.
+                entry["file"] = req.link.url
+                entry.pop("version", None)
+                entry.pop("index", None)
     # Add index information
     if name in index_lookup:
         entry["index"] = index_lookup[name]
@@ -125,6 +143,9 @@ def format_requirement_for_lockfile(
                 entry["editable"] = pipfile_entry["editable"]
             entry.pop("version", None)
             entry.pop("index", None)
+        # Propagate no_binary so batch_install can re-apply --no-binary on sync/install
+        if pipfile_entry.get("no_binary"):
+            entry["no_binary"] = True
 
     entry = translate_markers(entry)
     return name, entry
@@ -529,6 +550,22 @@ class Lockfile:
                 package_name, package_info, include_hashes=True, include_markers=True
             )
             install_req, _ = expansive_install_req_from_line(pip_line)
+            # Set markers from the lockfile entry onto install_req so that
+            # environment marker evaluation (e.g. python_version < '3.11') can
+            # be performed when deciding whether to install the package.
+            if (
+                not install_req.markers
+                and isinstance(package_info, dict)
+                and package_info.get("markers")
+            ):
+                from pipenv.patched.pip._vendor.packaging.markers import (
+                    Marker as PipMarker,
+                )
+
+                try:
+                    install_req.markers = PipMarker(package_info["markers"])
+                except Exception:
+                    pass
             yield install_req, pip_line_specified
 
     def requirements_list(self, category: str) -> List[Dict]:

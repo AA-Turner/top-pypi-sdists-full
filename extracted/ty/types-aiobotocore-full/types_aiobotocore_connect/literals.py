@@ -1051,7 +1051,7 @@ TaskTemplateFieldTypeType = Literal[
     "URL",
 ]
 TaskTemplateStatusType = Literal["ACTIVE", "INACTIVE"]
-TestCaseEntryPointTypeType = Literal["VOICE_CALL"]
+TestCaseEntryPointTypeType = Literal["CHAT", "VOICE_CALL"]
 TestCaseExecutionStatusType = Literal["FAILED", "INITIATED", "IN_PROGRESS", "PASSED", "STOPPED"]
 TestCaseStatusType = Literal["PUBLISHED", "SAVED"]
 TimerEligibleParticipantRolesType = Literal["AGENT", "CUSTOMER"]
@@ -1216,6 +1216,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -1479,6 +1480,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

@@ -53,7 +53,9 @@ from .schema_utils import (
     _contexts_from_path,
     _read_metaregistry,
     _registry_from_path,
+    read_has_version_mappings,
     read_mismatches,
+    read_provided_by_mappings,
     write_collections,
     write_registry,
 )
@@ -143,6 +145,8 @@ class Manager:
         collections: None | str | Path | Mapping[str, Collection] = None,
         contexts: None | str | Path | Mapping[str, Context] = None,
         mismatches: Mapping[str, Mapping[str, set[str]]] | None = None,
+        version_mappings: Mapping[str, Mapping[str, set[str]]] | None = None,
+        provided_by_mappings: Mapping[str, Mapping[str, set[str]]] | None = None,
         base_url: str | None = None,
     ) -> None:
         """Instantiate a registry manager.
@@ -190,6 +194,12 @@ class Manager:
             self.contexts = dict(contexts)
 
         self.mismatches = dict(read_mismatches() if mismatches is None else mismatches)
+        self.has_version_mappings = dict(
+            read_has_version_mappings() if version_mappings is None else version_mappings
+        )
+        self.provided_by_mappings = dict(
+            read_provided_by_mappings() if provided_by_mappings is None else provided_by_mappings
+        )
 
         canonical_for = defaultdict(list)
         provided_by = defaultdict(list)
@@ -789,12 +799,17 @@ class Manager:
         >>> manager.get_registry_invmap("obofoundry", use_obo_preferred=True)["GO"]
         'go'
         """
-        return {
+        rv = {
             external_prefix: prefix
             for prefix, external_prefix in self._iter_registry_map(
                 metaprefix, use_obo_preferred=use_obo_preferred
             )
         }
+        for extras_dict in (self.has_version_mappings, self.provided_by_mappings):
+            for prefix, data in extras_dict.items():
+                for external_prefix in data.get(metaprefix, []):
+                    rv[external_prefix] = prefix
+        return rv
 
     def _iter_registry_map(
         self, metaprefix: str, use_obo_preferred: bool = False
@@ -2163,6 +2178,29 @@ class Manager:
             to_visit.extend(p for p in self.registry[prefix].depends_on or [] if p not in rv)
 
         return [resource for prefix, resource in rv.items() if prefix not in prefix_set]
+
+    def get_registry_short_name_to_prefix(self, metaprefix: str) -> dict[str, str]:
+        """Get a mapping from short names in an external registry to their associated prefixes in the external registry.
+
+        :param metaprefix: A metaprefix (e.g., ``integbio``)
+
+        :returns: A mapping
+
+        .. note::
+
+            A given record in an external registry could have multiple short names, so
+            there might be duplicate values in this dictionary
+        """
+        if metaprefix not in self.metaregistry:
+            raise KeyError(
+                f"invalid metaprefix: {metaprefix}. try one of: {self.metaregistry.keys()}"
+            )
+        return {
+            short_name: data["prefix"]
+            for resource in self.registry.values()
+            if (data := resource.get_external(metaprefix))
+            for short_name in data.get("short_names", [])
+        }
 
 
 def _read_contributors(

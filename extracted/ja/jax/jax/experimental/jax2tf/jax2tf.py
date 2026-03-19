@@ -237,7 +237,7 @@ def convert(fun_jax: Callable,
           "native_serialization_platforms must be a sequence "
           "containing a subset of {'cpu', 'cuda', 'rocm', 'tpu'}. "
           f"Got: {native_serialization_platforms}")
-    native_serialization_platforms = tuple(native_serialization_platforms)
+    native_serialization_platforms = tuple(native_serialization_platforms)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2607
 
   api.check_callable(fun_jax)
 
@@ -528,6 +528,7 @@ def _make_custom_gradient_fn_tf(fun_jax,
       fun_vjp_jax, vjp_in_avals = impl.get_vjp_fun()
 
       vjp_polymorphic_shapes = tuple(
+        # pyrefly: ignore[missing-attribute]
         str(a.shape)  # Note: may be _DimExpr, not just DimVar
         for a in vjp_in_avals)
       in_cts_flat = convert(
@@ -595,7 +596,7 @@ def _run_exported_as_tf(args_flat_tf: Sequence[TfVal],
       "You should upgrade TensorFlow, e.g., to tf_nightly."
     )
 
-  call_module_attrs = dict(
+  call_module_attrs: dict[str, Any] = dict(
       version=version,
       Tout=out_types,
       Sout=out_shapes_tf,
@@ -639,7 +640,13 @@ def _run_exported_as_tf(args_flat_tf: Sequence[TfVal],
   # See b/255511660.
   kept_in_shardings = []
   for i in exported.module_kept_var_idx:
-    kept_in_shardings.append(exported.in_shardings_hlo[i])
+    if exported._has_named_shardings:
+      in_sharding_hlo = _export.named_to_hlo_sharding(
+        exported._in_named_shardings[i],
+        exported.in_avals[i])
+    else:
+      in_sharding_hlo = exported.in_shardings_hlo[i]
+    kept_in_shardings.append(in_sharding_hlo)
   args_flat_tf = tuple(
     map(partial(_shard_value,
                 skip_replicated_sharding=tf.executing_eagerly()),
@@ -654,9 +661,15 @@ def _run_exported_as_tf(args_flat_tf: Sequence[TfVal],
           concrete_fn._inference_function
       )
 
+  if exported._has_named_shardings:
+    out_shardings_hlo = tuple(
+      _export.named_to_hlo_sharding(s, a)
+      for s, a in zip(exported._out_named_shardings, exported.out_avals))
+  else:
+    out_shardings_hlo = exported.out_shardings_hlo
   res = list(map(partial(_shard_value,
                          skip_replicated_sharding=tf.executing_eagerly()),
-                 res, exported.out_shardings_hlo))
+                 res, out_shardings_hlo))
   res = tuple(map(_convert_value, res, exported.out_avals))
   return res
 
@@ -743,7 +756,7 @@ def _tfval_to_tensor_jax_dtype(val: TfVal,
     else:
       return val, jax_dtype
   else:  # A constant
-    jax_dtype = jax_dtype or core.abstractify(val).dtype
+    jax_dtype = jax_dtype or core.typeof(val).dtype
     # TODO(document): We assume that the value of a constant does not
     # change through the scope of the function. But it may be an ndarray, ...
     # JAX has the same problem when generating HLO.

@@ -6,6 +6,7 @@ This module provides functions for working with financial statements.
 
 import re
 import warnings
+import weakref
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
@@ -376,6 +377,18 @@ class Statement:
         # Store both for backward compatibility during transition
         self._include_dimensions = include_dimensions
         self._view = normalize_view(view) if view is not None else None
+        self._report = None  # Set by notes.py when built from FilingSummary
+
+    @property
+    def report(self):
+        """The FilingSummary Report backing this statement, if available.
+
+        Provides access to the rendered HTML version of the table:
+            >>> note.tables[0].report.to_dataframe()  # HTML-extracted DataFrame
+            >>> note.tables[0].report.view()           # Rich display
+            >>> note.tables[0].report.content           # Raw HTML
+        """
+        return self._report
 
     def is_segmented(self) -> bool:
         """
@@ -1849,6 +1862,11 @@ class Statement:
         return "\n\n".join(text_parts) if text_parts else None
 
     @property
+    def html(self) -> Optional[str]:
+        """Get raw HTML content from a note/disclosure statement."""
+        return self.text(raw_html=True)
+
+    @property
     def is_note(self) -> bool:
         """Check if this statement contains narrative TextBlock content."""
         from edgar.xbrl.abstract_detection import is_textblock_concept
@@ -1860,6 +1878,136 @@ class Statement:
             is_textblock_concept(item.get('concept', '').replace(':', '_'))
             for item in data
         )
+
+    def __getitem__(self, label: str) -> Optional['StatementLineItem']:
+        """Look up a line item by exact label (case-insensitive).
+
+        For fuzzy/partial matching, use .search() instead.
+
+        Args:
+            label: Exact line item label (case-insensitive)
+
+        Returns:
+            StatementLineItem with .note/.notes drill-down, or None
+
+        Example:
+            >>> stmt['Cash and cash equivalents']     # exact match
+            >>> stmt['cash and cash equivalents']     # case-insensitive
+            >>> stmt.search('cash')                   # fuzzy search
+        """
+        rendered = self.render()
+        if not rendered or not rendered.rows:
+            return None
+
+        label_lower = label.lower()
+        for row in rendered.rows:
+            if row.label.lower() == label_lower:
+                return StatementLineItem(row, self.xbrl)
+
+        return None
+
+    def search(self, keyword: str) -> List['StatementLineItem']:
+        """Search line items by keyword. Returns all matches, best first.
+
+        Ranking: exact label > label starts with keyword > word match > substring.
+
+        Args:
+            keyword: Search term (case-insensitive)
+
+        Returns:
+            List of matching StatementLineItems, best match first.
+
+        Example:
+            >>> stmt.search('debt')       # → [Long-term debt, Short-term debt, ...]
+            >>> stmt.search('total')      # → [Total assets, Total liabilities, ...]
+        """
+        if not keyword or not keyword.strip():
+            return []
+
+        rendered = self.render()
+        if not rendered or not rendered.rows:
+            return []
+
+        key = keyword.strip().lower()
+        scored = []
+        for row in rendered.rows:
+            if row.is_abstract:
+                continue
+            label = row.label.lower()
+            words = [w.rstrip("',;:-()") for w in label.split()]
+
+            if label == key:
+                scored.append((0, row))
+            elif label.startswith(key):
+                scored.append((1, row))
+            elif any(w == key for w in words):
+                scored.append((2, row))
+            elif any(w.startswith(key) for w in words):
+                scored.append((3, row))
+            elif key in label:
+                scored.append((4, row))
+
+        scored.sort(key=lambda x: x[0])
+        return [StatementLineItem(row, self.xbrl) for _, row in scored]
+
+
+class StatementLineItem:
+    """A single line item from a financial statement, with drill-down to notes.
+
+    Created by Statement.__getitem__ — not intended for direct construction.
+
+    Example:
+        >>> item = balance_sheet['Long-term Debt']
+        >>> item.label        # 'Long-term debt, non-current'
+        >>> item.concept      # 'us-gaap_LongTermDebtNoncurrent'
+        >>> item.note         # → Note object (most specific match)
+        >>> item.notes        # → [Note, ...] (all related notes)
+        >>> item.values       # {'instant_2024-12-31': 98071000000, ...}
+    """
+    __slots__ = ('_row', '_xbrl_ref')
+
+    def __init__(self, row, xbrl):
+        self._row = row
+        self._xbrl_ref = weakref.ref(xbrl) if xbrl is not None else None
+
+    @property
+    def _xbrl(self):
+        return self._xbrl_ref() if self._xbrl_ref is not None else None
+
+    @property
+    def label(self) -> str:
+        return self._row.label
+
+    @property
+    def concept(self) -> str:
+        return self._row.metadata.get('concept', '')
+
+    @property
+    def values(self) -> list:
+        """Cell values in period order (matches header column order)."""
+        return [cell.value for cell in (self._row.cells or [])]
+
+    @property
+    def note(self) -> Optional[Any]:
+        """The most relevant Note for this line item, or None."""
+        notes = self.notes
+        return notes[0] if notes else None
+
+    @property
+    def notes(self) -> List[Any]:
+        """All Notes related to this line item, ranked by specificity."""
+        xbrl = self._xbrl
+        if not xbrl or not self.concept:
+            return []
+        from edgar.xbrl.notes import get_notes_for_concept
+        return get_notes_for_concept(self.concept, xbrl)
+
+    def __repr__(self):
+        concept_str = f", concept='{self.concept}'" if self.concept else ""
+        return f"StatementLineItem('{self.label}'{concept_str})"
+
+    def __str__(self):
+        return self.label
 
 
 class Statements:

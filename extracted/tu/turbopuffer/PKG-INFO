@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 1.18.0
+Version: 1.19.0
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -31,6 +31,7 @@ Requires-Dist: pybase64<2,>=1.4.1
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.13
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'

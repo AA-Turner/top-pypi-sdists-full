@@ -31,6 +31,7 @@ pytestmark = pytest.mark.skipif(
 # TODO: replace this with a fixture once zonal bucket creation / deletion
 # is supported in grpc client or json client client.
 _ZONAL_BUCKET = os.getenv("ZONAL_BUCKET")
+_CROSS_REGION_BUCKET = os.getenv("CROSS_REGION_BUCKET")
 _BYTES_TO_UPLOAD = b"dummy_bytes_to_write_read_and_delete_appendable_object"
 
 
@@ -81,6 +82,51 @@ def _get_equal_dist(a: int, b: int) -> tuple[int, int]:
     step = (b - a) // 3
     return a + step, a + 2 * step
 
+
+@pytest.mark.parametrize(
+    "object_size",
+    [
+        256,  # less than _chunk size
+        10 * 1024 * 1024,  # less than _MAX_BUFFER_SIZE_BYTES
+        20 * 1024 * 1024,  # greater than _MAX_BUFFER_SIZE
+    ],
+)
+def test_basic_wrd_x_region(
+    storage_client,
+    blobs_to_delete,
+    object_size,
+    event_loop,
+    grpc_client,
+):
+    object_name = f"test_basic_wrd-{str(uuid.uuid4())}"
+
+    async def _run():
+        object_data = os.urandom(object_size)
+        object_checksum = google_crc32c.value(object_data)
+
+        writer = AsyncAppendableObjectWriter(grpc_client, _CROSS_REGION_BUCKET, object_name)
+        await writer.open()
+        await writer.append(object_data)
+        object_metadata = await writer.close(finalize_on_close=True)
+        assert object_metadata.size == object_size
+        assert int(object_metadata.checksums.crc32c) == object_checksum
+
+        buffer = BytesIO()
+        mrd = AsyncMultiRangeDownloader(grpc_client, _CROSS_REGION_BUCKET, object_name)
+        async with mrd:
+            assert mrd._open_retries == 1
+            # (0, 0) means read the whole object
+            await mrd.download_ranges([(0, 0, buffer)])
+            assert mrd.persisted_size == object_size
+
+        assert buffer.getvalue() == object_data
+
+        # Clean up; use json client (i.e. `storage_client` fixture) to delete.
+        blobs_to_delete.append(storage_client.bucket(_CROSS_REGION_BUCKET).blob(object_name))
+        del writer
+        gc.collect()
+
+    event_loop.run_until_complete(_run())
 
 @pytest.mark.parametrize(
     "object_size",
@@ -437,63 +483,6 @@ def test_read_unfinalized_appendable_object_with_generation(
     event_loop.run_until_complete(_run())
 
 
-def test_append_flushes_and_state_lookup(
-    storage_client, blobs_to_delete, event_loop, grpc_client
-):
-    """
-    System test for AsyncAppendableObjectWriter, verifying flushing behavior
-    for both small and large appends.
-    """
-    object_name = f"test-append-flush-varied-size-{uuid.uuid4()}"
-
-    async def _run():
-        writer = AsyncAppendableObjectWriter(grpc_client, _ZONAL_BUCKET, object_name)
-
-        # Schedule for cleanup
-        blobs_to_delete.append(storage_client.bucket(_ZONAL_BUCKET).blob(object_name))
-
-        # --- Part 1: Test with small data ---
-        small_data = b"small data"
-
-        await writer.open()
-        assert writer._is_stream_open
-
-        await writer.append(small_data)
-        persisted_size = await writer.state_lookup()
-        assert persisted_size == len(small_data)
-
-        # --- Part 2: Test with large data ---
-        large_data = os.urandom(38 * 1024 * 1024)
-
-        # Append data larger than the default flush interval (16 MiB).
-        # This should trigger the interval-based flushing logic.
-        await writer.append(large_data)
-
-        # Verify the total data has been persisted.
-        total_size = len(small_data) + len(large_data)
-        persisted_size = await writer.state_lookup()
-        assert persisted_size == total_size
-
-        # --- Part 3: Finalize and verify ---
-        final_object = await writer.close(finalize_on_close=True)
-
-        assert not writer._is_stream_open
-        assert final_object.size == total_size
-
-        # Verify the full content of the object.
-        full_data = small_data + large_data
-        mrd = AsyncMultiRangeDownloader(grpc_client, _ZONAL_BUCKET, object_name)
-        buffer = BytesIO()
-        await mrd.open()
-        # (0, 0) means read the whole object
-        await mrd.download_ranges([(0, 0, buffer)])
-        await mrd.close()
-        content = buffer.getvalue()
-        assert content == full_data
-
-    event_loop.run_until_complete(_run())
-
-
 def test_open_with_generation_zero(
     storage_client, blobs_to_delete, event_loop, grpc_client
 ):
@@ -597,59 +586,6 @@ def test_delete_object_using_grpc_client(event_loop, grpc_client_direct):
                 bucket=f"projects/_/buckets/{_ZONAL_BUCKET}", object_=object_name
             )
         # cleanup
-        del writer
-        gc.collect()
-
-    event_loop.run_until_complete(_run())
-
-def test_get_object_after_appendable_write(
-    grpc_clients,
-    grpc_client_direct,
-    event_loop,
-    storage_client,
-    blobs_to_delete,
-):
-    """Test getting object metadata after writing with AsyncAppendableObjectWriter.
-
-    This test:
-    1. Creates a test object using AsyncAppendableObjectWriter
-    2. Appends content to the object (without finalizing)
-    3. Closes the write stream
-    4. Fetches the object metadata using AsyncGrpcClient.get_object()
-    5. Verifies the object size matches the written data
-    """
-
-    async def _run():
-        grpc_client = grpc_client_direct
-        object_name = f"test-get-object-{uuid.uuid4().hex}"
-        test_data = b"Some test data bytes."
-        expected_size = len(test_data)
-
-        writer = AsyncAppendableObjectWriter(
-            grpc_client,
-            _ZONAL_BUCKET,
-            object_name,
-        )
-
-        await writer.open()
-        await writer.append(test_data)
-        await writer.close(finalize_on_close=False)
-
-        obj = await grpc_client.get_object(
-            bucket_name=_ZONAL_BUCKET,
-            object_name=object_name,
-        )
-
-        # Assert
-        assert obj is not None
-        assert obj.name == object_name
-        assert obj.bucket == f"projects/_/buckets/{_ZONAL_BUCKET}"
-        assert obj.size == expected_size, (
-            f"Expected object size {expected_size}, got {obj.size}"
-        )
-
-        # Cleanup
-        blobs_to_delete.append(storage_client.bucket(_ZONAL_BUCKET).blob(object_name))
         del writer
         gc.collect()
 

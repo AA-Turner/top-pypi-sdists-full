@@ -20,6 +20,7 @@ from .model import (
     setup_connected_values,
     steps_as_list,
     SUPPORT_LEGACY_CONNECTIONS,
+    unflatten_comment_data,
 )
 from .yaml import ordered_load
 
@@ -28,45 +29,45 @@ Convert a Format 2 Galaxy workflow description into a native format.
 """
 
 RUN_ACTIONS_TO_STEPS = {
-    'GalaxyWorkflow': 'run_workflow_to_step',
-    'GalaxyTool': 'run_tool_to_step',
+    "GalaxyWorkflow": "run_workflow_to_step",
+    "GalaxyTool": "run_tool_to_step",
 }
 
 POST_JOB_ACTIONS = {
-    'hide': {
-        'action_class': "HideDatasetAction",
-        'default': False,
-        'arguments': lambda x: {},
+    "hide": {
+        "action_class": "HideDatasetAction",
+        "default": False,
+        "arguments": lambda x: {},
     },
-    'rename': {
-        'action_class': 'RenameDatasetAction',
-        'default': {},
-        'arguments': lambda x: {'newname': x},
+    "rename": {
+        "action_class": "RenameDatasetAction",
+        "default": {},
+        "arguments": lambda x: {"newname": x},
     },
-    'delete_intermediate_datasets': {
-        'action_class': 'DeleteIntermediatesAction',
-        'default': False,
-        'arguments': lambda x: {},
+    "delete_intermediate_datasets": {
+        "action_class": "DeleteIntermediatesAction",
+        "default": False,
+        "arguments": lambda x: {},
     },
-    'change_datatype': {
-        'action_class': 'ChangeDatatypeAction',
-        'default': {},
-        'arguments': lambda x: {'newtype': x},
+    "change_datatype": {
+        "action_class": "ChangeDatatypeAction",
+        "default": {},
+        "arguments": lambda x: {"newtype": x},
     },
-    'set_columns': {
-        'action_class': 'ColumnSetAction',
-        'default': {},
-        'arguments': lambda x: x,
+    "set_columns": {
+        "action_class": "ColumnSetAction",
+        "default": {},
+        "arguments": lambda x: x,
     },
-    'add_tags': {
-        'action_class': 'TagDatasetAction',
-        'default': [],
-        'arguments': lambda x: {'tags': ",".join(x)},
+    "add_tags": {
+        "action_class": "TagDatasetAction",
+        "default": [],
+        "arguments": lambda x: {"tags": ",".join(x)},
     },
-    'remove_tags': {
-        'action_class': 'RemoveTagDatasetAction',
-        'default': [],
-        'arguments': lambda x: {'tags': ",".join(x)},
+    "remove_tags": {
+        "action_class": "RemoveTagDatasetAction",
+        "default": [],
+        "arguments": lambda x: {"tags": ",".join(x)},
     },
 }
 
@@ -79,6 +80,7 @@ class ImportOptions:
 
     def __init__(self):
         self.deduplicate_subworkflows = False
+        self.encode_tool_state = True
 
 
 def yaml_to_workflow(has_yaml, galaxy_interface, workflow_directory, import_options=None):
@@ -110,7 +112,9 @@ def python_to_workflow(as_python, galaxy_interface, workflow_directory=None, imp
             if graph_id == "main":
                 continue
             subworkflow_conversion_context = conversion_context.get_subworkflow_conversion_context_graph("#" + graph_id)
-            subworkflows[graph_id] = _python_to_workflow(copy.deepcopy(subworkflow_content), subworkflow_conversion_context)
+            subworkflows[graph_id] = _python_to_workflow(
+                copy.deepcopy(subworkflow_content), subworkflow_conversion_context
+            )
     converted = _python_to_workflow(as_python, conversion_context)
     if subworkflows is not None:
         converted["subworkflows"] = subworkflows
@@ -128,12 +132,15 @@ def _python_to_workflow(as_python, conversion_context):
     # .ga files don't have this, drop it so it isn't interpreted as a format 2 workflow.
     as_python.pop("class")
 
-    _ensure_defaults(as_python, {
-        "a_galaxy_workflow": "true",
-        "format-version": "0.1",
-        "name": as_python.pop("label", "Workflow"),
-        "uuid": str(uuid.uuid4()),
-    })
+    _ensure_defaults(
+        as_python,
+        {
+            "a_galaxy_workflow": "true",
+            "format-version": "0.1",
+            "name": as_python.pop("label", "Workflow"),
+            "uuid": str(uuid.uuid4()),
+        },
+    )
     _populate_annotation(as_python)
 
     steps = steps_as_list(as_python, mutate=True)
@@ -178,6 +185,8 @@ def _python_to_workflow(as_python, conversion_context):
         step["type"] = step_type
         eval(f"transform_{step_type}")(conversion_context, step)
 
+    _convert_comments_to_native(as_python, conversion_context)
+
     outputs = as_python.pop("outputs", [])
     outputs = convert_dict_to_id_list_if_needed(outputs)
 
@@ -200,16 +209,53 @@ def _python_to_workflow(as_python, conversion_context):
             source = output.get("source").replace("#", "/", 1)
         id, output_name = conversion_context.step_output(source)
         step = steps[str(id)]
-        workflow_output = {
-            "output_name": output_name,
-            "label": label,
-            "uuid": output.get("uuid", None)
-        }
+        workflow_output = {"output_name": output_name, "label": label, "uuid": output.get("uuid", None)}
         if "workflow_outputs" not in step:
             step["workflow_outputs"] = []
         step["workflow_outputs"].append(workflow_output)
 
     return as_python
+
+
+def _convert_comments_to_native(as_python, conversion_context):
+    """Convert Format2 comments section to native format in-place."""
+    format2_comments = as_python.pop("comments", None)
+    if format2_comments is None:
+        return
+
+    format2_comments = convert_dict_to_id_list_if_needed(format2_comments, add_label=True)
+
+    comment_label_map: dict[str, int] = {}
+    for i, comment in enumerate(format2_comments):
+        label = comment.get("label")
+        if label:
+            comment_label_map[label] = i
+
+    native_comments = []
+    for i, comment in enumerate(format2_comments):
+        native_comment = unflatten_comment_data(comment)
+        native_comment["id"] = i
+
+        if "child_steps" in native_comment:
+            native_comment["child_steps"] = [
+                conversion_context.step_id(ref) if isinstance(ref, str) else ref
+                for ref in native_comment["child_steps"]
+            ]
+
+        if "child_comments" in native_comment:
+            resolved = []
+            for ref in native_comment["child_comments"]:
+                if isinstance(ref, str):
+                    if ref not in comment_label_map:
+                        raise Exception(f"contains_comments references unknown comment label '{ref}'")
+                    resolved.append(comment_label_map[ref])
+                else:
+                    resolved.append(ref)
+            native_comment["child_comments"] = resolved
+
+        native_comments.append(native_comment)
+
+    as_python["comments"] = native_comments
 
 
 def _preprocess_graphs(as_python, conversion_context):
@@ -296,10 +342,13 @@ def transform_input(context, step, default_name):
     else:
         name = default_name
 
-    _ensure_defaults(step_inputs, {
-        "name": name,
-        "description": "",
-    })
+    _ensure_defaults(
+        step_inputs,
+        {
+            "name": name,
+            "description": "",
+        },
+    )
     tool_state = step.get("tool_state", {})
     tool_state["name"] = name
     known_fields = [
@@ -312,13 +361,13 @@ def transform_input(context, step, default_name):
         "restrictOnConnections",
         "suggestions",
         "column_definitions",
-        "fields"
+        "fields",
     ]
     for attrib in known_fields:
         if attrib in step:
             tool_state[attrib] = step[attrib]
 
-    _populate_tool_state(step, tool_state)
+    _populate_tool_state(step, tool_state, encode=context.import_options.encode_tool_state)
 
 
 def transform_pause(context, step, default_name="Pause for dataset review"):
@@ -336,16 +385,72 @@ def transform_pause(context, step, default_name="Pause for dataset review"):
     else:
         name = default_name
 
-    _ensure_defaults(step_inputs, {
-        "name": name,
-    })
-    tool_state = {
-        "name": name
-    }
+    _ensure_defaults(
+        step_inputs,
+        {
+            "name": name,
+        },
+    )
+    tool_state = {"name": name}
 
     connect = pop_connect_from_step_dict(step)
     _populate_input_connections(context, step, connect)
+    _populate_tool_state(step, tool_state, encode=context.import_options.encode_tool_state)
+
+
+def transform_pick_value(context, step, default_name="Pick Value"):
+    default_name = step.get("label", default_name)
+    _populate_annotation(step)
+
+    _ensure_inputs_connections(step)
+
+    if "inputs" not in step:
+        step["inputs"] = [{}]
+
+    step_inputs = step["inputs"][0]
+    if "name" in step_inputs:
+        name = step_inputs["name"]
+    else:
+        name = default_name
+
+    _ensure_defaults(
+        step_inputs,
+        {
+            "name": name,
+        },
+    )
+    _ensure_defaults(
+        step,
+        {
+            "post_job_actions": {},
+        },
+    )
+    post_job_actions = step["post_job_actions"]
+    tool_state = step.pop("state", {})
+    tool_state["name"] = name
+
+    connect = pop_connect_from_step_dict(step)
+    _populate_input_connections(context, step, connect)
+    # Set num_inputs from actual connection count so frontend shows correct terminal count
+    num_inputs = len(step.get("input_connections", {}))
+    if num_inputs > 0:
+        tool_state["num_inputs"] = max(2, num_inputs)
     _populate_tool_state(step, tool_state)
+
+    # Handle output post job actions (same pattern as tool steps)
+    out = step.pop("out", None)
+    if out is None:
+        out = step.pop("outputs", [])
+    out = convert_dict_to_id_list_if_needed(out)
+    for output in out:
+        output_name = output["id"]
+        for action_key, action_dict in POST_JOB_ACTIONS.items():
+            action_argument = output.get(action_key, action_dict["default"])
+            if action_argument:
+                action_class = action_dict["action_class"]
+                action_name = action_class + output_name
+                action = _action(action_class, output_name, arguments=action_dict["arguments"](action_argument))
+                post_job_actions[action_name] = action
 
 
 def transform_subworkflow(context, step):
@@ -357,12 +462,11 @@ def transform_subworkflow(context, step):
 
     _ensure_inputs_connections(step)
 
-    tool_state = {
-    }
+    tool_state = {}
 
     connect = pop_connect_from_step_dict(step)
     _populate_input_connections(context, step, connect)
-    _populate_tool_state(step, tool_state)
+    _populate_tool_state(step, tool_state, encode=context.import_options.encode_tool_state)
 
 
 def _runtime_value():
@@ -373,11 +477,14 @@ def transform_tool(context, step):
     if "tool_id" not in step:
         raise Exception("Tool steps must define a tool_id.")
 
-    _ensure_defaults(step, {
-        "name": step['tool_id'],
-        "post_job_actions": {},
-        "tool_version": None,
-    })
+    _ensure_defaults(
+        step,
+        {
+            "name": step["tool_id"],
+            "post_job_actions": {},
+            "tool_version": None,
+        },
+    )
     post_job_actions = step["post_job_actions"]
     _populate_annotation(step)
 
@@ -391,20 +498,21 @@ def transform_tool(context, step):
     # TODO: handle runtime inputs and state together.
     runtime_inputs = step.get("runtime_inputs", [])
     if "state" in step or runtime_inputs:
+        encode = context.import_options.encode_tool_state
         step_state = step.pop("state", {})
         step_state = setup_connected_values(step_state, append_to=connect)
 
         for key, value in step_state.items():
-            tool_state[key] = json.dumps(value)
+            tool_state[key] = json.dumps(value) if encode else value
         for runtime_input in runtime_inputs:
-            tool_state[runtime_input] = json.dumps(_runtime_value())
+            tool_state[runtime_input] = json.dumps(_runtime_value()) if encode else _runtime_value()
     elif "tool_state" in step:
         tool_state.update(step.get("tool_state"))
 
     # Fill in input connections
     _populate_input_connections(context, step, connect)
 
-    _populate_tool_state(step, tool_state)
+    _populate_tool_state(step, tool_state, encode=context.import_options.encode_tool_state)
 
     # Handle outputs.
     out = step.pop("out", None)
@@ -415,22 +523,16 @@ def transform_tool(context, step):
     for output in out:
         name = output["id"]
         for action_key, action_dict in POST_JOB_ACTIONS.items():
-            action_argument = output.get(action_key, action_dict['default'])
+            action_argument = output.get(action_key, action_dict["default"])
             if action_argument:
-                action_class = action_dict['action_class']
+                action_class = action_dict["action_class"]
                 action_name = action_class + name
-                action = _action(
-                    action_class,
-                    name,
-                    arguments=action_dict['arguments'](action_argument)
-                )
+                action = _action(action_class, name, arguments=action_dict["arguments"](action_argument))
                 post_job_actions[action_name] = action
 
 
 def run_tool_to_step(conversion_context, step, run_action):
-    tool_description = conversion_context.galaxy_interface.import_tool(
-        run_action
-    )
+    tool_description = conversion_context.galaxy_interface.import_tool(run_action)
     step["type"] = "tool"
     step["tool_id"] = tool_description["tool_id"]
     step["tool_version"] = tool_description["tool_version"]
@@ -472,9 +574,7 @@ class BaseConversionContext:
 
         if step_id not in self.subworkflow_conversion_contexts:
 
-            subworkflow_conversion_context = SubworkflowConversionContext(
-                self
-            )
+            subworkflow_conversion_context = SubworkflowConversionContext(self)
             self.subworkflow_conversion_contexts[step_id] = subworkflow_conversion_context
         return self.subworkflow_conversion_contexts[step_id]
 
@@ -514,9 +614,7 @@ class ConversionContext(BaseConversionContext):
 
     def get_subworkflow_conversion_context_graph(self, graph_id):
         if graph_id not in self.graph_id_subworkflow_conversion_contexts:
-            subworkflow_conversion_context = SubworkflowConversionContext(
-                self
-            )
+            subworkflow_conversion_context = SubworkflowConversionContext(self)
             self.graph_id_subworkflow_conversion_contexts[graph_id] = subworkflow_conversion_context
         return self.graph_id_subworkflow_conversion_contexts[graph_id]
 
@@ -603,8 +701,8 @@ def _ensure_defaults(in_dict, defaults):
             in_dict[key] = value
 
 
-def _populate_tool_state(step, tool_state):
-    step["tool_state"] = json.dumps(tool_state)
+def _populate_tool_state(step, tool_state, encode=True):
+    step["tool_state"] = json.dumps(tool_state) if encode else tool_state
 
 
 def main(argv=None):
@@ -630,10 +728,8 @@ def main(argv=None):
 
 def _parser():
     parser = argparse.ArgumentParser(description=SCRIPT_DESCRIPTION)
-    parser.add_argument('input_path', metavar='INPUT', type=str,
-                        help='input workflow path (.ga)')
-    parser.add_argument('output_path', metavar='OUTPUT', type=str, nargs="?",
-                        help='output workflow path (.gxfw.yml)')
+    parser.add_argument("input_path", metavar="INPUT", type=str, help="input workflow path (.ga)")
+    parser.add_argument("output_path", metavar="OUTPUT", type=str, nargs="?", help="output workflow path (.gxfw.yml)")
     return parser
 
 
@@ -642,7 +738,7 @@ if __name__ == "__main__":
 
 
 __all__ = (
-    'main',
-    'python_to_workflow',
-    'yaml_to_workflow',
+    "main",
+    "python_to_workflow",
+    "yaml_to_workflow",
 )

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# mypy: ignore-errors
 # pyrefly: ignore-errors
 
 # TODO(sharadmv): Enable type checking.
@@ -1785,7 +1784,7 @@ def _reshape_pull_rule(
           'reshape with non-matching block size on lanes not supported yet:'
           f' {block_shape}'
       )
-    new_block_shape = block_shape[:-2] + (total_block_size,)
+    new_block_shape = (*block_shape[:-2], total_block_size)
 
     def new_index_map(*args):  # pylint: disable=function-redefined
       *idx, second_to_last, last = block_spec.index_map(*args)
@@ -2197,7 +2196,7 @@ def _binop_push_rule(
     left_block_spec: pallas_core.BlockSpec,
     right_block_spec: pallas_core.BlockSpec,
     **params: Any,
-) -> Sequence[pallas_core.BlockSpec]:
+) -> pallas_core.BlockSpec | tuple[pallas_core.BlockSpec, ...]:
   del prim, params
   left_aval, right_aval = ctx.avals_in
   assert isinstance(left_aval, core.ShapedArray)

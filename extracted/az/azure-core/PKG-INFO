@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-core
-Version: 1.38.3
+Version: 1.39.0
 Summary: Microsoft Azure Core Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -307,6 +307,12 @@ additional questions or comments.
 [package]: https://pypi.org/project/azure-core/
 
 # Release History
+
+## 1.39.0 (2026-03-18)
+
+### Breaking Changes
+
+- Changed the previously undocumented `azure_cloud` setting environment variable from `AZURE_CLOUD` to `AZURE_SDK_CLOUD_CONF`.
 
 ## 1.38.3 (2026-03-12)
 

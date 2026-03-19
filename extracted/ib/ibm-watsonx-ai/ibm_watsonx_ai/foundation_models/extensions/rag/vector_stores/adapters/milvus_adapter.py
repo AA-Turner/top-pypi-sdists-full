@@ -241,7 +241,6 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         self._client = api_client
         self._document_name_field = document_name_field
         self._chunk_sequence_number_field = chunk_sequence_number_field
-        self._text_field = text_field
 
         self._is_serializable = not bool(vector_store)
 
@@ -294,8 +293,8 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
                 "builtin_function": self._builtin_function,
             }
 
-            if self._text_field is not None:
-                self._properties["text_field"] = self._text_field
+            if text_field is not None:
+                self._properties["text_field"] = text_field
 
             self._properties = VectorStoreConnector(
                 self._properties
@@ -326,7 +325,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         """
         ids = self.get_client().get_pks("pk != ''")
         if ids:
-            self.delete(ids)  # type: ignore[arg-type]
+            self.delete(list(map(str, ids)))
 
     def count(self) -> int:
         """
@@ -612,11 +611,22 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         :param seq_nums_window: list of sequence numbers
         :type seq_nums_window: list[int]
 
+        :raises UnexpectedType: collection of LangChain vector store is not set
+
         :return: list of documents from that document with these sequence_numbers
         :rtype: list[Document]
         """
         expr = f"{self._document_name_field} LIKE '{doc_id}' && {self._chunk_sequence_number_field} in {seq_nums_window}"
-        docs = self._langchain_vector_store.col.query(  # type: ignore[union-attr]
+
+        if self._langchain_vector_store.col is None:
+            raise InvalidValue(
+                "col",
+                "Vector store collection is not set. "
+                "While initializing VectorStore, use an existing "
+                "collection or create it by adding embeddings.",
+            )
+
+        docs = self._langchain_vector_store.col.query(
             expr=expr,
             output_fields=[self._chunk_sequence_number_field, self._text_field],
             limit=len(seq_nums_window),

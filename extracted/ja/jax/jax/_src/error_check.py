@@ -114,7 +114,7 @@ class error_checking_context:
   __slots__ = ("old_ref",)
 
   def __init__(self):
-    self.old_ref = None
+    self.old_ref: core.Ref | None = None
 
   def __enter__(self):
     self.old_ref = _error_storage.ref

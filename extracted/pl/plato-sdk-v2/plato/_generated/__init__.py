@@ -1,4 +1,4 @@
-"""Plato API SDK - v0.76.2"""
+"""Plato API SDK - v0.76.7"""
 
 from . import api, errors, models
 from .client import AsyncClient, Client

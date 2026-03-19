@@ -87,7 +87,7 @@ def discharge_state(
   eval_jaxpr = lu.wrap_init(partial(_eval_jaxpr_discharge_state, jaxpr,
                                     should_discharge, consts),
                             debug_info=jaxpr.debug_info.with_unknown_names())
-  new_jaxpr, _ , new_consts = pe.trace_to_jaxpr_dynamic(eval_jaxpr, in_avals)
+  new_jaxpr, _ , new_consts = pe.trace_to_jaxpr_dynamic(eval_jaxpr, in_avals, lower=True)
   return new_jaxpr, new_consts
 
 # TODO(mattjj): migrate callers to discharge_state2 for caching
@@ -252,14 +252,13 @@ def _eval_jaxpr_discharge_state(
                   f"Did not ask for inval to be discharged but it was. ({invar=},"
                   f" {new_inval=})"
               )
-            env.write(invar, new_inval)  # type: ignore[arg-type]
+            env.write(invar, new_inval)  # pyrefly: ignore[bad-argument-type]
       else:
         # Default primitive rule, similar to `core.eval_jaxpr`. Note that here
         # we assume any higher-order primitives inside of the jaxpr are *not*
         # stateful.
-        subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
-        ans = eqn.primitive.bind(*subfuns, *map(env.read, eqn.invars),
-                                **bind_params)
+        bind_params = eqn.primitive.get_bind_params(eqn.params)
+        ans = eqn.primitive.bind(*map(env.read, eqn.invars), **bind_params)
     if eqn.primitive.multiple_results:
       foreach(env.write, eqn.outvars, ans)
     else:
@@ -536,7 +535,7 @@ def transform_swap_array(x, transforms, val):
   new_x = val
 
   # Write phase (reversed loop)
-  for intermediate, transform in reversed(zip(intermediates[:-1], transforms)):  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
+  for intermediate, transform in reversed(zip(intermediates[:-1], transforms)):
     if isinstance(transform, indexing.NDIndexer):
       indexer = transform
       if _is_trivial_indexer(indexer):
@@ -636,7 +635,7 @@ def _closed_call_discharge_rule(
     in_avals: Sequence[core.AbstractValue], _,*args,
     call_jaxpr: core.ClosedJaxpr):
   discharged_closed_jaxpr, num_outs, fun = _cached_closed_jaxpr_discharge(call_jaxpr)
-  out_and_ref_vals = core.closed_call_p.bind(fun, *args,
+  out_and_ref_vals = core.closed_call_p.bind(*args, subfuns=(fun,),
                                              call_jaxpr=discharged_closed_jaxpr)
   out_vals, ref_vals = split_list(out_and_ref_vals, [num_outs])
   ref_vals_iter = iter(ref_vals)
@@ -678,7 +677,7 @@ run_state_p.multiple_results = True
 
 def _run_state_is_high(*_, jaxpr, **__):
   return jaxpr.is_high
-run_state_p.is_high = _run_state_is_high  # type: ignore
+run_state_p.is_high = _run_state_is_high
 
 def _run_state_to_lojax(*args, jaxpr, is_initialized, **params):
   assert not jaxpr.constvars
@@ -693,7 +692,7 @@ def _run_state_to_lojax(*args, jaxpr, is_initialized, **params):
   out_mut, lo_outs = split_list(all_outs, [pe.num_himuts_out(jaxpr)])
   pe.apply_himut(jaxpr, args, out_mut)
   return pe.raise_lo_outs(arg_avals, lo_outs)
-run_state_p.to_lojax = _run_state_to_lojax  # pyrefly: ignore[bad-assignment]
+run_state_p.to_lojax = _run_state_to_lojax
 
 
 def _default_initialization(x):
@@ -774,7 +773,7 @@ def _run_state_jvp(primals: Sequence[Any], tangents: Sequence[Any], *,
         nonzero_tangents, instantiate=nonzero_tangents)
     if out_nonzero_tangents == nonzero_tangents:
       break
-    nonzero_tangents = map(operator.or_, nonzero_tangents, out_nonzero_tangents)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
+    nonzero_tangents = map(operator.or_, nonzero_tangents, out_nonzero_tangents)
   else:
     raise Exception("Invalid fixpoint")
   del discharged_jaxpr, body_consts, out_nonzero_tangents

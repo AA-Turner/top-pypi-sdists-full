@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from rocketchat_API.APIExceptions.RocketExceptions import (
@@ -14,9 +16,13 @@ def rocket():
     return _rocket
 
 
+def get_tests_passowrd():
+    return "yoZy4mN3B83SoKOD2PP1U8PoTUnBlukQ7ac6RlsgR$A"
+
+
 @pytest.fixture(scope="session")
 def create_user(rocket, name="user1", email="email@domain.com"):
-    def _create_user(name=name, password="password", email=email):
+    def _create_user(name=name, password=get_tests_passowrd(), email=email):
         # create empty object, because Mock not included to python2
         user = type("test", (object,), {})()
 
@@ -60,7 +66,7 @@ def secondary_user(logged_rocket):
     except (RocketApiException, RocketBadStatusCodeException) as exc_info:
         if "User not found." in str(exc_info):
             testuser = logged_rocket.users_create(
-                "secondary@domain.com", "secondary", "password", "secondary"
+                "secondary@domain.com", "secondary", get_tests_passowrd(), "secondary"
             )
         else:
             raise
@@ -81,3 +87,39 @@ def skip_if_no_license(logged_rocket):
     except (RocketApiException, RocketBadStatusCodeException):
         pytest.fail("License endpoint not available")
     pytest.skip("No license available")
+
+
+@pytest.fixture
+def livechat_inquiry(logged_rocket):
+    """Create a livechat agent, visitor, and room to generate an inquiry."""
+    # Save original routing method and set to Manual_Selection to prevent auto-assignment
+    original_routing = logged_rocket.settings_get("Livechat_Routing_Method")
+    original_routing_value = original_routing.get("value")
+    logged_rocket.settings_update("Livechat_Routing_Method", "Manual_Selection")
+
+    username = logged_rocket.me().get("username")
+    agent = logged_rocket.livechat_create_user(user_type="agent", username=username)
+    logged_rocket.users_set_status(message="working on it", status="online")
+
+    token = str(uuid.uuid1())
+    logged_rocket.livechat_register_visitor(token=token)
+    livechat_room = logged_rocket.livechat_room(token=token)
+    room_id = livechat_room.get("room").get("_id")
+
+    inquiry = logged_rocket.livechat_inquiries_get_one(room_id=room_id)
+    data = {
+        "agent": agent,
+        "agent_id": agent.get("user").get("_id"),
+        "token": token,
+        "room_id": room_id,
+        "inquiry": inquiry.get("inquiry"),
+        "inquiry_id": inquiry.get("inquiry", {}).get("_id"),
+    }
+
+    yield data
+
+    logged_rocket.livechat_delete_user(
+        user_type="agent", user_id=agent.get("user").get("_id")
+    )
+    # Restore original routing method
+    logged_rocket.settings_update("Livechat_Routing_Method", original_routing_value)

@@ -12,25 +12,28 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1 import feature_pb2 as sentry__protos_dot_billing_dot_v1_dot_feature__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEsentry_protos/billing/v1/services/contract/v1/contract_metadata.proto\x12-sentry_protos.billing.v1.services.contract.v1\"Y\n\x0bOptionValue\x12\x16\n\x0cstring_value\x18\x01 \x01(\tH\x00\x12\x13\n\tint_value\x18\x02 \x01(\x03H\x00\x12\x14\n\nbool_value\x18\x03 \x01(\x08H\x00\x42\x07\n\x05value\"-\n\rFeatureOption\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\"_\n\x0e\x46\x65\x61tureOptions\x12M\n\x07options\x18\x01 \x03(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.FeatureOption\"h\n\x0eMetadataOption\x12\x0b\n\x03key\x18\x01 \x01(\t\x12I\n\x05value\x18\x02 \x01(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.OptionValue\"a\n\x0fMetadataOptions\x12N\n\x07options\x18\x01 \x03(\x0b\x32=.sentry_protos.billing.v1.services.contract.v1.MetadataOption\"\xd3\x02\n\x10\x43ontractMetadata\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x17\n\x0fruleset_version\x18\x03 \x01(\t\x12X\n\x10package_metadata\x18\x04 \x01(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.MetadataOptions\x12O\n\x08\x66\x65\x61tures\x18\x05 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v1.FeatureOptions\x12V\n\x0e\x63ustom_options\x18\x06 \x01(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.MetadataOptionsb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEsentry_protos/billing/v1/services/contract/v1/contract_metadata.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a&sentry_protos/billing/v1/feature.proto\"Y\n\x0bOptionValue\x12\x16\n\x0cstring_value\x18\x01 \x01(\tH\x00\x12\x13\n\tint_value\x18\x02 \x01(\x03H\x00\x12\x14\n\nbool_value\x18\x03 \x01(\x08H\x00\x42\x07\n\x05value\"-\n\rFeatureOption\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\"_\n\x0e\x46\x65\x61tureOptions\x12M\n\x07options\x18\x01 \x03(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.FeatureOption\"h\n\x0eMetadataOption\x12\x0b\n\x03key\x18\x01 \x01(\t\x12I\n\x05value\x18\x02 \x01(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.OptionValue\"a\n\x0fMetadataOptions\x12N\n\x07options\x18\x01 \x03(\x0b\x32=.sentry_protos.billing.v1.services.contract.v1.MetadataOption\"\x9b\x03\n\x10\x43ontractMetadata\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x17\n\x0fruleset_version\x18\x03 \x01(\t\x12X\n\x10package_metadata\x18\x04 \x01(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.MetadataOptions\x12S\n\x08\x66\x65\x61tures\x18\x05 \x01(\x0b\x32=.sentry_protos.billing.v1.services.contract.v1.FeatureOptionsB\x02\x18\x01\x12V\n\x0e\x63ustom_options\x18\x06 \x01(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.MetadataOptions\x12\x42\n\x10\x62illing_features\x18\x07 \x01(\x0b\x32(.sentry_protos.billing.v1.FeatureOptionsb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.contract_metadata_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_OPTIONVALUE']._serialized_start=120
-  _globals['_OPTIONVALUE']._serialized_end=209
-  _globals['_FEATUREOPTION']._serialized_start=211
-  _globals['_FEATUREOPTION']._serialized_end=256
-  _globals['_FEATUREOPTIONS']._serialized_start=258
-  _globals['_FEATUREOPTIONS']._serialized_end=353
-  _globals['_METADATAOPTION']._serialized_start=355
-  _globals['_METADATAOPTION']._serialized_end=459
-  _globals['_METADATAOPTIONS']._serialized_start=461
-  _globals['_METADATAOPTIONS']._serialized_end=558
-  _globals['_CONTRACTMETADATA']._serialized_start=561
-  _globals['_CONTRACTMETADATA']._serialized_end=900
+  _globals['_CONTRACTMETADATA'].fields_by_name['features']._loaded_options = None
+  _globals['_CONTRACTMETADATA'].fields_by_name['features']._serialized_options = b'\030\001'
+  _globals['_OPTIONVALUE']._serialized_start=160
+  _globals['_OPTIONVALUE']._serialized_end=249
+  _globals['_FEATUREOPTION']._serialized_start=251
+  _globals['_FEATUREOPTION']._serialized_end=296
+  _globals['_FEATUREOPTIONS']._serialized_start=298
+  _globals['_FEATUREOPTIONS']._serialized_end=393
+  _globals['_METADATAOPTION']._serialized_start=395
+  _globals['_METADATAOPTION']._serialized_end=499
+  _globals['_METADATAOPTIONS']._serialized_start=501
+  _globals['_METADATAOPTIONS']._serialized_end=598
+  _globals['_CONTRACTMETADATA']._serialized_start=601
+  _globals['_CONTRACTMETADATA']._serialized_end=1012
 # @@protoc_insertion_point(module_scope)

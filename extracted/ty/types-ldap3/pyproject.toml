@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-ldap3"
-version = "2.9.13.20251121"
+version = "2.9.13.20260319"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for ldap3"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`3e1b90bb2d772781c2b6f318e0f44ef791cf5160`](https://github.com/python/typeshed/commit/3e1b90bb2d772781c2b6f318e0f44ef791cf5160).
+[`50ec9108eb191ab96d9ab766e506a7c680d5f3d6`](https://github.com/python/typeshed/commit/50ec9108eb191ab96d9ab766e506a7c680d5f3d6).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-pyasn1']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['types-pyasn1']
 [tool.setuptools]
 packages = ['ldap3-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'ldap3-stubs' = ['__init__.pyi', 'abstract/__init__.pyi', 'abstract/attrDef.pyi', 'abstract/attribute.pyi', 'abstract/cursor.pyi', 'abstract/entry.pyi', 'abstract/objectDef.pyi', 'core/__init__.pyi', 'core/connection.pyi', 'core/exceptions.pyi', 'core/pooling.pyi', 'core/rdns.pyi', 'core/results.pyi', 'core/server.pyi', 'core/timezone.pyi', 'core/tls.pyi', 'core/usage.pyi', 'extend/__init__.pyi', 'extend/microsoft/__init__.pyi', 'extend/microsoft/addMembersToGroups.pyi', 'extend/microsoft/dirSync.pyi', 'extend/microsoft/modifyPassword.pyi', 'extend/microsoft/persistentSearch.pyi', 'extend/microsoft/removeMembersFromGroups.pyi', 'extend/microsoft/unlockAccount.pyi', 'extend/novell/__init__.pyi', 'extend/novell/addMembersToGroups.pyi', 'extend/novell/checkGroupsMemberships.pyi', 'extend/novell/endTransaction.pyi', 'extend/novell/getBindDn.pyi', 'extend/novell/listReplicas.pyi', 'extend/novell/nmasGetUniversalPassword.pyi', 'extend/novell/nmasSetUniversalPassword.pyi', 'extend/novell/partition_entry_count.pyi', 'extend/novell/removeMembersFromGroups.pyi', 'extend/novell/replicaInfo.pyi', 'extend/novell/startTransaction.pyi', 'extend/operation.pyi', 'extend/standard/PagedSearch.pyi', 'extend/standard/PersistentSearch.pyi', 'extend/standard/__init__.pyi', 'extend/standard/modifyPassword.pyi', 'extend/standard/whoAmI.pyi', 'operation/__init__.pyi', 'operation/abandon.pyi', 'operation/add.pyi', 'operation/bind.pyi', 'operation/compare.pyi', 'operation/delete.pyi', 'operation/extended.pyi', 'operation/modify.pyi', 'operation/modifyDn.pyi', 'operation/search.pyi', 'operation/unbind.pyi', 'protocol/__init__.pyi', 'protocol/controls.pyi', 'protocol/convert.pyi', 'protocol/formatters/__init__.pyi', 'protocol/formatters/formatters.pyi', 'protocol/formatters/standard.pyi', 'protocol/formatters/validators.pyi', 'protocol/microsoft.pyi', 'protocol/novell.pyi', 'protocol/oid.pyi', 'protocol/persistentSearch.pyi', 'protocol/rfc2696.pyi', 'protocol/rfc2849.pyi', 'protocol/rfc3062.pyi', 'protocol/rfc4511.pyi', 'protocol/rfc4512.pyi', 'protocol/rfc4527.pyi', 'protocol/sasl/__init__.pyi', 'protocol/sasl/digestMd5.pyi', 'protocol/sasl/external.pyi', 'protocol/sasl/kerberos.pyi', 'protocol/sasl/plain.pyi', 'protocol/sasl/sasl.pyi', 'protocol/schemas/__init__.pyi', 'protocol/schemas/ad2012R2.pyi', 'protocol/schemas/ds389.pyi', 'protocol/schemas/edir888.pyi', 'protocol/schemas/edir914.pyi', 'protocol/schemas/slapd24.pyi', 'strategy/__init__.pyi', 'strategy/asyncStream.pyi', 'strategy/asynchronous.pyi', 'strategy/base.pyi', 'strategy/ldifProducer.pyi', 'strategy/mockAsync.pyi', 'strategy/mockBase.pyi', 'strategy/mockSync.pyi', 'strategy/restartable.pyi', 'strategy/reusable.pyi', 'strategy/safeRestartable.pyi', 'strategy/safeSync.pyi', 'strategy/sync.pyi', 'utils/__init__.pyi', 'utils/asn1.pyi', 'utils/ciDict.pyi', 'utils/config.pyi', 'utils/conv.pyi', 'utils/dn.pyi', 'utils/hashed.pyi', 'utils/log.pyi', 'utils/ntlm.pyi', 'utils/port_validators.pyi', 'utils/repr.pyi', 'utils/tls_backport.pyi', 'utils/uri.pyi', 'version.pyi', 'METADATA.toml', 'py.typed']

@@ -34,11 +34,13 @@ __all__ = [
     "read_collections_contributions",
     "read_context_contributions",
     "read_contexts",
+    "read_has_version_mappings",
     "read_metaregistry",
     "read_mismatches",
     "read_prefix_contacts",
     "read_prefix_contributions",
     "read_prefix_reviews",
+    "read_provided_by_mappings",
     "read_registry",
     "read_registry_contributions",
     "read_status_contributions",
@@ -136,6 +138,24 @@ def read_mismatches() -> dict[str, dict[str, set[str]]]:
         if m.predicate.curie == "skos:exactMatch" and m.predicate_modifier == "Not":
             mismatches[m.subject.identifier][m.object.prefix].add(m.object.identifier)
     return {k: dict(v) for k, v in mismatches.items()}
+
+
+def read_has_version_mappings() -> dict[str, dict[str, set[str]]]:
+    """Read the version mapping subset of curated mappings as a nested dictionary data structure."""
+    return _read_mappings("dcterms:hasVersion")
+
+
+def read_provided_by_mappings() -> dict[str, dict[str, set[str]]]:
+    """Read the provider mapping subset of curated mappings as a nested dictionary data structure."""
+    return _read_mappings("bioregistry.schema:0000030")
+
+
+def _read_mappings(predicate_curie: str) -> dict[str, dict[str, set[str]]]:
+    rv: defaultdict[str, defaultdict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    for m in read_mappings():
+        if m.predicate.curie == predicate_curie:
+            rv[m.subject.identifier][m.object.prefix].add(m.object.identifier)
+    return {k: dict(v) for k, v in rv.items()}
 
 
 @lru_cache(maxsize=1)

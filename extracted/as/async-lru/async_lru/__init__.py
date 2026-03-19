@@ -3,6 +3,7 @@ import dataclasses
 import inspect
 import random
 import sys
+import warnings
 from functools import _CacheInfo, _make_key, partial, partialmethod
 from typing import (
     Any,
@@ -32,9 +33,9 @@ if sys.version_info < (3, 14):
     from asyncio.coroutines import _is_coroutine  # type: ignore[attr-defined]
 
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
-__all__ = ("alru_cache",)
+__all__ = ("AlruCacheLoopResetWarning", "alru_cache")
 
 
 _T = TypeVar("_T")
@@ -42,6 +43,10 @@ _R = TypeVar("_R")
 _Coro = Coroutine[Any, Any, _R]
 _CB = Callable[..., _Coro[_R]]
 _CBP = Union[_CB[_R], "partial[_Coro[_R]]", "partialmethod[_Coro[_R]]"]
+
+
+class AlruCacheLoopResetWarning(UserWarning):
+    """Emitted once per cache instance when a loop change triggers an auto-reset."""
 
 
 @final
@@ -113,6 +118,7 @@ class _LRUCacheWrapper(Generic[_R]):
         self.__hits = 0
         self.__misses = 0
         self.__first_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.__warned_loop_reset = False
 
     @property
     def __tasks(self) -> List["asyncio.Task[_R]"]:
@@ -130,11 +136,27 @@ class _LRUCacheWrapper(Generic[_R]):
         if self.__first_loop is None:
             self.__first_loop = loop
         elif self.__first_loop is not loop:
-            raise RuntimeError(
-                "alru_cache is not safe to use across event loops: this cache "
-                "instance was first used with a different event loop. "
-                "Use separate cache instances per event loop."
-            )
+            if not self.__warned_loop_reset:
+                warnings.warn(
+                    "alru_cache detected event loop change and auto-cleared "
+                    "stale entries. This is safe but unusual outside of "
+                    "tests (pytest-anyio, etc.).",
+                    AlruCacheLoopResetWarning,
+                    stacklevel=3,
+                )
+                self.__warned_loop_reset = True
+            # Old cache entries hold tasks/handles bound to the previous
+            # loop and are invalid here.  Clear and rebind.
+            self.cache_clear()
+            self.__first_loop = loop
+
+    def cache_contains(self, /, *args: Hashable, **kwargs: Any) -> bool:
+        """Check if the given arguments are in the cache.
+
+        Does not affect hit/miss counters or LRU ordering.
+        """
+        key = _make_key(args, kwargs, self.__typed)
+        return key in self.__cache
 
     def cache_invalidate(self, /, *args: Hashable, **kwargs: Any) -> bool:
         key = _make_key(args, kwargs, self.__typed)
@@ -156,8 +178,6 @@ class _LRUCacheWrapper(Generic[_R]):
         self.__cache.clear()
 
     async def cache_close(self, *, wait: bool = False) -> None:
-        loop = asyncio.get_running_loop()
-        self._check_loop(loop)
         self.__closed = True
 
         tasks = self.__tasks
@@ -236,9 +256,10 @@ class _LRUCacheWrapper(Generic[_R]):
             raise RuntimeError(f"alru_cache is closed for {self}")
 
         loop = asyncio.get_running_loop()
+        self._check_loop(loop)
+
         key = _make_key(fn_args, fn_kwargs, self.__typed)
         cache_item = self.__cache.get(key)
-        self._check_loop(loop)
 
         if cache_item is not None:
             self._cache_hit(key)
@@ -313,6 +334,9 @@ class _LRUCacheWrapperInstanceMethod(Generic[_R, _T]):
         self.__instance = instance
         self.__wrapper = wrapper
 
+    def cache_contains(self, /, *args: Hashable, **kwargs: Any) -> bool:
+        return self.__wrapper.cache_contains(self.__instance, *args, **kwargs)
+
     def cache_invalidate(self, /, *args: Hashable, **kwargs: Any) -> bool:
         return self.__wrapper.cache_invalidate(self.__instance, *args, **kwargs)
 
@@ -320,9 +344,20 @@ class _LRUCacheWrapperInstanceMethod(Generic[_R, _T]):
         self.__wrapper.cache_clear()
 
     async def cache_close(
-        self, *, cancel: bool = False, return_exceptions: bool = True
+        self,
+        *,
+        wait: bool = False,
+        cancel: bool = False,
+        return_exceptions: bool = True,
     ) -> None:
-        await self.__wrapper.cache_close()
+        if cancel or return_exceptions is not True:
+            warnings.warn(
+                "cancel/return_exceptions are deprecated; use wait=True to allow tasks "
+                "to finish and wait=False to cancel pending tasks.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        await self.__wrapper.cache_close(wait=wait)
 
     def cache_info(self) -> _CacheInfo:
         return self.__wrapper.cache_info()

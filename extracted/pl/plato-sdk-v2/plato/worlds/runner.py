@@ -26,6 +26,42 @@ app = typer.Typer(
 logger = logging.getLogger(__name__)
 
 
+def _report_crash_to_chronos(
+    config_path: Path,
+    error_message: str,
+) -> None:
+    """Best-effort report of a world crash to Chronos.
+
+    Called when the world runner fails before BaseWorld.run() can report
+    completion itself (e.g., import errors, world-not-found, startup crashes).
+    Uses the Chronos SDK to properly mark the session as failed.
+    """
+    import os
+
+    try:
+        with open(config_path) as f:
+            full_config = json.load(f)
+        session_cfg = full_config.get("session", {})
+        session_id = session_cfg.get("session_id")
+        chronos_url = session_cfg.get("chronos_url")
+        if not session_id or not chronos_url:
+            return
+
+        api_key = os.environ.get("PLATO_API_KEY", "")
+
+        from plato.chronos.sdk import Chronos
+
+        client = Chronos(base_url=chronos_url, api_key=api_key)
+        client.complete(
+            session_id=session_id,
+            status="failed",
+            error_message=error_message[:8000],
+        )
+        logger.info("Reported crash to Chronos for session %s", session_id)
+    except Exception as e:
+        logger.warning("Failed to report crash to Chronos: %s", e)
+
+
 def discover_worlds() -> None:
     """Discover and load installed world packages via entry points.
 
@@ -100,7 +136,9 @@ def run(
     world_cls = get_world(world)
     if world_cls is None:
         available = list(get_registered_worlds().keys())
-        typer.echo(f"Error: World '{world}' not found. Available: {available}", err=True)
+        error_msg = f"World '{world}' not found. Available: {available}"
+        typer.echo(f"Error: {error_msg}", err=True)
+        _report_crash_to_chronos(config, error_message=error_msg)
         raise typer.Exit(1)
 
     # Load full config JSON
@@ -137,6 +175,13 @@ def run(
         logger.info("World interrupted, cleanup complete")
     except Exception as e:
         logger.exception(f"World execution failed: {e}")
+        if not getattr(world_instance, "_chronos_completed", False):
+            import traceback
+
+            _report_crash_to_chronos(
+                config,
+                error_message=f"{type(e).__name__}: {e}\n{traceback.format_exc()}",
+            )
         raise typer.Exit(1)
 
 

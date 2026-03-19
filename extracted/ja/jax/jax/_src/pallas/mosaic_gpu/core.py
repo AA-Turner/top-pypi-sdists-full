@@ -357,17 +357,19 @@ class GPUMemoryRef(pallas_core.MemoryRef):
 
   def get_ref_aval(self) -> _Ref:
     aval: Any = jax_core.ShapedArray(self.shape, self.dtype)
-    aval = state_types.transform_type(self.transforms, aval)
     if self.memory_space == MemorySpace.TMEM:
       aval = AbstractTMEMRef(
           aval, self.memory_space, self.layout, self.collective
       )
+      physical_ref_aval = aval
     else:
+      physical_aval = state_types.transform_type(self.transforms, aval)
       aval = state.AbstractRef(aval, memory_space=self.memory_space)
+      physical_ref_aval = state.AbstractRef(physical_aval, memory_space=self.memory_space)
     transforms: list[state_types.Transform] = pallas_core.undo_transforms(
         aval, self.transforms
     )
-    ref = state_types.TransformedRef(aval, tuple(transforms))
+    ref = state_types.TransformedRef(physical_ref_aval, tuple(transforms))
     if not ref.transforms:
       return ref.ref
     return ref
@@ -437,7 +439,7 @@ def flatten_ref_union(ref_union: AbstractRefUnion) -> tuple[_Ref, ...]:
   flat_refs = []
   if ref_union.memory_space == SMEM:
     union_bytes = 0
-    for ref_group in ref_union.refs:
+    for group_idx, ref_group in enumerate(ref_union.refs):
       byte_offset = 0
       def unflatten(ref):
         nonlocal byte_offset
@@ -447,7 +449,7 @@ def flatten_ref_union(ref_union: AbstractRefUnion) -> tuple[_Ref, ...]:
         )
         if not isinstance(ref, pallas_core.TransformedRef):
           ref = pallas_core.TransformedRef(ref, transforms=())
-        transform = ExtractAliasedRef.from_transformed_ref(ref, byte_offset)
+        transform = ExtractAliasedRef.from_transformed_ref(ref, byte_offset, group_idx)
         result = pallas_core.TransformedRef(
             ref_union, transforms=(transform, *ref.transforms)
         )
@@ -470,7 +472,7 @@ def flatten_ref_union(ref_union: AbstractRefUnion) -> tuple[_Ref, ...]:
     assert union_bytes == ref_union.shape[0]
   elif ref_union.memory_space == TMEM:
     union_cols = 0
-    for ref_group in ref_union.refs:
+    for group_idx, ref_group in enumerate(ref_union.refs):
       col_offset = 0
       def unflatten(ref):
         nonlocal col_offset
@@ -480,7 +482,7 @@ def flatten_ref_union(ref_union: AbstractRefUnion) -> tuple[_Ref, ...]:
         ncols = ref.layout.cols_in_shape(ref.shape,
                                          dtypes.itemsize_bits(ref.dtype))
         transform = ExtractAliasedRef.from_transformed_ref(
-            ref, col_offset, layout=ref.layout)
+            ref, col_offset, group_idx, layout=ref.layout)
         result = pallas_core.TransformedRef(
             ref_union, transforms=(transform, *ref.transforms)
         )
@@ -755,10 +757,18 @@ def to_gpu_transform(
       return mgpu.TransposeTransform(permutation)
     case TilingTransform(tiling):
       return mgpu.TileTransform(tiling)
-    case SwizzleTransform(swizzle):
-      return mgpu.SwizzleTransform(swizzle)
     case _:
       raise TypeError(f"Unsupported transform: {type(transform)}")
+
+
+def to_transform_attr(
+    transform: state_types.Transform,
+) -> ir.Attribute:
+  match transform:
+    case SwizzleTransform(swizzle):
+      return mgpu.dialect.SwizzleTransformAttr.get(swizzle)
+    case _:
+      return to_gpu_transform(transform).to_attr()
 
 
 # TODO(sharadmv): upstream into pallas core
@@ -836,7 +846,7 @@ def remote_ref(
 ) -> pallas_core.TransformedRef:
   """Translate memref to a symmetric memref on a peer device."""
   if not isinstance(ref, pallas_core.TransformedRef):
-    if not isinstance(jax_core.get_aval(ref), state_types.AbstractRef):
+    if not isinstance(jax_core.typeof(ref), state_types.AbstractRef):
       raise TypeError("ref must be a reference")
     ref = pallas_core.TransformedRef(ref, transforms=())
   if any(isinstance(t, MulticastRef) for t in ref.transforms):
@@ -859,7 +869,7 @@ def multicast_ref(
   if not isinstance(collective_axes, tuple):
     collective_axes = (collective_axes,)
   if not isinstance(ref, pallas_core.TransformedRef):
-    if not isinstance(jax_core.get_aval(ref), state_types.AbstractRef):
+    if not isinstance(jax_core.typeof(ref), state_types.AbstractRef):
       raise TypeError("ref must be a reference")
     ref = pallas_core.TransformedRef(ref, transforms=())
   if any(isinstance(t, PeerMemRef) for t in ref.transforms):
@@ -874,7 +884,7 @@ def transform_ref(
     transform: state_types.Transform
 ) -> pallas_core.TransformedRef:
   if not isinstance(ref, pallas_core.TransformedRef):
-    if not isinstance(jax_core.get_aval(ref), state_types.AbstractRef):
+    if not isinstance(jax_core.typeof(ref), state_types.AbstractRef):
       raise TypeError("ref must be a reference")
     ref = pallas_core.TransformedRef(ref, transforms=())
   return pallas_core.TransformedRef(
@@ -904,6 +914,10 @@ class ExtractAliasedRef(state_types.Transform):
   dtype: dtypes.DType = dataclasses.field(metadata=dict(static=True))
   shape: tuple[int, ...] = dataclasses.field(metadata=dict(static=True))
   offset: int = dataclasses.field(metadata=dict(static=True))
+
+  # The index of the group of this aliased ref within the input RefUnion.
+  alias_group_idx: int = dataclasses.field(metadata=dict(static=True))
+
   # TMEM-specific params
   layout: tcgen05.TMEMLayout | None = dataclasses.field(
       metadata=dict(static=True)
@@ -914,9 +928,10 @@ class ExtractAliasedRef(state_types.Transform):
       cls,
       ref: pallas_core.TransformedRef,
       byte_offset: int,
+      alias_group_idx: int,
       layout: tcgen05.TMEMLayout | None = None,
   ):
-    return cls(dtypes.dtype(ref.dtype), ref.ref.shape, byte_offset, layout)
+    return cls(dtypes.dtype(ref.dtype), ref.ref.shape, byte_offset, alias_group_idx, layout)
 
   def transform_type(self, x):
     match x:
@@ -1078,7 +1093,7 @@ class BlockSpec(pallas_core.BlockSpec):
     )
     block_inner_aval = bm.block_aval.inner_aval
     for t in self.transforms:
-      block_inner_aval = t.transform_type(block_inner_aval)  # type: ignore[arg-type]
+      block_inner_aval = t.transform_type(block_inner_aval)
     return bm.replace(
         transformed_block_aval=bm.block_aval.update(
             inner_aval=block_inner_aval
@@ -1492,12 +1507,12 @@ class Layout(SomeLayout, enum.Enum):
   def __call__(self, *args, **kwargs) -> ParameterizedLayout:
     return ParameterizedLayout(self, args, kwargs)
 
-  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:  # pyrefly: ignore[bad-override]
+  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:
     def check_no_args():
       if args or kwargs:
         raise ValueError(f"Can't instantiate {self} with arguments.")
 
-    match self:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
+    match self:
       case Layout.WGMMA_TRANSPOSED:
         check_no_args()
         return mgpu.WGMMA_TRANSPOSED_LAYOUT
@@ -1549,14 +1564,6 @@ class Layout(SomeLayout, enum.Enum):
         return mgpu.TMA_GATHER_INDICES_LAYOUT
 
 
-# TODO(apaszke): Adjust the users and remove these backfills.
-Layout.WGMMA_ROW = Layout.WGMMA.reduce(1)
-Layout.WGMMA_COL = Layout.WGMMA.reduce(0)
-Layout.TCGEN05_ROW = Layout.TCGEN05.reduce(1)
-Layout.TCGEN05_COL = Layout.TCGEN05.reduce(0)
-Layout.TCGEN05_TMEM_NATIVE_ROW = Layout.TCGEN05_TMEM_NATIVE.reduce(1)
-
-
 class TMEMLayout(enum.Enum):
   """Layout for TMEM references."""
   # TODO(apaszke): Remove the layout suffix.
@@ -1568,13 +1575,14 @@ class TMEMLayout(enum.Enum):
     return ParameterizedLayout(self, args, kwargs)
 
   def to_mgpu(self, *args, **kwargs) -> tcgen05.TMEMLayout:
-    match self:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
+    match self:
       case TMEMLayout.SCALES_LAYOUT:
         return tcgen05.scales_layout(*args, **kwargs)
       case TMEMLayout.SPARSE_METADATA_LAYOUT:
         return tcgen05.sparse_meta_layout(*args, **kwargs)
       case TMEMLayout.M64_COLLECTIVE_LAYOUT:
         return tcgen05.tmem_m64_collective_layout(*args, **kwargs)  # pytype: disable=missing-parameter
+    raise ValueError(f"Invalid TMEMLayout: {self}")
 
 
 def TryClusterCancelResult(

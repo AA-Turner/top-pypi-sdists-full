@@ -226,7 +226,6 @@ class TestRunConfig:
         assert config.checkpoint.enabled is False
         assert config.state.enabled is True
         assert config.state.path == "/state"
-        assert config.slack_notifications.enabled is False
 
     def test_config_subclass(self):
         """Test creating a RunConfig subclass."""

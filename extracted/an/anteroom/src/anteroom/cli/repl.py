@@ -268,36 +268,13 @@ def _get_tiktoken_encoding() -> Any:
 
 
 def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
-    """Count tokens using tiktoken, falling back to char estimate."""
-    enc = _get_tiktoken_encoding()
+    """Count tokens using tiktoken, falling back to char estimate.
 
-    total = 0
-    for msg in messages:
-        # Per-message overhead (~4 tokens for role/separators)
-        total += 4
-        content = msg.get("content", "")
-        if isinstance(content, str):
-            if enc:
-                total += len(enc.encode(content, allowed_special="all"))
-            else:
-                total += len(content) // 4
-        elif isinstance(content, list):
-            for part in content:
-                text = str(part) if isinstance(part, dict) else ""
-                if enc:
-                    total += len(enc.encode(text, allowed_special="all"))
-                else:
-                    total += len(text) // 4
-        for tc in msg.get("tool_calls", []):
-            if isinstance(tc, dict):
-                func = tc.get("function", {})
-                args = func.get("arguments", "")
-                name = func.get("name", "")
-                if enc:
-                    total += len(enc.encode(args, allowed_special="all")) + len(enc.encode(name, allowed_special="all"))
-                else:
-                    total += (len(args) + len(name)) // 4
-    return total
+    Delegates to the shared token_estimator module.
+    """
+    from ..services.token_estimator import count_message_tokens
+
+    return count_message_tokens(messages)
 
 
 async def _check_for_update(current: str) -> str | None:
@@ -1359,6 +1336,295 @@ def _handle_config_command(
     renderer.console.print(f"  [{MUTED}]Available scopes: {', '.join(scopes)}[/{MUTED}]\n")
 
 
+async def _handle_spec_command(
+    user_input: str,
+    *,
+    cmd: str,
+    db: Any,
+    config: Any = None,
+    space: dict[str, Any] | None = None,
+    working_dir: str | None = None,
+) -> None:
+    """Handle /spec and /specs REPL commands. Extracted for testability."""
+    from ..services.artifacts import validate_fqn as _validate_fqn
+
+    parts = user_input.split(maxsplit=3)
+    sub = parts[1].lower() if len(parts) >= 2 else ""
+    if cmd == "/specs":
+        sub = "list"
+
+    if sub == "list" or not sub:
+        from ..services import artifact_storage as _art_store
+        from ..services.artifacts import ArtifactType as _ArtType
+        from ..services.spec_schema import SpecMode as _SpecMode
+        from ..services.spec_schema import get_phase_status as _gps
+        from ..services.spec_schema import parse_spec_content as _psc_list
+
+        # Parse --attached flag
+        _rest = parts[2] if len(parts) >= 3 else ""
+        _attached = "--attached" in _rest
+
+        import os as _os_mod
+
+        _space_id = space["id"] if space else None
+        _project_path = working_dir or _os_mod.getcwd()
+        specs = _art_store.list_artifacts(
+            db,
+            artifact_type=_ArtType.SPEC,
+            attached_only=_attached,
+            space_id=_space_id,
+            project_path=_project_path,
+        )
+        if not specs:
+            renderer.console.print(f"[{CHROME}]No specs found.[/{CHROME}]\n")
+            return
+        renderer.console.print("\n[bold]Specs:[/bold]")
+        for s in specs:
+            meta = s.get("metadata", {})
+            statuses = []
+            for p in ("requirements", "design", "tasks"):
+                st = _gps(meta, p).value
+                color = _SUCCESS if st == "approved" else "#fbbf24" if st == "stale" else CHROME
+                statuses.append(f"[{color}]{p}:{st}[/{color}]")
+            mode_badge = ""
+            content_str = s.get("content", "")
+            if content_str:
+                try:
+                    _sc = _psc_list(content_str)
+                    if _sc.mode == _SpecMode.BUGFIX:
+                        mode_badge = " [#fbbf24]\\[bugfix][/#fbbf24]"
+                except Exception:
+                    pass
+            _pack_badge = f" [{CHROME}][pack][/{CHROME}]" if _art_store.is_pack_owned(db, s["id"]) else ""
+            renderer.console.print(f"  {s['fqn']}{mode_badge}{_pack_badge}  {' '.join(statuses)}")
+        renderer.console.print()
+
+    elif sub == "show":
+        _fqn = parts[2].strip() if len(parts) >= 3 else ""
+        if not _fqn:
+            renderer.console.print(f"[{CHROME}]Usage: /spec show <fqn>[/{CHROME}]\n")
+            return
+        if not _validate_fqn(_fqn):
+            renderer.console.print(f"[{CHROME}]Invalid FQN format.[/{CHROME}]\n")
+            return
+        from ..services import artifact_storage as _art_store_show
+        from ..services.spec_service import get_spec as _get_spec
+
+        _result = _get_spec(db, _fqn)
+        if _result is None:
+            renderer.console.print(f"[{CHROME}]Spec not found.[/{CHROME}]\n")
+            return
+        _art, _spec = _result
+        from rich.markup import escape as _spec_esc
+
+        from ..services.spec_schema import SpecMode as _SpecMode2
+        from ..services.spec_schema import get_phase_status as _gps2
+
+        _mode_badge2 = " [#fbbf24]\\[bugfix][/#fbbf24]" if _spec.mode == _SpecMode2.BUGFIX else ""
+        _ro_badge = f" [{CHROME}][read-only][/{CHROME}]" if _art_store_show.is_pack_owned(db, _art["id"]) else ""
+        renderer.console.print(f"\n[bold]Spec:[/bold] {_spec_esc(_art['fqn'])}{_mode_badge2}{_ro_badge}")
+        renderer.console.print()
+        for _phase in ("requirements", "design", "tasks"):
+            _st = _gps2(_art["metadata"], _phase).value
+            _color = _SUCCESS if _st == "approved" else "#fbbf24" if _st == "stale" else CHROME
+            renderer.console.print(f"  [bold]{_phase}:[/bold] [{_color}]{_st}[/{_color}]")
+        renderer.console.print()
+        renderer.console.print(f"[bold]Requirements:[/bold]\n{_spec_esc(_spec.requirements.strip())}")
+        renderer.console.print()
+        renderer.console.print(f"[bold]Design:[/bold]\n{_spec_esc(_spec.design.strip())}")
+        renderer.console.print()
+        renderer.console.print("[bold]Tasks:[/bold]")
+        for _t in _spec.tasks:
+            _deps = f" (depends: {', '.join(_t.depends_on)})" if _t.depends_on else ""
+            renderer.console.print(f"  [{CHROME}]{_t.id}[/{CHROME}] {_spec_esc(_t.summary)}{_deps}")
+        renderer.console.print()
+
+    elif sub == "create":
+        _all_parts = user_input.split()
+        _is_bugfix = "--bugfix" in _all_parts
+        _non_flag_parts = [p for p in _all_parts if not p.startswith("--")]
+        _ns = _non_flag_parts[2].strip() if len(_non_flag_parts) >= 3 else ""
+        _name = _non_flag_parts[3].strip() if len(_non_flag_parts) >= 4 else ""
+        if not _ns or not _name:
+            renderer.console.print(f"[{CHROME}]Usage: /spec create [--bugfix] <namespace> <name>[/{CHROME}]\n")
+            return
+        import os
+        import subprocess
+        import tempfile
+
+        from ..services.spec_schema import BUGFIX_TEMPLATE, FEATURE_TEMPLATE
+
+        _template = BUGFIX_TEMPLATE if _is_bugfix else FEATURE_TEMPLATE
+        _editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _tf:
+                _tf.write(_template)
+                _tf_path = _tf.name
+            subprocess.run([_editor, _tf_path], check=True)
+            with open(_tf_path) as _f:
+                _content = _f.read()
+            os.unlink(_tf_path)
+        except Exception as _e:
+            renderer.console.print(f"[{_ERROR}]Editor failed: {_e}[/{_ERROR}]\n")
+            return
+        if not _content.strip() or _content.strip() == _template.strip():
+            renderer.console.print(f"[{CHROME}]Spec creation cancelled (no changes).[/{CHROME}]\n")
+            return
+        from ..services.spec_service import create_spec as _cs
+
+        try:
+            _new = _cs(db, _ns, _name, _content)
+            renderer.console.print(f"[{_SUCCESS}]Created[/{_SUCCESS}] {_new['fqn']}\n")
+        except Exception as _e:
+            renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+
+    elif sub == "approve":
+        _fqn = parts[2].strip() if len(parts) >= 3 else ""
+        _phase = parts[3].strip() if len(parts) >= 4 else ""
+        if not _fqn or not _phase:
+            renderer.console.print(f"[{CHROME}]Usage: /spec approve <fqn> <phase>[/{CHROME}]\n")
+            return
+        from ..services.spec_service import approve_phase as _ap
+
+        try:
+            _r = _ap(db, _fqn, _phase)
+            if _r is None:
+                renderer.console.print(f"[{CHROME}]Spec not found.[/{CHROME}]\n")
+            else:
+                renderer.console.print(f"[{_SUCCESS}]Approved[/{_SUCCESS}] {_phase} on {_fqn}\n")
+        except (ValueError, Exception) as _e:
+            renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+
+    elif sub == "unapprove":
+        _fqn = parts[2].strip() if len(parts) >= 3 else ""
+        _phase = parts[3].strip() if len(parts) >= 4 else ""
+        if not _fqn or not _phase:
+            renderer.console.print(f"[{CHROME}]Usage: /spec unapprove <fqn> <phase>[/{CHROME}]\n")
+            return
+        from ..services.spec_service import unapprove_phase as _up
+
+        try:
+            _r = _up(db, _fqn, _phase)
+            if _r is None:
+                renderer.console.print(f"[{CHROME}]Spec not found.[/{CHROME}]\n")
+            else:
+                renderer.console.print(f"[{_SUCCESS}]Reset to draft[/{_SUCCESS}] {_phase} on {_fqn}\n")
+        except (ValueError, Exception) as _e:
+            renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+
+    elif sub == "diff":
+        _fqn = parts[2].strip() if len(parts) >= 3 else ""
+        if not _fqn:
+            renderer.console.print(f"[{CHROME}]Usage: /spec diff <fqn>[/{CHROME}]\n")
+            return
+        if not _validate_fqn(_fqn):
+            renderer.console.print(f"[{CHROME}]Invalid FQN format.[/{CHROME}]\n")
+            return
+        from ..services import artifact_storage as _art_store2
+        from ..services.spec_diff import diff_spec_versions as _dsv
+        from ..services.spec_schema import parse_spec_content as _psc
+
+        _art2 = _art_store2.get_artifact_by_fqn(db, _fqn)
+        if not _art2 or _art2["type"] != "spec":
+            renderer.console.print(f"[{CHROME}]Spec not found.[/{CHROME}]\n")
+            return
+        _vers = _art_store2.list_artifact_versions(db, _art2["id"])
+        if len(_vers) < 2:
+            renderer.console.print(f"[{CHROME}]Only one version — nothing to diff.[/{CHROME}]\n")
+            return
+        _old = _psc(_vers[1]["content"])
+        _new = _psc(_vers[0]["content"])
+        _diff = _dsv(_old, _new, version_from=_vers[1]["version"], version_to=_vers[0]["version"])
+        renderer.console.print(f"\n[bold]Diff:[/bold] v{_diff.version_from} → v{_diff.version_to}")
+        for _pc in _diff.phase_changes:
+            if _pc.content_changed:
+                renderer.console.print(f"\n  [bold]{_pc.phase}:[/bold] [#fbbf24]changed[/#fbbf24]")
+                if _pc.content_diff:
+                    for _line in _pc.content_diff.split("\n"):
+                        if _line.startswith("+"):
+                            renderer.console.print(f"    [{_SUCCESS}]{_line}[/{_SUCCESS}]")
+                        elif _line.startswith("-"):
+                            renderer.console.print(f"    [{_ERROR}]{_line}[/{_ERROR}]")
+                        else:
+                            renderer.console.print(f"    [{CHROME}]{_line}[/{CHROME}]")
+        for _tc in _diff.task_changes:
+            renderer.console.print(f"  Task {_tc.task_id}: [{CHROME}]{_tc.change_type}[/{CHROME}]")
+        if not any(pc.content_changed for pc in _diff.phase_changes) and not _diff.task_changes:
+            renderer.console.print(f"  [{CHROME}]No content changes.[/{CHROME}]")
+        renderer.console.print()
+
+    elif sub == "launch":
+        # /spec launch <fqn> <task_id> <workflow_id>
+        _launch_parts = user_input.split(maxsplit=5)
+        _launch_fqn = _launch_parts[2].strip() if len(_launch_parts) >= 3 else ""
+        _launch_tid = _launch_parts[3].strip() if len(_launch_parts) >= 4 else ""
+        _launch_wid = _launch_parts[4].strip() if len(_launch_parts) >= 5 else ""
+        if not _launch_fqn or not _launch_tid or not _launch_wid:
+            renderer.console.print(f"[{CHROME}]Usage: /spec launch <fqn> <task_id> <workflow_id>[/{CHROME}]\n")
+            return
+        if not _validate_fqn(_launch_fqn):
+            renderer.console.print(f"[{CHROME}]Invalid FQN format.[/{CHROME}]\n")
+            return
+        if config is None:
+            renderer.console.print(f"[{_ERROR}]Config not available for workflow launch.[/{_ERROR}]\n")
+            return
+
+        from ..services.spec_service import launch_from_task as _lft
+
+        _launch_extra: dict[str, Any] = {}
+        if space and space.get("id"):
+            _launch_extra["space_id"] = space["id"]
+        if working_dir:
+            _launch_extra["project_path"] = working_dir
+
+        try:
+            _inputs = _lft(db, _launch_fqn, _launch_tid, _launch_wid, extra_inputs=_launch_extra or None)
+        except ValueError as _e:
+            renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+            return
+
+        from ..services.workflow_resolution import resolve_workflow_path as _rwp
+
+        _wf_path = _rwp(_launch_wid)
+        if _wf_path is None:
+            renderer.console.print(f"[{_ERROR}]Workflow not found: {_launch_wid}[/{_ERROR}]\n")
+            return
+
+        from ..services.workflow_engine import load_definition as _ld
+
+        try:
+            _definition = _ld(_wf_path)
+        except Exception as _e:
+            renderer.console.print(f"[{_ERROR}]Invalid workflow: {_e}[/{_ERROR}]\n")
+            return
+
+        from .workflow_cli import _cleanup_event_bus, _create_engine
+
+        _engine, _event_bus = _create_engine(config, db)
+        try:
+            _run = await _engine.start_run(
+                _definition,
+                target_kind="spec",
+                target_ref=_launch_fqn,
+                inputs=_inputs,
+            )
+            renderer.console.print(
+                f"[{_SUCCESS}]Launched[/{_SUCCESS}] workflow {_launch_wid}"
+                f" for task {_launch_tid}\n"
+                f"  Run ID: {_run['id']}\n"
+                f"  Status: {_run.get('status', 'unknown')}\n"
+            )
+        except (ValueError, RuntimeError) as _e:
+            renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+        finally:
+            _cleanup_event_bus(_event_bus)
+
+    else:
+        renderer.console.print(
+            f"[{CHROME}]Usage: /spec {{list,show,create [--bugfix],approve,unapprove,diff,launch}}[/{CHROME}]\n"
+        )
+
+
 async def run_cli(
     config: AppConfig,
     prompt: str | None = None,
@@ -2379,6 +2645,8 @@ async def _run_repl(
         "help": "show help",
         "artifact": "manage artifacts",
         "artifacts": "list artifacts",
+        "spec": "manage specs",
+        "specs": "list specs",
         "artifact-check": "artifact health check",
         "config": "view/edit scoped config",
         "quit": "exit",
@@ -2387,6 +2655,7 @@ async def _run_repl(
 
     _subcommand_completions: dict[str, list[str]] = {
         "artifact": ["list", "show", "delete", "import", "create"],
+        "spec": ["list", "show", "create", "approve", "unapprove", "diff"],
         "pack": ["list", "show", "install", "remove", "sources", "attach", "detach", "update", "add-source", "refresh"],
         "space": ["list", "show", "switch", "create", "load", "refresh", "clear", "init", "clone", "map"],
         "config": ["list", "get", "set", "reset"],
@@ -2500,6 +2769,8 @@ async def _run_repl(
         "artifact",
         "artifacts",
         "artifact-check",
+        "spec",
+        "specs",
         "pack",
         "packs",
         "space",
@@ -4699,6 +4970,7 @@ async def _run_repl(
                     if sub == "list" or not sub:
                         _atype = None
                         _asource = None
+                        _attached_flag = False
                         # For /artifacts --type=X, flags are in parts[1]; for /artifact list --type=X, in parts[2]
                         if cmd == "/artifacts":
                             _rest = " ".join(parts[1:]) if len(parts) >= 2 else ""
@@ -4709,8 +4981,17 @@ async def _run_repl(
                                 _atype = _tok.split("=", 1)[1]
                             elif _tok.startswith("--source="):
                                 _asource = _tok.split("=", 1)[1]
+                            elif _tok == "--attached":
+                                _attached_flag = True
                         try:
-                            arts = _art_store.list_artifacts(db, artifact_type=_atype, source=_asource)
+                            arts = _art_store.list_artifacts(
+                                db,
+                                artifact_type=_atype,
+                                source=_asource,
+                                attached_only=_attached_flag,
+                                space_id=space["id"] if space else None,
+                                project_path=working_dir,
+                            )
                         except ValueError as _ve:
                             renderer.console.print(f"[{_ERROR}]Invalid filter: {_ve}[/{_ERROR}]\n")
                             continue
@@ -4719,7 +5000,10 @@ async def _run_repl(
                             continue
                         renderer.console.print("\n[bold]Artifacts:[/bold]")
                         for a in arts:
-                            renderer.console.print(f"  {a['fqn']}  [{a.get('type', '?')}]  ({a.get('source', '?')})")
+                            _po_badge = f" [{CHROME}][pack][/{CHROME}]" if _art_store.is_pack_owned(db, a["id"]) else ""
+                            renderer.console.print(
+                                f"  {a['fqn']}{_po_badge}  [{a.get('type', '?')}]  ({a.get('source', '?')})"
+                            )
                         renderer.console.print()
 
                     elif sub == "show":
@@ -4758,6 +5042,11 @@ async def _run_repl(
                         if not art:
                             renderer.console.print(f"[{CHROME}]Artifact not found.[/{CHROME}]\n")
                             continue
+                        if _art_store.is_pack_owned(db, art["id"]):
+                            renderer.console.print(
+                                f"[{_ERROR}]Cannot delete pack-owned artifact. Remove the pack instead.[/{_ERROR}]\n"
+                            )
+                            continue
                         _art_store.delete_artifact(db, art["id"])
                         renderer.console.print(f"[{_SUCCESS}]Deleted[/{_SUCCESS}] {_fqn}\n")
 
@@ -4775,6 +5064,17 @@ async def _run_repl(
                         renderer.console.print(
                             f"[{CHROME}]Usage: /artifact {{list,show,delete,import,create}}[/{CHROME}]\n"
                         )
+                    continue
+
+                elif cmd in ("/spec", "/specs"):
+                    await _handle_spec_command(
+                        user_input,
+                        cmd=cmd,
+                        db=db,
+                        config=config,
+                        space=space,
+                        working_dir=working_dir,
+                    )
                     continue
 
                 elif cmd == "/artifact-check":
@@ -5403,6 +5703,8 @@ async def _run_repl(
                                         _pending_usage.get("total_tokens", 0),
                                         _pending_usage.get("model", ""),
                                     )
+                                    if _pending_usage.get("estimated"):
+                                        storage.merge_message_metadata(db, new_msg["id"], {"usage_estimated": True})
                                     _pending_usage = None
                         elif event.kind == "dlp_blocked":
                             if thinking:

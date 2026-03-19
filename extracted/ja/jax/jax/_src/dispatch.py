@@ -271,6 +271,8 @@ def get_intermediate_shardings(
       out.extend((o, source_info) for o in eqn.params['out_shardings'])
     elif eqn.primitive is shard_map.shard_map_p:
       mesh = eqn.params['mesh']
+      if isinstance(mesh, AbstractMesh):
+        continue
       source_info = SourceInfo(eqn.source_info, eqn.primitive.name)
       out.extend((NamedSharding(mesh, spec), source_info)
                  for spec in [*eqn.params['in_specs'], *eqn.params['out_specs']])
@@ -284,7 +286,7 @@ def get_intermediate_shardings(
 
 
 def check_arg(arg: Any):
-  if not (isinstance(arg, core.Tracer) or core.valid_jaxtype(arg)):
+  if not core.valid_jaxtype(arg):
     raise TypeError(f"Argument '{arg}' of type {type(arg)} is not a valid "
                     "JAX type.")
 
@@ -341,7 +343,7 @@ def _different_device_order_reshard(
       new_mesh, inp_sharding.spec, memory_kind=target_sharding.memory_kind,
       _logical_device_ids=(None if permute_order is None else
                             tuple(permute_order.tolist())))
-  new_x = xc.reorder_shards(x, new_s, ArrayCopySemantics.REUSE_INPUT)  # type: ignore
+  new_x = xc.reorder_shards(x, new_s, ArrayCopySemantics.REUSE_INPUT)
   return api.jit(_identity_fn, out_shardings=target_sharding,
                 donate_argnums=donate_argnums)(new_x)
 
@@ -543,7 +545,9 @@ def _device_put_impl(
     src: Device | Sharding | Format | None, copy: ArrayCopySemantics, aval):
   if aval is None:
     try:
-      aval = core.abstractify(x)
+      if isinstance(x, core.Tracer):
+        raise TypeError(f"Argument '{x}' of type '{type(x)}' is not a valid JAX type")
+      aval = core.typeof(x)
       aval = update_dp_aval(aval, device)
     except TypeError as err:
       raise TypeError(
@@ -673,14 +677,22 @@ def _device_put_abstract_eval(*xs, devices, srcs, copy_semantics):
   return [update_dp_aval(x, d) for x, d in zip(xs, devices)]
 device_put_p.def_abstract_eval(_device_put_abstract_eval)
 
-def _device_put_transpose(cts, *_, devices, srcs, copy_semantics):
-  results = [None] * len(cts)
-  dp_args = []
-  for i, (ct, device, src, cp) in enumerate(zip(cts, devices, srcs, copy_semantics)):
-    if type(ct) is not ad.Zero:
-      dp_args.append((i, ct, device, src, cp))
-  if dp_args:
-    indices, args, devices, srcs, copy_semantics = list(zip(*dp_args))
+def _device_put_transpose(cts, *args, devices, srcs, copy_semantics):
+  results, dp_cts = [None] * len(cts), []
+  for i, (ct, arg, device, src, cp) in enumerate(zip(
+      cts, args, devices, srcs, copy_semantics)):
+    if ad.is_undefined_primal(arg):
+      if type(ct) is ad.Zero:
+        results[i] = ad.Zero(arg.aval.to_ct_aval())  # type: ignore
+      else:
+        dp_cts.append((i, ct, arg, device, src, cp))
+
+  if dp_cts:
+    indices, dp_ct, args, devices, srcs, copy_semantics = list(zip(*dp_cts))
+    # TODO(yashkatariya): Maybe remove the special carve out for Host?
+    srcs = tuple(a.aval.memory_space
+                 if s is None and a.aval.memory_space == core.MemorySpace.Host
+                 else s for s, a in zip(srcs, args))
     new_copy_semantics = []
     for cp in copy_semantics:
       if cp == ArrayCopySemantics.DONATE_INPUT:
@@ -692,7 +704,7 @@ def _device_put_transpose(cts, *_, devices, srcs, copy_semantics):
       else:
         assert cp == ArrayCopySemantics.ALWAYS_COPY
         new_copy_semantics.append(ArrayCopySemantics.ALWAYS_COPY)
-    ys = device_put_p.bind(*args, devices=srcs, srcs=devices,
+    ys = device_put_p.bind(*dp_ct, devices=srcs, srcs=devices,
                            copy_semantics=tuple(new_copy_semantics))
     for i, y in zip(indices, ys):
       results[i] = y

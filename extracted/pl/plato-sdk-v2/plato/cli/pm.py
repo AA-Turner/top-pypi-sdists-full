@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -66,37 +67,38 @@ def _get_claude_credentials() -> tuple[str, str]:
         (config_key, value) — either ("claude_oauth_credentials", "<json>")
         or ("anthropic_api_key", "<key>").
     """
-    # 1. Try macOS Keychain for OAuth credentials
-    try:
-        raw = subprocess.run(
-            ["security", "find-generic-password", "-s", _CLAUDE_KEYCHAIN_SERVICE, "-w"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if raw.returncode == 0 and raw.stdout.strip():
-            creds = json.loads(raw.stdout.strip())
-            # Show token expiry info
-            oauth = creds.get("claudeAiOauth", {})
-            expires_at = oauth.get("expiresAt")
-            expiry_msg = ""
-            if expires_at:
-                try:
-                    exp_dt = datetime.fromtimestamp(expires_at / 1000)
-                    remaining = exp_dt - datetime.now()
-                    mins = int(remaining.total_seconds() / 60)
-                    if mins < 0:
-                        expiry_msg = f" [yellow](expired {-mins}m ago!)[/yellow]"
-                    elif mins < 60:
-                        expiry_msg = f" [yellow](expires in {mins}m)[/yellow]"
-                    else:
-                        expiry_msg = f" [dim](expires in {mins // 60}h {mins % 60}m)[/dim]"
-                except (ValueError, TypeError, OSError):
-                    pass
-            console.print(f"[green]Using Claude OAuth from Keychain[/green]{expiry_msg}")
-            return "claude_oauth_credentials", json.dumps(creds, separators=(",", ":"))
-    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        pass
+    # 1. Try macOS Keychain for OAuth credentials (macOS only)
+    if sys.platform == "darwin":
+        try:
+            raw = subprocess.run(
+                ["security", "find-generic-password", "-s", _CLAUDE_KEYCHAIN_SERVICE, "-w"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if raw.returncode == 0 and raw.stdout.strip():
+                creds = json.loads(raw.stdout.strip())
+                # Show token expiry info
+                oauth = creds.get("claudeAiOauth", {})
+                expires_at = oauth.get("expiresAt")
+                expiry_msg = ""
+                if expires_at:
+                    try:
+                        exp_dt = datetime.fromtimestamp(expires_at / 1000)
+                        remaining = exp_dt - datetime.now()
+                        mins = int(remaining.total_seconds() / 60)
+                        if mins < 0:
+                            expiry_msg = f" [yellow](expired {-mins}m ago!)[/yellow]"
+                        elif mins < 60:
+                            expiry_msg = f" [yellow](expires in {mins}m)[/yellow]"
+                        else:
+                            expiry_msg = f" [dim](expires in {mins // 60}h {mins % 60}m)[/dim]"
+                    except (ValueError, TypeError, OSError):
+                        pass
+                console.print(f"[green]Using Claude OAuth from Keychain[/green]{expiry_msg}")
+                return "claude_oauth_credentials", json.dumps(creds, separators=(",", ":"))
+        except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired, json.JSONDecodeError):
+            pass
 
     # 2. Fall back to ANTHROPIC_API_KEY env var
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -652,6 +654,14 @@ async def _launch_datagen_world(
     """Launch an interactive datagen world. Returns session_id or None."""
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
 
+    if not DEFAULT_ANCHOR_KEY:
+        console.print(
+            "[yellow]⚠️  ANCHOR_API_KEY is not set. The datagen session will fail to launch a browser.[/yellow]"
+        )
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+        if not typer.confirm("Continue anyway?", default=False):
+            return None
+
     try:
         template, version_id = _fetch_experiment_config("data", "base", api_key)
 
@@ -944,13 +954,16 @@ def start_data(
                             x_api_key=api_key,
                         )
 
-                    # Move to data_in_progress
-                    await update_simulator_status.asyncio(
-                        client=client,
-                        simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="data_in_progress"),
-                        x_api_key=api_key,
-                    )
+                    # Move to data_in_progress (skip if already there)
+                    if s["status"] != "data_in_progress":
+                        await update_simulator_status.asyncio(
+                            client=client,
+                            simulator_id=s["id"],
+                            body=UpdateStatusRequest(status="data_in_progress"),
+                            x_api_key=api_key,
+                        )
+                    else:
+                        console.print(f"[cyan]{s['name']}: already in data_in_progress, re-launching datagen[/cyan]")
 
                 # Launch datagen
                 launched = await _launch_datagen_world(
@@ -1419,8 +1432,15 @@ def review_env(
 
             # Validate status BEFORE submitting outcome
             if outcome == "pass":
-                validate_status_transition(current_status, "env_review_requested", "review env pass")
-                new_status = "env_approved"
+                if current_status == "data_in_progress":
+                    # Already approved and datagen was attempted — allow re-launching
+                    console.print(
+                        "[yellow]⚠️  Status is already data_in_progress (prior datagen may have failed).[/yellow]"
+                    )
+                    new_status = "data_in_progress"
+                else:
+                    validate_status_transition(current_status, "env_review_requested", "review env pass")
+                    new_status = "env_approved"
             else:
                 validate_status_transition(current_status, "env_review_requested", "review env reject")
                 new_status = "env_in_progress"
@@ -1528,13 +1548,14 @@ def review_env(
                 return
 
             async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as api_client:
-                # Update status
-                await update_simulator_status.asyncio(
-                    client=api_client,
-                    simulator_id=simulator_id,
-                    body=UpdateStatusRequest(status=new_status),
-                    x_api_key=api_key,
-                )
+                # Update status (skip if already at target status, e.g. re-launching datagen)
+                if current_status != new_status:
+                    await update_simulator_status.asyncio(
+                        client=api_client,
+                        simulator_id=simulator_id,
+                        body=UpdateStatusRequest(status=new_status),
+                        x_api_key=api_key,
+                    )
 
                 if outcome == "reject":
                     # 1. Submit review
@@ -1633,14 +1654,17 @@ def review_env(
                     except Exception as e:
                         console.print(f"[yellow]⚠️  Could not set assignees: {e}[/yellow]")
 
-                    # Move to data_in_progress
-                    await update_simulator_status.asyncio(
-                        client=api_client,
-                        simulator_id=simulator_id,
-                        body=UpdateStatusRequest(status="data_in_progress"),
-                        x_api_key=api_key,
-                    )
-                    console.print(f"[cyan]Status:[/cyan] {new_status} → data_in_progress")
+                    # Move to data_in_progress (skip if already there from a prior attempt)
+                    if new_status != "data_in_progress":
+                        await update_simulator_status.asyncio(
+                            client=api_client,
+                            simulator_id=simulator_id,
+                            body=UpdateStatusRequest(status="data_in_progress"),
+                            x_api_key=api_key,
+                        )
+                        console.print(f"[cyan]Status:[/cyan] {new_status} → data_in_progress")
+                    else:
+                        console.print("[cyan]Status already data_in_progress, re-launching datagen[/cyan]")
 
                     # Launch datagen
                     launched_session = await _launch_datagen_world(

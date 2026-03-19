@@ -1,11 +1,70 @@
+from unittest.mock import MagicMock
+
 from pipenv.patched.pip._internal.index.package_finder import CandidateEvaluator
 from pipenv.patched.pip._internal.models.candidate import InstallationCandidate
 from pipenv.patched.pip._internal.models.release_control import ReleaseControl
 from pipenv.patched.pip._vendor.packaging.specifiers import (
     SpecifierSet as PipSpecifierSet,
 )
-from pipenv.utils.dependencies import clean_resolved_dep
+from pipenv.resolver import Entry
+from pipenv.utils.dependencies import _file_url_to_relative_path, clean_resolved_dep
 from pipenv.vendor.packaging.specifiers import SpecifierSet
+
+
+def _make_entry(entry_dict, category="packages"):
+    """Helper to create an Entry with mocked project/resolver dependencies."""
+    project = MagicMock()
+    project.parsed_pipfile = {category: {}}
+    resolver = MagicMock()
+    resolver.index_lookup = {}
+    return Entry(
+        name=entry_dict["name"],
+        entry_dict=entry_dict,
+        project=project,
+        resolver=resolver,
+        category=category,
+    )
+
+
+def test_entry_get_cleaned_dict_preserves_file_url():
+    """Test that file:// URLs are preserved in get_cleaned_dict.
+
+    Regression test for https://github.com/pypa/pipenv/issues/6521.
+    When a transitive dependency uses a PEP 508 file:// URL,
+    the file key must be preserved in the lockfile entry.
+    """
+    entry = _make_entry({
+        "name": "local-child-pkg",
+        "file": "file:///home/user/project/vendor/local-child-pkg",
+    })
+    cleaned = entry.get_cleaned_dict
+    assert "file" in cleaned
+    assert cleaned["file"] == "file:///home/user/project/vendor/local-child-pkg"
+    assert "version" not in cleaned  # file deps shouldn't have a version
+
+
+def test_entry_get_cleaned_dict_preserves_path():
+    """Test that path entries are preserved in get_cleaned_dict."""
+    entry = _make_entry({
+        "name": "my-local-pkg",
+        "path": "vendor/my-local-pkg",
+    })
+    cleaned = entry.get_cleaned_dict
+    assert "path" in cleaned
+    assert cleaned["path"] == "vendor/my-local-pkg"
+
+
+def test_entry_get_cleaned_dict_no_file_or_path():
+    """Test that regular PyPI packages don't get spurious file/path keys."""
+    entry = _make_entry({
+        "name": "requests",
+        "version": "==2.28.1",
+        "hashes": ["sha256:abc123"],
+    })
+    cleaned = entry.get_cleaned_dict
+    assert "file" not in cleaned
+    assert "path" not in cleaned
+    assert cleaned["version"] == "==2.28.1"
 
 
 def test_clean_resolved_dep_with_vcs_url():
@@ -36,6 +95,107 @@ def test_clean_resolved_dep_with_vcs_url_and_extras():
     assert result["example-package"]["git"] == "git+https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/username/repo.git[extra1,extra2]"
     assert result["example-package"]["ref"] == "main"
     assert result["example-package"]["extras"] == ["extra1", "extra2"]
+
+
+# ---------------------------------------------------------------------------
+# Tests for GH-6119: transitive local-file sub-dependency path normalisation
+# ---------------------------------------------------------------------------
+
+class TestFileUrlToRelativePath:
+    """Unit tests for the _file_url_to_relative_path helper."""
+
+    def test_posix_file_url_becomes_relative(self):
+        base = "/home/user/my-project"
+        url = "file:///home/user/namespace-utils"
+        result = _file_url_to_relative_path(url, base)
+        assert result == "../namespace-utils"
+
+    def test_already_relative_path_unchanged(self):
+        base = "/home/user/my-project"
+        result = _file_url_to_relative_path("../some-lib", base)
+        assert result == "../some-lib"
+
+    def test_http_url_unchanged(self):
+        url = "https://example.com/packages/pkg-1.0.tar.gz"
+        result = _file_url_to_relative_path(url, "/some/dir")
+        assert result == url
+
+    def test_non_string_input_unchanged(self):
+        assert _file_url_to_relative_path(None, "/base") is None
+        assert _file_url_to_relative_path(42, "/base") == 42
+
+    def test_nested_subdirectory(self):
+        base = "/home/user/my-project"
+        url = "file:///home/user/my-project/vendor/local-pkg"
+        result = _file_url_to_relative_path(url, base)
+        assert result == "vendor/local-pkg"
+
+
+def test_clean_resolved_dep_converts_file_url_subdep():
+    """Transitive local deps whose file:// URL is resolved by pip are
+    converted to a project-relative path in the lockfile.
+
+    Regression test for https://github.com/pypa/pipenv/issues/6119.
+    """
+    project = MagicMock()
+    project.project_directory = "/home/user/my-project"
+
+    dep = {
+        "name": "namespace-utils",
+        "file": "file:///home/user/namespace-utils",
+    }
+    result = clean_resolved_dep(project, dep)
+
+    assert "namespace-utils" in result
+    entry = result["namespace-utils"]
+    assert "file" in entry
+    # Must be a relative path, not an absolute file:// URL
+    assert not entry["file"].startswith("file://"), (
+        f"Expected a relative path but got: {entry['file']!r}"
+    )
+    assert entry["file"] == "../namespace-utils"
+
+
+def test_clean_resolved_dep_preserves_relative_file_toplevel():
+    """Already-relative file paths are not modified by the normalisation logic.
+
+    The normalisation only applies to absolute ``file://`` URLs; plain relative
+    paths (as stored by top-level Pipfile entries after get_locked_dep merges
+    the Pipfile data) must pass through unchanged.
+    """
+    project = MagicMock()
+    project.project_directory = "/home/user/my-project"
+
+    # Use is_top_level=False to avoid the unearth_hashes_for_dep code path
+    # that requires an actual filesystem path.  The normalisation logic under
+    # test runs before is_top_level is considered.
+    dep = {
+        "name": "namespace-library",
+        "file": "../namespace-library-file",
+        "editable": True,
+    }
+    result = clean_resolved_dep(project, dep, is_top_level=False)
+
+    assert "namespace-library" in result
+    entry = result["namespace-library"]
+    assert entry["file"] == "../namespace-library-file"
+    assert entry["editable"] is True
+
+
+def test_clean_resolved_dep_file_url_no_project():
+    """When project has no project_directory attribute the file:// URL is
+    stored as-is (graceful degradation, no crash).
+    """
+    dep = {
+        "name": "namespace-utils",
+        "file": "file:///home/user/namespace-utils",
+    }
+    # Use a plain dict as the project mock (no project_directory attribute)
+    result = clean_resolved_dep({}, dep)
+
+    assert "namespace-utils" in result
+    # URL is unchanged when we cannot compute a relative path
+    assert result["namespace-utils"]["file"] == "file:///home/user/namespace-utils"
 
 
 class TestPrereleaseFiltering:
@@ -296,3 +456,109 @@ class TestCandidateEvaluatorPrereleases:
         assert "0.20b0" not in versions
         assert "0.50b0" in versions
         assert "0.60b0" in versions
+
+
+
+# ---------------------------------------------------------------------------
+# Tests for no_binary handling (GitHub issue #5362)
+# ---------------------------------------------------------------------------
+
+class TestNoBinaryCleanResolvedDep:
+    """Ensure clean_resolved_dep preserves the no_binary flag."""
+
+    def test_no_binary_true_is_preserved(self):
+        """no_binary = True must survive clean_resolved_dep so the lockfile
+        records it and batch_install can re-apply --no-binary."""
+        project = MagicMock()
+        project.project_directory = None
+
+        dep = {
+            "name": "cartopy",
+            "version": "==0.21.0",
+            "no_binary": True,
+        }
+        result = clean_resolved_dep(project, dep)
+
+        assert "cartopy" in result
+        assert result["cartopy"].get("no_binary") is True
+
+    def test_no_binary_false_is_not_written(self):
+        """When no_binary is falsy it should not appear in the lockfile entry."""
+        project = MagicMock()
+        project.project_directory = None
+
+        dep = {
+            "name": "requests",
+            "version": "==2.28.0",
+            "no_binary": False,
+        }
+        result = clean_resolved_dep(project, dep)
+
+        assert "no_binary" not in result.get("requests", {})
+
+    def test_no_binary_absent_is_not_written(self):
+        """When no_binary is absent it should not appear in the lockfile entry."""
+        project = MagicMock()
+        project.project_directory = None
+
+        dep = {
+            "name": "requests",
+            "version": "==2.28.0",
+        }
+        result = clean_resolved_dep(project, dep)
+
+        assert "no_binary" not in result.get("requests", {})
+
+
+class TestShouldUseNoBinary:
+    """Tests for the _should_use_no_binary helper in routines/install.py."""
+
+    def _call(self, pkg_name, extra_pip_args=None, env=None):
+        import os
+        from unittest.mock import patch
+
+        from pipenv.routines.install import _should_use_no_binary
+
+        env = env or {}
+        with patch.dict(os.environ, env, clear=False):
+            return _should_use_no_binary(pkg_name, extra_pip_args)
+
+    def test_extra_pip_args_space_separated(self):
+        assert self._call("cartopy", ["--no-binary", "cartopy"]) is True
+
+    def test_extra_pip_args_equals_form(self):
+        assert self._call("cartopy", ["--no-binary=cartopy"]) is True
+
+    def test_extra_pip_args_all(self):
+        assert self._call("cartopy", ["--no-binary", ":all:"]) is True
+
+    def test_extra_pip_args_comma_list_matches(self):
+        assert self._call("cartopy", ["--no-binary", "numpy,cartopy,scipy"]) is True
+
+    def test_extra_pip_args_comma_list_no_match(self):
+        assert self._call("cartopy", ["--no-binary", "numpy,scipy"]) is False
+
+    def test_extra_pip_args_different_package(self):
+        assert self._call("cartopy", ["--no-binary", "numpy"]) is False
+
+    def test_pip_no_binary_env_var_matches(self):
+        assert self._call("cartopy", env={"PIP_NO_BINARY": "cartopy"}) is True
+
+    def test_pip_no_binary_env_var_all(self):
+        assert self._call("cartopy", env={"PIP_NO_BINARY": ":all:"}) is True
+
+    def test_pip_no_binary_env_var_no_match(self):
+        assert self._call("cartopy", env={"PIP_NO_BINARY": "numpy"}) is False
+
+    def test_case_insensitive_match(self):
+        assert self._call("Cartopy", ["--no-binary", "cartopy"]) is True
+
+    def test_normalised_name_match(self):
+        # pip normalises dashes/underscores, ensure we do too
+        assert self._call("some-package", ["--no-binary", "some_package"]) is True
+
+    def test_empty_extra_pip_args(self):
+        assert self._call("cartopy", []) is False
+
+    def test_none_pkg_name(self):
+        assert self._call(None, ["--no-binary", "cartopy"]) is False

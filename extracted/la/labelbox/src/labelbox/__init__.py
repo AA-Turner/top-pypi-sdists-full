@@ -1,6 +1,6 @@
 name = "labelbox"
 
-__version__ = "7.5.0"
+__version__ = "7.6.0"
 
 from labelbox.client import Client
 from labelbox.schema.annotation_import import (
@@ -22,6 +22,18 @@ from labelbox.schema.data_row_metadata import (
 )
 from labelbox.schema.dataset import Dataset
 from labelbox.schema.enums import AnnotationImportState
+from labelbox.schema.project_sync import (
+    AutoQA,
+    AutoQaStatus,
+    CustomScore,
+    GranularRating,
+    ProjectSyncEntry,
+    ProjectSyncLabel,
+    ProjectSyncResult,
+    ProjectSyncReview,
+    ReviewedBy,
+    SubmittedBy,
+)
 from labelbox.schema.export_task import (
     BufferedJsonConverterOutput,
     ExportTask,
@@ -32,6 +44,16 @@ from labelbox.schema.iam_integration import IAMIntegration
 from labelbox.schema.identifiable import GlobalKey, UniqueId
 from labelbox.schema.identifiables import DataRowIds, GlobalKeys, UniqueIds
 from labelbox.schema.invite import Invite, InviteLimit
+from labelbox.schema.issue import Comment, Issue, IssueStatus
+from labelbox.schema.issue_category import IssueCategory
+from labelbox.schema.issue_position import (
+    ImageIssuePosition,
+    IssuePosition,
+    PdfIssuePosition,
+    TextIssuePosition,
+    VideoFrameRange,
+    VideoIssuePosition,
+)
 from labelbox.schema.label import Label
 from labelbox.schema.label_score import LabelScore
 from labelbox.schema.labeling_frontend import (

@@ -40,6 +40,7 @@ class CPDVersion:
         "5.1",
         "5.2",
         "5.3",
+        "5.4",
     ]
 
     def __init__(self, version: str | None = None):

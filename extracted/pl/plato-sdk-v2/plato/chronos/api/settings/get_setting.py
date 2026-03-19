@@ -12,10 +12,15 @@ from plato.chronos.models import SettingResponse
 
 def _build_request_args(
     key: str,
+    scope: str | None = "org",
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/settings/{key}"
+
+    params: dict[str, Any] = {}
+    if scope is not None:
+        params["scope"] = scope
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -24,6 +29,7 @@ def _build_request_args(
     return {
         "method": "GET",
         "url": url,
+        "params": params,
         "headers": headers,
     }
 
@@ -31,12 +37,14 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     key: str,
+    scope: str | None = "org",
     x_api_key: str | None = None,
 ) -> SettingResponse:
     """Get Setting"""
 
     request_args = _build_request_args(
         key=key,
+        scope=scope,
         x_api_key=x_api_key,
     )
 
@@ -48,12 +56,14 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     key: str,
+    scope: str | None = "org",
     x_api_key: str | None = None,
 ) -> SettingResponse:
     """Get Setting"""
 
     request_args = _build_request_args(
         key=key,
+        scope=scope,
         x_api_key=x_api_key,
     )
 

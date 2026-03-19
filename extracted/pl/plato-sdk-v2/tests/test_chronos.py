@@ -329,3 +329,70 @@ class TestSessionResult:
         result = getattr(resp, "result", None)
         if result is not None:
             assert result["artifact_ids"]["crm"] == "id-1"
+
+
+class TestDownloadWorkspaceFiles:
+    """Test that download_workspace_files returns raw bytes, not JSON-decoded."""
+
+    def test_sync_returns_bytes(self):
+        """download_workspace_files.sync must return response.content (bytes), not response.json()."""
+        from plato.chronos.api.workspace_repos import download_workspace_files
+
+        zip_payload = b"PK\x03\x04fake-zip-content-bytes"
+
+        def handler(request: httpx.Request):
+            assert "/download" in str(request.url)
+            return httpx.Response(
+                200,
+                content=zip_payload,
+                headers={"content-type": "application/zip"},
+            )
+
+        transport = _mock_transport(handler)
+        client = httpx.Client(
+            base_url="https://chronos.test",
+            transport=transport,
+            headers={"X-API-Key": "test-key"},
+        )
+
+        result = download_workspace_files.sync(
+            client,
+            session_public_id="sess-1",
+            step_name="step.0",
+            repo_name="code",
+        )
+
+        assert isinstance(result, bytes)
+        assert result == zip_payload
+
+    @pytest.mark.asyncio
+    async def test_asyncio_returns_bytes(self):
+        """download_workspace_files.asyncio must return response.content (bytes)."""
+        from plato.chronos.api.workspace_repos import download_workspace_files
+
+        zip_payload = b"PK\x03\x04fake-zip-content-bytes"
+
+        async def handler(request: httpx.Request):
+            assert "/download" in str(request.url)
+            return httpx.Response(
+                200,
+                content=zip_payload,
+                headers={"content-type": "application/zip"},
+            )
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(
+            base_url="https://chronos.test",
+            transport=transport,
+            headers={"X-API-Key": "test-key"},
+        )
+
+        result = await download_workspace_files.asyncio(
+            client,
+            session_public_id="sess-1",
+            step_name="step.0",
+            repo_name="code",
+        )
+
+        assert isinstance(result, bytes)
+        assert result == zip_payload

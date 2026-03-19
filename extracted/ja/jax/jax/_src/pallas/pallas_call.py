@@ -117,7 +117,7 @@ def _pallas_call_abstract_eval(
                      f"{missing}")
   outin_aliases = {out_idx: in_idx for in_idx, out_idx in inout_aliases.items()}
   out_avals = tuple(
-      avals[outin_aliases[out_idx]] if out_idx in outin_aliases else a  # pyrefly: ignore[bad-index]
+      avals[outin_aliases[out_idx]] if out_idx in outin_aliases else a
       for out_idx, a in enumerate(out_avals)
   )
   # Make sure we don't return ShapedArrayWithMemorySpace to the outside world.
@@ -149,7 +149,7 @@ pallas_call_p.def_effectful_abstract_eval(_pallas_call_abstract_eval)
 def _pallas_call_is_high(*_, jaxpr, **params):
   del params
   return jaxpr.is_high
-pallas_call_p.is_high = _pallas_call_is_high  # type: ignore
+pallas_call_p.is_high = _pallas_call_is_high
 
 
 def _get_index_mapping(avals) -> dict[int, tuple[int, ...]]:
@@ -178,7 +178,7 @@ def _pallas_call_to_lojax(
     metadata: FrozenDict[str, str] | None,
     name: str | None,
 ):
-  if any(jax_core.get_aval(x).has_qdd for x in hi_args):
+  if any(jax_core.typeof(x).has_qdd for x in hi_args):
     raise NotImplementedError("pallas_call does not support QDD for inputs")
   if any(aval.has_qdd for aval in out_avals):
     raise NotImplementedError("pallas_call does not support QDD for outputs")
@@ -193,7 +193,7 @@ def _pallas_call_to_lojax(
       raise NotImplementedError(
           "pallas_call does not support hijax for index_map"
       )
-  avals = [jax_core.get_aval(a) for a in hi_args]
+  avals = [jax_core.typeof(a) for a in hi_args]
   lo_args = [lo_val for aval, x in zip(avals, hi_args)
              for lo_val in (aval.read_loval(x) if aval.has_qdd
                             else aval.lower_val(x))]
@@ -250,7 +250,7 @@ def _pallas_call_to_lojax(
   return pe.raise_lo_outs(out_avals, lo_outs)
 
 
-pallas_call_p.to_lojax = _pallas_call_to_lojax  # type: ignore
+pallas_call_p.to_lojax = _pallas_call_to_lojax
 
 
 def _pallas_call_jvp_rule(
@@ -364,7 +364,7 @@ def _batch_block_mapping(
       unflat_indices = (unflat_indices,)
     unflat_indices = list(unflat_indices)
     if dim is not batching.not_mapped:
-      unflat_indices.insert(dim, new_idx)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+      unflat_indices.insert(dim, new_idx)
     return tuple(unflat_indices)
   idx_avals = [pallas_core.index_map_grid_aval, *block_mapping.index_map_jaxpr.in_avals]
 
@@ -382,11 +382,11 @@ def _batch_block_mapping(
     new_block_shape = shape
     new_array_aval = block_mapping.array_aval
   else:
-    # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+
     new_block_shape = tuple_insert(shape, dim, pallas_core.squeezed)
 
     array_shape = block_mapping.array_aval.shape
-    # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+
     array_shape = tuple_insert(array_shape, dim, axis_size)
 
     new_array_aval = jax_core.ShapedArray(
@@ -425,7 +425,7 @@ def _broadcast_input_output_aliases(
           args_[input_index], axis_size, 0, None)
     elif dim != 0:
       # TODO(cjfj): Change output batching axis instead?
-      # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+
       args_[input_index] = jnp.moveaxis(args[input_index], dim, 0)
 
   return tuple(args_), tuple(dims_)
@@ -462,7 +462,7 @@ def _batch_with_explicit_loop(
     raise NotImplementedError("vmapping pallas_call with no arguments.")
 
   (axis_size,) = {
-      arg.shape[dim]  # pyrefly: ignore[bad-index]  # pyrefly#2499
+      arg.shape[dim]
       for arg, dim in zip(args, dims)
       if dim is not batching.not_mapped
   }
@@ -498,7 +498,7 @@ def _batch_with_explicit_loop(
                     operand=arg,
                     start_index=batch_index,
                     slice_size=1,
-                    axis=dim,  # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+                    axis=dim,
                 ),
                 axis=dim,
             )
@@ -802,7 +802,7 @@ def checkify_pallas_kernel_body_jaxpr(
     grid_mapping: GridMapping) -> tuple[
         jax_core.ClosedJaxpr, tree_util.PyTreeDef, set[checkify.ErrorEffect]]:
   err_vals, err_tree = tree_util.tree_flatten(error)
-  err_vals = map(jax_core.get_aval, err_vals)
+  err_vals = map(jax_core.typeof, err_vals)
   flat_err_and_in_vals = [*err_vals, *body_jaxpr.in_avals]
 
   with pallas_core.tracing_grid_env(grid_mapping.grid, ()):
@@ -883,7 +883,7 @@ def pallas_call_checkify_oob_grid(error: checkify.Error,
                                                   f, (0,), {})),
       jaxpr_in_tree)
   with pallas_core.tracing_grid_env(grid_mapping.grid, ()):
-    avals_in = map(jax_core.get_aval, flat_args)
+    avals_in = map(jax_core.typeof, flat_args)
     traced_loop, _, consts = pe.trace_to_jaxpr_dynamic(
         wrapped_loop, list(avals_in))
     traced_loop = jax_core.ClosedJaxpr(traced_loop, consts)
@@ -927,7 +927,7 @@ def pallas_call_checkify_rule(error: checkify.Error,
       closed_jaxpr, enabled_errors, error, grid_mapping)
   error = error._add_placeholder_effects(error_effects)
   err_vals, err_in_tree = tree_util.tree_flatten(error)
-  shaped_err_avals = map(jax_core.get_aval, err_vals)
+  shaped_err_avals = map(jax_core.typeof, err_vals)
 
   # Trace the kernel jaxpr to get a checkified jaxpr. This jaxpr will have
   # all enabled errors removed, but have the error as inputs and return values.
@@ -1003,7 +1003,7 @@ def pallas_call_checkify_rule(error: checkify.Error,
 
   # Prepare pallas_call inputs. We need to create new block specs
   # for the new error inputs and outputs.
-  error_block_specs = [pallas_core.BlockSpec(None, None)] * len(shaped_err_avals)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+  error_block_specs = [pallas_core.BlockSpec(None, None)] * len(shaped_err_avals)
   error_paths, _ = unzip2(tree_util.tree_flatten_with_path(error_block_specs)[0])
   error_origins = tuple(f"errors[{tree_util.keystr(p)}" for p in error_paths)
   error_block_mappings = map(
@@ -1024,8 +1024,8 @@ def pallas_call_checkify_rule(error: checkify.Error,
   grid_mapping_with_error = grid_mapping.replace(
       block_mappings=(*error_block_mappings, *input_block_mappings,
                       *error_block_mappings, *output_block_mappings),
-      num_inputs=grid_mapping.num_inputs + len(error_block_mappings),  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
-      num_outputs=grid_mapping.num_outputs + len(error_block_mappings)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+      num_inputs=grid_mapping.num_inputs + len(error_block_mappings),
+      num_outputs=grid_mapping.num_outputs + len(error_block_mappings)
   )
   # Bump all input_output_aliases by num_err_vals to make room for error
   # TODO(justinfu): Don't bump scalars here.
@@ -1076,7 +1076,7 @@ def _trace_kernel_to_jaxpr(
       consts_avals = [
           aval
           for c in consts
-          if not isinstance(aval := jax_core.get_aval(c), state.AbstractRef)
+          if not isinstance(aval := jax_core.typeof(c), state.AbstractRef)
       ]
       if consts_avals:
         ctx = jax_core.JaxprPpContext()
@@ -1490,7 +1490,7 @@ def _pallas_call(
   def wrapped(*args):
     flat_args_with_paths, in_tree = tree_util.tree_flatten_with_path(args)
     in_paths, flat_args = unzip2(flat_args_with_paths)
-    flat_in_avals = tuple(jax_core.get_aval(a) for a in flat_args)
+    flat_in_avals = tuple(jax_core.typeof(a) for a in flat_args)
 
     flat_out_avals = tuple(
         pallas_core._convert_out_shape_to_aval(v) for v in flat_out_shapes
@@ -1515,8 +1515,9 @@ def _pallas_call(
         for x in flat_kernel_args
     )
     if config._check_vma.value:
-      flat_kernel_avals = tuple(a.update_vma(frozenset())
-                                for a in flat_kernel_avals)
+      flat_kernel_avals = tuple(
+          a.update_vma(frozenset()).update_unreduced_reduced(frozenset(), frozenset())
+          for a in flat_kernel_avals)
     # Note that only a subset of all transforms can be found here, and they are
     # never expected to contain any arrays.
     kernel_arg_transforms = tuple(
@@ -1585,30 +1586,30 @@ def _pallas_call(
 try:
   from jax._src.pallas.mosaic import pallas_call_registration as mosaic_tpu_backend
 except ImportError:
-  mosaic_tpu_backend = None  # type: ignore
+  mosaic_tpu_backend = None
 
 
 try:
   from jax._src.pallas.mosaic_gpu import pallas_call_registration as mosaic_gpu_backend
 except ImportError:
-  mosaic_gpu_backend = None  # type: ignore
+  mosaic_gpu_backend = None
 
 
 try:
   from jax._src.pallas.triton import pallas_call_registration as triton_backend
 except ImportError:
-  triton_backend = None  # type: ignore
+  triton_backend = None
 
 try:
   from jax._src.pallas.mosaic.interpret import interpret_pallas_call as mosaic_tpu_interpret
 except ImportError:
-  mosaic_tpu_interpret = types.SimpleNamespace(  # type: ignore
+  mosaic_tpu_interpret = types.SimpleNamespace(
       InterpretParams=types.new_class("_NoInstances", (enum.Enum,)),
   )
 
 try:
   from jax._src.pallas.mosaic_gpu.interpret import interpret_pallas_call as mosaic_gpu_interpret
 except ImportError:
-  mosaic_gpu_interpret = types.SimpleNamespace(  # type: ignore
+  mosaic_gpu_interpret = types.SimpleNamespace(
       InterpretParams=types.new_class("_NoInstances", (enum.Enum,)),
   )

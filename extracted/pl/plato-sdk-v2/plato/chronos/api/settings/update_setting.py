@@ -13,11 +13,16 @@ from plato.chronos.models import SettingResponse, UpdateSettingRequest
 def _build_request_args(
     key: str,
     body: UpdateSettingRequest,
+    scope: str | None = "org",
     x_settings_passphrase: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/settings/{key}"
+
+    params: dict[str, Any] = {}
+    if scope is not None:
+        params["scope"] = scope
 
     headers: dict[str, str] = {}
     if x_settings_passphrase is not None:
@@ -29,6 +34,7 @@ def _build_request_args(
         "method": "PUT",
         "url": url,
         "json": body.model_dump(mode="json", exclude_none=True),
+        "params": params,
         "headers": headers,
     }
 
@@ -37,6 +43,7 @@ def sync(
     client: httpx.Client,
     key: str,
     body: UpdateSettingRequest,
+    scope: str | None = "org",
     x_settings_passphrase: str | None = None,
     x_api_key: str | None = None,
 ) -> SettingResponse:
@@ -45,6 +52,7 @@ def sync(
     request_args = _build_request_args(
         key=key,
         body=body,
+        scope=scope,
         x_settings_passphrase=x_settings_passphrase,
         x_api_key=x_api_key,
     )
@@ -58,6 +66,7 @@ async def asyncio(
     client: httpx.AsyncClient,
     key: str,
     body: UpdateSettingRequest,
+    scope: str | None = "org",
     x_settings_passphrase: str | None = None,
     x_api_key: str | None = None,
 ) -> SettingResponse:
@@ -66,6 +75,7 @@ async def asyncio(
     request_args = _build_request_args(
         key=key,
         body=body,
+        scope=scope,
         x_settings_passphrase=x_settings_passphrase,
         x_api_key=x_api_key,
     )

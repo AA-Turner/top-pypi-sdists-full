@@ -33,6 +33,7 @@ from .literals import (
     ClaimMatchOperatorTypeType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
+    ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
     EvaluatorLevelType,
@@ -118,6 +119,7 @@ __all__ = (
     "CodeTypeDef",
     "ConsolidationConfigurationTypeDef",
     "ContainerConfigurationTypeDef",
+    "ContentConfigurationTypeDef",
     "ContentTypeDef",
     "CreateAgentRuntimeEndpointRequestTypeDef",
     "CreateAgentRuntimeEndpointResponseTypeDef",
@@ -285,6 +287,8 @@ __all__ = (
     "InterceptorInputConfigurationTypeDef",
     "InvocationConfigurationInputTypeDef",
     "InvocationConfigurationTypeDef",
+    "KinesisResourceOutputTypeDef",
+    "KinesisResourceTypeDef",
     "KmsConfigurationTypeDef",
     "LambdaInterceptorConfigurationTypeDef",
     "LifecycleConfigurationTypeDef",
@@ -439,6 +443,11 @@ __all__ = (
     "StartPolicyGenerationRequestTypeDef",
     "StartPolicyGenerationResponseTypeDef",
     "StrategyConfigurationTypeDef",
+    "StreamDeliveryResourceOutputTypeDef",
+    "StreamDeliveryResourceTypeDef",
+    "StreamDeliveryResourcesOutputTypeDef",
+    "StreamDeliveryResourcesTypeDef",
+    "StreamDeliveryResourcesUnionTypeDef",
     "SummaryConsolidationOverrideTypeDef",
     "SummaryMemoryStrategyInputTypeDef",
     "SummaryOverrideConfigurationInputTypeDef",
@@ -648,6 +657,14 @@ class S3LocationTypeDef(TypedDict):
     prefix: str
     versionId: NotRequired[str]
 
+ContentConfigurationTypeDef = TypedDict(
+    "ContentConfigurationTypeDef",
+    {
+        "type": Literal["MEMORY_RECORDS"],
+        "level": NotRequired[ContentLevelType],
+    },
+)
+
 class ContentTypeDef(TypedDict):
     rawText: NotRequired[str]
 
@@ -781,11 +798,13 @@ class EpisodicOverrideReflectionConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class EpisodicReflectionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
     namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
 
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
@@ -848,10 +867,12 @@ class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
 class EpisodicReflectionConfigurationInputTypeDef(TypedDict):
-    namespaces: Sequence[str]
+    namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class EpisodicReflectionConfigurationTypeDef(TypedDict):
-    namespaces: list[str]
+    namespaces: NotRequired[list[str]]
+    namespaceTemplates: NotRequired[list[str]]
 
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorArn: str
@@ -1164,16 +1185,19 @@ class SemanticMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class SummaryMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
 
 class MessageBasedTriggerInputTypeDef(TypedDict):
     messageCount: NotRequired[int]
@@ -1378,6 +1402,14 @@ class CodeTypeDef(TypedDict):
 class RecordingConfigTypeDef(TypedDict):
     enabled: NotRequired[bool]
     s3Location: NotRequired[S3LocationTypeDef]
+
+class KinesisResourceOutputTypeDef(TypedDict):
+    dataStreamArn: str
+    contentConfigurations: list[ContentConfigurationTypeDef]
+
+class KinesisResourceTypeDef(TypedDict):
+    dataStreamArn: str
+    contentConfigurations: Sequence[ContentConfigurationTypeDef]
 
 class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     targetVersion: str
@@ -1753,6 +1785,7 @@ class EpisodicMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
 
 class ListEvaluatorsResponseTypeDef(TypedDict):
@@ -2120,6 +2153,12 @@ class GetBrowserResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StreamDeliveryResourceOutputTypeDef(TypedDict):
+    kinesis: NotRequired[KinesisResourceOutputTypeDef]
+
+class StreamDeliveryResourceTypeDef(TypedDict):
+    kinesis: NotRequired[KinesisResourceTypeDef]
+
 class CredentialProviderConfigurationOutputTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
     credentialProvider: NotRequired[CredentialProviderOutputTypeDef]
@@ -2375,6 +2414,12 @@ class AgentRuntimeArtifactTypeDef(TypedDict):
     containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
     codeConfiguration: NotRequired[CodeConfigurationTypeDef]
 
+class StreamDeliveryResourcesOutputTypeDef(TypedDict):
+    resources: list[StreamDeliveryResourceOutputTypeDef]
+
+class StreamDeliveryResourcesTypeDef(TypedDict):
+    resources: Sequence[StreamDeliveryResourceTypeDef]
+
 class GetOnlineEvaluationConfigResponseTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
     onlineEvaluationConfigId: str
@@ -2468,6 +2513,9 @@ class EvaluatorConfigTypeDef(TypedDict):
 AgentRuntimeArtifactUnionTypeDef = Union[
     AgentRuntimeArtifactTypeDef, AgentRuntimeArtifactOutputTypeDef
 ]
+StreamDeliveryResourcesUnionTypeDef = Union[
+    StreamDeliveryResourcesTypeDef, StreamDeliveryResourcesOutputTypeDef
+]
 
 class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigName: str
@@ -2554,12 +2602,14 @@ class ModifyMemoryStrategyInputTypeDef(TypedDict):
     memoryStrategyId: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
 
 class CustomMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
+    namespaceTemplates: NotRequired[Sequence[str]]
     configuration: NotRequired[CustomConfigurationInputTypeDef]
 
 MemoryStrategyTypeDef = TypedDict(
@@ -2569,6 +2619,7 @@ MemoryStrategyTypeDef = TypedDict(
         "name": str,
         "type": MemoryStrategyTypeType,
         "namespaces": list[str],
+        "namespaceTemplates": list[str],
         "description": NotRequired[str],
         "configuration": NotRequired[StrategyConfigurationTypeDef],
         "createdAt": NotRequired[datetime],
@@ -2726,6 +2777,7 @@ MemoryTypeDef = TypedDict(
         "memoryExecutionRoleArn": NotRequired[str],
         "failureReason": NotRequired[str],
         "strategies": NotRequired[list[MemoryStrategyTypeDef]],
+        "streamDeliveryResources": NotRequired[StreamDeliveryResourcesOutputTypeDef],
     },
 )
 
@@ -2883,6 +2935,7 @@ class CreateMemoryInputTypeDef(TypedDict):
     encryptionKeyArn: NotRequired[str]
     memoryExecutionRoleArn: NotRequired[str]
     memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 class ModifyMemoryStrategiesTypeDef(TypedDict):
@@ -2935,3 +2988,4 @@ class UpdateMemoryInputTypeDef(TypedDict):
     eventExpiryDuration: NotRequired[int]
     memoryExecutionRoleArn: NotRequired[str]
     memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
+    streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]

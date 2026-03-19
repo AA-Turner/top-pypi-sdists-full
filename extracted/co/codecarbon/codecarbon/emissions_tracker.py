@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import psutil
 
 from codecarbon._version import __version__
-from codecarbon.core.config import get_hierarchical_config
+from codecarbon.core.config import get_hierarchical_config, normalize_gpu_ids
 from codecarbon.core.emissions import Emissions
 from codecarbon.core.resource_tracker import ResourceTracker
 from codecarbon.core.units import Energy, Power, Time, Water
@@ -143,8 +143,17 @@ class BaseEmissionsTracker(ABC):
             if not os.path.exists(value):
                 raise OSError(f"Folder '{value}' doesn't exist !")
         if name == "gpu_ids":
+            logger.debug(
+                f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}"
+            )
+            logger.debug(
+                f"ROCR_VISIBLE_DEVICES: {os.environ.get('ROCR_VISIBLE_DEVICES')}"
+            )
             if value is None and os.environ.get("CUDA_VISIBLE_DEVICES"):
                 value = os.environ.get("CUDA_VISIBLE_DEVICES")
+            elif value is None and os.environ.get("ROCR_VISIBLE_DEVICES"):
+                value = os.environ.get("ROCR_VISIBLE_DEVICES")
+            value = normalize_gpu_ids(value)
         # store final value
         self._conf[name] = value
         # set `self._{name}` to `value`
@@ -196,10 +205,10 @@ class BaseEmissionsTracker(ABC):
                              is "codecarbon".
         :param measure_power_secs: Interval (in seconds) to measure hardware power
                                    usage, defaults to 15.
-        :param api_call_interval: Occurrence to wait before calling API :
-                            -1 : only call api on flush() and at the end.
-                            1 : at every measure
-                            2 : every 2 measure, etc...
+        :param api_call_interval: Number of measurements between API calls (default: 8).
+                            -1: call API only on flush() and at the end.
+                            1: at every measure.
+                            2: every 2 measures, and so on.
         :param api_endpoint: Optional URL of Code Carbon API endpoint for sending
                              emissions data.
         :param api_key: API key for Code Carbon API (mandatory!).
@@ -219,10 +228,10 @@ class BaseEmissionsTracker(ABC):
         :param save_to_logfire: Indicates if the emission artifacts should be written
                             to a logfire observability platform, defaults to False.
         :param prometheus_url: url of the prometheus server, defaults to `localhost:9091`.
-        :param gpu_ids: User-specified known gpu ids to track.
-                            Defaults to None, which means that all available gpus will be tracked.
-                            It needs to be a list of integers or a comma-separated string.
-                            Valid examples: [1, 3, 4] or "1,2".
+        :param output_handlers: List of custom output handlers to use. Defaults to [].
+        :param gpu_ids: Comma-separated list of GPU ids to track, defaults to None.
+                            Can be integer indexes of GPUs on the system, or prefixes to match
+                            against GPU identifiers. See NVIDIA docs on CUDA environment variables.
         :param emissions_endpoint: Optional URL of http endpoint for sending emissions
                                    data.
         :param experiment_id: Id of the experiment.
@@ -237,18 +246,32 @@ class BaseEmissionsTracker(ABC):
         :param log_level: Global codecarbon log level. Accepts one of:
                             {"debug", "info", "warning", "error", "critical"}.
                           Defaults to "info".
-        :param on_csv_write: "append" or "update". Whether to always append a new line
-                             to the csv when writing or to update the existing `run_id`
-                             row (useful when calling`tracker.flush()` manually).
-                             Accepts one of "append" or "update". Default is "append".
+        :param on_csv_write: When calling tracker.flush() manually: "update" to overwrite
+                             the existing run_id row, or "append" to add a new row to the
+                             CSV file. Defaults to "append".
         :param logger_preamble: String to systematically include in the logger.
                                 messages. Defaults to "".
-        :param force_cpu_power: cpu power to be used instead of automatic detection.
-        :param force_ram_power: ram power to be used instead of automatic detection.
-        :param pue: PUE (Power Usage Effectiveness) of the datacenter.
+        :param force_cpu_power: Force the CPU max power consumption in watts. Use this if you
+                                know the TDP of your machine.
+        :param force_ram_power: Force the RAM power consumption in watts. Use this if you know
+                                the power consumption of your RAM. Estimate with
+                                `sudo lshw -C memory -short | grep DIMM` to get RAM slots,
+                                then RAM power (W) = Number of RAM Slots × 5 Watts.
+        :param pue: PUE (Power Usage Effectiveness) of the data center where the
+                    experiment is being run.
         :param force_mode_cpu_load: Force the addition of a CPU in MODE_CPU_LOAD
-        :param allow_multiple_runs: Allow multiple instances of codecarbon running in parallel. Defaults to False.
-        :param wue: WUE (Water Usage Effectiveness) of the datacenter, L/kWh.
+        :param allow_multiple_runs: Allow multiple CodeCarbon instances on the same machine.
+                                    Defaults to True since v3 (was False in v2).
+        :param wue: WUE (Water Usage Effectiveness) of the data center. Units of L/kWh:
+                    litres of water consumed per kilowatt-hour of electricity consumed.
+        :param rapl_include_dram: Include DRAM (memory) power in RAPL measurements on Linux,
+                                  defaults to False. When True, measures CPU package + DRAM.
+                                  Only affects systems where RAPL exposes separate DRAM domains.
+        :param rapl_prefer_psys: Prefer psys (platform) RAPL domain over package domains on
+                                 Linux, defaults to False. When True, uses total platform power
+                                 (CPU + chipset + PCIe). When False, uses package domains which
+                                 are more reliable. Note: psys can report higher values than
+                                 CPU TDP and may be unreliable on older systems.
         """
 
         # logger.info("base tracker init")
@@ -369,7 +392,6 @@ class BaseEmissionsTracker(ABC):
         self._tasks: Dict[str, Task] = {}
         self._active_task: Optional[str] = None
         self._active_task_emissions_at_start: Optional[EmissionsData] = None
-
         # Tracking mode detection
         self._hardware = []
         resource_tracker = ResourceTracker(self)
@@ -890,8 +912,8 @@ class BaseEmissionsTracker(ABC):
             os=self._conf.get("os"),
             python_version=self._conf.get("python_version"),
             codecarbon_version=self._conf.get("codecarbon_version"),
-            gpu_count=self._conf.get("gpu_count"),
-            gpu_model=self._conf.get("gpu_model"),
+            gpu_count=self._conf.get("gpu_count", 0),
+            gpu_model=self._conf.get("gpu_model", ""),
             cpu_count=self._conf.get("cpu_count"),
             cpu_model=self._conf.get("cpu_model"),
             longitude=self._conf.get("longitude"),
@@ -954,9 +976,13 @@ class BaseEmissionsTracker(ABC):
         # Collect GPU utilization metrics
         for hardware in self._hardware:
             if isinstance(hardware, GPU):
+                gpu_ids_to_monitor = hardware.gpu_ids
                 gpu_details = hardware.devices.get_gpu_details()
                 for gpu_detail in gpu_details:
-                    if "gpu_utilization" in gpu_detail:
+                    if (
+                        gpu_detail["gpu_index"] in gpu_ids_to_monitor
+                        and "gpu_utilization" in gpu_detail
+                    ):
                         self._gpu_utilization_history.append(
                             gpu_detail["gpu_utilization"]
                         )
@@ -996,6 +1022,7 @@ class BaseEmissionsTracker(ABC):
                     f"Energy consumed for all GPUs : {self._total_gpu_energy.kWh:.6f} kWh"
                     + f". Total GPU Power : {self._gpu_power.W} W"
                 )
+
             elif isinstance(hardware, RAM):
                 self._total_ram_energy += energy
                 self._ram_power = power
@@ -1021,7 +1048,7 @@ class BaseEmissionsTracker(ABC):
                     # Accumulate for running average
                     self._gpu_power_sum += power.W
                     logger.info(
-                        f"Energy consumed for all GPUs : {self._total_gpu_energy.kWh:.6f} kWh"
+                        f"Energy consumed for all AppleSilicon GPUs : {self._total_gpu_energy.kWh:.6f} kWh"
                         + f". Total GPU Power : {self._gpu_power.W} W"
                     )
             else:
@@ -1111,11 +1138,11 @@ class OfflineEmissionsTracker(BaseEmissionsTracker):
         **kwargs,
     ):
         """
-        :param country_iso_code: 3 letter ISO Code of the country where the
-                                 experiment is being run
-        :param region: The province or region (e.g. California in the US).
-                       Currently, this only affects calculations for the United States
-                       and Canada
+        :param country_iso_code: 3-letter ISO code of the country where the experiment
+                                 is being run. See global_energy_mix.json for available
+                                 countries.
+        :param region: Optional Province/State/City where the infrastructure is hosted.
+                       Supported for US States and Canada (e.g. California, New York).
         :param cloud_provider: The cloud provider specified for estimating emissions
                                intensity, defaults to None.
                                See https://github.com/mlco2/codecarbon/
@@ -1332,18 +1359,17 @@ def track_emissions(
     :param log_level: Global codecarbon log level. Accepts one of:
                       {"debug", "info", "warning", "error", "critical"}.
                       Defaults to "info".
-    :param on_csv_write: "append" or "update". Whether to always append a new line
-                         to the csv when writing or to update the existing `run_id`
-                         row (useful when calling`tracker.flush()` manually).
-                         Accepts one of "append" or "update". Default is "append".
+    :param on_csv_write: When calling tracker.flush() manually: "update" to overwrite the
+                         existing run_id row, or "append" to add a new row. Defaults to "append".
     :param logger_preamble: String to systematically include in the logger.
                             messages. Defaults to "".
-    :param allow_multiple_runs: Prevent multiple instances of codecarbon running. Defaults to False.
-    :param offline: Indicates if the tracker should be run in offline mode.
-    :param country_iso_code: 3 letter ISO Code of the country where the experiment is
-                             being run, required if `offline=True`
-    :param region: The provice or region (e.g. California in the US).
-                   Currently, this only affects calculations for the United States.
+    :param allow_multiple_runs: Allow multiple CodeCarbon instances on the same machine.
+                                Defaults to True since v3 (was False in v2).
+    :param offline: Run the tracker in offline mode, defaults to False.
+    :param country_iso_code: 3-letter ISO code of the country where the experiment is
+                             being run. Required if offline=True. See global_energy_mix.json.
+    :param region: Optional Province/State/City where the infrastructure is hosted.
+                   Supported for US States (e.g. California, New York).
     :param cloud_provider: The cloud provider specified for estimating emissions
                            intensity, defaults to None.
                            See https://github.com/mlco2/codecarbon/
@@ -1357,13 +1383,18 @@ def track_emissions(
                                      See http://api.electricitymap.org/v3/zones for
                                      a list of codes and their corresponding
                                      locations.
-    :param force_cpu_power: cpu power to be used instead of automatic detection.
-    :param force_ram_power: ram power to be used instead of automatic detection.
-    :param pue: PUE (Power Usage Effectiveness) of the datacenter.
-    :param wue: WUE (Water Usage Effectiveness) of the datacenter, L/kWh.
-    :param allow_multiple_runs: Prevent multiple instances of codecarbon running. Defaults to False.
-    :param rapl_include_dram: Include DRAM domain for RAPL measurements (default: False).
-    :param rapl_prefer_psys: Prefer psys (platform) domain over package domains for RAPL (default: False).
+    :param force_cpu_power: Force the CPU max power consumption in watts. Use if you know
+                            the TDP of your machine.
+    :param force_ram_power: Force the RAM power consumption in watts. Estimate with
+                            `sudo lshw -C memory -short | grep DIMM` for RAM slots,
+                            then RAM power (W) = Number of RAM Slots × 5 Watts.
+    :param pue: PUE (Power Usage Effectiveness) of the data center.
+    :param wue: WUE (Water Usage Effectiveness) of the data center. Units of L/kWh:
+                litres of water consumed per kilowatt-hour of electricity consumed.
+    :param rapl_include_dram: Include DRAM in RAPL measurements on Linux (default: False).
+                              When True, measures CPU package + DRAM.
+    :param rapl_prefer_psys: Prefer psys over package domains for RAPL on Linux
+                             (default: False). When True, uses total platform power.
 
     :return: The decorated function
     """

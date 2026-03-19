@@ -137,6 +137,13 @@ class BotOS:
             )
             self._tasks.append(task)
 
+        # Start schedule loop alongside bots so cron jobs execute
+        schedule_task = asyncio.create_task(
+            self._run_schedule_loop(),
+            name="botos-scheduler",
+        )
+        self._tasks.append(schedule_task)
+
         try:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         except asyncio.CancelledError:
@@ -151,6 +158,115 @@ class BotOS:
             await bot.start()
         except Exception as e:
             logger.error(f"BotOS: {platform} failed: {e}")
+
+    async def _run_schedule_loop(self) -> None:
+        """Poll for due scheduled jobs and execute them.
+
+        Runs alongside bot tasks so cron/interval schedules fire even
+        without the UI. On trigger, the agent processes the message
+        and results are delivered back to the originating platform.
+
+        When the UI scheduler is already running (PraisonAIUI started),
+        this loop defers to it to avoid double-firing jobs.
+        """
+        try:
+            from praisonaiagents.tools.schedule_tools import _get_store
+            from praisonaiagents.scheduler import ScheduleRunner
+        except ImportError:
+            logger.debug("BotOS: schedule module not available, skipping scheduler")
+            return
+
+        store = _get_store()
+        runner = ScheduleRunner(store)
+        logger.info("BotOS: schedule loop started (30s tick)")
+
+        while True:
+            try:
+                # Skip if the UI scheduler is already running (avoids double-fire)
+                ui_running = False
+                try:
+                    from praisonaiui.features.schedules import _scheduler_running
+                    ui_running = _scheduler_running
+                except ImportError:
+                    pass  # UI not installed — we're the only scheduler
+                if ui_running:
+                    await asyncio.sleep(30)
+                    continue
+
+                due = runner.get_due_jobs()
+                for job in due:
+                    import time as _time
+                    _start = _time.time()
+                    _status = "succeeded"
+                    _result = None
+                    _error = None
+                    _delivered = False
+                    try:
+                        _result, _delivered = await self._execute_schedule_job(job)
+                    except Exception as e:
+                        _status = "failed"
+                        _error = str(e)
+                        logger.warning(f"BotOS: schedule job {job.name} failed: {e}")
+                    _duration = _time.time() - _start
+                    runner.mark_run(
+                        job,
+                        status=_status,
+                        result=_result,
+                        error=_error,
+                        duration=_duration,
+                        delivered=_delivered,
+                    )
+            except Exception as e:
+                logger.debug(f"BotOS: schedule tick error: {e}")
+            await asyncio.sleep(30)
+
+    async def _execute_schedule_job(self, job) -> tuple:
+        """Execute a single due schedule job.
+
+        Returns:
+            Tuple of (result_str, delivered_bool).
+        """
+        if not job.message:
+            return (None, False)
+
+        # Find the agent to execute with
+        agent = None
+        if job.agent_id:
+            # Look for a bot whose agent matches
+            for bot in self._bots.values():
+                a = bot.get_agent() if hasattr(bot, 'get_agent') else getattr(bot, '_agent', None)
+                if a and getattr(a, 'name', None) == job.agent_id:
+                    agent = a
+                    break
+        if agent is None:
+            # Use the first available agent
+            for bot in self._bots.values():
+                a = bot.get_agent() if hasattr(bot, 'get_agent') else getattr(bot, '_agent', None)
+                if a:
+                    agent = a
+                    break
+        if agent is None:
+            logger.debug(f"BotOS: no agent for schedule job {job.name}")
+            return (None, False)
+
+        # Run the agent
+        result = await asyncio.to_thread(agent.chat, job.message)
+        result_str = str(result) if result else None
+
+        # Deliver to originating platform if delivery target is set
+        delivered = False
+        delivery = job.delivery
+        if delivery and delivery.channel and delivery.channel_id:
+            bot = self.get_bot(delivery.channel)
+            if bot:
+                try:
+                    await bot.send_message(delivery.channel_id, str(result))
+                    delivered = True
+                except Exception as e:
+                    logger.warning(f"BotOS: delivery to {delivery.channel} failed: {e}")
+
+        logger.info(f"BotOS: executed schedule job '{job.name}'")
+        return (result_str, delivered)
 
     async def stop(self) -> None:
         """Gracefully stop all running bots."""

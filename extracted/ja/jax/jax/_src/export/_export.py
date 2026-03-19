@@ -550,7 +550,7 @@ def shape_and_dtype_jax_array(a) -> tuple[Sequence[int | None], DType]:
   """Returns the shape and dtype of a jax.Array or a j"""
   if isinstance(a, api.ShapeDtypeStruct):
     return a.shape, a.dtype
-  aval = core.get_aval(a)
+  aval = core.typeof(a)
   return aval.shape, aval.dtype
 
 
@@ -813,8 +813,9 @@ def _export_lowered(
 
   cur_mesh = None
   if config.use_shardy_partitioner.value:
-    for sharding in itertools.chain.from_iterable([
-        all_in_shardings, lowering.compile_args["out_shardings"]]):
+    for sharding in itertools.chain(
+        all_in_shardings, lowering.compile_args["out_shardings"]
+    ):
       if isinstance(sharding, sharding_impls.NamedSharding):
         cur_mesh = sharding.mesh
         break
@@ -853,7 +854,7 @@ def _export_lowered(
         apply_jit=True,
         flat_primal_fun=True,
         mesh=cur_mesh)  # type: ignore[arg-type]
-    return export(fun_vjp_jax,  # type: ignore[arg-type]
+    return export(fun_vjp_jax,  # pytype: disable=wrong-arg-types
                   platforms=exp_primal.platforms,
                   disabled_checks=exp_primal.disabled_safety_checks)(*vjp_in_avals)
 
@@ -902,9 +903,9 @@ def _module_to_bytecode(module: ir.Module) -> bytes:
   # Note that this does not verify any JAX custom calls, which are only
   # guaranteed 3w of forward compatibility, and only prevents use of new
   # StableHLO features from failing on older hardware.
-  target_version = hlo.get_version_from_compatibility_requirement(  # pyrefly: ignore[missing-attribute]
-    hlo.StablehloCompatibilityRequirement.WEEK_4)  # pyrefly: ignore[missing-attribute]
-  module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
+  target_version = hlo.get_version_from_compatibility_requirement(
+    hlo.StablehloCompatibilityRequirement.WEEK_4)
+  module_serialized = xla_client._xla.mlir.serialize_portable_artifact(
       mlir_str, target_version, xb.get_backend().serialize_with_sdy)
   return module_serialized
 
@@ -941,7 +942,7 @@ def _wrap_main_func(
   wrapped_module = module
   with context, ir.Location.unknown(context):
     symbol_table = ir.SymbolTable(wrapped_module.operation)
-    orig_main = symbol_table["main"]
+    orig_main = cast(func_dialect.FuncOp, symbol_table["main"])
     orig_main.attributes["sym_visibility"] = ir.StringAttr.get("private")
     symbol_table.set_symbol_name(orig_main, "_wrapped_jax_export_main")
     orig_main_name = ir.StringAttr(symbol_table.insert(orig_main)).value
@@ -949,8 +950,8 @@ def _wrap_main_func(
     def is_token(typ, attrs):
       return (typ == mlir.token_type())
 
-    orig_input_types = orig_main.type.inputs  # type: ignore
-    arg_attrs = list(ir.ArrayAttr(orig_main.arg_attrs))  # type: ignore
+    orig_input_types = orig_main.type.inputs
+    arg_attrs = list(ir.ArrayAttr(orig_main.arg_attrs))
     # The order of args: platform_index_arg, dim args, token args, array args.
     nr_platform_index_args = 1 if has_platform_index_argument else 0
     nr_dim_args = len(dim_vars)
@@ -972,8 +973,8 @@ def _wrap_main_func(
       orig_input_types, [nr_platform_index_args, nr_dim_args, nr_token_args])
 
     # The order of results: tokens, array results
-    orig_output_types = orig_main.type.results  # type: ignore
-    result_attrs = list(ir.ArrayAttr(orig_main.result_attrs))  # type: ignore
+    orig_output_types = orig_main.type.results
+    result_attrs = list(ir.ArrayAttr(orig_main.result_attrs))
     token_result_idxs = [i for i, (typ, attrs) in enumerate(zip(orig_output_types,
                                                                 result_attrs))
                          if is_token(typ, attrs)]
@@ -996,7 +997,7 @@ def _wrap_main_func(
       new_arg_attrs = []
       for idx in new_main_arg_indices:
         new_arg_attr = {}
-        for attr in arg_attrs[idx]:  # pyrefly: ignore[not-iterable]
+        for attr in arg_attrs[idx]:  # pyrefly: ignore[not-iterable]  # pytype: disable=attribute-error
           if attr.name == "tf.aliasing_output":
             i = new_main_result_indices.index(attr.attr.value)
             new_arg_attr[attr.name] = ir.IntegerAttr.get(
@@ -1257,14 +1258,14 @@ def _check_module(mod: ir.Module, *,
     elif op_name == "sdy.sharding_constraint":
       check_sharding(op, op.location)
 
-  def walk_operations(op):
+  def walk_operations(op: ir.Operation) -> None:
     check_op(op)
     for region in op.operation.regions:
       for block in region:
         for op in block:
-          walk_operations(op)
+          walk_operations(op.operation)
 
-  walk_operations(mod)
+  walk_operations(mod.operation)
   if disallowed_custom_call_ops:
     disallowed_custom_call_ops_str = "\n".join(disallowed_custom_call_ops)
     msg = ("Cannot serialize code with custom calls whose targets have no "
@@ -1374,8 +1375,8 @@ def _get_vjp_fun(
   if apply_jit:
     if has_named_shardings or mesh:
       vjp_in_shardings = tuple(
-          _get_named_sharding(has_named_shardings, named_sharding,  # type: ignore
-                              hlo_sharding, aval, mesh)  # pyrefly: ignore[bad-argument-type]
+          _get_named_sharding(has_named_shardings, named_sharding,
+                              hlo_sharding, aval, mesh)  # type: ignore[arg-type]
           for named_sharding, hlo_sharding, aval in zip(
             itertools.chain(in_named_shardings, out_named_shardings),
             itertools.chain(in_shardings_hlo, out_shardings_hlo),
@@ -1388,10 +1389,10 @@ def _get_vjp_fun(
     else:
       assert device_assignment is not None
       vjp_in_shardings = tuple(
-          _hlo_sharding_to_gspmd_sharding(s, device_assignment)  # type: ignore
+          _hlo_sharding_to_gspmd_sharding(s, device_assignment)
           for s in itertools.chain(in_shardings_hlo, out_shardings_hlo))
       vjp_out_shardings = tuple(
-          _hlo_sharding_to_gspmd_sharding(s, device_assignment)  # type: ignore
+          _hlo_sharding_to_gspmd_sharding(s, device_assignment)
           for s in in_shardings_hlo)
     return pjit.pjit(fun_vjp_jax,
                      in_shardings=vjp_in_shardings,
@@ -1516,7 +1517,7 @@ def _call_exported_abstract_eval(
   # it would be ambiguous whether we should continue tracing with a result
   # of type `f32[c]` or `f32[d]`.
   shape_constraints.check_statically(synthetic_eval)
-  exported_dim_values = [synthetic_eval.evaluate(solution[var])  # type: ignore[arg-type]
+  exported_dim_values = [synthetic_eval.evaluate(solution[var])
                          for var in exported_dim_vars]
 
   def make_aval(out_aval_idx: int):
@@ -1549,8 +1550,8 @@ call_exported_p.def_impl(_call_exported_impl)
 def get_mesh_from_symbol(symtab: ir.SymbolTable) -> mesh_lib.AbstractMesh:
   if "mesh" not in symtab:
     return mesh_lib.empty_abstract_mesh
-  mesh_attr = sdy.MeshAttr(symtab["mesh"].mesh)  # pyrefly: ignore[missing-attribute]
-  axes = [sdy.MeshAxisAttr(a) for a in mesh_attr.axes]  # pyrefly: ignore[missing-attribute]
+  mesh_attr = sdy.MeshAttr(symtab["mesh"].mesh)  # pytype: disable=attribute-error
+  axes = [sdy.MeshAxisAttr(a) for a in mesh_attr.axes]
   if not axes:
     return mesh_lib.empty_abstract_mesh
   axes_sizes = tuple(a.size for a in axes)
@@ -1561,9 +1562,9 @@ def get_mesh_from_symbol(symtab: ir.SymbolTable) -> mesh_lib.AbstractMesh:
 def has_sdy_meshes_in_frontend_attributes(submodule: ir.Module) -> bool:
   if "mhlo.frontend_attributes" not in submodule.operation.attributes:
     return False
-  frontend_attributes = submodule.operation.attributes[
-      "mhlo.frontend_attributes"
-  ]
+  frontend_attributes = ir.DictAttr(
+      submodule.operation.attributes["mhlo.frontend_attributes"]
+  )
   return "xla.sdy.meshes" in frontend_attributes
 
 def has_sdy_mesh(symtab: ir.SymbolTable, submodule: ir.Module) -> bool:
@@ -1625,7 +1626,7 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
             ctx, x, x_aval,
             _get_named_sharding(exported._has_named_shardings,
                                 named_sharding, None, x_aval, None),
-            use_shardy=True)  # type: ignore[arg-type]
+            use_shardy=True)
         for x, named_sharding, x_aval in zip(
           args, exported._in_named_shardings, exported.in_avals))
   elif mesh:
@@ -1634,7 +1635,7 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
         wrap_with_sharding(
             ctx, x, x_aval,
             _get_named_sharding(False, None, hlo_sharding, x_aval, mesh),
-            use_shardy=True)  # type: ignore[arg-type]
+            use_shardy=True)
         for x, hlo_sharding, x_aval in zip(
           args, exported.in_shardings_hlo, exported.in_avals))
   else:
@@ -1657,7 +1658,8 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
     else:
       return x
 
-  callee_type = symtab["main"].type
+  main = cast(func_dialect.FuncOp, symtab["main"])
+  callee_type = main.type
   # TODO: maybe cache multiple calls
   fn = mlir.merge_mlir_modules(ctx.module_context.module,
                                f"call_exported_{exported.fun_name}",
@@ -1737,7 +1739,7 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
         wrap_with_sharding(
             ctx, x, x_aval,
             _get_named_sharding(True, x_sharding, None, x_aval, None),
-            use_shardy=True)  # type: ignore[arg-type]
+            use_shardy=True)
         for x, x_aval, x_sharding in \
           zip(results, ctx.avals_out, exported._out_named_shardings))
   elif mesh:
@@ -1745,7 +1747,7 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
         wrap_with_sharding(
             ctx, x, x_aval,
             _get_named_sharding(False, None, x_sharding, x_aval, mesh),
-            use_shardy=True)  # type: ignore[arg-type]
+            use_shardy=True)
         for x, x_aval, x_sharding in \
           zip(results, ctx.avals_out, exported.out_shardings_hlo))
   else:

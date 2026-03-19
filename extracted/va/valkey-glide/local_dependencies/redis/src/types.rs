@@ -91,6 +91,8 @@ pub enum ErrorKind {
     ParseError,
     /// The authentication with the server failed.
     AuthenticationFailed,
+    /// User lacks permission for the requested operation (ACL).
+    PermissionDenied,
     /// Operation failed because of a type mismatch.
     TypeError,
     /// A script execution was aborted.
@@ -156,6 +158,10 @@ pub enum ErrorKind {
     /// Used when an error occurs on when user perform wrong usage of management operation.
     /// E.g. not allowed configuration change.
     UserOperationError,
+
+    /// Response synchronization lost between commands and responses.
+    /// The connection protocol is broken and must be reestablished.
+    ProtocolDesync,
 }
 
 #[derive(PartialEq, Debug, Clone, Display, Copy)]
@@ -172,6 +178,7 @@ pub enum ServerErrorKind {
     MasterDown,
     ReadOnly,
     NotBusy,
+    PermissionDenied,
 }
 
 #[derive(PartialEq, Debug, Clone, Display)]
@@ -203,6 +210,7 @@ impl ServerError {
                 ServerErrorKind::MasterDown => "MASTERDOWN",
                 ServerErrorKind::ReadOnly => "READONLY",
                 ServerErrorKind::NotBusy => "NOTBUSY",
+                ServerErrorKind::PermissionDenied => "NOPERM",
             },
         }
     }
@@ -273,7 +281,8 @@ map_error_kinds!(
     CrossSlot,
     MasterDown,
     ReadOnly,
-    NotBusy
+    NotBusy,
+    PermissionDenied
 );
 
 impl From<RedisError> for ServerError {
@@ -437,11 +446,18 @@ pub enum PushKind {
 impl PushKind {
     #[cfg(feature = "aio")]
     pub(crate) fn has_reply(&self) -> bool {
+        // SUNSUBSCRIBE is excluded because it can be received in two ways:
+        // 1. As a response to an explicit SUNSUBSCRIBE command
+        // 2. Unprompted, when a sharded channel's slot is migrated or deleted
+        // If we treat SUNSUBSCRIBE as a command response, unprompted notifications can be
+        // incorrectly matched to unrelated in-flight commands, permanently disrupting the
+        // command-response ordering. To prevent this, SUNSUBSCRIBE notifications are never
+        // processed as command results. User-initiated SUNSUBSCRIBE commands are fenced
+        // (appended with PING) to determine success and maintain proper response ordering.
         matches!(
             self,
             &PushKind::Unsubscribe
                 | &PushKind::PUnsubscribe
-                | &PushKind::SUnsubscribe
                 | &PushKind::Subscribe
                 | &PushKind::PSubscribe
                 | &PushKind::SSubscribe
@@ -907,6 +923,7 @@ impl RedisError {
             ErrorKind::MasterDown => Some("MASTERDOWN"),
             ErrorKind::ReadOnly => Some("READONLY"),
             ErrorKind::NotBusy => Some("NOTBUSY"),
+            ErrorKind::PermissionDenied => Some("NOPERM"),
             _ => match self.repr {
                 ErrorRepr::ExtensionError(ref code, _) => Some(code),
                 _ => None,
@@ -919,6 +936,7 @@ impl RedisError {
         match self.kind() {
             ErrorKind::ResponseError => "response error",
             ErrorKind::AuthenticationFailed => "authentication failed",
+            ErrorKind::PermissionDenied => "permission denied",
             ErrorKind::TypeError => "type error",
             ErrorKind::ExecAbortError => "script execution aborted",
             ErrorKind::BusyLoadingError => "busy loading",
@@ -948,6 +966,7 @@ impl RedisError {
             ErrorKind::ParseError => "parse error",
             ErrorKind::NotAllSlotsCovered => "not all slots are covered",
             ErrorKind::UserOperationError => "Wrong usage of management operation",
+            ErrorKind::ProtocolDesync => "Response processing has goten out of sync",
         }
     }
 
@@ -1114,6 +1133,7 @@ impl RedisError {
             ErrorKind::BusyLoadingError => RetryMethod::WaitAndRetryOnPrimaryRedirectOnReplica,
 
             ErrorKind::ResponseError => RetryMethod::NoRetry,
+            ErrorKind::PermissionDenied => RetryMethod::NoRetry,
             ErrorKind::ReadOnly => RetryMethod::RefreshSlotsAndRetry,
             ErrorKind::ExtensionError => RetryMethod::NoRetry,
             ErrorKind::ExecAbortError => RetryMethod::NoRetry,
@@ -1153,6 +1173,7 @@ impl RedisError {
             ErrorKind::FatalReceiveError => RetryMethod::Reconnect,
             ErrorKind::FatalSendError => RetryMethod::ReconnectAndRetry,
             ErrorKind::UserOperationError => RetryMethod::NoRetry,
+            ErrorKind::ProtocolDesync => RetryMethod::NoRetry,
         }
     }
 }

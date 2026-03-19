@@ -125,7 +125,6 @@ class TestDuckDB(Validator):
                 "bigquery": "ARRAY_TO_STRING(arr, delim)",
                 "postgres": "ARRAY_TO_STRING(arr, delim)",
                 "presto": "ARRAY_JOIN(arr, delim)",
-                "snowflake": "ARRAY_TO_STRING(arr, delim)",
                 "spark": "ARRAY_JOIN(arr, delim)",
             },
             write={
@@ -136,6 +135,12 @@ class TestDuckDB(Validator):
                 "snowflake": "ARRAY_TO_STRING(arr, delim)",
                 "spark": "ARRAY_JOIN(arr, delim)",
                 "tsql": "STRING_AGG(arr, delim)",
+            },
+        )
+        self.validate_all(
+            "SELECT CASE WHEN delim IS NULL THEN NULL ELSE ARRAY_TO_STRING(LIST_TRANSFORM(arr, x -> COALESCE(CAST(x AS TEXT), '')), delim) END",
+            read={
+                "snowflake": "SELECT ARRAY_TO_STRING(arr, delim)",
             },
         )
         self.validate_all(
@@ -463,6 +468,10 @@ class TestDuckDB(Validator):
         self.validate_identity("FROM  x SELECT x UNION SELECT 1", "SELECT x FROM x UNION SELECT 1")
         self.validate_identity("FROM (FROM tbl)", "SELECT * FROM (SELECT * FROM tbl)")
         self.validate_identity("FROM tbl", "SELECT * FROM tbl")
+        self.validate_identity(
+            "SELECT * FROM t1 WHERE NOT EXISTS(FROM t2 WHERE t2.id = t1.id)",
+            "SELECT * FROM t1 WHERE NOT EXISTS(SELECT * FROM t2 WHERE t2.id = t1.id)",
+        )
         self.validate_identity("x -> '$.family'")
         self.validate_identity("CREATE TABLE color (name ENUM('RED', 'GREEN', 'BLUE'))")
         self.validate_identity("SELECT * FROM foo WHERE bar > $baz AND bla = $bob")

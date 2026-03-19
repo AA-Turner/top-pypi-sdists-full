@@ -1,6 +1,115 @@
 import json
 import os
 import tempfile
+from pathlib import Path
+from typing import Any
+from typing_extensions import cast
+
+from ddapm_test_agent.claude_hooks import (
+    CLAUDE_CODE_DEFAULT_MATCHER,
+    CLAUDE_CODE_HOOK,
+    CLAUDE_CODE_EVENTS,
+    write_claude_code_hooks,
+)
+
+
+def _read_settings(path: Path) -> dict[str, Any]:
+    with open(path, "r") as f:
+        return cast(dict[str, Any], json.load(f))
+
+
+def _default_hooks_structure() -> dict[str, Any]:
+    return {event: [CLAUDE_CODE_DEFAULT_MATCHER] for event in CLAUDE_CODE_EVENTS}
+
+
+class TestClaudeCodeHooksWriting:
+    """Tests for write_claude_code_hooks merge behavior (only insert hooks if they do not exist)."""
+
+    def test_original_hooks_file_is_empty(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        settings_path.write_text("")
+        write_claude_code_hooks(settings_path)
+        expected = {"hooks": _default_hooks_structure()}
+        assert _read_settings(settings_path) == expected
+
+    def test_original_hooks_file_is_empty_json(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        settings_path.write_text("{}")
+        write_claude_code_hooks(settings_path)
+        expected = {"hooks": _default_hooks_structure()}
+        assert _read_settings(settings_path) == expected
+
+    def test_original_hooks_file_has_no_hooks_entry(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        settings_path.write_text('{"other": "value", "nested": {"a": 1}}')
+        write_claude_code_hooks(settings_path)
+        expected = {"other": "value", "nested": {"a": 1}, "hooks": _default_hooks_structure()}
+        assert _read_settings(settings_path) == expected
+
+    def test_requested_hook_to_modify_not_in_hooks(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        only_pre_tool = {"hooks": {"PreToolUse": [CLAUDE_CODE_DEFAULT_MATCHER]}}
+        settings_path.write_text(json.dumps(only_pre_tool, indent=2))
+        write_claude_code_hooks(settings_path)
+        expected = {"hooks": _default_hooks_structure()}
+        assert _read_settings(settings_path) == expected
+
+    def test_requested_matcher_empty_not_in_hooks(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        bash_only = {
+            "hooks": {
+                "PreToolUse": [
+                    {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo bash"}]},
+                ],
+            },
+        }
+        settings_path.write_text(json.dumps(bash_only, indent=2))
+        write_claude_code_hooks(settings_path)
+        bash_matcher = {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo bash"}]}
+        expected = {
+            "hooks": {
+                **_default_hooks_structure(),
+                "PreToolUse": [bash_matcher, CLAUDE_CODE_DEFAULT_MATCHER],
+            },
+        }
+        assert _read_settings(settings_path) == expected
+
+    def test_no_matching_default_hook_in_requested_matcher(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        empty_matcher_other_hook = {
+            "hooks": {
+                "PreToolUse": [
+                    {"matcher": "", "hooks": [{"type": "command", "command": "other-cmd"}]},
+                ],
+            },
+        }
+        settings_path.write_text(json.dumps(empty_matcher_other_hook, indent=2))
+        write_claude_code_hooks(settings_path)
+        other_cmd_hook = {"type": "command", "command": "other-cmd"}
+        expected = {
+            "hooks": {
+                **_default_hooks_structure(),
+                "PreToolUse": [{"matcher": "", "hooks": [other_cmd_hook, CLAUDE_CODE_HOOK]}],
+            },
+        }
+        assert _read_settings(settings_path) == expected
+
+    def test_hook_already_present(self, tmp_path: Path) -> None:
+        settings_path = tmp_path / "settings.json"
+        already_has_default = {
+            "hooks": {
+                "PreToolUse": [{"matcher": "", "hooks": [CLAUDE_CODE_HOOK]}],
+            },
+        }
+        settings_path.write_text(json.dumps(already_has_default, indent=2))
+        write_claude_code_hooks(settings_path)
+        expected = {
+            "hooks": {
+                **_default_hooks_structure(),
+                "PreToolUse": [{"matcher": "", "hooks": [CLAUDE_CODE_HOOK]}],
+            },
+        }
+        assert _read_settings(settings_path) == expected
 
 
 async def _post_hook(agent, event):
@@ -398,6 +507,87 @@ async def test_hook_console_output_on_agent_span(agent):
         os.unlink(transcript_path)
 
 
+async def test_hook_tool_use_failure_creates_error_span(agent):
+    session_id = "sess-tool-fail"
+
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "SessionStart"})
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_use_id": "tool-fail-1",
+            "tool_input": {"command": "rm -rf /nonexistent"},
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUseFailure",
+            "tool_name": "Bash",
+            "tool_use_id": "tool-fail-1",
+            "error": "Command exited with non-zero status code 1",
+            "is_interrupt": False,
+        },
+    )
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "Stop"})
+
+    resp = await agent.get("/claude/hooks/spans")
+    body = await resp.json()
+    spans = body["spans"]
+
+    tool_spans = [s for s in spans if s["meta"]["span"]["kind"] == "tool"]
+    assert len(tool_spans) == 1
+
+    tool = tool_spans[0]
+    assert tool["status"] == "error"
+    assert tool["meta"]["error"]["message"] == "Command exited with non-zero status code 1"
+    assert "rm -rf /nonexistent" in tool["meta"]["input"]["value"]
+    assert "non-zero status" in tool["meta"]["output"]["value"]
+    assert tool["duration"] >= 0
+
+
+async def test_hook_tool_use_failure_interrupt(agent):
+    session_id = "sess-tool-interrupt"
+
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "SessionStart"})
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_use_id": "tool-int-1",
+            "tool_input": {"command": "sleep 100"},
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUseFailure",
+            "tool_name": "Bash",
+            "tool_use_id": "tool-int-1",
+            "error": "User interrupted",
+            "is_interrupt": True,
+        },
+    )
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "Stop"})
+
+    resp = await agent.get("/claude/hooks/spans")
+    body = await resp.json()
+    spans = body["spans"]
+
+    tool_spans = [s for s in spans if s["meta"]["span"]["kind"] == "tool"]
+    assert len(tool_spans) == 1
+
+    tool = tool_spans[0]
+    assert tool["status"] == "error"
+    assert tool["meta"]["error"]["type"] == "interrupt"
+
+
 async def test_hook_sessions_endpoint(agent):
     session_id = "sess-list-test"
 
@@ -408,3 +598,156 @@ async def test_hook_sessions_endpoint(agent):
     body = await resp.json()
     session_ids = [s["session_id"] for s in body["sessions"]]
     assert session_id in session_ids
+
+
+async def test_concurrent_subagents_parent_correctly(agent):
+    """Two Task tools spawn sibling subagents — both should be parented to root, not each other."""
+    session_id = "sess-concurrent"
+
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "SessionStart"})
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "UserPromptSubmit",
+            "user_prompt": "Run two tasks concurrently",
+        },
+    )
+
+    # Two PreToolUse(Task) fire before any SubagentStart — simulates concurrent dispatch
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Task",
+            "tool_use_id": "task-A",
+            "tool_input": {"description": "search code", "prompt": "Search the codebase for foo"},
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Task",
+            "tool_use_id": "task-B",
+            "tool_input": {"description": "read docs", "prompt": "Read the documentation for bar"},
+        },
+    )
+
+    # SubagentStart for first agent (claims task-A)
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "SubagentStart",
+            "agent_type": "explore-agent",
+        },
+    )
+
+    # SubagentStart for second agent (claims task-B)
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "SubagentStart",
+            "agent_type": "explore-agent",
+        },
+    )
+
+    # Tool inside agent1
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Grep",
+            "tool_use_id": "tool-in-A",
+            "tool_input": {"pattern": "foo"},
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Grep",
+            "tool_use_id": "tool-in-A",
+            "tool_response": "found foo",
+        },
+    )
+
+    # Tool inside agent2
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_use_id": "tool-in-B",
+            "tool_input": {"file_path": "/docs/bar.md"},
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Read",
+            "tool_use_id": "tool-in-B",
+            "tool_response": "bar docs",
+        },
+    )
+
+    # SubagentStop for agent2 (top of stack)
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "SubagentStop"})
+    # SubagentStop for agent1
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "SubagentStop"})
+
+    # PostToolUse for both Task tools
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Task",
+            "tool_use_id": "task-A",
+            "tool_response": "search results",
+        },
+    )
+    await _post_hook(
+        agent,
+        {
+            "session_id": session_id,
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Task",
+            "tool_use_id": "task-B",
+            "tool_response": "docs content",
+        },
+    )
+
+    await _post_hook(agent, {"session_id": session_id, "hook_event_name": "Stop"})
+
+    resp = await agent.get("/claude/hooks/spans")
+    body = await resp.json()
+    spans = body["spans"]
+
+    # Filter to just this session's spans
+    session_spans = [s for s in spans if s.get("session_id") == session_id]
+
+    root_spans = [s for s in session_spans if s["parent_id"] == "undefined"]
+    assert len(root_spans) == 1
+    root = root_spans[0]
+
+    agent_spans = [
+        s for s in session_spans if s["meta"]["span"]["kind"] == "agent" and s["parent_id"] != "undefined"
+    ]
+    assert len(agent_spans) == 2, f"Expected 2 subagent spans, got {len(agent_spans)}"
+
+    # Both subagents should be parented to root — not to each other
+    for agent_span in agent_spans:
+        assert agent_span["parent_id"] == root["span_id"], (
+            f"Subagent {agent_span['name']} has parent_id={agent_span['parent_id']} "
+            f"but expected root span_id={root['span_id']}"
+        )

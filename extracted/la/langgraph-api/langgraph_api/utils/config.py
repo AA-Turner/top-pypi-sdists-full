@@ -21,7 +21,7 @@ try:
         var_child_runnable_config,
     )
 except ImportError:
-    var_child_runnable_config = None  # type: ignore[invalid-assignment]
+    var_child_runnable_config = None
 
 CONFIG_KEYS = [
     "tags",
@@ -83,7 +83,7 @@ def ensure_config(*configs: RunnableConfig | None) -> RunnableConfig:
     ):
         empty.update(
             {
-                k: v.copy() if k in COPIABLE_KEYS else v  # type: ignore[attr-defined]
+                k: v.copy() if k in COPIABLE_KEYS else v
                 for k, v in var_config.items()
                 if _is_not_empty(v)
             },
@@ -94,9 +94,9 @@ def ensure_config(*configs: RunnableConfig | None) -> RunnableConfig:
         for k, v in config.items():
             if _is_not_empty(v) and k in CONFIG_KEYS:
                 if k == CONF:
-                    empty[k] = v.copy()  # type: ignore
+                    empty[k] = v.copy()
                 else:
-                    empty[k] = v  # type: ignore[literal-required]
+                    empty[k] = v
         for k, v in config.items():
             if _is_not_empty(v) and k not in CONFIG_KEYS:
                 empty[CONF][k] = v

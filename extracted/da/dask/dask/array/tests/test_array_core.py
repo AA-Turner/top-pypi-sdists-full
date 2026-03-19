@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import copy
-import pathlib
 import re
 import xml.etree.ElementTree
 from typing import Literal
@@ -4997,15 +4996,22 @@ def test_zarr_sharding_roundtrip(tmp_path, chunks, shards):
     assert b2.chunks == b.chunks
 
 
-def test_zarr_roundtrip_with_path_like():
-    pytest.importorskip("zarr")
-    with tmpdir() as d:
-        path = pathlib.Path(d)
-        a = da.zeros((3, 3), chunks=(1, 1))
-        a.to_zarr(path)
-        a2 = da.from_zarr(path)
-        assert_eq(a, a2)
-        assert a2.chunks == a.chunks
+@pytest.mark.parametrize("zarr_format", [2, 3])
+def test_zarr_roundtrip_with_path_like(tmp_path, zarr_format):
+    zarr = pytest.importorskip("zarr")
+    zarr_version = int(zarr.__version__.split(".")[0])
+    if zarr_version < 3:
+        if zarr_format == 3:
+            pytest.skip("zarr format 3 requires zarr version 3 or higher")
+        kwargs = {}
+    else:
+        kwargs = {"zarr_format": zarr_format}
+
+    a = da.zeros((3, 3), chunks=(1, 1))
+    a.to_zarr(tmp_path / "test.zarr", **kwargs)
+    a2 = da.from_zarr(tmp_path / "test.zarr")
+    assert_eq(a, a2)
+    assert a2.chunks == a.chunks
 
 
 def test_to_zarr_accepts_empty_array_without_exception_raised():
@@ -5515,6 +5521,9 @@ def test_dask_array_holds_scipy_sparse_containers(container):
 
 
 @pytest.mark.filterwarnings("ignore:the matrix subclass:PendingDeprecationWarning")
+@pytest.mark.filterwarnings(
+    r"ignore:Changing the sparsity structure of a .* is expensive"
+)
 @pytest.mark.parametrize(
     "container", [pytest.param("array", marks=skip_if_no_sparray()), "matrix"]
 )
@@ -6159,3 +6168,13 @@ def test_blockwise_fusion():
 
     a = ((da.ones(10, chunks=5) + 1) + 2).sum()
     dask.compute(a, scheduler=custom_scheduler_get)
+
+
+@pytest.mark.skipif(
+    not NUMPY_GE_200,
+    reason="NumPy < 2.0 silently upcasts instead of raising OverflowError",
+)
+def test_elemwise_scalar_overflow_raises_overflowerror():
+    x = da.ones(2, dtype=np.int8)
+    with pytest.raises(OverflowError, match=r"out of bounds for int8"):
+        x * 128

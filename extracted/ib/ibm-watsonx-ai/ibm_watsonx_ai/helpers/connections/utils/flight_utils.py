@@ -11,7 +11,6 @@ from typing import Callable, Protocol
 
 from pyarrow import flight
 
-from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
@@ -30,13 +29,13 @@ class SimplyCallback:
 
 
 class HeaderMiddleware(flight.ClientMiddleware):
-    def __init__(self, *, api_client: APIClient) -> None:
+    def __init__(self, *, get_headers: Callable) -> None:
         super().__init__()
-        self.api_client = api_client
+        self.get_headers = get_headers
 
     def sending_headers(self) -> dict:
-        headers = self.api_client.get_headers()
-        authorization_header = headers.get("Authorization")
+        initial_headers = self.get_headers()
+        authorization_header = initial_headers.get("Authorization")
         if not authorization_header or not (
             authorization_header.startswith(("Bearer", "Basic"))
         ):
@@ -44,20 +43,20 @@ class HeaderMiddleware(flight.ClientMiddleware):
                 "The authorization header is missing or does not contain supported token type. Allowed token types: Bearer, Basic"
             )
 
-        updated_headers = {"Authorization": authorization_header}
+        headers = {"Authorization": authorization_header}
 
-        if impersonate_header := headers.get("impersonate"):
-            updated_headers.update({"Impersonate": impersonate_header})
+        if impersonate_header := initial_headers.get("impersonate"):
+            headers.update({"Impersonate": impersonate_header})
 
-        return updated_headers
+        return headers
 
 
 class HeaderMiddlewareFactory(flight.ClientMiddlewareFactory):
-    def __init__(self, *, api_client: APIClient):
-        self.api_client = api_client
+    def __init__(self, *, get_headers: Callable):
+        self.get_headers = get_headers
 
     def start_call(self, info: flight.CallInfo) -> flight.ClientMiddleware:
-        return HeaderMiddleware(api_client=self.api_client)
+        return HeaderMiddleware(get_headers=self.get_headers)
 
 
 def _flight_retry(max_retries: int = 3):

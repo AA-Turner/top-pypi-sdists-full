@@ -26,6 +26,7 @@ class ArtifactType(str, enum.Enum):
     MEMORY = "memory"
     MCP_SERVER = "mcp_server"
     CONFIG_OVERLAY = "config_overlay"
+    SPEC = "spec"
 
 
 class ArtifactSource(str, enum.Enum):

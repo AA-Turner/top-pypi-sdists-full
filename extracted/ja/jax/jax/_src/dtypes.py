@@ -506,8 +506,8 @@ def issubdtype(a: DTypeLike | ExtendedDType | None,
   # unhashable (e.g. custom objects with a dtype attribute). The following check is
   # fast and covers the majority of calls to this function within JAX library code.
   return _issubdtype_cached(
-    a if isinstance(a, _types_for_issubdtype) else np.dtype(a),  # type: ignore[arg-type]
-    b if isinstance(b, _types_for_issubdtype) else np.dtype(b),  # type: ignore[arg-type]
+      a if isinstance(a, _types_for_issubdtype) else np.dtype(a),
+      b if isinstance(b, _types_for_issubdtype) else np.dtype(b),
   )
 
 
@@ -597,17 +597,15 @@ _complex_types: list[JAXType] = [
 # does not participate in promotions at the moment. Similarly, `_dtype_kinds` is
 # only meant for the `jnp.isdtype` and we want to be conservative and not allow
 # StringDType to be used in there.
-_string_types: list[JAXType] = []
-if hasattr(np.dtypes, 'StringDType'):
-  _string_types: list[JAXType] = [np.dtypes.StringDType()]  # type: ignore
+string_dtype = np.dtypes.StringDType()  # pytype: disable=module-attr
 
 _jax_dtype_set = {
     float0,
+    string_dtype,
     *_bool_types,
     *_int_types,
     *_float_types,
     *_complex_types,
-    *_string_types,
 }
 
 _jax_types = (_bool_types + _int_types + _float_types + _complex_types)
@@ -1084,7 +1082,7 @@ def result_type(*args: Any, return_weak_type_flag: bool = False) -> DType | tupl
   if weak_type:
     dtype = default_types['f' if dtype in _custom_float_dtypes else dtype.kind]()
   # TODO(jakevdp): fix return type annotation and remove this ignore.
-  return (dtype, weak_type) if return_weak_type_flag else dtype  # type: ignore[return-value]
+  return (dtype, weak_type) if return_weak_type_flag else dtype
 
 def check_and_canonicalize_user_dtype(dtype, fun_name=None) -> DType:
   """Checks validity of a user-provided dtype, and returns its canonical form.
@@ -1165,7 +1163,8 @@ def primal_tangent_dtype(primal_dtype, tangent_dtype,
     name = name_
     _rules = rules
     type = primal_tangent_dtype_scalar
-    __repr__ = lambda _: name_
+    def __repr__(self):
+      return name_
 
   return PrimalTangentDType()
 
@@ -1176,7 +1175,3 @@ def short_dtype_name(dtype) -> str:
   else:
     return (dtype.name.replace('float', 'f').replace('uint'   , 'u')
                       .replace('int'  , 'i').replace('complex', 'c'))
-
-
-def is_string_dtype(dtype: DTypeLike | None) -> bool:
-  return dtype in _string_types

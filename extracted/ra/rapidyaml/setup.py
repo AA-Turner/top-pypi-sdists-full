@@ -15,7 +15,7 @@ from cmake_build_extension import BuildExtension, CMakeExtension
 TOP_DIR = (Path(__file__).parent).resolve()
 
 # where the Python library is actually found
-PYTHON_DIR = "api/python"
+PYTHON_DIR = "src"
 
 
 def log(msg, *args, **kwargs):
@@ -24,8 +24,7 @@ def log(msg, *args, **kwargs):
 
 def get_readme_for_python():
     with open(TOP_DIR / "README.md", "r", encoding="utf8") as fh:
-        marker = "<!-- endpythonreadme -->"  # get everything up to this tag
-        return fh.read().split(marker)[0]
+        return fh.read()
 
 
 def get_cmake_flags_environment():
@@ -34,6 +33,7 @@ def get_cmake_flags_environment():
 
 def get_cmake_flags():
     return [
+        "-S cpp",
         "-DBUILD_SHARED_LIBS:BOOL=ON",
         "-DRYML_DEV:BOOL=OFF",
         "-DRYML_BUILD_API:BOOL=ON",
@@ -107,6 +107,7 @@ class _BuildExtension(BuildExtension):
             _cleanup("lib")
             _cleanup("include")
             _cleanup("cmake")
+            _cleanup(".github")
         except:
             log('Found following installed files:')
             for f in cmake_install_prefix.rglob("*"):
@@ -118,8 +119,8 @@ log('Compiling with CMake cfg:\n  ' + '\n  '.join(ext.cmake_configure_options))
 
 setup(
     name='rapidyaml',
-    description='Rapid YAML - a library to parse and emit YAML, and do it fast',
-    url='https://github.com/biojppm/rapidyaml',
+    description='Rapid YAML - parse and emit YAML, and do it fast',
+    url='https://github.com/biojppm/rapidyaml-python',
     license='MIT',
     license_files=['LICENSE.txt'],
     author="Joao Paulo Magalhaes",
@@ -131,13 +132,13 @@ setup(
     ext_modules=[ext],
     include_package_data=True,
     # Requirements
+    install_requires=['deprecation'],
     python_requires=">=3.6",
     setup_requires=[
         'setuptools_scm',
         'setuptools-git',
-        'setuptools',
+        'setuptools>=42',
     ],
-    install_requires=['deprecation'],
     # Extra arguments
     **setup_kw,
 )

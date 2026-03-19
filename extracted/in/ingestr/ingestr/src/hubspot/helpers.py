@@ -283,8 +283,13 @@ def fetch_data_search(
     api_key: str,
     properties: str,
     start_date_ms: str,
+    end_date_ms: Optional[str] = None,
     association_types: Optional[List[str]] = None,
 ) -> Iterator[List[Dict[str, Any]]]:
+    import logging
+
+    logger = logging.getLogger("hubspot.search")
+
     url = get_url(f"/crm/v3/objects/{OBJECT_TYPE_PLURAL[object_type]}/search")
     headers = _get_headers(api_key)
     from_type = OBJECT_TYPE_PLURAL[object_type]
@@ -292,68 +297,114 @@ def fetch_data_search(
         object_type, DEFAULT_LAST_MODIFIED_PROPERTY
     )
 
-    body: Dict[str, Any] = {
-        "filterGroups": [
-            {
-                "filters": [
-                    {
-                        "propertyName": modified_prop,
-                        "operator": "GTE",
-                        "value": start_date_ms,
-                    }
-                ]
-            }
-        ],
-        "properties": [p for p in properties.split(",") if p],
-        "sorts": [{"propertyName": modified_prop, "direction": "ASCENDING"}],
-        "limit": 100,
-    }
+    props_list = [p for p in properties.split(",") if p]
+    last_id: Optional[str] = None
 
     while True:
-        r = requests.post(url, headers=headers, json=body)
-        r.raise_for_status()
-        _data = r.json()
-
-        if _data.get("status") == "error":
-            raise ValueError(
-                f"HubSpot search error: {_data.get('message')} (correlationId: {_data.get('correlationId')})"
+        filters = [
+            {
+                "propertyName": modified_prop,
+                "operator": "GTE",
+                "value": start_date_ms,
+            }
+        ]
+        if end_date_ms is not None:
+            filters.append(
+                {
+                    "propertyName": modified_prop,
+                    "operator": "LTE",
+                    "value": end_date_ms,
+                }
+            )
+        if last_id is not None:
+            filters.append(
+                {
+                    "propertyName": "hs_object_id",
+                    "operator": "GT",
+                    "value": last_id,
+                }
             )
 
-        if "results" in _data:
-            _objects: List[Dict[str, Any]] = []
-            for _result in _data["results"]:
-                _obj = _result.get("properties", _result)
-                if "id" not in _obj and "id" in _result:
-                    _obj["id"] = _result["id"]
-                _objects.append(_obj)
+        logger.info(
+            f"[hubspot] search {object_type}: "
+            f"GTE={start_date_ms} LTE={end_date_ms} after_id={last_id}"
+        )
 
-            if association_types and _objects:
-                obj_ids = [
-                    str(obj.get("hs_object_id") or obj.get("id") or "")
-                    for obj in _objects
-                ]
-                for assoc_type in association_types:
-                    if not assoc_type:
-                        continue
-                    assoc_map = _fetch_associations_batch(
-                        from_type, assoc_type, obj_ids, api_key
-                    )
-                    for obj in _objects:
-                        obj_id = str(obj.get("hs_object_id") or obj.get("id") or "")
-                        values = [
-                            {"value": obj_id, f"{assoc_type}_id": aid}
-                            for aid in assoc_map.get(obj_id, [])
-                        ]
-                        obj[assoc_type] = [
-                            dict(t) for t in {tuple(d.items()) for d in values}
-                        ]
+        body: Dict[str, Any] = {
+            "filterGroups": [{"filters": filters}],
+            "properties": props_list,
+            "sorts": [{"propertyName": "hs_object_id", "direction": "ASCENDING"}],
+            "limit": 100,
+        }
 
-            yield _objects
+        total_yielded = 0
 
-        _next = _data.get("paging", {}).get("next", None)
-        if _next:
-            body["after"] = _next["after"]
-        else:
+        while True:
+            r = requests.post(url, headers=headers, json=body)
+            r.raise_for_status()
+            _data = r.json()
+
+            if _data.get("status") == "error":
+                raise ValueError(
+                    f"HubSpot search error: {_data.get('message')} (correlationId: {_data.get('correlationId')})"
+                )
+
+            if "results" in _data:
+                _objects: List[Dict[str, Any]] = []
+                for _result in _data["results"]:
+                    _obj = _result.get("properties", _result)
+                    if "id" not in _obj and "id" in _result:
+                        _obj["id"] = _result["id"]
+                    _objects.append(_obj)
+
+                    obj_id = str(_obj.get("hs_object_id") or _obj.get("id") or "")
+                    if last_id is None or int(obj_id) > int(last_id):
+                        last_id = obj_id
+
+                if association_types and _objects:
+                    obj_ids = [
+                        str(obj.get("hs_object_id") or obj.get("id") or "")
+                        for obj in _objects
+                    ]
+                    for assoc_type in association_types:
+                        if not assoc_type:
+                            continue
+                        assoc_map = _fetch_associations_batch(
+                            from_type, assoc_type, obj_ids, api_key
+                        )
+                        for obj in _objects:
+                            obj_id = str(obj.get("hs_object_id") or obj.get("id") or "")
+                            values = [
+                                {"value": obj_id, f"{assoc_type}_id": aid}
+                                for aid in assoc_map.get(obj_id, [])
+                            ]
+                            obj[assoc_type] = [
+                                dict(t) for t in {tuple(d.items()) for d in values}
+                            ]
+
+                total_yielded += len(_objects)
+                yield _objects
+
+            # Break BEFORE trying to fetch beyond the 10k limit — HubSpot's
+            # search API hangs when paging past 10,000 results.
+            if total_yielded >= 10000:
+                break
+
+            _next = _data.get("paging", {}).get("next", None)
+            if _next:
+                body["after"] = _next["after"]
+            else:
+                break
+
+        logger.info(
+            f"[hubspot] search {object_type}: window done, "
+            f"yielded={total_yielded} last_id={last_id}"
+        )
+
+        # HubSpot search API has a 10,000 result hard limit. If we hit it,
+        # restart with the same date filters plus hs_object_id > last_id
+        # to continue from where we left off.
+        if total_yielded < 10000:
             break
 
 

@@ -31,6 +31,8 @@ class RequestContext(Generic[REQ, RES]):
         http_method: str,
         request_headers: Headers,
         timeout_ms: int | None = None,
+        server_address: str | None = None,
+        client_address: str | None = None,
     ) -> None:
         """
         Initialize a Context object.
@@ -40,6 +42,8 @@ class RequestContext(Generic[REQ, RES]):
         self._request_headers = request_headers
         self._response_headers = None
         self._response_trailers = None
+        self._server_address = server_address
+        self._client_address = client_address
 
         if timeout_ms is None:
             self._end_time = None
@@ -59,11 +63,7 @@ class RequestContext(Generic[REQ, RES]):
         return self._http_method
 
     def request_headers(self) -> Headers:
-        """
-        Returns the request headers associated with the context.
-
-        :return: A mapping of header keys to lists of header values.
-        """
+        """Returns the request headers associated with the context."""
         return self._request_headers
 
     def response_headers(self) -> Headers:
@@ -83,12 +83,26 @@ class RequestContext(Generic[REQ, RES]):
         return self._response_trailers
 
     def timeout_ms(self) -> float | None:
-        """
-        Returns the remaining time until the timeout.
-
-        Returns:
-            float | None: The remaining time in milliseconds, or None if no timeout is set.
-        """
+        """Returns the remaining time until the timeout in milliseconds, or None if no timeout is set."""
         if self._end_time is None:
             return None
         return (self._end_time - time.monotonic()) * 1000.0
+
+    def server_address(self) -> str | None:
+        """
+        Returns the server address for this request, if available, as a "address:port" string.
+
+        - On the client, this is components from the URL configured when constructing the client.
+        - On the server, this is determined from the Host header and scheme of the request.
+        """
+        return self._server_address
+
+    def client_address(self) -> str | None:
+        """
+        Returns the client address for this request, if available, as a "address:port" string.
+
+        - On the client, this is never populated.
+        - On the server, this is the value provided by the server implementation, generally
+          the IP address and ephemeral port of the client.
+        """
+        return self._client_address

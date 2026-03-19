@@ -24,6 +24,7 @@ const Artifacts = (() => {
         memory:         { bg: 'rgba(239,68,68,0.1)',   fg: '#ef4444' },
         mcp_server:     { bg: 'rgba(14,165,233,0.1)',  fg: '#0ea5e9' },
         config_overlay: { bg: 'rgba(156,163,175,0.1)', fg: '#9ca3af' },
+        spec:           { bg: 'rgba(99,102,241,0.1)',  fg: '#6366f1' },
     };
 
     const _SOURCE_COLORS = {
@@ -128,8 +129,10 @@ const Artifacts = (() => {
             const params = new URLSearchParams();
             const typeFilter = document.getElementById('artifacts-type-filter');
             const sourceFilter = document.getElementById('artifacts-source-filter');
+            const attachedToggle = document.getElementById('artifacts-attached-toggle');
             if (typeFilter && typeFilter.value) params.set('type', typeFilter.value);
             if (sourceFilter && sourceFilter.value) params.set('source', sourceFilter.value);
+            if (attachedToggle && attachedToggle.checked) params.set('attached_only', 'true');
             const qs = params.toString();
             _artifacts = await App.api('/api/artifacts' + (qs ? '?' + qs : ''));
             list.innerHTML = '';
@@ -140,12 +143,14 @@ const Artifacts = (() => {
             _artifacts.forEach(art => {
                 const item = document.createElement('div');
                 item.className = 'artifact-item';
+                const packBadge = art.pack_owned ? _badge('pack', { bg: 'rgba(168,85,247,0.1)', fg: '#a855f7' }) : '';
                 item.innerHTML =
                     '<div class="artifact-item-main">' +
                         '<div class="artifact-item-title">' + _escapeHtml(art.fqn || art.name) + '</div>' +
                         '<div class="artifact-item-meta">' +
                             _typeBadge(art.type) +
                             _sourceBadge(art.source) +
+                            packBadge +
                             (art.version ? '<span class="artifact-version">v' + _escapeHtml(String(art.version)) + '</span>' : '') +
                         '</div>' +
                     '</div>';
@@ -195,10 +200,12 @@ const Artifacts = (() => {
         detail.innerHTML = '<div class="artifacts-loading">Loading...</div>';
         try {
             const art = await App.api('/api/artifacts/' + encodeURIComponent(fqn));
+            const isPackOwned = art.pack_owned;
+            const packBadge = isPackOwned ? ' ' + _badge('pack', { bg: 'rgba(168,85,247,0.1)', fg: '#a855f7' }) : '';
             let html =
                 '<div class="artifact-detail-header">' +
                     '<button class="artifact-back-btn" id="artifact-back-btn">&larr;</button>' +
-                    '<span class="artifact-detail-title">' + _escapeHtml(art.name) + '</span>' +
+                    '<span class="artifact-detail-title">' + _escapeHtml(art.name) + packBadge + '</span>' +
                 '</div>' +
                 '<div class="artifact-detail-body">' +
                     '<div class="artifact-detail-meta">' +
@@ -216,7 +223,7 @@ const Artifacts = (() => {
                 html += '</ul></div>';
             }
 
-            if (art.source !== 'built_in') {
+            if (art.source !== 'built_in' && !isPackOwned) {
                 html += '<div class="artifact-detail-actions">' +
                     '<button class="artifact-delete-btn" id="artifact-delete-btn">Delete</button>' +
                     '</div>';
@@ -320,6 +327,9 @@ const Artifacts = (() => {
 
         const sourceFilter = document.getElementById('artifacts-source-filter');
         if (sourceFilter) sourceFilter.addEventListener('change', () => _refreshArtifacts());
+
+        const attachedToggle = document.getElementById('artifacts-attached-toggle');
+        if (attachedToggle) attachedToggle.addEventListener('change', () => _refreshArtifacts());
     }
 
     document.addEventListener('DOMContentLoaded', init);

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 import dataclasses
+import functools
 import json
 from typing import Any, cast
 
@@ -92,6 +93,8 @@ def _get_memory_space_from_aval(
           raise ValueError(f"Invalid kernel type for semaphore: {kernel_type}")
     case tpu_core.MemorySpace.HOST:
       return tpu_custom_call.MemorySpace.HOST
+    case _:
+      pass
   return None
 
 
@@ -362,7 +365,7 @@ def pallas_call_tpu_lowering_rule(
     mosaic_params = tpu_core.CompilerParams()
   else:
     assert isinstance(compiler_params, tpu_core.CompilerParams)
-    mosaic_params = compiler_params  # type: ignore[assignment]
+    mosaic_params = compiler_params
 
   del mesh
   jax_mesh = None
@@ -382,7 +385,10 @@ def pallas_call_tpu_lowering_rule(
         tpu_core.CoreType.SC_SCALAR_SUBCORE
         | tpu_core.CoreType.SC_VECTOR_SUBCORE
     ):
-      lower_jaxpr_to_module = sc_lowering.lower_jaxpr_to_module
+      lower_jaxpr_to_module = functools.partial(
+          sc_lowering.lower_pipelined_jaxpr_to_module,
+          use_tc_tiling=mosaic_params.use_tc_tiling_on_sc,
+      )
     case _:
       raise ValueError(f"Unsupported kernel type: {mosaic_params.kernel_type}")
 
@@ -448,7 +454,7 @@ def mpmd_map_tpu_lowering_rule(
     mosaic_params = tpu_core.CompilerParams()
   else:
     assert isinstance(compiler_params, tpu_core.CompilerParams)
-    mosaic_params = compiler_params  # type: ignore[assignment]
+    mosaic_params = compiler_params
 
   # TODO(slebedev): Check kernel type and raise if it is set.
   if mosaic_params.dimension_semantics is not None:
@@ -516,7 +522,9 @@ def mpmd_map_tpu_lowering_rule(
 
   match [*{mesh.kernel_type for mesh in meshes}]:
     case [kernel_type]:
-      mosaic_params = dataclasses.replace(mosaic_params, kernel_type=kernel_type)
+      mosaic_params = dataclasses.replace(
+          mosaic_params, kernel_type=kernel_type
+      )
     case _:
       # Use a stub ``kernel_type`` if we are lowering multiple kernels.
       # This will hopefully cause a runtime error if ``kernel_type`` is ever

@@ -171,7 +171,7 @@ def _ensure_future(
         elif EAGER_NOT_SUPPORTED or lazy:
             return loop.create_task(coro_or_future, name=name, context=context)
         else:
-            return asyncio.eager_task_factory(  # type: ignore[unresolved-attribute]
+            return asyncio.eager_task_factory(
                 loop, coro_or_future, name=name, context=context
             )
     except RuntimeError:

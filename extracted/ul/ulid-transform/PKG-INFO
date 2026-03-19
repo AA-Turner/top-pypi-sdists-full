@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ulid-transform
-Version: 2.0.2
+Version: 2.2.0
 Summary: Create and transform ULIDs
 License-Expression: MIT
 License-File: LICENSE

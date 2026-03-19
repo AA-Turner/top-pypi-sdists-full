@@ -36,9 +36,8 @@ from .launch_context import (
     GLOBAL_BROADCAST as GLOBAL_BROADCAST,
     LaunchContext as LaunchContext,
     MemRefTransform as MemRefTransform,
+    CopyPartition as CopyPartition,
     TMAReductionOp as TMAReductionOp,
-    Rounding as Rounding,
-    SwizzleTransform as SwizzleTransform,
     TileTransform as TileTransform,
     TransposeTransform as TransposeTransform,
 )
@@ -77,6 +76,7 @@ from .fragmented_array import (
     WGStridedFragLayout as WGStridedFragLayout,
     copy_tiled as copy_tiled,
     optimization_barrier as optimization_barrier,
+    Rounding as Rounding,
 )
 from .utils import (
     BarrierRef as BarrierRef,

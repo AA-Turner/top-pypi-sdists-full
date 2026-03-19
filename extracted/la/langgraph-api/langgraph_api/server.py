@@ -140,7 +140,7 @@ def apply_middleware(
     for route in routes:
         for cls, args, kwargs in reversed(middleware):
             if hasattr(route, "app"):
-                route.app = cls(route.app, *args, **kwargs)  # type: ignore
+                route.app = cls(route.app, *args, **kwargs)
             else:
                 raise ValueError(f"Cannot apply middleware: route {route} has no app")
         middleware_routes.append(route)

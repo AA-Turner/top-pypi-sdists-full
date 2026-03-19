@@ -8,10 +8,6 @@ Reference codes:
 
 """
 
-import os
-from scipy.stats import entropy
-from tqdm import tqdm
-from glob import glob
 import numpy as np
 
 import torch
@@ -70,7 +66,8 @@ class InceptionScore(nn.Module):
         )
 
         features = torch.from_numpy(np_feats)
-        features = features[torch.randperm(features.shape[0])]
+        # Remove random permutation to ensure reproducibility
+        # features = features[torch.randperm(features.shape[0])]
 
         # calculate probs and logits
         prob = features.softmax(dim=1)

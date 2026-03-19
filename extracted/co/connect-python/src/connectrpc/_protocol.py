@@ -6,14 +6,16 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
+from google.protobuf import symbol_database
 from google.protobuf.any_pb2 import Any
+from google.protobuf.json_format import MessageToDict
 
 from ._compression import Compression
 from .code import Code
 from .errors import ConnectError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
 
     from pyqwest import FullResponse
     from pyqwest import Headers as HTTPHeaders
@@ -157,19 +159,29 @@ class ConnectWireError:
     def to_dict(self) -> dict:
         data: dict = {"code": self.code.value, "message": self.message}
         if self.details:
-            details: list[dict[str, str]] = []
+            details: list[dict] = []
             for detail in self.details:
                 if detail.type_url.startswith("type.googleapis.com/"):
                     detail_type = detail.type_url[len("type.googleapis.com/") :]
                 else:
                     detail_type = detail.type_url
-                details.append(
-                    {
-                        "type": detail_type,
-                        # Connect requires unpadded base64
-                        "value": b64encode(detail.value).decode("utf-8").rstrip("="),
-                    }
-                )
+                detail_dict: dict = {
+                    "type": detail_type,
+                    # Connect requires unpadded base64
+                    "value": b64encode(detail.value).decode("utf-8").rstrip("="),
+                }
+                # Try to produce debug info, but expect failure when we don't
+                # have descriptors for the message type.
+                debug = None
+                try:
+                    msg_instance = symbol_database.Default().GetSymbol(detail_type)()
+                    if detail.Unpack(msg_instance):
+                        debug = MessageToDict(msg_instance)
+                except Exception:
+                    debug = None
+                if debug is not None:
+                    detail_dict["debug"] = debug
+                details.append(detail_dict)
             data["details"] = details
         return data
 
@@ -179,7 +191,12 @@ class ConnectWireError:
 
 class ServerProtocol(Protocol):
     def create_request_context(
-        self, method: MethodInfo[REQ, RES], http_method: str, headers: Headers
+        self,
+        method: MethodInfo[REQ, RES],
+        http_method: str,
+        http_scheme: str,
+        headers: Headers,
+        client_address: str | None = None,
     ) -> RequestContext[REQ, RES]:
         """Creates a RequestContext from the HTTP method and headers."""
         ...
@@ -207,7 +224,7 @@ class ServerProtocol(Protocol):
         ...
 
     def negotiate_stream_compression(
-        self, headers: Headers
+        self, headers: Headers, compressions: dict[str, Compression]
     ) -> tuple[Compression | None, Compression]:
         """Negotiates request and response compression based on headers."""
         ...
@@ -218,12 +235,13 @@ class ClientProtocol(Protocol):
         self,
         *,
         method: MethodInfo[REQ, RES],
+        address: str,
         http_method: str,
         user_headers: Headers | Mapping[str, str] | None,
         timeout_ms: int | None,
         codec: Codec,
         stream: bool,
-        accept_compression: Iterable[str] | None,
+        accept_compression: str,
         send_compression: Compression | None,
     ) -> RequestContext[REQ, RES]:
         """Creates a RequestContext for the given method and headers."""
@@ -264,3 +282,26 @@ class HTTPException(Exception):
     def __init__(self, status: HTTPStatus, headers: list[tuple[str, str]]) -> None:
         self.status = status
         self.headers = headers
+
+
+def host_to_server_address(host: str | None, http_scheme: str) -> str | None:
+    if host is None:
+        return None
+    if ":" not in host:
+        match http_scheme:
+            case "https":
+                host += ":443"
+            case "http":
+                host += ":80"
+    return host
+
+
+def url_to_server_address(address: str) -> str | None:
+    if address.startswith("https://"):
+        scheme = "https"
+        address = address[len("https://") :]
+    else:
+        scheme = "http"
+        address = address[len("http://") :]
+
+    return host_to_server_address(address, scheme)

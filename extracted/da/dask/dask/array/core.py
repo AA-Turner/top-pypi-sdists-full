@@ -487,6 +487,8 @@ def apply_infer_dtype(func, args, kwargs, funcname, suggest_dtype="dtype", nout=
         with np.errstate(all="ignore"):
             o = func(*args, **kwargs)
     except Exception as e:
+        if isinstance(e, OverflowError):
+            raise
         exc_type, exc_value, exc_traceback = sys.exc_info()
         tb = "".join(traceback.format_tb(exc_traceback))
         suggest = (
@@ -4102,18 +4104,16 @@ def to_zarr(
         lock = True
         zarr_array_kwargs["overwrite"] = True
 
+    zarr_array_kwargs["store"] = zarr_store
     if _zarr_v3():
-        root = zarr.open_group(store=zarr_store, mode=mode) if array_name else None
         if array_name:
-            z = root.create_array(name=array_name, **zarr_array_kwargs)
+            z = zarr.create_array(name=array_name, **zarr_array_kwargs)
         else:
-            zarr_array_kwargs["store"] = zarr_store
             z = zarr.create_array(**zarr_array_kwargs)
     else:
         # TODO: drop this as soon as zarr v2 gets dropped.
         # https://github.com/dask/dask/issues/12188
         z = zarr.create(
-            store=zarr_store,
             path=array_name,
             **zarr_array_kwargs,
         )
@@ -5174,6 +5174,8 @@ def elemwise(op, *args, out=None, where=True, dtype=None, name=None, **kwargs):
         ]
         try:
             dtype = apply_infer_dtype(op, vals, {}, "elemwise", suggest_dtype=False)
+        except OverflowError:
+            raise
         except Exception:
             return NotImplemented
         need_enforce_dtype = any(

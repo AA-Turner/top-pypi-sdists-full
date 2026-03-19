@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.19.0
+Version: 2.20.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -32,10 +32,10 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- ♻️ refactor(pyproject-fmt): sort type checkers after linters by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#274 <https://github.com/tox-dev/toml-fmt/pull/274>`_
-- Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#270 <https://github.com/tox-dev/toml-fmt/pull/270>`_ <a id="2.18.1"></a>
+- ✨ feat(pyproject-fmt): add bandit to recognized linters by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#276 <https://github.com/tox-dev/toml-fmt/pull/276>`_
+- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#269 <https://github.com/tox-dev/toml-fmt/pull/269>`_ <a id="2.19.0"></a>
 
 Philosophy
 ----------
@@ -354,7 +354,8 @@ Tables are reordered into a consistent structure:
    2. Builders: ``cibuildwheel``, ``nuitka``
    3. Linters/formatters: ``autopep8``, ``black``, ``ruff``, ``isort``, ``flake8``, ``pycln``, ``nbqa``,
       ``pylint``, ``repo-review``, ``codespell``, ``docformatter``, ``pydoclint``, ``tomlsort``,
-      ``check-manifest``, ``check-sdist``, ``check-wheel-contents``, ``deptry``, ``pyproject-fmt``, ``typos``
+      ``check-manifest``, ``check-sdist``, ``check-wheel-contents``, ``deptry``, ``pyproject-fmt``, ``typos``,
+      ``bandit``
    4. Type checkers: ``mypy``, ``pyrefly``, ``pyright``, ``ty``, ``django-stubs``
    5. Testing: ``pytest``, ``pytest_env``, ``pytest-enabler``, ``coverage``
    6. Task runners: ``doit``, ``spin``, ``tox``

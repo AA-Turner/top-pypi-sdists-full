@@ -34,6 +34,8 @@ class AsyncSessionManager:
         agent_artifact_id: str | None = None,
         connect_network: bool = True,
         wait: bool = True,
+        shutdown_callback_url: str | None = None,
+        shutdown_callback_token: str | None = None,
     ) -> Session:
         """Create a new session.
 
@@ -106,6 +108,8 @@ class AsyncSessionManager:
                 timeout=timeout,
                 agent_artifact_id=agent_artifact_id,
                 wait=wait,
+                shutdown_callback_url=shutdown_callback_url,
+                shutdown_callback_token=shutdown_callback_token,
             )
         else:
             raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")

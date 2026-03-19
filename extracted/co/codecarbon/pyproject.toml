@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "codecarbon"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -18,8 +18,6 @@ authors = [
 ]
 classifiers = [
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -42,6 +40,7 @@ dependencies = [
     "questionary",
     "rich",
     "typer",
+    "pycountry",
 ]
 
 [tool.setuptools.dynamic]
@@ -56,6 +55,7 @@ exclude = ["*.json", "**/*.csv", "*.geojson"]
 
 [tool.setuptools.package-data]
 codecarbon = [
+    "py.typed",
     "data/cloud/impact.csv",
     "data/hardware/cpu_power.csv",
     "data/canada_provinces.geojson",
@@ -72,39 +72,12 @@ codecarbon = [
 Homepage = "https://codecarbon.io/"
 Repository = "https://github.com/mlco2/codecarbon"
 Dashboard = "http://dashboard.codecarbon.io/"
-Documentation = "https://mlco2.github.io/codecarbon/"
+Documentation = "https://docs.codecarbon.io/"
 Issues = "https://github.com/mlco2/codecarbon/issues"
 Changelog = "https://github.com/mlco2/codecarbon/releases"
 
 
 [dependency-groups]
-api  = [
-    "alembic<2.0.0",
-    "authlib>=1.2.1",
-    "bcrypt<5.0.0",
-    "python-dateutil<3.0.0",
-    "dependency-injector<5.0.0",
-    "fastapi<1.0.0",
-    "fief-client[fastapi]",
-    "httpx",
-    "pydantic[email]<2.0.0",
-    "psycopg2-binary<3.0.0",
-    "requests<3.0.0",
-    "sqlalchemy<2.0.0",
-    "uvicorn[standard]<1.0.0",
-    "fastapi-pagination<1.0.0",
-    "pytest",
-    "mock",
-    "responses",
-    "fastapi-oidc;python_version>='3.10'",
-    "numpy",
-    "psutil",
-    "requests-mock",
-    "rapidfuzz",
-    "PyJWT",
-    "logfire[fastapi]>=1.0.1",
-    "itsdangerous",
-]
 dev = [
     "taskipy",
     "bumpver",
@@ -120,8 +93,10 @@ dev = [
     "logfire>=1.0.1",  # For testing Logfire output method
 ]
 doc = [
-  "sphinx",
-  "sphinx_rtd_theme>=3.1.0",
+  "setuptools",
+  "zensical",
+  "mike",
+  "mkdocstrings[python]>=0.26",
 ]
 
 [project.optional-dependencies]
@@ -136,34 +111,10 @@ viz-legacy = [
     "dash_bootstrap_components > 1.0.0",
     "fire",
 ]
-
-api  = [
-    "alembic<2.0.0",
-    "authlib>=1.2.1",
-    "bcrypt<5.0.0",
-    "python-dateutil<3.0.0",
-    "dependency-injector<5.0.0",
-    "fastapi<1.0.0",
-    "fief-client[fastapi]",
-    "httpx",
-    "itsdangerous",
-    "pydantic[email]<2.0.0",
-    "psycopg2-binary<3.0.0",
-    "requests<3.0.0",
-    "sqlalchemy<2.0.0",
-    "uvicorn[standard]<1.0.0",
-    "fastapi-pagination<1.0.0",
-    "pytest",
-    "mock",
-    "responses",
-    "fastapi-oidc;python_version>='3.10'",
-    "numpy",
-    "psutil",
-    "requests-mock",
-    "rapidfuzz",
-    "PyJWT",
+# To support AMD GPU
+amdsmi = [
+    "amdsmi>=6.0.0"
 ]
-
 
 [project.scripts]
 carbonboard = "codecarbon.viz.carbonboard:main"
@@ -171,14 +122,15 @@ codecarbon = "codecarbon.cli.main:main"
 
 [tool.taskipy.tasks]
 pre-commit-install = { cmd = "pre-commit install", help = "Install pre-commit hook." }
-dashboard = "cd carbonserver && uvicorn main:app --reload"
-dashboard-ci = "cd carbonserver && uvicorn main:app --host 0.0.0.0 --port 8008"
+dashboard = "uv run --project carbonserver uvicorn main:app --reload"
+dashboard-ci = "uv run --project carbonserver uvicorn main:app --host 0.0.0.0 --port 8008"
 docker = "docker-compose up -d"
-test-api-unit = "cd carbonserver && python -m pytest -vv tests/api/routers && python -m pytest -vv tests/api/service/ && python -m pytest -vv tests/api/usecase/"
-test-api-integ = "cd carbonserver && python -m pytest -vv tests/api/integration/"
-setup-db = "cd carbonserver && python3 -m alembic -c carbonserver/database/alembic.ini upgrade head"
-downgrade-db = "cd carbonserver && python -m alembic -c carbonserver/database/alembic.ini downgrade base"
-build-doc = "cd docs/edit && make docs"
+test-api-unit = "uv run --project carbonserver python -m pytest -vv carbonserver/tests/api/routers && uv run --project carbonserver python -m pytest -vv carbonserver/tests/api/service/ && uv run --project carbonserver python -m pytest -vv carbonserver/tests/api/usecase/"
+test-api-integ = "uv run --project carbonserver python -m pytest -vv carbonserver/tests/api/integration/"
+setup-db = "cd carbonserver && uv run --project carbonserver python -m alembic -c carbonserver/database/alembic.ini upgrade head"
+downgrade-db = "cd carbonserver && uv run --project carbonserver python -m alembic -c carbonserver/database/alembic.ini downgrade base"
+carbonserver-api-requirements = "uv pip compile carbonserver/pyproject.toml --output-file requirements/requirements-api.txt"
+build-doc = "zensical build -f mkdocs.yml"
 precommit-install = "pre-commit install"
 precommit-update = "pre-commit autoupdate"
 precommit = "pre-commit run --show-diff-on-failure --color=always --all-files"
@@ -188,19 +140,18 @@ format = "black . && ruff check --fix --exit-non-zero-on-fix ."
 test-package = "CODECARBON_ALLOW_MULTIPLE_RUNS=True pytest --ignore=tests/test_viz_data.py -vv -m 'not integ_test' tests/"
 test-coverage = "CODECARBON_ALLOW_MULTIPLE_RUNS=True pytest --cov --cov-report=xml --ignore=tests/test_viz_data.py -vv -m 'not integ_test' tests/"
 test-package-integ = "CODECARBON_ALLOW_MULTIPLE_RUNS=True python -m pytest -vv tests/"
-docs = "cd docs/edit && make docs"
+docs = "zensical build -f mkdocs.yml"
+docs-serve = "zensical serve -f mkdocs.yml"
+docs-check-drift = "python scripts/check-docs-drift.py"
 carbonboard = "python codecarbon/viz/carbonboard.py"
 
 [tool.bumpver]
-current_version = "3.2.3"
+current_version = "3.2.4"
 version_pattern = "MAJOR.MINOR.PATCH[_TAGNUM]"
 
 [tool.bumpver.file_patterns]
 "codecarbon/_version.py" = [
     '^__version__ = "{version}"$',
-]
-"docs/edit/conf.py" = [
-    '^release = "{version}"$',
 ]
 
 [tool.pytest.ini_options]

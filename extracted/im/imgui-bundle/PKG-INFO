@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: imgui-bundle
-Version: 1.92.600
+Version: 1.92.601
 Summary: Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python.
 Author-Email: Pascal Thomet <pthomet@gmail.com>
 Classifier: Development Status :: 5 - Production/Stable

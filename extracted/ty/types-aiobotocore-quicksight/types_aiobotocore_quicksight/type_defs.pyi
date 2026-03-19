@@ -3008,6 +3008,7 @@ class CapabilitiesTypeDef(TypedDict):
     Research: NotRequired[Literal["DENY"]]
     SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
     Extension: NotRequired[Literal["DENY"]]
+    ManageSharedFolders: NotRequired[Literal["DENY"]]
 
 class CastColumnTypeOperationTypeDef(TypedDict):
     ColumnName: str

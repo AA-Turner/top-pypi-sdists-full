@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     id TEXT PRIMARY KEY,
     fqn TEXT UNIQUE NOT NULL,
     type TEXT NOT NULL CHECK(type IN (
-        'skill','rule','instruction','context','memory','mcp_server','config_overlay')),
+        'skill','rule','instruction','context','memory','mcp_server','config_overlay','spec')),
     namespace TEXT NOT NULL,
     name TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -431,6 +431,36 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
     claimed_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    space_id TEXT DEFAULT NULL,
+    kind TEXT NOT NULL,
+    title TEXT DEFAULT NULL,
+    status TEXT NOT NULL CHECK(status IN (
+        'pending', 'running', 'waiting_for_input', 'waiting_for_approval',
+        'cancel_requested', 'completed', 'failed', 'cancelled'
+    )),
+    parent_run_id TEXT DEFAULT NULL,
+    started_at TEXT DEFAULT NULL,
+    completed_at TEXT DEFAULT NULL,
+    duration_ms INTEGER DEFAULT NULL,
+    metadata_json TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS agent_run_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
 );
 
 """
@@ -677,6 +707,15 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
     except sqlite3.OperationalError:
         pass
 
+    # Agent run indexes (#887)
+    try:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_runs_conv_status ON agent_runs(conversation_id, status, created_at)"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_run_events_run ON agent_run_events(run_id, created_at)")
+    except sqlite3.OperationalError:
+        pass
+
 
 def init_db(
     db_path: Path,
@@ -717,6 +756,11 @@ def init_db(
     _create_indexes(conn)
 
     conn.commit()
+
+    # Migrate artifacts type CHECK to include 'spec' — must run OUTSIDE a
+    # transaction because PRAGMA foreign_keys=OFF is silently ignored inside
+    # transactions.  Table rebuild drops indexes, recreated below.
+    _migrate_artifacts_spec_type(conn)
 
     # Eradicate projects tables/columns — must run OUTSIDE a transaction
     # because PRAGMA foreign_keys=OFF is silently ignored inside transactions.
@@ -769,6 +813,63 @@ _FOLDERS_CREATE = """CREATE TABLE folders (
     FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE,
     FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL
 )"""
+
+
+_ARTIFACTS_CREATE_V2 = """CREATE TABLE artifacts (
+    id TEXT PRIMARY KEY,
+    fqn TEXT UNIQUE NOT NULL,
+    type TEXT NOT NULL CHECK(type IN (
+        'skill','rule','instruction','context','memory','mcp_server','config_overlay','spec')),
+    namespace TEXT NOT NULL,
+    name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    source TEXT NOT NULL CHECK(source IN ('built_in', 'global', 'team', 'project', 'local', 'inline')),
+    metadata TEXT NOT NULL DEFAULT '{}',
+    user_id TEXT DEFAULT NULL,
+    user_display_name TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)"""
+
+
+def _migrate_artifacts_spec_type(conn: sqlite3.Connection) -> None:
+    """Rebuild the artifacts table to add 'spec' to the type CHECK constraint.
+
+    Only runs if the existing CHECK does not already include 'spec'.
+    Uses the SQLite 12-step table rebuild pattern.  Temporarily disables
+    foreign keys because ``pack_artifacts`` and ``artifact_versions``
+    reference ``artifacts``.
+    """
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "artifacts" not in tables:
+        return
+
+    # Check if migration is needed by inspecting the table SQL
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='artifacts'").fetchone()
+    if not row:
+        return
+    table_sql = row[0] or ""
+    if "'spec'" in table_sql:
+        return  # Already migrated
+
+    # Get current columns (preserve order for data copy)
+    cols_ordered = [r[1] for r in conn.execute("PRAGMA table_info(artifacts)").fetchall()]
+    cols_csv = ", ".join(cols_ordered)
+
+    # Disable FK checks for the rebuild (PRAGMA is ignored inside transactions)
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        # Save data, rebuild table with new CHECK
+        data = conn.execute(f"SELECT {cols_csv} FROM artifacts").fetchall()  # noqa: S608
+        conn.execute("DROP TABLE artifacts")
+        conn.execute(_ARTIFACTS_CREATE_V2)
+        if data:
+            placeholders = ", ".join("?" * len(cols_ordered))
+            conn.executemany(f"INSERT INTO artifacts ({cols_csv}) VALUES ({placeholders})", data)  # noqa: S608
+        conn.commit()
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
 
 
 def _eradicate_projects(conn: sqlite3.Connection) -> None:
@@ -1126,7 +1227,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             id TEXT PRIMARY KEY,
             fqn TEXT UNIQUE NOT NULL,
             type TEXT NOT NULL CHECK(type IN (
-        'skill','rule','instruction','context','memory','mcp_server','config_overlay')),
+        'skill','rule','instruction','context','memory','mcp_server','config_overlay','spec')),
             namespace TEXT NOT NULL,
             name TEXT NOT NULL,
             content TEXT NOT NULL,
@@ -1752,6 +1853,44 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflow_schedules_due ON workflow_schedules(enabled, next_run_at)"
         )
+
+    # Add agent_runs and agent_run_events tables (#887)
+    all_tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    if "agent_runs" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS agent_runs (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                space_id TEXT DEFAULT NULL,
+                kind TEXT NOT NULL,
+                title TEXT DEFAULT NULL,
+                status TEXT NOT NULL CHECK(status IN (
+                    'pending', 'running', 'waiting_for_input', 'waiting_for_approval',
+                    'cancel_requested', 'completed', 'failed', 'cancelled'
+                )),
+                parent_run_id TEXT DEFAULT NULL,
+                started_at TEXT DEFAULT NULL,
+                completed_at TEXT DEFAULT NULL,
+                duration_ms INTEGER DEFAULT NULL,
+                metadata_json TEXT DEFAULT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+            )"""
+        )
+    if "agent_run_events" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS agent_run_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                payload_json TEXT DEFAULT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON DELETE CASCADE
+            )"""
+        )
+    conn.commit()
 
     # Add message-level and source-chunk-level FTS5 tables for hybrid search (#810)
     try:

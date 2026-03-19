@@ -114,11 +114,14 @@ class ChronosSession:
     def get_logs(
         self,
         limit: int = 10000,
+        *,
+        include_audit_events: bool = False,
     ) -> SessionLogsResponse:
         """Get logs for this session.
 
         Args:
             limit: Maximum number of log entries to return.
+            include_audit_events: Include filesystem audit events keyed by span ID.
 
         Returns:
             SessionLogsResponse with log entries.
@@ -127,6 +130,7 @@ class ChronosSession:
             client=self._http,
             public_id=self._session_id,
             limit=limit,
+            include_audit_events=include_audit_events,
             x_api_key=self._api_key,
         )
 

@@ -814,12 +814,12 @@ def linalg_primitive(result_dtype, accepted_dtypes, ranks, result_shape, name,
     prim.def_abstract_eval(
         partial(lax_utils.standard_multi_result_abstract_eval, prim,
                 shape_rule, dtype_rule, lax_utils._standard_weak_type_rule,
-                sharding_rule, vma_rule, None, None))
+                sharding_rule, vma_rule, None))
   else:
     prim.def_abstract_eval(
       partial(lax_utils.standard_abstract_eval, prim, shape_rule, dtype_rule,
               lax_utils._standard_weak_type_rule, sharding_rule,
-              partial(core.standard_vma_rule, name), None, None, None))
+              partial(core.standard_vma_rule, name), None, None))
   if supports_batching:
     batching.primitive_batchers[prim] = partial(
         batching.expand_dims_batcher, prim)
@@ -2423,7 +2423,7 @@ def _triangular_solve_lowering(
   out = hlo.triangular_solve(a, b, ir.BoolAttr.get(left_side),
                              ir.BoolAttr.get(lower),
                              ir.BoolAttr.get(unit_diagonal),
-                             hlo.TransposeAttr.get(transpose))  # pyrefly: ignore[missing-attribute]
+                             hlo.TransposeAttr.get(transpose))
   return [mlir.lower_with_sharding_in_types(ctx, out, out_aval)]
 
 
@@ -2460,7 +2460,6 @@ def _triangular_solve_cpu_lower(
     return [hlo.triangular_solve(a, b, ir.BoolAttr.get(left_side),
                                  ir.BoolAttr.get(lower),
                                  ir.BoolAttr.get(unit_diagonal),
-                                 # pyrefly: ignore[missing-attribute]
                                  hlo.TransposeAttr.get(transpose))]
 
 triangular_solve_p = linalg_primitive(

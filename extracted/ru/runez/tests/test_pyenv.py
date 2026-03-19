@@ -189,6 +189,13 @@ def test_depot_path():
     assert depot.find_python(None) is depot.invoker
 
 
+def test_edge_cases():
+    invalid = PythonSpec("cpython", "invalid")
+    assert str(invalid) == "cpython:invalid"
+    assert invalid.abi_suffix == ""
+    assert invalid.version is None
+
+
 def test_empty_depot():
     depot = PythonDepot()
     assert depot.representation() == "No PythonDepot locations configured"
@@ -281,6 +288,7 @@ def test_pypi_standardized_naming():
 
 def test_spec():
     p3 = PythonSpec.from_text("3")
+    assert not p3.abi_suffix
     p3plus = PythonSpec.from_text("3+")
     assert str(p3) == "cpython:3"
     assert str(p3plus) == "cpython:3+"
@@ -340,6 +348,7 @@ def test_spec():
     assert rc3plus.is_min_spec
 
     freeth = PythonSpec.from_text("cpython:3.14t")
+    assert freeth.abi_suffix == "t"
     assert freeth.represented(compact=True) == "3.14t"
     assert freeth.freethreading
 

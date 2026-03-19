@@ -1,10 +1,11 @@
+import warnings
 from unittest import mock
 
 import pytest
 from opentelemetry.trace import SpanKind
 
 from xai_sdk import Client
-from xai_sdk.proto import deferred_pb2, image_pb2, video_pb2
+from xai_sdk.proto import batch_pb2, deferred_pb2, image_pb2, video_pb2
 from xai_sdk.video import VideoGenerationError
 
 from .. import server
@@ -142,7 +143,6 @@ def test_generate_creates_span_without_sensitive_attributes_when_disabled(mock_t
 
 def test_generate_raises_video_generation_error_on_failure(client: Client):
     """Test that generate raises VideoGenerationError when the deferred request fails."""
-    # Create a mock response that returns FAILED status with error details
     failed_response = video_pb2.GetDeferredVideoResponse(
         status=deferred_pb2.DeferredStatus.FAILED,
         response=video_pb2.VideoResponse(
@@ -165,7 +165,6 @@ def test_generate_raises_video_generation_error_on_failure(client: Client):
 
 def test_generate_raises_video_generation_error_without_details(client: Client):
     """Test that generate raises VideoGenerationError with UNKNOWN code when no error details are provided."""
-    # Create a mock response that returns FAILED status without error details
     failed_response = video_pb2.GetDeferredVideoResponse(
         status=deferred_pb2.DeferredStatus.FAILED,
     )
@@ -176,3 +175,99 @@ def test_generate_raises_video_generation_error_without_details(client: Client):
 
         assert exc_info.value.code == "UNKNOWN"
         assert "Video generation failed with no error details." in exc_info.value.message
+
+
+# Tests for video.prepare() batch request method
+
+
+def test_create_returns_batch_request(client: Client):
+    """Test that create() returns a BatchRequest proto."""
+    batch_req = client.video.prepare(
+        prompt="A timelapse of clouds",
+        model="grok-imagine-video",
+        batch_request_id="test_video_1",
+    )
+
+    assert isinstance(batch_req, batch_pb2.BatchRequest)
+    assert batch_req.batch_request_id == "test_video_1"
+    assert batch_req.HasField("video_request")
+    assert batch_req.video_request.prompt == "A timelapse of clouds"
+    assert batch_req.video_request.model == "grok-imagine-video"
+
+
+def test_create_without_batch_request_id(client: Client):
+    """Test that create() works without batch_request_id."""
+    batch_req = client.video.prepare(
+        prompt="Ocean waves",
+        model="grok-imagine-video",
+    )
+
+    assert isinstance(batch_req, batch_pb2.BatchRequest)
+    assert batch_req.batch_request_id == ""
+    assert batch_req.video_request.prompt == "Ocean waves"
+
+
+def test_create_with_duration_aspect_ratio_and_resolution(client: Client):
+    """Test that create() passes duration, aspect_ratio and resolution."""
+    batch_req = client.video.prepare(
+        prompt="A sunset",
+        model="grok-imagine-video",
+        batch_request_id="sunset_1",
+        duration=5,
+        aspect_ratio="16:9",
+        resolution="720p",
+    )
+
+    assert batch_req.video_request.duration == 5
+    assert batch_req.video_request.aspect_ratio == video_pb2.VideoAspectRatio.VIDEO_ASPECT_RATIO_16_9
+    assert batch_req.video_request.resolution == video_pb2.VideoResolution.VIDEO_RESOLUTION_720P
+
+
+def test_create_with_image_url(client: Client):
+    """Test that create() passes image_url."""
+    input_image_url = "https://example.com/start_frame.jpg"
+    batch_req = client.video.prepare(
+        prompt="Animate this image",
+        model="grok-imagine-video",
+        image_url=input_image_url,
+    )
+
+    assert batch_req.video_request.HasField("image")
+    assert batch_req.video_request.image.image_url == input_image_url
+
+
+def test_create_with_video_url(client: Client):
+    """Test that create() passes video_url."""
+    input_video_url = "https://example.com/input.mp4"
+    batch_req = client.video.prepare(
+        prompt="Extend this video",
+        model="grok-imagine-video",
+        video_url=input_video_url,
+    )
+
+    assert batch_req.video_request.HasField("video")
+    assert batch_req.video_request.video.url == input_video_url
+
+
+def test_generate_warns_on_unknown_status_then_resolves(client: Client):
+    """Test that generate emits a warning on unknown deferred status and continues polling."""
+    # First poll returns an unknown status (999), second poll returns DONE.
+    responses = [
+        video_pb2.GetDeferredVideoResponse(status=999),  # type: ignore[arg-type]
+        video_pb2.GetDeferredVideoResponse(
+            status=deferred_pb2.DeferredStatus.DONE,
+            response=video_pb2.VideoResponse(
+                model="grok-imagine-video",
+                video=video_pb2.GeneratedVideo(url="https://example.com/video.mp4", duration=5),
+            ),
+        ),
+    ]
+
+    with mock.patch.object(client.video._stub, "GetDeferredVideo", side_effect=responses):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            response = client.video.generate(prompt="foo", model="grok-imagine-video")
+
+    assert response.url == "https://example.com/video.mp4"
+    assert len(w) == 1
+    assert "Encountered unknown status: 999 whilst waiting for video generation." in str(w[0].message)

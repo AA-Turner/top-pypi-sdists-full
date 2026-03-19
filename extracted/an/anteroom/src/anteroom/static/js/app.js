@@ -219,6 +219,7 @@ const App = (() => {
         Chat.init();
         Canvas.init();
         Sources.init();
+        if (typeof Workflows !== 'undefined') Workflows.init();
         Sidebar.init();
         Palette.init();
         Attachments.init();

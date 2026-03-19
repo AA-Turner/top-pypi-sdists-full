@@ -87,7 +87,7 @@ class Assistants(Authenticated):
         sort_order: str | None = None,
         select: list[AssistantSelectField] | None = None,
         ctx: Any = None,
-    ) -> tuple[AsyncIterator[Assistant], int | None]:  # type: ignore[return-value]
+    ) -> tuple[AsyncIterator[Assistant], int | None]:
         """Search assistants via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(
@@ -139,7 +139,7 @@ class Assistants(Authenticated):
         conn,  # Not used in gRPC implementation
         assistant_id: UUID | str,
         ctx: Any = None,
-    ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Assistant]:
         """Get assistant by ID via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(
@@ -177,7 +177,7 @@ class Assistants(Authenticated):
         description: str | None = None,
         ctx: Any = None,
         system: bool = False,
-    ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Assistant]:
         """Create/update assistant via gRPC."""
         metadata = metadata if metadata is not None else {}
         config = config if config is not None else Config()
@@ -240,7 +240,7 @@ class Assistants(Authenticated):
         name: str | None = None,
         description: str | None = None,
         ctx: Any = None,
-    ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Assistant]:
         """Update assistant via gRPC."""
         metadata = metadata if metadata is not None else {}
         config = config if config is not None else Config()
@@ -295,7 +295,7 @@ class Assistants(Authenticated):
         ctx: Any = None,
         *,
         delete_threads: bool = False,
-    ) -> AsyncIterator[UUID]:  # type: ignore[return-value]
+    ) -> AsyncIterator[UUID]:
         """Delete assistant via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(
@@ -324,7 +324,7 @@ class Assistants(Authenticated):
         assistant_id: UUID | str,
         version: int,
         ctx: Any = None,
-    ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Assistant]:
         """Set latest version of assistant via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(
@@ -362,7 +362,7 @@ class Assistants(Authenticated):
         limit: int,
         offset: int,
         ctx: Any = None,
-    ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Assistant]:
         """Get all versions of assistant via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(
@@ -412,7 +412,7 @@ class Assistants(Authenticated):
         name: str | None = None,
         metadata: MetadataInput = None,
         ctx: Any = None,
-    ) -> int:  # type: ignore[return-value]
+    ) -> int:
         """Count assistants via gRPC."""
         # Handle auth filters
         auth_filters = await Assistants.handle_event(

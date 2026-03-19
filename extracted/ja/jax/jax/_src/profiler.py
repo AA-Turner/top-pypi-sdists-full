@@ -34,7 +34,6 @@ traceback_util.register_exclusion(__file__)
 from jax._src import xla_bridge
 from jax._src.lib import _profiler
 from jax._src.lib import _profile_data
-from jax._src.lib import jaxlib_extension_version
 from jax import version as jax_version_module
 from jax._src.lib import version as version_lib
 
@@ -86,16 +85,16 @@ def stop_server():
 class _ProfileState:
   def __init__(self):
     self.profile_session = None
-    self.log_dir = None
+    self.log_dir: str | None = None
     self.create_perfetto_link = False
     self.create_perfetto_trace = False
     self.lock = threading.Lock()
 
   def reset(self):
-    _profile_state.profile_session = None
-    _profile_state.create_perfetto_link = False
-    _profile_state.create_perfetto_trace = False
-    _profile_state.log_dir = None
+    self.profile_session = None
+    self.create_perfetto_link = False
+    self.create_perfetto_trace = False
+    self.log_dir = None
 
 
 _profile_state = _ProfileState()
@@ -103,13 +102,13 @@ _profile_state = _ProfileState()
 
 def set_metadata(key: str, value: str) -> None:
   """Sets metadata for the current profiling session."""
-  if jaxlib_extension_version >= 402 and hasattr(_profiler, "set_metadata"):
+  if hasattr(_profiler, "set_metadata"):
     return _profiler.set_metadata(key, value)
 
 
 def clear_metadata() -> None:
   """Clears metadata for the current profiling session."""
-  if jaxlib_extension_version >= 402 and hasattr(_profiler, "clear_metadata"):
+  if hasattr(_profiler, "clear_metadata"):
     return _profiler.clear_metadata()
 
 
@@ -207,7 +206,7 @@ class _PerfettoServer(http.server.SimpleHTTPRequestHandler):
     return super().end_headers()
 
   def do_GET(self):
-    self.server.last_request = self.path
+    self.server.last_request = self.path  # type: ignore[missing-attribute]
     return super().do_GET()
 
   def do_POST(self):
@@ -240,12 +239,12 @@ def stop_trace():
   :func:`start_trace` call. Raises a RuntimeError if a trace hasn't been started.
   """
   with _profile_state.lock:
-    if _profile_state.profile_session is None:
+    profile_session = _profile_state.profile_session
+    if profile_session is None:
       raise RuntimeError("No profile started")
-    sess = _profile_state.profile_session
-    sess.stop_and_export(str(_profile_state.log_dir))  # type: ignore
+    profile_session.stop_and_export(str(_profile_state.log_dir))  # pytype: disable=attribute-error
     if _profile_state.create_perfetto_trace:
-      abs_filename = _write_perfetto_trace_file(_profile_state.log_dir)
+      abs_filename = _write_perfetto_trace_file(_profile_state.log_dir)  # type: ignore[bad-argument-type]
       if _profile_state.create_perfetto_link:
         _host_perfetto_trace_file(abs_filename)
     _profile_state.reset()
@@ -259,9 +258,10 @@ def stop_and_get_fdo_profile() -> bytes | str:
   Raises a RuntimeError if a trace hasn't been started.
   """
   with _profile_state.lock:
-    if _profile_state.profile_session is None:
+    profile_session = _profile_state.profile_session
+    if profile_session is None:
       raise RuntimeError("No profile started")
-    xspace = _profile_state.profile_session.stop()
+    xspace = profile_session.stop()
     fdo_profile = _profiler.get_fdo_profile(xspace)
     _profile_state.reset()
     clear_metadata()

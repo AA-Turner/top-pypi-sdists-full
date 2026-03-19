@@ -37,7 +37,7 @@ class DirectNominalChannelWriterServiceStub(object):
         """
         self.WriteBatches = channel.unary_unary(
                 '/nominal.direct_channel_writer.v2.DirectNominalChannelWriterService/WriteBatches',
-                request_serializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesRequest.SerializeToString,
+                request_serializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.InternalWriteBatchesRequest.SerializeToString,
                 response_deserializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesResponse.FromString,
                 _registered_method=True)
 
@@ -63,7 +63,7 @@ def add_DirectNominalChannelWriterServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'WriteBatches': grpc.unary_unary_rpc_method_handler(
                     servicer.WriteBatches,
-                    request_deserializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesRequest.FromString,
+                    request_deserializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.InternalWriteBatchesRequest.FromString,
                     response_serializer=nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesResponse.SerializeToString,
             ),
     }
@@ -93,7 +93,7 @@ class DirectNominalChannelWriterService(object):
             request,
             target,
             '/nominal.direct_channel_writer.v2.DirectNominalChannelWriterService/WriteBatches',
-            nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesRequest.SerializeToString,
+            nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.InternalWriteBatchesRequest.SerializeToString,
             nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2.WriteBatchesResponse.FromString,
             options,
             channel_credentials,

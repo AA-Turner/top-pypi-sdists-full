@@ -720,7 +720,7 @@ def flatten_one_level_with_keys(
     tree: Any,
 ) -> tuple[Iterable[KeyLeafPair], Hashable]:
   """Flatten the given pytree node by one level, with keys."""
-  out = default_registry.flatten_one_level_with_keys(tree)  # type: ignore
+  out = default_registry.flatten_one_level_with_keys(tree)
   if out is None:
     raise ValueError(f"can't tree-flatten type: {type(tree)}")
   else:
@@ -1396,17 +1396,17 @@ class FlatTree:
   def map(self, f: Callable) -> FlatTree:
     return self.update(f(x) for x in self.vals)
 
-  def map2(self: FlatTree, f: Callable, t2: FlatTree) -> FlatTree:
+  def map2(self: FlatTree, f: Callable, t2: Sequence[Any]) -> FlatTree:
     n = len(self)
     assert len(t2) == n
-    return self.update(f(x1, x2) for x1, x2 in zip(self.vals, t2.vals))
+    return self.update(f(x1, x2) for x1, x2 in zip(self.vals, list(t2)))
 
   def map3(
-      self: FlatTree, f: Callable, t2: FlatTree, t3: FlatTree) -> FlatTree:
+      self: FlatTree, f: Callable, t2: Sequence[Any], t3: Sequence[Any]) -> FlatTree:
     n = len(self)
     assert len(t2) == n and len(t3) == n
     return self.update(f(x1, x2, x3)
-                       for x1, x2, x3 in zip(self.vals, t2.vals, t3.vals))
+                       for x1, x2, x3 in zip(self.vals, list(t2), list(t3)))
 
   def unzip2(self: FlatTree) -> tuple[FlatTree, FlatTree]:
     ys = []
@@ -1445,7 +1445,8 @@ class FlatTree:
 
   def unpack(self: FlatTree) -> tuple[FlatTree, ...]:
     # TODO: this is O(N) not O(1) (with N as the number of leaves). If it
-    # becomes a problem we can fix it with a fancier data tree.
+    # becomes a problem we can fix it with a fancier data structure.
+    # TODO(dougalm): assert that we're dealing with a tuple
     trees = treedef_children(self.tree)
     children = []
     offset = 0
@@ -1455,6 +1456,13 @@ class FlatTree:
       children.append(FlatTree(self.vals[offset:new_offset], tree, statics))
       offset = new_offset
     return tuple(children)
+
+  def with_aux(self:FlatTree, aux:Any) -> FlatTree:
+    return FlatTree.pack((self, FlatTree.flatten(Static(aux))))
+
+  def unpack_aux(self:FlatTree) -> tuple[FlatTree, Any]:
+    x, aux = self.unpack()
+    return x, aux.unflatten().val
 
   @staticmethod
   def flatten(tree: PyTree) -> FlatTree:
@@ -1529,6 +1537,9 @@ class FlatTree:
   def __iter__(self):
     return self.vals.__iter__()
 
+  def __getitem__(self, i):
+    assert False, "todo"
+
 def unwrap_statics(pytree, statics):
   if statics is False:
     return pytree
@@ -1550,13 +1561,13 @@ def filter_statics_from_treedef(registry, treedef, statics):
     filtered = tuple(
         filter_statics_from_treedef(registry, td, s)
         for td, s in zip(treedef.children(), statics) if s is not True)
-    return treedef.from_node_data_and_children(registry, treedef.node_data(), filtered)  # type: ignore
+    return treedef.from_node_data_and_children(registry, treedef.node_data(), filtered)  # pytype: disable=missing-parameter
   elif isinstance(statics, dict):
-    ty, keys = treedef.node_data()  # type: ignore
+    ty, keys = treedef.node_data()  # pytype: disable=attribute-error
     filtered_keys, filtered_subtrees = unzip2(
         (k, filter_statics_from_treedef(registry, td, statics[k]))
         for td, k in zip(treedef.children(), keys) if statics[k] is not True)
-    return treedef.from_node_data_and_children(registry, (ty, filtered_keys), filtered_subtrees)  # type: ignore
+    return treedef.from_node_data_and_children(registry, (ty, filtered_keys), filtered_subtrees)  # pytype: disable=missing-parameter
   else:
     assert False, "unreachable"
 

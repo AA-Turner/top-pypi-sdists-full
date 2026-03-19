@@ -16,6 +16,7 @@ from haystack.core.pipeline.base import (
     _COMPONENT_VISITS,
     ComponentPriority,
     PipelineBase,
+    _validate_component_output_keys,
 )
 from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.dataclasses.breakpoints import Breakpoint
@@ -67,14 +68,15 @@ class AsyncPipeline(PipelineBase):
         with PipelineBase._create_component_span(
             component_name=component_name, instance=instance, inputs=component_inputs, parent_span=parent_span
         ) as span:
-            # We deepcopy the inputs otherwise we might lose that information
-            # when we delete them in case they're sent to other Components
-            span.set_content_tag(_COMPONENT_INPUT, _deepcopy_with_exceptions(component_inputs))
+            # deepcopy inputs before passing to the tracer so that even if a tracer mutates them
+            # the component always receives the original unmodified values
+            component_inputs_copy = _deepcopy_with_exceptions(component_inputs)
+            span.set_content_tag(_COMPONENT_INPUT, component_inputs)
             logger.info("Running component {component_name}", component_name=component_name)
 
             if getattr(instance, "__haystack_supports_async__", False):
                 try:
-                    outputs = await instance.run_async(**_deepcopy_with_exceptions(component_inputs))  # type: ignore
+                    outputs = await instance.run_async(**component_inputs_copy)  # type: ignore
                 except Exception as error:
                     raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
             else:
@@ -84,7 +86,7 @@ class AsyncPipeline(PipelineBase):
                 ctx = contextvars.copy_context()
                 try:
                     outputs = await loop.run_in_executor(
-                        None, lambda: ctx.run(lambda: instance.run(**_deepcopy_with_exceptions(component_inputs)))
+                        None, lambda: ctx.run(lambda: instance.run(**component_inputs_copy))
                     )
                 except Exception as error:
                     raise PipelineRuntimeError.from_exception(component_name, instance.__class__, error) from error
@@ -94,8 +96,10 @@ class AsyncPipeline(PipelineBase):
             if not isinstance(outputs, Mapping):
                 raise PipelineRuntimeError.from_invalid_output(component_name, instance.__class__, outputs)
 
+            _validate_component_output_keys(component_name, component, outputs)
+
             span.set_tag(_COMPONENT_VISITS, component_visits[component_name])
-            span.set_content_tag(_COMPONENT_OUTPUT, _deepcopy_with_exceptions(outputs))
+            span.set_content_tag(_COMPONENT_OUTPUT, outputs)
 
             return outputs
 
@@ -396,15 +400,8 @@ class AsyncPipeline(PipelineBase):
                 if priority == ComponentPriority.BLOCKED and not running_tasks:
                     if self._is_pipeline_possibly_blocked(current_pipeline_outputs=pipeline_outputs):
                         # Pipeline is most likely blocked (most likely a configuration issue) so we raise a warning.
-                        logger.warning(
-                            "Cannot run pipeline - the next component that is meant to run is blocked.\n"
-                            "Component name: '{component_name}'\n"
-                            "Component type: '{component_type}'\n"
-                            "This typically happens when the component is unable to receive all of its required "
-                            "inputs.\nCheck the connections to this component and ensure all required inputs are "
-                            "provided.",
-                            component_name=comp_name,
-                            component_type=comp["instance"].__class__.__name__,
+                        self._find_components_blocking_pipeline(
+                            priority_queue=priority_queue, component_visits=component_visits, inputs=inputs_state
                         )
                     # We always exit the loop since we cannot run the next component.
                     break
@@ -466,7 +463,7 @@ class AsyncPipeline(PipelineBase):
                 yield partial_res
 
             # 4) Yield final pipeline outputs
-            yield _deepcopy_with_exceptions(pipeline_outputs)
+            yield pipeline_outputs
 
     async def run_async(
         self, data: dict[str, Any], include_outputs_from: set[str] | None = None, concurrency_limit: int = 4

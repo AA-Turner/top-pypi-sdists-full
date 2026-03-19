@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pikepdf
-Version: 10.5.0
+Version: 10.5.1
 Summary: Read, write, repair, and transform PDFs in Python, powered by qpdf
 Author-email: "James R. Barlow" <james@purplerock.ca>
 License-Expression: MPL-2.0

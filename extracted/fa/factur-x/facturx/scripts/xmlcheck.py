@@ -3,14 +3,14 @@
 
 import argparse
 import sys
-from facturx import xml_check_xsd, __version__ as fxversion
+from facturx import xml_check_xsd, xml_check_schematron, __version__ as fxversion
 from facturx.facturx import logger
 import logging
 from os.path import isfile
 
 __author__ = "Alexis de Lattre <alexis.delattre@akretion.com>"
-__date__ = "July 2025"
-__version__ = "0.4"
+__date__ = "March 2026"
+__version__ = "0.5"
 
 
 def xmlcheck(args):
@@ -34,11 +34,16 @@ def xmlcheck(args):
     if not isfile(args.xml_file):
         logger.error('%s is not a filename', args.xml_file)
         sys.exit(1)
-    xml_file = open(args.xml_file, 'rb')
-    # The important line of code is below !
+    with open(args.xml_file, 'rb') as xml_file:
+        xml_bytes = xml_file.read()
     try:
         xml_check_xsd(
-            xml_file, flavor=args.flavor, level=args.level)
+            xml_bytes, flavor=args.flavor, level=args.level)
+    except Exception as e:
+        logger.error(e)
+        sys.exit(1)
+    try:
+        xml_check_schematron(xml_bytes, flavor=args.flavor, level=args.level)
     except Exception as e:
         logger.error(e)
         sys.exit(1)

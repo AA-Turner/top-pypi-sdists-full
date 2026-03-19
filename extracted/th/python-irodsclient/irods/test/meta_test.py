@@ -1,27 +1,29 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
 import os
 import re
 import sys
 import time
-import datetime
 import unittest
+
 import irods.exception as ex
-from irods.manager.metadata_manager import InvalidAtomicAVURequest
-from irods.meta import (
-    iRODSMeta,
-    AVUOperation,
-    BadAVUOperationValue,
-    BadAVUOperationKeyword,
-)
-from irods.models import DataObject, Collection, Resource, CollectionMeta
-import irods.test.helpers as helpers
 import irods.keywords as kw
-from irods.session import iRODSSession
-from irods.message import Bad_AVU_Field
-from irods.models import ModelBase
 from irods.column import Like, NotLike
+from irods.manager.metadata_manager import InvalidAtomicAVURequest
+from irods.message import Bad_AVU_Field
+from irods.meta import (
+    AVUOperation,
+    BadAVUOperationKeyword,
+    BadAVUOperationValue,
+    iRODSBinOrStringMeta,
+    iRODSMeta,
+)
+from irods.models import Collection, CollectionMeta, DataObject, ModelBase, Resource
+from irods.path import iRODSPath
+from irods.session import iRODSSession
+from irods.test import helpers
 
 
 def normalize_to_bytes(string, unicode_encoding="utf8"):
@@ -64,14 +66,11 @@ class TestMeta(unittest.TestCase):
             type(value): "%%" + value + "%%",
         }
         for v in (value, value_encoded):
-
             # Establish invariant of exactly 2 AVUs attached to object.
             self.coll.metadata.remove_all()
             self.coll.metadata["a"] = iRODSMeta("a", value)
             self.coll.metadata["b"] = iRODSMeta("b", "<arbitrary>")
-            q = self.sess.query(CollectionMeta).filter(
-                Collection.name == self.coll_path
-            )
+            q = self.sess.query(CollectionMeta).filter(Collection.name == self.coll_path)
             self.assertEqual(len(list(q)), 2)
 
             # Test query with operators Like and NotLike
@@ -87,13 +86,9 @@ class TestMeta(unittest.TestCase):
             self.assertEqual(len(list(q)), 1)
 
             # Test query with operators == and !=
-            q = self.sess.query(CollectionMeta).filter(
-                Collection.name == self.coll_path, CollectionMeta.value == v
-            )
+            q = self.sess.query(CollectionMeta).filter(Collection.name == self.coll_path, CollectionMeta.value == v)
             self.assertEqual(len(list(q)), 1)
-            q = self.sess.query(CollectionMeta).filter(
-                Collection.name == self.coll_path, CollectionMeta.value != v
-            )
+            q = self.sess.query(CollectionMeta).filter(Collection.name == self.coll_path, CollectionMeta.value != v)
             self.assertEqual(len(list(q)), 1)
             metadata.append(self.coll.metadata["a"])
 
@@ -117,9 +112,7 @@ class TestMeta(unittest.TestCase):
     def setUp(self):
         self.sess = helpers.make_session()
         # test data
-        self.coll_path = "/{}/home/{}/test_dir".format(
-            self.sess.zone, self.sess.username
-        )
+        self.coll_path = "/{}/home/{}/test_dir".format(self.sess.zone, self.sess.username)
         self.obj_name = "test1"
         self.obj_path = "{coll_path}/{obj_name}".format(**vars(self))
 
@@ -154,9 +147,7 @@ class TestMeta(unittest.TestCase):
         obj.unlink(force=True)
         fail_message = ""
         try:
-            obj.metadata.apply_atomic_operations(
-                AVUOperation(operation="add", avu=iRODSMeta("a", "b", "c"))
-            )
+            obj.metadata.apply_atomic_operations(AVUOperation(operation="add", avu=iRODSMeta("a", "b", "c")))
         except ex.iRODSException as e:
             resp = e.server_msg.get_json_encoded_struct()
             self.assertIn(
@@ -164,8 +155,10 @@ class TestMeta(unittest.TestCase):
                 resp["error_message"],
             )
         except Exception as e:
-            fail_message = "apply_atomic_operations on a nonexistent object raised an unexpected exception {e!r}".format(
-                **locals()
+            fail_message = (
+                "apply_atomic_operations on a nonexistent object raised an unexpected exception {e!r}".format(
+                    **locals()
+                )
             )
         else:
             fail_message = "apply_atomic_operations on a nonexistent object did not raise an exception as expected."
@@ -193,16 +186,9 @@ class TestMeta(unittest.TestCase):
         user.metadata.apply_atomic_operations()  # no AVUs applied - no-op without error
 
         for n, obj in enumerate((group, user, self.coll, self.obj)):
-            avus = [
-                iRODSMeta("some_attribute", str(i), "some_units")
-                for i in range(n * 100, (n + 1) * 100)
-            ]
-            obj.metadata.apply_atomic_operations(
-                *[AVUOperation(operation="add", avu=avu_) for avu_ in avus]
-            )
-            obj.metadata.apply_atomic_operations(
-                *[AVUOperation(operation="remove", avu=avu_) for avu_ in avus]
-            )
+            avus = [iRODSMeta("some_attribute", str(i), "some_units") for i in range(n * 100, (n + 1) * 100)]
+            obj.metadata.apply_atomic_operations(*[AVUOperation(operation="add", avu=avu_) for avu_ in avus])
+            obj.metadata.apply_atomic_operations(*[AVUOperation(operation="remove", avu=avu_) for avu_ in avus])
 
     def test_atomic_metadata_operation_for_resource_244(self):
         (root, leaf) = ("ptX", "rescX")
@@ -219,12 +205,8 @@ class TestMeta(unittest.TestCase):
                     AVUOperation(operation="add", avu=iRODSMeta(*resc_tuple[:3])),
                 )
                 resc_meta = self.sess.metadata.get(Resource, resc.name)
-                avus_to_tuples = lambda avu_list: sorted(
-                    [(i.name, i.value, i.units) for i in avu_list]
-                )
-                self.assertEqual(
-                    avus_to_tuples(resc_meta), avus_to_tuples([iRODSMeta(*resc_tuple)])
-                )
+                avus_to_tuples = lambda avu_list: sorted([(i.name, i.value, i.units) for i in avu_list])
+                self.assertEqual(avus_to_tuples(resc_meta), avus_to_tuples([iRODSMeta(*resc_tuple)]))
 
     def test_atomic_metadata_operation_for_data_object_244(self):
         AVUs_Equal = lambda avu1, avu2, fn=(lambda x: x): fn(avu1) == fn(avu2)
@@ -242,9 +224,7 @@ class TestMeta(unittest.TestCase):
             ),  # (one of them without units) ...
             AVUOperation(operation="add", avu=iRODSMeta(m.name, m.value)),
         )
-        meta = self.sess.metadata.get(
-            DataObject, self.obj_path
-        )  # ... check integrity of change
+        meta = self.sess.metadata.get(DataObject, self.obj_path)  # ... check integrity of change
         self.assertEqual(sorted([AVU_Units_String(i) for i in meta]), ["", "units_244"])
 
     def test_atomic_metadata_operations_255(self):
@@ -261,9 +241,7 @@ class TestMeta(unittest.TestCase):
             for obj in objects:
                 self.assertEqual(len(obj.metadata.items()), 0)
                 for n, item in enumerate(avus):
-                    obj.metadata.apply_atomic_operations(
-                        AVUOperation(operation="add", avu=item)
-                    )
+                    obj.metadata.apply_atomic_operations(AVUOperation(operation="add", avu=item))
                     self.assertEqual(len(obj.metadata.items()), n + 1)
         finally:
             for obj in objects:
@@ -280,9 +258,7 @@ class TestMeta(unittest.TestCase):
     def test_resc_meta(self):
         rescname = "demoResc"
         self.sess.resources.get(rescname).metadata.remove_all()
-        self.sess.metadata.set(
-            Resource, rescname, iRODSMeta("zero", "marginal", "cost")
-        )
+        self.sess.metadata.set(Resource, rescname, iRODSMeta("zero", "marginal", "cost"))
         self.sess.metadata.add(Resource, rescname, iRODSMeta("zero", "marginal"))
         self.sess.metadata.set(Resource, rescname, iRODSMeta("for", "ever", "after"))
         meta = self.sess.resources.get(rescname).metadata
@@ -295,12 +271,8 @@ class TestMeta(unittest.TestCase):
 
     def test_add_obj_meta(self):
         # add metadata to test object
-        self.sess.metadata.add(
-            DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0)
-        )
-        self.sess.metadata.add(
-            DataObject, self.obj_path, iRODSMeta(self.attr1, self.value1, self.unit1)
-        )
+        self.sess.metadata.add(DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0))
+        self.sess.metadata.add(DataObject, self.obj_path, iRODSMeta(self.attr1, self.value1, self.unit1))
 
         # Throw in some unicode for good measure
         attribute, value = "attr2", "☭⛷★⚽"
@@ -331,9 +303,7 @@ class TestMeta(unittest.TestCase):
 
         # try to add metadata with empty value
         with self.assertRaises(ValueError):
-            self.sess.metadata.add(
-                DataObject, self.obj_path, iRODSMeta("attr_with_empty_value", "")
-            )
+            self.sess.metadata.add(DataObject, self.obj_path, iRODSMeta("attr_with_empty_value", ""))
 
     def test_copy_obj_meta(self):
         # test destination object for copy
@@ -341,9 +311,7 @@ class TestMeta(unittest.TestCase):
         self.sess.data_objects.create(dest_obj_path)
 
         # add metadata to test object
-        self.sess.metadata.add(
-            DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0)
-        )
+        self.sess.metadata.add(DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0))
 
         # copy metadata
         self.sess.metadata.copy(DataObject, DataObject, self.obj_path, dest_obj_path)
@@ -356,18 +324,14 @@ class TestMeta(unittest.TestCase):
 
     def test_remove_obj_meta(self):
         # add metadata to test object
-        self.sess.metadata.add(
-            DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0)
-        )
+        self.sess.metadata.add(DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0))
 
         # check that metadata is there
         meta = self.sess.metadata.get(DataObject, self.obj_path)
         assert meta[0].name == self.attr0
 
         # remove metadata from object
-        self.sess.metadata.remove(
-            DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0)
-        )
+        self.sess.metadata.remove(DataObject, self.obj_path, iRODSMeta(self.attr0, self.value0))
 
         # check that metadata is gone
         meta = self.sess.metadata.get(DataObject, self.obj_path)
@@ -379,9 +343,7 @@ class TestMeta(unittest.TestCase):
             adm = self.sess
 
             if adm.server_version <= (4, 2, 11):
-                self.skipTest(
-                    "ADMIN_KW not valid for Metadata API in iRODS 4.2.11 and previous"
-                )
+                self.skipTest("ADMIN_KW not valid for Metadata API in iRODS 4.2.11 and previous")
 
             # Create a rodsuser, and a session for that roduser.
             user = adm.users.create("bobby", "rodsuser")
@@ -395,9 +357,7 @@ class TestMeta(unittest.TestCase):
             ) as ses:
                 # Create a data object owned by the rodsuser.  Set AVUs in various ways and guarantee each attempt
                 # has the desired effect.
-                d = ses.data_objects.create(
-                    "/{adm.zone}/home/{user.name}/testfile".format(**locals())
-                )
+                d = ses.data_objects.create("/{adm.zone}/home/{user.name}/testfile".format(**locals()))
 
                 d.metadata.set("a", "aa", "1")
                 self.assertIn(("a", "aa", "1"), d.metadata.items())
@@ -430,9 +390,7 @@ class TestMeta(unittest.TestCase):
         adm = self.sess
 
         if adm.server_version <= (4, 2, 11):
-            self.skipTest(
-                "ADMIN_KW not valid for Metadata API in iRODS 4.2.11 and previous"
-            )
+            self.skipTest("ADMIN_KW not valid for Metadata API in iRODS 4.2.11 and previous")
 
         try:
             # Create a rodsuser
@@ -453,9 +411,7 @@ class TestMeta(unittest.TestCase):
             # Do and test the results of the atomic set using the admin session, with the ADMIN_KW turned on.
             data_via_admin = adm.data_objects.get(data.path)
             avu_item = iRODSMeta("issue_576", "dummy_value")
-            data_via_admin.metadata(admin=True).apply_atomic_operations(
-                AVUOperation(operation="add", avu=avu_item)
-            )
+            data_via_admin.metadata(admin=True).apply_atomic_operations(AVUOperation(operation="add", avu=avu_item))
             self.assertIn(avu_item, data_via_admin.metadata.items())
         finally:
             # Clean up objects after use.
@@ -468,9 +424,7 @@ class TestMeta(unittest.TestCase):
 
     def test_add_coll_meta(self):
         # add metadata to test collection
-        self.sess.metadata.add(
-            Collection, self.coll_path, iRODSMeta(self.attr0, self.value0)
-        )
+        self.sess.metadata.add(Collection, self.coll_path, iRODSMeta(self.attr0, self.value0))
 
         # get collection metadata
         meta = self.sess.metadata.get(Collection, self.coll_path)
@@ -480,9 +434,7 @@ class TestMeta(unittest.TestCase):
         assert meta[0].value == self.value0
 
         # remove collection metadata
-        self.sess.metadata.remove(
-            Collection, self.coll_path, iRODSMeta(self.attr0, self.value0)
-        )
+        self.sess.metadata.remove(Collection, self.coll_path, iRODSMeta(self.attr0, self.value0))
 
         # check that metadata is gone
         meta = self.sess.metadata.get(Collection, self.coll_path)
@@ -501,9 +453,7 @@ class TestMeta(unittest.TestCase):
         attribute, value, units = ("test_attr", "test_value", "test_units")
 
         # add metadata to test object
-        meta = self.sess.metadata.add(
-            DataObject, test_obj_path, iRODSMeta(attribute, value, units)
-        )
+        meta = self.sess.metadata.add(DataObject, test_obj_path, iRODSMeta(attribute, value, units))
 
         # get metadata
         meta = self.sess.metadata.get(DataObject, test_obj_path)
@@ -530,9 +480,7 @@ class TestMeta(unittest.TestCase):
         test_obj = helpers.make_object(self.sess, test_obj_path)
 
         # test AVUs
-        triplets = [
-            ("test_attr" + str(i), "test_value", "test_units") for i in range(avu_count)
-        ]
+        triplets = [("test_attr" + str(i), "test_value", "test_units") for i in range(avu_count)]
 
         # get coll meta
         imc = test_obj.metadata
@@ -668,9 +616,7 @@ class TestMeta(unittest.TestCase):
                         continue
                     for method in ("set", "add"):
                         data = self.sess.data_objects.create(
-                            "{hc}/{index}_{edge_case_arg}_{method}_AZ__issue_547".format(
-                                **locals()
-                            )
+                            "{hc}/{index}_{edge_case_arg}_{method}_AZ__issue_547".format(**locals())
                         )
                         to_delete.append(data)
                         m = iRODSMeta(*mtemplate)
@@ -683,21 +629,19 @@ class TestMeta(unittest.TestCase):
 
     def test_nonstring_as_AVU_value_raises_an_error__issue_434(self):
         args = ("an_attribute", 0)
-        with self.assertRaisesRegexp(Bad_AVU_Field, "incorrect type"):
+        with self.assertRaisesRegex(Bad_AVU_Field, "incorrect type"):
             self.coll.metadata.set(*args)
-        with self.assertRaisesRegexp(Bad_AVU_Field, "incorrect type"):
+        with self.assertRaisesRegex(Bad_AVU_Field, "incorrect type"):
             self.coll.metadata.add(*args)
 
     def test_empty_string_as_AVU_value_raises_an_error__issue_434(self):
         args = ("an_attribute", "")
-        with self.assertRaisesRegexp(Bad_AVU_Field, "zero-length"):
+        with self.assertRaisesRegex(Bad_AVU_Field, "zero-length"):
             self.coll.metadata.set(*args)
-        with self.assertRaisesRegexp(Bad_AVU_Field, "zero-length"):
+        with self.assertRaisesRegex(Bad_AVU_Field, "zero-length"):
             self.coll.metadata.add(*args)
 
-    @unittest.skipUnless(
-        os.path.isfile(RODS_GENQUERY_INCLUDE_FILE_PATH), "need package irods-dev(el)"
-    )
+    @unittest.skipUnless(os.path.isfile(RODS_GENQUERY_INCLUDE_FILE_PATH), "need package irods-dev(el)")
     def test_that_all_column_mappings_are_uniquely_and_properly_defined__issue_643(
         self,
     ):
@@ -710,26 +654,20 @@ class TestMeta(unittest.TestCase):
         with open(RODS_GENQUERY_INCLUDE_FILE_PATH) as f:
             include_lines = f.readlines()
 
-        server_column_defs = sorted(
-            [
-                (match.group("column_name"), int(match.group("column_value")))
-                for match in (
-                    column_definitions_regex.match(line) for line in include_lines
-                )
-                if match
-            ]
-        )
+        server_column_defs = sorted([
+            (match.group("column_name"), int(match.group("column_value")))
+            for match in (column_definitions_regex.match(line) for line in include_lines)
+            if match
+        ])
 
         # Extract all GenQuery1 name-to-number mappings from PRC model class definitions (some omit 'COL_' prefix, so allow some flexibility there.)
-        prepend_col_prefix_if_needed = lambda s: (
-            "COL_" + s if not s.startswith("COL_") else s
-        )
-        prc_column_defs = sorted(
-            [
-                (prepend_col_prefix_if_needed(i[1].icat_key), i[1].icat_id)
-                for i in ModelBase.column_items
-            ]
-        )
+        prepend_col_prefix_if_needed = lambda s: "COL_" + s if not s.startswith("COL_") else s
+        current_server_version = self.sess.server_version
+        prc_column_defs = sorted([
+            (prepend_col_prefix_if_needed(i[1].icat_key), i[1].icat_id)
+            for i in ModelBase.column_items
+            if current_server_version >= i[1].min_version
+        ])
 
         sr = set(a for a, b in set(prc_column_defs) - set(server_column_defs))
         allowed_outliers = {"COL_SQL_RESULT_VALUE"}
@@ -742,9 +680,9 @@ class TestMeta(unittest.TestCase):
         meta_key = helpers.my_function_name()
         meta_value = "epoch_time"
         meta_units = str(time.time())
-        execute_my_query = lambda: self.sess.query(
-            CollectionMeta, Collection.name
-        ).filter(Collection.name == test_coll.path, CollectionMeta.name == meta_key)
+        execute_my_query = lambda: self.sess.query(CollectionMeta, Collection.name).filter(
+            Collection.name == test_coll.path, CollectionMeta.name == meta_key
+        )
         # Make sure no iRODSMeta exists under the test key.
         del test_coll.metadata[meta_key]
         self.assertEqual(len(list(execute_my_query())), 0)
@@ -778,24 +716,87 @@ class TestMeta(unittest.TestCase):
                 obj.metadata.add(attr_str, string_value)
                 self.assertEqual(
                     1,
-                    len(
-                        [
-                            _
-                            for _ in (
-                                session.query(CollectionMeta).filter(
-                                    Collection.name == hc,
-                                    CollectionMeta.name == attr_str,
-                                    CollectionMeta.value == string_value,
-                                )
+                    len([
+                        _
+                        for _ in (
+                            session.query(CollectionMeta).filter(
+                                Collection.name == hc,
+                                CollectionMeta.name == attr_str,
+                                CollectionMeta.value == string_value,
                             )
-                        ]
-                    ),
+                        )
+                    ]),
                 )
         finally:
             with xml_mode("QUASI_XML"):
                 # This statement also would generate a ParseError if the STANDARD_XML parser
                 # in use, with the "odd" characters being present in the metadata value.
                 del obj.metadata[attr_str]
+
+    def test_binary_avu_fields__issue_707(self):
+        meta_coll = self.obj.metadata(iRODSMeta_type=iRODSBinOrStringMeta)
+        illegal_unicode_sequence = '\u1000'.encode()[:2]
+        avu_name = 'issue709'
+        meta_coll.set(
+            avu_name, (value := b'value_' + illegal_unicode_sequence), (units := b'units_' + illegal_unicode_sequence)
+        )
+
+        self.assertEqual(meta_coll.get_one(avu_name), (avu_name, value, units))
+        meta_coll.add(*(new_avu := iRODSMeta(avu_name, '\u1000', '\u1001')))
+        relevant_avus = meta_coll.get_all(avu_name)
+        self.assertIn(new_avu, relevant_avus)
+
+    def test_cascading_changes_of_metadata_manager_options__issue_709(self):
+        d = None
+
+        try:
+            d = self.sess.data_objects.create(f'{self.coll.path}/issue_709_test_1')
+            m = d.metadata
+            self.assertEqual(m.admin, False)
+
+            m2 = m(admin=True)
+            self.assertEqual(m2.timestamps, False)
+            self.assertEqual(m2.admin, True)
+
+            m3 = m2(timestamps=True)
+            self.assertEqual(m3.timestamps, True)
+            self.assertEqual(m3.admin, True)
+            self.assertEqual(m3._manager.get_api_keywords().get(kw.ADMIN_KW), "")
+
+            m4 = m3(admin=False)
+            self.assertEqual(m4.admin, False)
+            self.assertEqual(m4._manager.get_api_keywords().get(kw.ADMIN_KW), None)
+        finally:
+            if d:
+                d.unlink(force=True)
+
+    def test_reload_can_be_deactivated__issue_768(self):
+        # Set an initial AVU
+        metacoll = self.obj.metadata
+        metacoll.set(item_1 := iRODSMeta('aa', 'bb', 'cc'))
+
+        # Initial defaults will always reload the AVU list from the server, so new AVU should be seen.
+        self.assertIn(item_1, metacoll.items())
+
+        # Setting reload option to False will prevent reload of object AVUs, so an AVU just set should not be seen.
+        metacoll_2 = metacoll(reload=False)
+        metacoll_2.set(item_2 := iRODSMeta('xx', 'yy', 'zz'))
+        items = metacoll_2.items()
+        self.assertIn(item_1, items)
+        self.assertNotIn(item_2, items)
+
+        # Restore old setting.  Check that both AVUs are seen as present.
+        items_reloaded = metacoll_2(reload=True).items()
+        self.assertIn(item_1, items_reloaded)
+        self.assertIn(item_2, items_reloaded)
+
+    def test_prevention_of_attribute_creation__issue_795(self):
+        data_path = iRODSPath(self.coll_path, helpers.unique_name(datetime.datetime.now()))  # noqa: DTZ005
+        data = self.sess.data_objects.create(data_path)
+        with self.assertRaises(AttributeError):
+            # This should cause an error since "admin" is considered as a read-only attribute; whereas
+            # data.metadata(admin = True) generates a cloned object but for the one change to "admin".
+            data.metadata.admin = True
 
 
 if __name__ == "__main__":

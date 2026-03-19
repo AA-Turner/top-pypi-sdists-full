@@ -19,6 +19,14 @@ use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::policy::ice_transport_policy::RTCIceTransportPolicy;
 
+/// Injects keeper-pam-webrtc-rs module version into SDP for handshake (both offer and answer).
+/// Format: a=keeper-webrtc:2.1.4
+pub(crate) fn inject_keeper_webrtc_version(sdp: &mut String) {
+    let version = env!("CARGO_PKG_VERSION");
+    let line = format!("a=keeper-webrtc:{}\r\n", version);
+    sdp.push_str(&line);
+}
+
 // Define a message structure for signaling
 #[derive(Debug, Clone)]
 pub struct SignalMessage {
@@ -785,10 +793,11 @@ impl RegistryActor {
         }
 
         if is_server_mode {
-            let offer = tube_arc
+            let mut offer = tube_arc
                 .create_offer()
                 .await
                 .map_err(|e| anyhow!("Failed to create offer: {}", e))?;
+            inject_keeper_webrtc_version(&mut offer);
             // Encode to base64 for Python/Rust boundary (consistent with answer encoding)
             let offer_base64 = BASE64_STANDARD.encode(&offer);
             result_map.insert("offer".to_string(), offer_base64);
@@ -801,6 +810,7 @@ impl RegistryActor {
                 .create_answer()
                 .await
                 .map_err(|e| anyhow!("Failed to create answer: {}", e))?;
+            inject_keeper_webrtc_version(&mut answer);
 
             // RFC 8843 requires a=mid: in every m= section of the answer, including rejected
             // (port=0) sections. webrtc-rs omits a=mid: when it rejects a section, which
@@ -1532,5 +1542,23 @@ mod tests {
         assert!(result.contains("a=rtpmap:96 H264/90000\r\n"));
         assert!(result.contains("m=application 9 DTLS/SCTP 5000\r\n"));
         assert_eq!(result.matches("b=TIAS:").count(), 1);
+    }
+
+    #[test]
+    fn test_inject_keeper_webrtc_version_no_blank_line() {
+        let mut sdp = String::from("v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\n");
+        inject_keeper_webrtc_version(&mut sdp);
+        assert!(
+            sdp.contains("\r\na=keeper-webrtc:"),
+            "keeper-webrtc line must follow previous line directly"
+        );
+        assert!(
+            !sdp.contains("\r\n\r\na=keeper-webrtc:"),
+            "must not be a blank line before keeper-webrtc attribute"
+        );
+        assert!(
+            sdp.ends_with("\r\n"),
+            "SDP must end with CRLF after injection"
+        );
     }
 }

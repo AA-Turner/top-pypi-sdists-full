@@ -112,7 +112,7 @@ async def ensure_http_client() -> JsonHttpClient:
 def get_loopback_client() -> JsonHttpClient:
     global _loopback_client
     if _loopback_client is None:
-        from langgraph_api.server import app  # type: ignore  # noqa: PLC0415
+        from langgraph_api.server import app  # noqa: PLC0415
 
         _loopback_client = JsonHttpClient(
             client=httpx.AsyncClient(

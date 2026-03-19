@@ -117,6 +117,8 @@ from .config import (
     AdvancedGlideClientConfiguration,
     AdvancedGlideClusterClientConfiguration,
     BackoffStrategy,
+    CompressionBackend,
+    CompressionConfiguration,
     GlideClientConfiguration,
     GlideClusterClientConfiguration,
     IamAuthConfig,
@@ -130,6 +132,9 @@ from .config import (
     TlsAdvancedConfiguration,
 )
 from .constants import (
+    ALL_CHANNELS,
+    ALL_PATTERNS,
+    ALL_SHARDED_CHANNELS,
     OK,
     TOK,
     FtAggregateResponse,
@@ -158,6 +163,11 @@ from .exceptions import (
     RequestError,
     TimeoutError,
 )
+from .opentelemetry import (
+    OpenTelemetryConfig,
+    OpenTelemetryMetricsConfig,
+    OpenTelemetryTracesConfig,
+)
 from .routes import (
     AllNodes,
     AllPrimaries,
@@ -183,6 +193,8 @@ __all__ = [
     # Config
     "AdvancedGlideClientConfiguration",
     "AdvancedGlideClusterClientConfiguration",
+    "CompressionBackend",
+    "CompressionConfiguration",
     "GlideClientConfiguration",
     "GlideClusterClientConfiguration",
     "BackoffStrategy",
@@ -274,6 +286,9 @@ __all__ = [
     "UpdateOptions",
     # PubSub
     "PubSubMsg",
+    "ALL_CHANNELS",
+    "ALL_PATTERNS",
+    "ALL_SHARDED_CHANNELS",
     # Json
     "json_batch",
     "JsonGetOptions",
@@ -327,4 +342,8 @@ __all__ = [
     "FtAggregateSortProperty",
     "FtProfileOptions",
     "QueryType",
+    # OpenTelemetry
+    "OpenTelemetryConfig",
+    "OpenTelemetryMetricsConfig",
+    "OpenTelemetryTracesConfig",
 ]

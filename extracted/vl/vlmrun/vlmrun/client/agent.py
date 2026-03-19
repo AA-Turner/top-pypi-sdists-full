@@ -183,7 +183,7 @@ class Agent:
             callback_url: Optional URL to call when execution is complete
             model: VLM Run Agent model to use for execution (default: "vlmrun-orion-1:auto")
             toolsets: Optional list of tool categories to enable for this execution.
-                Available categories: core, image, image-gen, world_gen,
+                Available categories: core, image, image-gen, world-gen,
                 viz, document, video, web.
                 When specified, only tools from these categories will be available.
                 If None, defaults to 'core' tools only.
@@ -255,7 +255,7 @@ class Agent:
             ```python
             from vlmrun import VLMRun
 
-            client = VLMRun(api_key="your-key", base_url="https://agent.vlm.run/v1")
+            client = VLMRun(api_key="your-key", base_url="https://api.vlm.run/v1")
 
             response = client.agent.completions.create(
                 model="vlmrun-orion-1",
@@ -303,7 +303,7 @@ class Agent:
             from vlmrun import VLMRun
             import asyncio
 
-            client = VLMRun(api_key="your-key", base_url="https://agent.vlm.run/v1")
+            client = VLMRun(api_key="your-key", base_url="https://api.vlm.run/v1")
 
             async def main():
                 response = await client.agent.async_completions.create(

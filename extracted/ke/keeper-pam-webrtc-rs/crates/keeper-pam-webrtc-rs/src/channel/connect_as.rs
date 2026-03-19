@@ -11,8 +11,12 @@ use sha2::Sha256;
 pub(crate) struct ConnectAsUser {
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
+    #[serde(alias = "privatekey")]
     pub(crate) private_key: Option<String>,
+    #[serde(alias = "privatekeypassphrase")]
     pub(crate) private_key_passphrase: Option<String>,
+    #[serde(alias = "publickey")]
+    pub(crate) public_key: Option<String>,
     pub(crate) passphrase: Option<String>,
     pub(crate) domain: Option<String>,
     pub connect_database: Option<String>,

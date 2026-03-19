@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-sagemaker
-Version: 3.2.1
-Summary: Type annotations for aiobotocore SageMaker 3.2.1 service generated with mypy-boto3-builder 8.12.0
+Version: 3.3.0
+Summary: Type annotations for aiobotocore SageMaker 3.3.0 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore SageMaker 3.2.1](https://pypi.org/project/aiobotocore/) compatible
+[aiobotocore SageMaker 3.3.0](https://pypi.org/project/aiobotocore/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.2.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.3.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -335,6 +335,7 @@ from aiobotocore.session import get_session
 from types_aiobotocore_sagemaker import SageMakerClient
 from types_aiobotocore_sagemaker.paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeTrainingPlanExtensionHistoryPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -427,6 +428,9 @@ async with session.create_client("sagemaker") as client:
     # Types should be correctly discovered by mypy and IDEs
     create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = (
         client.get_paginator("create_hub_content_presigned_urls")
+    )
+    describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator(
+        "describe_training_plan_extension_history"
     )
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
     list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")

@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import multiprocessing
+import signal
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import tenacity
@@ -115,6 +118,46 @@ class SerializedSession(BaseModel):
     closed: bool = False
 
 
+def _heartbeat_worker(
+    base_url: str | None,
+    api_key: str,
+    session_id: str,
+    interval: int,
+) -> None:
+    """Run in a child process — sends heartbeats via sync HTTP, immune to event-loop blocking."""
+    # Ignore SIGINT so Ctrl-C in the parent doesn't kill the heartbeat mid-request.
+    # Handle SIGTERM gracefully so parent shutdown doesn't cause noisy tracebacks.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    stop = False
+
+    def _handle_term(signum: int, frame: object) -> None:
+        nonlocal stop
+        stop = True
+
+    signal.signal(signal.SIGTERM, _handle_term)
+
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    from plato._generated.api.v2.sessions import heartbeat as _hb_mod
+
+    with httpx.Client(base_url=base_url or "", timeout=timeout) as client:
+        while not stop:
+            try:
+                _hb_mod.sync(
+                    client=client,
+                    session_id=session_id,
+                    x_api_key=api_key,
+                )
+            except Exception:
+                # Errors are non-fatal; next heartbeat will retry.
+                pass
+            # Sleep in small increments so we notice stop flag quickly
+            for _ in range(interval * 10):
+                if stop:
+                    break
+                time.sleep(0.1)
+
+
 class Session:
     """Actor wrapper for SessionSpec - provides async execution methods.
 
@@ -156,6 +199,7 @@ class Session:
         self._context = context
         self._closed = False
         self._started = False
+        self._heartbeat_process: multiprocessing.Process | None = None
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval = 30
         self._envs: list[Environment] | None = None
@@ -257,6 +301,8 @@ class Session:
         timeout: int = 1800,
         agent_artifact_id: str | None = None,
         wait: bool = True,
+        shutdown_callback_url: str | None = None,
+        shutdown_callback_token: str | None = None,
     ) -> Session:
         """Create a new session from environment configurations.
 
@@ -297,11 +343,17 @@ class Session:
                 env.alias = unique_alias
                 seen_aliases.add(unique_alias)
 
+        extra_kwargs: dict[str, Any] = {}
+        if shutdown_callback_url is not None:
+            extra_kwargs["shutdown_callback_url"] = shutdown_callback_url
+        if shutdown_callback_token is not None:
+            extra_kwargs["shutdown_callback_token"] = shutdown_callback_token
         request_body = CreateSessionFromEnvs(
             envs=[Envs(root=env) for env in envs],
             timeout=timeout,
             source=RunSessionSource.SDK,
             agent_artifact_id=agent_artifact_id,
+            **extra_kwargs,
         )
         return await cls._make_session(http_client, api_key, request_body, timeout, wait=wait)
 
@@ -1174,7 +1226,7 @@ class Session:
     # Heartbeat management
 
     async def _heartbeat_loop(self) -> None:
-        """Background task that periodically sends heartbeats."""
+        """Background asyncio task that periodically sends heartbeats."""
         try:
             while True:
                 try:
@@ -1186,13 +1238,43 @@ class Session:
         except asyncio.CancelledError:
             pass
 
-    async def start_heartbeat(self) -> None:
-        """Start the heartbeat background task."""
+    async def start_heartbeat(self, *, use_process: bool = False) -> None:
+        """Start the heartbeat background loop.
+
+        Args:
+            use_process: If True, run heartbeat in a child process (immune to
+                event-loop blocking by sync code). If False (default), use an
+                asyncio task.
+        """
         await self.stop_heartbeat()
-        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        if use_process:
+            base_url = str(self._http.base_url) if self._http.base_url else None
+            self._heartbeat_process = multiprocessing.Process(
+                target=_heartbeat_worker,
+                args=(base_url, self._api_key, self.session_id, self._heartbeat_interval),
+                daemon=True,
+                name=f"heartbeat-{self.session_id[:8]}",
+            )
+            self._heartbeat_process.start()
+            logger.debug(f"Heartbeat process started (pid={self._heartbeat_process.pid}) for session {self.session_id}")
+        else:
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
     async def stop_heartbeat(self) -> None:
-        """Stop the heartbeat background task."""
+        """Stop the heartbeat (process or task)."""
+        # Stop process if running (join in executor to avoid blocking the event loop)
+        proc = self._heartbeat_process
+        if proc is not None and proc.is_alive():
+            proc.terminate()
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, proc.join, 5)
+            if proc.is_alive():
+                proc.kill()
+                await loop.run_in_executor(None, proc.join, 2)
+            logger.debug(f"Heartbeat process stopped for session {self.session_id}")
+        self._heartbeat_process = None
+
+        # Stop task if running
         if self._heartbeat_task and not self._heartbeat_task.done():
             self._heartbeat_task.cancel()
             try:
@@ -1298,6 +1380,7 @@ class Session:
         *,
         http_client: httpx.AsyncClient | None = None,
         start_heartbeat: bool = True,
+        heartbeat_use_process: bool = False,
     ) -> Session:
         """Restore a session from serialized state.
 
@@ -1309,6 +1392,7 @@ class Session:
             http_client: Optional HTTP client. If not provided, a new one is created
                         using the base_url from the serialized data.
             start_heartbeat: Whether to start the heartbeat task (default: True).
+            heartbeat_use_process: If True, run heartbeat in a child process.
 
         Returns:
             A restored Session instance.
@@ -1352,7 +1436,7 @@ class Session:
 
         # Start heartbeat if requested and session isn't closed
         if start_heartbeat and not session._closed:
-            await session.start_heartbeat()
+            await session.start_heartbeat(use_process=heartbeat_use_process)
             logger.info(f"Session {session.session_id} restored with heartbeat started")
         else:
             logger.info(f"Session {session.session_id} restored (heartbeat not started)")

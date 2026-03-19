@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.3"
+version = "1.5.4"
 requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
@@ -77,6 +77,7 @@ rag = [
     "langgraph>=0.2.40,<0.7",
     "langchain-chroma>=0.1.4,<=0.2.5",
     "langchain-milvus>=0.1.8,<=0.2.1",
+    "langchain-text-splitters>=0.3,<0.4",
     "grpcio>=1.54.3",
     "python-docx>=1.1.2,<=1.2.0",
     "python-pptx==1.0.2",

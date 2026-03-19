@@ -52,6 +52,77 @@ else:
     import importlib.metadata as importlib_metadata
 
 
+def _get_pipfile_python_override(project):
+    """Determine python_version and python_full_version overrides from the Pipfile.
+
+    When the Pipfile specifies ``python_version = "3.11"`` (major.minor only),
+    the resolver should evaluate markers as if ``python_full_version`` were
+    ``"3.11.0"`` — the lowest patch release for that minor series.  This ensures
+    that dependencies guarded by markers like
+    ``python_full_version <= "3.11.2"`` are *included* in the lock file so that
+    the lock file is portable across all patch releases of that minor version.
+
+    Returns a dict with ``python_version`` and ``python_full_version`` keys
+    suitable for passing as an environment override, or *None* if no override
+    is needed.
+    """
+    if not project.pipfile_exists:
+        return None
+
+    requires = project.parsed_pipfile.get("requires", {})
+    python_full = requires.get("python_full_version")
+    python_ver = requires.get("python_version")
+
+    if python_full and python_full != "*":
+        # Explicit full version — use it directly.
+        parts = python_full.split(".")
+        return {
+            "python_full_version": python_full,
+            "python_version": ".".join(parts[:2]),
+        }
+
+    if python_ver and python_ver != "*":
+        # Only major.minor specified — assume .0 patch for inclusive resolution.
+        return {
+            "python_full_version": f"{python_ver}.0",
+            "python_version": python_ver,
+        }
+
+    return None
+
+
+@contextlib.contextmanager
+def _patched_marker_environment(override):
+    """Context manager that monkey-patches ``default_environment`` in pip's
+    vendored ``packaging.markers`` so that marker evaluation during dependency
+    resolution uses the Pipfile-specified Python version rather than the
+    running interpreter's version.
+
+    Only ``python_version`` and ``python_full_version`` are overridden; all
+    other environment markers (``os_name``, ``sys_platform``, etc.) remain
+    unchanged.
+    """
+    if not override:
+        yield
+        return
+
+    import pipenv.patched.pip._vendor.packaging.markers as pip_markers
+
+    _orig = pip_markers.default_environment
+
+    def _patched_default_environment():
+        env = _orig()
+        env["python_version"] = override["python_version"]
+        env["python_full_version"] = override["python_full_version"]
+        return env
+
+    pip_markers.default_environment = _patched_default_environment
+    try:
+        yield
+    finally:
+        pip_markers.default_environment = _orig
+
+
 def get_package_finder(
     install_cmd=None,
     options=None,
@@ -96,6 +167,59 @@ class HashCacheMixin:
     def get_hash(self, link):
         hash_value = self.project.get_file_hash(self.session, link).encode()
         return hash_value.decode("utf8")
+
+
+def _format_resolution_error(install_error):
+    """Extract and format conflict details from an InstallationError exception chain.
+
+    When pip raises an InstallationError due to a ResolutionImpossible, the original
+    ResolutionImpossible exception (with its ``causes`` list) is attached as
+    ``install_error.__cause__``. This helper traverses that chain and builds a
+    human-readable summary of the conflicting requirements so users can diagnose
+    the problem without needing to re-run with ``--verbose``.
+    """
+    base_msg = str(install_error)
+
+    # Walk the exception chain to find a ResolutionImpossible cause
+    cause = getattr(install_error, "__cause__", None)
+    resolution_impossible = None
+    while cause is not None:
+        # Import lazily to avoid circular imports at module level
+        try:
+            from pipenv.patched.pip._vendor.resolvelib import ResolutionImpossible
+
+            if isinstance(cause, ResolutionImpossible):
+                resolution_impossible = cause
+                break
+        except ImportError:
+            break
+        cause = getattr(cause, "__cause__", None)
+
+    if resolution_impossible is None or not getattr(
+        resolution_impossible, "causes", None
+    ):
+        return base_msg
+
+    lines = [base_msg, "\nThe conflict is caused by:"]
+    for req_info in resolution_impossible.causes:
+        requirement = getattr(req_info, "requirement", None)
+        parent = getattr(req_info, "parent", None)
+        if requirement is None:
+            continue
+        req_str = (
+            requirement.format_for_error()
+            if hasattr(requirement, "format_for_error")
+            else str(requirement)
+        )
+        if parent is not None:
+            parent_name = getattr(parent, "name", str(parent))
+            parent_version = getattr(parent, "version", "")
+            prefix = f"    {parent_name} {parent_version} depends on "
+        else:
+            prefix = "    The user requested "
+        lines.append(prefix + req_str)
+
+    return "\n".join(lines)
 
 
 class Resolver:
@@ -472,7 +596,7 @@ class Resolver:
             try:
                 results = resolver.resolve(self.constraints, check_supported_wheels=False)
             except InstallationError as e:
-                raise ResolutionFailure(message=e)
+                raise ResolutionFailure(message=_format_resolution_error(e)) from e
             else:
                 self.results = set(results.all_requirements)
                 self.resolved_tree.update(self.results)
@@ -827,12 +951,34 @@ def actually_resolve_deps(
     return (results, hashes, resolver)
 
 
+def _is_download_status_line(line: str) -> bool:
+    """Return True if the pip stderr line reports a file download.
+
+    pip emits lines like::
+
+        Downloading torch-2.0.0-cp311-cp311-linux_x86_64.whl (726.8 MB)
+
+    to stderr during the resolution/hash-gathering phase.  We surface these
+    even in non-verbose mode so that users can see *why* pipenv appears to be
+    doing nothing for a long time instead of assuming it is frozen.
+    """
+    stripped = line.strip()
+    # Match "Downloading <name>.whl (X MB)" style messages.
+    if stripped.startswith("Downloading ") and (
+        " MB)" in stripped
+        or " kB)" in stripped
+        or " KB)" in stripped
+        or " GB)" in stripped
+    ):
+        return True
+    return False
+
+
 def resolve(cmd, st, project):
     import threading
 
-    from pipenv.cmdparse import Script
-
-    c = subprocess_run(Script.parse(cmd).cmd_args, block=False, env=os.environ.copy())
+    # cmd is a pre-tokenized list (not a TOML sequence); pass it directly.
+    c = subprocess_run([str(x) for x in cmd], block=False, env=os.environ.copy())
     is_verbose = project.s.is_verbose()
 
     # Use threading to read from both stdout and stderr concurrently.
@@ -851,12 +997,16 @@ def resolve(cmd, st, project):
             stdout_chunks.append(chunk)
 
     def read_stderr():
-        """Read stderr line by line, optionally printing in verbose mode."""
+        """Read stderr line by line, printing verbose output or download notices."""
         for line in iter(c.stderr.readline, ""):
             if line.rstrip():
                 stderr_lines.append(line)
                 if is_verbose:
                     st.console.print(line.rstrip())
+                elif _is_download_status_line(line):
+                    # Always show download progress so users know pipenv is not
+                    # frozen when pip is fetching a large package (issue #5718).
+                    err.print(f"  [dim]{line.rstrip()}[/dim]")
 
     # Start reader threads
     stdout_thread = threading.Thread(target=read_stdout, daemon=True)
@@ -878,6 +1028,12 @@ def resolve(cmd, st, project):
         st.console.print(environments.PIPENV_SPINNER_FAIL_TEXT.format("Locking Failed!"))
         if not is_verbose:
             err.print(errors)
+            if errors and "ResolutionImpossible" in errors:
+                err.print(
+                    "[cyan]Hint:[/cyan] Re-run with [yellow]--verbose[/yellow] "
+                    "to see the full dependency resolution output and identify "
+                    "which packages are in conflict."
+                )
         raise ResolutionFailure("Failed to lock Pipfile.lock!")
     if is_verbose:
         err.print(out.strip())
@@ -975,6 +1131,14 @@ def venv_resolve_deps(
             os.environ.pop("PIPENV_SITE_DIR", None)
         if extra_pip_args:
             os.environ["PIPENV_EXTRA_PIP_ARGS"] = json.dumps(extra_pip_args)
+        # Pass the Pipfile-required Python version to the resolver subprocess
+        # so that marker evaluation uses it instead of the running interpreter's
+        # version.  See https://github.com/pypa/pipenv/issues/5908
+        python_override = _get_pipfile_python_override(project)
+        if python_override:
+            os.environ["PIPENV_RESOLVER_PYTHON_VERSION"] = python_override[
+                "python_full_version"
+            ]
         with console.status(
             f"Locking {pipfile_category}...", spinner=project.s.PIPENV_SPINNER
         ) as st:
@@ -990,17 +1154,18 @@ def venv_resolve_deps(
             # Useful for debugging and hitting breakpoints in the resolver
             if project.s.PIPENV_RESOLVER_PARENT_PYTHON:
                 try:
-                    results = resolver.resolve_packages(
-                        pre,
-                        clear,
-                        project.s.is_verbose(),
-                        system=allow_global,
-                        write=False,
-                        requirements_dir=req_dir,
-                        packages=deps,
-                        pipfile_category=pipfile_category,
-                        constraints=deps,
-                    )
+                    with _patched_marker_environment(python_override):
+                        results = resolver.resolve_packages(
+                            pre,
+                            clear,
+                            project.s.is_verbose(),
+                            system=allow_global,
+                            write=False,
+                            requirements_dir=req_dir,
+                            packages=deps,
+                            pipfile_category=pipfile_category,
+                            constraints=deps,
+                        )
                     if results:
                         st.console.print(
                             environments.PIPENV_SPINNER_OK_TEXT.format("Success!")
@@ -1127,35 +1292,11 @@ def resolve_deps(
     # First (proper) attempt:
     if not req_dir:
         req_dir = create_tracked_tempdir(prefix="pipenv-", suffix="-requirements")
+    python_override = _get_pipfile_python_override(project)
     with HackedPythonVersion(python_path=project.python(system=allow_global)):
-        try:
-            results, hashes, internal_resolver = actually_resolve_deps(
-                deps,
-                index_lookup,
-                markers_lookup,
-                project,
-                sources,
-                clear,
-                pre,
-                pipfile_category,
-                req_dir=req_dir,
-            )
-        except RuntimeError:
-            # Don't exit here, like usual.
-            results = None
-    # Second (last-resort) attempt:
-    if results is None:
-        with HackedPythonVersion(
-            python_path=project.python(system=allow_global),
-        ):
+        with _patched_marker_environment(python_override):
             try:
-                # Attempt to resolve again, with different Python version information,
-                # particularly for particularly particular packages.
-                (
-                    results,
-                    hashes,
-                    internal_resolver,
-                ) = actually_resolve_deps(
+                results, hashes, internal_resolver = actually_resolve_deps(
                     deps,
                     index_lookup,
                     markers_lookup,
@@ -1167,7 +1308,35 @@ def resolve_deps(
                     req_dir=req_dir,
                 )
             except RuntimeError:
-                sys.exit(1)
+                # Don't exit here, like usual.
+                results = None
+    # Second (last-resort) attempt:
+    if results is None:
+        with HackedPythonVersion(
+            python_path=project.python(system=allow_global),
+        ):
+            with _patched_marker_environment(python_override):
+                try:
+                    # Attempt to resolve again, with different Python version
+                    # information, particularly for particularly particular
+                    # packages.
+                    (
+                        results,
+                        hashes,
+                        internal_resolver,
+                    ) = actually_resolve_deps(
+                        deps,
+                        index_lookup,
+                        markers_lookup,
+                        project,
+                        sources,
+                        clear,
+                        pre,
+                        pipfile_category,
+                        req_dir=req_dir,
+                    )
+                except RuntimeError:
+                    sys.exit(1)
     return results, internal_resolver
 
 

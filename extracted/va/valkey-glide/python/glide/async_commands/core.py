@@ -1778,7 +1778,7 @@ class CoreCommands(Protocol):
         Note:
             1. When in cluster mode, all `keys` must map to the same hash slot.
             2. `BLPOP` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         Args:
@@ -1857,7 +1857,7 @@ class CoreCommands(Protocol):
         Note:
             1. When in cluster mode, all `keys` must map to the same hash slot.
             2. `BLMPOP` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         See [valkey.io](https://valkey.io/commands/blmpop/) for details.
@@ -2104,7 +2104,7 @@ class CoreCommands(Protocol):
         Notes:
             1. When in cluster mode, all `keys` must map to the same hash slot.
             2. `BRPOP` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         Args:
@@ -2230,7 +2230,7 @@ class CoreCommands(Protocol):
         Notes:
             1. When in cluster mode, both `source` and `destination` must map to the same hash slot.
             2. `BLMOVE` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         See [valkey.io](https://valkey.io/commands/blmove/) for details.
@@ -4986,7 +4986,7 @@ class CoreCommands(Protocol):
             1. When in cluster mode, all keys must map to the same hash slot.
             2. `BZPOPMAX` is the blocking variant of `ZPOPMAX`.
             3. `BZPOPMAX` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         See [valkey.io](https://valkey.io/commands/bzpopmax) for more details.
@@ -5059,7 +5059,7 @@ class CoreCommands(Protocol):
             1. When in cluster mode, all keys must map to the same hash slot.
             2. `BZPOPMIN` is the blocking variant of `ZPOPMIN`.
             3. `BZPOPMIN` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         See [valkey.io](https://valkey.io/commands/bzpopmin) for more details.
@@ -6141,7 +6141,7 @@ class CoreCommands(Protocol):
         Notes:
             1. When in cluster mode, all `keys` must map to the same hash slot.
             2. `BZMPOP` is a client blocking command, see
-               [blocking commands](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#blocking-commands)
+               [blocking commands](https://glide.valkey.io/how-to/connection-management/#blocking-commands)
                for more details and best practices.
 
         Args:
@@ -7816,3 +7816,252 @@ class CoreCommands(Protocol):
         )
         result = await self._execute_command(RequestType.Sort, args)
         return cast(int, result)
+
+    async def subscribe_lazy(self, channels: Set[str]) -> None:
+        """
+        Subscribe to exact channels (non-blocking).
+
+        This command updates the client's internal desired subscription state without waiting
+        for server confirmation. It returns immediately after updating the local state.
+        The client will attempt to subscribe asynchronously in the background.
+
+        Note:
+            Use `get_subscriptions()` to verify the actual server-side subscription state.
+
+        Args:
+            channels: A set of channel names to subscribe to.
+
+        Returns: None
+
+        Examples:
+            >>> await client.subscribe_lazy({"channel1"})
+            >>> # Subscription request sent, not waiting for confirmation
+            >>>
+            >>> # Multiple channels
+            >>> await client.subscribe_lazy({"channel1", "channel2"})
+        """
+        await self._execute_command(RequestType.Subscribe, list(channels))
+
+    async def subscribe(self, channels: Set[str], timeout_ms: int = 0) -> None:
+        """
+        Subscribe to exact channels (blocking).
+
+        This command updates the client's internal desired subscription state and waits
+        for server confirmation.
+
+        Args:
+            channels: A set of channel names to subscribe to.
+            timeout_ms: Maximum time in milliseconds to wait for server confirmation.
+                    A value of 0 blocks indefinitely until confirmation.
+
+        Return: None
+
+        Raises:
+            TimeoutError: If timeout > 0 and server confirmation not received within timeout.
+            ValueError: If timeout_ms is negative.
+
+        Examples:
+            >>> await client.subscribe({"channel1"})
+            >>> print("Subscribed successfully (waited indefinitely)")
+            >>>
+            >>> # With timeout
+            >>> await client.subscribe({"channel1", "channel2"}, timeout=5.0)
+            >>> print("Subscribed successfully within 5 seconds")
+        """
+        if timeout_ms < 0:
+            raise ValueError(f"Timeout must be non-negative, got: {timeout_ms}")
+        args = list(channels) + [str(timeout_ms)]
+        await self._execute_command(RequestType.SubscribeBlocking, list(args))
+
+    async def psubscribe_lazy(self, patterns: Set[str]) -> None:
+        """
+        Subscribe to channel patterns (non-blocking).
+
+        This command updates the client's internal desired subscription state without waiting
+        for server confirmation. It returns immediately after updating the local state.
+        The client will attempt to subscribe asynchronously in the background.
+
+        Note:
+            Use `get_subscriptions()` to verify the actual server-side subscription state.
+
+        Args:
+            patterns: A set of patterns to subscribe to (e.g., {"news.*"}).
+
+        Return: None
+
+        Examples:
+            >>> await client.psubscribe_lazy({"news.*"})
+            >>> # Pattern subscription request sent, not waiting for confirmation
+            >>>
+            >>> # Multiple patterns
+            >>> await client.psubscribe_lazy({"news.*", "updates.*"})
+        """
+        await self._execute_command(RequestType.PSubscribe, list(patterns))
+
+    async def psubscribe(self, patterns: Set[str], timeout_ms: int = 0) -> None:
+        """
+        Subscribe to channel patterns (blocking).
+
+        This command updates the client's internal desired subscription state and waits
+        for server confirmation.
+
+        Args:
+            patterns: A set of patterns to subscribe to (e.g., {"news.*"}).
+            timeout_ms: Maximum time in milliseconds to wait for server confirmation.
+                    A value of 0 blocks indefinitely until confirmation.
+
+        Return: None
+
+        Raises:
+            TimeoutError: If timeout > 0 and server confirmation not received within timeout.
+            ValueError: If timeout_ms is negative.
+
+        Examples:
+            >>> await client.psubscribe({"news.*"})
+            >>> print("Subscribed to pattern successfully (waited indefinitely)")
+            >>>
+            >>> # With timeout
+            >>> await client.psubscribe({"news.*", "updates.*"}, timeout=10.0)
+            >>> print("Subscribed to patterns successfully within 10 seconds")
+        """
+        if timeout_ms < 0:
+            raise ValueError(f"Timeout must be non-negative, got: {timeout_ms}")
+        args = list(patterns) + [str(timeout_ms)]
+        await self._execute_command(RequestType.PSubscribeBlocking, list(args))
+
+    async def unsubscribe_lazy(self, channels: Optional[Set[str]] = None) -> None:
+        """
+        Unsubscribe from exact channels (non-blocking).
+
+        This command updates the client's internal desired subscription state without waiting
+        for server confirmation. It returns immediately after updating the local state.
+        The client will attempt to subscribe asynchronously in the background.
+
+        Note:
+            Use `get_subscriptions()` to verify the actual server-side subscription state.
+
+        Args:
+            channels: A set of channel names to unsubscribe from.
+                    If None, unsubscribes from all exact channels.
+
+        Return: None
+
+        Examples:
+            >>> await client.unsubscribe_lazy({"channel1"})
+            >>> # Unsubscription request sent, not waiting for confirmation
+            >>>
+            >>> # Unsubscribe from all exact channels
+            >>> await client.unsubscribe_lazy()
+        """
+        await self._execute_command(
+            RequestType.Unsubscribe, list(channels) if channels else []
+        )
+
+    async def unsubscribe(
+        self, channels: Optional[Set[str]] = None, timeout_ms: int = 0
+    ) -> None:
+        """
+        Unsubscribe from exact channels (blocking).
+
+        This command updates the client's internal desired subscription state
+        and waits for server confirmation.
+
+        Args:
+            channels: A set of channel names to unsubscribe from.
+                    If None or ALL_CHANNELS, unsubscribes from all exact
+                    channels.
+            timeout_ms: Maximum time in milliseconds to wait for server
+                    confirmation. A value of 0 blocks indefinitely until
+                    confirmation.
+
+        Return: None
+
+        Raises:
+            TimeoutError: If timeout > 0 and server confirmation not received within timeout.
+            ValueError: If timeout_ms is negative.
+
+        Examples:
+            >>> await client.unsubscribe({"channel1"})
+            >>> print("Unsubscribed successfully (waited indefinitely)")
+            >>>
+            >>> # With timeout
+            >>> await client.unsubscribe({"channel1"}, timeout_ms=5000)
+            >>> print("Unsubscribed successfully within 5 seconds")
+            >>>
+            >>> # Unsubscribe from all exact channels with timeout
+            >>> from glide.async_commands.core import ALL_CHANNELS
+            >>> await client.unsubscribe(ALL_CHANNELS, timeout_ms=10000)
+            >>>
+            >>> # Unsubscribe from all exact channels with timeout
+            >>> await client.unsubscribe(timeout=10.0)
+        """
+        if timeout_ms < 0:
+            raise ValueError(f"Timeout must be non-negative, got: {timeout_ms}")
+        args = (list(channels) if channels else []) + [str(timeout_ms)]
+        await self._execute_command(RequestType.UnsubscribeBlocking, list(args))
+
+    async def punsubscribe_lazy(self, patterns: Optional[Set[str]] = None) -> None:
+        """
+        Unsubscribe from channel patterns (non-blocking).
+
+        This command updates the client's internal desired subscription state without waiting
+        for server confirmation. It returns immediately after updating the local state.
+
+        Note:
+            Use `get_subscriptions()` to verify the actual server-side subscription state.
+
+        Args:
+            patterns: A set of patterns to unsubscribe from.
+                    If None, unsubscribes from all patterns.
+
+        Return: None
+
+        Examples:
+            >>> await client.punsubscribe_lazy({"news.*"})
+            >>> # Pattern unsubscription request sent, not waiting for confirmation
+            >>>
+            >>> # Unsubscribe from all patterns
+            >>> await client.punsubscribe_lazy()
+        """
+        await self._execute_command(
+            RequestType.PUnsubscribe, list(patterns) if patterns else []
+        )
+
+    async def punsubscribe(
+        self, patterns: Optional[Set[str]] = None, timeout_ms: int = 0
+    ) -> None:
+        """
+        Unsubscribe from channel patterns (blocking).
+
+        This command updates the client's internal desired subscription state
+        and waits for server confirmation.
+
+        Args:
+            patterns: A set of patterns to unsubscribe from.
+                    If None or ALL_PATTERNS, unsubscribes from all patterns.
+            timeout_ms: Maximum time in milliseconds to wait for server
+                    confirmation. A value of 0 blocks indefinitely until
+                    confirmation.
+
+        Return: None
+
+        Raises:
+            TimeoutError: If timeout > 0 and server confirmation not received
+                    within timeout.
+
+        Examples:
+            >>> await client.punsubscribe({"news.*"})
+            >>> print("Unsubscribed from pattern successfully")
+            >>>
+            >>> # With timeout
+            >>> await client.punsubscribe({"news.*"}, timeout_ms=5000)
+            >>> print("Unsubscribed from pattern successfully")
+            >>>
+            >>> # Unsubscribe from all patterns with timeout
+            >>> from glide.async_commands.core import ALL_PATTERNS
+            >>> await client.punsubscribe(ALL_PATTERNS, timeout_ms=10000)
+        """
+        if timeout_ms < 0:
+            raise ValueError(f"Timeout must be non-negative, got: {timeout_ms}")
+        args = (list(patterns) if patterns else []) + [str(timeout_ms)]
+        await self._execute_command(RequestType.PUnsubscribeBlocking, list(args))

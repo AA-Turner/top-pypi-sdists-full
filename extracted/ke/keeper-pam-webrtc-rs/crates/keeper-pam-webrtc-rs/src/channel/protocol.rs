@@ -475,6 +475,10 @@ impl Channel {
                                             guacd_params_locked
                                                 .insert("privatekey".to_string(), val);
                                         }
+                                        if let Some(val) = user_details.public_key {
+                                            guacd_params_locked
+                                                .insert("public-key".to_string(), val);
+                                        }
                                         if let Some(val) = user_details.private_key_passphrase {
                                             guacd_params_locked
                                                 .insert("passphrase".to_string(), val);

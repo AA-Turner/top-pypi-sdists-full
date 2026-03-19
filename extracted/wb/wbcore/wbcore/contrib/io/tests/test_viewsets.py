@@ -100,7 +100,6 @@ class TestViewsets:
             (SourceModelViewSet, "sources"),
             (ParserHandlerRepresentationViewSet, "parser_handlers"),
             (ParserHandlerModelViewSet, "parser_handlers"),
-            (DataBackendRepresentationViewSet, "data_backends"),
         ],
     )
     def test_get(self, request_factory, super_user, vs, batch, request: FixtureRequest):

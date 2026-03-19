@@ -44,13 +44,12 @@ def verbose_search(
 
     # Unzip if list have tuples (Document, float)
     if all(isinstance(doc, tuple) for doc in documents):
-        documents, scores = [doc[0] for doc in documents], [doc[1] for doc in documents]  # type: ignore[index]
+        documents = cast(list[tuple["Document", float]], documents)
+        docs, scores = [doc[0] for doc in documents], [doc[1] for doc in documents]
     else:
+        docs = cast(list["Document"], documents)
         scores = []
 
-    from langchain_core.documents import Document
-
-    documents = cast(list[Document], documents)
     if "ipykernel" in sys.modules:
         try:
             from IPython.display import Markdown, display
@@ -61,10 +60,10 @@ def verbose_search(
 
         display(Markdown(f"**Question:** {question}"))
 
-        if len(documents) > 0:
+        if len(docs) > 0:
             metadata_fields: set = set()
 
-            for doc in documents:
+            for doc in docs:
                 metadata_fields.update(doc.metadata.keys())
 
             if scores:
@@ -73,8 +72,8 @@ def verbose_search(
             df = pd.DataFrame(columns=["page_content"] + list(metadata_fields))
 
             # Parsing rows and adding them to the DataFrame
-            for doc in documents:
-                row = {"page_content": doc.page_content}
+            for doc in docs:
+                row: dict[str, Any] = {"page_content": doc.page_content}
                 row.update(doc.metadata)
                 # Adding score (if provided)
                 if scores:
@@ -88,12 +87,12 @@ def verbose_search(
         else:
             display(Markdown("No documents were found."))
     else:
-        if len(documents) > 0:
+        if len(docs) > 0:
             if scores:
-                for i, (d, s) in enumerate(zip(documents, scores)):
+                for i, (d, s) in enumerate(zip(docs, scores)):
                     logger.info(f"{i} | {s} |  {d.page_content}   | {d.metadata}")
             else:
-                for i, d in enumerate(documents):
+                for i, d in enumerate(docs):
                     logger.info(f"{i} |  {d.page_content}   | {d.metadata}")
         else:
             logger.info("No documents were found.")

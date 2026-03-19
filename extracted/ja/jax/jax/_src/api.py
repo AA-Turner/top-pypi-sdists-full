@@ -558,7 +558,7 @@ def value_and_grad(fun: Callable, argnums: int | Sequence[int] = 0,
 def _check_scalar(x):
   msg = "Gradient only defined for scalar-output functions. Output {}.".format
   try:
-    aval = core.get_aval(x)
+    aval = core.typeof(x)
   except TypeError as e:
     raise TypeError(msg(f"was {x}")) from e
   else:
@@ -570,7 +570,7 @@ def _check_scalar(x):
 
 def _check_input_dtype_revderiv(name, holomorphic, allow_int, x):
   dispatch.check_arg(x)
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   if holomorphic:
     if not dtypes.issubdtype(aval.dtype, np.complexfloating):
       raise TypeError(f"{name} with holomorphic=True requires inputs with complex dtype, "
@@ -590,7 +590,7 @@ def _check_input_dtype_revderiv(name, holomorphic, allow_int, x):
 _check_input_dtype_grad = partial(_check_input_dtype_revderiv, "grad")
 
 def _check_output_dtype_revderiv(name, holomorphic, x):
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   if dtypes.issubdtype(aval.dtype, dtypes.extended):
     raise TypeError(
         f"{name} with output element type {aval.dtype.name}")
@@ -675,7 +675,7 @@ def fwd_and_bwd(
     f = lu.wrap_init(fun, params=kwargs, debug_info=dbg)
     f_partial, dyn_args = argnums_partial(
         f, argnums, args, require_static_args_hashable=False)
-    return _vjp(f_partial, *dyn_args, has_aux=has_aux)  # type: ignore
+    return _vjp(f_partial, *dyn_args, has_aux=has_aux)
   def bwd(f_vjp, outgrad):
     g = f_vjp(outgrad)
     g = g[0] if isinstance(argnums, int) else g
@@ -755,7 +755,7 @@ def jacfwd(fun: Callable, argnums: int | Sequence[int] = 0,
 
 def _check_input_dtype_jacfwd(holomorphic: bool, x: Any) -> None:
   dispatch.check_arg(x)
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   if dtypes.issubdtype(aval.dtype, dtypes.extended):
     raise TypeError(
         f"jacfwd with input element type {aval.dtype.name}")
@@ -771,7 +771,7 @@ def _check_input_dtype_jacfwd(holomorphic: bool, x: Any) -> None:
                     "complex inputs or integer inputs, use jax.jvp directly.")
 
 def _check_output_dtype_jacfwd(holomorphic, x):
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   if holomorphic:
     if not dtypes.issubdtype(aval.dtype, np.complexfloating):
       raise TypeError("jacfwd with holomorphic=True requires outputs with complex dtype, "
@@ -987,7 +987,7 @@ def _unravel_array_into_pytree(pytree, axis, example, arr, specs):
   leaves, treedef = tree_flatten(pytree)
   specs, _ = tree_flatten(specs)
   shapes = [arr.shape[:axis] + np.shape(l) + arr.shape[axis+1:] for l in leaves]
-  parts = _split(arr, np.cumsum(map(np.size, leaves[:-1])), axis)  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
+  parts = _split(arr, np.cumsum(map(np.size, leaves[:-1])), axis)
   reshaped_parts = [
       _possible_downcast(np.reshape(x, shape),
                          leaf if example is None else example,
@@ -1160,7 +1160,7 @@ def vmap(fun: F,
     # rather than raising an error. https://github.com/jax-ml/jax/issues/2367
     in_axes = tuple(in_axes)
 
-  from jax._src import hijax  # type: ignore
+  from jax._src import hijax  # pytype: disable=import-error
   if not (in_axes is None or type(in_axes) in {int, tuple, *batching.spec_types}
           or isinstance(in_axes, hijax.MappingSpec)):
     raise TypeError("vmap in_axes must be an int, None, or a tuple of entries corresponding "
@@ -1811,7 +1811,9 @@ def _cpp_pmap(
           execute, const_args = pxla.xla_pmap_impl_lazy(p.flat_fun, *p.flat_args, **params)
           out = execute(*const_args, *p.flat_args)
         else:
-          out = pxla.xla_pmap_p.bind_with_trace(trace, (p.flat_fun, *p.flat_args), params)
+          avals = tuple(core.typeof(x) for x in p.flat_args)
+          out = pxla.xla_pmap_p.bind_with_trace(
+            trace, tuple(p.flat_args), avals, dict(params, subfuns=(p.flat_fun,)))
       except api_util.InternalFloatingPointError as e:
         raise FloatingPointError(f'Invalid value ({e.ty}) encountered in parallel computation.')
 
@@ -1845,8 +1847,8 @@ def _cpp_pmap(
           in_handler=in_handler,
           out_handler=out_handler,
           out_pytree_def=out_pytree_def,
-          input_devices=in_handler.local_devices,
-          input_indices=in_handler.input_indices,
+          input_devices=in_handler.local_devices,  # pyrefly: ignore[bad-argument-type]
+          input_indices=in_handler.input_indices,  # pyrefly: ignore[bad-argument-type]
           input_array_shardings=in_handler.in_shardings,
           out_avals=out_handler.out_avals,
           out_array_shardings=out_array_shardings,
@@ -1901,7 +1903,7 @@ def _cpp_mapped_lower(pmap_f, *args, **kwargs):
       lowering_parameters=pxla.mlir.LoweringParameters())
   args_info = stages.make_args_info(p.in_tree, abstract_args, pmap_f._donate_tuple)
   return stages.Lowered(lowering, args_info, p.out_tree())
-_pmap_cache_clears = weakref.WeakSet()  # type: ignore
+_pmap_cache_clears = weakref.WeakSet()
 
 
 @partial(api_boundary, repro_api_name="jax.jvp")
@@ -2081,12 +2083,13 @@ def linearize(fun: Callable, *primals, has_aux: bool = False
   else:
     out_tree, aux_tree = out_tree(), None
   out_primal_py = tree_unflatten(out_tree, out_primals)
-  primal_avals = list(map(core.get_aval, primals_flat))
+  primal_avals = list(map(core.typeof, primals_flat))
   # Ensure that lifted_jvp is a PyTree
   lifted_jvp = Partial(partial(_lift_linearized, jaxpr, primal_avals,
                                (in_tree, out_tree), out_pvals), consts)
   if has_aux:
     [aux] = maybe_aux
+    assert aux_tree is not None
     return out_primal_py, lifted_jvp, tree_unflatten(aux_tree, aux)
   else:
     [] = maybe_aux
@@ -2094,7 +2097,7 @@ def linearize(fun: Callable, *primals, has_aux: bool = False
 
 def _lift_linearized(jaxpr, primal_avals, io_tree, out_pvals, consts, *py_args):
   def fun(*tangents):
-    tangent_avals = list(map(core.get_aval, tangents))
+    tangent_avals = list(map(core.typeof, tangents))
     for primal_aval, tangent_aval in zip(primal_avals, tangent_avals):
       expected_tangent_aval  = primal_aval.to_tangent_aval()
       if not core.typecompat(expected_tangent_aval, tangent_aval):
@@ -2219,8 +2222,8 @@ def _vjp(fun, *primals, has_aux=False):
   out_known = [pval.is_known() for pval in out_pvals]
   id_map = {id(x): i for i, x in enumerate(primals_flat)}
   used, opaque_residuals = set(), []
-  spec = [used.add(id(r)) or RSpec(id_map[id(r)], True) if id(r) in id_map else  # type: ignore
-          RSpec(opaque_residuals.append(r) or (len(opaque_residuals) - 1), False)  # type: ignore
+  spec = [used.add(id(r)) or RSpec(id_map[id(r)], True) if id(r) in id_map else
+          RSpec(opaque_residuals.append(r) or (len(opaque_residuals) - 1), False)
           for r in residuals]
   args_res = tuptree_map(lambda x: x if id(x) in used else NotNeeded(),
                          in_tree, primals_flat)
@@ -2245,7 +2248,8 @@ def _vjp3_callable(spec, out_known, jaxpr, out_primal_avals, in_tree, out_tree,
       raise Exception  # TODO accept isomorph tuple tree
   args_res_ = tree_leaves(args_res, is_leaf=lambda x: isinstance(x, NotNeeded))
   residuals = [args_res_[i.idx] if i.primal else opaque_res[i.idx] for i in spec]
-  maybe_refs = [ad.RefAccum(v.aval, x) if _is_ref(x) else ad.ValAccum(v.aval)
+  maybe_refs = [ad.RefAccum(v.aval, x) if _is_ref(x) else ad.NullAccum(v.aval)
+                if isinstance(x, DontWant) else ad.ValAccum(v.aval)
                 for v, x in zip(jaxpr.invars, maybe_ct_refs_flat)]
   return Partial(partial(_vjp3_bwd, in_tree, out_tree, out_known, jaxpr,
                          out_primal_avals), residuals, maybe_refs)
@@ -2258,7 +2262,8 @@ def _vjp3_bwd(in_tree, out_tree, out_known, jaxpr, out_primal_avals, residuals,
   _vjp_check_ct_avals(cts_flat, out_primal_avals)
   cts_flat = [ct for ct, k in zip(cts_flat, out_known) if not k]
   ad.backward_pass3(jaxpr, True, residuals, maybe_refs, cts_flat)
-  arg_cts = [x.freeze() if isinstance(x, ad.ValAccum) else GradRef()
+  arg_cts = [x.freeze() if isinstance(x, ad.ValAccum) else
+             DidntWant() if isinstance(x, ad.NullAccum) else GradRef()
              for x in maybe_refs]
   arg_cts = map(ad.instantiate_zeros, arg_cts)
   return tree_unflatten(in_tree, arg_cts)
@@ -2321,7 +2326,7 @@ def _vjp_check_ct_avals(cts, primal_avals):
   # TODO(mattjj): improve this error  by flattening with keys in the first place
   for ct, aval in zip(cts, primal_avals):
     ct_aval = typeof(ct)
-    ct_aval_expected = aval.to_cotangent_aval()
+    ct_aval_expected = aval.to_ct_aval()
     if (not core.typecompat(ct_aval, ct_aval_expected) and
         not _temporary_dtype_exception(ct_aval, ct_aval_expected)):
       raise ValueError(
@@ -2344,6 +2349,15 @@ class GradValue:
 class GradRef:
   pass
 
+@dataclasses.dataclass(frozen=True)
+class DontWant:
+  pass
+
+@dataclasses.dataclass(frozen=True)
+class DidntWant:
+  pass
+
+
 @dataclasses.dataclass
 class VJP:
   fun: Callable
@@ -2351,7 +2365,7 @@ class VJP:
   out_tree: PyTreeDef
   args_res: list[Any]
   opaque_residuals: list[Any]
-  jaxpr = property(lambda self: self.fun.args[2])  # type: ignore
+  jaxpr = property(lambda self: self.fun.args[2])  # pytype: disable=attribute-error
 
   def __call__(self, out_ct, *extra_args):
     if extra_args:
@@ -2429,9 +2443,9 @@ def linear_transpose(fun: Callable, *primals, reduce_axes=()) -> Callable:
   jaxpr, _ = pe.dce_jaxpr(jaxpr, [True] * len(jaxpr.outvars), True)
   out_avals, _ = unzip2(out_pvals)
   out_dtypes = map(lambda a: a.dtype, out_avals)
-  if not (all(dtypes.issubdtype(d, np.inexact) for d in in_dtypes + out_dtypes)  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
+  if not (all(dtypes.issubdtype(d, np.inexact) for d in in_dtypes + out_dtypes)
           or all(dtypes.issubdtype(d, np.integer)
-                 for d in in_dtypes + out_dtypes)):  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
+                 for d in in_dtypes + out_dtypes)):
     raise TypeError("linear_transpose only supports [float or complex] -> "
                     "[float or complex], and integer -> integer functions, "
                     f"but got {in_dtypes} -> {out_dtypes}.")
@@ -2565,7 +2579,7 @@ def make_jaxpr(
     make_jaxpr_f.__name__ = f"make_jaxpr({fun.__name__})"
   return make_jaxpr_f
 
-def _infer_src_sharding(src, x) -> Sharding | None:
+def _infer_src_sharding(src, x, x_aval) -> Sharding | None:
   if src is not None:
     return src  # pytype: disable=bad-return-type
   if isinstance(x, array.ArrayImpl):
@@ -2574,6 +2588,9 @@ def _infer_src_sharding(src, x) -> Sharding | None:
     val = x.to_concrete_value()
     if val is not None and isinstance(val, array.ArrayImpl):
       return val.sharding
+  if x_aval is not core.abstract_token and x_aval.sharding.mesh.are_all_axes_explicit:
+    return x_aval.sharding.update(
+        memory_kind=core.mem_space_to_kind(x_aval.memory_space))
   return None
 
 
@@ -2598,7 +2615,7 @@ def _check_sharding(aval, s):
         "`jax.device_put` only accepts `None`, `jax.sharding.Sharding`,"
         " `jax.Device`, `Format`, `jax.memory.Space` or a pytree of these"
         f" values. Received invalid value: {s}")
-  if isinstance(aval, core.ShapedArray) and dtypes.is_string_dtype(aval.dtype):
+  if isinstance(aval, core.ShapedArray) and aval.dtype == dtypes.string_dtype:
     _check_string_compatible_sharding(s)
 
   if isinstance(s, Sharding):
@@ -2665,6 +2682,7 @@ def device_put(
   """
   with config.explicit_device_put_scope():
     x_flat, treedef = tree_flatten(x)
+    x_avals = [shaped_abstractify(x) for x in x_flat]
     if (device is None or
         isinstance(device, (xc.Device, Sharding, core.MemorySpace))):
       device_flat = [device] * len(x_flat)
@@ -2673,10 +2691,10 @@ def device_put(
 
     if (src is None or
         isinstance(src, (xc.Device, Sharding, core.MemorySpace))):
-      src_flat = [_infer_src_sharding(src, xf) for xf in x_flat]
+      src_flat = list(map(partial(_infer_src_sharding, src), x_flat, x_avals))
     else:
       src_flat = flatten_axes("device_put source", treedef, src)
-      src_flat = list(map(_infer_src_sharding, src_flat, x_flat))
+      src_flat = list(map(_infer_src_sharding, src_flat, x_flat, x_avals))
 
     device_flat = map(partial(pspec_to_sharding, 'device_put'), device_flat)
     src_flat = map(partial(pspec_to_sharding, 'device_put'), src_flat)
@@ -2706,9 +2724,8 @@ def device_put(
         copy_semantics.append(dispatch.ArrayCopySemantics.ALWAYS_COPY)
 
     dst_avals = []
-    for xf, d in zip(x_flat, device_flat):
-      aval = shaped_abstractify(xf)
-      aval = dispatch.update_dp_aval(aval, d)
+    for x_aval, d in zip(x_avals, device_flat):
+      aval = dispatch.update_dp_aval(x_aval, d)
       dst_avals.append(aval)
       _check_sharding(aval, d)
     if core.trace_state_clean():
@@ -2779,7 +2796,7 @@ def device_put_sharded(shards: Sequence[Any], devices: Sequence[xc.Device]):  # 
                      f"len(devices) = {len(devices)}.")
 
   def _device_put_sharded(*xs):
-    avals = [core.get_aval(x) for x in xs]
+    avals = [core.typeof(x) for x in xs]
     if not all(a1 == a2 for a1, a2 in zip(avals[:-1], avals[1:])):
       a1, a2 = next((a1, a2) for a1, a2 in zip(avals[:-1], avals[1:])
                     if a1 != a2)
@@ -2841,7 +2858,7 @@ def device_put_replicated(x: Any, devices: Sequence[xc.Device]):  # noqa: F811
     raise ValueError("`devices` argument to `device_put_replicated must be "
                      "a non-empty sequence.")
   def _device_put_replicated(x):
-    aval = core.unmapped_aval(len(devices), 0, core.get_aval(x))
+    aval = core.unmapped_aval(len(devices), 0, core.typeof(x))
     assert isinstance(aval, ShapedArray)
     if isinstance(x, (np.ndarray, basearray.Array)):
       buf = device_put(x[None], devices[0])

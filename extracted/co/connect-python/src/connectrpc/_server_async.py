@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import functools
 import inspect
 from abc import ABC, abstractmethod
-from asyncio import CancelledError, sleep
+from asyncio import CancelledError, Event, create_task, sleep
 from dataclasses import replace
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Generic, TypeVar, cast
 from urllib.parse import parse_qs
 
-from . import _compression, _server_shared
 from ._codec import Codec, get_codec
+from ._compression import negotiate_compression, resolve_compressions
 from ._envelope import EnvelopeReader
 from ._interceptor_async import (
     BidiStreamInterceptor,
@@ -46,6 +47,9 @@ if TYPE_CHECKING:
     )
 
     from asgiref.typing import ASGIReceiveCallable, ASGISendCallable, HTTPScope, Scope
+
+    from . import _server_shared
+    from .compression import Compression
 else:
     ASGIReceiveCallable = "asgiref.typing.ASGIReceiveCallable"
     ASGISendCallable = "asgiref.typing.ASGISendCallable"
@@ -86,14 +90,27 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         endpoints: Callable[[_SVC], Mapping[str, Endpoint]],
         interceptors: Iterable[Interceptor] = (),
         read_max_bytes: int | None = None,
+        compressions: Iterable[Compression] | None = None,
     ) -> None:
-        """Initialize the ASGI application."""
+        """Initialize the ASGI application.
+
+        Args:
+            service: The service instance or async generator that yields the service during lifespan.
+            endpoints: A callable that takes the service instance and returns a mapping of URL
+                paths to endpoints. Typically provided directly by generated code from the
+                Connect Python plugin.
+            interceptors: A sequence of interceptors to apply to the endpoints.
+            read_max_bytes: Maximum size of request messages.
+            compressions: Supported compression algorithms. If unset, defaults to gzip.
+                          If set to empty, disables compression.
+        """
         super().__init__()
         self._service = service
         self._endpoints = endpoints
         self._interceptors = interceptors
         self._resolved_endpoints = None
         self._read_max_bytes = read_max_bytes
+        self._compressions = resolve_compressions(compressions)
 
     async def __call__(
         self, scope: Scope, receive: ASGIReceiveCallable, send: ASGISendCallable
@@ -164,7 +181,9 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 raise HTTPException(HTTPStatus.NOT_FOUND, [])
 
             http_method = scope["method"]
+            http_scheme = scope.get("scheme", "http")
             headers = _process_headers(scope.get("headers", ()))
+            client_address = f"{ca[0]}:{ca[1]}" if (ca := scope.get("client")) else None
 
             content_type = headers.get("content-type", "")
             protocol = negotiate_server_protocol(content_type)
@@ -174,13 +193,15 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 msg = f"ASGI server does not support ASGI trailers extension but protocol for content-type '{content_type}' requires trailers"
                 raise RuntimeError(msg)
 
-            ctx = protocol.create_request_context(endpoint.method, http_method, headers)
+            ctx = protocol.create_request_context(
+                endpoint.method, http_method, http_scheme, headers, client_address
+            )
 
             is_unary = isinstance(endpoint, EndpointUnary)
 
             if http_method == "GET":
                 query_string = scope.get("query_string", b"").decode("utf-8")
-                query_params = parse_qs(query_string)
+                query_params = parse_qs(query_string, keep_blank_values=True)
                 codec_name = query_params.get("encoding", ("",))[0]
             else:
                 query_params = _UNSET_QUERY_PARAMS
@@ -225,7 +246,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         ctx: RequestContext,
     ) -> None:
         accept_encoding = headers.get("accept-encoding", "")
-        compression = _compression.negotiate_compression(accept_encoding)
+        compression = negotiate_compression(accept_encoding, self._compressions)
 
         if http_method == "GET":
             request = await self._read_get_request(endpoint, codec, query_params)
@@ -289,11 +310,11 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
 
         # Handle compression
         compression_name = params.get("compression", ["identity"])[0]
-        compression = _compression.get_compression(compression_name)
+        compression = self._compressions.get(compression_name)
         if not compression:
             raise ConnectError(
                 Code.UNIMPLEMENTED,
-                f"unknown compression: '{compression_name}': supported encodings are {', '.join(_compression.get_available_compressions())}",
+                f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
             )
 
         # Decompress and decode message
@@ -318,11 +339,11 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
 
         # Handle compression if specified
         compression_name = headers.get("content-encoding", "identity").lower()
-        compression = _compression.get_compression(compression_name)
+        compression = self._compressions.get(compression_name)
         if not compression:
             raise ConnectError(
                 Code.UNIMPLEMENTED,
-                f"unknown compression: '{compression_name}': supported encodings are {', '.join(_compression.get_available_compressions())}",
+                f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
             )
 
         if req_body:  # Don't decompress empty body
@@ -347,7 +368,7 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
         ctx: _server_shared.RequestContext,
     ) -> None:
         req_compression, resp_compression = protocol.negotiate_stream_compression(
-            headers
+            headers, self._compressions
         )
 
         writer = protocol.create_envelope_writer(codec, resp_compression)
@@ -367,6 +388,9 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 self._read_max_bytes,
             )
 
+            disconnect_detected: Event | None = None
+            monitor_task = None
+
             match endpoint:
                 case EndpointUnary():
                     request = await _consume_single_request(request_stream)
@@ -378,22 +402,50 @@ class ConnectASGIApplication(ABC, Generic[_SVC]):
                 case EndpointServerStream():
                     request = await _consume_single_request(request_stream)
                     response_stream = endpoint.function(request, ctx)
+
+                    # The request has been fully consumed; monitor receive() for a
+                    # client disconnect so we can stop streaming promptly.
+                    disconnect_detected = Event()
+
+                    async def _watch_for_disconnect() -> None:
+                        while True:
+                            msg = await receive()
+                            if msg["type"] == "http.disconnect":
+                                disconnect_detected.set()
+                                return
+
+                    monitor_task = create_task(_watch_for_disconnect())
                 case EndpointBidiStream():
                     response_stream = endpoint.function(request_stream, ctx)
 
-            async for message in response_stream:
-                # Don't send headers until the first message to allow logic a chance to add
-                # response headers.
-                if not sent_headers:
-                    await _send_stream_response_headers(
-                        send, protocol, codec, resp_compression.name(), ctx
-                    )
-                    sent_headers = True
+            try:
+                async for message in response_stream:
+                    if disconnect_detected is not None and disconnect_detected.is_set():
+                        raise ConnectError(Code.CANCELED, "Client disconnected")
+                    # Don't send headers until the first message to allow logic a chance to add
+                    # response headers.
+                    if not sent_headers:
+                        await _send_stream_response_headers(
+                            send, protocol, codec, resp_compression.name(), ctx
+                        )
+                        sent_headers = True
 
-                body = writer.write(message)
-                await send(
-                    {"type": "http.response.body", "body": body, "more_body": True}
-                )
+                    body = writer.write(message)
+                    await send(
+                        {"type": "http.response.body", "body": body, "more_body": True}
+                    )
+            finally:
+                # Cancel the monitor first so a throwing generator finally-block
+                # doesn't leak the task.
+                if monitor_task is not None:
+                    monitor_task.cancel()
+                    with contextlib.suppress(CancelledError):
+                        await monitor_task
+                # Explicitly close the stream so that any generator finally-blocks
+                # run promptly (Python defers async-generator cleanup to GC otherwise).
+                aclose = getattr(response_stream, "aclose", None)
+                if aclose is not None:
+                    await aclose()
         except CancelledError as e:
             raise ConnectError(Code.CANCELED, "Request was cancelled") from e
         except Exception as e:
@@ -501,7 +553,7 @@ async def _request_stream(
     receive: ASGIReceiveCallable,
     request_class: type[_REQ],
     codec: Codec,
-    compression: _compression.Compression,
+    compression: Compression,
     read_max_bytes: int | None = None,
 ) -> AsyncIterator[_REQ]:
     reader = EnvelopeReader(request_class, codec, compression, read_max_bytes)

@@ -1,26 +1,21 @@
 """Helper functions for logging event trees and formatting"""
 
 import asyncio
-import logging
 import math
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from bubus.base_event import BaseEvent, EventResult
-    from bubus.event_bus import EventBus
+    from bubus.models import BaseEvent, EventResult
+    from bubus.service import EventBus
 
 
-def format_timestamp(dt: str | datetime | None) -> str:
-    """Format an ISO datetime string (or datetime) for display."""
+def format_timestamp(dt: datetime | None) -> str:
+    """Format a datetime for display"""
     if dt is None:
         return 'N/A'
-    if isinstance(dt, str):
-        parsed = datetime.fromisoformat(dt)
-    else:
-        parsed = dt
-    return parsed.strftime('%H:%M:%S.%f')[:-3]
+    return dt.strftime('%H:%M:%S.%f')[:-3]  # Show time with milliseconds
 
 
 def format_result_value(value: Any) -> str:
@@ -32,11 +27,9 @@ def format_result_value(value: Any) -> str:
     if isinstance(value, (str, int, float, bool)):
         return repr(value)
     if isinstance(value, dict):
-        value_dict = cast(dict[Any, Any], value)
-        return f'dict({len(value_dict)} items)'
+        return f'dict({len(value)} items)'  # type: ignore[arg-type]
     if isinstance(value, list):
-        value_list = cast(list[Any], value)
-        return f'list({len(value_list)} items)'
+        return f'list({len(value)} items)'  # type: ignore[arg-type]
     return f'{type(value).__name__}(...)'
 
 
@@ -46,25 +39,25 @@ def log_event_tree(
     is_last: bool = True,
     event_children_by_parent: dict[str | None, list['BaseEvent[Any]']] | None = None,
 ) -> str:
-    from bubus.base_event import logger
+    from bubus.models import logger
 
     """Print this event and its results with proper tree formatting"""
     # Determine the connector
     connector = '└── ' if is_last else '├── '
 
     # Print this event's line
+    status_icon = '✅' if event.event_status == 'completed' else '🏃' if event.event_status == 'started' else '⏳'
+
     # Format timing info
     timing_str = f'[{format_timestamp(event.event_created_at)}'
     if event.event_completed_at and event.event_created_at:
-        completed_dt = datetime.fromisoformat(event.event_completed_at)
-        created_dt = datetime.fromisoformat(event.event_created_at)
-        duration = (completed_dt - created_dt).total_seconds()
+        duration = (event.event_completed_at - event.event_created_at).total_seconds()
         timing_str += f' ({duration:.3f}s)'
     timing_str += ']'
 
     lines: list[str] = []
 
-    event_line = f'{indent}{connector}{event.event_type}#{event.event_id[-4:]} {timing_str}'
+    event_line = f'{indent}{connector}{status_icon} {event.event_type}#{event.event_id[-4:]} {timing_str}'
     logger.warning(event_line)
     lines.append(event_line)
 
@@ -77,10 +70,10 @@ def log_event_tree(
 
     # Print each result
     if event.event_results:
-        results_sorted = sorted(event.event_results.items(), key=lambda x: x[1].started_at or '')
+        results_sorted = sorted(event.event_results.items(), key=lambda x: x[1].started_at or datetime.min.replace(tzinfo=UTC))
 
         # Calculate which is the last item considering both results and unmapped children
-        unmapped_children: list[BaseEvent[Any]] = []
+        unmapped_children: list['BaseEvent[Any]'] = []
         if event_children_by_parent:
             all_children = event_children_by_parent.get(event.event_id, [])
             for child in all_children:
@@ -92,7 +85,7 @@ def log_event_tree(
 
         for i, (_handler_id, result) in enumerate(results_sorted):
             is_last_item = i == total_items - 1
-            lines.append(log_event_result_tree(result, new_indent, is_last_item, event_children_by_parent))
+            lines.append(log_eventresult_tree(result, new_indent, is_last_item, event_children_by_parent))
             # Track child events printed by this result
             for child in result.event_children:
                 printed_child_ids.add(child.event_id)
@@ -108,7 +101,7 @@ def log_event_tree(
     return '\n'.join(lines)
 
 
-def log_event_result_tree(
+def log_eventresult_tree(
     result: 'EventResult[Any]',
     indent: str = '',
     is_last: bool = True,
@@ -116,7 +109,7 @@ def log_event_result_tree(
 ) -> str:
     """Print this result and its child events with proper tree formatting"""
 
-    from bubus.base_event import logger
+    from bubus.models import logger
 
     # Determine the connector
     connector = '└── ' if is_last else '├── '
@@ -133,7 +126,7 @@ def log_event_result_tree(
     )
 
     # Format handler name with bus info
-    handler_display = f'{result.eventbus_label}.{result.handler.label}'
+    handler_display = f'{result.eventbus_name}.{result.handler_name}#{result.handler_id[-4:]}'
 
     # Format the result line
     result_line = f'{indent}{connector}{result_icon} {handler_display}'
@@ -142,9 +135,7 @@ def log_event_result_tree(
     if result.started_at:
         result_line += f' [{format_timestamp(result.started_at)}'
         if result.completed_at:
-            completed_dt = datetime.fromisoformat(result.completed_at)
-            started_dt = datetime.fromisoformat(result.started_at)
-            duration = (completed_dt - started_dt).total_seconds()
+            duration = (result.completed_at - result.started_at).total_seconds()
             result_line += f' ({duration:.3f}s)'
         result_line += ']'
 
@@ -175,10 +166,10 @@ def log_event_result_tree(
 def log_eventbus_tree(eventbus: 'EventBus') -> str:
     """Print a nice pretty formatted tree view of all events in the history including their results and child events recursively"""
 
-    from bubus.base_event import logger
+    from bubus.models import logger
 
     # Build a mapping of parent_id to child events
-    parent_to_children: dict[str | None, list[BaseEvent[Any]]] = defaultdict(list)
+    parent_to_children: dict[str | None, list['BaseEvent[Any]']] = defaultdict(list)
     for event in eventbus.event_history.values():
         parent_to_children[event.event_parent_id].append(event)
 
@@ -220,22 +211,17 @@ def log_eventbus_tree(eventbus: 'EventBus') -> str:
 def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any]') -> None:
     """Log detailed timeout information showing the event tree and which handler timed out"""
 
-    from bubus.base_event import logger
-    from bubus.event_bus import EventBus
-
-    if not logger.isEnabledFor(logging.WARNING):
-        return
+    from bubus.models import logger
 
     now = datetime.now(UTC)
 
     # Find the root event by walking up the parent chain
     root_event = event
-    visited_parent_ids: set[str] = set()
-    while root_event.event_parent_id and root_event.event_parent_id not in visited_parent_ids:
-        visited_parent_ids.add(root_event.event_parent_id)
+    eventbus = event.event_bus
+    while root_event.event_parent_id:
         parent_found = False
         # Search for parent in all EventBus instances
-        for bus in list(EventBus.all_instances):
+        for bus in list(eventbus.all_instances):
             if root_event.event_parent_id in bus.event_history:
                 root_event = bus.event_history[root_event.event_parent_id]
                 parent_found = True
@@ -251,7 +237,7 @@ def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any
 
     logger.warning('=' * 80)
     logger.warning(
-        f'⏱️  TIMEOUT ERROR - Handling took more than {event.event_timeout}s for {timed_out_result.eventbus_label}.{timed_out_result.handler_name}({event})'
+        f'⏱️  TIMEOUT ERROR - Handling took more than {event.event_timeout}s for {timed_out_result.eventbus_name}.{timed_out_result.handler_name}({event})'
     )
     logger.warning('=' * 80)
 
@@ -260,8 +246,8 @@ def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any
         handler_name: str,
         event_id_suffix: str,
         status: str = 'pending',
-        started_at: str | None = None,
-        completed_at: str | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
         timeout: float | None = None,
         is_expired: bool = False,
         is_interrupted: bool = False,
@@ -294,9 +280,7 @@ def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any
         # Col 5-10: timing info
         max_time = timeout or 0
         if started_at:
-            started_at_dt = datetime.fromisoformat(started_at)
-            completed_at_dt = datetime.fromisoformat(completed_at) if completed_at else now
-            elapsed_time = (completed_at_dt - started_at_dt).total_seconds()
+            elapsed_time = ((completed_at or now) - started_at).total_seconds()
 
             if is_expired or (elapsed_time >= max_time):
                 col5_timing_icon = '⌛️'
@@ -356,8 +340,7 @@ def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any
             or evt.event_created_at
         )
         now = datetime.now(UTC)
-        event_start_time_dt = datetime.fromisoformat(event_start_time)
-        elapsed = round((now - event_start_time_dt).total_seconds())
+        elapsed = round((now - event_start_time).total_seconds())
 
         # Event line formatted with proper columns
         # Col 1: indent, Col 2: icon (📣), Col 3: description
@@ -432,27 +415,27 @@ def log_timeout_tree(event: 'BaseEvent[Any]', timed_out_result: 'EventResult[Any
 
         # After showing all handlers that ran, show any registered handlers that never started
         # This is for handlers that were registered but didn't get to run due to timeouts
+        from bubus.models import get_handler_id, get_handler_name
+
         # Find which EventBus contains this event
         event_bus = None
-        for bus in list(EventBus.all_instances):
+        for bus in list(eventbus.all_instances):
             if evt.event_id in bus.event_history:
                 event_bus = bus
                 break
 
-        # Get all registered handlers that could match this event_type.
-        if event_bus is not None:
-            indexed_ids = list(event_bus.handlers_by_key.get(evt.event_type, [])) + list(event_bus.handlers_by_key.get('*', []))
+        # Get all registered handlers for this event type
+        if event_bus and hasattr(event_bus, 'handlers') and evt.event_type in event_bus.handlers:
+            registered_handlers = event_bus.handlers[evt.event_type]
 
-            for handler_id in indexed_ids:
-                entry = event_bus.handlers.get(handler_id)
-                if entry is None:
-                    continue
+            for handler in registered_handlers:
+                handler_id = get_handler_id(handler, event_bus)
                 # Check if this handler already ran (has an EventResult)
                 if handler_id not in evt.event_results:
                     # This handler was registered but never started - use helper to format
                     print_handler_line(
                         handler_indent=handler_indent,
-                        handler_name=entry.handler_name,
+                        handler_name=get_handler_name(handler),
                         event_id_suffix=evt.event_id[-4:],
                         status='pending',  # Will show 🔲 icon
                         started_at=None,

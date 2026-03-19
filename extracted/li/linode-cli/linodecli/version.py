@@ -2,4 +2,4 @@
 The version of the Linode CLI.
 """
 
-__version__ = "v5.65.1"
+__version__ = "v5.66.0"

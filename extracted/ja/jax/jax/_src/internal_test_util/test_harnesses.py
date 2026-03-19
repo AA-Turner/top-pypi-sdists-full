@@ -64,9 +64,6 @@ from jax._src.lax import windowed_reductions as lax_windowed_reductions
 from jax._src.numpy import linalg as jnp_linalg
 from jax._src import random as jax_random
 
-# mypy generates a lot of false positive due to re-assigned variables.
-# mypy: disable-error-code="assignment, no-redef"
-
 # The code in this file relies on the values of some flags that are defined by
 # jtu. Note that the following can not always be moved to a test file since
 # then the test file has to import jtu first (to define the flags) which is not
@@ -2378,7 +2375,7 @@ def _make_select_and_scatter_add_harness(name,
       padding=padding)
 
 
-for dtype in set(jtu.dtypes.all) - {np.complex64, np.complex128}:  # pyrefly: ignore[unsupported-operation]
+for dtype in set(jtu.dtypes.all) - {np.complex64, np.complex128}:
   _make_select_and_scatter_add_harness("dtypes", dtype=dtype)
 
 # Validate different reduction primitives
@@ -2402,7 +2399,7 @@ _make_select_and_scatter_add_harness(
 _make_select_and_scatter_add_harness("window_strides", window_strides=(1, 2, 3))
 
 # Validate dtypes on TPU
-for dtype in set(jtu.dtypes.all) - {  # pyrefly: ignore[unsupported-operation]
+for dtype in set(jtu.dtypes.all) - {
     np.bool_, np.complex64, np.complex128, np.int8, np.uint8}:
   for window_strides, window_dimensions, nb_inactive_dims in [((1, 2, 1),
                                                                (1, 3, 1), 2)]:
@@ -2483,7 +2480,7 @@ def _make_reduce_harness(name, *,
                          dtype=np.float32):  # The dtype of first operand
   def reducer(*args):
     init_val = np.array(init_value, dtype=dtype)
-    init_values = [init_val]
+    init_values: list[np.ndarray] = [init_val]
     if nr_operands == 2:
       init_values.append(np.array(0, dtype=np.int32))
     return lax.reduce(args[0:nr_operands], tuple(init_values),
@@ -2696,7 +2693,9 @@ def _make_reducer_harness(prim,
   define(
       prim,
       f"{name}_shape={jtu.format_shape_dtype_string(shape, dtype)}",
-      lambda arg: prim.bind(arg, axes=axes), [RandArg(shape, dtype)],
+      lambda arg: (prim.bind(arg, axes=axes, out_sharding=None)
+                   if prim is lax.reduce_sum_p else prim.bind(arg, axes=axes)),
+      [RandArg(shape, dtype)],
       prim=prim,
       shape=shape,
       dtype=dtype,
@@ -2766,9 +2765,7 @@ for dtype in jtu.dtypes.all_floating:
 
 for dtype in jtu.dtypes.all_integer:
   for shape in ((), (5, 4), (32,)):
-    maxval = {
-        np.uint8: 256,   # Borderline
-    }.get(dtype, 5)
+    maxval = 256 if dtype == np.uint8 else 5
     define(
         "random_randint",
         f"shape={jtu.format_shape_dtype_string(shape, dtype)}",

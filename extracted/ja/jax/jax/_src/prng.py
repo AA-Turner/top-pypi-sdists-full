@@ -16,7 +16,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Sequence
 from functools import partial, reduce
 import math
-import operator as op
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -30,6 +29,7 @@ from jax._src import ffi
 from jax._src import literals
 from jax._src import numpy as jnp
 from jax._src import pretty_printer as pp
+from jax._src.sharding import Sharding
 from jax._src import source_info_util
 from jax._src import tree_util
 from jax._src import typing
@@ -169,7 +169,7 @@ class PRNGKeyArray(Array):
     self._impl = impl
     self._consumed = False  # TODO(jakevdp): default to True here?
     if isinstance(key_data, (np.ndarray, literals.TypedNdArray)):
-      aval = core.get_aval(key_data)
+      aval = core.typeof(key_data)
       device = pxla.get_default_device()
       key_data = pxla.batched_device_put(
           aval, SingleDeviceSharding(device), [np.asarray(key_data)], [device],
@@ -177,7 +177,7 @@ class PRNGKeyArray(Array):
     self._base_array = key_data
 
   def _replace_with(self, value: PRNGKeyArray):
-    self._base_array._replace_with(value._base_array)
+    self._base_array._replace_with(value._base_array)  # pyrefly: ignore[missing-attribute]
 
   def block_until_ready(self):
     _ = self._base_array.block_until_ready()
@@ -215,16 +215,42 @@ class PRNGKeyArray(Array):
   def itemsize(self):
     return self.dtype.itemsize
 
-  _device = property(op.attrgetter('_base_array._device'))
-  _committed = property(op.attrgetter('_base_array._committed'))
-  device = property(op.attrgetter('_base_array.device'))
-  devices = property(op.attrgetter('_base_array.devices'))  # type: ignore[assignment]
-  is_fully_addressable = property(op.attrgetter('_base_array.is_fully_addressable'))  # type: ignore[assignment]
-  is_fully_replicated = property(op.attrgetter('_base_array.is_fully_replicated'))  # type: ignore[assignment]
-  delete = property(op.attrgetter('_base_array.delete'))  # type: ignore[assignment]
-  is_deleted = property(op.attrgetter('_base_array.is_deleted'))  # type: ignore[assignment]
-  on_device_size_in_bytes = property(op.attrgetter('_base_array.on_device_size_in_bytes'))  # type: ignore[assignment]
-  unsafe_buffer_pointer = property(op.attrgetter('_base_array.unsafe_buffer_pointer'))  # type: ignore[assignment]
+  @property
+  def _device(self) -> Device:
+    assert hasattr(self._base_array, "_device")
+    return self._base_array._device
+
+  @property
+  def _committed(self) -> bool:
+    assert hasattr(self._base_array, "_committed")
+    return self._base_array._committed
+
+  @property
+  def device(self) -> Device | Sharding:
+    return self._base_array.device
+
+  @property
+  def is_fully_addressable(self) -> bool:
+    return self._base_array.is_fully_addressable
+
+  @property
+  def is_fully_replicated(self) -> bool:
+    return self._base_array.is_fully_replicated
+
+  def devices(self) -> set[Device]:
+    return self._base_array.devices()
+
+  def delete(self) -> None:
+    self._base_array.delete()
+
+  def is_deleted(self) -> bool:
+    return self._base_array.is_deleted()
+
+  def on_device_size_in_bytes(self) -> int:
+    return self._base_array.on_device_size_in_bytes()
+
+  def unsafe_buffer_pointer(self) -> int:
+    return self._base_array.unsafe_buffer_pointer()
 
   def addressable_data(self, index: int) -> PRNGKeyArray:
     return PRNGKeyArray(self._impl, self._base_array.addressable_data(index))
@@ -303,7 +329,9 @@ class PRNGKeyArray(Array):
   __hash__ = None  # type: ignore[assignment]
   __array_priority__ = 100
 
-  def __array__(self, dtype: np.dtype | None = None, copy: bool | None = None) -> np.ndarray:
+  def __array__(self, dtype: np.dtype | None = None, context: None = None,
+                copy: bool | None = None) -> np.ndarray:
+    del dtype, context, copy
     raise TypeError("JAX array with PRNGKey dtype cannot be converted to a NumPy array."
                     " Use jax.random.key_data(arr) if you wish to extract the underlying"
                     " integer array.")
@@ -316,10 +344,10 @@ class PRNGKeyArray(Array):
 
   # Overwritten immediately below
   @property
-  def at(self)                  -> _IndexUpdateHelper: assert False  # type: ignore[override]
+  def at(self)                  -> _IndexUpdateHelper: assert False  # pyrefly: ignore[bad-override]
   @property
   def T(self)                   -> PRNGKeyArray: assert False
-  def __getitem__(self, _)      -> PRNGKeyArray: assert False
+  def __getitem__(self, _, /)   -> PRNGKeyArray: assert False
   def flatten(self, *_, **__)   -> PRNGKeyArray: assert False
   def ravel(self, *_, **__)     -> PRNGKeyArray: assert False
   def reshape(self, *_, **__)   -> PRNGKeyArray: assert False
@@ -504,8 +532,8 @@ def key_array_shard_arg_handler(xs: Sequence[PRNGKeyArray], shardings, layouts,
 pxla.shard_arg_handlers[PRNGKeyArray] = key_array_shard_arg_handler
 
 
-def key_array_constant_handler(x, aval):
-  arr = x._base_array
+def key_array_constant_handler(val, aval):
+  arr = val._base_array
   return mlir.get_constant_handler(type(arr))(arr, aval)
 mlir.register_constant_handler(PRNGKeyArray, key_array_constant_handler)
 
@@ -543,7 +571,7 @@ def iterated_vmap_binary_bcast(shape1, shape2, f):
     else:
       return lambda x, y: iterated_vmap_unary(ndim1, lambda x: f(x, y))(x)
   assert len(shape1) == len(shape2)
-  for sz1, sz2 in reversed(zip(shape1, shape2)):  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
+  for sz1, sz2 in reversed(zip(shape1, shape2)):
     if sz1 == sz2:
       f = api.vmap(f, out_axes=0)
     else:
@@ -1114,13 +1142,13 @@ def threefry_2x32(keypair, count):
   odd_size = flat_count.shape[0] % 2
   if core.is_constant_dim(odd_size):
     if odd_size:
-      x = list(jnp.split(jnp.concatenate([flat_count, np.uint32([0])]), 2))
+      x = list(jnp.split(jnp.concatenate([flat_count, jnp.uint32([0])]), 2))
     else:
       x = list(jnp.split(flat_count, 2))
   else:
     # With symbolic shapes we cannot always tell statically if odd_size is true
     # or false, so we rewrite this without a conditional.
-    flat_count_padded = jnp.concatenate([flat_count, np.uint32([0])])
+    flat_count_padded = jnp.concatenate([flat_count, jnp.uint32([0])])
     flat_count_padded_half_size = flat_count_padded.shape[0] // 2
     x = [
       lax_slicing.dynamic_slice(flat_count_padded, (0,),

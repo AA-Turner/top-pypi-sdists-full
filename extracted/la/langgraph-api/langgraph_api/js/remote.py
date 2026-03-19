@@ -154,9 +154,9 @@ class RemotePregel(BaseRemotePregel):
 
         async for event in _client_stream("streamEvents", data):
             if event["event"] == "on_custom_event":
-                yield CustomStreamEvent(**event)  # type: ignore[missing-typed-dict-key]
+                yield CustomStreamEvent(**event)
             else:
-                yield StandardStreamEvent(**event)  # type: ignore[missing-typed-dict-key]
+                yield StandardStreamEvent(**event)
 
     async def fetch_state_schema(self):
         return await _client_invoke("getSchema", {"graph_id": self.graph_id})
@@ -240,14 +240,14 @@ class RemotePregel(BaseRemotePregel):
                         tuple(task["path"]) if task.get("path") else tuple(),
                         # TODO: figure out how to properly deserialise errors
                         task.get("error"),
-                        tuple(interrupts),  # type: ignore[arg-type]
+                        tuple(interrupts),
                         state,
                         task.get("result"),
                     )
                 )
             return tuple(result)
 
-        return StateSnapshot(  # type: ignore[missing-argument]
+        return StateSnapshot(
             item.get("values"),
             cast("tuple", item.get("next", ())),
             item.get("config"),

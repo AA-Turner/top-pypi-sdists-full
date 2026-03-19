@@ -2202,6 +2202,58 @@ class DuckDB(Dialect):
             """
         )
 
+        # Template for STRTOK function transpilation
+        #
+        # DuckDB itself doesn't have a strtok function. This handles the transpilation from Snowflake to DuckDB.
+        # We may need to adjust this if we want to support transpilation from other dialects
+        #
+        # CASE
+        #     -- Snowflake: empty delimiter + empty input string → NULL
+        #     WHEN delimiter = '' AND input_str = '' THEN NULL
+        #
+        #     -- Snowflake: empty delimiter + non-empty input string → treats whole input as 1 token → return input string if index is 1
+        #     WHEN delimiter = '' AND index = 1 THEN input_str
+        #
+        #     -- Snowflake: empty delimiter + non-empty input string → treats whole input as 1 token → return NULL if index is not 1
+        #     WHEN delimiter = '' THEN NULL
+        #
+        #     -- Snowflake: negative indices return NULL
+        #     WHEN index < 0 THEN NULL
+        #
+        #     -- Snowflake: return NULL if any argument is NULL
+        #     WHEN input_str IS NULL OR delimiter IS NULL OR index IS NULL THEN NULL
+        #
+        #
+        #     ELSE LIST_FILTER(
+        #         REGEXP_SPLIT_TO_ARRAY(
+        #             input_str,
+        #             CASE
+        #                 -- if delimiter is '', we don't want to surround it with '[' and ']' as '[]' is invalid for DuckDB
+        #                 WHEN delimiter = '' THEN ''
+        #
+        #                 -- handle problematic regex characters in delimiter with REGEXP_REPLACE
+        #                 -- turn delimiter into a regex char set, otherwise DuckDB will match in order, which we don't want
+        #                 ELSE '[' || REGEXP_REPLACE(delimiter, problematic_char_set, '\\\1', 'g') || ']'
+        #             END
+        #         ),
+        #
+        #         -- Snowflake: don't return empty strings
+        #         x -> NOT x = ''
+        #     )[index]
+        # END
+        STRTOK_TEMPLATE: exp.Expr = exp.maybe_parse(
+            """
+            CASE
+                WHEN :delimiter = '' AND :string = '' THEN NULL
+                WHEN :delimiter = '' AND :part_index = 1 THEN :string
+                WHEN :delimiter = '' THEN NULL
+                WHEN :part_index < 0 THEN NULL
+                WHEN :string IS NULL OR :delimiter IS NULL OR :part_index IS NULL THEN NULL
+                ELSE :base_func
+            END
+            """
+        )
+
         def _array_bag_sql(self, condition: exp.Expr, arr1: exp.Expr, arr2: exp.Expr) -> str:
             cond = exp.Paren(this=exp.replace_placeholders(condition, arr1=arr1, arr2=arr2))
             return self.sql(
@@ -3642,14 +3694,14 @@ class DuckDB(Dialect):
                 """
                 Output looks something like this:
 
-                CASE 
-                WHEN delimiter is '' THEN 
+                CASE
+                WHEN delimiter is '' THEN
                     (
-                        CASE 
+                        CASE
                         WHEN adjusted_part_index = 1 OR adjusted_part_index = -1 THEN input
                         ELSE '' END
-                    ) 
-                ELSE SPLIT_PART(input, delimiter, adjusted_part_index) 
+                    )
+                ELSE SPLIT_PART(input, delimiter, adjusted_part_index)
                 END
 
                 """
@@ -3667,13 +3719,46 @@ class DuckDB(Dialect):
             return self.sql(expression, "this")
 
         def arraytostring_sql(self, expression: exp.ArrayToString) -> str:
-            this = self.sql(expression, "this")
-            null_text = self.sql(expression, "null")
+            null = expression.args.get("null")
 
-            if null_text:
-                this = f"LIST_TRANSFORM({this}, x -> COALESCE(x, {null_text}))"
+            if expression.args.get("null_is_empty"):
+                x = exp.to_identifier("x")
+                list_transform = exp.Transform(
+                    this=expression.this.copy(),
+                    expression=exp.Lambda(
+                        this=exp.Coalesce(
+                            this=exp.cast(x, "TEXT"), expressions=[exp.Literal.string("")]
+                        ),
+                        expressions=[x],
+                    ),
+                )
+                array_to_string = exp.ArrayToString(
+                    this=list_transform, expression=expression.expression
+                )
+                if expression.args.get("null_delim_is_null"):
+                    return self.sql(
+                        exp.case()
+                        .when(expression.expression.copy().is_(exp.null()), exp.null())
+                        .else_(array_to_string)
+                    )
+                return self.sql(array_to_string)
 
-            return self.func("ARRAY_TO_STRING", this, expression.expression)
+            if null:
+                x = exp.to_identifier("x")
+                return self.sql(
+                    exp.ArrayToString(
+                        this=exp.Transform(
+                            this=expression.this,
+                            expression=exp.Lambda(
+                                this=exp.Coalesce(this=x, expressions=[null]),
+                                expressions=[x],
+                            ),
+                        ),
+                        expression=expression.expression,
+                    )
+                )
+
+            return self.func("ARRAY_TO_STRING", expression.this, expression.expression)
 
         def _regexp_extract_sql(self, expression: exp.RegexpExtract | exp.RegexpExtractAll) -> str:
             this = expression.this
@@ -4032,6 +4117,69 @@ class DuckDB(Dialect):
                     truncate = None
 
             return self.func(func, this, decimals, truncate)
+
+        def strtok_sql(self, expression: exp.Strtok) -> str:
+            string_arg = expression.this
+            delimiter_arg = expression.args.get("delimiter")
+            part_index_arg = expression.args.get("part_index")
+
+            if delimiter_arg and part_index_arg:
+                # Escape regex chars and build character class at runtime using REGEXP_REPLACE
+                escaped_delimiter = exp.Anonymous(
+                    this="REGEXP_REPLACE",
+                    expressions=[
+                        delimiter_arg,
+                        exp.Literal.string(
+                            r"([\[\]^.\-*+?(){}|$\\])"
+                        ),  # Escape problematic regex chars
+                        exp.Literal.string(
+                            r"\\\1"
+                        ),  # Replace with escaped version using $1 backreference
+                        exp.Literal.string("g"),  # Global flag
+                    ],
+                )
+                # CASE WHEN delimiter = '' THEN '' ELSE CONCAT('[', escaped_delimiter, ']') END
+                regex_pattern = (
+                    exp.case()
+                    .when(delimiter_arg.eq(exp.Literal.string("")), exp.Literal.string(""))
+                    .else_(
+                        exp.func(
+                            "CONCAT",
+                            exp.Literal.string("["),
+                            escaped_delimiter,
+                            exp.Literal.string("]"),
+                        )
+                    )
+                )
+
+                # STRTOK skips empty strings, so we need to filter them out
+                # LIST_FILTER(REGEXP_SPLIT_TO_ARRAY(string, pattern), x -> x != '')[index]
+                split_array = exp.func("REGEXP_SPLIT_TO_ARRAY", string_arg, regex_pattern)
+                x = exp.to_identifier("x")
+                is_empty = x.eq(exp.Literal.string(""))
+                filtered_array = exp.func(
+                    "LIST_FILTER",
+                    split_array,
+                    exp.Lambda(this=exp.not_(is_empty.copy()), expressions=[x.copy()]),
+                )
+                base_func = exp.Bracket(
+                    this=filtered_array,
+                    expressions=[part_index_arg],
+                    offset=1,
+                )
+
+                # Use template with the built regex pattern
+                result = exp.replace_placeholders(
+                    self.STRTOK_TEMPLATE.copy(),
+                    string=string_arg,
+                    delimiter=delimiter_arg,
+                    part_index=part_index_arg,
+                    base_func=base_func,
+                )
+
+                return self.sql(result)
+
+            return self.function_fallback_sql(expression)
 
         def approxquantile_sql(self, expression: exp.ApproxQuantile) -> str:
             result = self.func("APPROX_QUANTILE", expression.this, expression.args.get("quantile"))

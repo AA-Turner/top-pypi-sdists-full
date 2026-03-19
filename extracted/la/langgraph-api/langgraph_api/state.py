@@ -28,7 +28,7 @@ def runnable_config_to_checkpoint(
         return None
 
     configurable = config["configurable"]
-    checkpoint: Checkpoint = {  # type: ignore[typed-dict-item]
+    checkpoint: Checkpoint = {
         "checkpoint_id": configurable["checkpoint_id"],
         "thread_id": configurable["thread_id"],
     }
@@ -61,11 +61,11 @@ def patch_interrupt(
         return {"id": id, **interrupt.raw}
 
     if USE_NEW_INTERRUPTS:
-        interrupt = Interrupt(**interrupt) if isinstance(interrupt, dict) else interrupt  # type: ignore[missing-argument]
+        interrupt = Interrupt(**interrupt) if isinstance(interrupt, dict) else interrupt
 
         return {
-            "id": interrupt.id,  # type: ignore[unresolved-attribute]
-            "value": interrupt.value,  # type: ignore[unresolved-attribute]
+            "id": interrupt.id,
+            "value": interrupt.value,
         }
     else:
         if isinstance(interrupt, dict):
@@ -73,16 +73,16 @@ def patch_interrupt(
             # id is the new field we use for identification, also not supported on init for old versions
             interrupt.pop("interrupt_id", None)
             interrupt.pop("id", None)
-            interrupt = Interrupt(**interrupt)  # type: ignore[missing-argument]
+            interrupt = Interrupt(**interrupt)
 
         return {
             "id": interrupt.interrupt_id
             if hasattr(interrupt, "interrupt_id")
             else None,
-            "value": interrupt.value,  # type: ignore[unresolved-attribute]
-            "resumable": interrupt.resumable,  # type: ignore[unresolved-attribute]
-            "ns": interrupt.ns,  # type: ignore[unresolved-attribute]
-            "when": interrupt.when,  # type: ignore[unresolved-attribute]
+            "value": interrupt.value,
+            "resumable": interrupt.resumable,
+            "ns": interrupt.ns,
+            "when": interrupt.when,
         }
 
 

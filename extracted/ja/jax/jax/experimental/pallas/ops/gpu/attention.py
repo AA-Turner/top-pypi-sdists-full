@@ -138,6 +138,7 @@ def mha_forward_kernel(
     if causal or segment_ids_ref is not None:
       mask = None
       if segment_ids_ref is not None:
+        assert q_segment_ids is not None
         kv_segment_ids = segment_ids_ref[curr_k_slice]
         mask = segment_mask(q_segment_ids, kv_segment_ids)
       if causal:
@@ -148,6 +149,7 @@ def mha_forward_kernel(
             causal_mask if mask is None else jnp.logical_and(mask, causal_mask)
         )
       # Apply mask to qk.
+      assert mask is not None
       qk = jnp.where(mask, qk, DEFAULT_MASK_VALUE)
 
     m_curr = jnp.max(qk, axis=-1)
@@ -259,7 +261,7 @@ def mha(
                              block_q=block_q, block_k=block_k,
                              head_dim=head_dim, causal=causal)
 
-  in_specs = [
+  in_specs: list[pl.BlockSpec | None] = [
       pl.BlockSpec((None, block_q, None, head_dim_padded),
                    lambda i, j, k: (j, i, k, 0)),
       pl.BlockSpec((None, kv_seq_len, None, head_dim_padded),
@@ -268,7 +270,7 @@ def mha(
                    lambda _, j, k: (j, 0, k, 0)),
   ]
   in_specs.append(
-      None  # type: ignore[arg-type]
+      None
       if segment_ids is None
       else pl.BlockSpec((None, kv_seq_len), lambda _, j, k: (j, 0))
   )
@@ -420,6 +422,7 @@ def mha_backward_kernel(
     if causal or segment_ids_ref is not None:
       mask = None
       if segment_ids_ref is not None:
+        assert kv_segment_ids is not None
         q_segment_ids = segment_ids_ref[curr_q_slice]
         mask = segment_mask(q_segment_ids, kv_segment_ids)
 
@@ -429,6 +432,7 @@ def mha_backward_kernel(
         mask = (
             causal_mask if mask is None else jnp.logical_and(mask, causal_mask)
         )
+      assert mask is not None
       qk = jnp.where(mask, qk, DEFAULT_MASK_VALUE)
 
     lse = lse_ref[curr_q_slice]
@@ -490,6 +494,7 @@ def mha_backward_kernel(
     if causal or segment_ids_ref is not None:
       mask = None
       if segment_ids_ref is not None:
+        assert q_segment_ids is not None
         kv_segment_ids = segment_ids_ref[curr_k_slice]
         mask = segment_mask(q_segment_ids, kv_segment_ids)
 
@@ -499,6 +504,7 @@ def mha_backward_kernel(
         mask = (
             causal_mask if mask is None else jnp.logical_and(mask, causal_mask)
         )
+      assert mask is not None
       qk = jnp.where(mask, qk, DEFAULT_MASK_VALUE)
 
     p = jnp.exp2(qk - lse[:, None])
@@ -545,6 +551,11 @@ def _mha_backward(sm_scale: float, causal: bool, block_sizes: BlockSizes,
     if not block_sizes.has_backward_blocks:
       raise ValueError("Backward block sizes must all be set.")
 
+    assert block_sizes.block_q_dkv is not None
+    assert block_sizes.block_kv_dkv is not None
+    assert block_sizes.block_q_dq is not None
+    assert block_sizes.block_kv_dq is not None
+
     batch_size, q_seq_len, num_heads, head_dim = q.shape
     kv_seq_len = k.shape[1]
     block_q = min(block_sizes.block_q, q_seq_len)
@@ -567,7 +578,7 @@ def _mha_backward(sm_scale: float, causal: bool, block_sizes: BlockSizes,
         jax.ShapeDtypeStruct(v.shape, v.dtype),
     ]
 
-    in_specs = [
+    in_specs: list[pl.BlockSpec | None] = [
         pl.BlockSpec((None, q_seq_len, None, head_dim_padded),
                      lambda i, j, _: (i, 0, j, 0)),
         pl.BlockSpec((None, kv_seq_len, None, head_dim_padded),
@@ -582,7 +593,7 @@ def _mha_backward(sm_scale: float, causal: bool, block_sizes: BlockSizes,
         pl.BlockSpec((None, None, q_seq_len), lambda i, j, _: (i, j, 0)),
     ]
     if segment_ids is None:
-      in_specs.insert(3, None)  # type: ignore[arg-type]
+      in_specs.insert(3, None)
     else:
       in_specs.insert(3, pl.BlockSpec((None, kv_seq_len),
                                       lambda i, j, _: (i, 0)))

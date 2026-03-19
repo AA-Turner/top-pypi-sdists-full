@@ -24,6 +24,7 @@ from rest_framework.fields import (
     BuiltinSignatureError, DjangoImageField, SkipField, empty,
     is_simple_callable
 )
+from rest_framework.utils import json
 from tests.models import UUIDForeignKeyTarget
 
 utc = datetime.timezone.utc
@@ -332,7 +333,7 @@ class TestInitialWithCallable:
 
     def test_initial_should_accept_callable(self):
         """
-        Follows the default ``Field.initial`` behaviour where they accept a
+        Follows the default ``Field.initial`` behavior where they accept a
         callable to produce the initial value"""
         assert self.serializer.data == {
             'initial_field': 123,
@@ -1099,6 +1100,70 @@ class TestMinMaxIntegerField(FieldValues):
     field = serializers.IntegerField(min_value=1, max_value=3)
 
 
+class TestBigIntegerField(FieldValues):
+    """
+    Valid and invalid values for `BigIntegerField`.
+    """
+    valid_inputs = {
+        '1': 1,
+        '0': 0,
+        1: 1,
+        0: 0,
+        123: 123,
+        -123: -123,
+        '999999999999999999999999999': 999999999999999999999999999,
+        -999999999999999999999999999: -999999999999999999999999999,
+        1.0: 1,
+        0.0: 0,
+        '1.0': 1
+    }
+    invalid_inputs = {
+        0.5: ['A valid biginteger is required.'],
+        'abc': ['A valid biginteger is required.'],
+        '0.5': ['A valid biginteger is required.']
+    }
+    outputs = {
+        '1': 1,
+        '0': 0,
+        1: 1,
+        0: 0,
+        1.0: 1,
+        0.0: 0,
+        '999999999999999999999999999': 999999999999999999999999999,
+        -999999999999999999999999999: -999999999999999999999999999
+    }
+    field = serializers.BigIntegerField()
+
+
+class TestMinMaxBigIntegerField(FieldValues):
+    """
+    Valid and invalid values for `BigIntegerField` with min and max limits.
+    """
+    valid_inputs = {
+        '1': 1,
+        '3': 3,
+        1: 1,
+        3: 3,
+    }
+    invalid_inputs = {
+        0: ['Ensure this value is greater than or equal to 1.'],
+        4: ['Ensure this value is less than or equal to 3.'],
+        '0': ['Ensure this value is greater than or equal to 1.'],
+        '4': ['Ensure this value is less than or equal to 3.'],
+    }
+    outputs = {}
+    field = serializers.BigIntegerField(min_value=1, max_value=3)
+
+
+class TestCoercionBigIntegerField(TestCase):
+
+    def test_force_coerce_to_string(self):
+        field = serializers.BigIntegerField(coerce_to_string=True)
+        value = field.to_representation(1)
+        assert isinstance(value, str)
+        assert value == "1"
+
+
 class TestFloatField(FieldValues):
     """
     Valid and invalid values for `FloatField`.
@@ -1770,9 +1835,69 @@ class TestDurationField(FieldValues):
     }
     field = serializers.DurationField()
 
+    def test_invalid_format(self):
+        with pytest.raises(ValueError) as exc_info:
+            serializers.DurationField(format='unknown')
+        assert str(exc_info.value) == (
+            "Unknown duration format provided, got 'unknown'"
+            " while expecting 'django', 'iso-8601' or `None`."
+        )
+        with pytest.raises(TypeError) as exc_info:
+            serializers.DurationField(format=123)
+        assert str(exc_info.value) == (
+            "duration format must be either str or `None`, not int"
+        )
+
+    def test_invalid_format_in_config(self):
+        field = serializers.DurationField()
+
+        with override_settings(REST_FRAMEWORK={'DURATION_FORMAT': 'unknown'}):
+            with pytest.raises(ValueError) as exc_info:
+                field.to_representation(datetime.timedelta(days=1))
+
+        assert str(exc_info.value) == (
+            "Unknown duration format provided, got 'unknown'"
+            " while expecting 'django', 'iso-8601' or `None`."
+        )
+        with override_settings(REST_FRAMEWORK={'DURATION_FORMAT': 123}):
+            with pytest.raises(TypeError) as exc_info:
+                field.to_representation(datetime.timedelta(days=1))
+        assert str(exc_info.value) == (
+            "duration format must be either str or `None`, not int"
+        )
+
+
+class TestNoOutputFormatDurationField(FieldValues):
+    """
+    Values for `DurationField` with a no output format.
+    """
+    valid_inputs = {}
+    invalid_inputs = {}
+    outputs = {
+        datetime.timedelta(1): datetime.timedelta(1)
+    }
+    field = serializers.DurationField(format=None)
+
+
+class TestISOOutputFormatDurationField(FieldValues):
+    """
+    Values for `DurationField` with a custom output format.
+    """
+    valid_inputs = {
+        '13': datetime.timedelta(seconds=13),
+        'P3DT08H32M01.000123S': datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123),
+        'PT8H1M': datetime.timedelta(hours=8, minutes=1),
+        '-P999999999D': datetime.timedelta(days=-999999999),
+        'P999999999D': datetime.timedelta(days=999999999)
+    }
+    invalid_inputs = {}
+    outputs = {
+        datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123): 'P3DT08H32M01.000123S'
+    }
+    field = serializers.DurationField(format='iso-8601')
+
 
 # Choice types...
-
 class TestChoiceField(FieldValues):
     """
     Valid and invalid values for `ChoiceField`.
@@ -2054,16 +2179,20 @@ class TestMultipleChoiceField(FieldValues):
     Valid and invalid values for `MultipleChoiceField`.
     """
     valid_inputs = {
-        (): set(),
-        ('aircon',): {'aircon'},
-        ('aircon', 'manual'): {'aircon', 'manual'},
+        (): list(),
+        ('aircon',): ['aircon'],
+        ('aircon', 'aircon'): ['aircon'],
+        ('aircon', 'manual'): ['aircon', 'manual'],
+        ('manual', 'aircon'): ['manual', 'aircon'],
     }
     invalid_inputs = {
         'abc': ['Expected a list of items but got type "str".'],
         ('aircon', 'incorrect'): ['"incorrect" is not a valid choice.']
     }
     outputs = [
-        (['aircon', 'manual', 'incorrect'], {'aircon', 'manual', 'incorrect'})
+        (['aircon', 'manual', 'incorrect'], ['aircon', 'manual', 'incorrect']),
+        (['manual', 'aircon', 'incorrect'], ['manual', 'aircon', 'incorrect']),
+        (['aircon', 'manual', 'aircon'], ['aircon', 'manual']),
     ]
     field = serializers.MultipleChoiceField(
         choices=[
@@ -2079,6 +2208,27 @@ class TestMultipleChoiceField(FieldValues):
         assert field.get_value(QueryDict('')) == []
         field.partial = True
         assert field.get_value(QueryDict('')) == rest_framework.fields.empty
+
+    def test_valid_inputs_is_json_serializable(self):
+        for input_value, _ in get_items(self.valid_inputs):
+            validated = self.field.run_validation(input_value)
+
+            try:
+                json.dumps(validated)
+            except TypeError as e:
+                pytest.fail(f'Validated output not JSON serializable: {repr(validated)}; Error: {e}')
+
+    def test_output_is_json_serializable(self):
+        for output_value, _ in get_items(self.outputs):
+            representation = self.field.to_representation(output_value)
+
+            try:
+                json.dumps(representation)
+            except TypeError as e:
+                pytest.fail(
+                    f'to_representation output not JSON serializable: '
+                    f'{repr(representation)}; Error: {e}'
+                )
 
 
 class TestEmptyMultipleChoiceField(FieldValues):

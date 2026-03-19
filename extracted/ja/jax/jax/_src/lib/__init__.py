@@ -112,7 +112,6 @@ from jaxlib import _profile_data as _profile_data  # noqa: F401
 
 from jaxlib._jax import ffi as ffi  # noqa: F401
 import jaxlib.cpu_sparse as cpu_sparse  # noqa: F401
-has_cpu_sparse = True
 
 import jaxlib.weakref_lru_cache as weakref_lru_cache  # noqa: F401
 import jaxlib._pretty_printer as _pretty_printer  # noqa: F401
@@ -146,13 +145,11 @@ import jaxlib.gpu_triton as gpu_triton # pytype: disable=import-error  # noqa: F
 
 import jaxlib.mosaic.python.mosaic_gpu as mosaic_gpu_dialect  # pytype: disable=import-error  # noqa: F401
 
-# TODO(olechwierowicz): Remove this once init_cc_mlir is always available in jaxlib (min ver 0.9.1).
-if hasattr(mosaic_gpu_dialect, 'init_cc_mlir'):
-  try:
-    from jaxlib.mlir import ir  # type: ignore[import-not-found]
-  except ImportError:
-    from mlir import ir  # type: ignore[import-not-found]
-  mosaic_gpu_dialect.init_cc_mlir(ir)
+try:
+  from jaxlib.mlir import ir  # type: ignore[import-not-found]
+except ImportError:
+  from mlir import ir  # type: ignore[import-not-found]
+mosaic_gpu_dialect.init_cc_mlir(ir)
 
 import jaxlib.mosaic.python.tpu as tpu  # pytype: disable=import-error  # noqa: F401
 

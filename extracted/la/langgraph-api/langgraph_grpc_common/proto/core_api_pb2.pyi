@@ -13,16 +13,16 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 import builtins as _builtins
-import encryption_pb2 as _encryption_pb2
-import engine_common_pb2 as _engine_common_pb2
-import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
-import enum_control_signal_pb2 as _enum_control_signal_pb2
-import enum_cron_on_run_completed_pb2 as _enum_cron_on_run_completed_pb2
-import enum_multitask_strategy_pb2 as _enum_multitask_strategy_pb2
-import enum_run_status_pb2 as _enum_run_status_pb2
-import enum_stream_mode_pb2 as _enum_stream_mode_pb2
-import enum_thread_status_pb2 as _enum_thread_status_pb2
-import enum_thread_stream_mode_pb2 as _enum_thread_stream_mode_pb2
+from . import encryption_pb2 as _encryption_pb2
+from . import engine_common_pb2 as _engine_common_pb2
+from . import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
+from . import enum_control_signal_pb2 as _enum_control_signal_pb2
+from . import enum_cron_on_run_completed_pb2 as _enum_cron_on_run_completed_pb2
+from . import enum_multitask_strategy_pb2 as _enum_multitask_strategy_pb2
+from . import enum_run_status_pb2 as _enum_run_status_pb2
+from . import enum_stream_mode_pb2 as _enum_stream_mode_pb2
+from . import enum_thread_status_pb2 as _enum_thread_status_pb2
+from . import enum_thread_stream_mode_pb2 as _enum_thread_stream_mode_pb2
 import sys
 import typing as _typing
 

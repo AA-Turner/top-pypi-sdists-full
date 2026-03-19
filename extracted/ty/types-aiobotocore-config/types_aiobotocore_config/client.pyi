@@ -39,6 +39,7 @@ from .paginator import (
     DescribeConfigRulesPaginator,
     DescribeConfigurationAggregatorSourcesStatusPaginator,
     DescribeConfigurationAggregatorsPaginator,
+    DescribeConformancePackCompliancePaginator,
     DescribeConformancePacksPaginator,
     DescribeConformancePackStatusPaginator,
     DescribeOrganizationConfigRulesPaginator,
@@ -1463,6 +1464,17 @@ class ConfigServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_configuration_aggregators"]
     ) -> DescribeConfigurationAggregatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_conformance_pack_compliance"]
+    ) -> DescribeConformancePackCompliancePaginator:
         """
         Create a paginator for an operation.
 

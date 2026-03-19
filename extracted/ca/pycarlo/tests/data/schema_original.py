@@ -19084,7 +19084,7 @@ class ConversationThreadResult(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("edges", "page_info", "warehouse_query")
+    __field_names__ = ("edges", "page_info", "turn_errors", "warehouse_query")
     edges = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationSpanEdge))),
         graphql_name="edges",
@@ -19094,10 +19094,34 @@ class ConversationThreadResult(sgqlc.types.Type):
     page_info = sgqlc.types.Field(sgqlc.types.non_null("TracePageInfo"), graphql_name="pageInfo")
     """Pagination metadata"""
 
+    turn_errors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ConversationTurnError"))),
+        graphql_name="turnErrors",
+    )
+    """Aggregated per-turn error data keyed by trace ID"""
+
     warehouse_query = sgqlc.types.Field(String, graphql_name="warehouseQuery")
     """SQL query sent to the warehouse to fetch prompts/completions (for
     debugging)
     """
+
+
+class ConversationTurnError(sgqlc.types.Type):
+    """Aggregated error data for a single conversation turn (trace)."""
+
+    __schema__ = schema
+    __field_names__ = ("trace_id", "error_count", "error_messages")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace ID (hex-encoded)"""
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+    """Number of error spans in the trace"""
+
+    error_messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="errorMessages",
+    )
+    """Deduplicated human-readable error messages for the trace"""
 
 
 class ConversationsResult(sgqlc.types.Type):
@@ -23352,6 +23376,20 @@ class DeletePlatformAgent(sgqlc.types.Type):
     """Whether the platform agent was successfully deleted"""
 
 
+class DeletePushIngestedTables(sgqlc.types.Type):
+    """Soft-delete push-ingested tables by MCON. Only tables in the
+    requestor's account; max 1000 MCONs per request.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success", "deleted_count")
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """True if the operation completed without error."""
+
+    deleted_count = sgqlc.types.Field(Int, graphql_name="deletedCount")
+    """Number of tables marked deleted."""
+
+
 class DeleteRecipientName(sgqlc.types.Type):
     """Create or update a recipient's custom name"""
 
@@ -26530,6 +26568,7 @@ class HostingInformation(sgqlc.types.Type):
         "infrastructure_details",
         "network_details",
         "collection_details",
+        "orchestrator_details",
         "available_env_configurations",
     )
     domain_details = sgqlc.types.Field(
@@ -26554,6 +26593,11 @@ class HostingInformation(sgqlc.types.Type):
 
     collection_details = sgqlc.types.Field(CollectionDetails, graphql_name="collectionDetails")
     """Collection platform information"""
+
+    orchestrator_details = sgqlc.types.Field(
+        "OrchestratorDetails", graphql_name="orchestratorDetails"
+    )
+    """Orchestrator connectivity information"""
 
     available_env_configurations = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(AwsEnvConfiguration)),
@@ -30718,6 +30762,7 @@ class Mutation(sgqlc.types.Type):
         "set_custom_sql_sampling_size",
         "create_or_update_data_sampling_restrictions",
         "remove_data_sampling_restrictions",
+        "delete_push_ingested_tables",
         "create_shared_query",
         "create_or_update_user_settings",
         "create_or_update_user_settings_batch",
@@ -45836,6 +45881,32 @@ class Mutation(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID!`): The warehouse's UUID
     """
 
+    delete_push_ingested_tables = sgqlc.types.Field(
+        DeletePushIngestedTables,
+        graphql_name="deletePushIngestedTables",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Soft-delete push-ingested tables by MCON (same
+    account).
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of table MCONs to delete (max
+      1000). Must all belong to the requestor's account; tables in
+      other accounts cannot be deleted.
+    """
+
     create_shared_query = sgqlc.types.Field(
         CreateSharedQuery,
         graphql_name="createSharedQuery",
@@ -51498,6 +51569,39 @@ class OpsgenieLinkOutput(sgqlc.types.Type):
 
     tiny_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tinyId")
     """The Opsgenie Incident's Tiny ID"""
+
+
+class OrchestratorDetails(sgqlc.types.Type):
+    """Orchestrator connectivity information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "endpoint",
+        "private_link_endpoint",
+        "aws_private_endpoint_service_name",
+        "azure_application_gateway_resource_id",
+        "azure_application_gateway_sub_resource",
+    )
+    endpoint = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="endpoint")
+    """Orchestrator endpoint URL"""
+
+    private_link_endpoint = sgqlc.types.Field(String, graphql_name="privateLinkEndpoint")
+    """Orchestrator Private Link endpoint URL"""
+
+    aws_private_endpoint_service_name = sgqlc.types.Field(
+        String, graphql_name="awsPrivateEndpointServiceName"
+    )
+    """AWS VPC Endpoint Service name for the orchestrator"""
+
+    azure_application_gateway_resource_id = sgqlc.types.Field(
+        String, graphql_name="azureApplicationGatewayResourceId"
+    )
+    """Azure Application Gateway resource ID for Private Link"""
+
+    azure_application_gateway_sub_resource = sgqlc.types.Field(
+        String, graphql_name="azureApplicationGatewaySubResource"
+    )
+    """Azure Application Gateway sub-resource for Private Link"""
 
 
 class Override(sgqlc.types.Type):
@@ -78458,6 +78562,7 @@ class TraceNode(sgqlc.types.Type):
         "status",
         "is_tool_call",
         "is_llm_call",
+        "has_error",
     )
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
 
@@ -78509,6 +78614,8 @@ class TraceNode(sgqlc.types.Type):
     is_tool_call = sgqlc.types.Field(Boolean, graphql_name="isToolCall")
 
     is_llm_call = sgqlc.types.Field(Boolean, graphql_name="isLlmCall")
+
+    has_error = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasError")
 
 
 class TraceOverviewMetrics(sgqlc.types.Type):

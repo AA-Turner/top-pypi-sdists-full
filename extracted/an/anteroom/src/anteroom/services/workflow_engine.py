@@ -117,7 +117,20 @@ class WorkflowDefinition:
 # Gate condition registry (domain-neutral interface)
 # ---------------------------------------------------------------------------
 
-GateConditionFn = Any  # Callable[[dict, WorkflowStepDef], Awaitable[bool]]
+GateConditionFn = Any  # Callable[[dict, WorkflowStepDef, dict], Awaitable[bool | GateResult]]
+
+
+@dataclass(frozen=True)
+class GateResult:
+    """Result from a gate condition — replaces bare ``bool`` for richer feedback.
+
+    Gate condition functions may return either ``bool`` (backward-compatible)
+    or ``GateResult`` for dynamic failure reasons.
+    """
+
+    passed: bool
+    reason: str | None = None
+
 
 _gate_registry: dict[str, GateConditionFn] = {}
 
@@ -247,6 +260,40 @@ def _resolve_dotted_path(data: dict[str, Any], path: str) -> Any:
         else:
             return None
     return current
+
+
+# ---------------------------------------------------------------------------
+# Definition validation (public API for simulation/testing — #968)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ValidationResult:
+    """Result of validating a workflow definition."""
+
+    errors: list[str]
+    warnings: list[str]
+    definition: WorkflowDefinition | None = None
+
+    @property
+    def is_valid(self) -> bool:
+        return len(self.errors) == 0
+
+
+def validate_workflow_definition(source: str | Path) -> ValidationResult:
+    """Validate a workflow definition without requiring a DB or engine.
+
+    Returns a ValidationResult with errors, warnings, and the parsed
+    definition if valid.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    try:
+        defn = load_definition(source)
+        return ValidationResult(errors=errors, warnings=warnings, definition=defn)
+    except (ValueError, FileNotFoundError, Exception) as exc:
+        errors.append(str(exc))
+        return ValidationResult(errors=errors, warnings=warnings)
 
 
 # ---------------------------------------------------------------------------
@@ -633,6 +680,7 @@ class WorkflowEngine:
         skill_registry: Any | None = None,
         model_costs: dict[str, dict[str, float]] | None = None,
         publisher_registry: Any | None = None,
+        audit_writer: Any | None = None,
     ) -> None:
         self._db = db
         self._config = config
@@ -649,6 +697,7 @@ class WorkflowEngine:
         self._skill_registry = skill_registry
         self._model_costs = model_costs
         self._publisher_registry = publisher_registry
+        self._audit_writer = audit_writer
         self._pending_hook_tasks: list[Any] = []
         self._preapproved_step_id: str | None = None
         self._progress_callback: Any | None = None  # Callable[[str, str, dict], None]
@@ -686,6 +735,20 @@ class WorkflowEngine:
             payload=payload,
         )
         await self._publish_event(run_id, event_type, payload, definition=definition)
+
+        if self._audit_writer is not None:
+            try:
+                from .audit import AuditEntry
+
+                self._audit_writer.emit(
+                    AuditEntry.create(
+                        event_type=f"workflow.{event_type}",
+                        severity="info",
+                        details={"run_id": run_id, "step_id": step_id, **(payload or {})},
+                    )
+                )
+            except Exception:
+                logger.warning("Audit emission error for workflow event", exc_info=True)
 
         if self._progress_callback is not None:
             try:
@@ -2264,6 +2327,24 @@ class WorkflowEngine:
                     working_dir=step_def.working_dir,
                     timeout=timeout,
                 )
+            elif step_def.runner == "stub":
+                from .workflow_runners import RunnerResult
+
+                stub_results = getattr(self, "_stub_results", {})
+                if step_def.id in stub_results:
+                    sr = stub_results[step_def.id]
+                    return RunnerResult(
+                        status=sr.get("status", "success"),
+                        summary=sr.get("summary", f"Stub result for {step_def.id}"),
+                        artifacts=sr.get("artifacts"),
+                        findings=sr.get("findings"),
+                        duration_ms=0,
+                    )
+                return RunnerResult(
+                    status="success",
+                    summary=f"Stub result for {step_def.id} (no stub config)",
+                    duration_ms=0,
+                )
             else:
                 raise ValueError(f"Unknown opaque runner: {step_def.runner!r}")
 
@@ -2447,15 +2528,20 @@ class WorkflowEngine:
         if condition_fn is None:
             raise ValueError(f"Unknown gate condition: {step_def.condition!r}")
 
-        passed = await condition_fn(run, step_def, inputs)
+        result = await condition_fn(run, step_def, inputs)
+
+        # Support both bool (backward-compat) and GateResult returns
+        if isinstance(result, GateResult):
+            passed = result.passed
+            fail_reason = result.reason or step_def.if_false or f"Gate {step_def.condition!r} failed"
+        else:
+            passed = bool(result)
+            fail_reason = step_def.if_false or f"Gate {step_def.condition!r} failed"
 
         if passed:
             return RunnerResult(status="success", summary=f"Gate {step_def.condition!r} passed")
         else:
-            return RunnerResult(
-                status="blocked",
-                summary=step_def.if_false or f"Gate {step_def.condition!r} failed",
-            )
+            return RunnerResult(status="blocked", summary=fail_reason)
 
     async def _execute_loop_step(
         self,

@@ -127,9 +127,9 @@ def static_resolver_to_operator(
             not isinstance(static_operator, (StaticOperator, DfPlaceholder, LazyFramePlaceholder))
             and not static_operator.__class__.__name__ == "ChalkDataFrame"
             and not static_operator.__class__.__name__ == "LazyFrame"
-            and not (
-                static_operator.__class__.__name__ == "DataFrame"
-                and static_operator.__class__.__module__ == "chalkdf.dataframe"
+            and not any(
+                cls.__name__ == "DataFrame" and cls.__module__ == "chalkdf.dataframe"
+                for cls in type(static_operator).__mro__
             )
         ):
             raise _GetStaticOperatorError(

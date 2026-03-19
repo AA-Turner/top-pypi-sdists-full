@@ -557,7 +557,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
                     raise ValueError(f"Could not find python file for graph: {spec}")
                 module = importlib.util.module_from_spec(modspec)
                 sys.modules[modname] = module
-                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+                modspec.loader.exec_module(module)
             except ImportError as e:
                 e.add_note(f"Could not import python module for graph:\n{spec}")
                 if lg_api_config.API_VARIANT == "local_dev":
@@ -665,7 +665,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
 @functools.lru_cache(maxsize=1)
 def _get_init_embeddings() -> Callable[[str, ...], "Embeddings"] | None:
     try:
-        from langchain.embeddings import (  # type: ignore[unresolved-import]  # noqa: PLC0415
+        from langchain.embeddings import (  # noqa: PLC0415  # ty: ignore[unresolved-import]
             init_embeddings,
         )
 
@@ -730,7 +730,7 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
                         )
                     module = importlib.util.module_from_spec(modspec)
                     sys.modules[modname] = module
-                    modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+                    modspec.loader.exec_module(module)
                 else:
                     # Load from Python module
                     module = importlib.import_module(module_name)

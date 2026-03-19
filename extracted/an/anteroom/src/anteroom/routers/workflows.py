@@ -72,6 +72,14 @@ async def enqueue_workflow_run(request: Request, body: EnqueueRunRequest) -> dic
     db = _get_db(request)
     from ..services.workflow_credentials import CredentialResolver
 
+    # Register spec phase gate conditions (#997)
+    try:
+        from ..services.spec_gates import register_spec_gates
+
+        register_spec_gates(db)
+    except Exception:
+        pass
+
     cred_resolver = CredentialResolver(config.workflow.credentials)
     engine = WorkflowEngine(
         db,
@@ -83,6 +91,7 @@ async def enqueue_workflow_run(request: Request, body: EnqueueRunRequest) -> dic
         skill_registry=getattr(request.app.state, "skill_registry", None),
         egress_allowed_domains=config.ai.allowed_domains,
         egress_block_localhost=config.ai.block_localhost_api,
+        audit_writer=getattr(request.app.state, "audit_writer", None),
     )
     try:
         run = await engine.enqueue_run(

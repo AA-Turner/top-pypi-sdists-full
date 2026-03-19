@@ -7,8 +7,10 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, List, Literal, cast
 from warnings import warn
+
+from httpx import Response
 
 from ibm_watsonx_ai.metanames import ModelDefinitionMetaNames
 from ibm_watsonx_ai.utils.utils import AsyncFileReader, _get_id_from_deprecated_uid
@@ -87,6 +89,65 @@ class ModelDefinition(WMLResource):
 
         return doc
 
+    def _prepare_store_metadata(
+        self, model_definition: str | Path, meta_props: dict[str, str | dict]
+    ) -> tuple[Path, dict, dict]:
+        if isinstance(model_definition, str):
+            model_definition = Path(model_definition)
+
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+        self.ConfigurationMetaNames._validate(meta_props)
+
+        document = self._generate_model_definition_document(meta_props)
+
+        model_definition_attachment_def = {
+            "asset_type": "wml_model_definition",
+            "name": "model_definition_attachment",
+        }
+
+        return model_definition, document, model_definition_attachment_def
+
+    def _extract_attachment_info(
+        self, attachment_response: Response
+    ) -> tuple[str, str, str]:
+        attachment_details = self._handle_response(
+            201, "creating new model definition attachment", attachment_response
+        )
+
+        attachment_id = attachment_details["attachment_id"]
+        attachment_status_json = json.loads(attachment_response.content.decode("utf-8"))
+        model_definition_attachment_signed_url = attachment_status_json["url1"]
+        model_definition_attachment_put_url = (
+            self._client.credentials.url + model_definition_attachment_signed_url
+        )
+
+        return (
+            attachment_id,
+            model_definition_attachment_signed_url,
+            model_definition_attachment_put_url,
+        )
+
+    def _build_store_response(
+        self, model_definition_details: dict, complete_response: Response
+    ) -> dict:
+        self._handle_response(
+            200, "updating a model_definition status", complete_response
+        )
+
+        response = self._get_required_element_from_response(model_definition_details)
+
+        entity = response["entity"]
+
+        try:
+            del entity["wml_model_definition"]["ml_version"]
+        except KeyError:
+            pass
+
+        final_response = {"metadata": response["metadata"], "entity": entity}
+
+        return final_response
+
     def store(
         self, model_definition: str | Path, meta_props: dict[str, str | dict]
     ) -> dict:
@@ -112,20 +173,9 @@ class ModelDefinition(WMLResource):
 
             client.model_definitions.store(model_definition, meta_props)
         """
-
-        if isinstance(model_definition, str):
-            model_definition = Path(model_definition)
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        self.ConfigurationMetaNames._validate(meta_props)
-
-        document = self._generate_model_definition_document(meta_props)
-
-        model_definition_attachment_def = {
-            "asset_type": "wml_model_definition",
-            "name": "model_definition_attachment",
-        }
+        model_definition, document, model_definition_attachment_def = (
+            self._prepare_store_metadata(model_definition, meta_props)
+        )
 
         creation_response = self._client.httpx_client.post(
             url=self._client._href_definitions.get_model_definition_assets_href(),
@@ -141,19 +191,9 @@ class ModelDefinition(WMLResource):
         self._handle_response(201, "creating new attachment", creation_response)
         model_definition_id = model_definition_details["metadata"]["asset_id"]
 
-        if self._client.CLOUD_PLATFORM_SPACES:
-            model_definition_attachment_url = (
-                self._client._href_definitions.get_attachments_href(
-                    model_definition_details["metadata"]["asset_id"]
-                )
-            )
-        else:
-            model_definition_attachment_url = (
-                self._client._href_definitions.get_model_definition_assets_href()
-                + "/"
-                + model_definition_details["metadata"]["asset_id"]
-                + "/attachments"
-            )
+        model_definition_attachment_url = (
+            self._client._href_definitions.get_attachments_href(model_definition_id)
+        )
 
         attachment_response = self._client.httpx_client.post(
             url=model_definition_attachment_url,
@@ -163,18 +203,11 @@ class ModelDefinition(WMLResource):
         )
 
         try:
-            attachment_details = self._handle_response(
-                201, "creating new model definition attachment", attachment_response
-            )
-
-            attachment_id = attachment_details["attachment_id"]
-            attachment_status_json = json.loads(
-                attachment_response.content.decode("utf-8")
-            )
-            model_definition_attachment_signed_url = attachment_status_json["url1"]
-            model_definition_attachment_put_url = (
-                self._client.credentials.url + model_definition_attachment_signed_url
-            )
+            (
+                attachment_id,
+                model_definition_attachment_signed_url,
+                model_definition_attachment_put_url,
+            ) = self._extract_attachment_info(attachment_response)
 
             with model_definition.open("rb") as file:
                 if self._ICP_PLATFORM_SPACES:
@@ -207,24 +240,9 @@ class ModelDefinition(WMLResource):
                 headers=self._client._get_headers(),
             )
 
-            self._handle_response(
-                200, "updating a model_definition status", complete_response
+            return self._build_store_response(
+                model_definition_details, complete_response
             )
-
-            response = self._get_required_element_from_response(
-                model_definition_details
-            )
-
-            entity = response["entity"]
-
-            try:
-                del entity["wml_model_definition"]["ml_version"]
-            except KeyError:
-                pass
-
-            final_response = {"metadata": response["metadata"], "entity": entity}
-
-            return final_response
 
         except Exception as e:
             try:
@@ -257,19 +275,9 @@ class ModelDefinition(WMLResource):
 
             await client.model_definitions.astore(model_definition, meta_props)
         """
-        if isinstance(model_definition, str):
-            model_definition = Path(model_definition)
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        self.ConfigurationMetaNames._validate(meta_props)
-
-        document = self._generate_model_definition_document(meta_props)
-
-        model_definition_attachment_def = {
-            "asset_type": "wml_model_definition",
-            "name": "model_definition_attachment",
-        }
+        model_definition, document, model_definition_attachment_def = (
+            self._prepare_store_metadata(model_definition, meta_props)
+        )
 
         creation_response = await self._client.async_httpx_client.post(
             url=self._client._href_definitions.get_model_definition_assets_href(),
@@ -285,19 +293,9 @@ class ModelDefinition(WMLResource):
         self._handle_response(201, "creating new attachment", creation_response)
         model_definition_id = model_definition_details["metadata"]["asset_id"]
 
-        if self._client.CLOUD_PLATFORM_SPACES:
-            model_definition_attachment_url = (
-                self._client._href_definitions.get_attachments_href(
-                    model_definition_details["metadata"]["asset_id"]
-                )
-            )
-        else:
-            model_definition_attachment_url = (
-                self._client._href_definitions.get_model_definition_assets_href()
-                + "/"
-                + model_definition_details["metadata"]["asset_id"]
-                + "/attachments"
-            )
+        model_definition_attachment_url = (
+            self._client._href_definitions.get_attachments_href(model_definition_id)
+        )
 
         attachment_response = await self._client.async_httpx_client.post(
             url=model_definition_attachment_url,
@@ -307,18 +305,11 @@ class ModelDefinition(WMLResource):
         )
 
         try:
-            attachment_details = self._handle_response(
-                201, "creating new model definition attachment", attachment_response
-            )
-
-            attachment_id = attachment_details["attachment_id"]
-            attachment_status_json = json.loads(
-                attachment_response.content.decode("utf-8")
-            )
-            model_definition_attachment_signed_url = attachment_status_json["url1"]
-            model_definition_attachment_put_url = (
-                self._client.credentials.url + model_definition_attachment_signed_url
-            )
+            (
+                attachment_id,
+                model_definition_attachment_signed_url,
+                model_definition_attachment_put_url,
+            ) = self._extract_attachment_info(attachment_response)
 
             if self._ICP_PLATFORM_SPACES:
                 with model_definition.open("rb") as file:
@@ -351,14 +342,23 @@ class ModelDefinition(WMLResource):
                 headers=await self._client._aget_headers(),
             )
 
-            self._handle_response(
-                200, "updating a model_definition status", complete_response
+            return self._build_store_response(
+                model_definition_details, complete_response
             )
 
-            response = self._get_required_element_from_response(
-                model_definition_details
-            )
+        except Exception as e:
+            try:
+                await self.adelete(model_definition_id)
+            finally:
+                raise e
 
+    @staticmethod
+    def _process_model_definition_response(response: dict) -> dict:
+        final_response = {
+            "metadata": response["metadata"],
+        }
+
+        if "entity" in response:
             entity = response["entity"]
 
             try:
@@ -366,15 +366,9 @@ class ModelDefinition(WMLResource):
             except KeyError:
                 pass
 
-            final_response = {"metadata": response["metadata"], "entity": entity}
+            final_response["entity"] = entity
 
-            return final_response
-
-        except Exception as e:
-            try:
-                await self.adelete(model_definition_id)
-            finally:
-                raise e
+        return final_response
 
     def get_details(
         self,
@@ -409,27 +403,10 @@ class ModelDefinition(WMLResource):
             kwargs, model_definition_id, "model_definition", True
         )
 
-        def get_required_element_from_response(response: dict) -> dict:
-            final_response = {
-                "metadata": response["metadata"],
-            }
-
-            if "entity" in response:
-                entity = response["entity"]
-
-                try:
-                    del entity["wml_model_definition"]["ml_version"]
-                except KeyError:
-                    pass
-
-                final_response["entity"] = entity
-
-            return final_response
-
         return self._get_asset_based_resource(
             model_definition_id,
             "wml_model_definition",
-            get_required_element_from_response,
+            self._process_model_definition_response,
             limit=limit,
             get_all=get_all,
         )
@@ -463,30 +440,50 @@ class ModelDefinition(WMLResource):
 
         """
 
-        def get_required_element_from_response(response: dict) -> dict:
-            final_response = {
-                "metadata": response["metadata"],
-            }
-
-            if "entity" in response:
-                entity = response["entity"]
-
-                try:
-                    del entity["wml_model_definition"]["ml_version"]
-                except KeyError:
-                    pass
-
-                final_response["entity"] = entity
-
-            return final_response
-
         return await self._aget_asset_based_resource(
             model_definition_id,
             "wml_model_definition",
-            get_required_element_from_response,
+            self._process_model_definition_response,
             limit=limit,
             get_all=get_all,
         )
+
+    def _prepare_download_params(
+        self, filename: str | Path, model_definition_id: str, rev_id: str | None
+    ) -> tuple[Path, dict]:
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        self._client._check_if_either_is_set()
+
+        ModelDefinition._validate_type(
+            model_definition_id, "model_definition_id", str, True
+        )
+        params = self._client._params()
+        if rev_id is not None:
+            ModelDefinition._validate_type(rev_id, "rev_id", str, False)
+            params["revision_id"] = rev_id
+
+        return filename, params
+
+    @staticmethod
+    def _handle_download_response(att_response: Response, filename: Path) -> str:
+        if att_response.status_code != 200:
+            raise WMLClientError(
+                "Failure during {}.".format("downloading model_definition asset"),
+                str(att_response),
+            )
+
+        downloaded_asset = att_response.content
+        try:
+            filename.write_bytes(downloaded_asset)
+            print("Successfully saved asset content to file: '{}'".format(filename))
+            return str(Path.cwd() / filename)
+        except IOError as e:
+            raise WMLClientError(
+                "Saving asset with artifact_url: '{}' failed.".format(filename),
+                str(e),
+            )
 
     def download(
         self,
@@ -517,27 +514,18 @@ class ModelDefinition(WMLResource):
                 model_definition_id, "model_definition_file"
             )
         """
-        if isinstance(filename, str):
-            filename = Path(filename)
-
-        model_definition_id = _get_id_from_deprecated_uid(
-            kwargs, model_definition_id, "model_definition"
-        )
-
         if filename is None:
             raise TypeError(
                 "download() missing 1 required positional argument: 'filename'"
             )
 
-        self._client._check_if_either_is_set()
-
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        model_definition_id = _get_id_from_deprecated_uid(
+            kwargs, model_definition_id, "model_definition"
         )
-        params = self._client._params()
-        if rev_id is not None:
-            ModelDefinition._validate_type(rev_id, "rev_id", str, False)
-            params["revision_id"] = rev_id
+
+        filename, params = self._prepare_download_params(
+            filename, model_definition_id, rev_id
+        )
 
         attachment_id = self._get_attachment_id(model_definition_id)
         artifact_content_url = self._client._href_definitions.get_attachment_href(
@@ -566,22 +554,7 @@ class ModelDefinition(WMLResource):
                     url=self._credentials.url + attachment_signed_url
                 )
 
-            if att_response.status_code != 200:
-                raise WMLClientError(
-                    "Failure during {}.".format("downloading model_definition asset"),
-                    str(att_response),
-                )
-
-            downloaded_asset = att_response.content
-            try:
-                filename.write_bytes(downloaded_asset)
-                print("Successfully saved asset content to file: '{}'".format(filename))
-                return str(Path.cwd() / filename)
-            except IOError as e:
-                raise WMLClientError(
-                    "Saving asset with artifact_url: '{}' failed.".format(filename),
-                    str(e),
-                )
+            return self._handle_download_response(att_response, filename)
         else:
             raise WMLClientError(
                 "Failed while downloading the asset " + model_definition_id
@@ -615,18 +588,9 @@ class ModelDefinition(WMLResource):
                 model_definition_id, "model_definition_file"
             )
         """
-        if isinstance(filename, str):
-            filename = Path(filename)
-
-        self._client._check_if_either_is_set()
-
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        filename, params = self._prepare_download_params(
+            filename, model_definition_id, rev_id
         )
-        params = self._client._params()
-        if rev_id is not None:
-            ModelDefinition._validate_type(rev_id, "rev_id", str, False)
-            params["revision_id"] = rev_id
 
         attachment_id = await self._aget_attachment_id(model_definition_id)
         artifact_content_url = self._client._href_definitions.get_attachment_href(
@@ -657,26 +621,22 @@ class ModelDefinition(WMLResource):
                     url=self._credentials.url + attachment_signed_url
                 )
 
-            if att_response.status_code != 200:
-                raise WMLClientError(
-                    "Failure during {}.".format("downloading model_definition asset"),
-                    str(att_response),
-                )
-
-            downloaded_asset = att_response.content
-            try:
-                filename.write_bytes(downloaded_asset)
-                print("Successfully saved asset content to file: '{}'".format(filename))
-                return str(Path.cwd() / filename)
-            except IOError as e:
-                raise WMLClientError(
-                    "Saving asset with artifact_url: '{}' failed.".format(filename),
-                    str(e),
-                )
+            return self._handle_download_response(att_response, filename)
         else:
             raise WMLClientError(
                 "Failed while downloading the asset " + model_definition_id
             )
+
+    def _prepare_delete_operation(self, model_definition_id: str) -> str:
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+        ModelDefinition._validate_type(
+            model_definition_id, "model_definition_id", str, True
+        )
+
+        return self._client._href_definitions.get_model_definition_asset_href(
+            model_definition_id
+        )
 
     def delete(
         self, model_definition_id: str | None = None, **kwargs: Any
@@ -702,17 +662,7 @@ class ModelDefinition(WMLResource):
             kwargs, model_definition_id, "model_definition"
         )
 
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
-        )
-
-        model_definition_endpoint = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
-        )
+        model_definition_endpoint = self._prepare_delete_operation(model_definition_id)
 
         response_delete = self._client.httpx_client.delete(
             url=model_definition_endpoint,
@@ -746,22 +696,11 @@ class ModelDefinition(WMLResource):
 
         """
 
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
-        )
-        paramvalue = self._client._params()
-
-        model_definition_endpoint = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
-        )
+        model_definition_endpoint = self._prepare_delete_operation(model_definition_id)
 
         response_delete = await self._client.async_httpx_client.delete(
             url=model_definition_endpoint,
-            params=paramvalue,
+            params=self._client._params(),
             headers=await self._client._aget_headers(),
         )
 
@@ -865,6 +804,30 @@ class ModelDefinition(WMLResource):
                 f"Failed to read Response from down-stream service: {response_data}"
             )
 
+    def _prepare_attachment_request(
+        self, model_definition_id: str, rev_id: str | None
+    ) -> tuple[str, dict]:
+        url = self._client._href_definitions.get_model_definition_asset_href(
+            model_definition_id
+        )
+        params_value = self._client._params()
+
+        if rev_id is not None:
+            params_value["revision_id"] = rev_id
+
+        return url, params_value
+
+    def _extract_attachment_id(
+        self, response_get: Response, model_definition_id: str
+    ) -> str:
+        details = self._handle_response(200, "getting attachment id ", response_get)
+        try:
+            return details["attachments"][0]["id"]
+        except KeyError:
+            raise WMLClientError(
+                f"No attachment exists for model definition (id={model_definition_id})."
+            )
+
     def _get_attachment_id(
         self,
         model_definition_id: str | None = None,
@@ -875,56 +838,27 @@ class ModelDefinition(WMLResource):
             kwargs, model_definition_id, "model_definition"
         )
 
-        op_name = "getting attachment id "
-        url = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
+        url, params_value = self._prepare_attachment_request(
+            model_definition_id, rev_id
         )
-        params_value = self._client._params()
-
-        if rev_id is not None:
-            params_value["revision_id"] = rev_id
 
         response_get = self._client.httpx_client.get(
             url=url, params=params_value, headers=self._client._get_headers()
         )
-        details = self._handle_response(200, op_name, response_get)
-        try:
-            attachment_id = details["attachments"][0]["id"]
-        except KeyError:
-            raise WMLClientError(
-                f"No attachment exists for model definition (id={model_definition_id})."
-            )
 
-        return attachment_id
+        return self._extract_attachment_id(response_get, model_definition_id)
 
     async def _aget_attachment_id(
         self, model_definition_id: str, rev_id: str | None = None
     ) -> str:
-        op_name = "getting attachment id "
-        url = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
+        url, params_value = self._prepare_attachment_request(
+            model_definition_id, rev_id
         )
-        params_value = self._client._params()
-
-        if rev_id is not None:
-            params_value["revision_id"] = rev_id
-
         response_get = await self._client.async_httpx_client.get(
             url=url, params=params_value, headers=await self._client._aget_headers()
         )
-        details = self._handle_response(200, op_name, response_get)
-        try:
-            attachment_id = details["attachments"][0]["id"]
-        except KeyError:
-            raise WMLClientError(
-                f"No attachment exists for model definition (id={model_definition_id})."
-            )
 
-        return attachment_id
+        return self._extract_attachment_id(response_get, model_definition_id)
 
     def list(self, limit: int | None = None) -> pandas.DataFrame:
         """Return the stored model definition assets in a table format.
@@ -1074,6 +1008,109 @@ class ModelDefinition(WMLResource):
                 str,
             )
 
+    @staticmethod
+    def _validate_update_params(
+        file_path: str | Path | None,
+        model_definition_id: str,
+        meta_props: dict[str, str | dict] | None,
+    ) -> Path | None:
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        ModelDefinition._validate_type(
+            model_definition_id, "model_definition_id", str, True
+        )
+
+        if meta_props is None and file_path is None:
+            raise WMLClientError(
+                "At least either meta_props or file_path has to be provided"
+            )
+        return file_path
+
+    def _prepare_asset_patch_payloads(
+        self, meta_props: dict[str, str | dict], details: dict
+    ) -> tuple[List[dict], List[dict]]:
+        self._validate_type(meta_props, "meta_props", dict, True)
+
+        props_for_asset_meta_patch = {}
+
+        # Since we are dealing with direct asset apis, there can be metadata or entity patch or both
+        if "name" in meta_props or "description" in meta_props:
+            for key in meta_props:
+                if key == "name" or key == "description":
+                    props_for_asset_meta_patch[key] = meta_props[key]
+
+        meta_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
+            details, props_for_asset_meta_patch, with_validation=True
+        )
+
+        props_for_asset_entity_patch = {}
+        for key in meta_props:
+            if key != "name" and key != "description":
+                props_for_asset_entity_patch[key] = meta_props[key]
+
+        entity_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
+            details["entity"]["wml_model_definition"],
+            props_for_asset_entity_patch,
+            with_validation=True,
+        )
+
+        return meta_patch_payload, entity_patch_payload
+
+    @staticmethod
+    def _get_current_attachment_id(details: dict) -> str | None:
+        if "attachments" in details and details["attachments"]:
+            return details["attachments"][0]["id"]
+        return None
+
+    def _handle_file_attachment_update(
+        self,
+        file_path: Path | None,
+        details: dict,
+        model_definition_id: str,
+        updated_details: dict | None,
+    ) -> None:
+        attachments_response = None
+        if file_path is not None:
+            current_attachment_id = self._get_current_attachment_id(details)
+
+            attachments_response = self._update_attachment_for_assets(
+                "wml_model_definition",
+                model_definition_id,
+                file_path,
+                current_attachment_id,
+            )
+
+        if attachments_response is not None and "success" not in attachments_response:
+            self._update_msg(updated_details)
+
+    @staticmethod
+    def _validate_response_status(response: Response) -> None:
+        if response.status_code == 404:
+            raise WMLClientError(
+                "Invalid input. Unable to get the details of model_definition_id provided."
+            )
+        elif response.status_code != 200:
+            raise WMLClientError(
+                f"Failure during getting script to update.",
+                str(response),
+            )
+
+    def _process_update_response(self, response: Response) -> dict:
+        self._validate_response_status(response)
+        response_dict = self._get_required_element_from_response(
+            self._handle_response(200, "Get script details", response)
+        )
+
+        entity = response_dict["entity"]
+
+        try:
+            del entity["wml_model_definition"]["ml_version"]
+        except KeyError:
+            pass
+
+        return {"metadata": response_dict["metadata"], "entity": entity}
+
     def update(
         self,
         model_definition_id: str,
@@ -1102,20 +1139,11 @@ class ModelDefinition(WMLResource):
                 model_definition_id, meta_props, file_path
             )
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
 
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        file_path = self._validate_update_params(
+            file_path, model_definition_id, meta_props
         )
-
-        if meta_props is None and file_path is None:
-            raise WMLClientError(
-                "At least either meta_props or file_path has to be provided"
-            )
-
         updated_details = None
-
         # STEPS
         # STEP 1. Get existing metadata
         # STEP 2. If meta_props provided, we need to patch meta
@@ -1136,47 +1164,15 @@ class ModelDefinition(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        if response.status_code != 200:
-            if response.status_code == 404:
-                raise WMLClientError(
-                    "Invalid input. Unable to get the details of model_definition_id provided."
-                )
-            else:
-                raise WMLClientError(
-                    "Failure during {}.".format("getting script to update"),
-                    str(response),
-                )
+        self._validate_response_status(response)
 
         details = self._handle_response(200, "Get script details", response)
-
-        attachments_response = None
 
         # STEP 2a.
         # Patch meta if provided
         if meta_props is not None:
-            self._validate_type(meta_props, "meta_props", dict, True)
-
-            props_for_asset_meta_patch = {}
-
-            # Since we are dealing with direct asset apis, there can be metadata or entity patch or both
-            if "name" in meta_props or "description" in meta_props:
-                for key in meta_props:
-                    if key == "name" or key == "description":
-                        props_for_asset_meta_patch[key] = meta_props[key]
-
-            meta_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
-                details, props_for_asset_meta_patch, with_validation=True
-            )
-
-            props_for_asset_entity_patch = {}
-            for key in meta_props:
-                if key != "name" and key != "description":
-                    props_for_asset_entity_patch[key] = meta_props[key]
-
-            entity_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
-                details["entity"]["wml_model_definition"],
-                props_for_asset_entity_patch,
-                with_validation=True,
+            meta_patch_payload, entity_patch_payload = (
+                self._prepare_asset_patch_payloads(meta_props, details)
             )
 
             if meta_patch_payload:
@@ -1212,22 +1208,10 @@ class ModelDefinition(WMLResource):
                     200, "script patch", response_patch
                 )
 
-        if file_path is not None:
-            if "attachments" in details and details["attachments"]:
-                current_attachment_id = details["attachments"][0]["id"]
-            else:
-                current_attachment_id = None
-
-            # STEP 3
-            attachments_response = self._update_attachment_for_assets(
-                "wml_model_definition",
-                model_definition_id,
-                file_path,
-                current_attachment_id,
-            )
-
-        if attachments_response is not None and "success" not in attachments_response:
-            self._update_msg(updated_details)
+        # STEP 3
+        self._handle_file_attachment_update(
+            file_path, details, model_definition_id, updated_details
+        )
 
         # Have to fetch again to reflect updated asset and attachment ids
         url = self._client._href_definitions.get_asset_href(model_definition_id)
@@ -1236,31 +1220,7 @@ class ModelDefinition(WMLResource):
             url=url, params=self._client._params(), headers=self._client._get_headers()
         )
 
-        if response.status_code != 200:
-            if response.status_code == 404:
-                raise WMLClientError(
-                    "Invalid input. Unable to get the details of model_definition_id provided."
-                )
-            else:
-                raise WMLClientError(
-                    "Failure during {}.".format("getting script to update"),
-                    str(response),
-                )
-
-        response_dict = self._get_required_element_from_response(
-            self._handle_response(200, "Get script details", response)
-        )
-
-        entity = response_dict["entity"]
-
-        try:
-            del entity["wml_model_definition"]["ml_version"]
-        except KeyError:
-            pass
-
-        final_response = {"metadata": response_dict["metadata"], "entity": entity}
-
-        return final_response
+        return self._process_update_response(response)
 
     async def aupdate(
         self,
@@ -1290,18 +1250,9 @@ class ModelDefinition(WMLResource):
                 model_definition_id, meta_props, file_path
             )
         """
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        file_path = self._validate_update_params(
+            file_path, model_definition_id, meta_props
         )
-
-        if meta_props is None and file_path is None:
-            raise WMLClientError(
-                "At least either meta_props or file_path has to be provided"
-            )
-
         updated_details = None
 
         # STEPS
@@ -1324,47 +1275,14 @@ class ModelDefinition(WMLResource):
             headers=await self._client._aget_headers(),
         )
 
-        if response.status_code != 200:
-            if response.status_code == 404:
-                raise WMLClientError(
-                    "Invalid input. Unable to get the details of model_definition_id provided."
-                )
-            else:
-                raise WMLClientError(
-                    "Failure during {}.".format("getting script to update"),
-                    str(response),
-                )
-
+        self._validate_response_status(response)
         details = self._handle_response(200, "Get script details", response)
-
-        attachments_response = None
 
         # STEP 2a.
         # Patch meta if provided
         if meta_props is not None:
-            self._validate_type(meta_props, "meta_props", dict, True)
-
-            props_for_asset_meta_patch = {}
-
-            # Since we are dealing with direct asset apis, there can be metadata or entity patch or both
-            if "name" in meta_props or "description" in meta_props:
-                for key in meta_props:
-                    if key == "name" or key == "description":
-                        props_for_asset_meta_patch[key] = meta_props[key]
-
-            meta_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
-                details, props_for_asset_meta_patch, with_validation=True
-            )
-
-            props_for_asset_entity_patch = {}
-            for key in meta_props:
-                if key != "name" and key != "description":
-                    props_for_asset_entity_patch[key] = meta_props[key]
-
-            entity_patch_payload = self.ConfigurationMetaNames._generate_patch_payload(
-                details["entity"]["wml_model_definition"],
-                props_for_asset_entity_patch,
-                with_validation=True,
+            meta_patch_payload, entity_patch_payload = (
+                self._prepare_asset_patch_payloads(meta_props, details)
             )
 
             if meta_patch_payload:
@@ -1400,22 +1318,10 @@ class ModelDefinition(WMLResource):
                     200, "script patch", response_patch
                 )
 
-        if file_path is not None:
-            if "attachments" in details and details["attachments"]:
-                current_attachment_id = details["attachments"][0]["id"]
-            else:
-                current_attachment_id = None
-
-            # STEP 3
-            attachments_response = self._update_attachment_for_assets(
-                "wml_model_definition",
-                model_definition_id,
-                file_path,
-                current_attachment_id,
-            )
-
-        if attachments_response is not None and "success" not in attachments_response:
-            self._update_msg(updated_details)
+        # STEP 3
+        self._handle_file_attachment_update(
+            file_path, details, model_definition_id, updated_details
+        )
 
         # Have to fetch again to reflect updated asset and attachment ids
         url = self._client._href_definitions.get_asset_href(model_definition_id)
@@ -1426,31 +1332,7 @@ class ModelDefinition(WMLResource):
             headers=await self._client._aget_headers(),
         )
 
-        if response.status_code != 200:
-            if response.status_code == 404:
-                raise WMLClientError(
-                    "Invalid input. Unable to get the details of model_definition_id provided."
-                )
-            else:
-                raise WMLClientError(
-                    "Failure during {}.".format("getting script to update"),
-                    str(response),
-                )
-
-        response_dict = self._get_required_element_from_response(
-            self._handle_response(200, "Get script details", response)
-        )
-
-        entity = response_dict["entity"]
-
-        try:
-            del entity["wml_model_definition"]["ml_version"]
-        except KeyError:
-            pass
-
-        final_response = {"metadata": response_dict["metadata"], "entity": entity}
-
-        return final_response
+        return self._process_update_response(response)
 
     def _update_msg(self, updated_details: dict | None) -> None:
         if updated_details is not None:
@@ -1462,6 +1344,29 @@ class ModelDefinition(WMLResource):
             raise WMLClientError(
                 "Unable to update attachment because of server error. Try again later"
             )
+
+    def _precheck_and_validate_revision_request(self, model_definition_id: str) -> None:
+        self._client._check_if_either_is_set()
+
+        ModelDefinition._validate_type(
+            model_definition_id, "model_definition_id", str, True
+        )
+
+        print("Creating model_definition revision...")
+
+    def _finalize_revision_response(self, response_data: dict) -> dict:
+        response = self._get_required_element_from_response(response_data)
+
+        entity = response["entity"]
+
+        try:
+            del entity["wml_model_definition"]["ml_version"]
+        except KeyError:
+            pass
+
+        final_response = {"metadata": response["metadata"], "entity": entity}
+
+        return final_response
 
     def create_revision(
         self, model_definition_id: str | None = None, **kwargs: Any
@@ -1487,30 +1392,13 @@ class ModelDefinition(WMLResource):
             kwargs, model_definition_id, "model_definition"
         )
 
-        self._client._check_if_either_is_set()
+        self._precheck_and_validate_revision_request(model_definition_id)
 
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        response_data = self._create_revision_artifact_for_assets(
+            model_definition_id, "Model definition"
         )
 
-        print("Creating model_definition revision...")
-
-        response = self._get_required_element_from_response(
-            self._create_revision_artifact_for_assets(
-                model_definition_id, "Model definition"
-            )
-        )
-
-        entity = response["entity"]
-
-        try:
-            del entity["wml_model_definition"]["ml_version"]
-        except KeyError:
-            pass
-
-        final_response = {"metadata": response["metadata"], "entity": entity}
-
-        return final_response
+        return self._finalize_revision_response(response_data)
 
     async def acreate_revision(self, model_definition_id: str) -> dict:
         """Create a revision for the given model definition asynchronously. Revisions are immutable once created.
@@ -1530,30 +1418,36 @@ class ModelDefinition(WMLResource):
                 await client.model_definitions.acreate_revision(model_definition_id)
             )
         """
-        self._client._check_if_either_is_set()
+        self._precheck_and_validate_revision_request(model_definition_id)
 
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        response_data = await self._acreate_revision_artifact_for_assets(
+            model_definition_id, "Model definition"
         )
 
-        print("Creating model_definition revision...")
+        return self._finalize_revision_response(response_data)
 
-        response = self._get_required_element_from_response(
-            await self._acreate_revision_artifact_for_assets(
-                model_definition_id, "Model definition"
-            )
+    def _prepare_revision_request_params(
+        self, model_definition_id: str, rev_id: str | None
+    ) -> tuple[str, dict]:
+        url = self._client._href_definitions.get_model_definition_asset_href(
+            model_definition_id
         )
+        paramvalue = self._client._params()
 
-        entity = response["entity"]
+        if rev_id is None:
+            rev_id = "latest"
 
-        try:
-            del entity["wml_model_definition"]["ml_version"]
-        except KeyError:
-            pass
+        paramvalue["revision_id"] = rev_id
 
-        final_response = {"metadata": response["metadata"], "entity": entity}
+        return url, paramvalue
 
-        return final_response
+    def _handle_revision_details_response(self, response_get: Response) -> dict:
+        op_name = "getting model_definition revision details"
+        if response_get.status_code == 200:
+            response_data = self._handle_response(200, op_name, response_get)
+            return self._finalize_revision_response(response_data)
+        else:
+            return self._handle_response(200, op_name, response_get)
 
     def get_revision_details(
         self,
@@ -1580,48 +1474,25 @@ class ModelDefinition(WMLResource):
                 model_definition_id, rev_id
             )
         """
+
+        ModelDefinition._validate_type(
+            model_definition_id, "model_definition_id", str, True
+        )
+
         model_definition_id = _get_id_from_deprecated_uid(
             kwargs, model_definition_id, "model_definition"
         )
         rev_id = _get_id_from_deprecated_uid(kwargs, rev_id, "rev", True)
 
-        op_name = "getting model_definition revision details"
-        ModelDefinition._validate_type(
-            model_definition_id, "model_definition_id", str, True
+        url, paramvalue = self._prepare_revision_request_params(
+            model_definition_id, rev_id
         )
-
-        url = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
-        )
-        paramvalue = self._client._params()
-
-        if rev_id is None:
-            rev_id = "latest"
-
-        paramvalue["revision_id"] = rev_id
 
         response_get = self._client.httpx_client.get(
             url=url, params=paramvalue, headers=self._client._get_headers()
         )
-        if response_get.status_code == 200:
-            response = self._get_required_element_from_response(
-                self._handle_response(200, op_name, response_get)
-            )
 
-            entity = response["entity"]
-
-            try:
-                del entity["wml_model_definition"]["ml_version"]
-            except KeyError:
-                pass
-
-            final_response = {"metadata": response["metadata"], "entity": entity}
-
-            return final_response
-        else:
-            return self._handle_response(200, op_name, response_get)
+        return self._handle_revision_details_response(response_get)
 
     async def aget_revision_details(
         self, model_definition_id: str, rev_id: str | None = None
@@ -1646,43 +1517,19 @@ class ModelDefinition(WMLResource):
             )
         """
 
-        op_name = "getting model_definition revision details"
         ModelDefinition._validate_type(
             model_definition_id, "model_definition_id", str, True
         )
 
-        url = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
+        url, paramvalue = self._prepare_revision_request_params(
+            model_definition_id, rev_id
         )
-        paramvalue = self._client._params()
-
-        if rev_id is None:
-            rev_id = "latest"
-
-        paramvalue["revision_id"] = rev_id
 
         response_get = await self._client.async_httpx_client.get(
             url=url, params=paramvalue, headers=await self._client._aget_headers()
         )
-        if response_get.status_code == 200:
-            response = self._get_required_element_from_response(
-                self._handle_response(200, op_name, response_get)
-            )
 
-            entity = response["entity"]
-
-            try:
-                del entity["wml_model_definition"]["ml_version"]
-            except KeyError:
-                pass
-
-            final_response = {"metadata": response["metadata"], "entity": entity}
-
-            return final_response
-        else:
-            return self._handle_response(200, op_name, response_get)
+        return self._handle_revision_details_response(response_get)
 
     def list_revisions(
         self,
@@ -1713,11 +1560,8 @@ class ModelDefinition(WMLResource):
 
         # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
-        href = (
-            self._client._href_definitions.get_model_definition_assets_href()
-            + "/"
-            + model_definition_id
-            + "/revisions"
+        href = self._client._href_definitions.get_model_definition_revisions_href(
+            model_definition_id
         )
         params = self._client._params()
 

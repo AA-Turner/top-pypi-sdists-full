@@ -43,9 +43,8 @@ def pdfgen(args):
             '3rd argument %s is a directory name (should be a the '
             'Factur-X or Order-X PDF filename)', output_pdf_filename)
         sys.exit(1)
-    check_xsd = True
-    if args.disable_xsd_check:
-        check_xsd = False
+    check_xsd = not args.disable_xsd_check
+    check_schematron = not args.disable_schematron_check
     pdf_metadata = None
     if (
             args.meta_author or
@@ -76,13 +75,15 @@ def pdfgen(args):
     try:
         # The important line of code is below !
         generate_from_file(
-            pdf_filename, args.xml_file, check_xsd=check_xsd,
+            pdf_filename, args.xml_file,
+            check_xsd=check_xsd, check_schematron=check_schematron,
             flavor=args.flavor, level=args.level, orderx_type=args.orderx_type,
             pdf_metadata=pdf_metadata, lang=lang, output_pdf_file=output_pdf_filename,
             attachments=attachments, afrelationship=args.afrelationship,
             xmp_compression=xmp_compression)
-    except Exception as e:
-        logger.error('factur-x lib call failed. Error: %s', e)
+    except Exception:
+        # no need to re-print the error log, it is already present in the logs
+        logger.error('factur-x lib call failed, exiting.')
         sys.exit(1)
 
 
@@ -111,6 +112,11 @@ def main(args=None):
         '-d', '--disable-xsd-check', dest='disable_xsd_check',
         action='store_true',
         help="De-activate XML Schema Definition check on XML file "
+        "(the check is enabled by default)")
+    parser.add_argument(
+        '-ds', '--disable-schematron-check', dest='disable_schematron_check',
+        action='store_true',
+        help="De-activate Schematron check on XML file "
         "(the check is enabled by default)")
     parser.add_argument(
         '-f', '--flavor', dest='flavor', default='autodetect',

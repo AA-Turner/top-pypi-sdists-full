@@ -457,7 +457,7 @@ class AgentRunner:
                     prepared.agent_id,
                 )
             for scope in scopes:
-                write_tool_execution_records(scope.tool_spool_path, tool_records)
+                await asyncio.to_thread(write_tool_execution_records, scope.tool_spool_path, tool_records)
                 logger.debug(
                     "Stored %d tool execution records in %s",
                     len(tool_records),
@@ -474,7 +474,7 @@ class AgentRunner:
                     )
                     continue
 
-                events = parse_audit_raw(raw_log)
+                events = await asyncio.to_thread(parse_audit_raw, raw_log)
                 if not events:
                     logger.debug(
                         "No audit events parsed from log for scope %s",
@@ -514,7 +514,8 @@ class AgentRunner:
                     trace_id=str(context.get("trace_id", "")),
                     span_id=str(context.get("span_id", "")),
                 )
-                resolved_events = resolve_audit_events_for_scope(
+                resolved_events = await asyncio.to_thread(
+                    resolve_audit_events_for_scope,
                     events,
                     scope_context=scope_context,
                     tool_records=tool_records,
@@ -524,7 +525,7 @@ class AgentRunner:
                     len(resolved_events),
                     scope.audit_key,
                 )
-                write_audit_jsonl(scope.spool_path, resolved_events, scope_context)
+                await asyncio.to_thread(write_audit_jsonl, scope.spool_path, resolved_events, scope_context)
                 logger.debug(
                     "Stored %d audit events in %s",
                     len(resolved_events),

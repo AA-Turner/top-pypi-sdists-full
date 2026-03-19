@@ -24,8 +24,8 @@ class MeshResponse(_message.Message):
 class DataStreamRequest(_message.Message):
     __slots__ = ("write_batches_request",)
     WRITE_BATCHES_REQUEST_FIELD_NUMBER: _ClassVar[int]
-    write_batches_request: _containers.RepeatedCompositeFieldContainer[_direct_nominal_channel_writer_pb2.WriteBatchesRequest]
-    def __init__(self, write_batches_request: _Optional[_Iterable[_Union[_direct_nominal_channel_writer_pb2.WriteBatchesRequest, _Mapping]]] = ...) -> None: ...
+    write_batches_request: _containers.RepeatedCompositeFieldContainer[_direct_nominal_channel_writer_pb2.InternalWriteBatchesRequest]
+    def __init__(self, write_batches_request: _Optional[_Iterable[_Union[_direct_nominal_channel_writer_pb2.InternalWriteBatchesRequest, _Mapping]]] = ...) -> None: ...
 
 class FileIngestRequest(_message.Message):
     __slots__ = ("ingest_request",)

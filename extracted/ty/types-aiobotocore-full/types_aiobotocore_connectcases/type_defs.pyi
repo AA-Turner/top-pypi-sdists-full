@@ -68,6 +68,8 @@ __all__ = (
     "CaseRuleSummaryTypeDef",
     "CaseSummaryTypeDef",
     "CommentContentTypeDef",
+    "CompoundConditionOutputTypeDef",
+    "CompoundConditionTypeDef",
     "ConnectCaseContentTypeDef",
     "ConnectCaseFilterTypeDef",
     "ConnectCaseInputContentTypeDef",
@@ -280,6 +282,12 @@ class FieldOptionErrorTypeDef(TypedDict):
     message: str
     errorCode: str
     value: str
+
+class CompoundConditionOutputTypeDef(TypedDict):
+    conditions: list[dict[str, Any]]
+
+class CompoundConditionTypeDef(TypedDict):
+    conditions: Sequence[Mapping[str, Any]]
 
 class OperandOneTypeDef(TypedDict):
     fieldId: NotRequired[str]
@@ -745,10 +753,14 @@ class EventIncludedDataTypeDef(TypedDict):
 class BooleanConditionOutputTypeDef(TypedDict):
     equalTo: NotRequired[BooleanOperandsOutputTypeDef]
     notEqualTo: NotRequired[BooleanOperandsOutputTypeDef]
+    andAll: NotRequired[dict[str, Any]]
+    orAll: NotRequired[CompoundConditionOutputTypeDef]
 
 class BooleanConditionTypeDef(TypedDict):
     equalTo: NotRequired[BooleanOperandsTypeDef]
     notEqualTo: NotRequired[BooleanOperandsTypeDef]
+    andAll: NotRequired[Mapping[str, Any]]
+    orAll: NotRequired[CompoundConditionTypeDef]
 
 CreateFieldRequestTypeDef = TypedDict(
     "CreateFieldRequestTypeDef",

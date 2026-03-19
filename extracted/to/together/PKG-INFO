@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.4.0
+Version: 2.5.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -39,7 +39,7 @@ Requires-Dist: tqdm>=4.67.1
 Requires-Dist: types-pyyaml>=6.0.12.20250915
 Requires-Dist: types-tabulate>=0.9.0.20240106
 Requires-Dist: types-tqdm>=4.67.0.20250516
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiofiles
 Requires-Dist: aiofiles>=25.0.0; extra == 'aiofiles'
 Requires-Dist: types-aiofiles; extra == 'aiofiles'
@@ -248,7 +248,7 @@ chat_completion = client.chat.completions.create(
             "role": "system",
         }
     ],
-    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    model="model",
     reasoning={},
 )
 print(chat_completion.reasoning)

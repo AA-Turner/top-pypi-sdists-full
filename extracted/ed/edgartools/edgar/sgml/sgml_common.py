@@ -1,3 +1,4 @@
+import weakref
 import zipfile
 from collections import defaultdict
 from functools import cached_property
@@ -228,7 +229,7 @@ class FilingSGML:
     Main class that parses and provides access to both the header and documents
     from an SGML filing.
     """
-    __slots__ = ('header', '_documents_by_sequence', '__dict__')  # Use slots for memory efficiency
+    __slots__ = ('header', '_documents_by_sequence', '__dict__', '__weakref__')
 
     def __init__(self, header: FilingHeader, documents: defaultdict[str, List[SGMLDocument]]):
         """
@@ -363,7 +364,7 @@ class FilingSGML:
         if summary_attachment:
             filing_summary = FilingSummary.parse(summary_attachment.content)
             filing_summary.reports._filing_summary = filing_summary
-            filing_summary._filing_sgml = self
+            filing_summary._filing_sgml = weakref.ref(self)
             return filing_summary
 
     def download(self,  path: Union[str, Path], archive: bool = False):

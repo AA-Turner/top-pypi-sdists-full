@@ -23,10 +23,13 @@ else:
 
 __all__ = (
     "ActionCategoryType",
+    "AnalyzerTypeType",
     "ApplicationHealthStatusType",
     "ApplicationProgressStatusType",
     "BootModeType",
     "ChangeServerLifeCycleStateSourceServerLifecycleStateType",
+    "CodeGenerationOutputFormatStatusType",
+    "CodeGenerationOutputFormatTypeType",
     "DataReplicationErrorStringType",
     "DataReplicationInitiationStepNameType",
     "DataReplicationInitiationStepStatusType",
@@ -37,12 +40,18 @@ __all__ = (
     "DescribeReplicationConfigurationTemplatesPaginatorName",
     "DescribeSourceServersPaginatorName",
     "DescribeVcenterClientsPaginatorName",
+    "EncryptionAlgorithmType",
+    "ExecutionStageActivityType",
+    "ExecutionStageType",
+    "ExecutionStatusType",
     "ExportStatusType",
     "FirstBootType",
     "ImportErrorTypeType",
+    "ImportFileEnrichmentStatusType",
     "ImportStatusType",
     "InitiatedByType",
     "InternetProtocolType",
+    "IpAssignmentStrategyType",
     "JobLogEventType",
     "JobStatusType",
     "JobTypeType",
@@ -54,12 +63,33 @@ __all__ = (
     "ListExportErrorsPaginatorName",
     "ListExportsPaginatorName",
     "ListImportErrorsPaginatorName",
+    "ListImportFileEnrichmentsPaginatorName",
     "ListImportsPaginatorName",
     "ListManagedAccountsPaginatorName",
+    "ListNetworkMigrationAnalysesPaginatorName",
+    "ListNetworkMigrationAnalysisResultsPaginatorName",
+    "ListNetworkMigrationCodeGenerationSegmentsPaginatorName",
+    "ListNetworkMigrationCodeGenerationsPaginatorName",
+    "ListNetworkMigrationDefinitionsPaginatorName",
+    "ListNetworkMigrationDeployedStacksPaginatorName",
+    "ListNetworkMigrationDeploymentsPaginatorName",
+    "ListNetworkMigrationExecutionsPaginatorName",
+    "ListNetworkMigrationMapperSegmentConstructsPaginatorName",
+    "ListNetworkMigrationMapperSegmentsPaginatorName",
+    "ListNetworkMigrationMappingUpdatesPaginatorName",
+    "ListNetworkMigrationMappingsPaginatorName",
     "ListSourceServerActionsPaginatorName",
     "ListTemplateActionsPaginatorName",
     "ListWavesPaginatorName",
     "MgnServiceName",
+    "NetworkMigrationAnalysisResultStatusType",
+    "NetworkMigrationCodeGenerationArtifactSubTypeType",
+    "NetworkMigrationCodeGenerationArtifactTypeType",
+    "NetworkMigrationCodeGenerationSegmentTypeType",
+    "NetworkMigrationDeployedStackStatusType",
+    "NetworkMigrationFailedResourceStatusType",
+    "NetworkMigrationJobStatusType",
+    "NetworkMigrationMapperSegmentTypeType",
     "PaginatorName",
     "PostLaunchActionExecutionStatusType",
     "PostLaunchActionsDeploymentTypeType",
@@ -70,10 +100,14 @@ __all__ = (
     "ReplicationConfigurationReplicatedDiskStagingDiskTypeType",
     "ReplicationTypeType",
     "ResourceServiceName",
+    "SecurityGroupMappingStrategyType",
     "ServiceName",
+    "SourceEnvironmentType",
     "SsmDocumentTypeType",
     "SsmParameterStoreParameterTypeType",
+    "TargetDeploymentType",
     "TargetInstanceTypeRightSizingMethodType",
+    "TargetNetworkTopologyType",
     "VolumeTypeType",
     "WaveHealthStatusType",
     "WaveProgressStatusType",
@@ -92,12 +126,15 @@ ActionCategoryType = Literal[
     "SECURITY",
     "VALIDATION",
 ]
+AnalyzerTypeType = Literal["REACHABILITY_ANALYZER"]
 ApplicationHealthStatusType = Literal["ERROR", "HEALTHY", "LAGGING"]
 ApplicationProgressStatusType = Literal["COMPLETED", "IN_PROGRESS", "NOT_STARTED"]
 BootModeType = Literal["LEGACY_BIOS", "UEFI", "USE_SOURCE"]
 ChangeServerLifeCycleStateSourceServerLifecycleStateType = Literal[
     "CUTOVER", "READY_FOR_CUTOVER", "READY_FOR_TEST"
 ]
+CodeGenerationOutputFormatStatusType = Literal["FAILED", "SUCCEEDED"]
+CodeGenerationOutputFormatTypeType = Literal["CDK_L1", "CDK_L2", "LZA", "TERRAFORM"]
 DataReplicationErrorStringType = Literal[
     "AGENT_NOT_SEEN",
     "FAILED_TO_ATTACH_STAGING_DISKS",
@@ -156,12 +193,24 @@ DescribeReplicationConfigurationTemplatesPaginatorName = Literal[
 ]
 DescribeSourceServersPaginatorName = Literal["describe_source_servers"]
 DescribeVcenterClientsPaginatorName = Literal["describe_vcenter_clients"]
+EncryptionAlgorithmType = Literal["SHA256"]
+ExecutionStageActivityType = Literal[
+    "ANALYZE", "CODE_GENERATION", "DEPLOY", "DEPLOYED_STACKS_DELETION", "MAPPING", "MAPPING_UPDATE"
+]
+ExecutionStageType = Literal[
+    "ANALYZE", "CODE_GENERATION", "DEPLOY", "DEPLOYED_STACKS_DELETION", "MAPPING"
+]
+ExecutionStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 ExportStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 FirstBootType = Literal["STOPPED", "SUCCEEDED", "UNKNOWN", "WAITING"]
 ImportErrorTypeType = Literal["PROCESSING_ERROR", "VALIDATION_ERROR"]
+ImportFileEnrichmentStatusType = Literal[
+    "FAILED", "PENDING", "STARTED", "SUCCEEDED", "SUCCEEDED_WITH_WARNINGS"
+]
 ImportStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 InitiatedByType = Literal["DIAGNOSTIC", "START_CUTOVER", "START_TEST", "TERMINATE"]
 InternetProtocolType = Literal["IPV4", "IPV6"]
+IpAssignmentStrategyType = Literal["DYNAMIC", "STATIC"]
 JobLogEventType = Literal[
     "CLEANUP_END",
     "CLEANUP_FAIL",
@@ -201,11 +250,53 @@ ListConnectorsPaginatorName = Literal["list_connectors"]
 ListExportErrorsPaginatorName = Literal["list_export_errors"]
 ListExportsPaginatorName = Literal["list_exports"]
 ListImportErrorsPaginatorName = Literal["list_import_errors"]
+ListImportFileEnrichmentsPaginatorName = Literal["list_import_file_enrichments"]
 ListImportsPaginatorName = Literal["list_imports"]
 ListManagedAccountsPaginatorName = Literal["list_managed_accounts"]
+ListNetworkMigrationAnalysesPaginatorName = Literal["list_network_migration_analyses"]
+ListNetworkMigrationAnalysisResultsPaginatorName = Literal[
+    "list_network_migration_analysis_results"
+]
+ListNetworkMigrationCodeGenerationSegmentsPaginatorName = Literal[
+    "list_network_migration_code_generation_segments"
+]
+ListNetworkMigrationCodeGenerationsPaginatorName = Literal[
+    "list_network_migration_code_generations"
+]
+ListNetworkMigrationDefinitionsPaginatorName = Literal["list_network_migration_definitions"]
+ListNetworkMigrationDeployedStacksPaginatorName = Literal["list_network_migration_deployed_stacks"]
+ListNetworkMigrationDeploymentsPaginatorName = Literal["list_network_migration_deployments"]
+ListNetworkMigrationExecutionsPaginatorName = Literal["list_network_migration_executions"]
+ListNetworkMigrationMapperSegmentConstructsPaginatorName = Literal[
+    "list_network_migration_mapper_segment_constructs"
+]
+ListNetworkMigrationMapperSegmentsPaginatorName = Literal["list_network_migration_mapper_segments"]
+ListNetworkMigrationMappingUpdatesPaginatorName = Literal["list_network_migration_mapping_updates"]
+ListNetworkMigrationMappingsPaginatorName = Literal["list_network_migration_mappings"]
 ListSourceServerActionsPaginatorName = Literal["list_source_server_actions"]
 ListTemplateActionsPaginatorName = Literal["list_template_actions"]
 ListWavesPaginatorName = Literal["list_waves"]
+NetworkMigrationAnalysisResultStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
+NetworkMigrationCodeGenerationArtifactSubTypeType = Literal["APPLICATION", "NESTED_STACK", "STACK"]
+NetworkMigrationCodeGenerationArtifactTypeType = Literal[
+    "CDKTF_TYPESCRIPT",
+    "CDK_L2_TYPESCRIPT",
+    "CDK_TYPESCRIPT",
+    "CLOUDFORMATION_TEMPLATE",
+    "TERRAFORM_CONFIGURATION",
+]
+NetworkMigrationCodeGenerationSegmentTypeType = Literal["APPLIANCE", "NETWORK", "WORKLOAD"]
+NetworkMigrationDeployedStackStatusType = Literal[
+    "CREATE_COMPLETE",
+    "CREATE_FAILED",
+    "CREATE_STARTED",
+    "DELETE_COMPLETE",
+    "DELETE_FAILED",
+    "DELETE_STARTED",
+]
+NetworkMigrationFailedResourceStatusType = Literal["CREATE_FAILED", "DELETE_FAILED"]
+NetworkMigrationJobStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
+NetworkMigrationMapperSegmentTypeType = Literal["APPLIANCE", "WORKLOAD"]
 PostLaunchActionExecutionStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESS"]
 PostLaunchActionsDeploymentTypeType = Literal["CUTOVER_ONLY", "TEST_AND_CUTOVER", "TEST_ONLY"]
 ReplicationConfigurationDataPlaneRoutingType = Literal["PRIVATE_IP", "PUBLIC_IP"]
@@ -215,9 +306,21 @@ ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
     "AUTO", "GP2", "GP3", "IO1", "IO2", "SC1", "ST1", "STANDARD"
 ]
 ReplicationTypeType = Literal["AGENT_BASED", "SNAPSHOT_SHIPPING"]
+SecurityGroupMappingStrategyType = Literal["MAP", "SKIP"]
+SourceEnvironmentType = Literal[
+    "CISCO_ACI",
+    "FORTIGATE_FIREWALL",
+    "LOGICAL_MODEL",
+    "MODELIZE_IT",
+    "NSX",
+    "PALO_ALTO_FIREWALL",
+    "VSPHERE",
+]
 SsmDocumentTypeType = Literal["AUTOMATION", "COMMAND"]
 SsmParameterStoreParameterTypeType = Literal["SECURE_STRING", "STRING"]
+TargetDeploymentType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 TargetInstanceTypeRightSizingMethodType = Literal["BASIC", "NONE"]
+TargetNetworkTopologyType = Literal["HUB_AND_SPOKE", "ISOLATED_VPC"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 WaveHealthStatusType = Literal["ERROR", "HEALTHY", "LAGGING"]
 WaveProgressStatusType = Literal["COMPLETED", "IN_PROGRESS", "NOT_STARTED"]
@@ -324,6 +427,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -587,6 +691,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -653,8 +758,21 @@ PaginatorName = Literal[
     "list_export_errors",
     "list_exports",
     "list_import_errors",
+    "list_import_file_enrichments",
     "list_imports",
     "list_managed_accounts",
+    "list_network_migration_analyses",
+    "list_network_migration_analysis_results",
+    "list_network_migration_code_generation_segments",
+    "list_network_migration_code_generations",
+    "list_network_migration_definitions",
+    "list_network_migration_deployed_stacks",
+    "list_network_migration_deployments",
+    "list_network_migration_executions",
+    "list_network_migration_mapper_segment_constructs",
+    "list_network_migration_mapper_segments",
+    "list_network_migration_mapping_updates",
+    "list_network_migration_mappings",
     "list_source_server_actions",
     "list_template_actions",
     "list_waves",

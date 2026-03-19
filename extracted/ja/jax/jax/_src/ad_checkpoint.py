@@ -577,7 +577,7 @@ def _remat_bind(*args, jaxpr, prevent_cse, differentiated, policy):
   assert isinstance(prevent_cse, bool) or len(prevent_cse) == len(args)
   return core.Primitive.bind(remat_p, *args, jaxpr=jaxpr, prevent_cse=prevent_cse,
                              differentiated=differentiated, policy=policy)
-remat_p.bind = _remat_bind  # type: ignore
+remat_p.bind = _remat_bind
 
 @remat_p.def_impl
 def remat_impl(*args, jaxpr, prevent_cse, differentiated, policy):
@@ -650,7 +650,7 @@ def remat_partial_eval(trace: pe.JaxprTrace, *tracers: core.Tracer,
                        for x in jaxpr_unknown.outvars]
   if isinstance(prevent_cse, tuple):
     _, prevent_cse_ = partition_list(in_used_staged, prevent_cse)
-    prevent_cse = (True,) * len(res_tracers) + tuple(prevent_cse_)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+    prevent_cse = (True,) * len(res_tracers) + tuple(prevent_cse_)
   new_params = dict(params, jaxpr=jaxpr_unknown, differentiated=True,
                     prevent_cse=prevent_cse)
   recipe = pe.new_eqn_recipe(trace, in_jaxpr_tracers, out_jaxpr_tracers, remat_p,
@@ -891,8 +891,8 @@ def _remat_lowering(
     barrier_op = hlo.OptimizationBarrierOp(
         mlir.flatten_ir_values(barrier_args))
     barrier_results = mlir.unflatten_ir_values_like_types(
-        barrier_op.results, map(mlir.aval_to_ir_type, barrier_avals))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
-    args = merge_lists(prevent_cse, other_args, barrier_results)  # type: ignore
+        barrier_op.results, map(mlir.aval_to_ir_type, barrier_avals))
+    args = merge_lists(prevent_cse, other_args, barrier_results)
   outs, tokens_out = mlir.jaxpr_subcomp(
       ctx.module_context, jaxpr, ctx.name_stack.extend('checkpoint'),
       ctx.tokens_in, (), *args, dim_var_values=ctx.dim_var_values,
@@ -905,7 +905,7 @@ mlir.register_lowering(remat_p, _remat_lowering)
 
 def _remat_is_high(*_, jaxpr, **__) -> bool:
   return jaxpr.is_high
-remat_p.is_high = _remat_is_high  # type: ignore
+remat_p.is_high = _remat_is_high
 
 
 def _remat_to_lojax(*hi_args, jaxpr, **kwds):
@@ -1017,7 +1017,7 @@ class RematTraced(VJPHiPrimitive):
     super().__init__()
 
   def expand(self, *args):
-    return self.traced(*args)  # type: ignore
+    return self.traced(*args)
 
   def vjp_fwd(self, _nzs_in, *primals):
     primals_out, fwd2 = remat_transform(self.policy, self.traced, *primals)
@@ -1025,7 +1025,7 @@ class RematTraced(VJPHiPrimitive):
 
   def vjp_bwd(self, res, outgrad, *arg_accums):
     primals, fwd2 = res
-    _, bwd = api.vjp(fwd2, *api.lax.optimization_barrier(primals))
+    _, bwd = api.vjp(fwd2, *lax_internal.optimization_barrier(primals))
     arg_grads = bwd(outgrad)
     for x, ct in zip(arg_accums, arg_grads):
       x.accum(ct)
@@ -1037,21 +1037,23 @@ class RematTraced(VJPHiPrimitive):
     primals_out, f_lin = api.linearize(self.traced, *primals)
     return primals_out, primals
 
-  def linearized(self, primals, *tangents):
+  def linearized(self, primals, *tangents):  # pyrefly: ignore[bad-param-name-override]
     _, f_lin = api.linearize(self.traced, *primals)
     return f_lin(*tangents)
 
 class CheckpointName(VJPHiPrimitive):
+  name: str
+
   def __init__(self, name, aval):
     self.in_avals = aval,
     self.out_aval = aval
     self.params = dict(name=name)
     super().__init__()
 
-  def expand(self, x):
+  def expand(self, x):  # pyrefly: ignore[bad-override]
     return x
 
-  def remat(self, policy, x):
+  def remat(self, policy, x):  # pyrefly: ignore[bad-override]
     saveable = self.name in policy
     rem = partial(primal_left_tangent_right, x) if saveable else lambda x: x
     return x, rem

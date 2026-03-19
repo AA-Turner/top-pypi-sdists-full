@@ -15,13 +15,14 @@ Reference url: https://github.com/Q-Future/Q-Align
 
 import torch
 from torch import nn
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+import warnings
+from PIL import Image
+import torchvision.transforms.functional as F
+from transformers import BitsAndBytesConfig, CLIPImageProcessor
 
 from .constants import OPENAI_CLIP_MEAN
+from .q_align.modeling_mplug_owl2 import MPLUGOwl2LlamaForCausalLM
 from pyiqa.utils.registry import ARCH_REGISTRY
-from transformers import CLIPImageProcessor
-import torchvision.transforms.functional as F
-from PIL import Image
 
 
 def expand2square(pil_img):
@@ -38,39 +39,75 @@ class QAlign(nn.Module):
     def __init__(self, dtype='fp16') -> None:
         super().__init__()
 
+        self.dtype = dtype
+        self.model_dtype = self._get_model_dtype(dtype)
+
         assert dtype in ['fp16', '4bit', '8bit'], (
-            f"Invalid dtype {dtype}. Choose from 'nf4', 'int8', or 'fp16'."
+            f"Invalid dtype {dtype}. Choose from 'fp16', '4bit', or '8bit'."
         )
 
-        # load model
-        self.model = AutoModelForCausalLM.from_pretrained(
-            'q-future/one-align',
-            trust_remote_code=True,
-            load_in_4bit=True if dtype == '4bit' else False,
-            load_in_8bit=True if dtype == '8bit' else False,
-            torch_dtype=torch.float16 if dtype == 'fp16' else None,
-        )
-        self.image_processor = CLIPImageProcessor.from_pretrained('q-future/one-align')
+        model_kwargs = {
+            'trust_remote_code': True,
+            'torch_dtype': self.model_dtype if dtype == 'fp16' else None,
+        }
+        if dtype in ['4bit', '8bit']:
+            quant_kwargs = {
+                'load_in_4bit': dtype == '4bit',
+                'load_in_8bit': dtype == '8bit',
+            }
+            if dtype == '4bit':
+                quant_kwargs.update(
+                    {
+                        'bnb_4bit_quant_type': 'nf4',
+                        'bnb_4bit_compute_dtype': self.model_dtype,
+                    }
+                )
+            try:
+                model_kwargs['quantization_config'] = BitsAndBytesConfig(**quant_kwargs)
+                model_kwargs['torch_dtype'] = self.model_dtype
+            except Exception as err:
+                warnings.warn(
+                    f"Failed to enable {dtype} quantization ({err}). Falling back to fp16.",
+                    RuntimeWarning,
+                )
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'ignore',
+                message=r"The following generation flags are not valid and may be ignored: .*",
+            )
+            self.model = MPLUGOwl2LlamaForCausalLM.from_pretrained('q-future/one-align', **model_kwargs)
+        if getattr(self.model, 'generation_config', None) is not None:
+            gen_cfg = self.model.generation_config
+            if not getattr(gen_cfg, 'do_sample', False):
+                gen_cfg.temperature = None
+                gen_cfg.top_p = None
+        self.image_processor = CLIPImageProcessor.from_pretrained('q-future/one-align', trust_remote_code=True)
+
+    @staticmethod
+    def _get_model_dtype(dtype):
+        if dtype != 'fp16':
+            return torch.float16
+        return torch.float16
 
     def preprocess(self, x):
         assert x.shape[0] == 1, 'Currently, only support batch size 1.'
-        images = F.to_pil_image(x[0])
-        images = expand2square(images)
-        image_tensor = self.image_processor.preprocess(images, return_tensors='pt')[
+        image = expand2square(F.to_pil_image(x[0]))
+        image_tensor = self.image_processor.preprocess(image, return_tensors='pt')[
             'pixel_values'
-        ].half()
+        ].to(dtype=self.model_dtype)
         return image_tensor.to(x.device)
 
     def forward(self, x, task_='quality', input_='image'):
         """
         task_: str, optional [quality, aesthetic]
         """
-        if input_ == 'image':
-            image_tensor = self.preprocess(x)
-            score = self.model.score(
-                images=None, image_tensor=image_tensor, task_=task_, input_=input_
-            )
-        else:
+        if input_ != 'image':
             raise NotImplementedError(f'Input type {input_} is not supported yet.')
+
+        image_tensor = self.preprocess(x)
+        score = self.model.score(
+            images=None, image_tensor=image_tensor, task_=task_, input_=input_
+        )
 
         return score

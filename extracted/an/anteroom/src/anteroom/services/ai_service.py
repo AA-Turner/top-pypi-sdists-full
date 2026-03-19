@@ -228,6 +228,20 @@ class AIService:
 
             yield chunk
 
+    def _estimate_fallback_usage(
+        self,
+        full_messages: list[dict[str, Any]],
+        response_content: str,
+    ) -> dict[str, Any] | None:
+        """Estimate usage via tiktoken when the API omits streaming usage."""
+        try:
+            from .token_estimator import estimate_usage
+
+            return estimate_usage(full_messages, response_content, self.config.model)
+        except Exception:
+            logger.debug("Token estimation fallback failed", exc_info=True)
+            return None
+
     async def stream_chat(
         self,
         messages: list[dict[str, Any]],
@@ -420,6 +434,7 @@ class AIService:
                         yield c
 
                 usage_data: dict[str, Any] | None = None
+                _response_parts: list[str] = []
                 try:
                     async for chunk in _prepended_stream():
                         # Capture usage from any chunk (sent on final chunk with include_usage)
@@ -439,6 +454,7 @@ class AIService:
                         delta = choice.delta
 
                         if delta.content:
+                            _response_parts.append(delta.content)
                             yield {"event": "token", "data": {"content": delta.content}}
 
                         if delta.tool_calls:
@@ -479,6 +495,8 @@ class AIService:
                                         "arguments": args,
                                     },
                                 }
+                            if not usage_data:
+                                usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
                             if usage_data:
                                 yield {"event": "usage", "data": usage_data}
                             return
@@ -489,6 +507,8 @@ class AIService:
                                 attempt + 1,
                                 time.monotonic() - _attempt_start,
                             )
+                            if not usage_data:
+                                usage_data = self._estimate_fallback_usage(full_messages, "".join(_response_parts))
                             if usage_data:
                                 yield {"event": "usage", "data": usage_data}
                             yield {"event": "done", "data": {}}

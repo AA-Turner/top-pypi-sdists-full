@@ -1,14 +1,15 @@
 Metadata-Version: 2.4
 Name: connect-python
-Version: 0.8.1
+Version: 0.9.0
 Summary: Server and client runtime library for Connect RPC
 Keywords: rpc,grpc,connect,protobuf,http
 License-Expression: Apache-2.0
-Classifier: Development Status :: 3 - Alpha
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,13 +19,14 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: protobuf>=5.28
-Requires-Dist: pyqwest>=0.3.3
+Requires-Dist: pyqwest>=0.4.1
 Maintainer: Anuraag Agrawal, Spencer Nelson, Stefan VanBuren, Yasushi Itoh
 Maintainer-email: Anuraag Agrawal <anuraaga@gmail.com>, Spencer Nelson <spencer@firetiger.com>, Stefan VanBuren <svanburen@buf.build>, Yasushi Itoh <i2y.may.roku@gmail.com>
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/connectrpc/connect-python
-Project-URL: Issues, https://github.com/connectrpc/connect-python/issues
 Project-URL: Repository, https://github.com/connectrpc/connect-python
+Project-URL: Issues, https://github.com/connectrpc/connect-python/issues
+Project-URL: Documentation, https://connectrpc.com/docs/python/getting-started/
 Description-Content-Type: text/markdown
 
 # connect-python
@@ -259,7 +261,7 @@ python -m example.eliza_client
 ## Supported Protocols
 
 - ✅ Connect Protocol over HTTP/1.1 and HTTP/2
-- 🚧 gRPC Protocol support is not available
+- ✅ gRPC Protocol support
 - 🚧 gRPC-Web Protocol support is not available
 
 ## Server Runtime Options
@@ -412,10 +414,10 @@ When exceeded, returns `RESOURCE_EXHAUSTED` error.
 
 ### Proto Editions Support
 
-connect-python supports Proto Editions 2023:
+`protoc-gen-connect-python` supports up to [Protobuf Editions](https://protobuf.dev/editions/overview/) 2024:
 
 ```proto
-edition = "2023";
+edition = "2024";
 
 package your.service;
 
@@ -442,8 +444,12 @@ Then, use `uv run just` to do development checks, or check out `uv run just --li
 
 ## Status
 
-This project is in alpha and is being actively developed. Expect breaking changes.
+This project is in beta and is being actively developed.
+1.0 will include a new Protobuf implementation built from scratch by Buf, which may introduce breaking changes.
+Join us on [Slack][] if you have questions or feedback.
 
 ## Legal
 
 Offered under the [Apache 2 license](/LICENSE).
+
+[slack]: https://buf.build/links/slack

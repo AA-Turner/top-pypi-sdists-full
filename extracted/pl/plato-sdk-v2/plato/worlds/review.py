@@ -80,6 +80,7 @@ FEEDBACK_WIDGETS = Literal[
     "select",
     "boolean",
     "rating",
+    "agree_disagree",
 ]
 
 

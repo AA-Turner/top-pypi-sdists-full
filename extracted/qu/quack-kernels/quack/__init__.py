@@ -1,10 +1,11 @@
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 import os
 
 from quack.rmsnorm import rmsnorm
 from quack.softmax import softmax
 from quack.cross_entropy import cross_entropy
+from quack.rounding import RoundingMode
 
 
 if os.environ.get("CUTE_DSL_PTXAS_PATH", None) is not None:
@@ -18,4 +19,5 @@ __all__ = [
     "rmsnorm",
     "softmax",
     "cross_entropy",
+    "RoundingMode",
 ]

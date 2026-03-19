@@ -105,14 +105,16 @@ class ChromaVectorStore(LangChainVectorStoreAdapter[Chroma]):
         :return: list of documents from that document with these sequence_numbers
         :rtype: list[Document]
         """
-        expr = {
+
+        filters: dict[str, Any] = {
             "$and": [
                 {self._document_name_field: {"$eq": doc_id}},
                 {self._chunk_sequence_number_field: {"$gte": seq_nums_window[0]}},
                 {self._chunk_sequence_number_field: {"$lte": seq_nums_window[-1]}},
             ]
         }
-        res = self._langchain_vector_store.get(where=expr)  # type: ignore[arg-type]
+
+        res = self._langchain_vector_store.get(where=filters)
         texts, metadatas = res["documents"], res["metadatas"]
         window_documents = [
             Document(

@@ -31,6 +31,7 @@ from . import inference_utils
 from . import launch_context as lc
 from . import layouts as layouts_lib
 from . import tcgen05
+from . import utils
 
 
 VariableKey = Any
@@ -90,16 +91,18 @@ class SMEMTiling(Constant):
 class Reduce:
   expression: Expression
   axes: tuple[int, ...]
+  # The rank of the shape of the input to the reduction. It is necessary to
+  # know this in order to reduce `TiledLayout`s correctly.
+  rank: int
+  # If `True`, the axes which are reduced are left in the result as dimensions
+  # with size one.
+  keep_dims: bool = False
 
   def __str__(self):
-    return f"Reduce([{self.axes}], {self.expression})"
-
-
-@dataclasses.dataclass(frozen=True)
-class BroadcastInDim:
-  expression: Expression
-  axes: tuple[int, ...]
-  shape: tuple[int, ...]
+    return (
+        f"Reduce([{self.axes}], {self.expression}, rank={self.rank},"
+        f" keep_dims={self.keep_dims})"
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -121,41 +124,9 @@ Expression = (
     Variable
     | Constant
     | Reduce
-    | BroadcastInDim
     | Reshape
     | Transpose
 )
-
-
-def reduce_broadcast_expression(
-    broadcast: BroadcastInDim, assignments: dict[Variable, Constant]
-) -> Expression | Unsatisfiable:
-  def _check_shape_broadcast(shape: tuple[int, ...]) -> bool:
-    for axis, s in zip(broadcast.axes, shape, strict=True):
-      if broadcast.shape[axis] != s:
-        return False
-    return True
-
-  reduced_expr = reduce_expression(broadcast.expression, assignments)
-  match reduced_expr:
-    case Unsatisfiable():
-      return Unsatisfiable()
-    case RegisterLayout(value=layout):
-      match layout:
-        case fa.WGSplatFragLayout(shape=shape):
-          if not _check_shape_broadcast(shape):
-            return Unsatisfiable()
-          return RegisterLayout(fa.WGSplatFragLayout(shape=broadcast.shape))
-        case _:
-          return BroadcastInDim(
-              expression=reduced_expr,
-              axes=broadcast.axes,
-              shape=broadcast.shape,
-          )
-    case _:
-      return BroadcastInDim(
-          expression=reduced_expr, axes=broadcast.axes, shape=broadcast.shape
-      )
 
 
 def reduce_reshape_expression(
@@ -231,6 +202,44 @@ def reduce_transpose_expression(
       return Transpose(expression=reduced_expr)
 
 
+def reduce_reduce_expression(
+    expr: Reduce, assignments: dict[Variable, Constant]
+) -> Expression | Unsatisfiable:
+  reduced_expr = reduce_expression(expr.expression, assignments)
+
+  def default():
+    """We don't know how to reduce further."""
+    return dataclasses.replace(expr, expression=reduced_expr)
+
+  match reduced_expr:
+    case Unsatisfiable():
+      return Unsatisfiable()
+    case RegisterLayout(value=fa.TiledLayout() as layout):
+      # TODO(allanrenucci): Add support for reducing tiled layouts when keep_dims=True.
+      if expr.keep_dims:
+        return default()
+      num_untiled_dims = expr.rank - len(layout.base_tile_shape)
+      reduced_tiling_axes = [
+          a - num_untiled_dims for a in expr.axes if a >= num_untiled_dims
+      ]
+      if reduced_tiling_axes:
+        return RegisterLayout(layout.reduce(reduced_tiling_axes))
+      return RegisterLayout(layout)
+    case RegisterLayout(value=fa.WGStridedFragLayout() as layout):
+      # We only support reducing leading dimensions.
+      if expr.axes != tuple(range(len(expr.axes))):
+        return default()
+      shape = utils.reduce_shape(layout.shape, expr.axes, expr.keep_dims)
+      if math.prod(shape) % (layout.vec_size * fa.WARPGROUP_SIZE) != 0:
+        return default()
+      return RegisterLayout(fa.WGStridedFragLayout(shape, layout.vec_size))
+    case RegisterLayout(value=fa.WGSplatFragLayout() as layout):
+      shape = utils.reduce_shape(layout.shape, expr.axes, expr.keep_dims)
+      return RegisterLayout(fa.WGSplatFragLayout(shape))
+    case _:
+      return default()
+
+
 def reduce_expression(
     expr: Expression, assignments: dict[Variable, Constant]
 ) -> Expression | Unsatisfiable:
@@ -240,17 +249,8 @@ def reduce_expression(
       return expr
     case Variable():
       return assignments.get(expr, expr)
-    case Reduce(expression=expr, axes=axes):
-      reduced_expr = reduce_expression(expr, assignments)
-      match reduced_expr:
-        case Unsatisfiable():
-          return Unsatisfiable()
-        case RegisterLayout(value=layout) if isinstance(layout, fa.TiledLayout):
-          return RegisterLayout(layout.reduce(axes))
-        case _:
-          return Reduce(expression=reduced_expr, axes=axes)
-    case BroadcastInDim():
-      return reduce_broadcast_expression(expr, assignments)
+    case Reduce():
+      return reduce_reduce_expression(expr, assignments)
     case Reshape():
       return reduce_reshape_expression(expr, assignments)
     case Transpose():
@@ -364,6 +364,7 @@ class IsTransferable:
   target: Expression
   # TODO(allanrenucci): Can this be derived from the layouts?
   shape: tuple[int, ...]
+  bitwidth: int
 
   def supported_tmem_transfers(
       self, packing: int
@@ -531,7 +532,51 @@ class IsValidMmaTiling:
     return f"IsValidMMATiling({self.expr}, {self.bitwidth})"
 
 
-Constraint = Equals | Relayout | NotOfType | IsTransferable | IsValidMmaTiling | Divides
+@dataclasses.dataclass(frozen=True)
+class IsSupportedBroadcast:
+  """States that `src` can be broadcasted to `dst`.
+
+  See `FragmentedArray.broadcast_in_dim` for more details.
+  """
+
+  src: Expression
+  dst: Expression
+  dims: tuple[int, ...]
+
+  def holds(self) -> bool | None:
+    match self.src, self.dst:
+      case RegisterLayout(
+          value=fa.WGStridedFragLayout() as src_layout
+      ), RegisterLayout(value=fa.WGStridedFragLayout() as dst_layout):
+        return fa.is_supported_strided_layout_broadcast(src_layout, dst_layout, self.dims)
+      case RegisterLayout(value=src_layout), RegisterLayout(value=dst_layout):
+        # This is an intentionally loose check. We rely on the presence of a
+        # `src = Reduce(dst)` constraint to enforce correctness.
+        return type(src_layout) == type(dst_layout)
+      case Constant() as src, Constant() as dst:
+        raise ValueError(
+            f"Unexpected values {src=} {dst=} in IsSupportedBroadcast"
+            " constraint"
+        )
+      case _:
+        return None
+
+  def __str__(self):
+    return (
+        f"IsSupportedBroadcast(src={self.src}, dst={self.dst},"
+        f" dims={self.dims})"
+    )
+
+
+Constraint = (
+    Equals
+    | Relayout
+    | NotOfType
+    | IsTransferable
+    | IsValidMmaTiling
+    | Divides
+    | IsSupportedBroadcast
+)
 
 
 def reduce_constraint(
@@ -561,12 +606,12 @@ def reduce_constraint(
       if isinstance(expr_red, Unsatisfiable):
         return Unsatisfiable()
       return NotOfType(expr_red, ty)
-    case IsTransferable(source=source, target=target, shape=shape):
+    case IsTransferable(source=source, target=target, shape=shape, bitwidth=bitwidth):
       source_red = reduce_expression(source, assignments)
       target_red = reduce_expression(target, assignments)
       if isinstance(source_red, Unsatisfiable) or isinstance(target_red, Unsatisfiable):
         return Unsatisfiable()
-      return IsTransferable(source_red, target_red, shape)
+      return IsTransferable(source_red, target_red, shape, bitwidth)
     case IsValidMmaTiling(expr=expr, bitwidth=bitwidth):
       expr_red = reduce_expression(expr, assignments)
       if isinstance(expr_red, Unsatisfiable):
@@ -577,6 +622,14 @@ def reduce_constraint(
       if isinstance(expr_red, Unsatisfiable):
         return Unsatisfiable()
       return Divides(expr_red, tiling_multiple)
+    case IsSupportedBroadcast(src=src, dst=dst, dims=dims):
+      src_red = reduce_expression(src, assignments)
+      dst_red = reduce_expression(dst, assignments)
+      if isinstance(src_red, Unsatisfiable) or isinstance(
+          dst_red, Unsatisfiable
+      ):
+        return Unsatisfiable()
+      return IsSupportedBroadcast(src_red, dst_red, dims)
     case _ as never:
       assert_never(never)
 
@@ -609,8 +662,6 @@ class ConstraintSystem:
           ...
         case Reduce(expression=e):
           extract_variables(e)
-        case BroadcastInDim(expression=e):
-          extract_variables(e)
         case Reshape(expression=e):
           extract_variables(e)
         case Transpose(expression=e):
@@ -627,13 +678,16 @@ class ConstraintSystem:
           extract_variables(target)
         case NotOfType(expr=expr):
           extract_variables(expr)
-        case IsTransferable(source=source, target=target, shape=_):
+        case IsTransferable(source=source, target=target, shape=_, bitwidth=_):
           extract_variables(source)
           extract_variables(target)
         case IsValidMmaTiling(expr=expr):
           extract_variables(expr)
         case Divides(expr=expr):
           extract_variables(expr)
+        case IsSupportedBroadcast(src=src, dst=dst):
+          extract_variables(src)
+          extract_variables(dst)
         case _ as never:
           assert_never(never)
     return free_variables

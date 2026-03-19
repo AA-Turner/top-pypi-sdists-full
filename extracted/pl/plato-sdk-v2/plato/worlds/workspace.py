@@ -563,7 +563,7 @@ class Workspace:
             if not scope_files:
                 return
 
-            events = self._read_audit_scope_events(scope_files)
+            events = await asyncio.to_thread(self._read_audit_scope_events, scope_files)
             if not events:
                 logger.debug("No audit events to upload for step '%s'", step_name)
                 for path in scope_files:

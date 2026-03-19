@@ -50,8 +50,8 @@ from jax._src.util import (canonicalize_axis, moveaxis, safe_map, safe_zip,
                            unzip2)
 import numpy as np
 
-unsafe_map, map = map, safe_map  # type: ignore
-unsafe_zip, zip = zip, safe_zip  # type: ignore
+unsafe_map, map = map, safe_map
+unsafe_zip, zip = zip, safe_zip
 
 
 ### parallel traceables
@@ -1477,7 +1477,7 @@ def _ragged_all_to_all_lowering(
   if not all(split_count == len(g) for g in replica_groups):
     raise ValueError('Replica groups must be equally sized')
 
-  ragged_all_to_all_attrs = {
+  ragged_all_to_all_attrs: dict[str, ir.Attribute] = {
       "replica_groups": _replica_groups_hlo(replica_groups)
   }
   is_spmd = isinstance(
@@ -1617,7 +1617,7 @@ def insert_collective_pvary(axis_name, x):
     return x
 
   axis_name = (axis_name,) if not isinstance(axis_name, tuple) else axis_name
-  aval = core.get_aval(x)
+  aval = core.typeof(x)
   names_union = set(axis_name) | aval.vma
   x = pvary(x, tuple(n for n in names_union if n not in aval.vma))
   return x
@@ -2276,7 +2276,7 @@ def bind_psum_invariant(leaf, *, axes, axis_index_groups):
   if axis_index_groups is not None:
     raise NotImplementedError
   axes_ = frozenset(axes)
-  in_vma = core.get_aval(leaf).vma
+  in_vma = core.typeof(leaf).vma
   arg = (pvary(leaf, tuple(pbroadcast_names))
          if (pbroadcast_names := axes_ - in_vma) else leaf)
   return psum_invariant_p.bind(arg, axes=axes)

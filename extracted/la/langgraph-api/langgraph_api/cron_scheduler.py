@@ -87,7 +87,7 @@ async def cron_scheduler():
                     )
 
                     if on_run_completed == "keep":
-                        run_payload.setdefault("on_completion", "keep")  # type: ignore[union-attr]
+                        run_payload.setdefault("on_completion", "keep")
 
                     run_payload["metadata"] = get_metadata_from_payload(
                         cron, run_payload

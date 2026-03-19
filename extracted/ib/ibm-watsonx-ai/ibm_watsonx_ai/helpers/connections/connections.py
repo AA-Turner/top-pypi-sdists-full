@@ -363,7 +363,7 @@ class DataConnection(BaseDataConnection):
         )
 
         return FlightConnection(
-            headers=self._api_client._get_headers(),
+            get_headers=self._api_client._get_headers,
             sampling_type=None,
             label=None,
             learning_type=None,
@@ -420,9 +420,9 @@ class DataConnection(BaseDataConnection):
                         if r["type"] in include_types
                     ]
                 else:
-                    bucket = getattr(self.location, "bucket", None) or getattr(
-                        self.connection, "bucket", None
-                    )
+                    bucket = getattr(
+                        self._connectable_self.location, "bucket", None
+                    ) or getattr(self._connectable_self.connection, "bucket", None)
                     if bucket is None:
                         raise ValueError(
                             "Missing `bucket` attribute in DataConnection.location."
@@ -462,13 +462,16 @@ class DataConnection(BaseDataConnection):
 
         cos_resource_client = self._init_cos_client()
 
-        prefix = self.location.get_location().strip("/") + "/"
+        prefix = self._connectable_self.location.get_location().strip("/") + "/"
 
         bucket_objects = []
         marker = None
 
         while True:
-            params = {"Bucket": self.location.bucket, "Prefix": prefix}
+            params = {
+                "Bucket": self._connectable_self.location.bucket,
+                "Prefix": prefix,
+            }
 
             if marker is not None:
                 params["Marker"] = marker
@@ -476,7 +479,9 @@ class DataConnection(BaseDataConnection):
             res = cos_resource_client.meta.client.list_objects(**params)
 
             if "Contents" not in res:
-                raise InvalidLocationInDataConnection(self.location.get_location())
+                raise InvalidLocationInDataConnection(
+                    self._connectable_self.location.get_location()
+                )
 
             marker = res.get("NextMarker")
             bucket_objects.extend(res["Contents"])
@@ -1220,15 +1225,20 @@ class DataConnection(BaseDataConnection):
 
         data = DataFrame()
 
-        headers = None
+        get_headers = None
         if self._api_client is None:
             token = self._get_token_from_environment()
             if token is not None:
-                headers = {"Authorization": f"Bearer {token}"}
+                get_headers = lambda: {"Authorization": f"Bearer {token}"}
         elif impersonate_header is not None:
-            headers = self._api_client._get_headers()
 
-            headers["impersonate"] = impersonate_header
+            def _get_headers():
+                headers = self._api_client._get_headers()
+                headers["impersonate"] = impersonate_header
+                return headers
+
+            get_headers = _get_headers
+
         if self.type == DataConnectionTypes.S3:
             raise ConnectionError(
                 "S3 DataConnection is not supported! Please use data_asset_id instead."
@@ -1245,8 +1255,9 @@ class DataConnection(BaseDataConnection):
                 from pyarrow.flight import FlightError
 
                 _iam_id = None
-                if headers and headers.get("impersonate"):
-                    _iam_id = get_from_json(headers, ["impersonate", "iam_id"])
+                _headers = get_headers() if get_headers is not None else None
+                if _headers and _headers.get("impersonate"):
+                    _iam_id = get_from_json(_headers, ["impersonate", "iam_id"])
 
                 self._api_client._iam_id = _iam_id
 
@@ -1301,11 +1312,10 @@ class DataConnection(BaseDataConnection):
                         )
 
                     data = self._download_data_from_flight_service(
-                        data_location=self,
                         binary=binary,
                         read_to_file=read_to_file,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                         enable_sampling=enable_sampling,
                         sampling_type=sampling_type,
                         number_of_batch_rows=number_of_batch_rows,
@@ -1389,12 +1399,11 @@ class DataConnection(BaseDataConnection):
                     if kwargs.get("skip_fallback"):
                         raise e
 
-                    data = self._download_data_from_flight_service(
-                        data_location=self,
+                    data = self._connectable_self._download_data_from_flight_service(
                         binary=binary,
                         read_to_file=read_to_file,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                         enable_sampling=enable_sampling,
                         sampling_type=sampling_type,
                         number_of_batch_rows=number_of_batch_rows,
@@ -1429,11 +1438,10 @@ class DataConnection(BaseDataConnection):
 
                 try:
                     data = self._download_data_from_flight_service(
-                        data_location=self,
                         binary=binary,
                         read_to_file=read_to_file,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                         enable_sampling=enable_sampling,
                         sampling_type=sampling_type,
                         number_of_batch_rows=number_of_batch_rows,
@@ -1491,12 +1499,11 @@ class DataConnection(BaseDataConnection):
                     if kwargs.get("skip_fallback"):
                         raise e
 
-                    data = self._download_data_from_flight_service(
-                        data_location=self,
+                    data = self._connectable_self._download_data_from_flight_service(
                         binary=binary,
                         read_to_file=read_to_file,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                         enable_sampling=enable_sampling,
                         sampling_type=sampling_type,
                         number_of_batch_rows=number_of_batch_rows,
@@ -1505,26 +1512,6 @@ class DataConnection(BaseDataConnection):
                         total_nrows_limit=total_nrows_limit,
                         total_percentage_limit=total_percentage_limit,
                     )
-
-        # Remove additional params and inline credentials added by
-        # `_check_if_connection_asset_is_s3`. Don't remove additional
-        # params if client is used internally.
-        if not getattr(self._api_client, "_internal", False):
-            for attr in filter(
-                lambda x: hasattr(self.connection, x),
-                [
-                    "secret_access_key",
-                    "access_key_id",
-                    "endpoint_url",
-                    "access_key",
-                    "secret_key",
-                    "session_token",
-                    "is_s3",
-                    "bucket",
-                    "region",
-                ],
-            ):
-                delattr(self.connection, attr)
 
         # create data statistics if data were not downloaded with flight:
         if not isinstance(data, tuple) and _return_subsampling_stats:
@@ -1642,7 +1629,7 @@ class DataConnection(BaseDataConnection):
 
         impersonate_header = kwargs.get("impersonate_header", None)
 
-        headers = None
+        get_headers = None
         if isinstance(data, str):
             data = Path(data)
 
@@ -1655,10 +1642,15 @@ class DataConnection(BaseDataConnection):
                 )
 
             else:
-                headers = {"Authorization": f"Bearer {token}"}
+                get_headers = lambda: {"Authorization": f"Bearer {token}"}
         elif impersonate_header is not None:
-            headers = self._api_client._get_headers()
-            headers["impersonate"] = impersonate_header
+
+            def _get_headers():
+                headers = self._api_client._get_headers()
+                headers["impersonate"] = impersonate_header
+                return headers
+
+            get_headers = _get_headers
 
         # TODO: Remove S3 implementation
         if self.type == DataConnectionTypes.S3:
@@ -1706,7 +1698,8 @@ class DataConnection(BaseDataConnection):
                     if isinstance(data, Path):
                         with data.open("rb") as file_data:
                             cos_resource_client.Object(
-                                self.location.bucket, updated_remote_name
+                                self._connectable_self.location.bucket,
+                                updated_remote_name,
                             ).upload_fileobj(Fileobj=file_data)
 
                     elif isinstance(data, DataFrame):
@@ -1717,7 +1710,8 @@ class DataConnection(BaseDataConnection):
 
                         with buffer as f:
                             cos_resource_client.Object(
-                                self.location.bucket, updated_remote_name
+                                self._connectable_self.location.bucket,
+                                updated_remote_name,
                             ).upload_fileobj(
                                 Fileobj=io.BytesIO(bytes(f.read().encode()))
                             )
@@ -1742,20 +1736,18 @@ class DataConnection(BaseDataConnection):
                     if isinstance(data, Path):
                         self._upload_data_via_flight_service(
                             file_path=data,
-                            data_location=self,
                             remote_name=remote_name,
                             flight_parameters=flight_parameters,
-                            headers=headers,
+                            get_headers=get_headers,
                         )
 
                     elif isinstance(data, DataFrame):
                         # note: we are saving csv in memory as a file and stream it to the COS
                         self._upload_data_via_flight_service(
                             data=data,
-                            data_location=self,
                             remote_name=remote_name,
                             flight_parameters=flight_parameters,
-                            headers=headers,
+                            get_headers=get_headers,
                         )
 
                     else:
@@ -1777,10 +1769,9 @@ class DataConnection(BaseDataConnection):
                     if isinstance(data, Path):
                         self._upload_data_via_flight_service(
                             file_path=data,
-                            data_location=self,
                             remote_name=remote_name,
                             flight_parameters=flight_parameters,
-                            headers=headers,
+                            get_headers=get_headers,
                             binary=kwargs.get("binary", False),
                         )
 
@@ -1788,10 +1779,9 @@ class DataConnection(BaseDataConnection):
                         # note: we are saving csv in memory as a file and stream it to the COS
                         self._upload_data_via_flight_service(
                             data=data,
-                            data_location=self,
                             remote_name=remote_name,
                             flight_parameters=flight_parameters,
-                            headers=headers,
+                            get_headers=get_headers,
                         )
 
                     else:
@@ -1799,26 +1789,6 @@ class DataConnection(BaseDataConnection):
                             'data should be either of type "str" or "pandas.DataFrame"'
                         )
 
-            if getattr(self._api_client, "_internal", False):
-                pass  # don't remove additional params if client is used internally
-            else:
-                # note: remove additional params and inline credentials added by _check_if_connection_asset_is_s3:
-                [
-                    delattr(self.connection, attr)
-                    for attr in [
-                        "secret_access_key",
-                        "access_key_id",
-                        "endpoint_url",
-                        "access_key",
-                        "secret_key",
-                        "session_token",
-                        "is_s3",
-                        "bucket",
-                        "region",
-                    ]
-                    if hasattr(self.connection, attr)
-                ]
-                # end note
         elif self.type == DataConnectionTypes.DS:
             if (
                 self._api_client is not None
@@ -1833,20 +1803,18 @@ class DataConnection(BaseDataConnection):
                 if isinstance(data, Path):
                     self._upload_data_via_flight_service(
                         file_path=data,
-                        data_location=self,
                         remote_name=remote_name,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                     )
 
                 elif isinstance(data, DataFrame):
                     # note: we are saving csv in memory as a file and stream it to the COS
                     self._upload_data_via_flight_service(
                         data=data,
-                        data_location=self,
                         remote_name=remote_name,
                         flight_parameters=flight_parameters,
-                        headers=headers,
+                        get_headers=get_headers,
                     )
 
                 else:
@@ -1857,10 +1825,9 @@ class DataConnection(BaseDataConnection):
             else:
                 self._upload_data_via_flight_service(
                     data=data,
-                    data_location=self,
                     remote_name=remote_name,
                     flight_parameters=flight_parameters,
-                    headers=headers,
+                    get_headers=get_headers,
                 )
         elif (
             self.type == DataConnectionTypes.FS
@@ -1898,37 +1865,39 @@ class DataConnection(BaseDataConnection):
 
         # Make sure endpoint_url startswith 'https://' prefix
         if hasattr(
-            self.connection, "endpoint_url"
-        ) and not self.connection.endpoint_url.startswith("https://"):
-            self.connection.endpoint_url = "https://" + self.connection.endpoint_url
+            self._connectable_self.connection, "endpoint_url"
+        ) and not self._connectable_self.connection.endpoint_url.startswith("https://"):
+            self._connectable_self.connection.endpoint_url = (
+                "https://" + self._connectable_self.connection.endpoint_url
+            )
 
         try:
-            if isinstance(self.connection, _AmazonS3Connection):
+            if isinstance(self._connectable_self.connection, _AmazonS3Connection):
                 cos_client = resource(
                     service_name="s3",
-                    endpoint_url=f"https://s3.{self.connection.region}.amazonaws.com",
-                    aws_access_key_id=self.connection.access_key,
-                    aws_secret_access_key=self.connection.secret_key,
-                    aws_session_token=self.connection.session_token,
+                    endpoint_url=f"https://s3.{self._connectable_self.connection.region}.amazonaws.com",
+                    aws_access_key_id=self._connectable_self.connection.access_key,
+                    aws_secret_access_key=self._connectable_self.connection.secret_key,
+                    aws_session_token=self._connectable_self.connection.session_token,
                 )
 
-            elif hasattr(self.connection, "auth_endpoint") and hasattr(
-                self.connection, "api_key"
-            ):
+            elif hasattr(
+                self._connectable_self.connection, "auth_endpoint"
+            ) and hasattr(self._connectable_self.connection, "api_key"):
                 cos_client = resource(
                     service_name="s3",
-                    ibm_api_key_id=self.connection.api_key,
-                    ibm_auth_endpoint=self.connection.auth_endpoint,
+                    ibm_api_key_id=self._connectable_self.connection.api_key,
+                    ibm_auth_endpoint=self._connectable_self.connection.auth_endpoint,
                     config=Config(signature_version="oauth"),
-                    endpoint_url=self.connection.endpoint_url,
+                    endpoint_url=self._connectable_self.connection.endpoint_url,
                 )
 
             else:
                 cos_client = resource(
                     service_name="s3",
-                    endpoint_url=self.connection.endpoint_url,
-                    aws_access_key_id=self.connection.access_key_id,
-                    aws_secret_access_key=self.connection.secret_access_key,
+                    endpoint_url=self._connectable_self.connection.endpoint_url,
+                    aws_access_key_id=self._connectable_self.connection.access_key_id,
+                    aws_secret_access_key=self._connectable_self.connection.secret_access_key,
                 )
         except ValueError as e:
             raise WMLClientError(
@@ -1948,37 +1917,39 @@ class DataConnection(BaseDataConnection):
 
         # Make sure endpoint_url startswith 'https://' prefix
         if hasattr(
-            self.connection, "endpoint_url"
-        ) and not self.connection.endpoint_url.startswith("https://"):
-            self.connection.endpoint_url = "https://" + self.connection.endpoint_url
+            self._connectable_self.connection, "endpoint_url"
+        ) and not self._connectable_self.connection.endpoint_url.startswith("https://"):
+            self._connectable_self.connection.endpoint_url = (
+                "https://" + self._connectable_self.connection.endpoint_url
+            )
 
         try:
-            if isinstance(self.connection, _AmazonS3Connection):
+            if isinstance(self._connectable_self.connection, _AmazonS3Connection):
                 cos_client = resource(
                     service_name="s3",
-                    endpoint_url=f"https://s3.{self.connection.region}.amazonaws.com",
-                    aws_access_key_id=self.connection.access_key,
-                    aws_secret_access_key=self.connection.secret_key,
-                    aws_session_token=self.connection.session_token,
+                    endpoint_url=f"https://s3.{self._connectable_self.connection.region}.amazonaws.com",
+                    aws_access_key_id=self._connectable_self.connection.access_key,
+                    aws_secret_access_key=self._connectable_self.connection.secret_key,
+                    aws_session_token=self._connectable_self.connection.session_token,
                 )
 
-            elif hasattr(self.connection, "auth_endpoint") and hasattr(
-                self.connection, "api_key"
-            ):
+            elif hasattr(
+                self._connectable_self.connection, "auth_endpoint"
+            ) and hasattr(self._connectable_self.connection, "api_key"):
                 cos_client = resource(
                     service_name="s3",
-                    ibm_api_key_id=self.connection.api_key,
-                    ibm_auth_endpoint=self.connection.auth_endpoint,
+                    ibm_api_key_id=self._connectable_self.connection.api_key,
+                    ibm_auth_endpoint=self._connectable_self.connection.auth_endpoint,
                     config=Config(signature_version="oauth"),
-                    endpoint_url=self.connection.endpoint_url,
+                    endpoint_url=self._connectable_self.connection.endpoint_url,
                 )
 
             else:
                 cos_client = resource(
                     service_name="s3",
-                    endpoint_url=self.connection.endpoint_url,
-                    aws_access_key_id=self.connection.access_key_id,
-                    aws_secret_access_key=self.connection.secret_access_key,
+                    endpoint_url=self._connectable_self.connection.endpoint_url,
+                    aws_access_key_id=self._connectable_self.connection.access_key_id,
+                    aws_secret_access_key=self._connectable_self.connection.secret_access_key,
                 )
         except ValueError as e:
             raise WMLClientError(
@@ -1987,10 +1958,15 @@ class DataConnection(BaseDataConnection):
         # -- end note
 
         try:
-            files = cos_client.Bucket(self.location.bucket).objects.all()
-            next(x for x in files if x.key == self.location.path)
+            files = cos_client.Bucket(
+                self._connectable_self.location.bucket
+            ).objects.all()
+            next(x for x in files if x.key == self._connectable_self.location.path)
         except Exception:
-            raise NotExistingCOSResource(self.location.bucket, self.location.path)
+            raise NotExistingCOSResource(
+                self._connectable_self.location.bucket,
+                self._connectable_self.location.path,
+            )
 
     def _update_flight_parameters_with_connection_details(
         self, flight_parameters: dict, is_binary=True
@@ -1999,29 +1975,35 @@ class DataConnection(BaseDataConnection):
             if self._is_connection_asset_s3:
                 self._init_s3_connection()
 
-            if isinstance(self.connection, S3Connection):
+            if isinstance(self._connectable_self.connection, S3Connection):
                 connection_properties = {
-                    "bucket": self.location.bucket,
-                    "url": self.connection.endpoint_url,
+                    "bucket": self._connectable_self.location.bucket,
+                    "url": self._connectable_self.connection.endpoint_url,
                 }
 
                 if all(
-                    hasattr(self.connection, key)
+                    hasattr(self._connectable_self.connection, key)
                     for key in ["auth_endpoint", "api_key"]
                 ):
-                    connection_properties["iam_url"] = self.connection.auth_endpoint
-                    connection_properties["api_key"] = self.connection.api_key
+                    connection_properties["iam_url"] = (
+                        self._connectable_self.connection.auth_endpoint
+                    )
+                    connection_properties["api_key"] = (
+                        self._connectable_self.connection.api_key
+                    )
                     connection_properties["resource_instance_id"] = (
-                        self.connection.resource_instance_id
+                        self._connectable_self.connection.resource_instance_id
                     )
                 else:
                     connection_properties["secret_key"] = (
-                        self.connection.secret_access_key
+                        self._connectable_self.connection.secret_access_key
                     )
-                    connection_properties["access_key"] = self.connection.access_key_id
+                    connection_properties["access_key"] = (
+                        self._connectable_self.connection.access_key_id
+                    )
 
             else:  # AmazonS3 for containers
-                connection_properties = self.connection.to_dict()
+                connection_properties = self._connectable_self.connection.to_dict()
 
         flight_parameters["connection_properties"] = connection_properties
         flight_parameters["datasource_type"] = {

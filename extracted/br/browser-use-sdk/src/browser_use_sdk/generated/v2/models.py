@@ -349,9 +349,24 @@ class Name(RootModel[str]):
     )
 
 
+class UserId(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Your internal user identifier for this profile. Use this to associate a profile with a user in your system.',
+        max_length=255,
+        title='User ID',
+    )
+
+
 class ProfileCreateRequest(BaseModel):
     name: Name | None = Field(
         None, description='Optional name for the profile', title='Name'
+    )
+    user_id: UserId | None = Field(
+        None,
+        alias='userId',
+        description='Your internal user identifier for this profile. Use this to associate a profile with a user in your system.',
+        title='User ID',
     )
 
 
@@ -363,10 +378,22 @@ class ProfileUpdateRequest(BaseModel):
     name: Name | None = Field(
         None, description='Optional name for the profile', title='Name'
     )
+    user_id: UserId | None = Field(
+        None,
+        alias='userId',
+        description='Your internal user identifier for this profile. Use this to associate a profile with a user in your system.',
+        title='User ID',
+    )
 
 
 class ProfileView(BaseModel):
     id: UUID = Field(..., description='Unique identifier for the profile', title='ID')
+    user_id: str | None = Field(
+        None,
+        alias='userId',
+        description='Your internal user identifier for this profile. Use this to associate a profile with a user in your system.',
+        title='User ID',
+    )
     name: str | None = Field(
         None, description='Optional name for the profile', title='Name'
     )
@@ -690,9 +717,9 @@ class SessionSettings(BaseModel):
         title='Profile ID',
     )
     proxy_country_code: ProxyCountryCode | None = Field(
-        None,
+        'us',
         alias='proxyCountryCode',
-        description='Proxy country code for geo-targeted browsing. If set, proxy is enabled with that country. If session_settings is provided but proxy_country_code is not set, proxy is disabled.',
+        description='Proxy country code for geo-targeted browsing. Defaults to US. Set to null to disable proxy.',
         title='Proxy Country Code',
     )
     browser_screen_width: BrowserScreenWidth | None = Field(
@@ -1002,6 +1029,11 @@ class TaskStepView(BaseModel):
         ...,
         description='List of stringified json actions performed by the agent in this step',
         title='Actions',
+    )
+    duration: float | None = Field(
+        None,
+        description='Duration of the step in seconds. Calculated as the time elapsed from the previous step completion (or task start for the first step) to this step completion.',
+        title='Duration',
     )
 
 
@@ -1379,9 +1411,9 @@ class CreateBrowserSessionRequest(BaseModel):
         title='Profile ID',
     )
     proxy_country_code: ProxyCountryCode | None = Field(
-        None,
+        'us',
         alias='proxyCountryCode',
-        description='Country code for proxy location.',
+        description='Country code for proxy location. Defaults to US. Set to null to disable proxy.',
         title='Proxy Country Code',
     )
     timeout: int | None = Field(
@@ -1410,7 +1442,7 @@ class CreateBrowserSessionRequest(BaseModel):
     custom_proxy: CustomProxy | None = Field(
         None,
         alias='customProxy',
-        description='Custom proxy settings to use for the session. If not provided, our proxies will be used. Custom proxies are only available for Business and Scaleup subscribers.',
+        description='Custom proxy settings to use for the session. If not provided, our proxies will be used. Custom proxies are only available on the Custom Enterprise plan.',
         title='Custom Proxy',
     )
     enable_recording: bool | None = Field(
@@ -1429,9 +1461,9 @@ class CreateSessionRequest(BaseModel):
         title='Profile ID',
     )
     proxy_country_code: ProxyCountryCode | None = Field(
-        None,
+        'us',
         alias='proxyCountryCode',
-        description='Country code for proxy location.',
+        description='Country code for proxy location. Defaults to US. Set to null to disable proxy.',
         title='Proxy Country Code',
     )
     start_url: str | None = Field(
@@ -1467,7 +1499,7 @@ class CreateSessionRequest(BaseModel):
     custom_proxy: CustomProxy | None = Field(
         None,
         alias='customProxy',
-        description='Custom proxy settings to use for the session. If not provided, our proxies will be used. Custom proxies are only available for Business and Scaleup subscribers.',
+        description='Custom proxy settings to use for the session. If not provided, our proxies will be used. Custom proxies are only available on the Custom Enterprise plan.',
         title='Custom Proxy',
     )
     enable_recording: bool | None = Field(
@@ -1487,7 +1519,7 @@ class CreateTaskRequest(BaseModel):
         title='Task',
     )
     llm: SupportedLLMs | None = Field(
-        SupportedLLMs.browser_use_2_0,
+        'browser-use-2.0',
         description='The LLM model to use for the agent.',
         title='LLM',
     )

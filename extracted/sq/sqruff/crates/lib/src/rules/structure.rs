@@ -9,6 +9,9 @@ pub mod st06;
 pub mod st07;
 pub mod st08;
 pub mod st09;
+pub mod st10;
+pub mod st11;
+pub mod st12;
 
 pub fn rules() -> Vec<ErasedRule> {
     use crate::core::rules::Erased as _;
@@ -23,5 +26,8 @@ pub fn rules() -> Vec<ErasedRule> {
         st07::RuleST07.erased(),
         st08::RuleST08.erased(),
         st09::RuleST09::default().erased(),
+        st10::RuleST10.erased(),
+        st11::RuleST11.erased(),
+        st12::RuleST12.erased(),
     ]
 }

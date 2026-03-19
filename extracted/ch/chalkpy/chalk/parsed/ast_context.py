@@ -30,5 +30,6 @@ def set_project_ast_context(
     project_root = project_root.resolve()
     resolved_repo_files = [str(path.resolve()) for path in repo_files]
     index = AstProjectIndex(resolved_repo_files, str(project_root))
+    index.nonblocking_start_index()
     CURRENT_PROJECT_AST_CONTEXT.set(index)
     return index

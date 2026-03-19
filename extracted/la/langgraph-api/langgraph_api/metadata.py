@@ -92,7 +92,7 @@ def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
         and (app := config.HTTP_CONFIG.get("app"))
         and isinstance(app, str)
     ):
-        app_path = app.split(":", 1)[0]  # type: ignore[possibly-unresolved-reference]
+        app_path = app.split(":", 1)[0]
         js_proxy_middleware_enabled = is_js_path(app_path)
 
     tags = {

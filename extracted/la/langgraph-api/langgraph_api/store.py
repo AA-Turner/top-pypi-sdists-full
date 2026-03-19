@@ -103,7 +103,7 @@ def _load_store(store_path: str) -> Any:
                 raise ValueError(f"Could not find store file: {path_name}")
             module = importlib.util.module_from_spec(modspec)
             sys.modules[module_name] = module
-            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+            modspec.loader.exec_module(module)
 
         else:
             path_name, function = store_path.rsplit(".", 1)

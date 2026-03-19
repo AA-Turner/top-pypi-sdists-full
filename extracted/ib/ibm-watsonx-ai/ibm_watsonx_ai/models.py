@@ -1019,7 +1019,7 @@ class Models(WMLResource):
                 if results_reference_obj._is_connection_asset_s3:
                     results_reference_obj._init_s3_connection()
 
-                results_reference = results_reference_obj._to_dict()
+                results_reference = results_reference_obj._connectable_self._to_dict()
 
                 cos_client = init_cos_client(results_reference["connection"])
                 bucket = results_reference["location"].get(
@@ -1181,7 +1181,7 @@ class Models(WMLResource):
                 if results_reference_obj._is_connection_asset_s3:
                     results_reference_obj._init_s3_connection()
 
-                results_reference = results_reference_obj._to_dict()
+                results_reference = results_reference_obj._connectable_self._to_dict()
 
                 cos_client = init_cos_client(results_reference["connection"])
                 bucket = results_reference["location"].get(

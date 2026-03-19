@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vibefoundry
-Version: 0.1.187
+Version: 0.1.223
 Summary: A local IDE for data science workflows with script running, metadata generation, and GitHub Codespace sync
 Author: VibeFoundry
 License: MIT
@@ -28,7 +28,6 @@ Requires-Dist: polars-lts-cpu>=1.0.0
 Requires-Dist: pyarrow>=14.0.0
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: openpyxl>=3.1.0
-Requires-Dist: fastexcel>=0.7.0
 Requires-Dist: websockets>=11.0.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: xlsx2csv>=0.8.0

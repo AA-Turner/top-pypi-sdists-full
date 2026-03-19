@@ -89,6 +89,7 @@ class DataBackendFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = DataBackend
+        django_get_or_create = ("backend_class_path", "backend_class_name")
 
 
 class ExportSourceFactory(factory.django.DjangoModelFactory):

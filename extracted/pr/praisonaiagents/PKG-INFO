@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.5.74
+Version: 1.5.80
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -50,6 +50,9 @@ Provides-Extra: autonomy
 Requires-Dist: ast-grep-cli>=0.30.0; extra == "autonomy"
 Provides-Extra: search
 Requires-Dist: ddgs>=9.0.0; extra == "search"
+Provides-Extra: crawl
+Requires-Dist: crawl4ai>=0.4.0; extra == "crawl"
+Requires-Dist: playwright>=1.47.0; extra == "crawl"
 Provides-Extra: all
 Requires-Dist: praisonaiagents[memory]; extra == "all"
 Requires-Dist: praisonaiagents[knowledge]; extra == "all"
@@ -61,6 +64,7 @@ Requires-Dist: praisonaiagents[telemetry]; extra == "all"
 Requires-Dist: praisonaiagents[mongodb]; extra == "all"
 Requires-Dist: praisonaiagents[auth]; extra == "all"
 Requires-Dist: praisonaiagents[search]; extra == "all"
+Requires-Dist: praisonaiagents[crawl]; extra == "all"
 
 <p align="center">
   <picture>

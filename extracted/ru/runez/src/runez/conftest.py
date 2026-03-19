@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import sys
+from pathlib import Path
 
 import _pytest.logging
 import pytest
@@ -60,7 +61,7 @@ class IsolatedLogSetup:
         self.temp_folder = None
         self.abort_exception = None
         self.old_cwd = None
-        self.old_env_vars = None
+        self.old_env_vars: dict[str, str] = {}  # populated in __enter__
 
     def __enter__(self):
         WrappedHandler.isolation += 1
@@ -114,13 +115,13 @@ def cli():
 
     Example usage:
 
-        from runez.conftest import cli
+        from runez.conftest import ClickRunner
         from my_cli import main
 
-        cli.default_main = main  # Handy if you have only one main
+        ClickRunner.default_main = main  # Handy if you have only one main
 
         def test_help(cli):
-            cli.main = main  # Not needed if `cli.default_main` was set
+            cli.main = main  # Not needed if `ClickRunner.default_main` was set
             cli.run("--help")
             assert cli.succeeded
             assert cli.match("Usage:")
@@ -128,15 +129,17 @@ def cli():
             # or more specifically
             assert "Usage:" in cli.logged.stdout
     """
-    with cli.context() as context:
+    wrapper = ClickRunner.context_wrapper
+    deprecated_context = getattr(cli, "context", None)
+    if deprecated_context is not None:  # pragma: no cover, for temporary backwards compat
+        import warnings
+
+        msg = "Please use `ClickRunner.context_wrapper = ...` instead of `cli.context = ...`"
+        warnings.warn(msg, DeprecationWarning, stacklevel=1)
+        wrapper = deprecated_context
+
+    with wrapper() as context:
         yield ClickRunner(context=context)
-
-
-# Comes in handy for click apps with only one main entry point
-cli.default_main = None
-
-# Can be customized by users, wraps cli (fixture) runs in given context
-cli.context = TempFolder
 
 
 @pytest.fixture
@@ -186,7 +189,8 @@ class WrappedHandler(_pytest.logging.LogCaptureHandler):
     @classmethod
     def clean_accumulated_logs(cls):
         """Reset pytest log accumulator"""
-        cls._current_instance.reset()
+        if cls._current_instance is not None:
+            cls._current_instance.reset()
 
 
 _pytest.logging.LogCaptureHandler = WrappedHandler
@@ -195,26 +199,29 @@ _pytest.logging.LogCaptureHandler = WrappedHandler
 class ClickWrapper:
     """Wrap click invoke, when click is available, otherwise just call provided function"""
 
-    def __init__(self, stdout, stderr, exit_code, exception):
-        self.stdout = stdout
-        self.stderr = stderr
-        self.exit_code = exit_code
-        self.exception = exception
+    def __init__(self, stdout=None, stderr=None, exit_code=None, exception=None):
+        self.stdout: str | None = stdout
+        self.stderr: str | None = stderr
+        self.exit_code: int | None = exit_code
+        self.exception: BaseException | None = exception
 
 
 class ClickRunner:
     """Allows to provide a test-friendly fixture around testing click entry-points"""
 
-    args: list = None  # Arguments used in last run()
-    exit_code: int = None  # Exit code of last run()
+    default_main = None  # Class-level default main entry point, set from user's conftest.py
+    context_wrapper = TempFolder  # Class-level context manager to use for cli fixture runs
+
+    args: list | None = None  # Arguments used in last run()
+    exit_code: int | None = None  # Exit code of last run()
     logged: TrackedOutput  # Captured log from last run()
-    main: callable = None  # Optional, override default_main for this runner instance
-    trace: bool = None  # Optional, enable trace logging for this runner instance
+    main = None  # Optional, override default_main for this runner instance
+    trace: bool | None = None  # Optional, enable trace logging for this runner instance
 
     def __init__(self, context=None):
         """
         Args:
-            context (callable | None): Context (example: temp folder) this click run was invoked under
+            context: Active context instance (example: temp folder) this click run was invoked under
         """
         self.context = context
 
@@ -237,9 +244,6 @@ class ClickRunner:
     def tests_folder(self) -> str:
         """Convenience shortcut to DEV.tests_folder"""
         return DEV.tests_folder
-
-    def assert_printed(self, expected):
-        self.logged.assert_printed(expected)
 
     def exercise_main(self, *entry_points):
         """Run --help on given entry point scripts, for code coverage.
@@ -269,34 +273,41 @@ class ClickRunner:
             main (callable | None): Optional, override current self.main just for this run
             trace (bool): If True, enable trace logging
         """
-        main = _R.rdefault(main, self.main or cli.default_main)
+        main = _R.rdefault(main, self.main or ClickRunner.default_main)
+        if not main:  # pragma: no cover, for temporary backwards compat
+            # Backwards compatibility: grab deprecated `cli.default_main` if present
+            main = getattr(cli, "default_main", None)
+            if main:
+                import warnings
+
+                msg = "Please use `ClickRunner.default_main = ...` instead of `cli.default_main = ...`"
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
         if len(args) == 1 and hasattr(args[0], "split"):
             # Convenience: allow to provide full command as one string argument
             args = args[0].split()
 
         self.args = flattened(args, shellify=True)
-        with IsolatedLogSetup(adjust_tmp=False):
-            with CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged:
-                self.logged = logged
-                with TempArgv(self.args, exe=exe):
-                    result = self._run_main(main, self.args)
-                    if isinstance(result.exception, AssertionError):
-                        raise result.exception
+        with (
+            IsolatedLogSetup(adjust_tmp=False),
+            CaptureOutput(dryrun=_R.is_dryrun(), seed_logging=True, trace=_R.rdefault(trace, self.trace)) as logged,
+        ):
+            self.logged = logged
+            with TempArgv(self.args, exe=exe):
+                result = self._run_main(main, self.args)
+                if isinstance(result.exception, AssertionError):
+                    raise result.exception
 
-                    if result.stdout:
-                        logged.stdout.buffer.write(result.stdout)
+                if result.stdout and logged.stdout is not None:
+                    logged.stdout.buffer.write(result.stdout)
 
-                    if result.stderr:
-                        logged.stderr.buffer.write(result.stderr)
+                if result.stderr and logged.stderr is not None:
+                    logged.stderr.buffer.write(result.stderr)
 
-                    if result.exception and not isinstance(result.exception, SystemExit):
-                        try:
-                            raise result.exception
+                if result.exception and not isinstance(result.exception, SystemExit):
+                    LOG.error("Exited with stacktrace:", exc_info=result.exception)
 
-                        except Exception:
-                            LOG.exception("Exited with stacktrace:")
-
-                    self.exit_code = result.exit_code
+                self.exit_code = result.exit_code
 
         if self.logged:
             WrappedHandler.clean_accumulated_logs()
@@ -394,7 +405,7 @@ class ClickRunner:
         self.expect_messages(*expected, **spec.to_dict())
 
     def _resolved_script(self, script):
-        if script.startswith("-") or os.path.exists(script):
+        if isinstance(script, Path) or script.startswith("-") or os.path.exists(script):
             return script
 
         path = self.project_path(script)
@@ -406,20 +417,31 @@ class ClickRunner:
             return path
 
     def _run_main(self, main, args):
-        if _ClickCommand is not None and isinstance(main, _ClickCommand):
+        if _ClickCommand is not None and isinstance(main, _ClickCommand) and _CliRunner is not None:
             if "LANG" not in os.environ:
                 # Avoid click complaining about unicode for tests that mock env vars
-                os.environ["LANG"] = "en_US.UTF-8"
+                os.environ.setdefault("LANG", "en_US.UTF-8")
 
             runner = _CliRunner()
             r = runner.invoke(main, args=args)
-            return ClickWrapper(r.output, None, r.exit_code, r.exception)
+            return ClickWrapper(stdout=r.output, exit_code=r.exit_code, exception=r.exception)
 
         if callable(main):
-            result = ClickWrapper(None, None, None, None)
+            result = ClickWrapper()
             try:
-                result.stdout = main()
-                result.exit_code = 0
+                return_value = main()
+                if return_value is None:
+                    # Usual case: most `main()` function return None
+                    result.exit_code = 0
+
+                elif isinstance(return_value, int):
+                    # `main()` function wants to exit with returned exit code
+                    result.exit_code = return_value
+
+                else:
+                    # Conventionally when `main()` returns a string, the string is output to stderr and `sys.exit(1)` is called
+                    result.stderr = stringified(return_value)
+                    result.exit_code = 1
 
             except AssertionError:
                 raise
@@ -439,15 +461,15 @@ class ClickRunner:
 
             return result
 
-        assert isinstance(main, str), "Can't invoke invalid main: %s" % main
+        assert isinstance(main, (str, Path)), "Can't invoke invalid main: %s" % main
         script = self._resolved_script(main)
         assert script, "Can't find script '%s', invalid main" % main
         r = runez.run(sys.executable, script, *args, fatal=False)
-        return ClickWrapper(r.output, r.error, r.exit_code, r.exc_info)
+        return ClickWrapper(stdout=r.output, stderr=r.error, exit_code=r.exit_code, exception=r.exc_info)
 
 
 class RunSpec(Slotted):
-    __slots__ = ["stdout", "stderr", "regex"]
+    __slots__ = ("regex", "stderr", "stdout")
 
     def _get_defaults(self):
         return UNSET

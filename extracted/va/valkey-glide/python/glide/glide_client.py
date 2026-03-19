@@ -31,7 +31,12 @@ from glide.glide import (
 )
 from glide_shared.commands.command_args import ObjectType
 from glide_shared.commands.core_options import PubSubMsg
-from glide_shared.config import BaseClientConfiguration, ServerCredentials
+from glide_shared.config import (
+    BaseClientConfiguration,
+    GlideClientConfiguration,
+    GlideClusterClientConfiguration,
+    ServerCredentials,
+)
 from glide_shared.constants import (
     DEFAULT_READ_BYTES_SIZE,
     OK,
@@ -43,6 +48,7 @@ from glide_shared.exceptions import (
     ClosingError,
     ConfigurationError,
     ConnectionError,
+    RequestError,
     get_request_error_class,
 )
 from glide_shared.protobuf.command_request_pb2 import (
@@ -126,6 +132,7 @@ class BaseClient(CoreCommands):
         self.config: BaseClientConfiguration = config
         self._available_futures: Dict[int, "TFuture"] = {}
         self._available_callback_indexes: List[int] = list()
+        self._next_callback_index: int = 1  # 0 is reserved for connection setup
         self._buffered_requests: List[TRequest] = list()
         self._writer_lock = threading.Lock()
         self.socket_path: Optional[str] = None
@@ -374,6 +381,8 @@ class BaseClient(CoreCommands):
         if isinstance(arg, str):
             # TODO: Allow passing different encoding options
             return bytes(arg, encoding="utf8")
+        if isinstance(arg, (bytearray, memoryview)):
+            return bytes(arg)
         return arg
 
     def _encode_and_sum_size(
@@ -395,7 +404,7 @@ class BaseClient(CoreCommands):
         if not args_list:
             return (encoded_args_list, args_size)
         for arg in args_list:
-            encoded_arg = self._encode_arg(arg) if isinstance(arg, str) else arg
+            encoded_arg = self._encode_arg(arg)
             encoded_args_list.append(encoded_arg)
             args_size += len(encoded_arg)
         return (encoded_args_list, args_size)
@@ -421,8 +430,7 @@ class BaseClient(CoreCommands):
         request.callback_idx = self._get_callback_index()
         request.single_command.request_type = request_type
         request.single_command.args_array.args[:] = [
-            bytes(elem, encoding="utf8") if isinstance(elem, str) else elem
-            for elem in args
+            self._encode_arg(elem) for elem in args
         ]
         encoded_args, args_size = self._encode_and_sum_size(args)
         if args_size < MAX_REQUEST_ARGS_LEN:
@@ -527,11 +535,6 @@ class BaseClient(CoreCommands):
                 "Unable to execute requests; the client is closed. Please create a new client."
             )
 
-        if not self.config._is_pubsub_configured():
-            raise ConfigurationError(
-                "The operation will never complete since there was no pubsub subscriptions applied to the client."
-            )
-
         if self.config._get_pubsub_callback_and_context()[0] is not None:
             raise ConfigurationError(
                 "The operation will never complete since messages will be passed to the configured callback."
@@ -554,14 +557,9 @@ class BaseClient(CoreCommands):
                 "Unable to execute requests; the client is closed. Please create a new client."
             )
 
-        if not self.config._is_pubsub_configured():
-            raise ConfigurationError(
-                "The operation will never succeed since there was no pubsbub subscriptions applied to the client."
-            )
-
         if self.config._get_pubsub_callback_and_context()[0] is not None:
             raise ConfigurationError(
-                "The operation will never succeed since messages will be passed to the configured callback."
+                "The operation will never complete since messages will be passed to the configured callback."
             )
 
         # locking might not be required
@@ -648,11 +646,23 @@ class BaseClient(CoreCommands):
         try:
             return self._available_callback_indexes.pop()
         except IndexError:
-            # The list is empty
-            return len(self._available_futures)
+            # Use monotonic counter to avoid index collisions with cancelled futures
+            idx = self._next_callback_index
+            self._next_callback_index += 1
+            return idx
 
     async def _process_response(self, response: Response) -> None:
         res_future = self._available_futures.pop(response.callback_idx, None)
+        if res_future is not None and res_future.done():
+            # Future is already completed (e.g. request was cancelled while awaiting).
+            # Recycle the callback index to prevent index leaks.
+            self._available_callback_indexes.append(response.callback_idx)
+            ClientLogger.log(
+                LogLevel.DEBUG,
+                "completed response",
+                f"Received response for cancelled request: {response.callback_idx}",
+            )
+            return
         if not res_future or response.HasField("closing_error"):
             err_msg = (
                 response.closing_error
@@ -740,7 +750,25 @@ class BaseClient(CoreCommands):
             await self.close(str(e))
 
     async def get_statistics(self) -> dict:
-        return get_statistics()
+        """
+        Get compression and connection statistics for this client.
+
+        Returns:
+            dict: A dictionary containing statistics with integer values:
+                - total_connections: Total number of connections
+                - total_clients: Total number of clients
+                - total_values_compressed: Number of values successfully compressed
+                - total_values_decompressed: Number of values successfully decompressed
+                - total_original_bytes: Total bytes of original data before compression
+                - total_bytes_compressed: Total bytes after compression
+                - total_bytes_decompressed: Total bytes after decompression
+                - compression_skipped_count: Number of times compression was skipped
+                - subscription_out_of_sync_count: Number of times subscriptions were out of sync during reconciliation
+                - subscription_last_sync_timestamp: Timestamp of last successful subscription sync (milliseconds since epoch)
+        """
+        stats = get_statistics()
+        # Convert string values to integers for easier arithmetic operations
+        return {key: int(value) for key, value in stats.items()}
 
     async def _update_connection_password(
         self, password: Optional[str], immediate_auth: bool
@@ -767,13 +795,62 @@ class BaseClient(CoreCommands):
         response = await self._write_request_await_response(request)
         return response
 
+    def _parse_pubsub_state(self, result: TResult, is_cluster: bool) -> Union[
+        GlideClientConfiguration.PubSubState,
+        GlideClusterClientConfiguration.PubSubState,
+    ]:
+        """Parse subscription state from Rust response"""
+        if not isinstance(result, list) or len(result) != 4:
+            raise RequestError("Invalid response format from GetSubscriptions")
+
+        # Result format: ["desired", {dict}, "actual", {dict}]
+        desired_dict = cast(Dict[bytes, List[bytes]], result[1])
+        actual_dict = cast(Dict[bytes, List[bytes]], result[3])
+
+        if is_cluster:
+            PubSubChannelModes: Any = GlideClusterClientConfiguration.PubSubChannelModes
+            StateClass: Any = GlideClusterClientConfiguration.PubSubState
+            mode_map = {
+                "Exact": PubSubChannelModes.Exact,
+                "Pattern": PubSubChannelModes.Pattern,
+                "Sharded": PubSubChannelModes.Sharded,
+            }
+        else:
+            PubSubChannelModes = GlideClientConfiguration.PubSubChannelModes
+            StateClass = GlideClientConfiguration.PubSubState
+            mode_map = {
+                "Exact": PubSubChannelModes.Exact,
+                "Pattern": PubSubChannelModes.Pattern,
+            }
+
+        # Convert bytes keys/values to strings and map to enums
+        desired_subscriptions = {}
+        actual_subscriptions = {}
+
+        for key_bytes, value_list in desired_dict.items():
+            key = key_bytes.decode()
+            if key in mode_map:
+                values = {v.decode() for v in value_list}
+                desired_subscriptions[mode_map[key]] = values
+
+        for key_bytes, value_list in actual_dict.items():
+            key = key_bytes.decode()
+            if key in mode_map:
+                values = {v.decode() for v in value_list}
+                actual_subscriptions[mode_map[key]] = values
+
+        return StateClass(
+            desired_subscriptions=desired_subscriptions,
+            actual_subscriptions=actual_subscriptions,
+        )
+
 
 class GlideClusterClient(BaseClient, ClusterCommands):
     """
     Client used for connection to cluster servers.
     Use :func:`~BaseClient.create` to request a client.
     For full documentation, see
-    [Valkey GLIDE Wiki](https://github.com/valkey-io/valkey-glide/wiki/Python-wrapper#cluster)
+    [Valkey GLIDE Documentation](https://glide.valkey.io/how-to/client-initialization/#cluster)
     """
 
     async def _cluster_scan(
@@ -808,14 +885,106 @@ class GlideClusterClient(BaseClient, ClusterCommands):
     def _get_protobuf_conn_request(self) -> ConnectionRequest:
         return self.config._create_a_protobuf_conn_request(cluster_mode=True)
 
+    async def get_subscriptions(
+        self,
+    ) -> GlideClusterClientConfiguration.PubSubState:
+        """
+        Retrieves both the desired and current subscription states as tracked by the client.
+
+        This allows verification of synchronization between what the client intends to be
+        subscribed to (desired) and what it is actually subscribed to on the server (actual).
+
+        Returns:
+            GlideClusterClientConfiguration.PubSubState: An object containing two attributes:
+                - desired_subscriptions: Dict[PubSubChannelModes, Set[str]]
+                - actual_subscriptions: Dict[PubSubChannelModes, Set[str]]
+
+        Examples:
+            >>> from glide import GlideClusterClientConfiguration
+            >>> PubSubChannelModes = GlideClusterClientConfiguration.PubSubChannelModes
+            >>>
+            >>> # Get both subscription states
+            >>> state = await client.get_subscriptions()
+            >>> desired = state.desired_subscriptions
+            >>> actual = state.actual_subscriptions
+            >>>
+            >>> # Check if subscribed to specific channel
+            >>> if "channel1" in actual.get(PubSubChannelModes.Exact, set()):
+            >>>     print("Subscribed to channel1")
+            >>>
+            >>> # Direct comparison with config
+            >>> if client.config.pubsub_subscriptions.channels_and_patterns == desired:
+            >>>     print("Config matches desired state")
+            >>>
+            >>> # Check if synchronized
+            >>> if desired == actual:
+            >>>     print("Subscriptions are synchronized")
+            >>>
+            >>> # Find missing subscriptions
+            >>> missing = desired.get(PubSubChannelModes.Exact, set()) - actual.get(PubSubChannelModes.Exact, set())
+            >>> if missing:
+            >>>     print(f"Not yet subscribed to: {missing}")
+        """
+        result = await self._execute_command(RequestType.GetSubscriptions, [])
+        return cast(
+            GlideClusterClientConfiguration.PubSubState,
+            self._parse_pubsub_state(result, is_cluster=True),
+        )
+
 
 class GlideClient(BaseClient, StandaloneCommands):
     """
     Client used for connection to standalone servers.
     Use :func:`~BaseClient.create` to request a client.
     For full documentation, see
-    [Valkey GLIDE Wiki](https://github.com/valkey-io/valkey-glide/wiki/Python-wrapper#standalone)
+    [Valkey GLIDE Documentation](https://glide.valkey.io/how-to/client-initialization/#standalone)
     """
+
+    async def get_subscriptions(
+        self,
+    ) -> GlideClientConfiguration.PubSubState:
+        """
+        Retrieves both the desired and current subscription states as tracked by the client.
+
+        This allows verification of synchronization between what the client intends to be
+        subscribed to (desired) and what it is actually subscribed to on the server (actual).
+
+        Returns:
+            GlideClientConfiguration.PubSubState: An object containing two attributes:
+                - desired_subscriptions: Dict[PubSubChannelModes, Set[str]]
+                - actual_subscriptions: Dict[PubSubChannelModes, Set[str]]
+
+        Examples:
+            >>> from glide import GlideClientConfiguration
+            >>> PubSubChannelModes = GlideClientConfiguration.PubSubChannelModes
+            >>>
+            >>> # Get both subscription states
+            >>> state = await client.get_subscriptions()
+            >>> desired = state.desired_subscriptions
+            >>> actual = state.actual_subscriptions
+            >>>
+            >>> # Check if subscribed to specific channel
+            >>> if "channel1" in actual.get(PubSubChannelModes.Exact, set()):
+            >>>     print("Subscribed to channel1")
+            >>>
+            >>> # Direct comparison with config
+            >>> if client.config.pubsub_subscriptions.channels_and_patterns == desired:
+            >>>     print("Config matches desired state")
+            >>>
+            >>> # Check if synchronized
+            >>> if desired == actual:
+            >>>     print("Subscriptions are synchronized")
+            >>>
+            >>> # Find missing subscriptions
+            >>> missing = desired.get(PubSubChannelModes.Exact, set()) - actual.get(PubSubChannelModes.Exact, set())
+            >>> if missing:
+            >>>     print(f"Not yet subscribed to: {missing}")
+        """
+        result = await self._execute_command(RequestType.GetSubscriptions, [])
+        return cast(
+            GlideClientConfiguration.PubSubState,
+            self._parse_pubsub_state(result, is_cluster=False),
+        )
 
 
 TGlideClient = Union[GlideClient, GlideClusterClient]

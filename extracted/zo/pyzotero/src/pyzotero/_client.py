@@ -12,7 +12,11 @@ import re
 import time
 from collections.abc import Generator
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import os
+
 from urllib.parse import (
     parse_qs,
     parse_qsl,
@@ -588,7 +592,10 @@ class Zotero:
         return self._build_query(query_string, no_params=True)
 
     def dump(
-        self, itemkey: str, filename: str | None = None, path: str | None = None
+        self,
+        itemkey: str,
+        filename: str | os.PathLike[str] | None = None,
+        path: str | os.PathLike[str] | None = None,
     ) -> None:
         """Dump a file attachment to disk, with optional filename and path."""
         if not filename:
@@ -1079,6 +1086,9 @@ class Zotero:
         if last_modified is not None:
             headers["If-Unmodified-Since-Version"] = str(last_modified)
         to_send = list(self._cleanup(*payload, allow=("key")))
+        if parentid:
+            for item in to_send:
+                item["parentItem"] = parentid
         self._check_backoff()
         req = self.client.post(
             url=build_url(
@@ -1097,31 +1107,6 @@ class Zotero:
         backoff = get_backoff_duration(self.request.headers)
         if backoff:
             self._set_backoff(backoff)
-        if parentid:
-            # we need to create child items using PATCH
-            # TODO: handle possibility of item creation + failed parent attachment
-            uheaders = {
-                "If-Unmodified-Since-Version": req.headers["last-modified-version"],
-            }
-            for value in resp["success"].values():
-                child_payload: dict[str, str] = {"parentItem": parentid}
-                self._check_backoff()
-                presp = self.client.patch(
-                    url=build_url(
-                        self.endpoint,
-                        f"/{self.library_type}/{self.library_id}/items/{value}",
-                    ),
-                    json=child_payload,
-                    headers=dict(uheaders),
-                )
-                self.request = presp
-                try:
-                    presp.raise_for_status()
-                except httpx.HTTPError as exc:
-                    error_handler(self, presp, exc)
-                backoff = get_backoff_duration(presp.headers)
-                if backoff:
-                    self._set_backoff(backoff)
         return resp
 
     def create_collection(

@@ -18,10 +18,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 import dataclasses
+import enum
 import functools
 import itertools
 import math
-from typing import Any, Protocol, TypeAlias, TypeVar, cast, overload, runtime_checkable
+from typing import Any, Literal, Protocol, TypeAlias, TypeVar, cast, overload, runtime_checkable
 
 import jax
 import jax.experimental.mosaic.gpu as mgpu
@@ -47,14 +48,35 @@ SMEM_BANK_BYTES = 4
 c = utils.c
 
 
-# TODO(bchetioui): Clean this up once minimum jaxlib version is at least 0.9.1.
-if hasattr(nvvm, "ReductionKind"):
-  ReductionKind = nvvm.ReductionKind
-else:
-  assert hasattr(nvvm, "ReduxKind")
-  ReductionKind = nvvm.ReduxKind
+ReductionKind = nvvm.ReductionKind
 
 Tiling: Any = mgpu.dialect.Tiling
+
+
+class Rounding(enum.Enum):
+  TO_NEAREST_EVEN = enum.auto()
+  TO_POSITIVE_INFINITY = enum.auto()
+  TO_ZERO = enum.auto()
+
+  @property
+  def ptx(self) -> str:
+    match self:
+      case Rounding.TO_NEAREST_EVEN:
+        return "rn"
+      case Rounding.TO_POSITIVE_INFINITY:
+        return "rp"
+      case Rounding.TO_ZERO:
+        return "rz"
+
+  @property
+  def arith(self) -> arith.RoundingMode:
+    match self:
+      case Rounding.TO_NEAREST_EVEN:
+        return arith.RoundingMode.to_nearest_even
+      case Rounding.TO_POSITIVE_INFINITY:
+        return arith.RoundingMode.upward
+      case Rounding.TO_ZERO:
+        return arith.RoundingMode.toward_zero
 
 
 def enumerate_negative(elems: Sequence[T]) -> Iterable[tuple[int, T]]:
@@ -370,21 +392,7 @@ class TiledLayoutImpl:
         _check_canonical=False,
     )
 
-# TODO(olechwierowicz): Clean this up once C++ TiledLayout and init_cc_mlir are always available in JAX build (min ver 0.9.1).
-TiledLayout: Any
-if (
-    hasattr(mgpu.dialect, "TiledLayout")
-    and (
-        all_attrs_implemented := all(
-            hasattr(mgpu.dialect.TiledLayout, attr)
-            for attr in dir(TiledLayoutImpl)
-            if not attr.startswith("_")
-        )
-    )
-):
-  TiledLayout = mgpu.dialect.TiledLayout
-else:
-  TiledLayout = TiledLayoutImpl
+TiledLayout = mgpu.dialect.TiledLayout
 
 
 def _tiled_wgmma_layout(shape: tuple[int, ...]):
@@ -479,12 +487,16 @@ class WGStridedFragLayout:
       return None
     bw = bitwidth // 8
     assert 8 % bw == 0 and 8 // bw != 0, bw
-    if math.prod(shaped_ty.shape) % WARPGROUP_SIZE != 0:
+    size = math.prod(shaped_ty.shape)
+    if size % WARPGROUP_SIZE != 0:
       return None
-    max_vec_size = np.prod(shaped_ty.shape) // WARPGROUP_SIZE
-    return cls(
-        shape=tuple(shaped_ty.shape), vec_size=min(8 // bw, max_vec_size)
-    )
+    max_vec_size = size // WARPGROUP_SIZE
+    vec_size = min(8 // bw, max_vec_size)
+    while vec_size > 0 and size % (vec_size * WARPGROUP_SIZE) != 0:
+      vec_size //= 2
+    if vec_size == 0:
+      return None
+    return cls(shape=tuple(shaped_ty.shape), vec_size=vec_size)
 
   def registers_element_type(self, t: ir.Type) -> ir.Type:
     return ir.VectorType.get((self.vec_size,), t)
@@ -820,7 +832,12 @@ class FragmentedArray:
 
   @classmethod
   def splat(
-      cls, value, shape, layout=None, *, is_signed: bool | None = None
+      cls,
+      value: ir.Value,
+      shape: tuple[int, ...],
+      layout: FragmentedLayout | None = None,
+      *,
+      is_signed: bool | None = None,
   ) -> FragmentedArray:
     layout = layout or WGSplatFragLayout(shape)
     match layout:
@@ -1260,24 +1277,52 @@ class FragmentedArray:
     else:
       return NotImplemented
 
+  def _e8m0_reciprocal(self):
+    def e8m0_inv(x):
+      if not isinstance(x.type, ir.VectorType):
+        raise NotImplementedError(x.type)
+      [vec_len] = ir.VectorType(x.type).shape
+      i8 = ir.IntegerType.get_signless(8)
+      i8_vec = ir.VectorType.get((vec_len,), i8)
+      c254 = vector.broadcast(i8_vec, arith.constant(i8, 254))
+      return utils.bitcast(arith.subi(c254, utils.bitcast(x, i8_vec)), x.type)
+    return self._pointwise(e8m0_inv, restrict_bitwidth=False)
+
+  @staticmethod
+  def _is_e8m0_constant_one(val):
+    if isinstance(val, (int, float)):
+      return val == 1
+    if not isinstance(val, FragmentedArray):
+      return False
+    if not isinstance(val.layout, WGSplatFragLayout):
+      return False
+    if not isinstance(val.mlir_dtype, ir.Float8E8M0FNUType):
+      return False
+    [reg] = val.registers.flat
+    return (
+        isinstance(reg, ir.OpResult)
+        and isinstance(reg.owner.opview, arith.ConstantOp)
+        and float(ir.FloatAttr(reg.owner.opview.value)) == 1.0
+    )
+
   def __truediv__(self, other):
     if not isinstance(self.mlir_dtype, ir.FloatType):
       return NotImplemented
+    if (
+        isinstance(other, FragmentedArray)
+        and isinstance(other.mlir_dtype, ir.Float8E8M0FNUType)
+        and FragmentedArray._is_e8m0_constant_one(self)
+    ):
+      return other._e8m0_reciprocal()
     return self._pointwise(arith.divf, other)
 
   def __rtruediv__(self, other):
     if not isinstance(self.mlir_dtype, ir.FloatType):
       return NotImplemented
-    if isinstance(self.mlir_dtype, ir.Float8E8M0FNUType) and other == 1:
-      def e8m0_inv(x, _):
-        if not isinstance(x.type, ir.VectorType):
-          raise NotImplementedError(x.type)
-        [vec_len] = ir.VectorType(x.type).shape
-        i8 = ir.IntegerType.get_signless(8)
-        i8_vec = ir.VectorType.get((vec_len,), i8)
-        c254 = vector.broadcast(i8_vec, arith.constant(i8, 254))
-        return utils.bitcast(arith.subi(c254, utils.bitcast(x, i8_vec)), x.type)
-      return self._pointwise(e8m0_inv, other, restrict_bitwidth=False)
+    if isinstance(
+        self.mlir_dtype, ir.Float8E8M0FNUType
+    ) and FragmentedArray._is_e8m0_constant_one(other):
+      return self._e8m0_reciprocal()
     return self._pointwise(lambda s, o: arith.divf(o, s), other)
 
   def __floordiv__(self, other):
@@ -1770,7 +1815,11 @@ class FragmentedArray:
 
   # TODO(apaszke): Support JAX dtypes here as well?
   def astype(
-      self, new_dtype: ir.Type, *, is_signed: bool | None = None
+      self,
+      new_dtype: ir.Type,
+      *,
+      is_signed: bool | None = None,
+      rounding: Rounding | None = None,
   ) -> FragmentedArray:
     i4 = ir.IntegerType.get_signless(4)
     i8 = ir.IntegerType.get_signless(8)
@@ -2146,7 +2195,7 @@ class FragmentedArray:
       )
 
     # Here we handle all conversions involving f8 types.
-    # TODO(apaszke): Figure out proper satfinite and rounding modes.
+    # TODO(apaszke): Figure out proper satfinite control.
     supported_f8_f16 = {f8e4m3fn: f16, f8e5m2: f16, f8e8m0fnu: bf16}
     f8_ptx_names = {f8e4m3fn: "e4m3", f8e5m2: "e5m2", f8e8m0fnu: "ue8m0"}
     f16_ptx_names = {f16: "f16", bf16: "bf16"}
@@ -2156,10 +2205,35 @@ class FragmentedArray:
       raise ValueError(
           "f8e8m0fnu type only supported on Blackwell and newer GPUs"
       )
+
+    def check_supported_rounding(allowed_roundings, hw_limitation: bool = True):
+      if rounding is None:
+        return
+      if rounding not in allowed_roundings:
+        err_type = ValueError if hw_limitation else NotImplementedError
+        raise err_type(
+            f"Only {' and '.join(map(lambda x: x.name, allowed_roundings))}"
+            f" rounding mode{'' if len(allowed_roundings) == 1 else 's'} are"
+            f" supported for {cur_dtype} -> {new_dtype}, but got {rounding}"
+        )
+    def get_fp8_rounding(fp8_type: ir.Type) -> str:
+      assert fp8_type in f8_types
+      allowed_rounding: tuple[Rounding, ...]
+      if fp8_type == f8e8m0fnu:
+        if rounding is None:
+          return Rounding.TO_POSITIVE_INFINITY.ptx
+        allowed_rounding = (Rounding.TO_ZERO, Rounding.TO_POSITIVE_INFINITY)
+      else:
+        if rounding is None:
+          return Rounding.TO_NEAREST_EVEN.ptx
+        allowed_rounding = (Rounding.TO_NEAREST_EVEN,)
+      check_supported_rounding(allowed_rounding)
+      return rounding.ptx  # type: ignore
+
     # f8 <-> f32
     if cur_dtype == f32 and new_dtype in f8_types:
       name_8 = f8_ptx_names[new_dtype]
-      rounding = "rz" if new_dtype == f8e8m0fnu else "rn"
+      ptx_round = get_fp8_rounding(new_dtype)
       def do_convert(pair_vec):
         e0, e1 = (
             vector.extract(pair_vec, dynamic_position=[], static_position=[i])
@@ -2168,7 +2242,7 @@ class FragmentedArray:
         return llvm.inline_asm(
             i16,
             [e1, e0],
-            f"cvt.{rounding}.satfinite.{name_8}x2.f32 $0, $1, $2;",
+            f"cvt.{ptx_round}.satfinite.{name_8}x2.f32 $0, $1, $2;",
             "=h,r,r",
         )
       return pairwise_convert(do_convert)
@@ -2179,8 +2253,8 @@ class FragmentedArray:
     if new_dtype in f8_types and cur_dtype == supported_f8_f16[new_dtype]:
       name_16 = f16_ptx_names[cur_dtype]
       name_8 = f8_ptx_names[new_dtype]
-      rounding = "rz" if new_dtype == f8e8m0fnu else "rn"
-      ptx = f"cvt.{rounding}.satfinite.{name_8}x2.{name_16}x2 $0, $1;"
+      ptx_round = get_fp8_rounding(new_dtype)
+      ptx = f"cvt.{ptx_round}.satfinite.{name_8}x2.{name_16}x2 $0, $1;"
       def do_convert(pair_vec):
         return llvm.inline_asm(i16, [utils.bitcast(pair_vec, i32)], ptx, "=h,r")
       return pairwise_convert(do_convert)
@@ -2226,6 +2300,7 @@ class FragmentedArray:
           f"Unsupported conversion involving narrow float types: {cur_dtype}"
           f" to {new_dtype}"
       )
+    arith_rounding = rounding.arith if rounding else None
     if from_float and to_float:
       cur_ty_width = ir.FloatType(cur_dtype).width
       new_ty_width = ir.FloatType(new_dtype).width
@@ -2249,9 +2324,11 @@ class FragmentedArray:
             upcast_ty = larger_ty
           case _:
             raise NotImplementedError(f"Unsupported layout {self.layout}")
-        convert = lambda ty, x: arith.truncf(ty, arith.extf(upcast_ty, x))
+        convert = lambda ty, x: arith.truncf(
+            ty, arith.extf(upcast_ty, x), roundingmode=arith_rounding
+        )
       elif cur_ty_width > new_ty_width:
-        convert = arith.truncf
+        convert = functools.partial(arith.truncf, roundingmode=arith_rounding)
       else:
         convert = arith.extf
     elif from_integer and to_integer:
@@ -2260,8 +2337,12 @@ class FragmentedArray:
       else:
         convert = arith.extsi if self.is_signed else arith.extui
     elif from_integer and to_float:
+      # TODO(apaszke): Support other rounding modes.
+      check_supported_rounding((Rounding.TO_NEAREST_EVEN,), hw_limitation=False)
       convert = arith.sitofp if self.is_signed else arith.uitofp
     elif from_float and to_integer:
+      # TODO(apaszke): Support other rounding modes.
+      check_supported_rounding((Rounding.TO_ZERO,), hw_limitation=False)
       convert = arith.fptosi if is_signed else arith.fptoui
     else:
       raise NotImplementedError(f"Unsupported conversion {cur_dtype} -> {new_dtype}")
@@ -2666,11 +2747,9 @@ class FragmentedArray:
           out_reg = part if out_reg is None else op(out_reg, part)
       return out_reg
 
-    if reduced_shape:
-      vec_len = layout.reduce(tiled_axes).vector_length
-    else:
-      vec_len = 1
-
+    # Note that we will infer a splat layout if we reduce all dimensions, but in
+    # that case the .vector_length we get here will be 1 anyway.
+    vec_len = layout.reduce(tiled_axes).vector_length
     thread_idx = utils.thread_idx()
     lane_idx = arith.remui(thread_idx, c(WARP_SIZE, i32))
 
@@ -2735,7 +2814,7 @@ class FragmentedArray:
       utils.warpgroup_barrier()
       for i, unreduced_index in enumerate(unreduced_indices):
         out_regs[unreduced_index] = reduce_stored(
-            reg_ty, i, lane_idx, swizzle_warp_idx  # pytype: disable=undefined-variable
+            reg_ty, i, lane_idx, swizzle_warp_idx  # pylint: disable=undefined-variable
         )
       utils.warpgroup_barrier()
     del unreduced_indices
@@ -2763,53 +2842,16 @@ class FragmentedArray:
         _registers=out_regs, _layout=reduced_layout, _is_signed=self.is_signed
     )
 
-  def broadcast(self, shape) -> FragmentedArray:
+  def broadcast(self, shape: tuple[int, ...]) -> FragmentedArray:
+    new_layout: FragmentedLayout
     if isinstance(self.layout, WGStridedFragLayout):
-      src_shape, dst_shape = self.layout.shape, shape
-      if len(src_shape) > len(dst_shape):
-        raise ValueError(
-            f"Shape length mismatch. Expected len({src_shape}) <= len({dst_shape})"
-        )
-      if not all(s == 1 or s == d for s, d in zip(src_shape[::-1], dst_shape[::-1])):
-        raise ValueError(
-            "Can broadcast if all source dimensions match trailing target"
-            " dimensions by being equal or set to 1. Broadcasting from"
-            f" {src_shape} to {dst_shape}"
-        )
-      rank_diff = len(dst_shape) - len(src_shape)
-      src_shape = tuple([1] * rank_diff + list(src_shape))
-
-      assert len(src_shape) == len(dst_shape), (src_shape, dst_shape)
-      len_suffix = next(
-          (i for i in range(len(src_shape)) if src_shape[~i] != dst_shape[~i]),
-          len(src_shape)
-      )
-      if len_suffix > 0 and all(x == 1 for x in src_shape[:-len_suffix]):
-        return FragmentedArray(
-            _registers=np.tile(self.registers, np.prod(dst_shape[:-len_suffix])),
-            _layout=WGStridedFragLayout(shape, self.layout.vec_size),
-            _is_signed=self.is_signed,
-        )
-
-      raise NotImplementedError(
-          "Only major-most broadcast for WGStridedFragLayout is implemented."
-          f" Broadcasting from: {src_shape}, to: {dst_shape}."
-      )
-
-    if not isinstance(self.layout, WGSplatFragLayout):
+      new_layout = WGStridedFragLayout(shape, self.layout.vec_size)
+    elif isinstance(self.layout, WGSplatFragLayout):
+      new_layout = WGSplatFragLayout(shape)
+    else:
       raise NotImplementedError(self.layout)
-
-    if self.shape == shape:
-      return self
-
-    if not self.layout.can_broadcast_to(shape):
-      raise ValueError(f"Can't broadcast {self.shape} to {shape}")
-
-    return FragmentedArray(
-        _registers=self.registers,
-        _layout=WGSplatFragLayout(shape),
-        _is_signed=self.is_signed,
-    )
+    dims = tuple(range(len(shape) - len(self.shape), len(shape)))
+    return self.broadcast_in_dim(shape, dims, new_layout)
 
   def reshape(self, shape: tuple[int, ...]) -> FragmentedArray:
     if self.shape == shape:
@@ -2849,7 +2891,7 @@ class FragmentedArray:
       case _:
         raise NotImplementedError(self.layout)
 
-  def broadcast_minor(self, n) -> FragmentedArray:
+  def broadcast_minor(self, n: int) -> FragmentedArray:
     if len(self.shape) != 1:
       raise ValueError("Broadcast minor is only supported for 1D arrays")
     if n % 8:
@@ -2863,10 +2905,28 @@ class FragmentedArray:
     return self.broadcast_in_dim((self.shape[0], n), (0,), new_layout)
 
   def broadcast_in_dim(
-      self, shape, source_dimensions, layout: FragmentedLayout
+      self,
+      shape: tuple[int, ...],
+      source_dimensions: tuple[int, ...],
+      layout: FragmentedLayout,
   ) -> FragmentedArray:
+    if len(source_dimensions) != len(self.shape):
+      raise ValueError(
+          f"The number of source dimensions ({len(source_dimensions)}) must"
+          f" match the rank of the array ({len(self.shape)})"
+      )
+    if not all(0 <= d < len(shape) for d in source_dimensions):
+      raise ValueError(
+          f"{source_dimensions=} must be within the range [0, {len(shape)})"
+      )
+    if any(
+        d1 >= d2 for d1, d2 in zip(source_dimensions, source_dimensions[1:])
+    ):
+      raise ValueError(
+          f"{source_dimensions=} must be strictly increasing and unique"
+      )
     for i, target_dim in enumerate(source_dimensions):
-      if self.shape[i] != shape[target_dim]:
+      if self.shape[i] != shape[target_dim] and self.shape[i] != 1:
         raise ValueError(
             f"Dimension {i} has size {self.shape[i]} in source shape and"
             f" {shape[target_dim]} in shape after broadcast"
@@ -2876,23 +2936,21 @@ class FragmentedArray:
         self.registers.item(), shape, layout, is_signed=self.is_signed
       )
     if isinstance(self.layout, WGStridedFragLayout) and isinstance(layout, WGStridedFragLayout):
-      new_dims = set(range(len(shape))) - set(source_dimensions)
-      vec_match = self.layout.vec_size == layout.vec_size
-      broadcast_dim_match = new_dims == set(range(len(new_dims)))
-      assert layout.shape == shape, (layout.shape, shape)
-      if vec_match and broadcast_dim_match:
-        return FragmentedArray(
-            _registers=np.tile(
-                self.registers,
-                np.prod(shape[:len(new_dims)]),
-            ),
-            _layout=layout,
-            _is_signed=self.is_signed,
+      if not is_supported_strided_layout_broadcast(self.layout, layout, source_dimensions):
+        raise NotImplementedError(
+            "Unsupported broadcast for WGStridedFragLayout"
         )
+      assert layout.shape == shape, (layout.shape, shape)
+      return FragmentedArray(
+          _registers=np.tile(
+              self.registers,
+              np.prod(shape) // np.prod(self.shape),
+          ),
+          _layout=layout,
+          _is_signed=self.is_signed,
+      )
     if not isinstance(self.layout, TiledLayout) or not isinstance(layout, TiledLayout):
       raise NotImplementedError(self.layout, layout)
-    if any(d1 >= d2 for d1, d2 in zip(source_dimensions, source_dimensions[1:])):
-      raise NotImplementedError("source_dimensions must be strictly increasing")
     if len(layout.base_tile_shape) != len(shape):
       raise NotImplementedError("Tiling rank different than broadcast result rank")
     new_dimensions = sorted(set(range(len(shape))) - set(source_dimensions))
@@ -3017,7 +3075,12 @@ class FragmentedArray:
       utils.debug_print(fmt_str, *idx, val, uniform=False)
 
   def store_untiled(
-      self, ref: ir.Value | utils.MultimemRef, *, swizzle: int = 16, optimized: bool = True
+      self,
+      ref: ir.Value | utils.MultimemRef,
+      *,
+      swizzle: int = 16,
+      optimized: bool = True,
+      atomic: Literal["add", "max", "min", "and", "or", "xor"] | None = None,
   ) -> None:
     if not isinstance(ref.type, ir.MemRefType):
       raise ValueError(ref)
@@ -3025,21 +3088,37 @@ class FragmentedArray:
       case WGSplatFragLayout():
         if isinstance(ref, utils.MultimemRef):
           raise NotImplementedError("Splat layout does not support multimem")
+        if atomic is not None:
+          raise NotImplementedError(
+              "Atomic stores not supported for splat layout"
+          )
         # All values are the same so swizzle does not affect anything here.
         self._store_untiled_splat(ref)
       case WGStridedFragLayout():
         if swizzle != 16:
           raise ValueError("Only TiledLayouts support swizzling")
         assert isinstance(self.layout, WGStridedFragLayout)
+        if atomic is not None and isinstance(ref, utils.MultimemRef):
+          raise NotImplementedError("Multimem refs do not support atomic stores")
         for get, _update, ref, idx in self.transfer_strided(ref, self.layout.vec_size):
           if isinstance(ref, utils.MultimemRef):
             ref.store(get(self.registers), idx)
+          elif atomic is not None:
+            is_smem = utils.is_smem_ref(ref)
+            memory_space = 3 if is_smem else None
+            base_ptr = utils.memref_ptr(
+                utils.memref_slice(ref, tuple(idx)),
+                memory_space=memory_space,
+            )
+            self._store_register_atomic(
+                base_ptr, get(self.registers), atomic, is_smem,
+            )
           else:
             vector.store(get(self.registers), ref, idx)
       case TiledLayout():
         ref_shape = ir.MemRefType(ref.type).shape
         ref = utils.memref_reshape(ref, (*(1 for _ in ref_shape), *ref_shape))
-        self.store_tiled(ref, swizzle=swizzle, optimized=optimized)
+        self.store_tiled(ref, swizzle=swizzle, optimized=optimized, atomic=atomic)
       case _:
         raise NotImplementedError(self.layout)
 
@@ -3183,16 +3262,134 @@ class FragmentedArray:
           has_side_effects=True,
       )
 
+  def _store_register_atomic(
+      self,
+      base_ptr: ir.Value,
+      vreg: ir.Value,
+      atomic: Literal["add", "max", "min", "and", "or", "xor"],
+      is_smem: bool,
+  ):
+    i32 = ir.IntegerType.get_signless(32)
+    scope = "cta" if is_smem else "gpu"
+    space = ".shared::cta" if is_smem else ""
+    ptr_constraint = "r" if is_smem else "l"
+    element_type = self.mlir_dtype
+    element_bitwidth = utils.bitwidth(element_type)
+    noftz = ""
+    if isinstance(element_type, ir.F32Type):
+      if atomic != "add":
+        raise NotImplementedError(f"f32 only supports add atomics, got {atomic}")
+      ptx_type = "f32"
+    elif isinstance(element_type, ir.IntegerType) and element_bitwidth == 32:
+      if atomic in ("and", "or", "xor"):
+        ptx_type = "b32"
+      else:
+        ptx_type = "s32" if self.is_signed else "u32"
+    elif isinstance(element_type, (ir.F16Type, ir.BF16Type)):
+      if atomic not in ("add", "min", "max"):
+        raise NotImplementedError(
+            f"f16/bf16 only supports add, min, max atomics, got {atomic}"
+        )
+      if is_smem and atomic != "add":
+        raise NotImplementedError(
+            f"f16/bf16 SMEM atomics only support add, got {atomic}"
+        )
+      ptx_type = f"{element_type}x2"
+      noftz = ".noftz"
+    else:
+      raise NotImplementedError(
+          f"Unsupported element type for atomic stores: {element_type}"
+      )
+    [vec_len] = vreg.type.shape
+    if element_bitwidth == 16:
+      if vec_len % 2 != 0:
+        raise NotImplementedError(
+            f"f16/bf16 atomic stores require even vector length,"
+            f" got {vec_len}"
+        )
+    i32_vec_len = vec_len * element_bitwidth // 32
+    vreg = utils.bitcast(vreg, ir.VectorType.get(
+        (i32_vec_len,), i32,
+    ))
+    regs = [
+        llvm.extractelement(vreg, arith.constant(i32, i))
+        for i in range(i32_vec_len)
+    ]
+    width = 1
+    if not is_smem and element_bitwidth == 16:
+      for vec_width in (4, 2):
+        if i32_vec_len % vec_width == 0:
+          width = vec_width
+          break
+    for start in range(0, i32_vec_len, width):
+      regs_slice = regs[start:start + width]
+      ptr = utils.getelementptr(base_ptr, [start], i32)
+      if element_bitwidth == 16 and not is_smem:
+        # Annoyingly, the global atomics don't support v1, so we have to
+        # use unpacked registers with .v2 and hope that ptxas optimizes it.
+        if width == 1:
+          i16 = ir.IntegerType.get_signless(16)
+          vec2xi16 = ir.VectorType.get((2,), i16)
+          [reg] = regs_slice
+          pair = llvm.bitcast(vec2xi16, reg)
+          llvm.inline_asm(
+              ir.Type.parse("!llvm.void"),
+              [
+                  ptr,
+                  llvm.extractelement(pair, arith.constant(i32, 0)),
+                  llvm.extractelement(pair, arith.constant(i32, 1)),
+              ],
+              f"red.relaxed.{scope}.{atomic}{noftz}.v2.{element_type} [$0], {{$1, $2}};",
+              f"{ptr_constraint},h,h",
+              has_side_effects=True,
+          )
+        else:
+          operands = "{" + ", ".join(f"${i + 1}" for i in range(width)) + "}"
+          llvm.inline_asm(
+              ir.Type.parse("!llvm.void"),
+              [ptr, *regs_slice],
+              f"red.relaxed.{scope}.{atomic}{noftz}.v{width}.{element_type}x2 [$0], {operands};",
+              f"{ptr_constraint}" + ",r" * width,
+              has_side_effects=True,
+          )
+      else:
+        ptx_t = f"{element_type}x2" if element_bitwidth == 16 else ptx_type
+        [reg] = regs_slice
+        llvm.inline_asm(
+            ir.Type.parse("!llvm.void"),
+            [ptr, reg],
+            f"red{space}.relaxed.{scope}.{atomic}{noftz}.{ptx_t} [$0], $1;",
+            f"{ptr_constraint},r",
+            has_side_effects=True,
+        )
+
   def store_tiled(
       self,
       ref: ir.Value | utils.MultimemRef,
       swizzle: int | None,
       optimized: bool = True,
       tiling_rank: int | None = None,
+      atomic: Literal["add", "max", "min", "and", "or", "xor"] | None = None,
   ):
     if not isinstance(self.layout, TiledLayout):
       raise NotImplementedError(self.layout)
     layout, shape = self.layout, self.shape
+    if atomic is not None:
+      if isinstance(ref, utils.MultimemRef):
+        raise NotImplementedError("Multimem refs do not support atomic stores")
+      if any(isinstance(d, Replicated) for d in layout.warp_dims + layout.lane_dims):
+        raise NotImplementedError(
+            "Atomic stores not supported for layouts with replicated dims"
+        )
+      is_smem = utils.is_smem_ref(ref)
+      stores = self.transfer_tiled(
+          ref, swizzle, layout, shape, optimized, ref_tiling_rank=tiling_rank
+      )
+      for get, _update, _idx, base_ptr in stores:
+        self._store_register_atomic(
+            base_ptr, get(self.registers), atomic, is_smem,
+        )
+      return
     # Note that the loop below will "race" for layouts that replicate data.
     # However, in that case all of the racing writes store the same data, which
     # is ok in the CUDA memory model.
@@ -4075,3 +4272,30 @@ def copy_tiled(src: ir.Value, dst: ir.Value, swizzle: int = 16):
       regs.store_tiled(dst, swizzle)
     return
   raise NotImplementedError(f"Unsupported copy: {src.type} -> {dst.type}")
+
+
+def is_supported_strided_layout_broadcast(
+    src: WGStridedFragLayout,
+    dst: WGStridedFragLayout,
+    dims: tuple[int, ...],
+) -> bool:
+  """We only support broadcasting of leading dimensions."""
+  if src.vec_size != dst.vec_size:
+    return False
+  # Check if input maps exactly to the end (prevents trailing dims).
+  if dims != tuple(range(len(dst.shape) - len(src.shape), len(dst.shape))):
+    return False
+  # Identify input indices that are expanded vs. those that are preserved
+  # Expansion: input is 1, output is > 1.
+  # Preserved: input is > 1.
+  exp_indices, pre_indices = [], []
+  for i, dim in enumerate(src.shape):
+    if dim == 1 and dst.shape[dims[i]] > 1:
+      exp_indices.append(i)
+    if dim > 1:
+      pre_indices.append(i)
+  # If both exist, all expansions must happen before all preserved
+  # dimensions.
+  if exp_indices and pre_indices and max(exp_indices) >= min(pre_indices):
+    return False
+  return True

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.7.77
+Version: 0.7.80
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
@@ -24,7 +24,7 @@ Requires-Dist: opentelemetry-sdk>=1.37.0
 Requires-Dist: orjson>=3.9.7
 Requires-Dist: protobuf<7.0.0,>=6.32.1
 Requires-Dist: pyjwt>=2.9.0
-Requires-Dist: sse-starlette<3.4.0,>=3.0.0
+Requires-Dist: sse-starlette<3.4.0,>=2.1.3
 Requires-Dist: starlette>=0.38.6
 Requires-Dist: structlog<26,>=24.1.0
 Requires-Dist: tenacity>=8.0.0

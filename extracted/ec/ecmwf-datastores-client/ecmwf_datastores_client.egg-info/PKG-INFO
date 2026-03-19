@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ecmwf-datastores-client
-Version: 0.4.2
+Version: 0.5.0
 Summary: ECMWF Data Stores Service (DSS) API Python client
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -461,6 +461,9 @@ True
 
 >>> remote.download("target_6.grib")
 'target_6.grib'
+
+>>> remote.get_receipt()
+{...}
 
 >>> remote.get_results()
 Results(...)

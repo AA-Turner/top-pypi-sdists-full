@@ -1,11 +1,14 @@
 [project]
 name = "deptry"
-version = "0.24.0"
+version = "0.25.1"
 description = "A command line utility to check for unused, missing and transitive dependencies in a Python project."
-authors = [{ name = "Florian Maas", email = "fpgmaas@gmail.com" }]
-maintainers = [{ name = "Mathieu Kniewallner", email = "mathieu.kniewallner@gmail.com" }]
+authors = [
+    { name = "Florian Maas", email = "fpgmaas@gmail.com" },
+    { name = "Mathieu Kniewallner", email = "mathieu.kniewallner@gmail.com" }
+]
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -22,46 +25,49 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
     "click>=8.0.0,<9",
     "colorama>=0.4.6; sys_platform == 'win32'",
     "packaging>=23.2",
     "requirements-parser>=0.11.0,<1",
-    "tomli>=2.0.1; python_version < '3.11'",
+    "tomli>=2.0.1; python_version < '3.15'",
 ]
 
 [dependency-groups]
 docs = [
     "mkdocs==1.6.1",
-    "mkdocs-material==9.6.23",
+    "mkdocs-material==9.7.5",
 ]
 test = [
-    "pdm==2.26.1",
-    "poetry==2.2.1",
-    "pytest==8.4.2",
+    "inline-snapshot==0.32.5",
+    "pdm==2.26.6",
+    "poetry==2.3.2",
+    "pytest==9.0.2",
     "pytest-cov==7.0.0",
     "pytest-xdist[psutil]==3.8.0",
 ]
 typing = [
-    "mypy[faster-cache]==1.18.2; implementation_name == 'cpython'",
-    # orjson does not compile on PyPy.
-    "mypy==1.18.2; implementation_name != 'cpython'",
+    # `librt` that `mypy` depends on does not compile on PyPy (https://github.com/mypyc/librt/issues/16).
+    "mypy==1.19.1; implementation_name == 'cpython'",
     "types-colorama==0.4.15.20250801; sys_platform == 'win32'",
 ]
 
 [project.urls]
 homepage = "https://deptry.com"
-repository = "https://github.com/fpgmaas/deptry"
+repository = "https://github.com/osprey-oss/deptry"
 documentation = "https://deptry.com"
-changelog = "https://github.com/fpgmaas/deptry/blob/main/CHANGELOG.md"
+changelog = "https://github.com/osprey-oss/deptry/blob/main/CHANGELOG.md"
 
 [project.scripts]
 deptry = "deptry.cli:deptry"
 
 [tool.uv]
 default-groups = "all"
+constraint-dependencies = [
+    # Newer versions make some Poetry tests flaky with PyPy.
+    "virtualenv==20.39.1"
+]
 
 [build-system]
 requires = ["maturin>=1.5,<2.0"]
@@ -115,6 +121,7 @@ enable_error_code = [
 strict = true
 warn_unreachable = true
 pretty = true
+fixed_format_cache = true
 
 [[tool.mypy.overrides]]
 module = ["xdist.*"]
@@ -126,14 +133,15 @@ extend_exclude = ["docs", "tests"]
 [tool.deptry.per_rule_ignores]
 DEP001 = ["tomllib"]
 
-[tool.pytest.ini_options]
-addopts = "--doctest-modules"
+[tool.pytest]
+addopts = ["--doctest-modules"]
 filterwarnings = [
     "error",
     # Triggered by PyPy 3.11 on Windows.
     "default:check_home argument is deprecated and ignored:DeprecationWarning",
 ]
 norecursedirs = ["fixtures*"]
+strict = true
 
 [tool.ruff]
 line-length = 120

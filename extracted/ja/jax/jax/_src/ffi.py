@@ -177,7 +177,7 @@ def include_dir() -> str:
 
 
 def _aval_shape(aval: core.AbstractValue) -> Shape:
-  return () if aval is core.abstract_token else core.physical_aval(aval).shape  # pytype: disable=attribute-error
+  return () if aval is core.abstract_token else core.physical_aval(aval).shape  # pytype: disable=attribute-error  # pyrefly: ignore[missing-attribute]
 
 
 def _convert_layout_for_lowering(
@@ -326,7 +326,7 @@ def ffi_lowering(
         **lowering_args,
     )(ctx, *operands, **params)
 
-    return result.results  # type: ignore
+    return result.results
 
   return _lowering
 
@@ -338,7 +338,7 @@ def _result_avals(results: Sequence[ResultMetadata]) -> tuple[core.AbstractValue
   avals: list[core.AbstractValue] = []
   for idx, result in enumerate(results):
     if result is core.abstract_token:
-      avals.append(result)  # type: ignore
+      avals.append(result)
     else:
       if not hasattr(result, "shape") or not hasattr(result, "dtype"):
         raise ValueError(
@@ -509,7 +509,7 @@ def ffi_call(
         f"custom_call_api_version < 4; got {custom_call_api_version}.")
 
   def wrapped(*args: ArrayLike, **kwargs: Any):
-    in_avals = [core.get_aval(x) for x in args]
+    in_avals = [core.typeof(x) for x in args]
 
     if input_layouts is None:
       static_input_layouts = tuple(map(_convert_layout_for_lowering, in_avals))
@@ -531,7 +531,7 @@ def ffi_call(
       static_output_layouts = _convert_layouts_for_ffi_call(result_avals,
                                                             output_layouts_)
 
-    static_input_output_aliases: tuple[tuple[int, int], ...] = ()
+    static_input_output_aliases: list[tuple[int, int]] = []
     if input_output_aliases is not None:
       for i_idx, o_idx in sorted(input_output_aliases.items()):
         i_idx, o_idx = int(i_idx), int(o_idx)
@@ -558,7 +558,7 @@ def ffi_call(
               f"referring to an input with layout {static_input_layouts[i_idx]} "
               "and an output with a different layout "
               f"{static_output_layouts[o_idx]}.")
-        static_input_output_aliases += ((i_idx, o_idx),)
+        static_input_output_aliases.append((i_idx, o_idx))
     args = core.standard_insert_pvary(*args)
     results = ffi_call_p.bind(
         *args,
@@ -568,7 +568,7 @@ def ffi_call(
         has_side_effect=has_side_effect,
         input_layouts=static_input_layouts,
         output_layouts=static_output_layouts,
-        input_output_aliases=static_input_output_aliases,
+        input_output_aliases=tuple(static_input_output_aliases),
         custom_call_api_version=custom_call_api_version,
         legacy_backend_config=legacy_backend_config,
         attributes=_wrap_kwargs_hashable(kwargs),
@@ -669,7 +669,7 @@ def ffi_call_lowering(
     legacy_backend_config: str | None,
     attributes: Sequence[tuple[str, Any]],
     **_,
-) -> Sequence[ir.Value]:
+) -> Sequence[ir.Value | Sequence[ir.Value]]:
   rule = ffi_lowering(target_name, has_side_effect=has_side_effect,
                       operand_layouts=input_layouts,
                       result_layouts=output_layouts,

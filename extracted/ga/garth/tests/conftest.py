@@ -3,12 +3,25 @@ import io
 import os
 import time
 
+
+# Disable telemetry before importing garth — the module-level
+# Client() in http.py runs at import time and would configure logfire
+os.environ["GARTH_TELEMETRY_ENABLED"] = "false"
+
 import pytest
 from requests import Session
 
 from garth.auth_tokens import OAuth1Token, OAuth2Token
 from garth.http import Client
 from garth.telemetry import REDACTED, sanitize, sanitize_cookie
+
+
+@pytest.fixture(autouse=True)
+def _clean_env(monkeypatch):
+    """Prevent env leaks from affecting tests."""
+    monkeypatch.setenv("GARTH_TELEMETRY_ENABLED", "false")
+    monkeypatch.delenv("GARTH_HOME", raising=False)
+    monkeypatch.delenv("GARTH_TOKEN", raising=False)
 
 
 @pytest.fixture
@@ -68,11 +81,12 @@ def authed_client(
     oauth1_token: OAuth1Token, oauth2_token: OAuth2Token
 ) -> Client:
     client = Client()
-    try:
-        client.load(os.environ["GARTH_HOME"])
-    except KeyError:
+    recording = os.environ.get("GARTH_RECORD_CASSETTES") == "true"
+    garth_home = os.environ.get("GARTH_RECORD_CASSETTES_HOME")
+    if recording and garth_home:  # pragma: no cover
+        client.load(garth_home)
+    else:
         client.configure(oauth1_token=oauth1_token, oauth2_token=oauth2_token)
-    # Prevent tests from writing back to real GARTH_HOME
     client._garth_home = None
     assert client.oauth2_token and isinstance(client.oauth2_token, OAuth2Token)
     assert not client.oauth2_token.expired
@@ -81,7 +95,7 @@ def authed_client(
 
 @pytest.fixture
 def vcr(vcr):
-    if "GARTH_HOME" not in os.environ:
+    if os.environ.get("GARTH_RECORD_CASSETTES") != "true":
         vcr.record_mode = "none"
     return vcr
 

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pyasn1"
-version = "0.6.0.20250914"
+version = "0.6.0.20260319"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyasn1"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`4b0623f4fb2c4e5a04a0244e1592b1481a26e47e`](https://github.com/python/typeshed/commit/4b0623f4fb2c4e5a04a0244e1592b1481a26e47e).
+[`50ec9108eb191ab96d9ab766e506a7c680d5f3d6`](https://github.com/python/typeshed/commit/50ec9108eb191ab96d9ab766e506a7c680d5f3d6).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['pyasn1-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'pyasn1-stubs' = ['__init__.pyi', 'codec/__init__.pyi', 'codec/ber/__init__.pyi', 'codec/ber/decoder.pyi', 'codec/ber/encoder.pyi', 'codec/ber/eoo.pyi', 'codec/cer/__init__.pyi', 'codec/cer/decoder.pyi', 'codec/cer/encoder.pyi', 'codec/der/__init__.pyi', 'codec/der/decoder.pyi', 'codec/der/encoder.pyi', 'codec/native/__init__.pyi', 'codec/native/decoder.pyi', 'codec/native/encoder.pyi', 'codec/streaming.pyi', 'compat/__init__.pyi', 'compat/integer.pyi', 'debug.pyi', 'error.pyi', 'type/__init__.pyi', 'type/base.pyi', 'type/char.pyi', 'type/constraint.pyi', 'type/error.pyi', 'type/namedtype.pyi', 'type/namedval.pyi', 'type/opentype.pyi', 'type/tag.pyi', 'type/tagmap.pyi', 'type/univ.pyi', 'type/useful.pyi', 'METADATA.toml', 'py.typed']

@@ -1,11 +1,14 @@
-from typing import Optional, Callable, Sequence
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportMissingTypeStubs=false
+# pyright: reportIndexIssue=false
+
+from collections.abc import Callable, Sequence
 from enum import Enum
-from cffi.api import FFI  # type: ignore
 
 import pyarrow
-
+from cffi.api import FFI  # type: ignore
+from pyarrow import Array, RecordBatch, Schema  # type: ignore
 from pyarrow.cffi import ffi as arrow_ffi  # type: ignore
-from pyarrow import RecordBatch, Schema, Array  # type: ignore
 
 from .arrow_odbc import ffi, lib  # type: ignore
 from .buffer import to_bytes_and_len
@@ -101,9 +104,9 @@ class _BatchReaderRaii:
         self,
         connection: ConnectionRaii,
         query: str,
-        parameters: Optional[Sequence[Optional[str]]],
+        parameters: Sequence[str | None] | None,
         text_encoding: TextEncoding,
-        query_timeout_sec: Optional[int],
+        query_timeout_sec: int | None,
     ):
         query_bytes = query.encode("utf-8")
 
@@ -161,8 +164,8 @@ class _BatchReaderRaii:
         max_binary_size: int,
         falliable_allocations: bool,
         payload_text_encoding: TextEncoding,
-        schema: Optional[Schema],
-        map_schema: Optional[Callable[[Schema], Schema]],
+        schema: Schema | None,
+        map_schema: Callable[[Schema], Schema] | None,
         fetch_concurrently: bool,
     ):
         if map_schema is not None:
@@ -228,15 +231,15 @@ class BatchReader:
         connection: ConnectionRaii,
         query: str,
         batch_size: int = DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
-        parameters: Optional[Sequence[Optional[str]]] = None,
-        max_bytes_per_batch: Optional[int] = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
-        max_text_size: Optional[int] = None,
-        max_binary_size: Optional[int] = None,
+        parameters: Sequence[str | None] | None = None,
+        max_bytes_per_batch: int | None = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
+        max_text_size: int | None = None,
+        max_binary_size: int | None = None,
         falliable_allocations: bool = False,
-        schema: Optional[Schema] = None,
-        map_schema: Optional[Callable[[Schema], Schema]] = None,
+        schema: Schema | None = None,
+        map_schema: Callable[[Schema], Schema] | None = None,
         fetch_concurrently=True,
-        query_timeout_sec: Optional[int] = None,
+        query_timeout_sec: int | None = None,
         payload_text_encoding: TextEncoding = TextEncoding.AUTO,
     ) -> "BatchReader":
         reader = _BatchReaderRaii()
@@ -287,11 +290,11 @@ class BatchReader:
         self,
         batch_size: int = DEFAULT_FETCH_BUFFER_LIMIT_IN_ROWS,
         max_bytes_per_batch: int = DEFAULT_FETCH_BUFFER_LIMIT_IN_BYTES,
-        max_text_size: Optional[int] = None,
-        max_binary_size: Optional[int] = None,
+        max_text_size: int | None = None,
+        max_binary_size: int | None = None,
         falliable_allocations: bool = False,
-        schema: Optional[Schema] = None,
-        map_schema: Optional[Callable[[Schema], Schema]] = None,
+        schema: Schema | None = None,
+        map_schema: Callable[[Schema], Schema] | None = None,
         fetch_concurrently=True,
         payload_text_encoding: TextEncoding = TextEncoding.AUTO,
     ) -> bool:

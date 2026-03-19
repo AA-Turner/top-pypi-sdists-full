@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: codecarbon
-Version: 3.2.3
+Version: 3.2.4
 Author: Mila, DataForGood, BCG GAMMA, Comet.ml, Haverford College
 License-Expression: MIT
 Project-URL: Homepage, https://codecarbon.io/
 Project-URL: Repository, https://github.com/mlco2/codecarbon
 Project-URL: Dashboard, http://dashboard.codecarbon.io/
-Project-URL: Documentation, https://mlco2.github.io/codecarbon/
+Project-URL: Documentation, https://docs.codecarbon.io/
 Project-URL: Issues, https://github.com/mlco2/codecarbon/issues
 Project-URL: Changelog, https://github.com/mlco2/codecarbon/releases
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: arrow
@@ -35,6 +33,7 @@ Requires-Dist: requests
 Requires-Dist: questionary
 Requires-Dist: rich
 Requires-Dist: typer
+Requires-Dist: pycountry
 Provides-Extra: carbonboard
 Requires-Dist: dash; extra == "carbonboard"
 Requires-Dist: dash_bootstrap_components>1.0.0; extra == "carbonboard"
@@ -43,34 +42,11 @@ Provides-Extra: viz-legacy
 Requires-Dist: dash; extra == "viz-legacy"
 Requires-Dist: dash_bootstrap_components>1.0.0; extra == "viz-legacy"
 Requires-Dist: fire; extra == "viz-legacy"
-Provides-Extra: api
-Requires-Dist: alembic<2.0.0; extra == "api"
-Requires-Dist: authlib>=1.2.1; extra == "api"
-Requires-Dist: bcrypt<5.0.0; extra == "api"
-Requires-Dist: python-dateutil<3.0.0; extra == "api"
-Requires-Dist: dependency-injector<5.0.0; extra == "api"
-Requires-Dist: fastapi<1.0.0; extra == "api"
-Requires-Dist: fief-client[fastapi]; extra == "api"
-Requires-Dist: httpx; extra == "api"
-Requires-Dist: itsdangerous; extra == "api"
-Requires-Dist: pydantic[email]<2.0.0; extra == "api"
-Requires-Dist: psycopg2-binary<3.0.0; extra == "api"
-Requires-Dist: requests<3.0.0; extra == "api"
-Requires-Dist: sqlalchemy<2.0.0; extra == "api"
-Requires-Dist: uvicorn[standard]<1.0.0; extra == "api"
-Requires-Dist: fastapi-pagination<1.0.0; extra == "api"
-Requires-Dist: pytest; extra == "api"
-Requires-Dist: mock; extra == "api"
-Requires-Dist: responses; extra == "api"
-Requires-Dist: fastapi-oidc; python_version >= "3.10" and extra == "api"
-Requires-Dist: numpy; extra == "api"
-Requires-Dist: psutil; extra == "api"
-Requires-Dist: requests-mock; extra == "api"
-Requires-Dist: rapidfuzz; extra == "api"
-Requires-Dist: PyJWT; extra == "api"
+Provides-Extra: amdsmi
+Requires-Dist: amdsmi>=6.0.0; extra == "amdsmi"
 Dynamic: license-file
 
-![banner](docs/edit/images/banner.png)
+![banner](docs/images/banner.png)
 
 Estimate and track carbon emissions from your computer, quantify and analyze their impact.
 
@@ -94,14 +70,18 @@ CodeCarbon websites:
 
 - [About CodeCarbon 💡](#about-codecarbon-)
 - [Quickstart 🚀](#quickstart-)
-    - [Installation 🔧](#installation-)
-    - [Start to estimate your impact 📏](#start-to-estimate-your-impact-)
-      - [Monitoring your whole machine](#monitoring-your-machine-)
-      - [In your python code](#in-your-python-code-)
-      - [Visualize](#visualize-)
+  - [Installation 🔧](#installation-)
+  - [Start to estimate your impact 📏](#start-to-estimate-your-impact-)
+    - [Without using the online dashboard](#without-using-the-online-dashboard)
+    - [With the online dashboard](#with-the-online-dashboard)
+    - [Monitoring your machine 💻](#monitoring-your-machine-)
+    - [Detecting your hardware 🔍](#detecting-your-hardware-)
+    - [In your Python code 🐍](#in-your-python-code-)
+  - [Visualize 📊](#visualize-)
 - [Contributing 🤝](#contributing-)
 - [How To Cite 📝](#how-to-cite-)
 - [Contact 📝](#contact-)
+  - [Star History](#star-history)
 
 # About CodeCarbon 💡
 
@@ -117,7 +97,7 @@ At **CodeCarbon**, we believe, along with Niels Bohr, that "Nothing exists until
 
 We created a Python package that estimates your hardware electricity power consumption (GPU + CPU + RAM) and we apply to it the carbon intensity of the region where the computing is done.
 
-![calculation Summary](docs/edit/images/calculation.png)
+![calculation Summary](docs/images/calculation.png)
 
 We explain more about this calculation in the [**Methodology**](https://mlco2.github.io/codecarbon/methodology.html#) section of the documentation.
 
@@ -200,7 +180,7 @@ There is other ways to use **codecarbon** package, please refer to the documenta
 ## Visualize 📊
 
 You can now visualize your experiment emissions on the [dashboard](https://dashboard.codecarbon.io/).
-![dashboard](docs/edit/images/dashboard.png)
+![dashboard](docs/images/dashboard.png)
 
 
 > Hope you enjoy your first steps monitoring your carbon computing impact!

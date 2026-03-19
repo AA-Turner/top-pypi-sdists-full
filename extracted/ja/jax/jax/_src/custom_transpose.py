@@ -83,6 +83,11 @@ class custom_transpose:
 
   @traceback_util.api_boundary
   def __call__(self, out_types, res_arg, lin_arg):
+    if self.transpose is None:
+      raise ValueError(
+          "Missing a transpose function. Use @def_transpose to define one."
+      )
+
     _, res_tree = tree_flatten(res_arg)
     _, lin_tree = tree_flatten(lin_arg)
     args_flat, in_tree = tree_flatten((res_arg, lin_arg))
@@ -103,7 +108,7 @@ class custom_transpose:
         debug_info=api_util.debug_info("custom_transpose transpose_fun",
                                        self.transpose,
                                        (res_arg, out_types), {})                             )
-    out_flat = custom_transpose_p.bind(flat_fun, *args_flat,
+    out_flat = custom_transpose_p.bind(*args_flat, subfuns=(flat_fun,),
                                        transpose=transpose_wrapped,
                                        out_types=tuple(out_types_flat),
                                        lin_tree=lin_tree,
@@ -166,12 +171,11 @@ class CustomTransposePrimitive(core.Primitive):
   call_primitive = False
   map_primitive = False
   multiple_results = True
+  skip_canonicalization = True
 
-  def bind(self, *args, **params):
-    return self._true_bind(*args, **params)
-
-  def bind_with_trace(self, trace, call_args, params):
-    call, tracers = call_args[0], call_args[1:]
+  def bind_with_trace(self, trace, call_args, avals, params, /):
+    call, = params.pop('subfuns', ())
+    tracers = call_args
     return trace.process_custom_transpose(self, call, tracers, **params)
 
   # TODO(frostig,mattjj): consider keeping `call` as a named parameter
@@ -189,8 +193,9 @@ class CustomTransposePrimitive(core.Primitive):
     else:
       assert 'transpose' in params
       new_params: dict[str, Any] = dict(params)
-      call = new_params.pop("call")
-    return [call], new_params
+      call, = new_params.pop("subfuns")
+    new_params['subfuns'] = (call,)
+    return new_params
 
 
 # TODO(frostig,mattjj): reinstate checks
@@ -207,7 +212,6 @@ def custom_transpose_transpose_rule(
     transpose = make_transpose_from_thunk(
         params['transpose_jaxpr_thunk'], lin_tree)
   else:
-    assert 'call' in params
     transpose = params['transpose']
 
   call_in_tree = treedef_tuple((res_tree, lin_tree))

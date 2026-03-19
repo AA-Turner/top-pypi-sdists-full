@@ -11,13 +11,13 @@ from typing import TYPE_CHECKING, cast
 import grpc
 import orjson
 import structlog
-from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
+from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from langgraph_grpc_common.conversion.checkpoint import (
     checkpoint_from_proto,
     checkpoint_metadata_from_proto,
-    checkpoint_tuple_to_proto,  # type: ignore[attr-defined]
+    checkpoint_tuple_to_proto,
     prune_strategy_from_proto,
-    writes_from_proto,  # type: ignore[attr-defined]
+    writes_from_proto,
 )
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
@@ -30,7 +30,7 @@ from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerServic
 from langgraph_api import _checkpointer as api_checkpointer
 
 if TYPE_CHECKING:
-    from grpc import aio as grpc_aio  # type: ignore[import]
+    from grpc import aio as grpc_aio
     from langgraph.checkpoint.base import CheckpointMetadata
 
 logger = structlog.stdlib.get_logger(__name__)

@@ -26825,37 +26825,6 @@ after video segmentation is complete.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_catalog_EnrichedDataset, self._return_none_for_unknown_union_types)
 
-    def update_bounds(self, auth_header: str, request: "scout_catalog_UpdateBoundsRequest", rid: str) -> "scout_catalog_EnrichedDataset":
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-            'rid': quote(str(_conjure_encoder.default(rid)), safe=''),
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/catalog/v1/datasets/{rid}/bounds'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'PUT',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), scout_catalog_EnrichedDataset, self._return_none_for_unknown_union_types)
-
     def update_global_dataset_bounds(self, auth_header: str, request: "scout_catalog_UpdateBoundsRequest", rid: str) -> "scout_catalog_Dataset":
         """Update the bounds for a dataset without updating bounds of files within the dataset. If the
 current bounds of the dataset are not set, then the bounds of the request will be used. Otherwise,
@@ -30318,6 +30287,312 @@ class scout_chartdefinition_api_BitFlagMapVisualisationVisitor:
 scout_chartdefinition_api_BitFlagMapVisualisationVisitor.__name__ = "BitFlagMapVisualisationVisitor"
 scout_chartdefinition_api_BitFlagMapVisualisationVisitor.__qualname__ = "BitFlagMapVisualisationVisitor"
 scout_chartdefinition_api_BitFlagMapVisualisationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayConfig(ConjureUnionType):
+    _default: Optional["scout_chartdefinition_api_BucketDisplayConfigDefault"] = None
+    _single_stat: Optional["scout_chartdefinition_api_BucketDisplayConfigSingleStat"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'default': ConjureFieldDefinition('default', scout_chartdefinition_api_BucketDisplayConfigDefault),
+            'single_stat': ConjureFieldDefinition('singleStat', scout_chartdefinition_api_BucketDisplayConfigSingleStat)
+        }
+
+    def __init__(
+            self,
+            default: Optional["scout_chartdefinition_api_BucketDisplayConfigDefault"] = None,
+            single_stat: Optional["scout_chartdefinition_api_BucketDisplayConfigSingleStat"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (default is not None) + (single_stat is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if default is not None:
+                self._default = default
+                self._type = 'default'
+            if single_stat is not None:
+                self._single_stat = single_stat
+                self._type = 'singleStat'
+
+        elif type_of_union == 'default':
+            if default is None:
+                raise ValueError('a union value must not be None')
+            self._default = default
+            self._type = 'default'
+        elif type_of_union == 'singleStat':
+            if single_stat is None:
+                raise ValueError('a union value must not be None')
+            self._single_stat = single_stat
+            self._type = 'singleStat'
+
+    @builtins.property
+    def default(self) -> Optional["scout_chartdefinition_api_BucketDisplayConfigDefault"]:
+        return self._default
+
+    @builtins.property
+    def single_stat(self) -> Optional["scout_chartdefinition_api_BucketDisplayConfigSingleStat"]:
+        return self._single_stat
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_BucketDisplayConfigVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_BucketDisplayConfigVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'default' and self.default is not None:
+            return visitor._default(self.default)
+        if self._type == 'singleStat' and self.single_stat is not None:
+            return visitor._single_stat(self.single_stat)
+
+
+scout_chartdefinition_api_BucketDisplayConfig.__name__ = "BucketDisplayConfig"
+scout_chartdefinition_api_BucketDisplayConfig.__qualname__ = "BucketDisplayConfig"
+scout_chartdefinition_api_BucketDisplayConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayConfigVisitor:
+
+    @abstractmethod
+    def _default(self, default: "scout_chartdefinition_api_BucketDisplayConfigDefault") -> Any:
+        pass
+
+    @abstractmethod
+    def _single_stat(self, single_stat: "scout_chartdefinition_api_BucketDisplayConfigSingleStat") -> Any:
+        pass
+
+
+scout_chartdefinition_api_BucketDisplayConfigVisitor.__name__ = "BucketDisplayConfigVisitor"
+scout_chartdefinition_api_BucketDisplayConfigVisitor.__qualname__ = "BucketDisplayConfigVisitor"
+scout_chartdefinition_api_BucketDisplayConfigVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayConfigDefault(ConjureBeanType):
+    """Default bucket display configuration, which renders a shaded min/max region per bucket with a stair-step 
+line from first point through mean to last point.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_BucketDisplayConfigDefault.__name__ = "BucketDisplayConfigDefault"
+scout_chartdefinition_api_BucketDisplayConfigDefault.__qualname__ = "BucketDisplayConfigDefault"
+scout_chartdefinition_api_BucketDisplayConfigDefault.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayConfigSingleStat(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'stat': ConjureFieldDefinition('stat', scout_chartdefinition_api_BucketDisplayStat)
+        }
+
+    __slots__: List[str] = ['_stat']
+
+    def __init__(self, stat: "scout_chartdefinition_api_BucketDisplayStat") -> None:
+        self._stat = stat
+
+    @builtins.property
+    def stat(self) -> "scout_chartdefinition_api_BucketDisplayStat":
+        return self._stat
+
+
+scout_chartdefinition_api_BucketDisplayConfigSingleStat.__name__ = "BucketDisplayConfigSingleStat"
+scout_chartdefinition_api_BucketDisplayConfigSingleStat.__qualname__ = "BucketDisplayConfigSingleStat"
+scout_chartdefinition_api_BucketDisplayConfigSingleStat.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayStat(ConjureUnionType):
+    _mean: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None
+    _min: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None
+    _max: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None
+    _count: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None
+    _sum: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None
+    _percentile: Optional["scout_chartdefinition_api_BucketDisplayStatPercentile"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'mean': ConjureFieldDefinition('mean', scout_chartdefinition_api_NoConfigDisplayStat),
+            'min': ConjureFieldDefinition('min', scout_chartdefinition_api_NoConfigDisplayStat),
+            'max': ConjureFieldDefinition('max', scout_chartdefinition_api_NoConfigDisplayStat),
+            'count': ConjureFieldDefinition('count', scout_chartdefinition_api_NoConfigDisplayStat),
+            'sum': ConjureFieldDefinition('sum', scout_chartdefinition_api_NoConfigDisplayStat),
+            'percentile': ConjureFieldDefinition('percentile', scout_chartdefinition_api_BucketDisplayStatPercentile)
+        }
+
+    def __init__(
+            self,
+            mean: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None,
+            min: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None,
+            max: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None,
+            count: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None,
+            sum: Optional["scout_chartdefinition_api_NoConfigDisplayStat"] = None,
+            percentile: Optional["scout_chartdefinition_api_BucketDisplayStatPercentile"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (mean is not None) + (min is not None) + (max is not None) + (count is not None) + (sum is not None) + (percentile is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if mean is not None:
+                self._mean = mean
+                self._type = 'mean'
+            if min is not None:
+                self._min = min
+                self._type = 'min'
+            if max is not None:
+                self._max = max
+                self._type = 'max'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
+            if sum is not None:
+                self._sum = sum
+                self._type = 'sum'
+            if percentile is not None:
+                self._percentile = percentile
+                self._type = 'percentile'
+
+        elif type_of_union == 'mean':
+            if mean is None:
+                raise ValueError('a union value must not be None')
+            self._mean = mean
+            self._type = 'mean'
+        elif type_of_union == 'min':
+            if min is None:
+                raise ValueError('a union value must not be None')
+            self._min = min
+            self._type = 'min'
+        elif type_of_union == 'max':
+            if max is None:
+                raise ValueError('a union value must not be None')
+            self._max = max
+            self._type = 'max'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
+        elif type_of_union == 'sum':
+            if sum is None:
+                raise ValueError('a union value must not be None')
+            self._sum = sum
+            self._type = 'sum'
+        elif type_of_union == 'percentile':
+            if percentile is None:
+                raise ValueError('a union value must not be None')
+            self._percentile = percentile
+            self._type = 'percentile'
+
+    @builtins.property
+    def mean(self) -> Optional["scout_chartdefinition_api_NoConfigDisplayStat"]:
+        return self._mean
+
+    @builtins.property
+    def min(self) -> Optional["scout_chartdefinition_api_NoConfigDisplayStat"]:
+        return self._min
+
+    @builtins.property
+    def max(self) -> Optional["scout_chartdefinition_api_NoConfigDisplayStat"]:
+        return self._max
+
+    @builtins.property
+    def count(self) -> Optional["scout_chartdefinition_api_NoConfigDisplayStat"]:
+        return self._count
+
+    @builtins.property
+    def sum(self) -> Optional["scout_chartdefinition_api_NoConfigDisplayStat"]:
+        return self._sum
+
+    @builtins.property
+    def percentile(self) -> Optional["scout_chartdefinition_api_BucketDisplayStatPercentile"]:
+        return self._percentile
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_BucketDisplayStatVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_BucketDisplayStatVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'mean' and self.mean is not None:
+            return visitor._mean(self.mean)
+        if self._type == 'min' and self.min is not None:
+            return visitor._min(self.min)
+        if self._type == 'max' and self.max is not None:
+            return visitor._max(self.max)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
+        if self._type == 'sum' and self.sum is not None:
+            return visitor._sum(self.sum)
+        if self._type == 'percentile' and self.percentile is not None:
+            return visitor._percentile(self.percentile)
+
+
+scout_chartdefinition_api_BucketDisplayStat.__name__ = "BucketDisplayStat"
+scout_chartdefinition_api_BucketDisplayStat.__qualname__ = "BucketDisplayStat"
+scout_chartdefinition_api_BucketDisplayStat.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayStatVisitor:
+
+    @abstractmethod
+    def _mean(self, mean: "scout_chartdefinition_api_NoConfigDisplayStat") -> Any:
+        pass
+
+    @abstractmethod
+    def _min(self, min: "scout_chartdefinition_api_NoConfigDisplayStat") -> Any:
+        pass
+
+    @abstractmethod
+    def _max(self, max: "scout_chartdefinition_api_NoConfigDisplayStat") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_chartdefinition_api_NoConfigDisplayStat") -> Any:
+        pass
+
+    @abstractmethod
+    def _sum(self, sum: "scout_chartdefinition_api_NoConfigDisplayStat") -> Any:
+        pass
+
+    @abstractmethod
+    def _percentile(self, percentile: "scout_chartdefinition_api_BucketDisplayStatPercentile") -> Any:
+        pass
+
+
+scout_chartdefinition_api_BucketDisplayStatVisitor.__name__ = "BucketDisplayStatVisitor"
+scout_chartdefinition_api_BucketDisplayStatVisitor.__qualname__ = "BucketDisplayStatVisitor"
+scout_chartdefinition_api_BucketDisplayStatVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_BucketDisplayStatPercentile(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', str)
+        }
+
+    __slots__: List[str] = ['_value']
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    @builtins.property
+    def value(self) -> str:
+        """Percentile value as a string (e.g. "0.95") to avoid floating-point precision issues.
+Must be between 0 and 1.
+        """
+        return self._value
+
+
+scout_chartdefinition_api_BucketDisplayStatPercentile.__name__ = "BucketDisplayStatPercentile"
+scout_chartdefinition_api_BucketDisplayStatPercentile.__qualname__ = "BucketDisplayStatPercentile"
+scout_chartdefinition_api_BucketDisplayStatPercentile.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_CartesianChartDefinition(ConjureUnionType):
@@ -34705,6 +34980,22 @@ scout_chartdefinition_api_NeverConnectDisconnectedValues.__qualname__ = "NeverCo
 scout_chartdefinition_api_NeverConnectDisconnectedValues.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_NoConfigDisplayStat(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_NoConfigDisplayStat.__name__ = "NoConfigDisplayStat"
+scout_chartdefinition_api_NoConfigDisplayStat.__qualname__ = "NoConfigDisplayStat"
+scout_chartdefinition_api_NoConfigDisplayStat.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_NumberFormat(ConjureBeanType):
     """Number format for numeric cells, eg 1e4 | 10000 | 10,000.
     """
@@ -37010,12 +37301,13 @@ class scout_chartdefinition_api_TimeSeriesChartDefinitionV1(ConjureBeanType):
             'plot_coloring_configuration': ConjureFieldDefinition('plotColoringConfiguration', OptionalTypeWrapper[scout_chartdefinition_api_PlotColoringConfiguration]),
             'anchor_point': ConjureFieldDefinition('anchorPoint', OptionalTypeWrapper[api_Timestamp]),
             'bucket_strategy': ConjureFieldDefinition('bucketStrategy', OptionalTypeWrapper[scout_chartdefinition_api_PanelBucketStrategy]),
-            'floating_legends_config': ConjureFieldDefinition('floatingLegendsConfig', OptionalTypeWrapper[scout_chartdefinition_api_FloatingLegendConfig])
+            'floating_legends_config': ConjureFieldDefinition('floatingLegendsConfig', OptionalTypeWrapper[scout_chartdefinition_api_FloatingLegendConfig]),
+            'bucket_display_config': ConjureFieldDefinition('bucketDisplayConfig', OptionalTypeWrapper[scout_chartdefinition_api_BucketDisplayConfig])
         }
 
-    __slots__: List[str] = ['_rows', '_comparison_run_groups', '_events', '_title', '_value_axes', '_thresholds', '_disconnected_values', '_staleness_configuration', '_plot_coloring_configuration', '_anchor_point', '_bucket_strategy', '_floating_legends_config']
+    __slots__: List[str] = ['_rows', '_comparison_run_groups', '_events', '_title', '_value_axes', '_thresholds', '_disconnected_values', '_staleness_configuration', '_plot_coloring_configuration', '_anchor_point', '_bucket_strategy', '_floating_legends_config', '_bucket_display_config']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], rows: List["scout_chartdefinition_api_TimeSeriesRow"], value_axes: List["scout_chartdefinition_api_ValueAxis"], anchor_point: Optional["api_Timestamp"] = None, bucket_strategy: Optional["scout_chartdefinition_api_PanelBucketStrategy"] = None, disconnected_values: Optional["scout_chartdefinition_api_DisconnectedValueVisualization"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, floating_legends_config: Optional["scout_chartdefinition_api_FloatingLegendConfig"] = None, plot_coloring_configuration: Optional["scout_chartdefinition_api_PlotColoringConfiguration"] = None, staleness_configuration: Optional["scout_chartdefinition_api_StalenessConfiguration"] = None, thresholds: Optional[List["scout_chartdefinition_api_AxisThresholdVisualization"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], rows: List["scout_chartdefinition_api_TimeSeriesRow"], value_axes: List["scout_chartdefinition_api_ValueAxis"], anchor_point: Optional["api_Timestamp"] = None, bucket_display_config: Optional["scout_chartdefinition_api_BucketDisplayConfig"] = None, bucket_strategy: Optional["scout_chartdefinition_api_PanelBucketStrategy"] = None, disconnected_values: Optional["scout_chartdefinition_api_DisconnectedValueVisualization"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, floating_legends_config: Optional["scout_chartdefinition_api_FloatingLegendConfig"] = None, plot_coloring_configuration: Optional["scout_chartdefinition_api_PlotColoringConfiguration"] = None, staleness_configuration: Optional["scout_chartdefinition_api_StalenessConfiguration"] = None, thresholds: Optional[List["scout_chartdefinition_api_AxisThresholdVisualization"]] = None, title: Optional[str] = None) -> None:
         self._rows = rows
         self._comparison_run_groups = comparison_run_groups
         self._events = events
@@ -37028,6 +37320,7 @@ class scout_chartdefinition_api_TimeSeriesChartDefinitionV1(ConjureBeanType):
         self._anchor_point = anchor_point
         self._bucket_strategy = bucket_strategy
         self._floating_legends_config = floating_legends_config
+        self._bucket_display_config = bucket_display_config
 
     @builtins.property
     def rows(self) -> List["scout_chartdefinition_api_TimeSeriesRow"]:
@@ -37090,6 +37383,13 @@ buckets align to this time instead of the viewport start.
         """Config for showing floating legends in the chart. If undefined, defaults to hiding.
         """
         return self._floating_legends_config
+
+    @builtins.property
+    def bucket_display_config(self) -> Optional["scout_chartdefinition_api_BucketDisplayConfig"]:
+        """Controls how decimated bucket data is displayed (e.g. show mean, min, max, count, sum,
+or a specific percentile). If undefined, defaults to BucketDisplayConfigDefault.
+        """
+        return self._bucket_display_config
 
 
 scout_chartdefinition_api_TimeSeriesChartDefinitionV1.__name__ = "TimeSeriesChartDefinitionV1"

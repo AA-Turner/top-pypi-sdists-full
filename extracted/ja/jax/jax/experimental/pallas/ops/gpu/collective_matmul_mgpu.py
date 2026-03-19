@@ -125,6 +125,7 @@ def all_gather_lhs_matmul(
       hopper_matmul_mgpu.kernel(
           lhs_source_ref,  # Use the lhs from previous step.
           rhs_ref,  # Use the same rhs for all steps.
+          None,  # No C.
           out_ref.at[out_device_m_slice],  # Use a slice of the output.
           config=config,
           pipeline_callback=functools.partial(
@@ -220,6 +221,7 @@ def _run_example():
       )
   ), aggregate=False)(a, b)
 
+  assert ref_kernels_ms is not None
   ref_time_us = _min_results_across_devices(ref_kernels_ms)
   ref_util = optimal_time / ref_time_us * 100
 

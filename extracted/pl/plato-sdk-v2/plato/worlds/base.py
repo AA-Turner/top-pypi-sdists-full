@@ -33,7 +33,6 @@ from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, Se
 from plato.worlds.human_annotation import RequiresHumanAnnotation
 from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
-from plato.worlds.slack import send_slack_world_completion_notification
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
@@ -162,7 +161,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     # Class attributes
     name: ClassVar[str] = "base"
     description: ClassVar[str] = ""
-    review_models: ClassVar[list[type]] = []
+    review_models: ClassVar[list[type]] = []  # Set to DEFAULT_REVIEW_MODELS below after class definition
     _state_class: ClassVar[type[PydanticBaseModel] | None] = None
 
     # Instance attributes
@@ -184,6 +183,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self.plato_session = None
         self._current_step_id: str | None = None
         self._session_id: str | None = None
+        self._chronos_completed: bool = False
         self._agent_containers: list[str] = []  # Track spawned agent containers for cleanup
         self._state: StateT | None = None
         self._transport: Transport | None = None  # NFS/rsync transport (set during session connect)
@@ -383,7 +383,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         try:
             self.logger.info("Restoring Plato session from serialized data")
-            self.plato_session = await Session.load(self.session.plato_session, start_heartbeat=True)
+            self.plato_session = await Session.load(
+                self.session.plato_session, start_heartbeat=True, heartbeat_use_process=True
+            )
             self.logger.info(f"Plato session {self.plato_session.session_id} restored, heartbeat started")
         except Exception as e:
             self.logger.warning(f"Failed to restore Plato session: {e}")
@@ -1489,15 +1491,11 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         is_dev = os.environ.get(_WORLD_DEV_MODE_ENV) == "1"
         final_result = getattr(self, "_final_result", None)
-        completion_status = "completed"
-        completion_error: str | None = None
         if run_error and isinstance(run_error, RequiresHumanAnnotation):
             payload: dict[str, Any] = {}
             if isinstance(final_result, dict):
                 payload.update(final_result)
             payload.update(run_error.result_payload())
-            completion_status = "needs_human_annotation"
-            completion_error = str(run_error)
             self.logger.warning(
                 "Completing session as needs_human_annotation: title=%s items=%d",
                 run_error.request.title,
@@ -1512,8 +1510,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         elif not is_dev:
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
-                completion_status = "failed"
-                completion_error = error_msg
                 await self._complete_chronos_session(
                     "failed",
                     exit_code=1,
@@ -1528,15 +1524,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 type(run_error).__name__ if run_error else "None",
             )
 
-        await send_slack_world_completion_notification(
-            config=self.config.slack_notifications,
-            session=self.session,
-            world_name=self.name,
-            world_version=self.get_version(),
-            status=completion_status,
-            error_message=completion_error,
-            step_count=self._step_count,
-        )
+        self._chronos_completed = True
 
         shutdown_tracing()
         self._session_id = None
@@ -1553,3 +1541,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             return
 
         self.logger.info(f"World '{self.name}' completed after {self._step_count} steps")
+
+
+# Set default review models on BaseWorld after class definition to avoid circular imports.
+# Subclasses that don't override review_models will inherit these.
+from plato.worlds.session_review_models import DEFAULT_REVIEW_MODELS  # noqa: E402
+
+BaseWorld.review_models = DEFAULT_REVIEW_MODELS

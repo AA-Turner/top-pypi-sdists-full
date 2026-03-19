@@ -68,6 +68,7 @@ from jax._src.pallas.mosaic.random import stateful_uniform as stateful_uniform
 from jax._src.pallas.mosaic.random import to_pallas_key as to_pallas_key
 from jax._src.pallas.mosaic.tpu_info import ChipVersion as ChipVersion
 from jax._src.pallas.mosaic.tpu_info import get_tpu_info as get_tpu_info
+from jax._src.pallas.mosaic.tpu_info import get_tpu_info_for_chip as get_tpu_info_for_chip
 from jax._src.pallas.mosaic.tpu_info import is_tpu_device as is_tpu_device
 from jax._src.pallas.mosaic.tpu_info import Tiling as Tiling
 from jax._src.pallas.mosaic.tpu_info import TpuInfo as TpuInfo

@@ -958,6 +958,7 @@ __all__ = (
     "DataQueryTypeDef",
     "DataResponseTypeDef",
     "DeclarativePoliciesReportTypeDef",
+    "DefaultConnectionTrackingConfigurationTypeDef",
     "DeleteCapacityManagerDataExportRequestTypeDef",
     "DeleteCapacityManagerDataExportResultTypeDef",
     "DeleteCarrierGatewayRequestTypeDef",
@@ -4518,6 +4519,11 @@ class MetricPointTypeDef(TypedDict):
     EndDate: NotRequired[datetime]
     Value: NotRequired[float]
     Status: NotRequired[str]
+
+class DefaultConnectionTrackingConfigurationTypeDef(TypedDict):
+    DefaultTcpEstablishedTimeout: NotRequired[int]
+    DefaultUdpTimeout: NotRequired[int]
+    DefaultUdpStreamTimeout: NotRequired[int]
 
 class DeleteCapacityManagerDataExportRequestTypeDef(TypedDict):
     CapacityManagerDataExportId: str
@@ -14652,6 +14658,7 @@ class NetworkInfoTypeDef(TypedDict):
     EnaSrdSupported: NotRequired[bool]
     BandwidthWeightings: NotRequired[list[BandwidthWeightingTypeType]]
     FlexibleEnaQueuesSupport: NotRequired[FlexibleEnaQueuesSupportType]
+    ConnectionTrackingConfiguration: NotRequired[DefaultConnectionTrackingConfigurationTypeDef]
     SecondaryNetworkSupported: NotRequired[bool]
     MaximumSecondaryNetworkInterfaces: NotRequired[int]
     Ipv4AddressesPerSecondaryInterface: NotRequired[int]

@@ -27,7 +27,7 @@ from jax._src.numpy import einsum as jnp_einsum
 from jax._src.scipy import linalg as jsp_linalg
 from jax._src.tree_util import (tree_leaves, tree_map, tree_structure,
                                 tree_reduce, Partial)
-from jax._src.typing import Array
+from jax._src.typing import Array, ArrayLike
 from jax._src.util import safe_map as map
 
 
@@ -57,7 +57,7 @@ def _vdot_real_tree(x, y):
   return sum(tree_leaves(tree_map(_vdot_real_part, x, y)))
 
 
-def _vdot_tree(x, y):
+def _vdot_tree(x, y) -> ArrayLike:
   return sum(tree_leaves(tree_map(partial(
     jnp.vdot, precision=lax.Precision.HIGHEST), x, y)))
 

@@ -1,5 +1,12 @@
-from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from rocketchat_API.APISections.base import RocketChatBase, paginated
+from rocketchat_API.APIExceptions.RocketExceptions import (
+    ROOM_ID_OR_GROUP_REQUIRED,
+    ROOM_ID_OR_NAME_REQUIRED,
+    RocketMissingParamException,
+)
+from rocketchat_API.APISections.base import (
+    RocketChatBase,
+    paginated,
+)
 
 
 class RocketChatGroups(RocketChatBase):
@@ -39,7 +46,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_get("groups.moderators", roomId=room_id, kwargs=kwargs)
         if group:
             return self.call_api_get("groups.moderators", roomName=group, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or group required")
+        raise RocketMissingParamException(ROOM_ID_OR_GROUP_REQUIRED)
 
     def groups_add_owner(self, room_id, user_id, **kwargs):
         """Gives the role of owner for a user in the current Group."""
@@ -69,6 +76,7 @@ class RocketChatGroups(RocketChatBase):
         """Creates a new private group, optionally including users, only if you're part of the group."""
         return self.call_api_post("groups.create", name=name, kwargs=kwargs)
 
+    @paginated("integrations")
     def groups_get_integrations(self, room_id, **kwargs):
         """Retrieves the integrations which the group has"""
         return self.call_api_get(
@@ -81,7 +89,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_get("groups.info", roomId=room_id, kwargs=kwargs)
         if room_name:
             return self.call_api_get("groups.info", roomName=room_name, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or roomName required")
+        raise RocketMissingParamException(ROOM_ID_OR_NAME_REQUIRED)
 
     def groups_invite(self, room_id, user_id, **kwargs):
         """Adds a user to the private group."""
@@ -142,6 +150,15 @@ class RocketChatGroups(RocketChatBase):
             "groups.setTopic", roomId=room_id, topic=topic, kwargs=kwargs
         )
 
+    def groups_set_encrypted(self, room_id, encrypted, **kwargs):
+        """Set a private channel as encrypted. Learn about end-to-end encryption here. Permission required: edit-room"""
+        return self.call_api_post(
+            "groups.setEncrypted",
+            roomId=room_id,
+            encrypted=bool(encrypted),
+            kwargs=kwargs,
+        )
+
     def groups_set_type(self, room_id, a_type, **kwargs):
         """Sets the type of room this group should be. The type of room this channel should be, either c or p."""
         return self.call_api_post(
@@ -165,7 +182,19 @@ class RocketChatGroups(RocketChatBase):
                 customFields=custom_fields,
                 kwargs=kwargs,
             )
-        raise RocketMissingParamException("room_id or room_name required")
+        raise RocketMissingParamException(ROOM_ID_OR_NAME_REQUIRED)
+
+    def groups_convert_to_team(self, room_id=None, room_name=None, **kwargs):
+        """Convert a private channel to a team. Permissions required: create-team, edit-room"""
+        if room_id:
+            return self.call_api_post(
+                "groups.convertToTeam", roomId=room_id, kwargs=kwargs
+            )
+        if room_name:
+            return self.call_api_post(
+                "groups.convertToTeam", roomName=room_name, kwargs=kwargs
+            )
+        raise RocketMissingParamException(ROOM_ID_OR_NAME_REQUIRED)
 
     def groups_delete(self, room_id=None, group=None, **kwargs):
         """Delete a private group."""
@@ -173,7 +202,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_post("groups.delete", roomId=room_id, kwargs=kwargs)
         if group:
             return self.call_api_post("groups.delete", roomName=group, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or group required")
+        raise RocketMissingParamException(ROOM_ID_OR_GROUP_REQUIRED)
 
     @paginated("members")
     def groups_members(self, room_id=None, group=None, **kwargs):
@@ -182,7 +211,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_get("groups.members", roomId=room_id, kwargs=kwargs)
         if group:
             return self.call_api_get("groups.members", roomName=group, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or group required")
+        raise RocketMissingParamException(ROOM_ID_OR_GROUP_REQUIRED)
 
     def groups_roles(self, room_id=None, room_name=None, **kwargs):
         """Lists all user's roles in the private group."""
@@ -190,7 +219,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_get("groups.roles", roomId=room_id, kwargs=kwargs)
         if room_name:
             return self.call_api_get("groups.roles", roomName=room_name, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or room_name required")
+        raise RocketMissingParamException(ROOM_ID_OR_NAME_REQUIRED)
 
     @paginated("files")
     def groups_files(self, room_id=None, room_name=None, **kwargs):
@@ -199,7 +228,7 @@ class RocketChatGroups(RocketChatBase):
             return self.call_api_get("groups.files", roomId=room_id, kwargs=kwargs)
         if room_name:
             return self.call_api_get("groups.files", roomName=room_name, kwargs=kwargs)
-        raise RocketMissingParamException("room_id or room_name required")
+        raise RocketMissingParamException(ROOM_ID_OR_NAME_REQUIRED)
 
     def groups_add_leader(self, room_id, user_id, **kwargs):
         """Gives the role of Leader for a user in the current group."""
@@ -212,3 +241,7 @@ class RocketChatGroups(RocketChatBase):
         return self.call_api_post(
             "groups.removeLeader", roomId=room_id, userId=user_id, kwargs=kwargs
         )
+
+    def groups_online(self, room_id, **kwargs):
+        """Lists all online users of a particular group (private channel). You will not be able to view the users if you are not a member of this private channel, unless you have admin permissions."""
+        return self.call_api_get("groups.online", _id=room_id, kwargs=kwargs)

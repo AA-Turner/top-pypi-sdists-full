@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
-from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
+from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from langgraph_grpc_common.conversion.config import config_from_proto, config_to_proto
 from langgraph_grpc_common.proto import core_api_pb2 as pb
 from langgraph_grpc_common.proto import (
@@ -233,7 +233,7 @@ class Crons(Authenticated):
             assistant_request_data = Auth.types.AssistantsRead(
                 assistant_id=str(payload["assistant_id"])
             )
-            assistant_request_data["metadata"] = metadata  # type: ignore[typeddict-unknown-key]
+            assistant_request_data["metadata"] = metadata
             assistant_filters = await Assistants.handle_event(
                 ctx, "read", assistant_request_data
             )
@@ -242,7 +242,7 @@ class Crons(Authenticated):
         thread_filters: list[Any] = []
         if thread_id is not None:
             thread_request_data = Auth.types.ThreadsRead(thread_id=thread_id)
-            thread_request_data["metadata"] = metadata  # type: ignore[typeddict-unknown-key]
+            thread_request_data["metadata"] = metadata
             thread_filters = await Threads.handle_event(
                 ctx, "read", thread_request_data
             )
@@ -469,7 +469,7 @@ class Crons(Authenticated):
         """
 
         client = await get_shared_client()
-        response = await client.crons.Next(Empty())  # type: ignore[attr-defined]
+        response = await client.crons.Next(Empty())
 
         for cron_with_now in response.crons:
             cron = proto_to_cron(cron_with_now.cron)
@@ -490,10 +490,10 @@ class Crons(Authenticated):
         next_run_date: datetime,
     ) -> None:
         """Update next run date for a cron via gRPC (internal API, no auth filters)."""
-        request = pb.SetNextRunDateRequest(  # type: ignore[attr-defined]
+        request = pb.SetNextRunDateRequest(
             cron_id=pb.UUID(value=str(cron_id)),
             next_run_date=next_run_date,
         )
 
         client = await get_shared_client()
-        await client.crons.SetNextRunDate(request)  # type: ignore[attr-defined]
+        await client.crons.SetNextRunDate(request)

@@ -113,7 +113,7 @@ class NDIndexer(state_types.Transform):
       idx_shape = (
           idx.shape
           if isinstance(idx, state_types.TransformedRef)
-          else core.get_aval(idx).shape
+          else core.typeof(idx).shape
       )
       if not idx_shape:
         if (value := _maybe_concretize(idx)) and value >= s:
@@ -199,7 +199,7 @@ class NDIndexer(state_types.Transform):
         i
         for i in other_indexers
         if isinstance(i, state_types.TransformedRef)
-        or isinstance(core.get_aval(i), state_types.AbstractRef)
+        or isinstance(core.typeof(i), state_types.AbstractRef)
     ]:
       # TODO(slebedev): Consider pushing these checks to lowering time.
       if len(ref_indexers) > 1:
@@ -215,7 +215,7 @@ class NDIndexer(state_types.Transform):
       except TypeError:
         validate = False  # The shape is dynamic.
     else:
-      indexer_shapes = [core.get_aval(i).shape for i in other_indexers]
+      indexer_shapes = [core.typeof(i).shape for i in other_indexers]
       try:
         indexer_shape = np.broadcast_shapes(*indexer_shapes)
       except ValueError as e:
@@ -232,7 +232,7 @@ class NDIndexer(state_types.Transform):
       # and this module.
       from jax._src.state import primitives as sp  # pytype: disable=import-error
       other_indexers = [
-          sp.broadcast_to(i, indexer_shape) for i in other_indexers  # type: ignore[arg-type]
+          sp.broadcast_to(i, indexer_shape) for i in other_indexers  # pyrefly: ignore[bad-argument-type]
       ]
       indices = tuple(
           merge_lists(is_slice_indexing, other_indexers, slice_indexers)

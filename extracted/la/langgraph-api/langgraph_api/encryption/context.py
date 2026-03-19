@@ -11,7 +11,7 @@ from typing import Any
 # Request-scoped encryption context
 # Set by API middleware when X-Encryption-Context header is present
 # Accessed by serializers during checkpoint encryption/decryption
-encryption_context: ContextVar[dict[str, Any] | None] = ContextVar(  # type: ignore[assignment]
+encryption_context: ContextVar[dict[str, Any] | None] = ContextVar(
     "encryption_context", default=None
 )
 

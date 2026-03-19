@@ -642,6 +642,13 @@ where
                     .collect::<RedisResult<Vec<_>>>()?;
                 crate::cluster_routing::aggregate(results, op)
             }
+            Some(ResponsePolicy::AggregateArray(op)) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                crate::cluster_routing::aggregate_array(results, op)
+            }
             Some(ResponsePolicy::AggregateLogical(op)) => {
                 let results = results
                     .into_iter()
@@ -1008,7 +1015,6 @@ pub(crate) fn get_connection_info(
             lib_name: cluster_params.lib_name,
             protocol: cluster_params.protocol,
             db: cluster_params.database_id,
-            pubsub_subscriptions: cluster_params.pubsub_subscriptions,
         },
     })
 }

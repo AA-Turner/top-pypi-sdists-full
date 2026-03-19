@@ -330,7 +330,7 @@ AssistantSelectField = Literal[
     "metadata",
     "version",
 ]
-ASSISTANT_FIELDS: set[str] = set(AssistantSelectField.__args__)  # type: ignore[attr-defined]
+ASSISTANT_FIELDS: set[str] = set(AssistantSelectField.__args__)
 
 # Thread select fields
 ThreadSelectField = Literal[
@@ -344,7 +344,7 @@ ThreadSelectField = Literal[
     "values",
     "interrupts",
 ]
-THREAD_FIELDS: set[str] = set(ThreadSelectField.__args__)  # type: ignore[attr-defined]
+THREAD_FIELDS: set[str] = set(ThreadSelectField.__args__)
 
 # Run select fields
 RunSelectField = Literal[
@@ -358,7 +358,7 @@ RunSelectField = Literal[
     "kwargs",
     "multitask_strategy",
 ]
-RUN_FIELDS: set[str] = set(RunSelectField.__args__)  # type: ignore[attr-defined]
+RUN_FIELDS: set[str] = set(RunSelectField.__args__)
 
 # Cron select fields
 CronSelectField = Literal[
@@ -377,7 +377,7 @@ CronSelectField = Literal[
     "metadata",
     "enabled",
 ]
-CRON_FIELDS: set[str] = set(CronSelectField.__args__)  # type: ignore[attr-defined]
+CRON_FIELDS: set[str] = set(CronSelectField.__args__)
 
 # Encryption field constants
 # These define which fields are encrypted for each model type.

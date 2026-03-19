@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.1.0
+Version: 1.1.1
 Summary: An integration package to support Azure AI Foundry capabilities in LangChain/LangGraph ecosystem.
 License: MIT License
          

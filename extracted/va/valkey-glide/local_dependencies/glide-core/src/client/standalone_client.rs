@@ -3,12 +3,10 @@
 use super::get_valkey_connection_info;
 use super::reconnecting_connection::{ReconnectReason, ReconnectingConnection};
 use super::{ConnectionRequest, NodeAddress, TlsMode};
-use super::{DEFAULT_CONNECTION_TIMEOUT, to_duration};
 use crate::client::types::ReadFrom as ClientReadFrom;
 use futures::{StreamExt, future, stream};
 use logger_core::log_debug;
 use logger_core::log_warn;
-use rand::Rng;
 use redis::aio::ConnectionLike;
 use redis::cluster_routing::{self, ResponsePolicy, Routable, RoutingInfo, is_readonly_cmd};
 use redis::{PushInfo, RedisError, RedisResult, RetryStrategy, Value};
@@ -42,6 +40,8 @@ struct DropWrapper {
     primary_index: usize,
     nodes: Vec<ReconnectingConnection>,
     read_from: ReadFrom,
+    /// When true, write commands are blocked and INFO REPLICATION is skipped during connection.
+    read_only: bool,
 }
 
 impl Drop for DropWrapper {
@@ -117,15 +117,31 @@ impl StandaloneClient {
         connection_request: ConnectionRequest,
         push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
         iam_token_manager: Option<&Arc<crate::iam::IAMTokenManager>>,
+        pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
     ) -> Result<Self, StandaloneClientConnectionError> {
         if connection_request.addresses.is_empty() {
             return Err(StandaloneClientConnectionError::NoAddressesProvided);
         }
 
-        let mut valkey_connection_info =
+        // Validate read_only mode is not combined with AZAffinity strategies
+        if connection_request.read_only
+            && matches!(
+                connection_request.read_from,
+                Some(ClientReadFrom::AZAffinity(_))
+                    | Some(ClientReadFrom::AZAffinityReplicasAndPrimary(_))
+            )
+        {
+            return Err(StandaloneClientConnectionError::FailedConnection(vec![(
+                None,
+                RedisError::from((
+                    redis::ErrorKind::InvalidClientConfig,
+                    "read-only mode is not compatible with AZAffinity strategies",
+                )),
+            )]));
+        }
+
+        let valkey_connection_info =
             get_valkey_connection_info(&connection_request, iam_token_manager).await;
-        let pubsub_connection_info = valkey_connection_info.clone();
-        valkey_connection_info.pubsub_subscriptions = None;
         let retry_strategy = match connection_request.connection_retry_strategy {
             Some(strategy) => RetryStrategy::new(
                 strategy.exponent_base,
@@ -138,39 +154,62 @@ impl StandaloneClient {
 
         let tls_mode = connection_request.tls_mode;
         let node_count = connection_request.addresses.len();
-        // randomize pubsub nodes, maybe a batter option is to always use the primary
-        let pubsub_node_index = rand::thread_rng().gen_range(0..node_count);
-        let pubsub_addr = connection_request.addresses[pubsub_node_index].clone();
         let discover_az = matches!(
             connection_request.read_from,
             Some(ClientReadFrom::AZAffinity(_))
                 | Some(ClientReadFrom::AZAffinityReplicasAndPrimary(_))
         );
 
-        let connection_timeout = to_duration(
-            connection_request.connection_timeout,
-            DEFAULT_CONNECTION_TIMEOUT,
-        );
+        let connection_timeout = connection_request.get_connection_timeout();
 
         let tcp_nodelay = connection_request.tcp_nodelay;
 
-        let tls_params = if !connection_request.root_certs.is_empty() {
+        let has_root_certs = !connection_request.root_certs.is_empty();
+        let has_client_cert = !connection_request.client_cert.is_empty();
+        let has_client_key = !connection_request.client_key.is_empty();
+        if has_client_cert != has_client_key {
+            return Err(StandaloneClientConnectionError::FailedConnection(vec![(
+                None,
+                RedisError::from((
+                    redis::ErrorKind::InvalidClientConfig,
+                    "client_cert and client_key must both be provided or both be empty",
+                )),
+            )]));
+        }
+
+        let tls_params = if has_root_certs || has_client_cert || has_client_key {
             if tls_mode.unwrap_or(TlsMode::NoTls) == TlsMode::NoTls {
                 return Err(StandaloneClientConnectionError::FailedConnection(vec![(
                     None,
                     RedisError::from((
                         redis::ErrorKind::InvalidClientConfig,
-                        "Custom root certificates provided but TLS is disabled",
+                        "TLS certificates provided but TLS is disabled",
                     )),
                 )]));
             }
-            let mut combined_certs = Vec::new();
-            for cert in &connection_request.root_certs {
-                combined_certs.extend_from_slice(cert);
-            }
+
+            let root_cert = if has_root_certs {
+                let mut combined_certs = Vec::new();
+                for cert in &connection_request.root_certs {
+                    combined_certs.extend_from_slice(cert);
+                }
+                Some(combined_certs)
+            } else {
+                None
+            };
+
+            let client_tls = if has_client_cert && has_client_key {
+                Some(redis::ClientTlsConfig {
+                    client_cert: connection_request.client_cert.clone(),
+                    client_key: connection_request.client_key.clone(),
+                })
+            } else {
+                None
+            };
+
             let tls_certificates = redis::TlsCertificates {
-                client_tls: None,
-                root_cert: Some(combined_certs),
+                client_tls,
+                root_cert,
             };
             Some(
                 redis::retrieve_tls_certificates(tls_certificates).map_err(|err| {
@@ -181,13 +220,13 @@ impl StandaloneClient {
             None
         };
 
-        let mut stream = stream::iter(connection_request.addresses.into_iter())
+        let read_only = connection_request.read_only;
+        let addresses = connection_request.addresses.clone();
+        let read_from_option = connection_request.read_from.clone();
+
+        let mut stream = stream::iter(addresses.into_iter())
             .map(move |address| {
-                let info = if address.host != pubsub_addr.host || address.port != pubsub_addr.port {
-                    valkey_connection_info.clone()
-                } else {
-                    pubsub_connection_info.clone()
-                };
+                let info = valkey_connection_info.clone();
                 let retry = retry_strategy;
                 let sender = push_sender.clone();
                 let tls = tls_mode.unwrap_or(TlsMode::NoTls);
@@ -195,9 +234,21 @@ impl StandaloneClient {
                 let timeout = connection_timeout;
                 let params = tls_params.clone();
                 let nodelay = tcp_nodelay;
+                let sync = pubsub_synchronizer.clone();
+                let skip_replication = read_only;
                 async move {
                     get_connection_and_replication_info(
-                        &address, &retry, &info, tls, &sender, discover, timeout, params, nodelay,
+                        &address,
+                        &retry,
+                        &info,
+                        tls,
+                        &sender,
+                        discover,
+                        timeout,
+                        params,
+                        nodelay,
+                        &sync,
+                        skip_replication,
                     )
                     .await
                     .map_err(|err| (format!("{}:{}", address.host, address.port), err))
@@ -207,21 +258,26 @@ impl StandaloneClient {
 
         let mut nodes = Vec::with_capacity(node_count);
         let mut addresses_and_errors = Vec::with_capacity(node_count);
-        let mut primary_index = None;
+        let mut primary_index = if read_only { Some(0) } else { None };
+
         while let Some(result) = stream.next().await {
             match result {
                 Ok((connection, replication_status)) => {
                     nodes.push(connection);
-                    if redis::from_owned_redis_value::<String>(replication_status)
-                        .is_ok_and(|val| val.contains("role:master"))
-                    {
-                        if let Some(primary_index) = primary_index {
+                    // Only check for primary in normal mode (when replication_status is Some)
+                    // and the node reports role:master
+                    let is_primary = replication_status
+                        .and_then(|status| redis::from_owned_redis_value::<String>(status).ok())
+                        .is_some_and(|val| val.contains("role:master"));
+
+                    if is_primary {
+                        if let Some(existing_primary) = primary_index {
                             // More than one primary found
                             return Err(StandaloneClientConnectionError::PrimaryConflictFound(
                                 format!(
                                     "Primary nodes: {:?}, {:?}",
                                     nodes.pop(),
-                                    nodes.get(primary_index)
+                                    nodes.get(existing_primary)
                                 ),
                             ));
                         }
@@ -235,20 +291,38 @@ impl StandaloneClient {
             }
         }
 
-        let Some(primary_index) = primary_index else {
-            if addresses_and_errors.is_empty() {
-                addresses_and_errors.insert(
-                    0,
-                    (
-                        None,
-                        RedisError::from((redis::ErrorKind::ClientError, "No primary node found")),
-                    ),
-                )
-            };
-            return Err(StandaloneClientConnectionError::FailedConnection(
-                addresses_and_errors,
-            ));
+        // Validate we have required connections
+        let primary_index = if read_only {
+            // In read-only mode, we need at least one successful connection
+            if nodes.is_empty() && !addresses_and_errors.is_empty() {
+                return Err(StandaloneClientConnectionError::FailedConnection(
+                    addresses_and_errors,
+                ));
+            }
+            0 // primary_index won't be used for writes in read-only mode
+        } else {
+            // Normal mode requires a primary
+            match primary_index {
+                Some(idx) => idx,
+                None => {
+                    let mut errors = addresses_and_errors;
+                    if errors.is_empty() {
+                        errors.insert(
+                            0,
+                            (
+                                None,
+                                RedisError::from((
+                                    redis::ErrorKind::ClientError,
+                                    "No primary node found",
+                                )),
+                            ),
+                        )
+                    };
+                    return Err(StandaloneClientConnectionError::FailedConnection(errors));
+                }
+            }
         };
+
         if !addresses_and_errors.is_empty() {
             log_warn(
                 "client creation",
@@ -257,7 +331,14 @@ impl StandaloneClient {
                 ),
             );
         }
-        let read_from = get_read_from(connection_request.read_from);
+        let read_from = if read_only && read_from_option.is_none() {
+            // Default to PreferReplica when read_only=true and no ReadFrom specified
+            ReadFrom::PreferReplica {
+                latest_read_replica_index: Default::default(),
+            }
+        } else {
+            get_read_from(read_from_option)
+        };
 
         #[cfg(feature = "standalone_heartbeat")]
         for node in nodes.iter() {
@@ -276,6 +357,7 @@ impl StandaloneClient {
                 primary_index,
                 nodes,
                 read_from,
+                read_only,
             }),
         })
     }
@@ -451,7 +533,7 @@ impl StandaloneClient {
         }
     }
 
-    async fn send_request_to_all_nodes(
+    pub(crate) async fn send_request_to_all_nodes(
         &mut self,
         cmd: &redis::Cmd,
         response_policy: Option<ResponsePolicy>,
@@ -490,6 +572,9 @@ impl StandaloneClient {
             Some(ResponsePolicy::Aggregate(op)) => future::try_join_all(requests)
                 .await
                 .and_then(|results| cluster_routing::aggregate(results, op)),
+            Some(ResponsePolicy::AggregateArray(op)) => future::try_join_all(requests)
+                .await
+                .and_then(|results| cluster_routing::aggregate_array(results, op)),
             Some(ResponsePolicy::AggregateLogical(op)) => future::try_join_all(requests)
                 .await
                 .and_then(|results| cluster_routing::logical_aggregate(results, op)),
@@ -535,6 +620,14 @@ impl StandaloneClient {
         let Some(cmd_bytes) = Routable::command(cmd) else {
             return self.send_request_to_single_node(cmd, false).await;
         };
+
+        // Block write commands in read-only mode
+        if self.inner.read_only && !is_readonly_cmd(cmd_bytes.as_slice()) {
+            return Err(RedisError::from((
+                redis::ErrorKind::ReadOnly,
+                "write commands are not allowed in read-only mode",
+            )));
+        }
 
         if RoutingInfo::is_all_nodes(cmd_bytes.as_slice()) {
             let response_policy = ResponsePolicy::for_command(cmd_bytes.as_slice());
@@ -678,6 +771,46 @@ impl StandaloneClient {
         Ok(Value::Okay)
     }
 
+    /// Update the username used to authenticate with the servers.
+    ///
+    /// This method updates the username for all connections and stores it for future reconnections.
+    /// Typically called after a successful AUTH command with a username parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_username` - The username to use for authentication (None to clear)
+    ///
+    pub async fn update_connection_username(
+        &self,
+        new_username: Option<String>,
+    ) -> RedisResult<Value> {
+        for node in self.inner.nodes.iter() {
+            node.update_connection_username(new_username.clone());
+        }
+
+        Ok(Value::Okay)
+    }
+
+    /// Update the protocol version used for connections.
+    ///
+    /// This method updates the protocol version for all connections and stores it for future reconnections.
+    /// Typically called after a successful HELLO command that changes the protocol version.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_protocol` - The protocol version to use (RESP2 or RESP3)
+    ///
+    pub async fn update_connection_protocol(
+        &self,
+        new_protocol: redis::ProtocolVersion,
+    ) -> RedisResult<Value> {
+        for node in self.inner.nodes.iter() {
+            node.update_connection_protocol(new_protocol);
+        }
+
+        Ok(Value::Okay)
+    }
+
     /// Retrieve the username used to authenticate with the server.
     pub fn get_username(&self) -> Option<String> {
         // All nodes in the client should have the same username configured, thus any connection would work here.
@@ -696,7 +829,9 @@ async fn get_connection_and_replication_info(
     connection_timeout: Duration,
     tls_params: Option<redis::TlsConnParams>,
     tcp_nodelay: bool,
-) -> Result<(ReconnectingConnection, Value), (ReconnectingConnection, RedisError)> {
+    pubsub_synchronizer: &Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
+    skip_replication_check: bool,
+) -> Result<(ReconnectingConnection, Option<Value>), (ReconnectingConnection, RedisError)> {
     let reconnecting_connection = ReconnectingConnection::new(
         address,
         *retry_strategy,
@@ -707,6 +842,7 @@ async fn get_connection_and_replication_info(
         connection_timeout,
         tls_params,
         tcp_nodelay,
+        pubsub_synchronizer.clone(),
     )
     .await?;
 
@@ -718,11 +854,16 @@ async fn get_connection_and_replication_info(
         }
     };
 
+    // Skip INFO REPLICATION in read-only mode
+    if skip_replication_check {
+        return Ok((reconnecting_connection, None));
+    }
+
     match multiplexed_connection
         .send_packed_command(redis::cmd("INFO").arg("REPLICATION"))
         .await
     {
-        Ok(replication_status) => Ok((reconnecting_connection, replication_status)),
+        Ok(replication_status) => Ok((reconnecting_connection, Some(replication_status))),
         Err(err) => Err((reconnecting_connection, err)),
     }
 }

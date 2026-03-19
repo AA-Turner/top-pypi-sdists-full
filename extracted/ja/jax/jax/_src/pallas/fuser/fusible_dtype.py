@@ -43,7 +43,6 @@ from jax._src.state import primitives as state_primitives
 from jax._src.util import foreach
 
 # TODO(sharadmv): Enable type checking.
-# mypy: ignore-errors
 
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
@@ -145,7 +144,7 @@ def physicalize(f):
     wrapped_fun, out_tree_thunk = api_util.flatten_fun_nokwargs(
         lu.wrap_init(f, debug_info=debug_info), treedef
     )
-    avals = [core.get_aval(a) for a in flattened_args]
+    avals = [core.typeof(a) for a in flattened_args]
     jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(wrapped_fun, avals)
     new_jaxpr = physicalize_closed_jaxpr(core.ClosedJaxpr(jaxpr, consts))
     out_flat = core.eval_jaxpr(
@@ -253,8 +252,8 @@ def physicalize_interp(
       if custom_rule:
         outvals = custom_rule(ctx, *invals, **eqn.params)
       else:
-        subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
-        outvals = eqn.primitive.bind(*subfuns, *invals, **bind_params)
+        bind_params = eqn.primitive.get_bind_params(eqn.params)
+        outvals = eqn.primitive.bind(*invals, **bind_params)
 
     if eqn.primitive.multiple_results:
       assert len(outvals) == len(eqn.outvars), eqn
@@ -363,9 +362,8 @@ def _custom_vjp_call_physicalize_rule(
   fwd_physicalized = _physicalize_transform(fwd)
   const_avals, _ = util.split_list(new_jaxpr.in_avals, [num_consts])
   bwd_physicalized = _physicalize_transform_bwd(bwd, const_avals)
-  return custom_derivatives.custom_vjp_call_p.bind(
-      fun, fwd_physicalized, bwd_physicalized, *args, **kwargs
-  )
+  kwargs['subfuns'] = (fun, fwd_physicalized, bwd_physicalized)
+  return custom_derivatives.custom_vjp_call_p.bind(*args, **kwargs)
 
 _physicalize_rules[custom_derivatives.custom_vjp_call_p] = _custom_vjp_call_physicalize_rule
 

@@ -2434,21 +2434,48 @@ impl Tube {
     /// Open a virtual connection in PythonHandler protocol mode
     /// Sends an OpenConnection control message to the remote peer
     /// This is used when Python wants to initiate a connection (e.g., guacd tunnel)
+    ///
+    /// # Arguments
+    /// * `channel_name` - The channel identifier
+    /// * `conn_no` - The connection number
+    /// * `connect_as_payload` - Optional ConnectAs payload for credential passing
+    ///   Format: [encrypted_data_len: 4 bytes] + [public_key: 65 bytes] + [nonce: 12 bytes] + [encrypted_data]
     #[allow(dead_code)] // Used by Python bindings
     pub(crate) async fn open_handler_connection(
         &self,
         channel_name: &str,
         conn_no: u32,
+        connect_as_payload: Option<&[u8]>,
     ) -> Result<()> {
         let data_channels = self.data_channels.read().await;
         let channel = data_channels
             .get(channel_name)
             .ok_or_else(|| anyhow::anyhow!("Channel not found: {}", channel_name))?;
 
-        // Build OpenConnection control message - payload is just conn_no
-        let open_data = conn_no.to_be_bytes();
+        // Build OpenConnection control message
+        // Format: [conn_no: 4 bytes] + optional [connect_as_payload]
 
         let buffer_pool = BufferPool::default();
+        let mut open_data = buffer_pool.acquire();
+        open_data.clear();
+
+        // Always start with conn_no
+        open_data.extend_from_slice(&conn_no.to_be_bytes());
+
+        // Append ConnectAs payload if provided
+        if let Some(payload) = connect_as_payload {
+            open_data.extend_from_slice(payload);
+            debug!(
+                "Sending OpenConnection for conn_no {} with ConnectAs payload ({} bytes) on channel {}",
+                conn_no, payload.len(), channel_name
+            );
+        } else {
+            debug!(
+                "Sending OpenConnection for conn_no {} (no payload) on channel {}",
+                conn_no, channel_name
+            );
+        }
+
         let open_frame =
             Frame::new_control_with_pool(ControlMessage::OpenConnection, &open_data, &buffer_pool);
 
@@ -2458,10 +2485,7 @@ impl Tube {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to send OpenConnection frame: {}", e))?;
 
-        debug!(
-            "Sent OpenConnection for conn_no {} on channel {}",
-            conn_no, channel_name
-        );
+        buffer_pool.release(open_data);
 
         Ok(())
     }

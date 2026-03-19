@@ -2340,9 +2340,9 @@ def prepare_cos_client(
         elif training_result_reference._is_connection_asset_s3:
             training_result_reference._init_s3_connection()
             cos_client_results = (
-                training_result_reference,
+                training_result_reference._connectable_self,
                 differentiate_between_credentials(
-                    connection=training_result_reference.connection
+                    connection=training_result_reference._connectable_self.connection
                 ),
             )
 
@@ -2361,9 +2361,9 @@ def prepare_cos_client(
                 reference._init_s3_connection()
                 data_cos_clients.append(
                     (
-                        reference,
+                        reference._connectable_self,
                         differentiate_between_credentials(
-                            connection=reference.connection
+                            connection=reference._connectable_self.connection
                         ),
                     )
                 )

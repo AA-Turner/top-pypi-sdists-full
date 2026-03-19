@@ -246,7 +246,7 @@ class BRISQUE(torch.nn.Module):
         # However, this check allows to fail fast when the loss is being initialised and training has not been started.
         assert kernel_size % 2 == 1, f'Kernel size must be odd, got [{kernel_size}]'
         assert test_y_channel, (
-            f'Only [test_y_channel=True] is supported for current BRISQUE model, which is taken directly from official codes: https://github.com/utlive/BRISQUE.'
+            'Only [test_y_channel=True] is supported for current BRISQUE model, which is taken directly from official codes: https://github.com/utlive/BRISQUE.'
         )
 
         self.kernel_sigma = kernel_sigma
@@ -263,23 +263,27 @@ class BRISQUE(torch.nn.Module):
             self.sv_coef, self.sv = torch.load(
                 pretrained_model_path, weights_only=False
             )
-            self.gamma = 0.05
-            self.rho = -153.591
-            self.scale = 1
         elif version == 'matlab':
             pretrained_model_path = load_file_from_url(
                 default_model_urls['brisque_matlab']
             )
-            self.gamma = 1
-            self.rho = -43.4582
-            self.scale = 0.3210
 
             params = scipy.io.loadmat(pretrained_model_path)
             sv = params['sv']
             sv_coef = np.ravel(params['sv_coef'])
-            sv = torch.from_numpy(sv)
+            self.sv = torch.from_numpy(sv)
             self.sv_coef = torch.from_numpy(sv_coef)
-            self.sv = sv / self.scale
+
+        # Set hyper-parameters based on the version 
+        if version == 'original':
+            self.gamma = 0.05
+            self.rho = -153.591
+            self.scale = 1
+        elif version == 'matlab':
+            self.gamma = 1
+            self.rho = -43.4582
+            self.scale = 0.3210
+        self.sv = self.sv / self.scale
 
         self.version = version
 

@@ -15,7 +15,7 @@ else:
 
 setup(
     name='SoftLayer',
-    version='v6.2.7',
+    version='v6.2.8',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/x-rst',
@@ -32,13 +32,12 @@ setup(
     },
     python_requires='>=3.7',
     install_requires=[
-        'prettytable >= 2.5.0',
         'click >= 8.0.4',
         'requests >= 2.32.2',
         'prompt_toolkit >= 2',
         'pygments >= 2.0.0',
         'urllib3 >= 1.24',
-        'rich == 14.0.0'
+        'rich == 14.3.3'
     ],
     keywords=['softlayer', 'cloud', 'slcli', 'ibmcloud'],
     classifiers=[

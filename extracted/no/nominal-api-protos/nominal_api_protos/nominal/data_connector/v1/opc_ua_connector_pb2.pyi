@@ -140,12 +140,14 @@ class OpcUaChannelNamingConvention(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     class OpcUaFullPath(_message.Message):
-        __slots__ = ("root_nodes", "delimiter")
+        __slots__ = ("root_nodes", "delimiter", "array_tag_names")
         ROOT_NODES_FIELD_NUMBER: _ClassVar[int]
         DELIMITER_FIELD_NUMBER: _ClassVar[int]
+        ARRAY_TAG_NAMES_FIELD_NUMBER: _ClassVar[int]
         root_nodes: _containers.RepeatedCompositeFieldContainer[OpcNode]
         delimiter: str
-        def __init__(self, root_nodes: _Optional[_Iterable[_Union[OpcNode, _Mapping]]] = ..., delimiter: _Optional[str] = ...) -> None: ...
+        array_tag_names: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, root_nodes: _Optional[_Iterable[_Union[OpcNode, _Mapping]]] = ..., delimiter: _Optional[str] = ..., array_tag_names: _Optional[_Iterable[str]] = ...) -> None: ...
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
     BROWSE_NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]

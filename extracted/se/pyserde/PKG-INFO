@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyserde
-Version: 0.30.1
+Version: 0.31.0
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -45,7 +45,7 @@ Requires-Dist: plum-dispatch>=2.3
 Requires-Dist: typing-extensions<4.16.0,>=4.1.0
 Requires-Dist: typing-inspect>=0.4.0
 Provides-Extra: all
-Requires-Dist: jaxtyping<0.3.0; extra == 'all'
+Requires-Dist: jaxtyping; extra == 'all'
 Requires-Dist: msgpack; extra == 'all'
 Requires-Dist: numpy<3.0.0,>1.22.0; extra == 'all'
 Requires-Dist: orjson; extra == 'all'
@@ -54,7 +54,7 @@ Requires-Dist: sqlalchemy>2; extra == 'all'
 Requires-Dist: tomli-w; extra == 'all'
 Requires-Dist: tomli; (python_version < '3.11') and extra == 'all'
 Provides-Extra: jaxtyping
-Requires-Dist: jaxtyping<0.3.0; extra == 'jaxtyping'
+Requires-Dist: jaxtyping; extra == 'jaxtyping'
 Provides-Extra: msgpack
 Requires-Dist: msgpack; extra == 'msgpack'
 Provides-Extra: numpy

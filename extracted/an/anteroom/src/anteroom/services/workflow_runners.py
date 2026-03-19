@@ -43,7 +43,7 @@ class RunnerResult:
 VALID_RESULT_STATUSES = frozenset({"success", "failed", "blocked"})
 
 AGENT_RUNNER_TYPES = frozenset({"cli_claude", "cli_codex"})
-OPAQUE_RUNNER_TYPES = frozenset({"shell", "python_script"})
+OPAQUE_RUNNER_TYPES = frozenset({"shell", "python_script", "stub"})
 
 
 class RunnerRegistry:
@@ -80,6 +80,17 @@ def create_default_registry() -> RunnerRegistry:
     registry.register("cli_codex", "agent")
     registry.register("shell", "opaque")
     registry.register("python_script", "opaque")
+    return registry
+
+
+def create_stub_registry() -> RunnerRegistry:
+    """Create a registry with only the stub runner for simulation (#968)."""
+    registry = RunnerRegistry()
+    registry.register("stub", "opaque")
+    registry.register("shell", "opaque")
+    registry.register("python_script", "opaque")
+    registry.register("cli_claude", "agent")
+    registry.register("cli_codex", "agent")
     return registry
 
 

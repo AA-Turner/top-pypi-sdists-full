@@ -6,7 +6,7 @@ isort:skip_file
 from collections import abc as _abc
 from grpc import aio as _aio
 import abc as _abc_1
-import engine_api_pb2 as _engine_api_pb2
+from . import engine_api_pb2 as _engine_api_pb2
 import grpc as _grpc
 import sys
 import typing as _typing

@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 import contextlib
 import enum
 import functools
@@ -22,7 +22,7 @@ import itertools
 import logging
 import os
 import sys
-from typing import Any, Generic, NoReturn, Optional, Protocol, Type, TypeVar, cast
+from typing import Any, Generic, Generator, NoReturn, Optional, Protocol, Type, TypeVar, cast
 import warnings
 
 from jax._src import deprecations
@@ -220,7 +220,7 @@ class Config:
       self.complete_absl_config(absl.flags)
       already_configured_with_absl = True
 
-register_trace_context_callback = []  # type: ignore
+register_trace_context_callback = []
 
 trace_context = config_ext.trace_context
 
@@ -906,7 +906,7 @@ class Flag(Generic[_T]):
     raise TypeError(
         "bool() not supported for instances of type '{0}' "
         "(did you mean to use '{0}.value' instead?)".format(
-            type(self).__name__))  # pyrefly: ignore[missing-attribute]  # pyrefly#2444
+            type(self).__name__))
 
   def _set(self, value: _T) -> None:
     self.value = value
@@ -1889,7 +1889,7 @@ jax_xla_profile_version = int_state(
 )
 
 @contextlib.contextmanager
-def explicit_device_put_scope() -> Iterator[None]:
+def explicit_device_put_scope() -> Generator[None, None, None]:
   """Indicates that the current context is an explicit device_put*() call."""
   state = guard_lib.thread_local_state()
   prev = state.explicit_device_put
@@ -1900,7 +1900,7 @@ def explicit_device_put_scope() -> Iterator[None]:
     state.explicit_device_put = prev
 
 @contextlib.contextmanager
-def explicit_device_get_scope() -> Iterator[None]:
+def explicit_device_get_scope() -> Generator[None, None, None]:
   """Indicates that the current context is an explicit device_get() call."""
   state = guard_lib.thread_local_state()
   prev = state.explicit_device_get
@@ -1994,7 +1994,7 @@ _transfer_guard = optional_enum_state(
     update_global_hook=_update_all_transfer_guard_global)
 
 @contextlib.contextmanager
-def transfer_guard(new_val: str) -> Iterator[None]:
+def transfer_guard(new_val: str) -> Generator[None, None, None]:
   """A contextmanager to control the transfer guard level for all transfers.
 
   For more information, see
@@ -2068,42 +2068,40 @@ thread_guard = bool_state(
         lambda val: guard_lib.update_thread_guard_global_state(val or False)),
 )
 
-# TODO(nbasile): Remove hasattr checks after jaxlib 0.8.1 release
-if hasattr(_jax, 'RuntimeTracebackMode'):
-  class RuntimeTracebackMode(enum.StrEnum):
-    OFF = 'off'
-    ON = 'on'
-    FULL = 'full'
+class RuntimeTracebackMode(enum.StrEnum):
+  OFF = 'off'
+  ON = 'on'
+  FULL = 'full'
 
-    @classmethod
-    def _missing_(cls, value):
-      if isinstance(value, str):
-        try:
-          return cls[value.upper()]
-        except KeyError:
-          pass
-      return None
+  @classmethod
+  def _missing_(cls, value):
+    if isinstance(value, str):
+      try:
+        return cls[value.upper()]
+      except KeyError:
+        pass
+    return None
 
-    def as_cpp_enum(self):
-      return getattr(_jax.RuntimeTracebackMode, self.name)
+  def as_cpp_enum(self):
+    return getattr(_jax.RuntimeTracebackMode, self.name)
 
-  send_traceback_to_runtime = enum_class_state(
-      name='jax_send_traceback_to_runtime',
-      enum_class=RuntimeTracebackMode,
-      default=RuntimeTracebackMode.OFF,
-      help=(
-          'Controls the level of Python traceback information sent to the'
-          ' runtime at dispatch time:\n- "OFF": (default) No Python traceback'
-          ' information is sent.\n- "ON": Only the most recent user frame call'
-          ' location is sent.\n- "FULL": The full Python traceback of the call'
-          ' location is sent. This has a high fixed cost on the dispatch path'
-          ' and should be used only for debugging.'
-      ),
-      update_global_hook=lambda val: _jax.set_send_traceback_to_runtime_global(
-          val.as_cpp_enum() if val is not None else _jax.RuntimeTracebackMode.OFF),
-      update_thread_local_hook=lambda val: _jax.set_send_traceback_to_runtime_thread_local(
-          val.as_cpp_enum() if val is not None else None),
-  )
+send_traceback_to_runtime = enum_class_state(
+    name='jax_send_traceback_to_runtime',
+    enum_class=RuntimeTracebackMode,
+    default=RuntimeTracebackMode.OFF,
+    help=(
+        'Controls the level of Python traceback information sent to the'
+        ' runtime at dispatch time:\n- "OFF": (default) No Python traceback'
+        ' information is sent.\n- "ON": Only the most recent user frame call'
+        ' location is sent.\n- "FULL": The full Python traceback of the call'
+        ' location is sent. This has a high fixed cost on the dispatch path'
+        ' and should be used only for debugging.'
+    ),
+    update_global_hook=lambda val: _jax.set_send_traceback_to_runtime_global(
+        val.as_cpp_enum() if val is not None else _jax.RuntimeTracebackMode.OFF),
+    update_thread_local_hook=lambda val: _jax.set_send_traceback_to_runtime_thread_local(
+        val.as_cpp_enum() if val is not None else None),
+)
 
 # Don't define a context manager since this isn't threadsafe.
 string_state(

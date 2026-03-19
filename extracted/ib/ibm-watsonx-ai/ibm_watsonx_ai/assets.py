@@ -1128,8 +1128,10 @@ class Assets(WMLResource):
                     }
                 )
 
+                new_el["attachments"] = response_data["attachments"]
+
             href_without_host = response_data["href"].split(".com")[-1]
-            new_el["metadata"].update({"href": href_without_host})
+            new_el["metadata"]["href"] = href_without_host
 
             return new_el
         except Exception:

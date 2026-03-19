@@ -161,7 +161,7 @@ def validate_stream_id(stream_id: str | None, invalid_stream_id_detail: str | No
 def next_cron_date(
     schedule: str, base_time: datetime, timezone: str | None = None
 ) -> datetime:
-    import croniter  # type: ignore[unresolved-import]  # noqa: PLC0415
+    import croniter  # noqa: PLC0415
 
     if timezone:
         base_time = base_time.astimezone(ZoneInfo(timezone))

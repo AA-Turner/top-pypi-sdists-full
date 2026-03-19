@@ -20,6 +20,8 @@ def _build_request_args(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
+    world_package: str | None = None,
+    world_version: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -44,6 +46,10 @@ def _build_request_args(
         params["status"] = status
     if top_level_only is not None:
         params["top_level_only"] = top_level_only
+    if world_package is not None:
+        params["world_package"] = world_package
+    if world_version is not None:
+        params["world_version"] = world_version
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -68,6 +74,8 @@ def sync(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
+    world_package: str | None = None,
+    world_version: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionListResponse:
     """List sessions for the org with pagination and filtering.
@@ -86,6 +94,8 @@ def sync(
         offset=offset,
         status=status,
         top_level_only=top_level_only,
+        world_package=world_package,
+        world_version=world_version,
         x_api_key=x_api_key,
     )
 
@@ -105,6 +115,8 @@ async def asyncio(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
+    world_package: str | None = None,
+    world_version: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionListResponse:
     """List sessions for the org with pagination and filtering.
@@ -123,6 +135,8 @@ async def asyncio(
         offset=offset,
         status=status,
         top_level_only=top_level_only,
+        world_package=world_package,
+        world_version=world_version,
         x_api_key=x_api_key,
     )
 

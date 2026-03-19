@@ -1453,17 +1453,16 @@ class WM_OT_url_open_preset(_bpy_types.Operator):
         :return: The class or default when not found.
         """
 
-    def execute(self, context) -> None:
+    def execute(self, _context) -> None:
         """
 
-        :param context:
+        :param _context:
         """
 
     @staticmethod
-    def lookup_url_from_type(context, type) -> None:
+    def lookup_url_from_type(type) -> None:
         """
 
-        :param context:
         :param type:
         """
 

@@ -52,6 +52,14 @@ class WriteBatchesRequest(_message.Message):
     data_source_rid: str
     def __init__(self, batches: _Optional[_Iterable[_Union[RecordsBatch, _Mapping]]] = ..., data_source_rid: _Optional[str] = ...) -> None: ...
 
+class InternalWriteBatchesRequest(_message.Message):
+    __slots__ = ("batches", "data_source_rid")
+    BATCHES_FIELD_NUMBER: _ClassVar[int]
+    DATA_SOURCE_RID_FIELD_NUMBER: _ClassVar[int]
+    batches: _containers.RepeatedCompositeFieldContainer[RecordsBatch]
+    data_source_rid: str
+    def __init__(self, batches: _Optional[_Iterable[_Union[RecordsBatch, _Mapping]]] = ..., data_source_rid: _Optional[str] = ...) -> None: ...
+
 class ArrayPoints(_message.Message):
     __slots__ = ("double_array_points", "string_array_points")
     DOUBLE_ARRAY_POINTS_FIELD_NUMBER: _ClassVar[int]

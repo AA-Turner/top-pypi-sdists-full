@@ -10,6 +10,7 @@ import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.sku_pb2
+import sentry_protos.billing.v1.sku_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -63,7 +64,9 @@ class SKUConfig(google.protobuf.message.Message):
     RESERVED_RATE_FIELD_NUMBER: builtins.int
     IS_UNLIMITED_FIELD_NUMBER: builtins.int
     NUM_RESERVED_UNITS_FIELD_NUMBER: builtins.int
+    BILLING_SKU_FIELD_NUMBER: builtins.int
     sku: sentry_protos.billing.v1.services.contract.v1.sku_pb2.SKU.ValueType
+    """DEPRECATED: use billing_sku instead"""
     base_price_cents: builtins.int
     """Base price for the SKU (upgraded reserved volumes or add-on activation fees)"""
     payg_budget_cents: builtins.int
@@ -72,6 +75,7 @@ class SKUConfig(google.protobuf.message.Message):
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
     """the type communicates whether the SKU is unlimited or not, additionally reserved budget SKUs have a non-zero reserved_rate in addition to 0 reserved_units"""
+    billing_sku: sentry_protos.billing.v1.sku_pb2.SKU.ValueType
     @property
     def payg_rate(self) -> global___TieredPricingRate: ...
     @property
@@ -89,9 +93,10 @@ class SKUConfig(google.protobuf.message.Message):
         reserved_rate: global___TieredPricingRate | None = ...,
         is_unlimited: builtins.bool = ...,
         num_reserved_units: builtins.int = ...,
+        billing_sku: sentry_protos.billing.v1.sku_pb2.SKU.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "base_price_cents", b"base_price_cents", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "reserved_volume", b"reserved_volume", "sku", b"sku"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "base_price_cents", b"base_price_cents", "billing_sku", b"billing_sku", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "reserved_volume", b"reserved_volume", "sku", b"sku"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payg_budget_cents", b"_payg_budget_cents"]) -> typing.Literal["payg_budget_cents"] | None: ...
     @typing.overload
@@ -110,18 +115,24 @@ class SharedSKUBudget(google.protobuf.message.Message):
     SKUS_FIELD_NUMBER: builtins.int
     RESERVED_BUDGET_CENTS_FIELD_NUMBER: builtins.int
     PAYG_BUDGET_CENTS_FIELD_NUMBER: builtins.int
+    BILLING_SKUS_FIELD_NUMBER: builtins.int
     reserved_budget_cents: builtins.int
     payg_budget_cents: builtins.int
     @property
-    def skus(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[sentry_protos.billing.v1.services.contract.v1.sku_pb2.SKU.ValueType]: ...
+    def skus(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[sentry_protos.billing.v1.services.contract.v1.sku_pb2.SKU.ValueType]:
+        """DEPRECATED: use billing_skus instead"""
+
+    @property
+    def billing_skus(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[sentry_protos.billing.v1.sku_pb2.SKU.ValueType]: ...
     def __init__(
         self,
         *,
         skus: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.sku_pb2.SKU.ValueType] | None = ...,
         reserved_budget_cents: builtins.int = ...,
         payg_budget_cents: builtins.int = ...,
+        billing_skus: collections.abc.Iterable[sentry_protos.billing.v1.sku_pb2.SKU.ValueType] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["payg_budget_cents", b"payg_budget_cents", "reserved_budget_cents", b"reserved_budget_cents", "skus", b"skus"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billing_skus", b"billing_skus", "payg_budget_cents", b"payg_budget_cents", "reserved_budget_cents", b"reserved_budget_cents", "skus", b"skus"]) -> None: ...
 
 global___SharedSKUBudget = SharedSKUBudget
 

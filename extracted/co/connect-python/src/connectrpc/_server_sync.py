@@ -8,8 +8,9 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, TypeVar
 from urllib.parse import parse_qs
 
-from . import _compression, _server_shared
+from . import _server_shared
 from ._codec import Codec, get_codec
+from ._compression import negotiate_compression, resolve_compressions
 from ._envelope import EnvelopeReader, EnvelopeWriter
 from ._interceptor_sync import (
     BidiStreamInterceptorSync,
@@ -41,6 +42,8 @@ if TYPE_CHECKING:
     import sys
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from io import BytesIO
+
+    from .compression import Compression
 
     if sys.version_info >= (3, 11):
         from wsgiref.types import StartResponse, WSGIEnvironment
@@ -95,15 +98,14 @@ def _process_headers(headers: dict) -> Headers:
 def prepare_response_headers(
     base_headers: dict[str, list[str]], selected_encoding: str
 ) -> dict[str, list[str]]:
-    """Prepare response headers and determine if compression should be used.
+    """Prepare response headers with the selected compression encoding.
 
     Args:
-        base_headers: Base response headers
-        selected_encoding: Selected compression encoding
-        compressed_size: Size of compressed content (if compression was attempted)
+        base_headers: Base response headers.
+        selected_encoding: Selected compression encoding.
 
     Returns:
-        tuple[dict, bool]: Final headers and whether to use compression
+        The final response headers with content-encoding set.
     """
     headers = base_headers.copy()
 
@@ -165,8 +167,18 @@ class ConnectWSGIApplication(ABC):
         endpoints: Mapping[str, EndpointSync],
         interceptors: Iterable[InterceptorSync] = (),
         read_max_bytes: int | None = None,
+        compressions: Iterable[Compression] | None = None,
     ) -> None:
-        """Initialize the WSGI application."""
+        """Initialize the WSGI application.
+
+        Args:
+            endpoints: A mapping of URL paths to endpoints. Typically provided directly
+                by generated code from the Connect Python plugin.
+            interceptors: A sequence of interceptors to apply to the endpoints.
+            read_max_bytes: Maximum size of request messages.
+            compressions: Supported compression algorithms. If unset, defaults to gzip.
+                          If set to empty, disables compression.
+        """
         super().__init__()
         if interceptors:
             interceptors = [
@@ -181,6 +193,7 @@ class ConnectWSGIApplication(ABC):
             }
         self._endpoints = endpoints
         self._read_max_bytes = read_max_bytes
+        self._compressions = resolve_compressions(compressions)
 
     def __call__(
         self, environ: WSGIEnvironment, start_response: StartResponse
@@ -200,7 +213,13 @@ class ConnectWSGIApplication(ABC):
                 raise HTTPException(HTTPStatus.NOT_FOUND, [])
 
             http_method = environ["REQUEST_METHOD"]
+            http_scheme = environ.get("wsgi.url_scheme", "http")
             headers = _process_headers(_normalize_wsgi_headers(environ))
+            if ra := environ.get("REMOTE_ADDR"):
+                port = environ.get("REMOTE_PORT", "0")
+                client_address = f"{ra}:{port}"
+            else:
+                client_address = None
 
             content_type = headers.get("content-type", "")
             protocol = negotiate_server_protocol(content_type)
@@ -211,7 +230,9 @@ class ConnectWSGIApplication(ABC):
                 if not send_trailers:
                     msg = f"WSGI server does not support WSGI trailers extension but protocol for content-type '{content_type}' requires trailers"
                     raise RuntimeError(msg)
-            ctx = protocol.create_request_context(endpoint.method, http_method, headers)
+            ctx = protocol.create_request_context(
+                endpoint.method, http_method, http_scheme, headers, client_address
+            )
 
             if isinstance(endpoint, EndpointUnarySync) and isinstance(
                 protocol, ConnectServerProtocol
@@ -253,7 +274,7 @@ class ConnectWSGIApplication(ABC):
 
         # Handle compression if accepted
         accept_encoding = headers.get("accept-encoding", "identity")
-        compression = _compression.negotiate_compression(accept_encoding)
+        compression = negotiate_compression(accept_encoding, self._compressions)
         res_bytes = compression.compress(res_bytes)
         response_headers = prepare_response_headers(base_headers, compression.name())
 
@@ -296,11 +317,11 @@ class ConnectWSGIApplication(ABC):
             # Handle compression if specified
             compression_name = environ.get("HTTP_CONTENT_ENCODING", "identity").lower()
             if compression_name != "identity":
-                compression = _compression.get_compression(compression_name)
+                compression = self._compressions.get(compression_name)
                 if not compression:
                     raise ConnectError(
                         Code.UNIMPLEMENTED,
-                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(_compression.get_available_compressions())}",
+                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
                     )
                 try:
                     req_body = compression.decompress(req_body)
@@ -340,7 +361,7 @@ class ConnectWSGIApplication(ABC):
         """Handle GET request with query parameters."""
         try:
             query_string = environ.get("QUERY_STRING", "")
-            params = parse_qs(query_string)
+            params = parse_qs(query_string, keep_blank_values=True)
 
             if "message" not in params:
                 raise ConnectError(
@@ -363,11 +384,11 @@ class ConnectWSGIApplication(ABC):
             # Handle compression if specified
             if "compression" in params:
                 compression_name = params["compression"][0]
-                compression = _compression.get_compression(compression_name)
+                compression = self._compressions.get(compression_name)
                 if not compression:
                     raise ConnectError(
                         Code.UNIMPLEMENTED,
-                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(_compression.get_available_compressions())}",
+                        f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
                     )
                 message = compression.decompress(message)
 
@@ -403,7 +424,7 @@ class ConnectWSGIApplication(ABC):
         ctx: RequestContext[_REQ, _RES],
     ) -> Iterable[bytes]:
         req_compression, resp_compression = protocol.negotiate_stream_compression(
-            headers
+            headers, self._compressions
         )
 
         codec_name = protocol.codec_name_from_content_type(
@@ -552,7 +573,7 @@ def _request_stream(
     environ: WSGIEnvironment,
     request_class: type[_REQ],
     codec: Codec,
-    compression: _compression.Compression,
+    compression: Compression,
     read_max_bytes: int | None = None,
 ) -> Iterator[_REQ]:
     reader = EnvelopeReader(request_class, codec, compression, read_max_bytes)

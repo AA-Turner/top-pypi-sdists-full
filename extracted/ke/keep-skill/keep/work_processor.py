@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from .work_queue import WorkQueue
@@ -74,10 +75,15 @@ def process_work_batch(
 
     stats["errors"] = errors  # type: ignore[assignment]
 
-    # Log perf summary after each batch with actual work
+    # Log perf summary + queue depth after each batch with actual work
     if stats["processed"] or stats["failed"]:
         from .perf_stats import perf
         perf.log_summary()
+        remaining = queue.count()
+        if remaining > 0:
+            by_kind = queue.count_by_kind()
+            parts = [f"{v} {k}" for k, v in sorted(by_kind.items(), key=lambda x: -x[1])]
+            logger.info("Queue: %d remaining (%s)", remaining, ", ".join(parts))
 
     return stats
 
@@ -91,6 +97,15 @@ def _execute_work_item(
 
     Returns the outcome dict (keys: status, details).
     """
+    # Special-case: git ingest is directory-level, not item-scoped
+    if kind == "ingest_git":
+        from .git_ingest import ingest_git_history
+        directory = input_data.get("directory")
+        if not directory:
+            raise ValueError("ingest_git requires 'directory' in input")
+        result = ingest_git_history(keeper, Path(directory))
+        return {"status": "applied", "details": result}
+
     task_type = input_data.get("task_type") or kind
     item_id = str(input_data.get("item_id") or input_data.get("id") or "").strip()
     if not item_id:

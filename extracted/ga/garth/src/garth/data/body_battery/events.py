@@ -1,3 +1,4 @@
+import builtins
 import logging
 from datetime import date, datetime
 from typing import Any
@@ -9,9 +10,6 @@ from ... import http
 from ...utils import format_end_date
 from .._base import Data
 from .readings import BodyBatteryReading, parse_body_battery_readings
-
-
-MAX_WORKERS = 10
 
 
 @dataclass
@@ -68,7 +66,7 @@ class BodyBatteryData(Data):
         day: str | date | None = None,
         *,
         client: http.Client | None = None,
-    ) -> list[Self]:
+    ) -> builtins.list[Self]:
         """Get Body Battery events for a specific date."""
         client = client or http.client
         day = format_end_date(day)

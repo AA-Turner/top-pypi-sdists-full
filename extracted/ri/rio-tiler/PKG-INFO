@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rio-tiler
-Version: 9.0.0
+Version: 9.0.1
 Summary: User friendly Rasterio plugin to read raster datasets.
 Project-URL: Homepage, https://cogeotiff.github.io/rio-tiler/
 Project-URL: Documentation, https://cogeotiff.github.io/rio-tiler/

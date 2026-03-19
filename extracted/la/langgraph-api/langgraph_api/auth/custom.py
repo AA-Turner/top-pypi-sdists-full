@@ -251,7 +251,7 @@ def _get_auth_instance(path: str | None = None) -> Auth | Literal["js"] | None:
         deps := _get_dependencies(auth_instance._authenticate_handler)
     ):
         auth_instance._authenticate_handler = _solve_fastapi_dependencies(
-            auth_instance._authenticate_handler,  # type: ignore[invalid-argument-type]
+            auth_instance._authenticate_handler,
             deps,
         )
     logger.info(f"Loaded auth instance from path {path}: {auth_instance}")
@@ -631,7 +631,7 @@ def _load_auth_obj(path: str) -> Auth | Literal["js"]:
                     raise ValueError(f"Could not load file: {module_name}")
                 module = importlib.util.module_from_spec(modspec)
                 sys.modules[modname] = module
-                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+                modspec.loader.exec_module(module)
             else:
                 # Load from Python module
                 module = importlib.import_module(module_name)

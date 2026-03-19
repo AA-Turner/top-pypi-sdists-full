@@ -15,7 +15,7 @@ from functools import partial
 from math import ceil
 from pathlib import Path
 from random import random
-from typing import Generator, Iterable, List, Optional
+from typing import Callable, Generator, Iterable, List, Optional
 from warnings import warn
 
 import pandas as pd
@@ -131,8 +131,8 @@ class FlightConnection(BaseFlightConnection):
         All available and supported connection types could be found on:
         https://connectivity-matrix.us-south.cf.test.appdomain.cloud
 
-    :param headers: Service authorization headers to connect with Flight Service
-    :type headers: dict
+    :param get_headers: Service authorization headers function to connect with Flight Service
+    :type get_headers: Callable
 
     :param project_id: ID of project
     :type project_id: str
@@ -210,7 +210,7 @@ class FlightConnection(BaseFlightConnection):
 
     def __init__(
         self,
-        headers: dict,
+        get_headers: Callable,
         sampling_type: str,
         label: str,
         learning_type: str,
@@ -247,7 +247,7 @@ class FlightConnection(BaseFlightConnection):
                 reason="'space_id' and 'project_id' are None. Please set one of them."
             )
 
-        self.headers = headers  # Service authorization headers
+        self.get_headers = get_headers  # Service authorization headers function
 
         self.number_of_batch_rows = number_of_batch_rows
         self.stop_after_first_batch = stop_after_first_batch
@@ -391,7 +391,7 @@ class FlightConnection(BaseFlightConnection):
             location=f"grpc+tls://{self.flight_location}:{self.flight_port}",
             disable_server_verification=True,
             override_hostname=self.flight_location,
-            middleware=[HeaderMiddlewareFactory(api_client=self._api_client)],
+            middleware=[HeaderMiddlewareFactory(get_headers=self.get_headers)],
             **self.additional_connection_args,
         )
 
@@ -511,7 +511,9 @@ class FlightConnection(BaseFlightConnection):
                         "Caught FlightUnauthenticatedError in get_endpoints", exc_info=e
                     )
 
-                    if exp_time := _get_expiration_datetime_from_headers(self.headers):
+                    if exp_time := _get_expiration_datetime_from_headers(
+                        self.get_headers()
+                    ):
                         self._logger.debug("Token expiration time: %s", exp_time)
 
                     # suggest CPD users to check the Flight variables

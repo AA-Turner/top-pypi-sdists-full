@@ -24,7 +24,7 @@ install_requires = \
  'rich']
 
 extras_require = \
-{":python_version < '3.11'": ['toml', 'typing-extensions'],
+{":python_version < '3.11'": ['toml'],
  'doc': ['sphinx',
          'sphinx-rtd-theme',
          'sphinx_copybutton',
@@ -38,7 +38,7 @@ entry_points = \
 {'console_scripts': ['idf-build-apps = idf_build_apps:main.main']}
 
 setup(name='idf-build-apps',
-      version='2.16.0',
+      version='3.0.1',
       description='Tools for building ESP-IDF related apps.',
       author=None,
       author_email='Fu Hanxi <fuhanxi@espressif.com>',
@@ -48,5 +48,5 @@ setup(name='idf-build-apps',
       install_requires=install_requires,
       extras_require=extras_require,
       entry_points=entry_points,
-      python_requires='>=3.7',
+      python_requires='>=3.10',
      )

@@ -119,6 +119,7 @@ from types_aiobotocore_connect_contact_lens.client import ConnectContactLensClie
 from types_aiobotocore_connectcampaigns.client import ConnectCampaignServiceClient
 from types_aiobotocore_connectcampaignsv2.client import ConnectCampaignServiceV2Client
 from types_aiobotocore_connectcases.client import ConnectCasesClient
+from types_aiobotocore_connecthealth.client import ConnectHealthClient
 from types_aiobotocore_connectparticipant.client import ConnectParticipantClient
 from types_aiobotocore_controlcatalog.client import ControlCatalogClient
 from types_aiobotocore_controltower.client import ControlTowerClient
@@ -392,6 +393,7 @@ from types_aiobotocore_shield.client import ShieldClient
 from types_aiobotocore_signer.client import SignerClient
 from types_aiobotocore_signer_data.client import SignerDataPlaneClient
 from types_aiobotocore_signin.client import SignInServiceClient
+from types_aiobotocore_simpledbv2.client import SimpleDBv2Client
 from types_aiobotocore_simspaceweaver.client import SimSpaceWeaverClient
 from types_aiobotocore_snow_device_management.client import SnowDeviceManagementClient
 from types_aiobotocore_snowball.client import SnowballClient
@@ -2408,6 +2410,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[ConnectCasesClient]:
         """
         Create client for ConnectCases service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["connecthealth"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[ConnectHealthClient]:
+        """
+        Create client for ConnectHealth service.
         """
 
     @overload  # type: ignore[override]
@@ -7405,6 +7426,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[SignInServiceClient]:
         """
         Create client for SignInService service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["simpledbv2"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SimpleDBv2Client]:
+        """
+        Create client for SimpleDBv2 service.
         """
 
     @overload  # type: ignore[override]

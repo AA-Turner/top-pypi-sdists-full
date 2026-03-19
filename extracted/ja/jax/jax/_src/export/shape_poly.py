@@ -233,9 +233,9 @@ class _DimFactor:
     else:
       operand_values = [opnd._evaluate(env) for opnd in self.operands]
       if self.operation == _DimFactor.FLOORDIV:
-        return divmod(*operand_values)[0]  # type: ignore
+        return divmod(*operand_values)[0]
       elif self.operation == _DimFactor.MOD:
-        return divmod(*operand_values)[1]  # type: ignore
+        return divmod(*operand_values)[1]
       elif self.operation == _DimFactor.MAX:
         op1, op2 = operand_values
         if core.is_constant_dim(op1) and core.is_constant_dim(op2):
@@ -911,7 +911,7 @@ class _DimExpr:
       return quotient, remainder
     except InconclusiveDimensionOperation:
       return (_DimExpr._from_operation(_DimFactor.FLOORDIV, self, divisor,
-                                       scope=self.scope),  # type: ignore
+                                       scope=self.scope),
               _DimExpr._from_operation(_DimFactor.MOD, self, divisor,
                                        scope=self.scope))
 
@@ -1228,6 +1228,7 @@ def is_symbolic_dim(p: DimSize) -> bool:
 
 dtypes.python_scalar_types.add(_DimExpr)
 dtypes.python_scalar_types_to_dtypes[_DimExpr] = dtypes.python_scalar_types_to_dtypes[int]
+dtypes.canonicalize_value_handlers[_DimExpr] = lambda x: x
 
 def _einsum_contract_path(*operands, **kwargs):
   """Like opt_einsum.contract_path, with support for DimExpr shapes.
@@ -1277,7 +1278,7 @@ def _einsum_contract_path(*operands, **kwargs):
 shape_assertion_p = core.Primitive("shape_assertion")
 shape_assertion_p.multiple_results = True
 shape_assertion_p.def_effectful_abstract_eval(
-  lambda *_, **__: ((), {shape_assertion_effect}))  # type: ignore
+  lambda *_, **__: ((), {shape_assertion_effect}))
 
 def _shape_assertion_lowering_rule(ctx: mlir.LoweringRuleContext,
                                    assert_what: mlir.ir.Value,
@@ -1402,7 +1403,8 @@ def symbolic_shape(shape_spec: str | None,
     scope: optionally, you can specify that the parsed symbolic expressions
       be created in the given scope. If this is missing, then a new
       `SymbolicScope` is created with the given `constraints`.
-      You cannot specify both a `scope` and `constraints`.
+      You cannot specify both a `scope` and `constraints` (cannot add new
+      constraints to a `scope`).
       See [the documentation](https://docs.jax.dev/en/latest/export/shape_poly.html#user-specified-symbolic-constraints)
       for usage.
     like: when `shape_spec` contains placeholders ("_", "..."), use this
@@ -1495,7 +1497,7 @@ def shape_and_dtype_jax_array(a) -> tuple[Sequence[int | None], DType]:
   """Returns the shape and dtype of a jax.Array or a j"""
   if isinstance(a, api.ShapeDtypeStruct):
     return a.shape, a.dtype
-  aval = core.get_aval(a)
+  aval = core.typeof(a)
   return aval.shape, aval.dtype
 
 
@@ -1632,7 +1634,7 @@ class _Parser:
       t: Any
       t, tok = self.term(tok)
       t_sign = - t if next_t_negated else t
-      acc = acc + t_sign if acc is not None else t_sign  # type: ignore[operator]
+      acc = acc + t_sign if acc is not None else t_sign
       if tok.exact_type in self.FOLLOW_EXPR:
         return acc, tok
       next_t_negated = (tok.exact_type == tokenize.MINUS)
@@ -1654,7 +1656,7 @@ class _Parser:
         power, tok = self.integer(tok)
         f = f ** power
 
-      acc = acc * f if acc is not None else f  # type: ignore[operator]
+      acc = acc * f if acc is not None else f
       if tok.exact_type in self.FOLLOW_TERM:
         return acc, tok  # type: ignore[bad-return-type,unused-ignore]
       tok = self.consume_token(tok, tokenize.STAR)
@@ -2029,7 +2031,7 @@ def compute_dim_vars_from_arg_shapes(
   }
   synthetic_eval = ShapeEvaluator(synthetic_env)
   shape_constraints.shape_assertions(synthetic_eval)
-  return tuple(synthetic_eval.evaluate(solution[var]) for var in dim_vars)  # type: ignore[arg-type]
+  return tuple(synthetic_eval.evaluate(solution[var]) for var in dim_vars)
 
 def _solve_dim_equations(
     eqns: list[_DimEquation],

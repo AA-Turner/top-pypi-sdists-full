@@ -1381,6 +1381,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                         _pending_usage.get("total_tokens", 0),
                         _pending_usage.get("model", ""),
                     )
+                    if _pending_usage.get("estimated"):
+                        storage.merge_message_metadata(ctx.db, current_assistant_msg["id"], {"usage_estimated": True})
                     _pending_usage = None
 
                 if ctx.embedding_worker and current_assistant_msg:

@@ -12,8 +12,11 @@ sqlglot_src = os.path.join(here, "..", "sqlglot")
 
 def _subpkg_files(subpkg, files=None):
     """List source files from a sqlglot subpackage. Compiles all .py files if `files` is None."""
-    subpkg_dir = os.path.join(sqlglot_src, subpkg)
     if files is None:
+        # Try repo source first, fall back to sdist-bundled copy.
+        subpkg_dir = os.path.join(sqlglot_src, subpkg)
+        if not os.path.isdir(subpkg_dir):
+            subpkg_dir = os.path.join(here, "sqlglot", subpkg)
         files = sorted(
             f for f in os.listdir(subpkg_dir) if f.endswith(".py") and f != "__init__.py"
         )
@@ -68,10 +71,9 @@ class build_ext(_build_ext):
                 sub_module = ".".join(parts[1:])
                 dst = os.path.join(sqlglot_src, self.get_ext_filename(sub_module))
             else:
-                # Place the mypyc runtime helper (e.g., HASH__mypyc) in the repo root
-                # so it is importable (must be on sys.path, not inside a package).
-                repo_root = os.path.dirname(sqlglot_src) if os.path.isdir(sqlglot_src) else here
-                dst = os.path.join(repo_root, os.path.basename(filename))
+                # Place the mypyc runtime helper (e.g., HASH__mypyc) inside sqlglot/.
+                # sqlglot/__init__.py bootstraps it into sys.modules for editable installs.
+                dst = os.path.join(sqlglot_src, os.path.basename(filename))
             self.copy_file(src, dst, level=self.verbose)
 
 
@@ -100,6 +102,6 @@ class sdist(_sdist):
 setup(
     name="sqlglotc",
     packages=[],
-    ext_modules=mypycify(_source_paths(), opt_level=os.environ.get("MYPYC_OPT", "3")),
+    ext_modules=mypycify(_source_paths(), opt_level=os.environ.get("MYPYC_OPT", "2")),
     cmdclass={"build_ext": build_ext, "sdist": sdist},
 )

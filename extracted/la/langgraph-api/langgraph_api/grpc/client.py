@@ -6,8 +6,8 @@ import threading
 import time
 
 import structlog
-from grpc import aio  # type: ignore[import]
-from grpc_health.v1 import health_pb2, health_pb2_grpc  # type: ignore[import]
+from grpc import aio
+from grpc_health.v1 import health_pb2, health_pb2_grpc
 from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
 from langgraph_grpc_common.proto.core_api_pb2_grpc import (
     AdminStub,

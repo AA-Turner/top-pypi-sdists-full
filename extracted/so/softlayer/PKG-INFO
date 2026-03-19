@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SoftLayer
-Version: 6.2.7
+Version: 6.2.8
 Summary: A library for SoftLayer's API
 Home-page: https://github.com/SoftLayer/softlayer-python
 Author: SoftLayer, Inc., an IBM Company
@@ -25,13 +25,12 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: prettytable>=2.5.0
 Requires-Dist: click>=8.0.4
 Requires-Dist: requests>=2.32.2
 Requires-Dist: prompt_toolkit>=2
 Requires-Dist: pygments>=2.0.0
 Requires-Dist: urllib3>=1.24
-Requires-Dist: rich==14.0.0
+Requires-Dist: rich==14.3.3
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -220,7 +219,6 @@ If you cannot install python 3.6+ for some reason, you will need to use a versio
 
 Python Packages
 ---------------
-* prettytable >= 2.5.0
 * click >= 8.0.4
 * requests >= 2.32.2
 * prompt_toolkit >= 2

@@ -1595,7 +1595,9 @@ class ServiceEngine(BaseEngine):
         if results_reference._is_connection_asset_s3:
             results_reference._init_s3_connection()
 
-        run_params["entity"]["results_reference"] = results_reference._to_dict()
+        run_params["entity"]["results_reference"] = (
+            results_reference._connectable_self._to_dict()
+        )
 
         # --- end note
 

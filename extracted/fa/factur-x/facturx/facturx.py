@@ -34,6 +34,7 @@ from datetime import datetime
 from pypdf import PdfWriter, PdfReader
 from pypdf.generic import DictionaryObject, DecodedStreamObject, \
     NameObject, NumberObject, ArrayObject, create_string_object, ByteStringObject
+import saxonche
 import importlib.resources as importlib_resources
 try:
     importlib_resources.files  # added in py3.9
@@ -108,13 +109,6 @@ XML_NAMESPACES = {
 CREATOR = f'factur-x Python lib v{VERSION} by Alexis de Lattre'
 
 
-def check_facturx_xsd(
-        facturx_xml, flavor='autodetect', facturx_level='autodetect'):
-    logger.warning(
-        'check_facturx_xsd() is deprecated. Use xml_check_xsd() instead.')
-    return xml_check_xsd(facturx_xml, flavor=flavor, level=facturx_level)
-
-
 def xml_check_xsd(xml, flavor='autodetect', level='autodetect'):
     """
     Validate the XML file against the XSD
@@ -137,6 +131,7 @@ def xml_check_xsd(xml, flavor='autodetect', level='autodetect'):
         raise ValueError('Wrong type for flavor argument')
     if not isinstance(level, (type(None), str)):
         raise ValueError('Wrong type for level argument')
+    start_chrono = datetime.now()
     xml_etree = None
     if isinstance(xml, bytes):
         xml_bytes = xml
@@ -202,7 +197,6 @@ def xml_check_xsd(xml, flavor='autodetect', level='autodetect'):
     try:
         t = etree.parse(BytesIO(xml_bytes))
         official_schema.assertValid(t)
-        logger.info('%s XML file successfully validated against XSD', flavor)
     except Exception as e:
         # if the validation of the XSD fails, we arrive here
         logger.error(
@@ -213,26 +207,176 @@ def xml_check_xsd(xml, flavor='autodetect', level='autodetect'):
             "XML Schema Definition. "
             "Here is the error, which may give you an idea on the "
             "cause of the problem: %s." % (flavor.capitalize(), str(e)))
+    end_chrono = datetime.now()
+    logger.info(
+        '%s XML file successfully validated against XSD in %s sec',
+        flavor, (end_chrono - start_chrono).total_seconds())
     return True
 
 
-def get_facturx_xml_from_pdf(pdf_file, check_xsd=True):
+def xml_check_schematron(xml, flavor='autodetect', level='autodetect'):
+    """
+    Validate the XML file against the schematron
+    :param xml: the Factur-X or Order-X XML
+    :type xml: string, file or etree object
+    :param flavor: possible values: 'factur-x', 'zugferd', 'order-x' or 'autodetect'.
+    Value 'zugferd' means ZUGFeRD 1.0.
+    :type flavor: string
+    :param level: the level of the Factur-X or Order-X XML file. Default value
+    is 'autodetect'. The only advantage to specifiy a particular value instead
+    of using the autodetection is for a small perf improvement.
+    Possible values for Factur-X: minimum, basicwl, basic, en16931, extended.
+    Possible values for Order-X: basic, comfort, extended.
+    :return: True if the XML is valid against the schematron
+    raise an error if it is not valid against the schematron
+    """
+    logger.debug(
+        'xml_check_schematron with factur-x lib %s', VERSION)
+    if not isinstance(flavor, str):
+        raise ValueError('Wrong type for flavor argument')
+    if not isinstance(level, (type(None), str)):
+        raise ValueError('Wrong type for level argument')
+    start_chrono = datetime.now()
+    xml_etree = None
+    if isinstance(xml, bytes):
+        xml_bytes = xml
+        xml_str = xml_bytes.decode('utf-8')
+    elif isinstance(xml, str):
+        xml_str = xml
+        xml_bytes = xml_str.encode('utf-8')
+    elif isinstance(xml, type(etree.Element('pouet'))):
+        xml_etree = xml
+        xml_bytes = etree.tostring(
+            xml, pretty_print=True, encoding='UTF-8',
+            xml_declaration=True)
+        xml_str = xml_bytes.decode('utf-8')
+    elif isinstance(xml, IOBase):
+        xml.seek(0)
+        xml_bytes = xml.read()
+        xml.close()
+        xml_str = xml_bytes.decode('utf-8')
+    else:
+        raise ValueError('Wrong type for xml argument')
+
+    if not xml_str or not xml_bytes:
+        raise ValueError('xml argument is empty')
+
+    # autodetect
+    if flavor not in ('factur-x', 'facturx', 'zugferd', 'order-x', 'orderx'):
+        if xml_etree is None:
+            try:
+                xml_etree = etree.fromstring(xml_bytes)
+            except Exception as e:
+                raise Exception(
+                    f"The XML syntax is invalid: {str(e)}.")
+        flavor = get_flavor(xml_etree)
+    if flavor in ('factur-x', 'facturx'):
+        if level not in FACTURX_LEVEL2xsd:
+            if xml_etree is None:
+                try:
+                    xml_etree = etree.fromstring(xml_bytes)
+                except Exception as e:
+                    raise Exception(
+                        f"The XML syntax is invalid: {str(e)}.")
+            level = get_level(xml_etree, flavor)
+        if level not in FACTURX_LEVEL2xsd:
+            raise ValueError(
+                f"Wrong level '{level}' for Factur-X invoice.")
+        xsd_filename = FACTURX_LEVEL2xsd[level]
+    elif flavor in ('order-x', 'orderx'):
+        if level not in ORDERX_LEVEL2xsd:
+            if xml_etree is None:
+                try:
+                    xml_etree = etree.fromstring(xml_bytes)
+                except Exception as e:
+                    raise Exception(
+                        f"The XML syntax is invalid: {str(e)}.")
+            level = get_level(xml_etree, flavor)
+        if level not in ORDERX_LEVEL2xsd:
+            raise ValueError(
+                f"xsd/{ORDERX_LEVEL2xsd[level][:-4]}-compiled-saxonc.xsl")
+        xsd_filename = ORDERX_LEVEL2xsd[level]
+    else:
+        logger.warning('There is no schematron check for flavor %s', flavor)
+        return True
+
+    relative_xsl_file = f"xsd/{xsd_filename[:-4]}-compiled.xsl"
+    xsl_file = str(importlib_resources.files(__package__).joinpath(relative_xsl_file))
+    logger.debug('Using schematron XSL file %s', xsl_file)
+    xml_str_no_bom = xml_str.lstrip('\ufeff')
+    errors = []
+    with saxonche.PySaxonProcessor() as saxproc:
+        xslt_proc = saxproc.new_xslt30_processor()
+        xdm_node = saxproc.parse_xml(xml_text=xml_str_no_bom)
+        # compile_stylesheet() is the slow/heavy part
+        # It can be optimized by generating stylesheet export files using saxon EE
+        # stylesheet export files can then be used by saxon HE
+        executable = xslt_proc.compile_stylesheet(stylesheet_file=xsl_file)
+        result_str = executable.transform_to_string(xdm_node=xdm_node)
+        logger.debug('schematron result_str=%s', result_str)
+
+    try:
+        svrl_root = etree.fromstring(result_str.encode('utf-8'))
+    except Exception as e:
+        logger.error(f"Schematron check generated an invalid XML output. Error: {str(e)}")
+        logger.info('Unable to validate %s XML file against schematron', flavor)
+        return False
+    xpath_errors = svrl_root.xpath(
+        ".//svrl:successful-report | .//svrl:failed-assert", namespaces=svrl_root.nsmap)
+    error_nr = 1
+    for xpath_error in xpath_errors:
+        detail_xpath = xpath_error.xpath("*[local-name() = 'text']", namespaces=svrl_root.nsmap)
+        if detail_xpath:
+            error_msg = detail_xpath[0].text and detail_xpath[0].text.strip()
+            error_msg = f'{error_nr}. {error_msg}'
+            location = xpath_error.attrib and xpath_error.attrib.get('location')
+            if location:
+                error_msg = f'{error_msg}\nError location: {location}'
+            errors.append(error_msg)
+            error_nr += 1
+
+    if errors:
+        logger.error(
+            "The XML file is invalid against the schematron: %d errors found.", len(errors))
+        for error_msg in errors:
+            logger.error(error_msg)
+        full_error = "The Factur-X XML file is not valid against the official "\
+            f"schematron. {len(errors)} errors found:\n{'\n'.join(errors)}"
+        raise Exception(full_error)
+    end_chrono = datetime.now()
+    logger.info(
+        '%s XML file successfully validated against schematron in %s sec',
+        flavor, (end_chrono - start_chrono).total_seconds())
+    return True
+
+
+def get_facturx_xml_from_pdf(pdf_file, check_xsd=True, check_schematron=True):
     filenames = [FACTURX_FILENAME] + ZUGFERD_FILENAMES
-    return get_xml_from_pdf(pdf_file, check_xsd=check_xsd, filenames=filenames)
+    return get_xml_from_pdf(
+        pdf_file,
+        check_xsd=check_xsd,
+        check_schematron=check_schematron,
+        filenames=filenames)
 
 
-def get_orderx_xml_from_pdf(pdf_file, check_xsd=True):
+def get_orderx_xml_from_pdf(pdf_file, check_xsd=True, check_schematron=True):
     filenames = [ORDERX_FILENAME]
-    return get_xml_from_pdf(pdf_file, check_xsd=check_xsd, filenames=filenames)
+    return get_xml_from_pdf(
+        pdf_file,
+        check_xsd=check_xsd,
+        check_schematron=check_schematron,
+        filenames=filenames)
 
 
-def get_xml_from_pdf(pdf_file, check_xsd=True, filenames=[]):
+def get_xml_from_pdf(pdf_file, check_xsd=True, check_schematron=True, filenames=[]):
     logger.debug(
         'get_xml_from_pdf with factur-x lib %s', VERSION)
     if not pdf_file:
         raise ValueError('Missing pdf_invoice argument')
     if not isinstance(check_xsd, bool):
         raise ValueError('Bad type for check_xsd argument')
+    if not isinstance(check_schematron, bool):
+        raise ValueError('Bad type for check_schematron argument')
     if not isinstance(filenames, list):
         raise ValueError('Bad type for filenames argument')
     if isinstance(pdf_file, (str, bytes)):
@@ -278,11 +422,30 @@ def get_xml_from_pdf(pdf_file, check_xsd=True, filenames=[]):
                     "Filename is %s but detected flavor is %s. "
                     "This is very weird: skipping file.", filename, flavor)
                 continue
-            if check_xsd:
+            level = False
+            if check_xsd or check_schematron:
                 try:
-                    xml_check_xsd(xml_root, flavor=flavor)
+                    level = get_level(xml_root, flavor)
                 except Exception:
-                    # Logs are already present in xml_check_xsd()
+                    logger.warning(
+                        'Skipping file %s because the level could not be identified',
+                        filename)
+                    continue
+            if check_xsd and level:
+                try:
+                    xml_check_xsd(xml_root, flavor=flavor, level=level)
+                except Exception:
+                    logger.warning(
+                        'Skipping file %s because it is not valid against the XSD',
+                        filename)
+                    continue
+            if check_schematron and level:
+                try:
+                    xml_check_schematron(xml_root, flavor=flavor, level=level)
+                except Exception:
+                    logger.warning(
+                        'Skipping file %s because it is not valid against the schematron',
+                        filename)
                     continue
             xml_bytes = attach_obj.content
             xml_filename = filename
@@ -789,12 +952,6 @@ def get_level(xml_etree, flavor='autodetect'):
     return level
 
 
-def get_facturx_flavor(facturx_xml_etree):
-    logger.warning(
-        'get_facturx_flavor() is deprecated. Use get_flavor() instead.')
-    return get_flavor(facturx_xml_etree)
-
-
 def get_flavor(xml_etree):
     if not isinstance(xml_etree, type(etree.Element('pouet'))):
         raise ValueError('xml_etree must be an etree.Element() object')
@@ -829,23 +986,11 @@ def get_orderx_type(xml_etree):
     return ORDERX_code2type[code]
 
 
-def generate_facturx_from_binary(
-        pdf_file, xml, facturx_level='autodetect',
-        check_xsd=True, pdf_metadata=None, lang=None, attachments=None):
-    logger.warning(
-        'generate_facturx_from_binary() is deprecated. '
-        'Use generate_from_binary() instead.')
-    return generate_from_binary(
-        pdf_file, xml, flavor='factur-x', level=facturx_level,
-        check_xsd=check_xsd, pdf_metadata=pdf_metadata, lang=lang,
-        attachments=attachments)
-
-
 def generate_from_binary(
         pdf_file, xml, flavor='autodetect', level='autodetect',
         orderx_type='autodetect',
-        check_xsd=True, pdf_metadata=None, lang=None, attachments=None,
-        afrelationship='data', xmp_compression=True):
+        check_xsd=True, check_schematron=True, pdf_metadata=None, lang=None,
+        attachments=None, afrelationship='data', xmp_compression=True):
     """
     Generate a Factur-X or Order-X PDF from a regular PDF and a factur-X
     or Order-X XML file. The method uses a binary as input (the regular PDF)
@@ -873,6 +1018,11 @@ def generate_from_binary(
     beforehand, you should disable this feature to avoid a double check
     and get a small performance improvement.
     :type check_xsd: boolean
+    :param check_schematron: if enable, checks the Factur-X XML file against
+    the schematron. If this step has already been performed
+    beforehand, you should disable this feature to avoid a double check
+    and get a small performance improvement.
+    :type check_schematron: boolean
     :param pdf_metadata: Specify the metadata of the generated PDF.
     If pdf_metadata is None (default value), this lib will generate some
     metadata in English by extracting relevant info from the Factur-X/Order-X XML.
@@ -923,7 +1073,8 @@ def generate_from_binary(
         f.write(pdf_file)
         generate_from_file(
             f, xml, flavor=flavor, level=level, orderx_type=orderx_type,
-            check_xsd=check_xsd, pdf_metadata=pdf_metadata, lang=lang,
+            check_xsd=check_xsd, check_schematron=check_schematron,
+            pdf_metadata=pdf_metadata, lang=lang,
             attachments=attachments, afrelationship=afrelationship,
             xmp_compression=xmp_compression)
         f.seek(0)
@@ -932,28 +1083,11 @@ def generate_from_binary(
     return result_pdf
 
 
-def generate_facturx_from_file(
-        pdf_file, facturx_xml, facturx_level='autodetect',
-        check_xsd=True, pdf_metadata=None, output_pdf_file=None,
-        additional_attachments=None, attachments=None, lang=None):
-    logger.warning(
-        'generate_facturx_from_file() is deprecated. '
-        'Use generate_from_file() instead.')
-    if additional_attachments:
-        logger.warning(
-            "The argument additional_attachments is not supported "
-            "any more. Use the attachments arg instead.")
-    return generate_from_file(
-        pdf_file, facturx_xml, flavor='factur-x', level=facturx_level,
-        check_xsd=check_xsd, pdf_metadata=pdf_metadata,
-        output_pdf_file=output_pdf_file,
-        attachments=attachments, lang=lang)
-
-
 def generate_from_file(
         pdf_file, xml, flavor='autodetect', level='autodetect',
         orderx_type='autodetect',
-        check_xsd=True, pdf_metadata=None, lang=None, output_pdf_file=None,
+        check_xsd=True, check_schematron=True, pdf_metadata=None, lang=None,
+        output_pdf_file=None,
         attachments=None, afrelationship='data', xmp_compression=True):
     """
     Generate a Factur-X or Order-X PDF file from a regular PDF and a Factur-X
@@ -983,6 +1117,11 @@ def generate_from_file(
     beforehand, you should disable this feature to avoid a double check
     and get a small performance improvement.
     :type check_xsd: boolean
+    :param check_schematron: if enable, checks the Factur-X XML file against
+    the schematron. If this step has already been performed
+    beforehand, you should disable this feature to avoid a double check
+    and get a small performance improvement.
+    :type check_schematron: boolean
     :param pdf_metadata: Specify the metadata of the generated PDF.
     If pdf_metadata is None (default value), this lib will generate some
     metadata in English by extracting relevant info from the Factur-X/Order-X XML.
@@ -1036,6 +1175,7 @@ def generate_from_file(
     logger.debug('optional arg level=%s', level)
     logger.debug('optional arg orderx_type=%s', orderx_type)
     logger.debug('optional arg check_xsd=%s', check_xsd)
+    logger.debug(f"optional arg check_schematron={check_schematron}")
     logger.debug('optional arg pdf_metadata=%s', pdf_metadata)
     logger.debug('optional arg lang=%s', lang)
     logger.debug('optional arg output_pdf_file=%s', output_pdf_file)
@@ -1056,6 +1196,9 @@ def generate_from_file(
     if not isinstance(check_xsd, bool):
         raise ValueError(
             'check_xsd argument is a %s, must be a boolean' % type(check_xsd))
+    if not isinstance(check_schematron, bool):
+        raise ValueError(
+            "check_schematron argument is a {type(check_schematron)}, must be a boolean")
     if not isinstance(pdf_metadata, (dict, type(None))):
         raise ValueError(
             'pdf_metadata argument is a %s, must be a dict or None'
@@ -1186,6 +1329,9 @@ def generate_from_file(
     if check_xsd:
         xml_check_xsd(
             xml_bytes, flavor=flavor, level=level)
+    if flavor in ('factur-x', 'order-x') and check_schematron:
+        xml_check_schematron(
+            xml_bytes, flavor=flavor, level=level)
     if pdf_metadata is None:
         if xml_root is None:
             xml_root = etree.fromstring(xml_bytes)
@@ -1220,6 +1366,6 @@ def generate_from_file(
             pdf_writer.write(pdf_file)
     end_chrono = datetime.now()
     logger.info(
-        '%s PDF generated in %s seconds',
+        '%s PDF generated in %s sec',
         flavor, (end_chrono - start_chrono).total_seconds())
     return True

@@ -21,9 +21,9 @@ class DataStreamEvent(_message.Message):
     __slots__ = ("write_batches_request", "event_timestamp")
     WRITE_BATCHES_REQUEST_FIELD_NUMBER: _ClassVar[int]
     EVENT_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
-    write_batches_request: _containers.RepeatedCompositeFieldContainer[_direct_nominal_channel_writer_pb2.WriteBatchesRequest]
+    write_batches_request: _containers.RepeatedCompositeFieldContainer[_direct_nominal_channel_writer_pb2.InternalWriteBatchesRequest]
     event_timestamp: _time_pb2.Timestamp
-    def __init__(self, write_batches_request: _Optional[_Iterable[_Union[_direct_nominal_channel_writer_pb2.WriteBatchesRequest, _Mapping]]] = ..., event_timestamp: _Optional[_Union[_time_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, write_batches_request: _Optional[_Iterable[_Union[_direct_nominal_channel_writer_pb2.InternalWriteBatchesRequest, _Mapping]]] = ..., event_timestamp: _Optional[_Union[_time_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class FileIngestEvent(_message.Message):
     __slots__ = ("dataset_rid", "file_id", "event_timestamp", "ingest_request")

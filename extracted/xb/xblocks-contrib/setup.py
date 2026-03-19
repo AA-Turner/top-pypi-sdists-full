@@ -174,9 +174,11 @@ setup(
         # so edx-platform natively discovers the templates/ directory.
         "lms.djangoapp": [
             "xblocks_contrib_problem_capa = xblocks_contrib.problem.capa.apps:CapaAppConfig",
+            "xblocks_contrib_discussion = xblocks_contrib.discussion.apps:DiscussionAppConfig",
         ],
         "cms.djangoapp": [
             "xblocks_contrib_problem_capa = xblocks_contrib.problem.capa.apps:CapaAppConfig",
+            "xblocks_contrib_discussion = xblocks_contrib.discussion.apps:DiscussionAppConfig",
         ],
     },
 )

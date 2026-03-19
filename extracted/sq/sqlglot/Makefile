@@ -1,4 +1,4 @@
-.PHONY: install install-dev install-devc install-devc-release install-pre-commit bench bench-parse bench-optimize test test-fast unit testc unitc style check docs docs-serve hidec showc clean resolve-integration-conflicts
+.PHONY: install install-dev install-devc install-devc-release install-pre-commit bench bench-parse bench-optimize test test-fast unit testc unitc style check docs docs-serve hidec showc clean resolve-integration-conflicts update-fixtures
 
 ifdef UV
     PIP := uv pip
@@ -7,7 +7,7 @@ else
 endif
 
 SO_BACKUP := /tmp/sqlglot_so_backup
-FIND_SO := find . -name "*.so" -not -path "*/build/*" -not -path "*/site-packages/*"
+FIND_SO := find sqlglot -name "*.so"
 
 hidec:
 	rm -rf $(SO_BACKUP) && $(FIND_SO) | tar cf $(SO_BACKUP) -T - 2>/dev/null && $(FIND_SO) -delete; true
@@ -41,7 +41,7 @@ install-devc:
 	cd sqlglotc && MYPYC_OPT=0 python setup.py build_ext --inplace
 
 install-devc-release: clean
-	cd sqlglotc && $(PIP) install -e .
+	cd sqlglotc && python setup.py build_ext --inplace
 
 install-pre-commit:
 	pre-commit install
@@ -87,3 +87,6 @@ docs-serve:
 
 resolve-integration-conflicts:
 	cd sqlglot-integration-tests && git pull --rebase --autostash
+
+update-fixtures:
+	python sqlglot-integration-tests/scripts/update_dbt_fixtures.py

@@ -1,8 +1,9 @@
 from datetime import timedelta
 import datetime
+import time
 from duplocloud.controller import DuploCtl
 from duplocloud.resource import DuploResourceV2
-from duplocloud.errors import DuploError
+from duplocloud.errors import DuploError, DuploNotFound, DuploStillWaiting
 from duplocloud.commander import Command, Resource
 import duplocloud.args as args
 
@@ -19,7 +20,10 @@ class DuploTenant(DuploResourceV2):
   """
   def __init__(self, duplo: DuploCtl):
     super().__init__(duplo)
-  
+
+  def name_from_body(self, body):
+    return body["AccountName"]
+
   @Command("ls")
   def list(self):
     """List Tenants
@@ -121,7 +125,7 @@ class DuploTenant(DuploResourceV2):
     try:
       return [t for t in self.list() if t[key] == ref][0]
     except IndexError:
-      raise DuploError(f"Tenant '{ref}' not found", 404)
+      raise DuploNotFound(ref, "Tenant")
   
   @Command(model="AddTenantRequest")
   def create(self,
@@ -158,9 +162,21 @@ class DuploTenant(DuploResourceV2):
     """
     name = body["AccountName"]
     self.client.post("admin/AddTenant", body)
-    def wait_check():
-      self.find(name)
     if self.duplo.wait:
+      # The tenant API has no provisioning-status field to poll.
+      # Sleep 3 minutes to allow DuploCloud time to provision the
+      # tenant before attempting to find it.
+      TENANT_CREATE_SLEEP = 180
+      self.duplo.logger.info(
+        "Tenant '%s' created — sleeping %ss for provisioning",
+        name, TENANT_CREATE_SLEEP,
+      )
+      time.sleep(TENANT_CREATE_SLEEP)
+      def wait_check():
+        try:
+          self.find(name)
+        except DuploNotFound:
+          raise DuploStillWaiting(f"Tenant '{name}' not visible yet")
       self.wait(wait_check)
     return {
       "message": f"Tenant '{name}' created"
@@ -168,24 +184,31 @@ class DuploTenant(DuploResourceV2):
   
   @Command()
   def delete(self,
-             name: args.NAME=None) -> dict:
+             name: args.NAME=None,
+             force: args.FORCE=False) -> dict:
     """Delete Tenant
 
-    Delete a tenant by name.
+    Delete a tenant by name. If delete protection is enabled, the delete
+    will fail unless ``--force`` is passed, which disables delete protection
+    first via ``set_metadata``.
 
     Usage: Basic CLI Use
       ```sh
       duploctl tenant delete <name>
+      duploctl tenant delete <name> --force
       ```
-    
+
     Args:
       name: The name of the tenant to delete.
-    
+      force: Disable delete protection before deleting.
+
     Returns:
       message: The message that the tenant was deleted.
     """
     tenant = self.find(name)
     tenant_id = tenant["TenantId"]
+    if force:
+      self.config(name=name, deletevar=["delete_protection"])
     self.client.post(f"admin/DeleteTenant/{tenant_id}", None)
     return {
       "message": f"Tenant '{name}' deleted"
@@ -499,8 +522,10 @@ class DuploTenant(DuploResourceV2):
       service = self.duplo.load(service_type)
       for item in service.list():
         service_name = service.name_from_body(item)
+        if service_name is None:
+          continue
         if service_name not in service_types[service_type]:
-          service.start(service_name, self.duplo.wait)
+          service.start(service_name)
     return {
       "message": "Successfully started all resources for tenant"
     }
@@ -554,8 +579,10 @@ class DuploTenant(DuploResourceV2):
       service = self.duplo.load(service_type)
       for item in service.list():
         service_name = service.name_from_body(item)
+        if service_name is None:
+          continue
         if service_name not in service_types[service_type]:
-          service.stop(service_name, self.duplo.wait)
+          service.stop(service_name)
     return {
       "message": "Successfully stopped all resources for tenant"
     }
@@ -626,7 +653,131 @@ class DuploTenant(DuploResourceV2):
       return f"User '{name}' added to tenant '{self.duplo.tenant}'"
     
   @Command()
-  def remove_user(self, 
+  def get_metadata(self,
+                   name: args.NAME=None) -> list:
+    """List Tenant Metadata
+
+    Retrieve all typed metadata entries for a tenant.
+
+    Usage: Basic CLI Use
+      ```sh
+      duploctl tenant get_metadata <tenant-name>
+      duploctl tenant get_metadata -T myenv
+      ```
+
+    Args:
+      name: The name of the tenant.
+
+    Returns:
+      metadata: A list of metadata entry objects.
+    """
+    tenant = self.find(name)
+    tenant_id = tenant["TenantId"]
+    response = self.client.get(
+        f"admin/GetTenantConfigData/{tenant_id}"
+    )
+    return response.json()
+
+  @Command()
+  def set_metadata(self,
+                   name: args.NAME=None,
+                   metadata: args.METADATA=None,
+                   deletes: args.DELETES=None) -> dict:
+    """Create and Delete Tenant Metadata
+
+    Create or update typed metadata entries and/or delete existing ones for
+    a tenant.  If a key already exists it is updated to the new value.
+    Deletes are processed after creates/updates.
+
+    Usage: Basic CLI Use
+      ```sh
+      # create a text entry
+      duploctl tenant set_metadata -T myenv --metadata featureFlag text enabled
+
+      # create a URL entry
+      duploctl tenant set_metadata -T myenv \\
+        --metadata dashboard url https://internal.example.com
+
+      # delete an entry
+      duploctl tenant set_metadata -T myenv --delete featureFlag
+
+      # mixed create and delete in one call
+      duploctl tenant set_metadata -T myenv \\
+        --metadata newKey text newValue \\
+        --delete oldKey
+      ```
+
+    Args:
+      name: The name of the tenant.
+      metadata: Typed entries to create: --metadata <key> <type> <value>
+        (repeatable). Type must be ``aws_console``, ``url``, or ``text``.
+      deletes: Keys to delete: --delete <key> (repeatable).
+
+    Returns:
+      changes: Summary with ``created``, ``updated``, and ``deleted`` lists.
+
+    Raises:
+      DuploError: If a key to delete does not exist, or if the API returns
+        an error during create/update.
+    """
+    tenant = self.find(name)
+    tenant_id = tenant["TenantId"]
+    tenant_name = tenant["AccountName"]
+    current = self.client.get(
+        f"admin/GetTenantConfigData/{tenant_id}"
+    ).json() or []
+    current_map = {m["Key"]: m for m in current}
+
+    created = []
+    updated = []
+    deleted = []
+
+    for key, mtype, value in (metadata or []):
+      body = {
+          "Key": key,
+          "Type": mtype,
+          "Value": value,
+          "ComponentId": tenant_id,
+      }
+      resp = self.client.post("admin/UpdateTenantConfigData", body)
+      if resp.status_code >= 400:
+        raise DuploError(
+            f"Failed to set metadata key '{key}': {resp.text}",
+            resp.status_code,
+        )
+      if key in current_map:
+        updated.append(key)
+      else:
+        created.append(key)
+
+    for key in (deletes or []):
+      if key not in current_map:
+        raise DuploError(
+            f"Metadata key '{key}' not found in tenant '{tenant_name}'",
+            404,
+        )
+      entry = current_map[key]
+      body = {
+          "Key": key,
+          "Type": entry.get("Type", "text"),
+          "Value": entry.get("Value", ""),
+          "ComponentId": tenant_id,
+          "State": "delete",
+      }
+      self.client.post("admin/UpdateTenantConfigData", body)
+      deleted.append(key)
+
+    return {
+        "message": f"Successfully updated metadata for tenant '{tenant_name}'",
+        "changes": {
+            "created": created,
+            "updated": updated,
+            "deleted": deleted,
+        },
+    }
+
+  @Command()
+  def remove_user(self,
                  name: args.NAME) -> dict:
     """Remove a User from a Tenant
     

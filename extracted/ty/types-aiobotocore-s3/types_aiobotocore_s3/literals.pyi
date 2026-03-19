@@ -30,6 +30,7 @@ __all__ = (
     "BucketExistsWaiterName",
     "BucketLocationConstraintType",
     "BucketLogsPermissionType",
+    "BucketNamespaceType",
     "BucketNotExistsWaiterName",
     "BucketTypeType",
     "BucketVersioningStatusType",
@@ -155,6 +156,7 @@ BucketLocationConstraintType = Literal[
     "us-west-2",
 ]
 BucketLogsPermissionType = Literal["FULL_CONTROL", "READ", "WRITE"]
+BucketNamespaceType = Literal["account-regional", "global"]
 BucketNotExistsWaiterName = Literal["bucket_not_exists"]
 BucketTypeType = Literal["Directory"]
 BucketVersioningStatusType = Literal["Enabled", "Suspended"]
@@ -418,6 +420,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -681,6 +684,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

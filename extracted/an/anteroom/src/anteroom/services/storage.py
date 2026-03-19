@@ -879,6 +879,29 @@ def update_message_metadata(
     )
 
 
+def merge_message_metadata(
+    db: ThreadSafeConnection,
+    message_id: str,
+    new_keys: dict[str, Any],
+) -> None:
+    """Merge keys into existing message metadata without overwriting other fields.
+
+    Reads the current metadata JSON, updates with new_keys, and writes back.
+    Preserves existing fields like rag_sources that may have been set earlier.
+    """
+    row = db.execute_fetchone("SELECT metadata FROM messages WHERE id = ?", (message_id,))
+    if not row:
+        return
+    raw = row["metadata"] if hasattr(row, "__getitem__") else row[0]
+    existing: dict[str, Any] = json.loads(raw) if raw else {}
+    existing.update(new_keys)
+    db.execute(
+        "UPDATE messages SET metadata = ? WHERE id = ?",
+        (json.dumps(existing), message_id),
+    )
+    db.commit()
+
+
 def get_usage_stats(
     db: ThreadSafeConnection,
     since: str | None = None,
@@ -2889,3 +2912,205 @@ def get_source_embedding_statuses(db: ThreadSafeConnection, source_ids: list[str
 def get_source_embedding_status(db: ThreadSafeConnection, source_id: str) -> str:
     """Return embedding status for a source: 'embedded', 'partial', 'pending', or 'no_chunks'."""
     return get_source_embedding_statuses(db, [source_id]).get(source_id, "no_chunks")
+
+
+# ---------------------------------------------------------------------------
+# Agent Runs (#887)
+# ---------------------------------------------------------------------------
+
+_VALID_AGENT_RUN_STATUSES = frozenset(
+    {
+        "pending",
+        "running",
+        "waiting_for_input",
+        "waiting_for_approval",
+        "cancel_requested",
+        "completed",
+        "failed",
+        "cancelled",
+    }
+)
+
+_TERMINAL_AGENT_RUN_STATUSES = frozenset({"completed", "failed", "cancelled"})
+
+_MAX_METADATA_SIZE = 65536  # 64KB cap on metadata JSON
+
+_ALLOWED_AGENT_RUN_UPDATE_COLUMNS: set[str] = {
+    "status",
+    "title",
+    "started_at",
+    "completed_at",
+    "duration_ms",
+    "metadata_json",
+}
+
+
+def _deserialize_agent_run(d: dict[str, Any]) -> dict[str, Any]:
+    raw_meta = d.pop("metadata_json", None)
+    d["metadata"] = json.loads(raw_meta) if raw_meta else None
+    return d
+
+
+def create_agent_run(
+    db: ThreadSafeConnection,
+    *,
+    conversation_id: str,
+    kind: str,
+    title: str | None = None,
+    space_id: str | None = None,
+    parent_run_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    rid = _uuid()
+    now = _now()
+    metadata_json = json.dumps(metadata) if metadata else None
+    if metadata_json and len(metadata_json) > _MAX_METADATA_SIZE:
+        raise ValueError(f"metadata_json exceeds {_MAX_METADATA_SIZE} bytes")
+    db.execute(
+        "INSERT INTO agent_runs"
+        " (id, conversation_id, space_id, kind, title, status,"
+        "  parent_run_id, metadata_json, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (rid, conversation_id, space_id, kind, title, "pending", parent_run_id, metadata_json, now, now),
+    )
+    db.commit()
+    return {
+        "id": rid,
+        "conversation_id": conversation_id,
+        "space_id": space_id,
+        "kind": kind,
+        "title": title,
+        "status": "pending",
+        "parent_run_id": parent_run_id,
+        "started_at": None,
+        "completed_at": None,
+        "duration_ms": None,
+        "metadata": metadata,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def get_agent_run(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
+    row = db.execute_fetchone("SELECT * FROM agent_runs WHERE id = ?", (run_id,))
+    if row is None:
+        return None
+    return _deserialize_agent_run(dict(row))
+
+
+def list_agent_runs(
+    db: ThreadSafeConnection,
+    conversation_id: str,
+    *,
+    status: str | None = None,
+    kind: str | None = None,
+    space_id: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    if status is not None and status not in _VALID_AGENT_RUN_STATUSES:
+        raise ValueError(f"Invalid agent run status: {status!r}")
+    clauses = ["conversation_id = ?"]
+    params: list[Any] = [conversation_id]
+    if status is not None:
+        clauses.append("status = ?")
+        params.append(status)
+    if kind is not None:
+        clauses.append("kind = ?")
+        params.append(kind)
+    if space_id is not None:
+        clauses.append("space_id = ?")
+        params.append(space_id)
+    where = " AND ".join(clauses)
+    params.extend([limit, offset])
+    rows = db.execute_fetchall(
+        f"SELECT * FROM agent_runs WHERE {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        tuple(params),
+    )
+    return [_deserialize_agent_run(dict(r)) for r in rows]
+
+
+def update_agent_run(db: ThreadSafeConnection, run_id: str, **updates: Any) -> dict[str, Any] | None:
+    if "metadata" in updates:
+        meta_json = json.dumps(updates.pop("metadata"))
+        if len(meta_json) > _MAX_METADATA_SIZE:
+            raise ValueError(f"metadata_json exceeds {_MAX_METADATA_SIZE} bytes")
+        updates["metadata_json"] = meta_json
+    for col in updates:
+        if col not in _ALLOWED_AGENT_RUN_UPDATE_COLUMNS:
+            raise ValueError(f"Column {col!r} not in allowed update columns for agent_runs")
+    if "status" in updates and updates["status"] not in _VALID_AGENT_RUN_STATUSES:
+        raise ValueError(f"Invalid agent run status: {updates['status']!r}")
+    updates["updated_at"] = _now()
+    set_clause = ", ".join(f"{col} = ?" for col in updates)
+    params = list(updates.values()) + [run_id]
+    db.execute(f"UPDATE agent_runs SET {set_clause} WHERE id = ?", tuple(params))
+    db.commit()
+    return get_agent_run(db, run_id)
+
+
+def delete_agent_run(db: ThreadSafeConnection, run_id: str) -> bool:
+    cursor = db.execute("DELETE FROM agent_runs WHERE id = ?", (run_id,))
+    db.commit()
+    return cursor.rowcount > 0
+
+
+def append_agent_run_event(
+    db: ThreadSafeConnection,
+    *,
+    run_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    now = _now()
+    payload_json = json.dumps(payload) if payload else None
+    cursor = db.execute(
+        "INSERT INTO agent_run_events (run_id, event_type, payload_json, created_at) VALUES (?, ?, ?, ?)",
+        (run_id, event_type, payload_json, now),
+    )
+    db.commit()
+    return {
+        "id": cursor.lastrowid,
+        "run_id": run_id,
+        "event_type": event_type,
+        "payload": payload,
+        "created_at": now,
+    }
+
+
+def list_agent_run_events(
+    db: ThreadSafeConnection,
+    run_id: str,
+    *,
+    event_type: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    clauses = ["run_id = ?"]
+    params: list[Any] = [run_id]
+    if event_type is not None:
+        clauses.append("event_type = ?")
+        params.append(event_type)
+    where = " AND ".join(clauses)
+    params.extend([limit, offset])
+    rows = db.execute_fetchall(
+        f"SELECT * FROM agent_run_events WHERE {where} ORDER BY id ASC LIMIT ? OFFSET ?",
+        tuple(params),
+    )
+    results: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        raw_payload = d.pop("payload_json", None)
+        d["payload"] = json.loads(raw_payload) if raw_payload else None
+        results.append(d)
+    return results
+
+
+def count_active_agent_runs(db: ThreadSafeConnection, conversation_id: str) -> int:
+    terminal = tuple(_TERMINAL_AGENT_RUN_STATUSES)
+    placeholders = ", ".join("?" for _ in terminal)
+    row = db.execute_fetchone(
+        f"SELECT COUNT(*) as cnt FROM agent_runs WHERE conversation_id = ? AND status NOT IN ({placeholders})",
+        (conversation_id, *terminal),
+    )
+    return row["cnt"] if row else 0

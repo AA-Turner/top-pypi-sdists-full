@@ -309,7 +309,7 @@ async def get_checkpointer(
         # Create a fresh adapter each time (not cached) - each gets own latest_iter
         if _CHECKPOINTER_CAPABILITIES is None:
             raise RuntimeError("Capabilities not initialized")
-        return _CustomCheckpointerAdapter(  # type: ignore[return-value]
+        return _CustomCheckpointerAdapter(
             inner=CHECKPOINTER_STACK.inner, capabilities=_CHECKPOINTER_CAPABILITIES
         )
 
@@ -431,7 +431,7 @@ def _load_checkpointer(checkpointer_path: str) -> Any:
                     raise ValueError(f"Could not find checkpointer file: {path_name}")
                 module = importlib.util.module_from_spec(modspec)
                 sys.modules[modname] = module
-                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+                modspec.loader.exec_module(module)
         else:
             path_name, function = checkpointer_path.rsplit(".", 1)
             module = importlib.import_module(path_name)

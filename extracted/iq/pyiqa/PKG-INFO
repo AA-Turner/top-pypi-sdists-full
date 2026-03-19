@@ -1,10 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyiqa
-Version: 0.1.14.1
+Version: 0.1.15.post2
 Summary: PyTorch Toolbox for Image Quality Assessment
-Home-page: https://github.com/chaofengc/IQA-PyTorch
-Author: Chaofeng Chen
-Author-email: chaofenghust@gmail.com
+Author-email: Chaofeng Chen <chaofenghust@gmail.com>
+License: Apache Software License
+Project-URL: Homepage, https://github.com/chaofengc/IQA-PyTorch
+Project-URL: Repository, https://github.com/chaofengc/IQA-PyTorch
+Project-URL: Issues, https://github.com/chaofengc/IQA-PyTorch/issues
 Keywords: image quality assessment,pytorch
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
@@ -19,14 +21,13 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-S-Lab
-Requires-Dist: accelerate<=1.1.0
+Requires-Dist: accelerate
 Requires-Dist: addict
 Requires-Dist: datasets
 Requires-Dist: bitsandbytes; sys_platform != "darwin"
 Requires-Dist: einops
 Requires-Dist: facexlib
 Requires-Dist: future
-Requires-Dist: icecream
 Requires-Dist: lmdb
 Requires-Dist: numpy
 Requires-Dist: openai-clip
@@ -43,21 +44,12 @@ Requires-Dist: scipy
 Requires-Dist: sentencepiece
 Requires-Dist: tensorboard
 Requires-Dist: timm>=0.8
-Requires-Dist: torch>=1.12
+Requires-Dist: torch>=1.13
 Requires-Dist: torchvision>=0.13
 Requires-Dist: tqdm
-Requires-Dist: transformers==4.37.2
+Requires-Dist: transformers>=4.36.1
 Requires-Dist: yapf
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 # <img align="left" width="100" height="100" src="docs/pyiqa_logo.jpg"> PyTorch Toolbox for Image Quality Assessment
 
@@ -79,19 +71,25 @@ This is a comprehensive image quality assessment (IQA) toolbox built with **pure
 
 <div align="center">
 
-📦 [Model Cards](docs/ModelCard.md)  |  🗃️ [Dataset Cards](docs/Dataset_Preparation.md) | 🤗 [Datasets Download](https://huggingface.co/datasets/chaofengc/IQA-Toolbox-Datasets/tree/main) | 📚 [Documentation](https://iqa-pytorch.readthedocs.io/en/latest/) | 📈[Benchmark](https://github.com/chaofengc/IQA-PyTorch/tree/main?tab=readme-ov-file#performance-evaluation-protocol)
+📦 [Model Cards](docs/ModelCard.md)  |  🗃️ [Dataset Cards](docs/Dataset_Preparation.md) | 📚 [Documentation](https://iqa-pytorch.readthedocs.io/en/latest/) | 📈[Benchmark](https://github.com/chaofengc/IQA-PyTorch/tree/main?tab=readme-ov-file#performance-evaluation-protocol)
+<br>
+🤗 [Datasets Download](https://huggingface.co/datasets/chaofengc/IQA-Toolbox-Datasets/tree/main) [(HF Mirror)](https://hf-mirror.com/datasets/chaofengc/IQA-PyTorch-Datasets) | [Model Download](https://huggingface.co/chaofengc/IQA-PyTorch-Weights) [(HF Mirror)](https://hf-mirror.com/chaofengc/IQA-PyTorch-Weights)
 
 </div>
+
+> [!TIP]
+> - If you cannot access Hugging Face, try the mirror site [hf-mirror.com](https://hf-mirror.com/) to download datasets and models.  
+> - 无法访问 Hugging Face 时，可尝试使用镜像网站 [hf-mirror.com](https://hf-mirror.com/) 下载数据集和模型权重。设置环境变量`export HF_ENDPOINT=https://hf-mirror.com`。  
+> - The default model cache directory is `~/.cache/torch/hub/pyiqa/`.
 
 ---
 
 ### :triangular_flag_on_post: Updates/Changelog
+- 👉**Dec, 2025**.Add FR-IQA method `dmm` proposed in [paper](https://ieeexplore.ieee.org/abstract/document/10886996), with SVD-based debiased mapping to mitigate perception bias. Thanks to [baoliang](https://github.com/Baoliang93) for their great work 🤗, refer to DMM for more details.
+- ✨**Dec, 2025**. Add `maclip` metric proposed in [MACLIP](https://github.com/zhix000/MA-CLIP), introducing magnitude in IQA. Thanks to [zhicheng](https://github.com/zhix000) for their contribution 🤗, and please refer to their official papers for more details! 
+- 🎉**Sep, 2025**. Add `afine` metric proposed in [AFINE](https://github.com/ChrisDud0257/AFINE). Thanks to [Du CHEN](https://github.com/ChrisDud0257) for their great work 🤗, and please refer to their official papers for more details! 
 - 🎉**Jun, 2025**. Add `sfid`, a commonly used metric in generative models.
 - 🎆**Jan, 2025**. Add `qualiclip`, `qualiclip+` and its variances trained on different datasets, refer to official repo [here](https://github.com/miccunifi/QualiCLIP). Thanks for the contribution from [Lorenzo Agnolucci](https://github.com/LorenzoAgnolucci) 🤗.
-- 🪐**Dec, 2024**. Add `fid` with MMD distance, use it with `fid_metric(..., distance_type='mmd', kernel_type='rbf')`refer to [cmmd](https://github.com/google-research/google-research/tree/master/cmmd) for more details. Thanks to [Ina](https://github.com/Luciennnnnnn) for the contributions.
-- 🌕**Dec, 2024**. Add `fid_dinov2`, refer to [dgm-eval](https://github.com/layer6ai-labs/dgm-eval) for more details. 
-- 💫**Nov, 2024**. Add `pyiqa.load_dataset` for easy loading of several common datasets. 
-- 🌟**Nov, 2024**. Add `compare2score` and `deepdc`. Thanks to [hanwei](https://github.com/h4nwei) for their great work 🤗, and please refer to their official papers for more details! 
 - [**More**](docs/history_changelog.md)
 
 ---
@@ -99,9 +97,14 @@ This is a comprehensive image quality assessment (IQA) toolbox built with **pure
 ## :zap: Quick Start
 
 ### Installation
+
 ```bash
 # Install with pip
 pip install pyiqa
+
+# Install faster with uv
+pip install uv
+uv pip install pyiqa
 
 # Install latest github version
 pip uninstall pyiqa # if have older version installed already 
@@ -110,8 +113,7 @@ pip install git+https://github.com/chaofengc/IQA-PyTorch.git
 # Install with git clone
 git clone https://github.com/chaofengc/IQA-PyTorch.git
 cd IQA-PyTorch
-pip install -r requirements.txt
-python setup.py develop
+pip install -e .
 ```
 
 ### Basic Usage 
@@ -184,10 +186,10 @@ iqa_metric.load_weights('path/to/weights.pth', weight_keys='params')
 Example test script with input directory/images and reference directory/images. 
 ```bash
 # example for FR metric with dirs
-python inference_iqa.py -m LPIPS[or lpips] -i ./ResultsCalibra/dist_dir[dist_img] -r ./ResultsCalibra/ref_dir[ref_img]
+python inference_iqa.py -m LPIPS[or lpips] -t ./ResultsCalibra/dist_dir[dist_img] -r ./ResultsCalibra/ref_dir[ref_img]
 
 # example for NR metric with single image
-python inference_iqa.py -m brisque -i ./ResultsCalibra/dist_dir/I03.bmp
+python inference_iqa.py -m brisque -t ./ResultsCalibra/dist_dir/I03.bmp
 ```
 
 #### Easy load of popular datasets

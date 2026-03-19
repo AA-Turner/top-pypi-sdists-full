@@ -624,6 +624,7 @@ class CrossClusterSearchConnectionPropertiesTypeDef(TypedDict):
 class DataSourceTypeDef(TypedDict):
     dataSourceArn: NotRequired[str]
     dataSourceDescription: NotRequired[str]
+    iamRoleForDataSourceArn: NotRequired[str]
 
 
 class IamIdentityCenterOptionsInputTypeDef(TypedDict):
@@ -1929,6 +1930,7 @@ class AddDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceType: DirectQueryDataSourceTypeTypeDef
     OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    DataSourceAccessPolicy: NotRequired[str]
     TagList: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -1946,6 +1948,7 @@ class GetDirectQueryDataSourceResponseTypeDef(TypedDict):
     DataSourceType: DirectQueryDataSourceTypeTypeDef
     Description: str
     OpenSearchArns: list[str]
+    DataSourceAccessPolicy: str
     DataSourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1955,6 +1958,7 @@ class UpdateDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceType: DirectQueryDataSourceTypeTypeDef
     OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    DataSourceAccessPolicy: NotRequired[str]
 
 
 class CreateVpcEndpointResponseTypeDef(TypedDict):

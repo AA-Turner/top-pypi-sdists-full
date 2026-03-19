@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -37,12 +36,13 @@ class PEP621DependencyGetter(DependencyGetter):
         ]
 
     Note that by default both dependencies and optional-dependencies are extracted as regular dependencies, since PEP-621 does not specify
-    a recommended way to extract development dependencies. However, if a value is passed for the `pep621_dev_dependency_groups`
+    a recommended way to extract development dependencies. However, if a value is passed for the `optional_dependencies_dev_groups`
     argument, all dependencies from groups in that argument are considered to be development dependencies. e.g. in the example above, when
-    `pep621_dev_dependency_groups=(test,)`, both `pytest` and `pytest-cov` are returned as development dependencies.
+    `optional_dependencies_dev_groups=(test,)`, both `pytest` and `pytest-cov` are returned as development dependencies.
     """
 
-    pep621_dev_dependency_groups: tuple[str, ...] = ()
+    optional_dependencies_dev_groups: tuple[str, ...] = ()
+    non_dev_dependency_groups: tuple[str, ...] = ()
 
     def get(self) -> DependenciesExtract:
         dependencies = self._get_dependencies()
@@ -52,9 +52,12 @@ class PEP621DependencyGetter(DependencyGetter):
         dev_dependencies_from_optional, remaining_optional_dependencies = (
             self._split_development_dependencies_from_optional_dependencies(optional_dependencies)
         )
+        dev_dependencies_from_dependency_groups, remaining_dependency_groups_dependencies = (
+            self._split_development_dependencies_from_dependency_groups(dependency_groups_dependencies)
+        )
         return DependenciesExtract(
-            [*dependencies, *remaining_optional_dependencies],
-            self._get_dev_dependencies(dependency_groups_dependencies, dev_dependencies_from_optional),
+            [*dependencies, *remaining_optional_dependencies, *remaining_dependency_groups_dependencies],
+            self._get_dev_dependencies(dev_dependencies_from_optional, dev_dependencies_from_dependency_groups),
         )
 
     def _get_dependencies(self) -> list[Dependency]:
@@ -109,13 +112,10 @@ class PEP621DependencyGetter(DependencyGetter):
 
     def _get_dev_dependencies(
         self,
-        dependency_groups_dependencies: dict[str, list[Dependency]],
         dev_dependencies_from_optional: list[Dependency],
+        dev_dependencies_from_dependency_groups: list[Dependency],
     ) -> list[Dependency]:
-        return [
-            *itertools.chain(*dependency_groups_dependencies.values()),
-            *dev_dependencies_from_optional,
-        ]
+        return [*dev_dependencies_from_optional, *dev_dependencies_from_dependency_groups]
 
     @staticmethod
     def _project_uses_setuptools(pyproject_toml: dict[str, Any]) -> bool:
@@ -139,34 +139,55 @@ class PEP621DependencyGetter(DependencyGetter):
             )
             return False
 
-    def _check_for_invalid_group_names(self, optional_dependencies: dict[str, list[Dependency]]) -> None:
-        missing_groups = set(self.pep621_dev_dependency_groups) - set(optional_dependencies.keys())
-        if missing_groups:
-            logging.warning(
-                "Warning: Trying to extract the dependencies from the optional dependency groups %s as development dependencies, "
-                "but the following groups were not found: %s",
-                list(self.pep621_dev_dependency_groups),
-                list(missing_groups),
-            )
-
     def _split_development_dependencies_from_optional_dependencies(
         self, optional_dependencies: dict[str, list[Dependency]]
     ) -> tuple[list[Dependency], list[Dependency]]:
         """
-        Split the optional dependencies into optional dependencies and development dependencies based on the `pep621_dev_dependency_groups`
+        Split the optional dependencies into optional dependencies and development dependencies based on the `optional_dependencies_dev_groups`
         parameter. Return a tuple with two values: a list of the development dependencies and a list of the remaining 'true' optional dependencies.
         """
         dev_dependencies: list[Dependency] = []
         regular_dependencies: list[Dependency] = []
 
-        if self.pep621_dev_dependency_groups:
-            self._check_for_invalid_group_names(optional_dependencies)
+        if self.optional_dependencies_dev_groups and (
+            missing_groups := set(self.optional_dependencies_dev_groups) - set(optional_dependencies.keys())
+        ):
+            logging.warning(
+                "Warning: Trying to extract the dependencies from the optional dependency groups %s as development dependencies, "
+                "but the following groups were not found: %s",
+                list(self.optional_dependencies_dev_groups),
+                list(missing_groups),
+            )
 
         for group, dependencies in optional_dependencies.items():
-            if group in self.pep621_dev_dependency_groups:
+            if group in self.optional_dependencies_dev_groups:
                 dev_dependencies.extend(dependencies)
             else:
                 regular_dependencies.extend(dependencies)
+
+        return dev_dependencies, regular_dependencies
+
+    def _split_development_dependencies_from_dependency_groups(
+        self, dependency_groups: dict[str, list[Dependency]]
+    ) -> tuple[list[Dependency], list[Dependency]]:
+        dev_dependencies: list[Dependency] = []
+        regular_dependencies: list[Dependency] = []
+
+        if self.non_dev_dependency_groups and (
+            missing_groups := set(self.non_dev_dependency_groups) - set(dependency_groups.keys())
+        ):
+            logging.warning(
+                "Warning: Trying to extract the dependencies from the dependency groups %s as regular dependencies, "
+                "but the following groups were not found: %s",
+                list(self.non_dev_dependency_groups),
+                list(missing_groups),
+            )
+
+        for group, dependencies in dependency_groups.items():
+            if group in self.non_dev_dependency_groups:
+                regular_dependencies.extend(dependencies)
+            else:
+                dev_dependencies.extend(dependencies)
 
         return dev_dependencies, regular_dependencies
 

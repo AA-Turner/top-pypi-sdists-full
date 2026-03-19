@@ -953,6 +953,8 @@ class CustomPromptSession:
         self,
         *,
         status_provider: Callable[[], StatusSnapshot],
+        status_block_provider: Callable[[int], AnyFormattedText | None] | None = None,
+        fast_refresh_provider: Callable[[], bool] | None = None,
         model_capabilities: set[ModelCapability],
         model_name: str | None,
         thinking: bool,
@@ -966,6 +968,8 @@ class CustomPromptSession:
         work_dir_id = md5(str(KaosPath.cwd()).encode(encoding="utf-8")).hexdigest()
         self._history_file = (history_dir / work_dir_id).with_suffix(".jsonl")
         self._status_provider = status_provider
+        self._status_block_provider = status_block_provider
+        self._fast_refresh_provider = fast_refresh_provider
         self._editor_command_provider = editor_command_provider
         self._plan_mode_toggle_callback = plan_mode_toggle_callback
         self._model_capabilities = model_capabilities
@@ -977,6 +981,8 @@ class CustomPromptSession:
         # Keep the old attribute for test compatibility and for any external imports.
         self._attachment_cache = self._placeholder_manager.attachment_cache
         self._tip_rotation_index: int = 0
+        self._last_submission_was_running = False
+        self._running_prompt_previous_mode: PromptMode | None = None
         self._running_prompt_delegate: RunningPromptDelegate | None = None
         clipboard_available = is_clipboard_available()
         self._tips = _build_toolbar_tips(clipboard_available)
@@ -1167,6 +1173,14 @@ class CustomPromptSession:
         def _(event: KeyPressEvent) -> None:
             self._handle_running_prompt_key("5", event)
 
+        @_kb.add(
+            "6",
+            eager=True,
+            filter=Condition(lambda: self._should_handle_running_prompt_key("6")),
+        )
+        def _(event: KeyPressEvent) -> None:
+            self._handle_running_prompt_key("6", event)
+
         @_kb.add(Keys.BracketedPaste, eager=True)
         def _(event: KeyPressEvent) -> None:
             self._handle_bracketed_paste(event)
@@ -1285,8 +1299,23 @@ class CustomPromptSession:
 
     def _render_message(self) -> FormattedText:
         if self._mode == PromptMode.SHELL:
-            return FormattedText([("bold", f"{PROMPT_SYMBOL_SHELL} ")])
+            return self._render_shell_prompt_message()
         return self._render_agent_prompt_message()
+
+    def _render_shell_prompt_message(self) -> FormattedText:
+        app = get_app_or_none()
+        columns = app.output.get_size().columns if app is not None else 80
+        fragments: FormattedText = FormattedText()
+        body = self._render_status_block(columns)
+        if body:
+            fragments.extend(body)
+            if not body[-1][1].endswith("\n"):
+                fragments.append(("", "\n"))
+            fragments.append(("", "\n"))
+            fragments.append(("class:running-prompt-separator", "─" * max(0, columns)))
+            fragments.append(("", "\n"))
+        fragments.append(("bold", f"{PROMPT_SYMBOL_SHELL} "))
+        return fragments
 
     def _open_in_external_editor(self, event: KeyPressEvent) -> None:
         """Open the current buffer content in an external editor."""
@@ -1370,8 +1399,17 @@ class CustomPromptSession:
     def _render_agent_prompt_body(self, columns: int) -> FormattedText:
         running_prompt = self._running_prompt_delegate
         if running_prompt is None:
-            return FormattedText([])
+            return self._render_status_block(columns)
         return to_formatted_text(running_prompt.render_running_prompt_body(columns))
+
+    def _render_status_block(self, columns: int) -> FormattedText:
+        status_block_provider = getattr(self, "_status_block_provider", None)
+        if status_block_provider is None:
+            return FormattedText([])
+        block = status_block_provider(columns)
+        if block is None:
+            return FormattedText([])
+        return to_formatted_text(block)
 
     def _render_agent_prompt_label(self) -> FormattedText:
         status = self._status_provider()
@@ -1401,6 +1439,10 @@ class CustomPromptSession:
                     interval = (
                         _RUNNING_REFRESH_INTERVAL
                         if self._running_prompt_delegate is not None
+                        or (
+                            self._fast_refresh_provider is not None
+                            and self._fast_refresh_provider()
+                        )
                         else _IDLE_REFRESH_INTERVAL
                     )
                     await asyncio.sleep(interval)
@@ -1483,24 +1525,36 @@ class CustomPromptSession:
         event.app.invalidate()
         return bool(parts)
 
-    async def prompt(self) -> UserInput:
-        return await self._prompt_once(append_history=True)
+    async def prompt_next(self) -> UserInput:
+        return await self._prompt_once(append_history=None)
 
-    async def prompt_steer(self, delegate: RunningPromptDelegate) -> UserInput:
-        previous_mode = self._mode
+    @property
+    def last_submission_was_running(self) -> bool:
+        return getattr(self, "_last_submission_was_running", False)
+
+    def attach_running_prompt(self, delegate: RunningPromptDelegate) -> None:
+        current = getattr(self, "_running_prompt_delegate", None)
+        if current is delegate:
+            return
+        if current is None:
+            self._running_prompt_previous_mode = self._mode
         self._running_prompt_delegate = delegate
         self._mode = PromptMode.AGENT
         self._apply_mode()
         self.invalidate()
-        try:
-            return await self._prompt_once(append_history=False)
-        finally:
-            self._mode = previous_mode
-            self._running_prompt_delegate = None
-            self._apply_mode()
-            self.invalidate()
 
-    async def _prompt_once(self, *, append_history: bool) -> UserInput:
+    def detach_running_prompt(self, delegate: RunningPromptDelegate) -> None:
+        if getattr(self, "_running_prompt_delegate", None) is not delegate:
+            return
+        previous_mode = getattr(self, "_running_prompt_previous_mode", None)
+        self._running_prompt_delegate = None
+        self._running_prompt_previous_mode = None
+        if previous_mode is not None:
+            self._mode = previous_mode
+        self._apply_mode()
+        self.invalidate()
+
+    async def _prompt_once(self, *, append_history: bool | None) -> UserInput:
         placeholder = None
         if self._running_prompt_delegate is not None:
             placeholder = self._running_prompt_delegate.running_prompt_placeholder()
@@ -1509,6 +1563,10 @@ class CustomPromptSession:
             command = command.replace("\x00", "")  # just in case null bytes are somehow inserted
             # Sanitize UTF-16 surrogates that may come from Windows clipboard
             command = sanitize_surrogates(command)
+        was_running = self._running_prompt_delegate is not None
+        self._last_submission_was_running = was_running
+        if append_history is None:
+            append_history = not was_running
         if append_history:
             self._append_history_entry(command)
         self._tip_rotation_index += 1

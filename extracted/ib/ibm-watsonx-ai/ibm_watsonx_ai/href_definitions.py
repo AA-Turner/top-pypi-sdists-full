@@ -62,6 +62,7 @@ PROD_SVT_URL = [
     "https://jp-tok.ml.cloud.ibm.com",
     "https://au-syd.ml.cloud.ibm.com",
     "https://ap-south-1.aws.wxai.ibm.com",
+    "https://us-east-1.aws.wxai.ibm.com",
     "https://wxai.ibmforusgov.com",
     "https://wxai.prep.ibmforusgov.com",
     "https://ibm-watson-ml.mybluemix.net",
@@ -72,6 +73,7 @@ PROD_SVT_URL = [
     "https://private.jp-tok.ml.cloud.ibm.com",
     "https://private.au-syd.ml.cloud.ibm.com",
     "https://private.ap-south-1.aws.wxai.ibm.com",
+    "https://private.us-east-1.aws.wxai.ibm.com",
     "https://private.wxai.ibmforusgov.com",
     "https://private.wxai.prep.ibmforusgov.com",
     "https://yp-qa.ml.cloud.ibm.com",
@@ -112,6 +114,7 @@ RUNTIMES = "/runtimes"
 SOFTWARE_SPEC = "/software_specifications"
 DEPLOYMENTS = "/deployments"
 ASSET = "{}/v2/assets/{}"
+ASSET_REVISIONS = "{}/v2/assets/{}/revisions"
 ASSETS = "{}/v2/assets"
 ASSET_TYPE = "{}/v2/asset_types"
 ASSET_FILES = "{}/v2/asset_files/"
@@ -131,6 +134,7 @@ SEARCH_FOLDER_ASSETS = "{}/v2/asset_types/folder_asset/search"
 SEARCH_SHINY = "{}/v2/asset_types/shiny_asset/search"
 SEARCH_SCRIPT = "{}/v2/asset_types/script/search"
 GIT_BASED_PROJECT_ASSET = "{}/userfs/v2/assets/{}"
+GIT_BASED_PROJECT_ASSET_REVISIONS = "{}/userfs/v2/assets/{}/revisions"
 GIT_BASED_PROJECT_ASSETS = "{}/userfs/v2/assets"
 GIT_BASED_PROJECT_ASSET_TYPE = "{}/userfs/v2/asset_types"
 GIT_BASED_PROJECT_ASSET_FILES = "{}/v2/asset_files/"
@@ -470,14 +474,16 @@ class HrefDefinitions:
 
         match self.url:
             case (
-                "https://ap-south-1.aws.wxai.ibm.com"
+                "https://us-east-1.aws.wxai.ibm.com"
+                | "https://private.us-east-1.aws.wxai.ibm.com"
+                | "https://ap-south-1.aws.wxai.ibm.com"
                 | "https://private.ap-south-1.aws.wxai.ibm.com"
             ):
-                # Mumbai (AWS)
+                # AWS regions (US East, Mumbai)
                 base_auth_url = "https://account-iam.platform.saas.ibm.com"
             case (
                 "https://wxai.prep.ibmforusgov.com"
-                | "https://private.wxai.prep.ibmforusgov.com"
+                | "https://private.internal.wxai.prep.ibmforusgov.com"
             ):
                 # PreProd AWS GovCloud
                 if (
@@ -487,10 +493,13 @@ class HrefDefinitions:
                     base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
                 else:  # path for users
                     return "{}/api/rest/mcsp/apikeys/token".format(
-                        self.platform_url.replace("https://api.", "https://")
+                        self.platform_url.replace("internal.", "").replace(
+                            "https://api.", "https://"
+                        )
                     )
             case (
-                "https://wxai.ibmforusgov.com" | "https://private.wxai.ibmforusgov.com"
+                "https://wxai.ibmforusgov.com"
+                | "https://private.internal.wxai.ibmforusgov.com"
             ):
                 # Prod AWS GovCloud
                 if (
@@ -500,7 +509,9 @@ class HrefDefinitions:
                     base_auth_url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
                 else:  # path for users
                     return "{}/api/rest/mcsp/apikeys/token".format(
-                        self.platform_url.replace("https://api.", "https://")
+                        self.platform_url.replace("internal.", "").replace(
+                            "https://api.", "https://"
+                        )
                     )
             case _:
                 # AWS Dev
@@ -639,6 +650,18 @@ class HrefDefinitions:
         return (
             ASSETS if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSETS
         ).format(self._get_platform_url_if_exists())
+
+    def get_model_definition_asset_href(self, model_definition_id: str) -> str:
+        return (
+            ASSET if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSET
+        ).format(self._get_platform_url_if_exists(), model_definition_id)
+
+    def get_model_definition_revisions_href(self, model_definition_id: str) -> str:
+        return (
+            ASSET_REVISIONS
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_ASSET_REVISIONS
+        ).format(self._get_platform_url_if_exists(), model_definition_id)
 
     def get_model_definition_search_asset_href(self) -> str:
         return (

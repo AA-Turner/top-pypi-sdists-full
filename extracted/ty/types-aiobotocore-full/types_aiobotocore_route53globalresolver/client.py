@@ -456,7 +456,7 @@ class Route53GlobalResolverClient(AioBaseClient):
         self, **kwargs: Unpack[GetManagedFirewallDomainListInputTypeDef]
     ) -> GetManagedFirewallDomainListOutputTypeDef:
         """
-        Retrieves information about an AWS-managed firewall domain list.
+        Retrieves information about an Amazon Web Services-managed firewall domain list.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/get_managed_firewall_domain_list.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#get_managed_firewall_domain_list)
@@ -559,8 +559,8 @@ class Route53GlobalResolverClient(AioBaseClient):
         self, **kwargs: Unpack[ListManagedFirewallDomainListsInputTypeDef]
     ) -> ListManagedFirewallDomainListsOutputTypeDef:
         """
-        Returns a paginated list of the AWS Managed DNS Lists and the categories for
-        DNS Firewall.
+        Returns a paginated list of the Amazon Web Services Managed DNS Lists and the
+        categories for DNS Firewall.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_managed_firewall_domain_lists.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_route53globalresolver/client/#list_managed_firewall_domain_lists)

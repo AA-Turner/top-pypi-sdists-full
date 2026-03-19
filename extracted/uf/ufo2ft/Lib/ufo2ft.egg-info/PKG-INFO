@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ufo2ft
-Version: 3.7.0
+Version: 3.7.1
 Summary: A bridge between UFOs and FontTools.
 Author: James Godfrey-Kittle
 Author-email: Tal Leming <tal@typesupply.com>
@@ -33,7 +33,7 @@ Requires-Dist: cffsubr>=0.3.0
 Requires-Dist: fontmath>=0.9.4
 Requires-Dist: fonttools[ufo]>=4.61.1
 Provides-Extra: compreffor
-Requires-Dist: compreffor>=0.5.6; extra == "compreffor"
+Requires-Dist: compreffor>=0.6.0; extra == "compreffor"
 Provides-Extra: cffsubr
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"

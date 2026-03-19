@@ -32,7 +32,6 @@ __all__ = [
     "DockerRuntimeConfig",
     "RuntimeConfig",
     "SessionConfig",
-    "SlackNotificationConfig",
     "VMResources",
     "VMRuntimeConfig",
 ]
@@ -101,15 +100,6 @@ class SessionConfig(BaseModel):
     plato_session: SerializedSession | None = None
     parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
     parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking
-
-
-class SlackNotificationConfig(BaseModel):
-    """Slack notification settings for world completion events."""
-
-    enabled: bool = False
-    channel_id: str = ""
-    channel_id_env: str = "SLACK_CHANNEL_ID"
-    bot_token_env: str = "SLACK_BOT_TOKEN"
 
 
 class PreviewConfig(BaseModel):
@@ -258,14 +248,17 @@ class RunConfig(BaseModel):
     Note: runtime, dev, session are passed separately to BaseWorld.run(), not as part of config.
     """
 
+    # Slack notifications on session completion (requires Chronos org setting to be enabled)
+    slack_notifications_enabled: bool = Field(
+        default=False,
+        description="Send Slack notifications when this session completes, fails, or is cancelled.",
+    )
+
     # Checkpoint configuration for automatic snapshots after steps
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
 
     # State persistence configuration
     state: StateConfig = Field(default_factory=StateConfig)
-
-    # Slack notifications on session completion
-    slack_notifications: SlackNotificationConfig = Field(default_factory=SlackNotificationConfig)
 
     # Preview mode settings
     preview: PreviewConfig = Field(default_factory=PreviewConfig)

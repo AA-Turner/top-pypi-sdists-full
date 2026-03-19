@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scrapegraphai
-Version: 1.74.0
+Version: 1.75.0
 Summary: A web scraping library based on LangChain which uses LLM and direct graph logic to create scraping pipelines.
 Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
 Keywords: ai,artificial intelligence,gpt,graph,langchain,llm,machine learning,natural language processing,nlp,openai,rag,scrapegraph,scrapegraphai,scraping,web scraping,web scraping library,web scraping tool,webscraping
@@ -233,12 +233,6 @@ We offer SDKs in both Python and Node.js, making it easy to integrate into your 
 | Node.js SDK | Node.js  | [scrapegraph-js](https://github.com/ScrapeGraphAI/scrapegraph-sdk/tree/main/scrapegraph-js) |
 
 The Official API Documentation can be found [here](https://docs.scrapegraphai.com/).
-
-## 🔥 Benchmark
-
-According to Firecrawl benchmark [Firecrawl benchmark](https://github.com/firecrawl/scrape-evals/pull/3), ScrapeGraph is the best fetcher on the market!
-
-![here](docs/assets/histogram.png)
 
 ## 📈 Telemetry
 We collect anonymous usage metrics to enhance our package's quality and user experience. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable SCRAPEGRAPHAI_TELEMETRY_ENABLED=false. For more information, please refer to the documentation [here](https://scrapegraph-ai.readthedocs.io/en/latest/scrapers/telemetry.html).

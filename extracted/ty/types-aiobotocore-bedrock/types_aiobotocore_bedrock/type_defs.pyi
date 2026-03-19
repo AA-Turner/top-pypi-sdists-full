@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock.type_defs import AccountEnforcedGuardrailInferenceInputConfigurationTypeDef
+    from types_aiobotocore_bedrock.type_defs import ModelEnforcementOutputTypeDef
 
-    data: AccountEnforcedGuardrailInferenceInputConfigurationTypeDef = ...
+    data: ModelEnforcementOutputTypeDef = ...
     ```
 """
 
@@ -486,6 +486,9 @@ __all__ = (
     "ModelCopyJobSummaryTypeDef",
     "ModelCustomizationJobSummaryTypeDef",
     "ModelDataSourceTypeDef",
+    "ModelEnforcementOutputTypeDef",
+    "ModelEnforcementTypeDef",
+    "ModelEnforcementUnionTypeDef",
     "ModelImportJobSummaryTypeDef",
     "ModelInvocationJobInputDataConfigTypeDef",
     "ModelInvocationJobOutputDataConfigTypeDef",
@@ -587,22 +590,9 @@ __all__ = (
     "VpcConfigUnionTypeDef",
 )
 
-class AccountEnforcedGuardrailInferenceInputConfigurationTypeDef(TypedDict):
-    guardrailIdentifier: str
-    guardrailVersion: str
-    inputTags: InputTagsType
-
-class AccountEnforcedGuardrailOutputConfigurationTypeDef(TypedDict):
-    configId: NotRequired[str]
-    guardrailArn: NotRequired[str]
-    guardrailId: NotRequired[str]
-    inputTags: NotRequired[InputTagsType]
-    guardrailVersion: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    createdBy: NotRequired[str]
-    updatedAt: NotRequired[datetime]
-    updatedBy: NotRequired[str]
-    owner: NotRequired[Literal["ACCOUNT"]]
+class ModelEnforcementOutputTypeDef(TypedDict):
+    includedModels: list[str]
+    excludedModels: list[str]
 
 class AgreementAvailabilityTypeDef(TypedDict):
     status: AgreementStatusType
@@ -1422,6 +1412,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class S3DataSourceTypeDef(TypedDict):
     s3Uri: str
 
+class ModelEnforcementTypeDef(TypedDict):
+    includedModels: Sequence[str]
+    excludedModels: Sequence[str]
+
 class ModelInvocationJobS3InputDataConfigTypeDef(TypedDict):
     s3Uri: str
     s3InputFormat: NotRequired[Literal["JSONL"]]
@@ -1524,9 +1518,18 @@ class VectorSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
     modelArn: str
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
-class PutEnforcedGuardrailConfigurationRequestTypeDef(TypedDict):
-    guardrailInferenceConfig: AccountEnforcedGuardrailInferenceInputConfigurationTypeDef
+class AccountEnforcedGuardrailOutputConfigurationTypeDef(TypedDict):
     configId: NotRequired[str]
+    guardrailArn: NotRequired[str]
+    guardrailId: NotRequired[str]
+    inputTags: NotRequired[InputTagsType]
+    guardrailVersion: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    owner: NotRequired[Literal["ACCOUNT"]]
+    modelEnforcement: NotRequired[ModelEnforcementOutputTypeDef]
 
 AutomatedReasoningCheckLogicWarningTypeDef = TypedDict(
     "AutomatedReasoningCheckLogicWarningTypeDef",
@@ -1814,11 +1817,6 @@ class ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef(TypedDict):
 
 class ListAutomatedReasoningPolicyTestCasesResponseTypeDef(TypedDict):
     testCases: list[AutomatedReasoningPolicyTestCaseTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListEnforcedGuardrailsConfigurationResponseTypeDef(TypedDict):
-    guardrailsConfig: list[AccountEnforcedGuardrailOutputConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2490,6 +2488,8 @@ class ListProvisionedModelThroughputsResponseTypeDef(TypedDict):
 class ModelDataSourceTypeDef(TypedDict):
     s3DataSource: NotRequired[S3DataSourceTypeDef]
 
+ModelEnforcementUnionTypeDef = Union[ModelEnforcementTypeDef, ModelEnforcementOutputTypeDef]
+
 class ModelInvocationJobInputDataConfigTypeDef(TypedDict):
     s3InputDataConfig: NotRequired[ModelInvocationJobS3InputDataConfigTypeDef]
 
@@ -2534,6 +2534,11 @@ class ValidationDataConfigOutputTypeDef(TypedDict):
 
 class ValidationDataConfigTypeDef(TypedDict):
     validators: Sequence[ValidatorTypeDef]
+
+class ListEnforcedGuardrailsConfigurationResponseTypeDef(TypedDict):
+    guardrailsConfig: list[AccountEnforcedGuardrailOutputConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class AutomatedReasoningCheckImpossibleFindingTypeDef(TypedDict):
     translation: NotRequired[AutomatedReasoningCheckTranslationTypeDef]
@@ -2823,6 +2828,12 @@ class GetModelImportJobResponseTypeDef(TypedDict):
     importedModelKmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AccountEnforcedGuardrailInferenceInputConfigurationTypeDef(TypedDict):
+    guardrailIdentifier: str
+    guardrailVersion: str
+    inputTags: InputTagsType
+    modelEnforcement: NotRequired[ModelEnforcementUnionTypeDef]
+
 class GetModelInvocationJobResponseTypeDef(TypedDict):
     jobArn: str
     jobName: str
@@ -3046,6 +3057,10 @@ class ExternalSourcesRetrieveAndGenerateConfigurationTypeDef(TypedDict):
     modelArn: str
     sources: Sequence[ExternalSourceTypeDef]
     generationConfiguration: NotRequired[ExternalSourcesGenerationConfigurationTypeDef]
+
+class PutEnforcedGuardrailConfigurationRequestTypeDef(TypedDict):
+    guardrailInferenceConfig: AccountEnforcedGuardrailInferenceInputConfigurationTypeDef
+    configId: NotRequired[str]
 
 class ListModelInvocationJobsResponseTypeDef(TypedDict):
     invocationJobSummaries: list[ModelInvocationJobSummaryTypeDef]

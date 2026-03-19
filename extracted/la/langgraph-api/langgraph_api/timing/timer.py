@@ -76,7 +76,7 @@ def timer(
                 start = time.perf_counter()
                 exc: BaseException | None = None
                 try:
-                    return await func(*args, **kwargs)  # type: ignore[misc]
+                    return await func(*args, **kwargs)
                 except BaseException as e:
                     exc = e
                     raise
@@ -85,13 +85,13 @@ def timer(
                     _log_timing(
                         name=func.__qualname__,
                         elapsed=elapsed,
-                        cfg=cfg,  # type: ignore[arg-type]
+                        cfg=cfg,
                         args=args,
                         kwargs=kwargs,
                         exc=exc,
                     )
 
-            return awrapper  # type: ignore[return-value]
+            return awrapper
 
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -107,7 +107,7 @@ def timer(
                 _log_timing(
                     name=func.__qualname__,
                     elapsed=elapsed,
-                    cfg=cfg,  # type: ignore[arg-type]
+                    cfg=cfg,
                     args=args,
                     kwargs=kwargs,
                     exc=exc,
@@ -261,7 +261,7 @@ def _log_timing(
 
     if cfg.metadata_fn is not None:
         try:
-            md = cfg.metadata_fn(*args, **kwargs)  # type: ignore[misc]
+            md = cfg.metadata_fn(*args, **kwargs)
             if not isinstance(md, dict):
                 raise TypeError("metadata_fn must return a dict")
             log_data.update(md)

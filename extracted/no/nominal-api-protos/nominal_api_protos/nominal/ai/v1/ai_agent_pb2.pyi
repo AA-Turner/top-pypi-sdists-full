@@ -203,18 +203,20 @@ class GetConversationRequest(_message.Message):
     def __init__(self, conversation_rid: _Optional[str] = ..., page_start_message_id: _Optional[str] = ..., max_message_count: _Optional[int] = ...) -> None: ...
 
 class ModelMessageWithId(_message.Message):
-    __slots__ = ("message", "tool_action", "message_id", "snapshot_rid", "tool_approval_requests")
+    __slots__ = ("message", "tool_action", "tool_action_confirmation", "message_id", "snapshot_rid", "tool_approval_requests")
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     TOOL_ACTION_FIELD_NUMBER: _ClassVar[int]
+    TOOL_ACTION_CONFIRMATION_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_ID_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOT_RID_FIELD_NUMBER: _ClassVar[int]
     TOOL_APPROVAL_REQUESTS_FIELD_NUMBER: _ClassVar[int]
     message: ModelMessage
     tool_action: ToolAction
+    tool_action_confirmation: ToolActionConfirmation
     message_id: str
     snapshot_rid: str
     tool_approval_requests: _containers.RepeatedCompositeFieldContainer[ToolCallDescription]
-    def __init__(self, message: _Optional[_Union[ModelMessage, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ..., message_id: _Optional[str] = ..., snapshot_rid: _Optional[str] = ..., tool_approval_requests: _Optional[_Iterable[_Union[ToolCallDescription, _Mapping]]] = ...) -> None: ...
+    def __init__(self, message: _Optional[_Union[ModelMessage, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ..., tool_action_confirmation: _Optional[_Union[ToolActionConfirmation, _Mapping]] = ..., message_id: _Optional[str] = ..., snapshot_rid: _Optional[str] = ..., tool_approval_requests: _Optional[_Iterable[_Union[ToolCallDescription, _Mapping]]] = ...) -> None: ...
 
 class GetConversationResponse(_message.Message):
     __slots__ = ("ordered_messages", "conversation_metadata")
@@ -329,7 +331,7 @@ class ReasoningPart(_message.Message):
     def __init__(self, reasoning: _Optional[str] = ...) -> None: ...
 
 class StreamChatResponse(_message.Message):
-    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "tool_action")
+    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "tool_action", "tool_action_confirmation")
     FINISH_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     TEXT_START_FIELD_NUMBER: _ClassVar[int]
@@ -339,6 +341,7 @@ class StreamChatResponse(_message.Message):
     REASONING_DELTA_FIELD_NUMBER: _ClassVar[int]
     REASONING_END_FIELD_NUMBER: _ClassVar[int]
     TOOL_ACTION_FIELD_NUMBER: _ClassVar[int]
+    TOOL_ACTION_CONFIRMATION_FIELD_NUMBER: _ClassVar[int]
     finish: Finish
     error: Error
     text_start: TextStart
@@ -348,7 +351,8 @@ class StreamChatResponse(_message.Message):
     reasoning_delta: ReasoningDelta
     reasoning_end: ReasoningEnd
     tool_action: ToolAction
-    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ...) -> None: ...
+    tool_action_confirmation: ToolActionConfirmation
+    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ..., tool_action_confirmation: _Optional[_Union[ToolActionConfirmation, _Mapping]] = ...) -> None: ...
 
 class ToolCallDescription(_message.Message):
     __slots__ = ("tool_call_id", "tool_name", "tool_args_json_string", "status")
@@ -427,3 +431,25 @@ class ToolAction(_message.Message):
     tool_action_verb: str
     tool_target: str
     def __init__(self, id: _Optional[str] = ..., tool_action_verb: _Optional[str] = ..., tool_target: _Optional[str] = ...) -> None: ...
+
+class ToolActionConfirmation(_message.Message):
+    __slots__ = ("id", "success", "failure")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    success: ToolActionSuccess
+    failure: ToolActionFailure
+    def __init__(self, id: _Optional[str] = ..., success: _Optional[_Union[ToolActionSuccess, _Mapping]] = ..., failure: _Optional[_Union[ToolActionFailure, _Mapping]] = ...) -> None: ...
+
+class ToolActionSuccess(_message.Message):
+    __slots__ = ("tool_success_message",)
+    TOOL_SUCCESS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    tool_success_message: str
+    def __init__(self, tool_success_message: _Optional[str] = ...) -> None: ...
+
+class ToolActionFailure(_message.Message):
+    __slots__ = ("tool_error_message",)
+    TOOL_ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    tool_error_message: str
+    def __init__(self, tool_error_message: _Optional[str] = ...) -> None: ...

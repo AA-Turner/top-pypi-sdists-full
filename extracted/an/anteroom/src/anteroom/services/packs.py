@@ -44,6 +44,7 @@ _TYPE_DIRS: dict[str, str] = {
     ArtifactType.MEMORY: "memories",
     ArtifactType.MCP_SERVER: "mcp_servers",
     ArtifactType.CONFIG_OVERLAY: "config_overlays",
+    ArtifactType.SPEC: "specs",
 }
 
 
@@ -273,13 +274,19 @@ def _read_artifact_content(
 ) -> tuple[str, dict[str, Any]]:
     """Read artifact content from a file.
 
-    For YAML files, extracts ``content`` and ``metadata`` fields.
+    For spec artifacts, the file content IS the spec YAML — returned as-is
+    with empty metadata (phase metadata is initialized separately).
+    For other YAML files, extracts ``content`` and ``metadata`` fields.
     For Markdown rule files, parses YAML front matter into metadata.
     For other files, the entire content is the artifact content.
 
     Raises ``ValueError`` if a Markdown rule file has malformed front matter.
     """
     raw = path.read_text(encoding="utf-8")
+
+    # Spec artifacts: raw YAML IS the content, no content/metadata wrapper
+    if artifact_type == ArtifactType.SPEC:
+        return raw, {}
 
     if path.suffix in (".yaml", ".yml"):
         try:
@@ -340,6 +347,19 @@ def install_pack(
             continue
 
         content, metadata = _read_artifact_content(art_path, artifact_type=art.type)
+
+        # Validate and initialize spec artifacts
+        if art.type == ArtifactType.SPEC:
+            from .spec_schema import SpecValidationError, default_phase_metadata, parse_spec_content
+
+            try:
+                parse_spec_content(content)
+            except SpecValidationError as e:
+                skipped.append(f"{art.type}/{art.name}")
+                logger.warning("Skipping spec %s/%s: invalid YAML: %s", art.type, art.name, e)
+                continue
+            metadata = default_phase_metadata()
+
         fqn = build_fqn(manifest.namespace, art.type, art.name)
         artifact_data.append((fqn, art.type, art.name, content, metadata))
 
@@ -469,6 +489,36 @@ def update_pack(
             logger.warning("Skipping %s/%s: file not found", art.type, art.name)
             continue
         content, metadata = _read_artifact_content(art_path, artifact_type=art.type)
+
+        # Validate and handle spec artifacts on update
+        if art.type == ArtifactType.SPEC:
+            from .spec_schema import SpecValidationError, default_phase_metadata, parse_spec_content
+
+            try:
+                new_spec = parse_spec_content(content)
+            except SpecValidationError as e:
+                skipped.append(f"{art.type}/{art.name}")
+                logger.warning("Skipping spec %s/%s: invalid YAML: %s", art.type, art.name, e)
+                continue
+
+            # Check if existing artifact has metadata to preserve/invalidate
+            fqn_check = build_fqn(manifest.namespace, art.type, art.name)
+            from . import artifact_storage as _as
+
+            existing_art = _as.get_artifact_by_fqn(db, fqn_check)
+            if existing_art and existing_art.get("content"):
+                try:
+                    old_spec = parse_spec_content(existing_art["content"])
+                    from .spec_diff import apply_invalidations, evaluate_invalidation_rules
+
+                    existing_meta = existing_art.get("metadata", {})
+                    invalidations = evaluate_invalidation_rules(old_spec, new_spec, existing_meta)
+                    metadata = apply_invalidations(existing_meta, invalidations) if invalidations else existing_meta
+                except SpecValidationError:
+                    metadata = default_phase_metadata()
+            else:
+                metadata = default_phase_metadata()
+
         fqn = build_fqn(manifest.namespace, art.type, art.name)
         artifact_data.append((fqn, art.type, art.name, content, metadata))
 

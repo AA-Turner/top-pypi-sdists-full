@@ -256,6 +256,7 @@ OperatingSystemNameType = Literal[
     "WINDOWS_SERVER_2016",
     "WINDOWS_SERVER_2019",
     "WINDOWS_SERVER_2022",
+    "WINDOWS_SERVER_2025",
 ]
 OperatingSystemTypeType = Literal["LINUX", "WINDOWS"]
 PlatformType = Literal["WINDOWS"]
@@ -521,6 +522,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -784,6 +786,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

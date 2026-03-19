@@ -1,13 +1,39 @@
 import pytest
 
 from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from tests.conftest import skip_if_no_license
+from rocketchat_API.rocketchat import RocketChat
+from tests.conftest import get_tests_passowrd, skip_if_no_license
 
 
 def test_chat_post_notext_message(logged_rocket):
     chat_post_message = logged_rocket.chat_post_message(None, channel="GENERAL")
     assert chat_post_message.get("channel") == "GENERAL"
     assert chat_post_message.get("message").get("msg") == ""
+
+
+def test_chat_post_multiline_message(logged_rocket):
+    multiline_text = "Hello\nThis is line 2\nThis is line 3"
+    chat_post_message = logged_rocket.chat_post_message(
+        multiline_text, channel="GENERAL"
+    )
+    assert chat_post_message.get("channel") == "GENERAL"
+    assert chat_post_message.get("message").get("msg") == multiline_text
+
+
+def test_chat_post_multiline_attachment(logged_rocket):
+    # Use two spaces before newline for Markdown line breaks in Rocket.Chat
+    multiline_attachment_text = "more  \nmultiline  \ntext"
+    chat_post_message = logged_rocket.chat_post_message(
+        "hello",
+        channel="GENERAL",
+        attachments=[{"color": "#00ff00", "text": multiline_attachment_text}],
+    )
+    assert chat_post_message.get("channel") == "GENERAL"
+    assert chat_post_message.get("message").get("msg") == "hello"
+    assert (
+        chat_post_message.get("message").get("attachments")[0].get("text")
+        == multiline_attachment_text
+    )
 
 
 def test_chat_post_update_delete_message(logged_rocket):
@@ -106,16 +132,26 @@ def test_post_star_unstar_get_starred_messages(logged_rocket):
     logged_rocket.chat_unstar_message(message_id)
 
 
-def test_chat_get_message_read_receipts(logged_rocket, skip_if_no_license):
+def test_chat_get_message_read_receipts(
+    logged_rocket, secondary_user, skip_if_no_license
+):
+    logged_rocket.settings_update("Message_Read_Receipt_Enabled", True)
+    logged_rocket.settings_update("Message_Read_Receipt_Store_Users", True)
+
     message_id = (
         logged_rocket.chat_post_message("hello", channel="GENERAL")
         .get("message")
         .get("_id")
     )
-    chat_get_message_read_receipts = logged_rocket.chat_get_message_read_receipts(
-        message_id=message_id
-    )
-    assert "receipts" in chat_get_message_read_receipts
+
+    second_rocket = RocketChat("secondary", get_tests_passowrd())
+    second_rocket.subscriptions_read(rid="GENERAL")
+
+    receipts = list(logged_rocket.chat_get_message_read_receipts(message_id=message_id))
+    assert len(receipts) > 0
+    for receipt in receipts:
+        assert "userId" in receipt
+        assert "messageId" in receipt
 
 
 def test_chat_report_message(logged_rocket):

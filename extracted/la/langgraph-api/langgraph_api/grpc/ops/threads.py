@@ -237,7 +237,7 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
         "metadata": fragment_to_value(proto_thread.metadata) or {},
         "config": fragment_to_value(proto_thread.config) or {},
         "error": fragment_to_value(proto_thread.error),
-        "status": status,  # type: ignore[typeddict-item]
+        "status": status,
         "values": fragment_to_value(proto_thread.values),
         "interrupts": _proto_interrupts_to_dict(dict(proto_thread.interrupts)),
     }
@@ -362,7 +362,7 @@ class Threads(Authenticated):
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
         ctx: Any = None,
-    ) -> tuple[AsyncIterator[Thread], int | None]:  # type: ignore[return-value]
+    ) -> tuple[AsyncIterator[Thread], int | None]:
         metadata = metadata or {}
         values = values or {}
 
@@ -430,7 +430,7 @@ class Threads(Authenticated):
         values: MetadataInput,
         status: ThreadStatus | None,
         ctx: Any = None,
-    ) -> int:  # type: ignore[override]
+    ) -> int:
         metadata = metadata or {}
         values = values or {}
 
@@ -470,7 +470,7 @@ class Threads(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
         filters: Auth.types.FilterType | list[pb.AuthFilter] | None = None,
         include_ttl: bool = False,
-    ) -> AsyncIterator[Thread]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Thread]:
         """Get a thread by ID.
 
         Args:
@@ -519,7 +519,7 @@ class Threads(Authenticated):
         if_exists: OnConflictBehavior,
         ttl: dict[str, Any] | None = None,
         ctx: Any = None,
-    ) -> AsyncIterator[Thread]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Thread]:
         metadata = metadata or {}
 
         auth_filters = await Threads.handle_event(
@@ -561,7 +561,7 @@ class Threads(Authenticated):
         metadata: MetadataInput,
         ttl: dict[str, Any] | None = None,
         ctx: Any = None,
-    ) -> AsyncIterator[Thread]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Thread]:
         metadata = metadata or {}
 
         auth_filters = await Threads.handle_event(
@@ -599,7 +599,7 @@ class Threads(Authenticated):
         conn,  # Not used
         thread_id: UUID | str,
         ctx: Any = None,
-    ) -> AsyncIterator[UUID]:  # type: ignore[return-value]
+    ) -> AsyncIterator[UUID]:
         auth_filters = await Threads.handle_event(
             ctx,
             "delete",
@@ -731,7 +731,7 @@ class Threads(Authenticated):
         conn,  # Not used
         thread_id: UUID | str,
         ctx: Any = None,
-    ) -> AsyncIterator[Thread]:  # type: ignore[return-value]
+    ) -> AsyncIterator[Thread]:
         auth_filters = await Threads.handle_event(
             ctx,
             "read",
@@ -1008,7 +1008,7 @@ class Threads(Authenticated):
                     "tasks": tuple(),
                 }
                 _kwargs.update(_snapshot_defaults())
-                return StateSnapshot(**_kwargs)  # type: ignore[missing-argument]
+                return StateSnapshot(**_kwargs)
 
         @staticmethod
         async def post(

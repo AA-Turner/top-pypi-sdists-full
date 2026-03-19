@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeAlias, cast
 from warnings import warn
 
 from ibm_watsonx_ai.hpo import HPOMethodParam, HPOParameter
@@ -49,6 +49,33 @@ class Experiments(WMLResource):
     def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
 
+    def validate_and_prepare_store_payload(
+        self, meta_props: dict[str, Any]
+    ) -> dict[str, Any]:
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        payload_meta_props = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props
+        )
+
+        if self._client.default_space_id is not None:
+            payload_meta_props["space_id"] = self._client.default_space_id
+        elif self._client.default_project_id is not None:
+            payload_meta_props["project_id"] = self._client.default_project_id
+        else:
+            raise WMLClientError(
+                Messages.get_message(
+                    message_id="it_is_mandatory_to_set_the_space_project_id"
+                )
+            )
+
+        self._validate_meta_prop(
+            meta_props, self.ConfigurationMetaNames.NAME, str, True
+        )
+
+        return payload_meta_props
+
     def store(self, meta_props: dict[str, Any]) -> dict[str, Any]:
         """Create an experiment.
 
@@ -81,27 +108,7 @@ class Experiments(WMLResource):
             experiment_href = client.experiments.get_href(experiment_details)
 
         """
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        payload_meta_props = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props
-        )
-
-        if self._client.default_space_id is not None:
-            payload_meta_props["space_id"] = self._client.default_space_id
-        elif self._client.default_project_id is not None:
-            payload_meta_props["project_id"] = self._client.default_project_id
-        else:
-            raise WMLClientError(
-                Messages.get_message(
-                    message_id="it_is_mandatory_to_set_the_space_project_id"
-                )
-            )
-
-        self._validate_meta_prop(
-            meta_props, self.ConfigurationMetaNames.NAME, str, True
-        )
+        payload_meta_props = self.validate_and_prepare_store_payload(meta_props)
 
         response_experiment_post = self._client.httpx_client.post(
             url=self._client._href_definitions.get_experiments_href(),
@@ -146,27 +153,7 @@ class Experiments(WMLResource):
             experiment_href = client.experiments.get_href(experiment_details)
 
         """
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        payload_meta_props = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props
-        )
-
-        if self._client.default_space_id is not None:
-            payload_meta_props["space_id"] = self._client.default_space_id
-        elif self._client.default_project_id is not None:
-            payload_meta_props["project_id"] = self._client.default_project_id
-        else:
-            raise WMLClientError(
-                Messages.get_message(
-                    message_id="it_is_mandatory_to_set_the_space_project_id"
-                )
-            )
-
-        self._validate_meta_prop(
-            meta_props, self.ConfigurationMetaNames.NAME, str, True
-        )
+        payload_meta_props = self.validate_and_prepare_store_payload(meta_props)
 
         response_experiment_post = await self._client.async_httpx_client.post(
             url=self._client._href_definitions.get_experiments_href(),
@@ -176,6 +163,17 @@ class Experiments(WMLResource):
         )
 
         return self._handle_response(201, "saving experiment", response_experiment_post)
+
+    def _validate_update_inputs(
+        self,
+        experiment_id: str | None,
+        changes: dict[str, Any] | None,
+    ) -> None:
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        self._validate_type(experiment_id, "experiment_id", str, True)
+        self._validate_type(changes, "changes", dict, True)
 
     def update(
         self,
@@ -212,11 +210,7 @@ class Experiments(WMLResource):
             kwargs, experiment_id, "experiment", can_be_none=False
         )
 
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(experiment_id, "experiment_id", str, True)
-        self._validate_type(changes, "changes", dict, True)
+        self._validate_update_inputs(experiment_id, changes)
 
         details = self.get_details(experiment_id)
 
@@ -260,12 +254,7 @@ class Experiments(WMLResource):
             )
 
         """
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(experiment_id, "experiment_id", str, True)
-        self._validate_type(changes, "changes", dict, True)
+        self._validate_update_inputs(experiment_id, changes)
 
         details = await self.aget_details(experiment_id)
 
@@ -283,6 +272,31 @@ class Experiments(WMLResource):
         updated_details = self._handle_response(200, "experiment patch", response)
 
         return updated_details
+
+    def _validate_and_prepare_get_details(
+        self,
+        experiment_id: str | None,
+        limit: int | None,
+        asynchronous: bool | None,
+        get_all: bool | None,
+        experiment_name: str | None,
+    ) -> tuple[str, Callable | None]:
+        Experiments._validate_type(experiment_id, "experiment_id", str, False)
+        Experiments._validate_type(limit, "limit", int, False)
+        Experiments._validate_type(asynchronous, "asynchronous", bool, False)
+        Experiments._validate_type(get_all, "get_all", bool, False)
+
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+        url = self._client._href_definitions.get_experiments_href()
+
+        filter_func = (
+            self._get_filter_func_by_artifact_name(experiment_name)
+            if experiment_name
+            else None
+        )
+
+        return url, filter_func
 
     def get_details(
         self,
@@ -339,14 +353,9 @@ class Experiments(WMLResource):
             kwargs, experiment_id, "experiment", can_be_none=True
         )
 
-        Experiments._validate_type(experiment_id, "experiment_id", str, False)
-        Experiments._validate_type(limit, "limit", int, False)
-        Experiments._validate_type(asynchronous, "asynchronous", bool, False)
-        Experiments._validate_type(get_all, "get_all", bool, False)
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        url = self._client._href_definitions.get_experiments_href()
+        url, filter_func = self._validate_and_prepare_get_details(
+            experiment_id, limit, asynchronous, get_all, experiment_name
+        )
 
         if experiment_id is not None:
             return self._get_artifact_details(url, experiment_id, limit, "experiment")
@@ -358,11 +367,7 @@ class Experiments(WMLResource):
             "experiment",
             _async=asynchronous,
             _all=get_all,
-            _filter_func=(
-                self._get_filter_func_by_artifact_name(experiment_name)
-                if experiment_name
-                else None
-            ),
+            _filter_func=filter_func,
         )
 
     async def aget_details(
@@ -417,14 +422,9 @@ class Experiments(WMLResource):
                 experiment_details.extend(entry)
 
         """
-        Experiments._validate_type(experiment_id, "experiment_id", str, False)
-        Experiments._validate_type(limit, "limit", int, False)
-        Experiments._validate_type(asynchronous, "asynchronous", bool, False)
-        Experiments._validate_type(get_all, "get_all", bool, False)
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-        url = self._client._href_definitions.get_experiments_href()
+        url, filter_func = self._validate_and_prepare_get_details(
+            experiment_id, limit, asynchronous, get_all, experiment_name
+        )
 
         if experiment_id is not None:
             return await self._aget_artifact_details(
@@ -438,11 +438,7 @@ class Experiments(WMLResource):
             "experiment",
             _async=asynchronous,
             _all=get_all,
-            _filter_func=(
-                self._get_filter_func_by_artifact_name(experiment_name)
-                if experiment_name
-                else None
-            ),
+            _filter_func=filter_func,
         )
 
     @staticmethod
