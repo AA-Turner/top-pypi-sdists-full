@@ -10,8 +10,7 @@ import unittest
 from collections import Counter
 from datetime import date, datetime, time, timedelta, timezone
 
-from pythainlp.corpus import _CORPUS_PATH, thai_words
-from pythainlp.corpus.common import _THAI_WORDS_FILENAME
+from pythainlp.corpus import corpus_path, thai_words
 from pythainlp.util import (
     Trie,
     analyze_thai_text,
@@ -19,6 +18,7 @@ from pythainlp.util import (
     bahttext,
     collate,
     convert_years,
+    count_thai,
     count_thai_chars,
     countthai,
     dict_trie,
@@ -29,6 +29,8 @@ from pythainlp.util import (
     expand_maiyamok,
     find_keyword,
     ipa_to_rtgs,
+    is_thai,
+    is_thai_char,
     isthai,
     isthaichar,
     longest_common_subsequence,
@@ -40,11 +42,15 @@ from pythainlp.util import (
     reign_year_to_ad,
     remove_dangling,
     remove_dup_spaces,
+    remove_repeat_vowels,
+    remove_spaces_before_marks,
     remove_tone_ipa,
     remove_tonemark,
     remove_trailing_repeat_consonants,
     remove_zw,
+    reorder_vowels,
     sound_syllable,
+    spell_syllable,
     spelling,
     syllable_length,
     syllable_open_close_detector,
@@ -52,6 +58,7 @@ from pythainlp.util import (
     text_to_num,
     text_to_thai_digit,
     th_zodiac,
+    thai_consonant_to_spelling,
     thai_digit_to_arabic_digit,
     thai_keyboard_dist,
     thai_strftime,
@@ -65,6 +72,7 @@ from pythainlp.util import (
     to_idna,
     to_lunar_date,
     tone_detector,
+    tone_to_spelling,
     words_to_num,
 )
 from pythainlp.util.morse import morse_decode, morse_encode
@@ -541,7 +549,7 @@ class UtilTestCase(unittest.TestCase):
         self.assertIsNotNone(dict_trie({"ลอง", "สร้าง", "Trie", "ลน"}))
         self.assertIsNotNone(dict_trie(thai_words()))
         self.assertIsNotNone(
-            dict_trie(os.path.join(_CORPUS_PATH, _THAI_WORDS_FILENAME))
+            dict_trie(os.path.join(corpus_path(), "words_th.txt"))
         )
         with self.assertRaises(TypeError):
             dict_trie("")
@@ -710,6 +718,11 @@ class UtilTestCase(unittest.TestCase):
         self.assertFalse(isthaichar("a"))
         self.assertFalse(isthaichar("0"))
 
+    def test_is_thai_char(self):
+        self.assertTrue(is_thai_char("ก"))
+        self.assertFalse(is_thai_char("a"))
+        self.assertFalse(is_thai_char("0"))
+
     def test_isthai(self):
         self.assertTrue(isthai("ไทย"))
         self.assertTrue(isthai("ต.ค."))
@@ -717,6 +730,23 @@ class UtilTestCase(unittest.TestCase):
         self.assertFalse(isthai("ไทย0"))
         self.assertFalse(isthai("(ต.ค.)"))
         self.assertFalse(isthai("ต.ค.", ignore_chars=None))
+
+    def test_is_thai(self):
+        self.assertTrue(is_thai("ไทย"))
+        self.assertTrue(is_thai("ต.ค."))
+        self.assertTrue(is_thai("(ต.ค.)", ignore_chars=".()"))
+        self.assertFalse(is_thai("ไทย0"))
+        self.assertFalse(is_thai("(ต.ค.)"))
+        self.assertFalse(is_thai("ต.ค.", ignore_chars=None))
+
+    def test_count_thai(self):
+        self.assertEqual(count_thai(""), 0.0)
+        self.assertEqual(count_thai("123"), 0.0)
+        self.assertEqual(count_thai("1 2 3"), 0.0)
+        self.assertEqual(count_thai("ประเทศไทย"), 100.0)
+        self.assertEqual(count_thai("โรค COVID-19"), 37.5)
+        self.assertEqual(count_thai("(กกต.)", ".()"), 100.0)
+        self.assertEqual(count_thai("(กกต.)", None), 50.0)
 
     def test_display_thai_char(self):
         self.assertEqual(display_thai_char("้"), "_้")
@@ -1048,3 +1078,66 @@ class UtilTestCase(unittest.TestCase):
             analyze_thai_text("เล่น"),
             {'สระ เอ': 1, 'ล': 1, 'ไม้เอก': 1, 'น': 1}
         )
+
+    # ### pythainlp.util.pronounce
+
+    def test_thai_consonant_to_spelling(self):
+        self.assertEqual(thai_consonant_to_spelling("ก"), "กอ")
+        self.assertEqual(thai_consonant_to_spelling("ข"), "ขอ")
+        self.assertEqual(thai_consonant_to_spelling("น"), "นอ")
+        # multi-char strings and non-consonants pass through unchanged
+        self.assertEqual(thai_consonant_to_spelling("กา"), "กา")
+        self.assertEqual(thai_consonant_to_spelling("า"), "า")
+        self.assertEqual(thai_consonant_to_spelling("A"), "A")
+        self.assertEqual(thai_consonant_to_spelling(""), "")
+
+    def test_tone_to_spelling(self):
+        self.assertEqual(tone_to_spelling("่"), "ไม้เอก")
+        self.assertEqual(tone_to_spelling("้"), "ไม้โท")
+        self.assertEqual(tone_to_spelling("๊"), "ไม้ตรี")
+        self.assertEqual(tone_to_spelling("๋"), "ไม้จัตวา")
+        # non-tone-mark characters pass through unchanged
+        self.assertEqual(tone_to_spelling("ก"), "ก")
+        self.assertEqual(tone_to_spelling(""), "")
+
+    # ### pythainlp.util.spell_words
+
+    def test_spell_syllable(self):
+        result = spell_syllable("แมว")
+        self.assertIsInstance(result, list)
+        self.assertEqual(result[-1], "แมว")
+        result_kon = spell_syllable("คน")
+        self.assertGreater(len(result_kon), 0)
+        self.assertIn("คน", result_kon)
+
+    # ### pythainlp.util.normalize – remove_repeat_vowels,
+    #     remove_spaces_before_marks, reorder_vowels
+
+    def test_remove_repeat_vowels(self):
+        self.assertEqual(remove_repeat_vowels(""), "")
+        self.assertEqual(remove_repeat_vowels("สวัสดี"), "สวัสดี")
+        self.assertEqual(remove_repeat_vowels("นานาา"), "นานา")
+        self.assertEqual(remove_repeat_vowels("ดีีีี"), "ดี")
+        # double sara E is reordered to sara Ae before repeat-removal
+        self.assertEqual(remove_repeat_vowels("เเปลก"), "แปลก")
+
+    def test_remove_spaces_before_marks(self):
+        self.assertEqual(remove_spaces_before_marks(""), "")
+        self.assertEqual(remove_spaces_before_marks("กิน"), "กิน")
+        self.assertEqual(remove_spaces_before_marks("ก ิ"), "กิ")
+        self.assertEqual(remove_spaces_before_marks("ก ุ"), "กุ")
+        self.assertEqual(remove_spaces_before_marks("ก ่า"), "ก่า")
+        # spaces between regular consonants are preserved
+        self.assertIn(" ", remove_spaces_before_marks("ก ข"))
+
+    def test_reorder_vowels(self):
+        self.assertEqual(reorder_vowels(""), "")
+        self.assertEqual(reorder_vowels("สวัสดี"), "สวัสดี")
+        # two sara E → sara Ae
+        self.assertEqual(reorder_vowels("เเปลก"), "แปลก")
+        # nikhahit (ํ) + sara aa (า) → sara am (ำ)
+        self.assertEqual(reorder_vowels("\u0e01\u0e4d\u0e32"), "\u0e01\u0e33")
+        # tone mark reorder: both characters still present after reorder
+        result = reorder_vowels("\u0e01\u0e32\u0e48")
+        self.assertIn("\u0e48", result)
+        self.assertIn("\u0e32", result)

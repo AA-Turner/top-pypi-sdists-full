@@ -7,20 +7,30 @@ from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
+import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
-from snowflake.snowpark import DataFrame, DataFrameReader, Session
+from snowflake.snowpark import Column, DataFrame, DataFrameReader, Session
 from snowflake.snowpark._internal.analyzer import analyzer_utils
+from snowflake.snowpark._internal.analyzer.analyzer_utils import (
+    quote_name_without_upper_casing,
+)
 from snowflake.snowpark._internal.type_utils import convert_sf_to_sp_type
 from snowflake.snowpark.types import (
     ArrayType,
+    BooleanType,
     DataType,
+    DateType,
     MapType,
+    NullType,
     StringType,
     StructField,
     StructType,
     TimestampTimeZone,
     TimestampType,
     VariantType,
+    _FractionalType,
+    _IntegralType,
+    _NumericType,
 )
 from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
@@ -30,7 +40,7 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
-    _read_file_with_partitions,
+    _read_partitioned_file_with_partitions,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
@@ -42,6 +52,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
 )
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.io_utils import cached_file_format
+from snowflake.snowpark_connect.utils.schema_utils import datatypes_equal
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -698,20 +709,28 @@ def map_read_parquet(
     )
 
     if len(paths) == 1:
-        df, read_using_external_table = _read_parquet_with_partitions(
+        (
+            df,
+            partition_columns,
+            read_using_external_table,
+        ) = _read_parquet_with_partitions(
             session, reader, paths[0], schema, snowpark_options, raw_options
         )
         can_be_cached = not read_using_external_table
     else:
         is_merge_schema = options.config.get("mergeschema")
-        df, read_using_external_table = _read_parquet_with_partitions(
+        (
+            df,
+            partition_columns,
+            read_using_external_table,
+        ) = _read_parquet_with_partitions(
             session, reader, paths[0], schema, snowpark_options, raw_options
         )
         can_be_cached = not read_using_external_table
         schema_cols = df.columns
         for p in paths[1:]:
             reader._user_schema = None
-            partition_df, read_using_external_table = _read_parquet_with_partitions(
+            partition_df, _, read_using_external_table = _read_parquet_with_partitions(
                 session, reader, p, schema, snowpark_options, raw_options
             )
             df = df.union_all_by_name(
@@ -723,6 +742,28 @@ def map_read_parquet(
         if not is_merge_schema:
             df = df.select(*schema_cols)
 
+    if schema is not None:
+        if read_using_external_table:
+            # External table path already applies the user schema during table
+            # creation (column types, partition columns).  Skip reconciliation
+            # and use the DataFrame's types as-is.
+            schema_types = [f.datatype for f in df.schema.fields]
+        else:
+            # Non-external-table path: reconcile columns with user schema.
+            df, schema_types = _handle_partition_columns(df, partition_columns, schema)
+        spark_column_names = [analyzer_utils.unquote_if_quoted(c) for c in df.columns]
+        renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+            df, rel.common.plan_id
+        )
+        return DataFrameContainer.create_with_column_mapping(
+            dataframe=renamed_df,
+            spark_column_names=spark_column_names,
+            snowpark_column_names=snowpark_column_names,
+            snowpark_column_types=[emulate_integral_types(dt) for dt in schema_types],
+            can_be_cached=can_be_cached,
+        )
+
+    # No user schema: infer types via FLATTEN-based schema discovery.
     infer_ntz = get_boolean_session_config_param(
         "spark.sql.parquet.inferTimestampNTZ.enabled"
     )
@@ -806,6 +847,269 @@ def map_read_parquet(
     )
 
 
+def _handle_partition_columns(
+    df: DataFrame,
+    partition_columns: list[str],
+    provided_schema: StructType,
+) -> tuple[DataFrame, list[DataType]]:
+    """
+    Reconcile partition columns with a user-provided schema.
+
+    Spark always places partition columns at the end of the output, even if
+    the user schema lists them earlier (see ``PartitioningUtils.mergeDataAndPartitionSchema``).
+
+    When reading partitioned parquet with a user schema:
+    1. Data columns appear first, in user-schema order
+    2. Partition columns appear last, in partition discovery order
+    3. User-specified types are applied to partition columns via casting
+    4. Partition columns not in the user schema are still appended
+    5. Schema fields not in the data become NULL columns
+
+    Column name matching respects ``spark.sql.caseSensitive`` (default false).
+    When case-insensitive, names are compared via their unquoted lowercase form
+    while the *original* DataFrame column name is preserved for SQL generation.
+    """
+    case_sensitive = get_boolean_session_config_param("spark.sql.caseSensitive")
+
+    def _normalize(name: str) -> str:
+        if case_sensitive:
+            return name
+        return analyzer_utils.unquote_if_quoted(name).lower()
+
+    partition_columns = [
+        quote_name_without_upper_casing(col) for col in partition_columns
+    ]
+
+    # Map normalized name -> original quoted name for partition columns.
+    partition_lookup: dict[str, str] = {
+        _normalize(col): col for col in partition_columns
+    }
+
+    # Map normalized name -> (original_name, datatype) for actual DataFrame columns.
+    actual_lookup: dict[str, tuple[str, DataType]] = {
+        _normalize(field.name): (field.name, field.datatype)
+        for field in df.schema.fields
+    }
+
+    schema_columns: list[Column] = []
+    schema_types: list[DataType] = []
+
+    # Map user-specified types for partition columns (by normalized key).
+    partition_user_types: dict[str, tuple[DataType, str]] = {}
+
+    # Phase 1: data columns from user schema (skip partition columns).
+    # Spark always places partition columns at the end, regardless of
+    # where the user positions them in the schema.
+    for field in provided_schema.fields:
+        norm_key = _normalize(field.name)
+        target_type = field.datatype
+        user_name = field.name
+
+        if norm_key in partition_lookup:
+            partition_user_types[norm_key] = (target_type, user_name)
+            continue
+
+        if norm_key in actual_lookup:
+            actual_col_name, source_type = actual_lookup[norm_key]
+            col_expr = snowpark_fn.col(actual_col_name)
+            reported_type = target_type
+            is_complex_target = isinstance(
+                target_type, (StructType, ArrayType, MapType)
+            )
+            is_castable_source = isinstance(source_type, (VariantType, StringType))
+
+            if is_complex_target and is_castable_source:
+                # Use TRY_CAST with PERMISSIVE to gracefully handle schema
+                # differences: extra fields in the data are dropped, missing
+                # fields become NULL (matching Spark's behavior).  Snowpark's
+                # Column.try_cast() doesn't support PERMISSIVE, so we build
+                # raw SQL via sql_expr().
+                cast_type = _normalize_complex_type_for_cast(target_type)
+                type_sig = _snowflake_type_sql(cast_type)
+                src_expr = (
+                    f"PARSE_JSON({actual_col_name})"
+                    if isinstance(source_type, StringType)
+                    else actual_col_name
+                )
+                col_expr = snowpark_fn.sql_expr(
+                    f"TRY_CAST({src_expr} AS {type_sig} PERMISSIVE)"
+                ).alias(user_name)
+                # Report the normalized type so Arrow field names match the
+                # unquoted keys returned by Snowflake's JSON output.
+                reported_type = cast_type
+            else:
+                # Primitive columns: reject incompatible types (e.g. STRING
+                # requested as DOUBLE) to match Spark's Parquet physical type
+                # validation.  Compatible types pass through without casting.
+                if not datatypes_equal(source_type, target_type, ignore_nullable=True):
+                    _validate_column_type(actual_col_name, source_type, target_type)
+                if actual_col_name != user_name:
+                    col_expr = col_expr.alias(user_name)
+
+            schema_columns.append(col_expr)
+            schema_types.append(reported_type)
+
+        else:
+            col_expr = snowpark_fn.lit(None)
+            if isinstance(target_type, (StructType, ArrayType, MapType)):
+                cast_type = _normalize_complex_type_for_cast(target_type)
+                col_expr = col_expr.cast(cast_type)
+            schema_columns.append(col_expr.alias(user_name))
+            schema_types.append(
+                _normalize_complex_type_for_cast(target_type)
+                if isinstance(target_type, (StructType, ArrayType, MapType))
+                else target_type
+            )
+
+    # Phase 2: partition columns at the end (matching Spark behavior).
+    # Use user-specified types when available, inferred types otherwise.
+    for partition_col in partition_columns:
+        norm_key = _normalize(partition_col)
+        if norm_key in partition_user_types:
+            target_type, user_name = partition_user_types[norm_key]
+            actual_col_name = partition_lookup[norm_key]
+            source_type = actual_lookup[norm_key][1]
+            cast_expr = _cast_partition_column(
+                source_type, target_type, actual_col_name, user_name
+            )
+            schema_columns.append(cast_expr)
+            schema_types.append(target_type)
+        else:
+            schema_columns.append(snowpark_fn.col(partition_col))
+            schema_types.append(actual_lookup[norm_key][1])
+
+    return df.select(*schema_columns), schema_types
+
+
+def _normalize_complex_type_for_cast(dt: DataType) -> DataType:
+    """Normalize field names in complex types so that CAST SQL matches JSON keys.
+
+    User-provided schemas pass through ``map_json_schema_to_snowpark`` which
+    quotes field names via ``quote_name(name, keep_case=True)``, producing
+    strings like ``'"city"'``.  The underlying JSON keys in Variant data are
+    unquoted (e.g. ``city``).
+
+    We strip quoting so that ``StructField.name`` returns the raw key (e.g.
+    ``city``) matching the dict keys Snowpark Python uses when formatting
+    results.  Setting ``_is_column=False`` prevents ``ColumnIdentifier`` from
+    uppercasing the name, while ``case_sensitive_name`` still produces the
+    correct double-quoted SQL identifier for the CAST expression.
+    """
+    if isinstance(dt, StructType):
+        return StructType(
+            [
+                StructField(
+                    analyzer_utils.unquote_if_quoted(f.name),
+                    _normalize_complex_type_for_cast(f.datatype),
+                    f.nullable,
+                    _is_column=False,
+                )
+                for f in dt.fields
+            ],
+            structured=dt.structured,
+        )
+    if isinstance(dt, ArrayType):
+        return ArrayType(
+            _normalize_complex_type_for_cast(dt.element_type),
+            structured=dt.structured,
+        )
+    if isinstance(dt, MapType):
+        return MapType(
+            _normalize_complex_type_for_cast(dt.key_type),
+            _normalize_complex_type_for_cast(dt.value_type),
+            structured=dt.structured,
+        )
+    return dt
+
+
+def _snowflake_type_sql(dt: DataType) -> str:
+    """Generate a Snowflake SQL type signature for use in TRY_CAST expressions.
+
+    Expects types that have been processed by ``_normalize_complex_type_for_cast``
+    so that struct field names are unquoted.  Uses ``case_sensitive_name`` to
+    produce properly double-quoted SQL identifiers (e.g. ``"id"``).
+
+    Example output: ``OBJECT("id" VARCHAR, "name" VARCHAR)``
+    """
+    from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
+
+    if isinstance(dt, StructType):
+        fields = ", ".join(
+            f"{f.column_identifier.case_sensitive_name} "
+            f"{_snowflake_type_sql(f.datatype)}"
+            for f in dt.fields
+        )
+        return f"OBJECT({fields})"
+    if isinstance(dt, ArrayType):
+        return f"ARRAY({_snowflake_type_sql(dt.element_type)})"
+    if isinstance(dt, MapType):
+        return f"MAP({_snowflake_type_sql(dt.key_type)}, {_snowflake_type_sql(dt.value_type)})"
+    return map_type_to_snowflake_type(dt)
+
+
+def _validate_column_type(
+    col_name: str,
+    source_type: DataType,
+    target_type: DataType,
+) -> None:
+    """
+    Validate that a parquet data column's type is compatible with the schema type.
+    Raises an error if types are incompatible (e.g. STRING in file but DOUBLE requested).
+    """
+    if not datatypes_equal(source_type, target_type, ignore_nullable=True):
+        exception = ValueError(
+            f"Parquet column cannot be converted. "
+            f"Column [{col_name}], Expected: {target_type}, Found: {source_type}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def _cast_partition_column(
+    original_type: DataType,
+    cast_type: DataType,
+    col_name: str,
+    output_name: str | None = None,
+) -> Column:
+    """Cast a partition column from its inferred type to the user-requested type.
+
+    ``col_name`` is the actual DataFrame column name (for SQL references).
+    ``output_name`` is the user-schema name for the output alias; defaults to
+    ``col_name`` when not provided.
+    """
+    alias = output_name or col_name
+
+    if original_type == cast_type:
+        col_expr = snowpark_fn.col(col_name)
+        return col_expr.alias(alias) if alias != col_name else col_expr
+
+    if isinstance(original_type, NullType):
+        return snowpark_fn.lit(None).alias(alias)
+
+    match original_type, cast_type:
+        case (_FractionalType(), _IntegralType()) | (_NumericType(), BooleanType()):
+            exception = ValueError(
+                f"Failed to cast value from `{original_type}` to `{cast_type}` "
+                f"for partition column `{col_name}`"
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+        case StringType(), DateType():
+            # Snowflake's AUTO format detection handles ISO-8601 (yyyy-MM-dd)
+            # used by Hive-style partitioning, plus other common formats.
+            return snowpark_fn.builtin("try_to_date")(snowpark_fn.col(col_name)).alias(
+                alias
+            )
+        case (_NumericType(), DateType()) | (_NumericType(), TimestampType()):
+            return snowpark_fn.lit(None).alias(alias)
+        case StringType(), TimestampType():
+            return snowpark_fn.builtin("try_to_timestamp")(
+                snowpark_fn.col(col_name)
+            ).alias(alias)
+        case _, _:
+            return snowpark_fn.col(col_name).cast(cast_type).alias(alias)
+
+
 def _read_parquet_with_partitions(
     session: Session,
     reader: DataFrameReader,
@@ -813,15 +1117,13 @@ def _read_parquet_with_partitions(
     schema: StructType | None,
     snowpark_options: dict[str, Any],
     raw_options: dict[str, Any],
-) -> tuple[DataFrame, bool]:
+) -> tuple[DataFrame, list[str], bool]:
     """
     Reads parquet files and adds partition columns from subdirectories.
-    Returns a tuple of read DataFrame and a boolean indicating if DataFrame was read from external table.
-
-    This function delegates to the generalized _read_file_with_partitions function.
+    Returns a tuple of (DataFrame, partition_column_names, uses_external_table).
     """
 
-    return _read_file_with_partitions(
+    return _read_partitioned_file_with_partitions(
         session=session,
         reader=reader,
         file_format="parquet",

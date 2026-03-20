@@ -44,6 +44,7 @@ from acryl_datahub_cloud.sdk.assertion_input.column_assertion_utils import (
     _try_parse_and_validate_value_type,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
+    ALLOWED_SMART_FIELD_METRIC_TYPES,
     FIELD_METRIC_TYPE_CONFIG,
     MetricInputType,
 )
@@ -199,6 +200,8 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        time_bucketing_strategy=None,
+        backfill_config=None,
     ):
         """
         Initialize a smart column metric assertion input.
@@ -235,12 +238,14 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            source_type=models.AssertionSourceTypeClass.INFERRED,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
             default_detection_mechanism=DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
         _HasSmartAssertionInputs.__init__(
             self,
@@ -253,6 +258,14 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
         self.metric_type = _try_parse_and_validate_schema_classes_enum(
             metric_type, models.FieldMetricTypeClass
         )
+
+        if self.metric_type not in ALLOWED_SMART_FIELD_METRIC_TYPES:
+            raise SDKUsageError(
+                f"Smart (AI-inferred) column metric assertions only support count-based metrics. "
+                f"Metric '{self.metric_type}' is not allowed. "
+                f"Allowed metrics: {', '.join(sorted(ALLOWED_SMART_FIELD_METRIC_TYPES))}"
+            )
+
         self.column_name = self._try_parse_and_validate_column_name_is_valid_type(
             column_name
         )
@@ -533,6 +546,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
                         trainingDataLookbackWindowDays=self.training_data_lookback_days,
                     ),
                 ),
+                bootstrapConfig=self.backfill_config,
             ),
         )
 
@@ -614,6 +628,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs
             datasetFieldParameters=models.DatasetFieldAssertionParametersClass(
                 sourceType=source_type,
                 changedRowsField=field,
+                timeBucketingStrategy=self.time_bucketing_strategy,
             ),
         )
 

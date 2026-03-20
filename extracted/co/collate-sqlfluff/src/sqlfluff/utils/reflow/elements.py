@@ -1,9 +1,10 @@
 """Dataclasses for reflow work."""
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Dict, List, Optional, Sequence, Set, Tuple, Type, Union, cast
+from typing import Optional, Union, cast
 
 from sqlfluff.core.helpers.slice import slice_overlaps
 from sqlfluff.core.parser import PositionMarker
@@ -59,14 +60,14 @@ def get_consumed_whitespace(segment: Optional[RawSegment]) -> Optional[str]:
 class ReflowElement:
     """Base reflow element class."""
 
-    segments: Tuple[RawSegment, ...]
+    segments: tuple[RawSegment, ...]
 
     @staticmethod
-    def _class_types(segments: Sequence[RawSegment]) -> Set[str]:
+    def _class_types(segments: Sequence[RawSegment]) -> set[str]:
         return set(chain.from_iterable(seg.class_types for seg in segments))
 
     @property
-    def class_types(self) -> Set[str]:
+    def class_types(self) -> set[str]:
         """Get the set of contained class types.
 
         Parallel to `BaseSegment.class_types`
@@ -152,23 +153,31 @@ class ReflowBlock(ReflowElement):
     #: Desired spacing configurations for parent segments
     #: of the segment in this block.
     #: See :ref:`layoutspacingconfig`
-    stack_spacing_configs: Dict[int, str]
+    stack_spacing_configs: dict[int, str]
     #: Desired line position configurations for parent segments
     #: of the segment in this block.
     #: See :ref:`layoutspacingconfig`
-    line_position_configs: Dict[int, str]
+    line_position_configs: dict[int, str]
     #: Desired line position for this block's keywords.
     #: See :ref:`layoutspacingconfig`
     keyword_line_position: Optional[str]
     #: Desired keyword line position configurations for parent segments
     #: of the segment in this block.
     #: See :ref:`layoutspacingconfig`
-    keyword_line_position_configs: Dict[int, str]
+    keyword_line_position_configs: dict[int, str]
+    #: Parent segments which this block's keyword line positioning
+    #: should not apply.
+    #: See :ref:`layoutspacingconfig`
+    keyword_line_position_exclusions: Union[str, list[str], None]
+    #: Configurations for parent segments which this block's keyword
+    #: line positioning should not apply.
+    #: See :ref:`layoutspacingconfig`
+    keyword_line_position_exclusions_configs: dict[int, Union[str, list[str]]]
 
     @classmethod
     def from_config(
-        cls: Type["ReflowBlock"],
-        segments: Tuple[RawSegment, ...],
+        cls: type["ReflowBlock"],
+        segments: tuple[RawSegment, ...],
         config: ReflowConfig,
         depth_info: DepthInfo,
     ) -> "ReflowBlock":
@@ -183,6 +192,7 @@ class ReflowBlock(ReflowElement):
         stack_spacing_configs = {}
         line_position_configs = {}
         keyword_line_position_configs = {}
+        keyword_line_position_exclusions_configs = {}
         for hash, class_types in zip(
             depth_info.stack_hashes, depth_info.stack_class_types
         ):
@@ -193,6 +203,10 @@ class ReflowBlock(ReflowElement):
                 line_position_configs[hash] = cfg.line_position
             if cfg.keyword_line_position:
                 keyword_line_position_configs[hash] = cfg.keyword_line_position
+            if cfg.keyword_line_position_exclusions:
+                keyword_line_position_exclusions_configs[hash] = (
+                    cfg.keyword_line_position_exclusions
+                )
         return cls(
             segments=segments,
             spacing_before=block_config.spacing_before,
@@ -203,6 +217,12 @@ class ReflowBlock(ReflowElement):
             line_position_configs=line_position_configs,
             keyword_line_position=block_config.keyword_line_position,
             keyword_line_position_configs=keyword_line_position_configs,
+            keyword_line_position_exclusions=(
+                block_config.keyword_line_position_exclusions
+            ),
+            keyword_line_position_exclusions_configs=(
+                keyword_line_position_exclusions_configs
+            ),
         )
 
 
@@ -254,7 +274,7 @@ class IndentStats:
     impulse: int
     trough: int
     # Defaults to an empty tuple if unset.
-    implicit_indents: Tuple[int, ...] = ()
+    implicit_indents: tuple[int, ...] = ()
 
     @classmethod
     def from_combination(
@@ -300,7 +320,7 @@ class ReflowPoint(ReflowElement):
 
     _stats: IndentStats = field(init=False)
 
-    def __init__(self, segments: Tuple[RawSegment, ...]):
+    def __init__(self, segments: tuple[RawSegment, ...]):
         """Override the init method to calculate indent stats."""
         object.__setattr__(self, "segments", segments)
         object.__setattr__(self, "_stats", self._generate_indent_stats(segments))
@@ -349,7 +369,7 @@ class ReflowPoint(ReflowElement):
             return consumed_whitespace.split("\n")[-1]
         return seg.raw if seg else ""
 
-    def get_indent_segment_vals(self, exclude_block_indents=False) -> List[int]:
+    def get_indent_segment_vals(self, exclude_block_indents=False) -> list[int]:
         """Iterate through any indent segments and extract their values."""
         values = []
         for seg in self.segments:
@@ -397,7 +417,7 @@ class ReflowPoint(ReflowElement):
         before: Optional[BaseSegment] = None,
         description: Optional[str] = None,
         source: Optional[str] = None,
-    ) -> Tuple[List[LintResult], "ReflowPoint"]:
+    ) -> tuple[list[LintResult], "ReflowPoint"]:
         """Coerce a point to have a particular indent.
 
         If the point currently contains no newlines, one will
@@ -574,7 +594,7 @@ class ReflowPoint(ReflowElement):
         else:
             # There isn't currently a newline.
             new_newline = NewlineSegment()
-            new_segs: List[RawSegment]
+            new_segs: list[RawSegment]
             # Check for whitespace
             ws_seg = None
             for seg in self.segments[::-1]:
@@ -670,10 +690,10 @@ class ReflowPoint(ReflowElement):
         prev_block: Optional[ReflowBlock],
         next_block: Optional[ReflowBlock],
         root_segment: BaseSegment,
-        lint_results: List[LintResult],
+        lint_results: list[LintResult],
         strip_newlines: bool = False,
         anchor_on: str = "before",
-    ) -> Tuple[List[LintResult], "ReflowPoint"]:
+    ) -> tuple[list[LintResult], "ReflowPoint"]:
         """Respace a point based on given constraints.
 
         NB: This effectively includes trailing whitespace fixes.
@@ -737,7 +757,9 @@ class ReflowPoint(ReflowElement):
                         # Not just unequal. Must be actively _before_.
                         # NOTE: Based on working locations
                         and prev_seg.get_end_loc() < last_whitespace.get_start_loc()
-                    ):
+                    ):  # pragma: no cover
+                        # Excluded from coverage: no longer triggered since AL01 rule
+                        # was refactored
                         reflow_logger.debug(
                             "    Removing non-contiguous whitespace post removal."
                         )
@@ -810,4 +832,4 @@ class ReflowPoint(ReflowElement):
         return existing_results + new_results, ReflowPoint(tuple(segment_buffer))
 
 
-ReflowSequenceType = List[Union[ReflowBlock, ReflowPoint]]
+ReflowSequenceType = list[Union[ReflowBlock, ReflowPoint]]

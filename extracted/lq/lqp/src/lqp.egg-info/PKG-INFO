@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: lqp
-Version: 0.4.0
+Version: 0.5.0
 Summary: Validate and translate Logical Query Protocol (LQP) S-expressions into Protobuf
 Author-email: Niko Göbel <nikolas.goebel@relational.ai>, David Zhao <david.zhao@relational.ai>, Minsung Cho <minsung.cho@relational.ai>, Martin McGrane <martin.mcgrane@relational.ai>, Sławek Staworko <slawek.staworko@relational.ai>, Nate Nystrom <nate.nystrom@relational.ai>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: protobuf<5.0.0,>=3.20.3
+Requires-Dist: protobuf<6.0.0,>=3.20.3
 
 # LQP Python SDK
 

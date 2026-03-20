@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+if sys.version_info < (3, 13):
+    from typing_extensions import deprecated
+else:
+    from warnings import deprecated
+
 from hera.auth import TokenGenerator
-from hera.shared._pydantic import BaseModel, get_fields, root_validator
 
 TBase = TypeVar("TBase", bound="BaseMixin")
 TypeTBase = Type[TBase]
 
 Hook = Callable[[TBase], TBase]
-"""`Hook` is a callable that takes a Hera objects and returns the same, optionally mutated, object. 
+"""`Hook` is a callable that takes a Hera objects and returns the same, optionally mutated, object.
 
-This can be a Workflow, a Script, a Container, etc - any Hera object. 
+This can be a Workflow, a Script, a Container, etc - any Hera object.
 """
 
 _HookMap = Dict[TypeTBase, List[Hook]]
@@ -74,8 +79,25 @@ class _GlobalConfig:
     script_command: Optional[List[str]] = field(default_factory=lambda: ["python"])
     """the default script command to use in starting up `Script` containers"""
 
-    experimental_features: Dict[str, bool] = field(default_factory=lambda: defaultdict(bool))
-    """an indicator holder for any Hera experimental features to use"""
+    _experimental_features: Dict[str, bool] = field(default_factory=lambda: defaultdict(bool))
+
+    @property
+    @deprecated("experimental_features is not used as there are no experimental features.")
+    def experimental_features(self) -> Dict[str, bool]:
+        """An indicator holder for any Hera experimental features to use.
+
+        Note: There are currently no experimental features, so this property is not used anymore.
+        """
+        return self._experimental_features
+
+    @experimental_features.setter
+    @deprecated("experimental_features is not used as there are no experimental features.")
+    def experimental_features(self, value: Dict[str, bool]) -> None:
+        """An indicator holder for any Hera experimental features to use.
+
+        Note: There are currently no experimental features, so this property is not used anymore.
+        """
+        self._experimental_features = value
 
     def reset(self) -> None:
         """Resets the global config container to its initial state."""
@@ -153,7 +175,7 @@ class _GlobalConfig:
             cls: The class to set defaults for.
             kwargs: The default values to set.
         """
-        invalid_keys = set(kwargs) - set(get_fields(cls))
+        invalid_keys = set(kwargs) - set(f.name for f in fields(cls))
         if invalid_keys:
             raise ValueError(f"Invalid keys for class {cls}: {invalid_keys}")
         self._defaults[cls].update(kwargs)
@@ -167,47 +189,23 @@ class _GlobalConfig:
         return self._defaults[cls]
 
 
-class BaseMixin(BaseModel):
-    def _init_private_attributes(self):
-        """A pydantic private method called after `__init__`.
-
-        Notes:
-        -----
-        In order to inject `__hera_init__` after `__init__` without destroying the autocomplete, we opted for
-        this method. We also tried other ways including creating a metaclass that invokes hera_init after init,
-        but that always broke auto-complete for IDEs like VSCode.
-        """
-        super()._init_private_attributes()  # type: ignore
-        self.__hera_init__()
-
-    def __hera_init__(self) -> None:
-        """A method that is optionally implemented and invoked by `BaseMixin` subclasses to perform some post init."""
-        ...
-
-    @root_validator(pre=True)
-    def _set_defaults(cls, values):
+@dataclass
+class BaseMixin:
+    def __post_init__(self):
         """Sets the user-provided defaults of Hera objects."""
-        # In a Pydantic validator function, the first parameter (cls) is the class itself, not an instance of it
-        # but mypy/linting sees it as an instance
-        defaults = global_config._get_class_defaults(cls)  # type: ignore
+        defaults = global_config._get_class_defaults(self.__class__)
         for key, value in defaults.items():
-            if values.get(key) is None:
-                values[key] = value
-        return values
+            if getattr(self, key) is None:
+                setattr(self, key, value)
 
 
 GlobalConfig = global_config = _GlobalConfig()
 register_pre_build_hook = global_config.register_pre_build_hook
 
-_SCRIPT_PYDANTIC_IO_FLAG = "script_pydantic_io"
-_DECORATOR_SYNTAX_FLAG = "decorator_syntax"
-
 # A dictionary where each key is a flag that has a list of flags which supersede it, hence
 # the given flag key can also be switched on by any of the flags in the list. Using simple flat lists
 # for now, otherwise with many superseding flags we may want to have a recursive structure.
-_SUPERSEDING_FLAGS: Dict[str, List] = {
-    _SCRIPT_PYDANTIC_IO_FLAG: [_DECORATOR_SYNTAX_FLAG],
-}
+_SUPERSEDING_FLAGS: Dict[str, List] = {}
 
 
 def _flag_enabled(flag: str) -> bool:

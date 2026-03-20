@@ -70,6 +70,16 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.FromString,
         )
+        self.GetFormulaOptions = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetFormulaOptions",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsResponse.FromString,
+        )
+        self.ListChartsWithCronAlerts = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/ListChartsWithCronAlerts",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsResponse.FromString,
+        )
 
 
 class ChartsServiceServicer(object):
@@ -141,6 +151,18 @@ class ChartsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetFormulaOptions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListChartsWithCronAlerts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ChartsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -198,6 +220,16 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.GetMetricOptions,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.SerializeToString,
+        ),
+        "GetFormulaOptions": grpc.unary_unary_rpc_method_handler(
+            servicer.GetFormulaOptions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsResponse.SerializeToString,
+        ),
+        "ListChartsWithCronAlerts": grpc.unary_unary_rpc_method_handler(
+            servicer.ListChartsWithCronAlerts,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ChartsService", rpc_method_handlers)
@@ -517,6 +549,64 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/GetMetricOptions",
             chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.GetMetricOptionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetFormulaOptions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetFormulaOptions",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetFormulaOptionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListChartsWithCronAlerts(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/ListChartsWithCronAlerts",
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsWithCronAlertsResponse.FromString,
             options,
             channel_credentials,
             insecure,

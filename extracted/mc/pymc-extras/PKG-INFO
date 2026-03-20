@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-extras
-Version: 0.9.3
+Version: 0.10.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git

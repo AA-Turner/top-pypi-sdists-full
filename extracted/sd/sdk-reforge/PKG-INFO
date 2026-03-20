@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sdk-reforge
-Version: 1.2.1
+Version: 1.2.2
 Summary: Python sdk for Reforge Feature Flags and Config as a Service: https://www.reforge.com
 Home-page: https://www.reforge.com
 License: MIT

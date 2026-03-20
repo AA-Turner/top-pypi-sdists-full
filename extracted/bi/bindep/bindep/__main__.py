@@ -22,8 +22,25 @@ import sys
 import bindep.depends
 
 
-logging.basicConfig(
-    stream=sys.stdout, level=logging.INFO, format="%(message)s")
+def configure_logging():
+    """Configure logging to send ERROR or higher to stderr."""
+    class StdoutFilter(logging.Filter):
+        def filter(self, record):
+            return record.levelno < logging.ERROR
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.addFilter(StdoutFilter())
+    stdout_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(stdout_handler)
+    root_logger.addHandler(stderr_handler)
 
 
 def main(depends=None):
@@ -52,10 +69,17 @@ def main(depends=None):
         '--version', action='version', version="%%(prog)s %s" % bindep.version)
     args = parser.parse_args()
 
+    configure_logging()
+
     if depends is None:
-        depends = bindep.depends.get_depends(
-            args.filename,
-            default_blank=args.profiles)
+        try:
+            depends = bindep.depends.get_depends(
+                args.filename,
+                default_blank=args.profiles)
+        except bindep.depends.DependsException as e:
+            logging.error(e)
+            return 2
+
         if not depends:
             return 1
 

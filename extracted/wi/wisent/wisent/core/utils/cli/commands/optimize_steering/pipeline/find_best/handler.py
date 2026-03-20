@@ -16,8 +16,8 @@ from datetime import datetime
 from pathlib import Path
 
 from wisent.core.utils.config_tools.constants import (
-    COMBO_OFFSET, EXIT_CODE_ERROR, JSON_INDENT, SCORE_RANGE_MIN,
-    SEPARATOR_WIDTH_REPORT, SEPARATOR_WIDTH_WIDE,
+    COMBO_OFFSET, EXIT_CODE_ERROR, JSON_INDENT, OPTIMIZATION_TRIAL_PAIRS_CAP,
+    SCORE_RANGE_MIN, SEPARATOR_WIDTH_REPORT, SEPARATOR_WIDTH_WIDE,
     SPLIT_RATIO_TRAIN_DEFAULT,
 )
 from wisent.core.control.steering_methods.registry import (
@@ -46,7 +46,7 @@ def execute_find_best_method(args):
     cfg = _AC.from_pretrained(model_name, trust_remote_code=True)
     num_layers = cfg.num_hidden_layers
     all_methods = SteeringMethodRegistry.list_methods()
-    train_file, test_file, n_train, n_test = _generate_and_split_pairs(
+    train_file, test_file, n_train, n_test = _load_pairs_from_hf(
         benchmark, output_dir,
     )
     sep = "=" * SEPARATOR_WIDTH_WIDE
@@ -77,6 +77,7 @@ def execute_find_best_method(args):
             method_name, model_name, benchmark, num_layers,
             trials_mult, backend, method_results, output_dir,
             train_file, test_file, n_train,
+            baseline_score=baseline_score, n_test=n_test,
         )
     _save_final_report(
         method_results, model_name, benchmark, output_dir,
@@ -84,33 +85,43 @@ def execute_find_best_method(args):
     )
 
 
-def _generate_and_split_pairs(benchmark, output_dir):
-    """Generate all pairs for the benchmark and split train/test."""
-    from wisent.extractors.lm_eval.lm_task_pairs_generation import (
-        build_contrastive_pairs,
+def _load_pairs_from_hf(benchmark, output_dir):
+    """Load pairs from HF. Train = cached activation pairs, test = extra pairs."""
+    from wisent.core.reading.modules.utilities.data.sources.hf.hf_loaders import (
+        load_pair_texts_from_hf,
     )
-    print(f"Generating all contrastive pairs for {benchmark}...", flush=True)
-    pairs = build_contrastive_pairs(
-        task_name=benchmark, train_ratio=SPLIT_RATIO_TRAIN_DEFAULT,
+    print(f"Loading cached pairs for {benchmark} from HF...", flush=True)
+    n_train = OPTIMIZATION_TRIAL_PAIRS_CAP
+    n_test = math.ceil(n_train / SPLIT_RATIO_TRAIN_DEFAULT) - n_train
+    total_needed = n_train + n_test
+    hf_pairs = load_pair_texts_from_hf(
+        benchmark, limit=total_needed,
     )
-    if not pairs:
-        print(f"ERROR: No pairs generated for {benchmark}")
+    if not hf_pairs:
+        print(f"ERROR: No cached pairs on HF for {benchmark}")
         sys.exit(EXIT_CODE_ERROR)
-    split_idx = math.floor(len(pairs) * SPLIT_RATIO_TRAIN_DEFAULT)
-    train_pairs, test_pairs = pairs[:split_idx], pairs[split_idx:]
+    sorted_ids = sorted(hf_pairs.keys())
 
-    def _save(pair_list, path, task_name):
-        data = {"task_name": task_name, "num_pairs": len(pair_list),
-                "pairs": [p.to_dict() for p in pair_list]}
+    def _to_pair(pid):
+        p = hf_pairs[pid]
+        return {"prompt": p["prompt"],
+                "positive_response": {"model_response": p["positive"]},
+                "negative_response": {"model_response": p["negative"]}}
+
+    train_pairs = [_to_pair(pid) for pid in sorted_ids[:n_train]]
+    test_pairs = [_to_pair(pid) for pid in sorted_ids[n_train:total_needed]]
+
+    def _save(pair_list, path):
         with open(path, "w") as f:
-            json.dump(data, f, indent=JSON_INDENT)
+            json.dump({"task_name": benchmark, "num_pairs": len(pair_list),
+                        "pairs": pair_list}, f, indent=JSON_INDENT)
 
     train_path = os.path.join(output_dir, f"train_pairs_{benchmark}.json")
     test_path = os.path.join(output_dir, f"test_pairs_{benchmark}.json")
-    _save(train_pairs, train_path, benchmark)
-    _save(test_pairs, test_path, benchmark)
-    print(f"   Total: {len(pairs)}, "
-          f"Train: {len(train_pairs)}, Test: {len(test_pairs)}")
+    _save(train_pairs, train_path)
+    _save(test_pairs, test_path)
+    print(f"   Train: {len(train_pairs)} (cached activations), "
+          f"Test: {len(test_pairs)}")
     return train_path, test_path, len(train_pairs), len(test_pairs)
 
 
@@ -118,6 +129,7 @@ def _run_method(
     method_idx, total, method_name, model_name, benchmark,
     num_layers, trials_mult, backend, method_results, output_dir,
     train_pairs_file, test_pairs_file, n_train,
+    baseline_score=None, n_test=None,
 ):
     """Run optimization for a single method."""
     method_upper = method_name.upper()
@@ -165,13 +177,20 @@ def _run_method(
         "backend": result.backend, "time_seconds": method_time,
         "all_trials": result.all_trials,
     }
-    print(f"\n   {method_upper}: score={result.best_score:.4f} "
+    delta = result.best_score - baseline_score if baseline_score is not None else None
+    delta_str = f" delta={delta:+.4f}" if delta is not None else ""
+    print(f"\n   {method_upper}: score={result.best_score:.4f}{delta_str} "
           f"in {method_time:.1f}s")
+    incremental = {
+        "benchmark": benchmark, "model": model_name,
+        "baseline_score": baseline_score, "n_train": n_train, "n_test": n_test,
+        "methods": method_results,
+    }
     incremental_path = os.path.join(
         output_dir, f"incremental_{benchmark}_{method_name}.json",
     )
     with open(incremental_path, "w") as f:
-        json.dump(method_results, f, indent=JSON_INDENT, default=str)
+        json.dump(incremental, f, indent=JSON_INDENT, default=str)
     print(f"   Saved: {incremental_path}")
 
 

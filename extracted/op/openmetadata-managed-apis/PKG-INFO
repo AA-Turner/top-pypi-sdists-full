@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: openmetadata_managed_apis
-Version: 1.12.2.0
+Version: 1.12.3.0
 Summary: Airflow REST APIs to create and manage DAGS
 Author: OpenMetadata Committers
 License:                                  Apache License

@@ -15,13 +15,16 @@ if TYPE_CHECKING:
 from . import artifact_storage
 from .artifacts import ArtifactSource, ArtifactType, build_fqn
 from .spec_schema import (
+    VALID_PHASE_NAMES,
     SpecContent,
     SpecPhaseStatus,
     SpecTask,
     SpecValidationError,
     default_phase_metadata,
     get_phase_status,
+    is_pending_content,
     parse_spec_content,
+    serialize_spec_content,
     set_phase_status,
 )
 
@@ -37,6 +40,7 @@ def create_spec(
     *,
     user_id: str | None = None,
     user_display_name: str | None = None,
+    creation_flow: str | None = None,
 ) -> dict[str, Any]:
     """Create a new spec artifact after validating YAML content.
 
@@ -45,6 +49,8 @@ def create_spec(
     parse_spec_content(content_yaml)
     fqn = build_fqn(namespace, ArtifactType.SPEC.value, name)
     metadata = default_phase_metadata()
+    if creation_flow:
+        metadata["creation_flow"] = creation_flow
 
     return artifact_storage.create_artifact(
         db,
@@ -135,6 +141,11 @@ def approve_phase(
         return None
     if art["type"] != ArtifactType.SPEC.value:
         raise SpecValidationError(f"Artifact {fqn!r} is type '{art['type']}', not 'spec'")
+
+    # Block approval of phases that still contain sentinel placeholder content
+    content = parse_spec_content(art["content"])
+    if is_pending_content(phase, content):
+        raise ValueError(f"Cannot approve phase '{phase}': content is still pending — fill it in first")
 
     # Get current version number for approved_at_version
     versions = artifact_storage.list_artifact_versions(db, art["id"])
@@ -270,3 +281,35 @@ def launch_from_task(
         inputs.update(extra_inputs)
 
     return inputs
+
+
+def update_spec_phase(
+    db: ThreadSafeConnection,
+    fqn: str,
+    phase: str,
+    new_phase_content: str,
+) -> dict[str, Any] | None:
+    """Update a single phase's content within a spec.
+
+    Rebuilds the full YAML with the updated phase, validates,
+    then delegates to update_spec_content() for versioning + invalidation.
+    """
+    if phase not in VALID_PHASE_NAMES:
+        raise ValueError(f"Invalid phase: {phase!r}")
+
+    result = get_spec(db, fqn)
+    if result is None:
+        return None
+    art, spec = result
+
+    if phase == "requirements":
+        new_spec = SpecContent(requirements=new_phase_content, design=spec.design, tasks=spec.tasks, mode=spec.mode)
+    elif phase == "design":
+        new_spec = SpecContent(
+            requirements=spec.requirements, design=new_phase_content, tasks=spec.tasks, mode=spec.mode
+        )
+    else:
+        raise ValueError("Use update_spec_content() to update tasks — tasks require structured YAML")
+
+    new_yaml = serialize_spec_content(new_spec)
+    return update_spec_content(db, fqn, new_yaml)

@@ -34,6 +34,7 @@ TAG_START_TERMINAL = 9
 TAG_TERMINAL_CELL_DIFF = 11
 TAG_TERMINAL_CELLS = 12
 TAG_TERMINAL_SCROLL = 13
+TAG_TERMINAL_CLEAR = 14
 
 HEADER_SIZE = 5
 MAX_PAYLOAD_SIZE = 10 * 1024 * 1024
@@ -406,6 +407,8 @@ class TerminalControllerServer:
                 await self._handle_start_terminal(payload)
             elif tag == TAG_TERMINAL_SCROLL:
                 await self._handle_terminal_scroll(client, payload)
+            elif tag == TAG_TERMINAL_CLEAR:
+                await self._handle_terminal_clear(client, payload)
 
     async def _handle_start_streaming(self, client: ClientConnection, payload: bytes) -> None:
         try:
@@ -506,3 +509,26 @@ class TerminalControllerServer:
             logger.warning("Malformed start terminal payload, ignoring")
             return
         await self._on_start_terminal(meta["id"], meta["cols"], meta["rows"])
+
+    async def _handle_terminal_clear(self, client: ClientConnection, payload: bytes) -> None:
+        try:
+            meta = json.loads(payload)
+            terminal_id = meta["id"]
+        except (json.JSONDecodeError, KeyError):
+            logger.warning("Malformed terminal clear payload, ignoring")
+            return
+        terminal = self._terminals.get(terminal_id)
+        if terminal is None:
+            return
+        handle = self._flush_handles.pop(terminal_id, None)
+        if handle is not None:
+            handle.cancel()
+        self._pending_output.pop(terminal_id, None)
+        if terminal.screen is None:
+            return
+        terminal.screen.process(b"\x1b[H\x1b[2J")
+        sb = terminal.screen.scrollback()
+        id_prefix = json.dumps({"id": terminal_id, "sb": sb}).encode() + b"\x00"
+        await self._broadcast_to_subscribers(
+            terminal_id, encode_tlv(TAG_TERMINAL_CELLS, id_prefix + terminal.screen.cells())
+        )

@@ -1118,6 +1118,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -3809,6 +3817,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -4352,6 +4368,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -5011,6 +5035,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -5614,6 +5646,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -7166,6 +7206,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -7812,6 +7860,14 @@ class AsyncClient(AsyncBaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName

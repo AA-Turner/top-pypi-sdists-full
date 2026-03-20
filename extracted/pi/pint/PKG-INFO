@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Pint
-Version: 0.25.2
+Version: 0.25.3
 Summary: Physical quantities module
 Project-URL: Homepage, https://github.com/hgrecco/pint
 Project-URL: Documentation, https://pint.readthedocs.io/
@@ -32,9 +32,9 @@ Provides-Extra: all
 Requires-Dist: babel<=2.8; extra == 'all'
 Requires-Dist: dask<2025.3.0; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
-Requires-Dist: mip>=1.13; (python_version < '3.13') and extra == 'all'
 Requires-Dist: numpy>=1.23; extra == 'all'
 Requires-Dist: pint-pandas>=0.3; extra == 'all'
+Requires-Dist: scipy; extra == 'all'
 Requires-Dist: uncertainties>=3.1.6; extra == 'all'
 Requires-Dist: xarray; extra == 'all'
 Provides-Extra: babel
@@ -71,12 +71,12 @@ Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx<8.2,>=6; extra == 'docs'
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib; extra == 'matplotlib'
-Provides-Extra: mip
-Requires-Dist: mip>=1.13; (python_version < '3.13') and extra == 'mip'
 Provides-Extra: numpy
 Requires-Dist: numpy>=1.23; extra == 'numpy'
 Provides-Extra: pandas
 Requires-Dist: pint-pandas>=0.3; extra == 'pandas'
+Provides-Extra: scipy
+Requires-Dist: scipy; extra == 'scipy'
 Provides-Extra: test
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-benchmark; extra == 'test'

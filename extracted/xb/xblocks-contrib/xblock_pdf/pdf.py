@@ -1,7 +1,9 @@
 """pdfXBlock main Python class."""
+import json
 
 from django.utils.translation import gettext_noop as _
 from web_fragments.fragment import Fragment
+from webob import Response
 from xblock.core import XBlock
 from xblock.fields import Boolean, Scope, String
 from xblock.utils.resources import ResourceLoader
@@ -58,9 +60,10 @@ class PDFBlock(XBlock):
         )
     )
 
-    def student_view(self, context=None):
-        """Primary view of the XBlock, shown to students when viewing courses."""
-        context = {
+    @property
+    def raw_settings(self):
+        """Get the raw settings of the XBlock as a dictionary."""
+        return {
             'display_name': self.display_name,
             'url': self.url,
             'allow_download': self.allow_download,
@@ -68,9 +71,12 @@ class PDFBlock(XBlock):
             'source_text': self.source_text,
             'source_url': self.source_url,
         }
+
+    def student_view(self, context=None):  # pylint: disable=unused-argument
+        """Primary view of the XBlock, shown to students when viewing courses."""
         html = resource_loader.render_django_template(
             'templates/html/pdf_view.html',
-            context=context,
+            context=self.raw_settings,
             i18n_service=self.runtime.service(self, "i18n"),
         )
 
@@ -118,6 +124,11 @@ class PDFBlock(XBlock):
             'source_url': self.source_url,
         }
         self.runtime.publish(self, event_type, event_data)
+
+    @XBlock.handler
+    def load_pdf(self, *_args, **_kwargs):
+        """Get the PDF block's settings in JSON format."""
+        return Response(json.dumps(self.raw_settings), content_type='application/json', charset='utf8')
 
     @XBlock.json_handler
     def save_pdf(self, data, suffix=''):  # pylint: disable=unused-argument

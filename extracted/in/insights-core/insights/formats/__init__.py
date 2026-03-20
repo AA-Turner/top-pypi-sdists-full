@@ -1,10 +1,8 @@
 from __future__ import print_function
-import six
 import sys
 
-from datetime import datetime
+from datetime import datetime, timezone
 from insights import dr, rule
-from insights.util import utc
 
 
 RENDERERS = {}
@@ -30,7 +28,7 @@ class FormatterAdapterMeta(type):
         super(FormatterAdapterMeta, cls).__init__(name, bases, dct)
 
 
-class FormatterAdapter(six.with_metaclass(FormatterAdapterMeta)):
+class FormatterAdapter(object, metaclass=FormatterAdapterMeta):
 
     @staticmethod
     def configure(p):
@@ -60,7 +58,7 @@ class Formatter(object):
     def __init__(self, broker, stream=sys.stdout):
         self.broker = broker
         self.stream = stream
-        self.start_time = datetime.now(utc)
+        self.start_time = datetime.now(timezone.utc)
 
     def __enter__(self):
         self.preprocess()

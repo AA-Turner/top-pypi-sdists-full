@@ -23,6 +23,7 @@ RESERVED_KEYWORDS = [
 ]
 
 UNRESERVED_KEYWORDS = [
+    "AUTO",
     "CATALOG",
     "COMPENSATION",
     "CRON",
@@ -36,12 +37,14 @@ UNRESERVED_KEYWORDS = [
     "OPTIMIZATION",
     "OPTIMIZE",
     "PREDICTIVE",
+    "PRIVATE",
     "PROVIDER",
     "PYTHON",
     "RECIPIENT",
     "RELY",
     "SCHEDULE",
     "SQL",
+    "TAG",
     "TAGS",
     "TIMESERIES",
     "VOLUME",

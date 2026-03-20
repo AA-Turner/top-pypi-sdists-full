@@ -515,7 +515,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # Save combined CSV
     if all_outlook_frames:
         df_all = pd.concat(all_outlook_frames, ignore_index=True)
-        csv_path = dir_outlook / f"yield_outlook_{current_year}.csv"
+        scope = "africa" if len(countries) > 1 else countries[0].lower().replace(" ", "_")
+        crops = "_".join(sorted(df_all["Crop"].unique()))
+        csv_path = dir_outlook / f"yield_outlook_{scope}_{crops}_{current_year}.csv"
         df_all.to_csv(csv_path, index=False)
         logger.info("Outlook CSV saved to %s", csv_path)
     else:

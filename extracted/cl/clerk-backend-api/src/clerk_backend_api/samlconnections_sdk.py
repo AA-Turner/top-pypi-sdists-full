@@ -6,9 +6,13 @@ from clerk_backend_api._hooks import HookContext
 from clerk_backend_api.types import BaseModel, OptionalNullable, UNSET
 from clerk_backend_api.utils.unmarshal_json_response import unmarshal_json_response
 from typing import Any, List, Mapping, Optional, Union, cast
+from typing_extensions import deprecated
 
 
 class SamlConnectionsSDK(BaseSDK):
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def list(
         self,
         *,
@@ -27,6 +31,7 @@ class SamlConnectionsSDK(BaseSDK):
         Returns the list of SAML Connections for an instance.
         Results can be paginated using the optional `limit` and `offset` query parameters.
         The SAML Connections are ordered by descending creation date and the most recent will be returned first.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param limit: Applies a limit to the number of results returned.
             Can be used for paginating the results together with `offset`.
@@ -124,6 +129,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def list_async(
         self,
         *,
@@ -142,6 +150,7 @@ class SamlConnectionsSDK(BaseSDK):
         Returns the list of SAML Connections for an instance.
         Results can be paginated using the optional `limit` and `offset` query parameters.
         The SAML Connections are ordered by descending creation date and the most recent will be returned first.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param limit: Applies a limit to the number of results returned.
             Can be used for paginating the results together with `offset`.
@@ -239,6 +248,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def create(
         self,
         *,
@@ -256,6 +268,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Create a SAML Connection
 
         Create a new SAML Connection.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param request: The request object to send.
         :param retries: Override the default retry configuration for this method
@@ -345,6 +358,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def create_async(
         self,
         *,
@@ -362,6 +378,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Create a SAML Connection
 
         Create a new SAML Connection.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param request: The request object to send.
         :param retries: Override the default retry configuration for this method
@@ -451,6 +468,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def get(
         self,
         *,
@@ -463,6 +483,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Retrieve a SAML Connection by ID
 
         Fetches the SAML Connection whose ID matches the provided `saml_connection_id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection
         :param retries: Override the default retry configuration for this method
@@ -541,6 +562,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def get_async(
         self,
         *,
@@ -553,6 +577,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Retrieve a SAML Connection by ID
 
         Fetches the SAML Connection whose ID matches the provided `saml_connection_id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection
         :param retries: Override the default retry configuration for this method
@@ -631,6 +656,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def update(
         self,
         *,
@@ -662,6 +690,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Update a SAML Connection
 
         Updates the SAML Connection whose ID matches the provided `id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection to update
         :param name: The name of the new SAML Connection
@@ -787,6 +816,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def update_async(
         self,
         *,
@@ -818,6 +850,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Update a SAML Connection
 
         Updates the SAML Connection whose ID matches the provided `id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection to update
         :param name: The name of the new SAML Connection
@@ -943,6 +976,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def delete(
         self,
         *,
@@ -955,6 +991,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Delete a SAML Connection
 
         Deletes the SAML Connection whose ID matches the provided `id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection to delete
         :param retries: Override the default retry configuration for this method
@@ -1033,6 +1070,9 @@ class SamlConnectionsSDK(BaseSDK):
 
         raise models.SDKError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def delete_async(
         self,
         *,
@@ -1045,6 +1085,7 @@ class SamlConnectionsSDK(BaseSDK):
         r"""Delete a SAML Connection
 
         Deletes the SAML Connection whose ID matches the provided `id` in the path.
+        Deprecated: Use the Enterprise Connections API instead. This endpoint will be removed in future versions.
 
         :param saml_connection_id: The ID of the SAML Connection to delete
         :param retries: Override the default retry configuration for this method

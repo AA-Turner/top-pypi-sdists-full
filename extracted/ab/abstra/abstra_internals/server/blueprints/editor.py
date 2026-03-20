@@ -23,6 +23,7 @@ from abstra_internals.server.routes import login as login_router
 from abstra_internals.server.routes import logs as logs_router
 from abstra_internals.server.routes import mcp as mcp_router
 from abstra_internals.server.routes import modules as modules_router
+from abstra_internals.server.routes import pages as pages_router
 from abstra_internals.server.routes import pysa as pysa_router
 from abstra_internals.server.routes import requirements as requirements_router
 from abstra_internals.server.routes import roles as roles_router
@@ -53,6 +54,9 @@ def _get_api_bp(controller: MainController):
 
     hooks_bp = hooks_router.get_editor_bp(controller)
     bp.register_blueprint(hooks_bp, url_prefix="/hooks")
+
+    pages_bp = pages_router.get_editor_bp(controller)
+    bp.register_blueprint(pages_bp, url_prefix="/pages")
 
     files_bp = codebase_router.get_editor_bp(controller.repositories)
     bp.register_blueprint(files_bp, url_prefix="/codebase")

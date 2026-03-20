@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dbt
-Version: 0.28.19
+Version: 0.28.20
 Summary: A Dagster integration for dbt
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dbt
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.14,>=3.10
-Requires-Dist: dagster==1.12.19
+Requires-Dist: dagster==1.12.20
 Requires-Dist: dbt-core<1.12,>=1.7
 Requires-Dist: gitpython
 Requires-Dist: jinja2
@@ -25,8 +25,8 @@ Requires-Dist: rich
 Requires-Dist: sqlglot[rs]<28.1.0
 Requires-Dist: typer>=0.9.0
 Provides-Extra: test
-Requires-Dist: dagster-duckdb-pandas==0.28.19; extra == 'test'
-Requires-Dist: dagster-duckdb==0.28.19; extra == 'test'
+Requires-Dist: dagster-duckdb-pandas==0.28.20; extra == 'test'
+Requires-Dist: dagster-duckdb==0.28.20; extra == 'test'
 Requires-Dist: dbt-duckdb<1.9.2; extra == 'test'
 Requires-Dist: duckdb<1.4.0; extra == 'test'
 Requires-Dist: pytest-order; extra == 'test'

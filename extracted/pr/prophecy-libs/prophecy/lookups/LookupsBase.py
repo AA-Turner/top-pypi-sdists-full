@@ -1,11 +1,15 @@
 # WARNING - Do not add import * in this module
 
 from typing import List, Optional
+import logging
 
 from pyspark.sql import SparkSession, Column, DataFrame
 
 import prophecy.lookups.LookupsNative
 from prophecy.lookups.LookupsNative import LookupCondition as LookupConditionNative
+from prophecy.config import is_scala_enabled, is_scala_disabled
+
+logger = logging.getLogger(__name__)
 
 
 class LookupsBase:
@@ -14,11 +18,23 @@ class LookupsBase:
     can_access_jvm = True
 
     def __init__(self, spark):
-        try:
-            self.UDFUtils = spark.sparkContext._jvm.io.prophecy.libs.python.UDFUtils
-        except:
+        if is_scala_enabled():
+            try:
+                from prophecy.config import mark_scala_available
+                self.UDFUtils = spark.sparkContext._jvm.io.prophecy.libs.python.UDFUtils
+                self.can_access_jvm = True
+                self.sparkSession = spark
+                mark_scala_available(True)
+            except Exception as e:
+                from prophecy.config import mark_scala_available
+                mark_scala_available(False)
+                self.can_access_jvm = False
+                self.UDFUtils = None
+                self.sparkSession = spark
+        else:
             self.can_access_jvm = False
-        self.sparkSession = spark
+            self.UDFUtils = None
+            self.sparkSession = spark
 
 
 lookupConfig: Optional[LookupsBase] = None
@@ -34,6 +50,8 @@ def initializeLookups(spark):
 
 
 def createScalaList(_list, spark):
+    if is_scala_disabled():
+        raise RuntimeError("createScalaList called but Scala is disabled. This indicates a bug.")
     return spark.sparkContext._jvm.PythonUtils.toList(_list)
 
 
@@ -87,6 +105,8 @@ def createRangeLookup(
 
 
 def createScalaConditionsList(conditions: List[LookupCondition], spark):
+    if is_scala_disabled():
+        raise RuntimeError("createScalaConditionsList called but Scala is disabled. This indicates a bug.")
     scalaConditions = []
     for condition in conditions:
         sConditions = lookupConfig.UDFUtils.LookupCondition(condition.lookupColumn, condition.comparisonOp,

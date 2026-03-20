@@ -1,4 +1,5 @@
 #!/bin/bash
+# CI_WATCH: python-sdk/(plato/(cli/chronos/test/|agents/)|tests/integration/test_agent_integration|tests/integration/agent_test_world/)
 set -e
 export PATH="$HOME/.local/bin:$PATH"
 cd "$(dirname "$0")/../.."

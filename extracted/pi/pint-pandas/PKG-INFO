@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Pint-Pandas
-Version: 0.7.2
+Version: 0.8.0
 Summary: Extend Pandas Dataframe with Physical quantities module
 Author-email: "Hernan E. Grecco" <hernan.grecco@gmail.com>
 License: BSD
@@ -16,10 +16,10 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS

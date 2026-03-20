@@ -12,11 +12,13 @@ from .....schema_classes import AssertionEvaluationParametersClass
 from .....schema_classes import AssertionEvaluationParametersTypeClass
 from .....schema_classes import AssertionEvaluationSpecClass
 from .....schema_classes import AssertionMonitorClass
+from .....schema_classes import AssertionMonitorBootstrapConfigClass
 from .....schema_classes import AssertionMonitorBootstrapStatusClass
 from .....schema_classes import AssertionMonitorCapabilityClass
 from .....schema_classes import AssertionMonitorMetricsCubeBootstrapStateClass
 from .....schema_classes import AssertionMonitorMetricsCubeBootstrapStatusClass
 from .....schema_classes import AssertionMonitorSettingsClass
+from .....schema_classes import AssertionTimeBucketingStrategyClass
 from .....schema_classes import AuditLogSpecClass
 from .....schema_classes import DataHubOperationSpecClass
 from .....schema_classes import DatasetFieldAssertionParametersClass
@@ -48,11 +50,13 @@ AssertionEvaluationParameters = AssertionEvaluationParametersClass
 AssertionEvaluationParametersType = AssertionEvaluationParametersTypeClass
 AssertionEvaluationSpec = AssertionEvaluationSpecClass
 AssertionMonitor = AssertionMonitorClass
+AssertionMonitorBootstrapConfig = AssertionMonitorBootstrapConfigClass
 AssertionMonitorBootstrapStatus = AssertionMonitorBootstrapStatusClass
 AssertionMonitorCapability = AssertionMonitorCapabilityClass
 AssertionMonitorMetricsCubeBootstrapState = AssertionMonitorMetricsCubeBootstrapStateClass
 AssertionMonitorMetricsCubeBootstrapStatus = AssertionMonitorMetricsCubeBootstrapStatusClass
 AssertionMonitorSettings = AssertionMonitorSettingsClass
+AssertionTimeBucketingStrategy = AssertionTimeBucketingStrategyClass
 AuditLogSpec = AuditLogSpecClass
 DataHubOperationSpec = DataHubOperationSpecClass
 DatasetFieldAssertionParameters = DatasetFieldAssertionParametersClass

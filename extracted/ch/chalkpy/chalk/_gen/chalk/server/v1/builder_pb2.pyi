@@ -1451,11 +1451,15 @@ class NodePodMetricsFilter(_message.Message):
     ) -> None: ...
 
 class ClusterManagerConfig(_message.Message):
-    __slots__ = ("node_pod_metrics_filters",)
+    __slots__ = ("node_pod_metrics_filters", "node_pod_metrics_interval_secs")
     NODE_POD_METRICS_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    NODE_POD_METRICS_INTERVAL_SECS_FIELD_NUMBER: _ClassVar[int]
     node_pod_metrics_filters: _containers.RepeatedCompositeFieldContainer[NodePodMetricsFilter]
+    node_pod_metrics_interval_secs: int
     def __init__(
-        self, node_pod_metrics_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...
+        self,
+        node_pod_metrics_filters: _Optional[_Iterable[_Union[NodePodMetricsFilter, _Mapping]]] = ...,
+        node_pod_metrics_interval_secs: _Optional[int] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):
@@ -1476,6 +1480,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "suspended",
         "observability_daemons",
         "cluster_manager_config",
+        "autodiscover_key",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -1493,6 +1498,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_MANAGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    AUTODISCOVER_KEY_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -1509,6 +1515,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     suspended: bool
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     cluster_manager_config: ClusterManagerConfig
+    autodiscover_key: str
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -1527,6 +1534,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         suspended: bool = ...,
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
         cluster_manager_config: _Optional[_Union[ClusterManagerConfig, _Mapping]] = ...,
+        autodiscover_key: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):

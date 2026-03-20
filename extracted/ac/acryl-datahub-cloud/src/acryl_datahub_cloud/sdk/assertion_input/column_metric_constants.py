@@ -83,6 +83,34 @@ FIELD_METRIC_TYPE_CONFIG = {
 }
 
 
+# Operators allowed for column metric assertions.
+# All column metrics produce numeric results, regardless of the underlying column type.
+# For example, NULL_COUNT on a DATE column produces a count (number), not a date.
+# This is why operators must be validated against the metric's result type (always numeric),
+# not against the column's raw data type.
+# Keep in sync with getFieldMetricOperatorOptions in the frontend utils.ts.
+FIELD_METRIC_OPERATOR_CONFIG = [
+    models.AssertionStdOperatorClass.BETWEEN,
+    models.AssertionStdOperatorClass.EQUAL_TO,
+    models.AssertionStdOperatorClass.GREATER_THAN,
+    models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+    models.AssertionStdOperatorClass.LESS_THAN,
+    models.AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
+    models.AssertionStdOperatorClass.NOT_EQUAL_TO,
+]
+
+
+# Keep in sync with SMART_ASSERTION_ALLOWED_FIELD_METRIC_TYPES in frontend utils.ts
+# and ALLOWED_SMART_FIELD_METRIC_TYPES in MonitorAssertionValidator.java
+ALLOWED_SMART_FIELD_METRIC_TYPES: set[str] = {
+    models.FieldMetricTypeClass.NULL_COUNT,
+    models.FieldMetricTypeClass.UNIQUE_COUNT,
+    models.FieldMetricTypeClass.EMPTY_COUNT,
+    models.FieldMetricTypeClass.NEGATIVE_COUNT,
+    models.FieldMetricTypeClass.ZERO_COUNT,
+}
+
+
 class MetricType(str, Enum):
     """Enum for field metric types used in column metric assertions."""
 

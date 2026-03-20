@@ -103,16 +103,13 @@ class BucketBlockPublicAccess(
 
     Example::
 
-        # Apply mixins fluently with .with()
-        s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess()).with(BucketAutoDeleteObjects())
+        # Applies an Aspect immediately as a Mixin
+        versioning_mixin = Shims.as_mixin(EnableBucketVersioning())
+        Mixins.of(scope).apply(versioning_mixin)
         
-        # Apply multiple mixins to the same construct
-        s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess(), BucketAutoDeleteObjects())
-        
-        # Mixins work with all types of constructs:
-        # L1, L2 and even custom constructs
-        s3.Bucket(stack, "MyL2Bucket").with(BucketBlockPublicAccess())
-        CustomBucket(stack, "MyCustomBucket").with(BucketBlockPublicAccess())
+        # Delays application of a Mixin to the synthesis phase
+        public_access_aspect = Shims.as_aspect(BucketBlockPublicAccess())
+        Aspects.of(scope).add(public_access_aspect)
     '''
 
     def __init__(

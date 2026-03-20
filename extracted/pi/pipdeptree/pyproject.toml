@@ -49,6 +49,9 @@ dependencies = [
 optional-dependencies.graphviz = [
   "graphviz>=0.21",
 ]
+optional-dependencies.rich = [
+  "rich>=14.3.3",
+]
 optional-dependencies.test = [
   "covdefaults>=2.3",
   "diff-cover>=9.7.1",
@@ -133,12 +136,6 @@ html.show_contexts = true
 html.skip_covered = false
 subtract_omit = "*/__main__.py"
 
-[tool.mypy]
-show_error_codes = true
-strict = true
-overrides = [
-  { module = [
-    "graphviz.*",
-    "virtualenv.*",
-  ], ignore_missing_imports = true },
-]
+[tool.ty]
+environment.python-version = "3.14"
+src.exclude = []

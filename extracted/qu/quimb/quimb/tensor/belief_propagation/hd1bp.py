@@ -338,9 +338,11 @@ class HD1BP(BeliefPropagationCommon):
         return contract_hyper_messages(
             self.tn,
             self.messages,
+            backend=self.backend,
             strip_exponent=strip_exponent,
             check_zero=check_zero,
-            backend=self.backend,
+            mantissa=self.sign,
+            exponent=self.exponent,
         )
 
     def normalize_messages(self):
@@ -433,6 +435,8 @@ class HD1BP(BeliefPropagationCommon):
             strip_exponent=strip_exponent,
             check_zero=check_zero,
             backend=self.backend,
+            mantissa=self.sign,
+            exponent=self.exponent,
         )
 
 
@@ -583,9 +587,17 @@ def run_belief_propagation_hd1bp(
         Whether the algorithm converged.
     """
     bp = HD1BP(
-        tn, messages=messages, damping=damping, smudge_factor=smudge_factor
+        tn,
+        messages=messages,
+        damping=damping,
+        smudge_factor=smudge_factor,
     )
-    bp.run(max_iterations=max_iterations, tol=tol, info=info, progbar=progbar)
+    bp.run(
+        max_iterations=max_iterations,
+        tol=tol,
+        info=info,
+        progbar=progbar,
+    )
     return bp.messages, bp.converged
 
 
@@ -600,6 +612,7 @@ def sample_hd1bp(
     bias=False,
     seed=None,
     progbar=False,
+    **bp_opts,
 ):
     """Sample all indices of a tensor network using repeated belief propagation
     runs and decimation.
@@ -683,7 +696,7 @@ def sample_hd1bp(
             tol=tol,
             damping=damping,
             smudge_factor=smudge_factor,
-            progbar=True,
+            **bp_opts,
         )
 
         marginals = compute_all_index_marginals_from_messages(

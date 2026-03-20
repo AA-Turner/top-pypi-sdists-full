@@ -58,9 +58,11 @@ from acryl_datahub_cloud.sdk.assertion_client.volume import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
+    BackfillConfigInputTypes,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
+    TimeBucketingStrategyInputTypes,
     TimeWindowSizeInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
@@ -242,6 +244,8 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
         skip_dataset_exists_check: bool = False,
     ) -> SmartVolumeAssertion:
         """Upsert and merge a smart volume assertion.
@@ -279,6 +283,8 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            time_bucketing_strategy (Optional[TimeBucketingStrategyInputTypes]): Optional time bucketing strategy for evaluating this assertion over time-based data partitions. Accepts a TimeBucketingStrategy Pydantic model, a dict, or a raw AssertionTimeBucketingStrategyClass. When updating, preserves the existing value if not provided. Bucket interval unit must be DAY or WEEK with multiple=1.
+            backfill_config (Optional[BackfillConfigInputTypes]): Optional backfill configuration for bootstrapping historical metrics. Specifies the earliest date (as epoch ms or datetime) to backfill from. Accepts a BackfillConfig Pydantic model, a dict with ``backfill_start_date_ms``, or a raw AssertionMonitorBootstrapConfigClass. When updating, preserves the existing value if not provided. Backend enforces max lookback of 365 days (DAY bucketing) or 156 weeks (WEEK bucketing).
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -300,6 +306,8 @@ class AssertionsClient:
             tags=tags,
             updated_by=updated_by,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
     def sync_column_metric_assertion(  # TODO: Refactor
@@ -318,6 +326,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
         skip_dataset_exists_check: bool = False,
     ) -> ColumnMetricAssertion:
         """Upsert and merge a column metric assertion.
@@ -393,6 +402,7 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            time_bucketing_strategy (Optional[TimeBucketingStrategyInputTypes]): Optional time bucketing strategy for evaluating this assertion over time-based data partitions. Accepts a TimeBucketingStrategy Pydantic model, a dict, or a raw AssertionTimeBucketingStrategyClass. When updating, preserves the existing value if not provided. Bucket interval unit must be DAY or WEEK with multiple=1. Detection mechanism must be ALL_ROWS_QUERY when bucketing is enabled.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -415,6 +425,7 @@ class AssertionsClient:
             tags=tags,
             updated_by=updated_by,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
     def sync_column_value_assertion(
@@ -464,7 +475,7 @@ class AssertionsClient:
                 dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
                 column_name="email",
                 operator="regex_match",
-                criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                criteria_parameters=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
             )
 
             # Validate quantity is positive with 5% failure tolerance
@@ -488,6 +499,15 @@ class AssertionsClient:
                 schedule="0 */6 * * *"
             )
 
+            # SQL expression for validating against a reference table
+            from acryl_datahub_cloud.sdk import SqlExpression
+            client.assertions.sync_column_value_assertion(
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
+                column_name="customer_id",
+                operator="IN",
+                criteria_parameters=SqlExpression("SELECT id FROM valid_customers WHERE active = true"),
+            )
+
         Args:
             dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
             column_name (Optional[str]): The name of the column to validate. Required for creation, optional for updates.
@@ -502,6 +522,7 @@ class AssertionsClient:
                 - Range operators (BETWEEN): pass a tuple of two values (min_value, max_value)
                 - List operators (IN, NOT_IN): pass a list of values
                 - No parameter operators (NOT_NULL, NULL): pass None or omit this parameter
+                - SQL expression: pass SqlExpression("SELECT ...") to validate against a SQL query result
             transform (Optional[FieldTransformInputType]): Optional transform to apply to field values before evaluation.
                 Currently only "length" or "LENGTH" is supported, and only for STRING columns.
             fail_threshold_type (Optional[FailThresholdInputType]): The type of failure threshold. Valid values are:
@@ -568,6 +589,8 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
         skip_dataset_exists_check: bool = False,
     ) -> SmartColumnMetricAssertion:
         """Upsert and merge a smart column metric assertion.
@@ -604,13 +627,11 @@ class AssertionsClient:
         Args:
             dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
             column_name (Optional[str]): The name of the column to be monitored. Required for creation, optional for updates.
-            metric_type (Optional[MetricInputType]): The type of the metric to be monitored. Required for creation, optional for updates. Valid values are:
-                - Using MetricType enum: MetricType.NULL_COUNT, MetricType.NULL_PERCENTAGE, MetricType.UNIQUE_COUNT,
-                  MetricType.UNIQUE_PERCENTAGE, MetricType.MAX_LENGTH, MetricType.MIN_LENGTH, MetricType.EMPTY_COUNT,
-                  MetricType.EMPTY_PERCENTAGE, MetricType.MIN, MetricType.MAX, MetricType.MEAN, MetricType.MEDIAN,
-                  MetricType.STDDEV, MetricType.NEGATIVE_COUNT, MetricType.NEGATIVE_PERCENTAGE, MetricType.ZERO_COUNT,
-                  MetricType.ZERO_PERCENTAGE
-                - Using case-insensitive strings: "null_count", "MEAN", "Max_Length", etc.
+            metric_type (Optional[MetricInputType]): The type of the metric to be monitored. Required for creation, optional for updates.
+                Only count-based metrics are allowed for smart assertions:
+                - Using MetricType enum: MetricType.NULL_COUNT, MetricType.UNIQUE_COUNT, MetricType.EMPTY_COUNT,
+                  MetricType.NEGATIVE_COUNT, MetricType.ZERO_COUNT
+                - Using case-insensitive strings: "null_count", "unique_count", "empty_count", "negative_count", "zero_count"
                 - Using models enum: models.FieldMetricTypeClass.NULL_COUNT, etc. (import with: from datahub.metadata import schema_classes as models)
             urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
             display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
@@ -626,6 +647,8 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default daily schedule will be used. The format is a cron expression, e.g. "0 0 * * *" for daily at midnight using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            time_bucketing_strategy (Optional[TimeBucketingStrategyInputTypes]): Optional time bucketing strategy for evaluating this assertion over time-based data partitions. Accepts a TimeBucketingStrategy Pydantic model, a dict, or a raw AssertionTimeBucketingStrategyClass. When updating, preserves the existing value if not provided. Bucket interval unit must be DAY or WEEK with multiple=1. Detection mechanism must be ALL_ROWS_QUERY when bucketing is enabled.
+            backfill_config (Optional[BackfillConfigInputTypes]): Optional backfill configuration for bootstrapping historical metrics. Requires time_bucketing_strategy to also be set. Specifies the earliest date (as epoch ms or datetime) to backfill from. Accepts a BackfillConfig Pydantic model, a dict with ``backfill_start_date_ms``, or a raw AssertionMonitorBootstrapConfigClass. When updating, preserves the existing value if not provided. Backend enforces max lookback of 365 days (DAY bucketing) or 156 weeks (WEEK bucketing).
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -649,6 +672,8 @@ class AssertionsClient:
             tags=tags,
             updated_by=updated_by,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
     def sync_freshness_assertion(
@@ -748,6 +773,7 @@ class AssertionsClient:
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         criteria_condition: Optional[Union[str, VolumeAssertionCondition]] = None,
         criteria_parameters: Optional[VolumeAssertionDefinitionParameters] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
         skip_dataset_exists_check: bool = False,
     ) -> VolumeAssertion:
         """Upsert and merge a volume assertion.
@@ -793,6 +819,7 @@ class AssertionsClient:
                 - If the condition is range-based (ROW_COUNT_IS_WITHIN_A_RANGE, ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE, ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
                 - For other conditions, the value is a single numeric threshold value.
                 If not provided, existing value is preserved for updates. Required when creating a new assertion.
+            time_bucketing_strategy (Optional[TimeBucketingStrategyInputTypes]): Optional time bucketing strategy for evaluating this assertion over time-based data partitions. Accepts a TimeBucketingStrategy Pydantic model, a dict, or a raw AssertionTimeBucketingStrategyClass. When updating, preserves the existing value if not provided. Bucket interval unit must be DAY or WEEK with multiple=1. Detection mechanism sourceType must be QUERY when bucketing is enabled.
             skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
                 Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
                 before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
@@ -813,6 +840,7 @@ class AssertionsClient:
             schedule=schedule,
             criteria_condition=criteria_condition,
             criteria_parameters=criteria_parameters,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
     def sync_sql_assertion(

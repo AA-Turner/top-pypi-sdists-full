@@ -13,6 +13,8 @@ from .....schema_classes import ActionWorkflowEntrypointTypeClass
 from .....schema_classes import ActionWorkflowFieldClass
 from .....schema_classes import ActionWorkflowFieldConditionClass
 from .....schema_classes import ActionWorkflowFieldConditionTypeClass
+from .....schema_classes import ActionWorkflowFieldValuesSourceClass
+from .....schema_classes import ActionWorkflowFieldValuesSourceTypeClass
 from .....schema_classes import ActionWorkflowFormClass
 from .....schema_classes import ActionWorkflowFormRequestClass
 from .....schema_classes import ActionWorkflowFormRequestFieldClass
@@ -35,6 +37,8 @@ ActionWorkflowEntrypointType = ActionWorkflowEntrypointTypeClass
 ActionWorkflowField = ActionWorkflowFieldClass
 ActionWorkflowFieldCondition = ActionWorkflowFieldConditionClass
 ActionWorkflowFieldConditionType = ActionWorkflowFieldConditionTypeClass
+ActionWorkflowFieldValuesSource = ActionWorkflowFieldValuesSourceClass
+ActionWorkflowFieldValuesSourceType = ActionWorkflowFieldValuesSourceTypeClass
 ActionWorkflowForm = ActionWorkflowFormClass
 ActionWorkflowFormRequest = ActionWorkflowFormRequestClass
 ActionWorkflowFormRequestField = ActionWorkflowFormRequestFieldClass

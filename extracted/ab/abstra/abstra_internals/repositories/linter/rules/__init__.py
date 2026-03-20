@@ -10,12 +10,13 @@ from .deprecated_functions import DeprecatedFunctionUsage
 from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
 from .env_in_bundle import EnvInBundle
 from .file_outside_project import FileOutsideProjectRoot
+from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
 from .invalid_package_in_requirements import InvalidPackageInRequirements
 from .local_package_in_requirements import LocalPackageInRequirements
 from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
-from .missing_packages_in_requirements import MissingPackagesInRequirements
+from .missing_render_in_page import MissingRenderInPage
 from .missing_task_schema_for_agent_target import MissingTaskSchemaForAgentTarget
 from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
@@ -28,13 +29,13 @@ from .venv_in_bundle import VenvInBundle
 core_rules: List[LinterRule] = [
     EnvInBundle(),
     VenvInBundle(),
-    MissingPackagesInRequirements(),
     SyntaxErrors(),
     MissingEntrypoint(),
     MissingAbstraInRequirements(),
     DuplicatePackagesInRequirements(),
     InvalidPackageInRequirements(),
     LocalPackageInRequirements(),
+    ImportsRequirementsAnalyzer(),
     MissingEnv(),
     ConflictingPath(),
     Psycopg2MustBeBinary(),
@@ -44,6 +45,7 @@ core_rules: List[LinterRule] = [
     FileOutsideProjectRoot(),
     MissingTaskSchemaForAgentTarget(),
     SendTaskWithoutTransition(),
+    MissingRenderInPage(),
     # TypeCheckingRule(),
 ]
 

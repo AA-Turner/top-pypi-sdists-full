@@ -5,6 +5,7 @@ from exponent.commands.checkout_commands import checkout_cli
 from exponent.commands.cloud_commands import cloud_cli
 from exponent.commands.common import set_log_level
 from exponent.commands.config_commands import config_cli
+from exponent.commands.port_forward_commands import port_forward_cli
 from exponent.commands.run_commands import run, run_cli
 from exponent.commands.types import ExponentGroup, exponent_cli_group
 from exponent.commands.upgrade import upgrade_cli
@@ -35,6 +36,7 @@ sources: list[ExponentGroup] = [
     upgrade_cli,  # Upgrade-related commands
     cloud_cli,  # Cloud commands
     checkout_cli,  # Checkout commands
+    port_forward_cli,  # Port forwarding commands
 ]
 
 for source in sources:

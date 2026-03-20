@@ -10,6 +10,7 @@ import jsonschema_rs
 
 from sphinx_needs.config import NeedFields
 from sphinx_needs.exceptions import VariantParsingException
+from sphinx_needs.need_item import NeedLink
 from sphinx_needs.schema.config import (
     FieldBooleanSchemaType,
     FieldIntegerSchemaType,
@@ -439,7 +440,7 @@ class FieldLiteralValue:
 
 @dataclass(frozen=True, slots=True)
 class LinksLiteralValue:
-    value: list[str]
+    value: list[NeedLink]
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,7 +475,7 @@ class FunctionArrayTyped(Generic[_ValueType]):
 
 @dataclass(frozen=True, slots=True)
 class LinksFunctionArray:
-    value: tuple[str | DynamicFunctionParsed | VariantFunctionParsed, ...]
+    value: tuple[NeedLink | DynamicFunctionParsed | VariantFunctionParsed, ...]
 
 
 @lru_cache(maxsize=128)
@@ -548,6 +549,7 @@ class LinkSchema:
     allow_extend: bool = False
     parse_dynamic_functions: bool = False
     parse_variants: bool = False
+    parse_conditions: bool = True
     allow_defaults: bool = False
     predicate_defaults: tuple[
         tuple[str, LinksLiteralValue | LinksFunctionArray],
@@ -588,6 +590,8 @@ class LinkSchema:
             raise ValueError("parse_dynamic_functions must be a boolean.")
         if not isinstance(self.parse_variants, bool):
             raise ValueError("parse_variants must be a boolean.")
+        if not isinstance(self.parse_conditions, bool):
+            raise ValueError("parse_conditions must be a boolean.")
         if not isinstance(self.allow_defaults, bool):
             raise ValueError("allow_defaults must be a boolean.")
         if not isinstance(self.allow_extend, bool):
@@ -692,12 +696,14 @@ class LinkSchema:
         if self.description:
             schema["description"] = self.description
         if isinstance(self.default, LinksLiteralValue):
-            schema["default"] = self.default.value
+            schema["default"] = [nl.to_filter_string() for nl in self.default.value]
         return schema
 
     def type_check(self, value: Any) -> bool:
         """Check if a value is of the correct type for this field."""
-        return isinstance(value, list) and all(isinstance(i, str) for i in value)
+        return isinstance(value, list) and all(
+            isinstance(i, str | NeedLink) for i in value
+        )
 
     def type_check_item(self, value: Any) -> bool:
         """Check if a value is of the correct item type for this field.
@@ -705,7 +711,7 @@ class LinkSchema:
         For 'array' fields, this checks the type of the array items.
         For other fields, this checks the type of the field itself.
         """
-        return isinstance(value, str)
+        return isinstance(value, str | NeedLink)
 
     def convert_directive_option(
         self, value: str
@@ -722,28 +728,21 @@ class LinkSchema:
             raise TypeError(f"Value '{value}' is not a string.")
 
         has_df_or_vf = False
-        array: list[str | DynamicFunctionParsed | VariantFunctionParsed] = []
-        for parsed in _split_list(
-            value, self.parse_dynamic_functions, self.parse_variants
+        array: list[NeedLink | DynamicFunctionParsed | VariantFunctionParsed] = []
+        for item in _split_link_list(
+            value,
+            self.parse_dynamic_functions,
+            self.parse_variants,
+            parse_conditions=self.parse_conditions,
         ):
-            if len(parsed) != 1:
-                raise ValueError(
-                    "only one string, dynamic function or variant function allowed per array item."
-                )
-            item, item_type = parsed[0]
-            match item_type:
-                case ListItemType.STD:
-                    array.append(item)
-                case ListItemType.DF | ListItemType.DF_U:
-                    from sphinx_needs.functions.functions import DynamicFunctionParsed
-
-                    # TODO warn on unclosed dynamic function
-                    has_df_or_vf = True
-                    array.append(DynamicFunctionParsed.from_string(item))
-                case ListItemType.VF | ListItemType.VF_U:
-                    # TODO warn on unclosed variant function
-                    has_df_or_vf = True
-                    array.append(VariantFunctionParsed.from_string(item))
+            if isinstance(item, LinkSplitWarning):
+                # TODO bubble up as warning?
+                raise ValueError(item.message)
+            elif isinstance(item, NeedLink):
+                array.append(item)
+            else:
+                has_df_or_vf = True
+                array.append(item)
 
         if has_df_or_vf:
             return LinksFunctionArray(tuple(array))
@@ -774,7 +773,7 @@ class LinkSchema:
                 from sphinx_needs.functions.functions import DynamicFunctionParsed
 
                 new_value: list[
-                    str | DynamicFunctionParsed | VariantFunctionParsed
+                    NeedLink | DynamicFunctionParsed | VariantFunctionParsed
                 ] = []
                 has_function = False
                 item: str
@@ -798,13 +797,29 @@ class LinkSchema:
                             VariantFunctionParsed.from_string(item.strip()[2:-2])
                         )
                     else:
-                        new_value.append(item)
+                        new_value.append(
+                            NeedLink.from_string(
+                                item, parse_conditions=self.parse_conditions
+                            )
+                        )
                 if has_function:
                     return LinksFunctionArray(tuple(new_value))
                 else:
-                    return LinksLiteralValue(value)
+                    return LinksLiteralValue(
+                        [
+                            NeedLink.from_string(
+                                v, parse_conditions=self.parse_conditions
+                            )
+                            for v in value
+                        ]
+                    )
             else:
-                return LinksLiteralValue(value)
+                return LinksLiteralValue(
+                    [
+                        NeedLink.from_string(v, parse_conditions=self.parse_conditions)
+                        for v in value
+                    ]
+                )
 
 
 class FieldsSchema:
@@ -1003,6 +1018,125 @@ def _split_list(
         _current_elements.append((el, ListItemType.STD))
     if _current_elements:
         yield _current_elements
+
+
+@dataclass(frozen=True, slots=True)
+class LinkSplitWarning:
+    """A warning yielded during link list splitting."""
+
+    message: str
+
+
+def _split_link_list(
+    text: str,
+    parse_dynamic_functions: bool,
+    parse_variants: bool,
+    *,
+    parse_conditions: bool = True,
+) -> Iterator[
+    NeedLink | DynamicFunctionParsed | VariantFunctionParsed | LinkSplitWarning
+]:
+    """Split a ``;|,`` delimited link string, directly yielding typed objects.
+
+    Handles ``[[...]]`` dynamic functions, ``<<...>>`` variant functions,
+    and plain link IDs with optional ``[condition]`` syntax.
+
+    Parsing is done left-to-right in a single pass with these priority rules:
+
+    1. ``[[...]]`` → ``DynamicFunctionParsed``
+    2. ``<<...>>`` → ``VariantFunctionParsed``
+    3. ``;|,`` → flush accumulated text as a ``NeedLink``
+    4. Otherwise → accumulate character
+
+    Plain link items support the format ``ID``, ``ID.part``,
+    ``ID[condition]``, or ``ID.part[condition]``.
+    The condition uses matched bracket depth,
+    so ``ID[[x>1]]`` parses the condition as ``[x>1]``.
+
+    :param text: The string to split.
+    :param parse_dynamic_functions: Whether to parse ``[[...]]`` dynamic functions.
+    :param parse_variants: Whether to parse ``<<...>>`` variant functions.
+    :param parse_conditions: Whether to parse ``[condition]`` brackets.
+    :yields: Parsed link items, or ``LinkSplitWarning`` for non-fatal issues
+        (e.g. text adjacent to a dynamic/variant function, unclosed brackets).
+    """
+    from sphinx_needs.functions.functions import DynamicFunctionParsed
+
+    _current = ""  # text accumulated for the current plain-text item
+    _has_special = False  # whether current slot has yielded a DF/VF
+
+    def _flush_current() -> NeedLink | LinkSplitWarning | None:
+        """Flush accumulated plain text as a NeedLink, or None if empty."""
+        nonlocal _current
+        stripped = _current.strip()
+        _current = ""
+        if not stripped:
+            return None
+        link, warnings = NeedLink.from_string_with_warnings(
+            stripped, parse_conditions=parse_conditions
+        )
+        if warnings:
+            return LinkSplitWarning(warnings[0])
+        return link
+
+    while text:
+        if parse_dynamic_functions and text.startswith("[[") and not _current.strip():
+            # [[ at start of slot (no preceding non-whitespace text) → dynamic function
+            _current = ""  # discard any leading whitespace
+            _has_special = True
+            # Consume until closing ]]
+            text = text[2:]
+            content = ""
+            while text and not text.startswith("]]"):
+                content += text[0]
+                text = text[1:]
+            if content.endswith("]"):
+                content = content[:-1]
+            yield DynamicFunctionParsed.from_string(content)
+            if text.startswith("]]"):
+                text = text[2:]
+        elif parse_variants and text.startswith("<<") and not _current.strip():
+            # << at start of slot (no preceding non-whitespace text) → variant function
+            _current = ""  # discard any leading whitespace
+            _has_special = True
+            # Consume until closing >>
+            text = text[2:]
+            content = ""
+            while text and not text.startswith(">>"):
+                content += text[0]
+                text = text[1:]
+            if content.endswith(">"):
+                content = content[:-1]
+            yield VariantFunctionParsed.from_string(content)
+            if text.startswith(">>"):
+                text = text[2:]
+        elif text[0] in ";|,":
+            # Delimiter: flush current item
+            if not _has_special:
+                if result := _flush_current():
+                    yield result
+            else:
+                # After a DF/VF, check there's no trailing text
+                if _current.strip():
+                    yield LinkSplitWarning(
+                        "only one string, dynamic function or variant function allowed per array item."
+                    )
+                _current = ""
+            _has_special = False
+            text = text[1:]
+        else:
+            _current += text[0]
+            text = text[1:]
+
+    # Flush final item
+    if not _has_special:
+        if result := _flush_current():
+            yield result
+    else:
+        if _current.strip():
+            yield LinkSplitWarning(
+                "only one string, dynamic function or variant function allowed per array item."
+            )
 
 
 def _split_string(

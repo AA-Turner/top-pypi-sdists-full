@@ -200,7 +200,7 @@ class VLLMClient:
 
     def generate(
         self,
-        prompts: list[str],
+        prompts: list[str] | list[list[int]],
         images: list | None = None,
         n: int = 1,
         repetition_penalty: float = 1.0,
@@ -218,10 +218,11 @@ class VLLMClient:
         Generates model completions for the provided prompts.
 
         Args:
-            prompts (`list[str]`):
-                List of text prompts for which the model will generate completions.
-            images (`list[PIL.Image]`, *optional*):
-                List of PIL Images to send along with the prompts.
+            prompts (`list[str]` or `list[list[int]]`):
+                List of text prompts or list of token ID lists for which the model will generate completions.
+            images (`list[list[PIL.Image] | None]`, *optional*):
+                List of image lists for VLM support. Each element is a list of PIL images for the corresponding prompt,
+                or `None` if no images for that prompt.
             n (`int`, *optional*, defaults to `1`):
                 Number of completions to generate for each prompt.
             repetition_penalty (`float`, *optional*, defaults to `1.0`):
@@ -264,8 +265,12 @@ class VLLMClient:
         """
         url = f"{self.base_url}/generate/"
 
-        # Convert PIL images to base64 strings
-        images = [pil_to_base64(img) for img in images] if images else None
+        # Convert PIL images to base64 strings. Each element is a list of images for the corresponding prompt,
+        # or None if no images for that prompt.
+        if images:
+            images = [
+                [pil_to_base64(img) for img in img_list] if img_list is not None else None for img_list in images
+            ]
 
         response = self.session.post(
             url,

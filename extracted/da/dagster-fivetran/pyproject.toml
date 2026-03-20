@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-fivetran"
-version = "0.28.19"
+version = "0.28.20"
 description = "Package for integrating Fivetran with Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.19",
+    "dagster==1.12.20",
 ]
 
 [project.urls]
@@ -36,7 +36,7 @@ dagster_fivetran = "dagster_fivetran"
 
 [project.optional-dependencies]
 managed = [
-    "dagster-managed-elements==0.28.19",
+    "dagster-managed-elements==0.28.20",
 ]
 test = [
     "pytest-order",

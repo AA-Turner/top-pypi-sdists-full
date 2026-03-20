@@ -19,7 +19,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.3.8"
+VERSION: Final = "2026.3.10"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -814,6 +814,18 @@ class DataPointCategory(StrEnum):
     UPDATE = "update"
     VALVE = "valve"
     WEEK_PROFILE = "week_profile"
+
+
+# Action categories never receive CCU event confirmations, so optimistic
+# updates must be skipped to avoid spurious timeout rollbacks.
+ACTION_DATA_POINT_CATEGORIES: Final[frozenset[DataPointCategory]] = frozenset(
+    {
+        DataPointCategory.ACTION,
+        DataPointCategory.ACTION_NUMBER,
+        DataPointCategory.ACTION_SELECT,
+        DataPointCategory.BUTTON,
+    }
+)
 
 
 class DataPointKey(NamedTuple):

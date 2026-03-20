@@ -42,7 +42,9 @@ def get_field_annotations(config_cls: type[RunConfig]) -> dict[str, FieldMarker 
     return result
 
 
-def _collect_nested_agents(model_cls: type, prefix: str = "") -> list[dict[str, Any]]:
+def _collect_nested_agents(
+    model_cls: type, prefix: str = "", _visited: set[type] | None = None
+) -> list[dict[str, Any]]:
     """Recursively find Agent-annotated fields in nested pydantic models.
 
     Returns agent entries with dotted-path names (e.g. "backend_build.reviewer").
@@ -50,6 +52,12 @@ def _collect_nested_agents(model_cls: type, prefix: str = "") -> list[dict[str, 
     import typing
 
     from pydantic import BaseModel
+
+    if _visited is None:
+        _visited = set()
+    if model_cls in _visited:
+        return []
+    _visited.add(model_cls)
 
     agents: list[dict[str, Any]] = []
     for field_name, field_info in model_cls.model_fields.items():
@@ -79,7 +87,11 @@ def _collect_nested_agents(model_cls: type, prefix: str = "") -> list[dict[str, 
                 if len(non_none) == 1:
                     annotation = non_none[0]
             if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-                agents.extend(_collect_nested_agents(annotation, prefix=path))
+                agents.extend(_collect_nested_agents(annotation, prefix=path, _visited=_visited))
+
+    # Remove from visited after processing so the same type can be traversed
+    # at different field paths (only cycles are blocked, not re-visits).
+    _visited.discard(model_cls)
     return agents
 
 
@@ -233,6 +245,7 @@ def get_world_schema(world_cls: type, image: str | None = None) -> dict[str, Any
 
     return {
         "name": getattr(world_cls, "name", world_cls.__name__),
+        "type": getattr(world_cls, "world_type", "world"),
         "config_schema": config_schema,
         "secrets_schema": secrets_schema,
         "image": image,

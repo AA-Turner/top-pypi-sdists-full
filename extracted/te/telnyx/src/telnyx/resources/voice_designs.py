@@ -9,12 +9,12 @@ import httpx
 from ..types import (
     voice_design_list_params,
     voice_design_create_params,
-    voice_design_rename_params,
+    voice_design_update_params,
     voice_design_retrieve_params,
     voice_design_download_sample_params,
 )
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -35,7 +35,7 @@ from ..pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.voice_design_list_response import VoiceDesignListResponse
 from ..types.voice_design_create_response import VoiceDesignCreateResponse
-from ..types.voice_design_rename_response import VoiceDesignRenameResponse
+from ..types.voice_design_update_response import VoiceDesignUpdateResponse
 from ..types.voice_design_retrieve_response import VoiceDesignRetrieveResponse
 
 __all__ = ["VoiceDesignsResource", "AsyncVoiceDesignsResource"]
@@ -182,7 +182,7 @@ class VoiceDesignsResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            f"/voice_designs/{id}",
+            path_template("/voice_designs/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -191,6 +191,44 @@ class VoiceDesignsResource(SyncAPIResource):
                 query=maybe_transform({"version": version}, voice_design_retrieve_params.VoiceDesignRetrieveParams),
             ),
             cast_to=VoiceDesignRetrieveResponse,
+        )
+
+    def update(
+        self,
+        id: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VoiceDesignUpdateResponse:
+        """Updates the name of a voice design.
+
+        All versions retain their other properties.
+
+        Args:
+          name: New name for the voice design.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._patch(
+            path_template("/voice_designs/{id}", id=id),
+            body=maybe_transform({"name": name}, voice_design_update_params.VoiceDesignUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=VoiceDesignUpdateResponse,
         )
 
     def list(
@@ -278,7 +316,7 @@ class VoiceDesignsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/voice_designs/{id}",
+            path_template("/voice_designs/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -315,7 +353,7 @@ class VoiceDesignsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/voice_designs/{id}/versions/{version}",
+            path_template("/voice_designs/{id}/versions/{version}", id=id, version=version),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -356,7 +394,7 @@ class VoiceDesignsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "audio/wav", **(extra_headers or {})}
         return self._get(
-            f"/voice_designs/{id}/sample",
+            path_template("/voice_designs/{id}/sample", id=id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -367,44 +405,6 @@ class VoiceDesignsResource(SyncAPIResource):
                 ),
             ),
             cast_to=BinaryAPIResponse,
-        )
-
-    def rename(
-        self,
-        id: str,
-        *,
-        name: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VoiceDesignRenameResponse:
-        """Updates the name of a voice design.
-
-        All versions retain their other properties.
-
-        Args:
-          name: New name for the voice design.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return self._patch(
-            f"/voice_designs/{id}",
-            body=maybe_transform({"name": name}, voice_design_rename_params.VoiceDesignRenameParams),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=VoiceDesignRenameResponse,
         )
 
 
@@ -549,7 +549,7 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            f"/voice_designs/{id}",
+            path_template("/voice_designs/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -560,6 +560,44 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
                 ),
             ),
             cast_to=VoiceDesignRetrieveResponse,
+        )
+
+    async def update(
+        self,
+        id: str,
+        *,
+        name: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> VoiceDesignUpdateResponse:
+        """Updates the name of a voice design.
+
+        All versions retain their other properties.
+
+        Args:
+          name: New name for the voice design.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._patch(
+            path_template("/voice_designs/{id}", id=id),
+            body=await async_maybe_transform({"name": name}, voice_design_update_params.VoiceDesignUpdateParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=VoiceDesignUpdateResponse,
         )
 
     def list(
@@ -647,7 +685,7 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/voice_designs/{id}",
+            path_template("/voice_designs/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -684,7 +722,7 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/voice_designs/{id}/versions/{version}",
+            path_template("/voice_designs/{id}/versions/{version}", id=id, version=version),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -725,7 +763,7 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "audio/wav", **(extra_headers or {})}
         return await self._get(
-            f"/voice_designs/{id}/sample",
+            path_template("/voice_designs/{id}/sample", id=id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -738,44 +776,6 @@ class AsyncVoiceDesignsResource(AsyncAPIResource):
             cast_to=AsyncBinaryAPIResponse,
         )
 
-    async def rename(
-        self,
-        id: str,
-        *,
-        name: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VoiceDesignRenameResponse:
-        """Updates the name of a voice design.
-
-        All versions retain their other properties.
-
-        Args:
-          name: New name for the voice design.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return await self._patch(
-            f"/voice_designs/{id}",
-            body=await async_maybe_transform({"name": name}, voice_design_rename_params.VoiceDesignRenameParams),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=VoiceDesignRenameResponse,
-        )
-
 
 class VoiceDesignsResourceWithRawResponse:
     def __init__(self, voice_designs: VoiceDesignsResource) -> None:
@@ -786,6 +786,9 @@ class VoiceDesignsResourceWithRawResponse:
         )
         self.retrieve = to_raw_response_wrapper(
             voice_designs.retrieve,
+        )
+        self.update = to_raw_response_wrapper(
+            voice_designs.update,
         )
         self.list = to_raw_response_wrapper(
             voice_designs.list,
@@ -800,9 +803,6 @@ class VoiceDesignsResourceWithRawResponse:
             voice_designs.download_sample,
             BinaryAPIResponse,
         )
-        self.rename = to_raw_response_wrapper(
-            voice_designs.rename,
-        )
 
 
 class AsyncVoiceDesignsResourceWithRawResponse:
@@ -814,6 +814,9 @@ class AsyncVoiceDesignsResourceWithRawResponse:
         )
         self.retrieve = async_to_raw_response_wrapper(
             voice_designs.retrieve,
+        )
+        self.update = async_to_raw_response_wrapper(
+            voice_designs.update,
         )
         self.list = async_to_raw_response_wrapper(
             voice_designs.list,
@@ -828,9 +831,6 @@ class AsyncVoiceDesignsResourceWithRawResponse:
             voice_designs.download_sample,
             AsyncBinaryAPIResponse,
         )
-        self.rename = async_to_raw_response_wrapper(
-            voice_designs.rename,
-        )
 
 
 class VoiceDesignsResourceWithStreamingResponse:
@@ -842,6 +842,9 @@ class VoiceDesignsResourceWithStreamingResponse:
         )
         self.retrieve = to_streamed_response_wrapper(
             voice_designs.retrieve,
+        )
+        self.update = to_streamed_response_wrapper(
+            voice_designs.update,
         )
         self.list = to_streamed_response_wrapper(
             voice_designs.list,
@@ -856,9 +859,6 @@ class VoiceDesignsResourceWithStreamingResponse:
             voice_designs.download_sample,
             StreamedBinaryAPIResponse,
         )
-        self.rename = to_streamed_response_wrapper(
-            voice_designs.rename,
-        )
 
 
 class AsyncVoiceDesignsResourceWithStreamingResponse:
@@ -870,6 +870,9 @@ class AsyncVoiceDesignsResourceWithStreamingResponse:
         )
         self.retrieve = async_to_streamed_response_wrapper(
             voice_designs.retrieve,
+        )
+        self.update = async_to_streamed_response_wrapper(
+            voice_designs.update,
         )
         self.list = async_to_streamed_response_wrapper(
             voice_designs.list,
@@ -883,7 +886,4 @@ class AsyncVoiceDesignsResourceWithStreamingResponse:
         self.download_sample = async_to_custom_streamed_response_wrapper(
             voice_designs.download_sample,
             AsyncStreamedBinaryAPIResponse,
-        )
-        self.rename = async_to_streamed_response_wrapper(
-            voice_designs.rename,
         )

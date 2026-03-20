@@ -4,7 +4,7 @@ import autoray as ar
 
 import quimb.tensor as qtn
 from quimb.tensor.tensor_core import check_opt
-from quimb.tensor.tensor_2d import Rotator2D
+from quimb.tensor.tn2d.core import Rotator2D
 
 
 def CTMRG(

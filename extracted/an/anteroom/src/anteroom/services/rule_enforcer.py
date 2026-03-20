@@ -59,7 +59,7 @@ def parse_rule(artifact: Artifact) -> ParsedRule | None:
 
     meta = artifact.metadata or {}
     if not meta:
-        logger.warning(
+        logger.info(
             "Rule %s has no metadata — treating as soft (use YAML front matter or metadata field to set enforce: hard)",
             artifact.fqn,
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhir_core
-Version: 1.1.5
+Version: 1.1.6
 Summary: FHIR Core library
 Home-page: https://github.com/nazrulworld/fhir-core
 Author: Md Nazrul Islam
@@ -186,6 +186,12 @@ owned by `Health Level Seven International <https://www.hl7.org/legal/trademarks
 
 History
 =======
+
+1.1.6 (2026-03-19)
+------------------
+
+- Fix FHIR_TYPES_MAPS global state prevents using multiple FHIR versions in same process https://github.com/nazrulworld/fhir.resources/issues/202
+
 
 1.1.5 (2026-01-29)
 ------------------

@@ -1,9 +1,19 @@
-use std::{collections::HashMap, ops::Range};
+use std::ops::Range;
 
-use line_index::{LineIndex, TextRange, TextSize};
+use rustc_hash::FxHashMap;
+
+use ::line_index::{LineIndex, TextRange, TextSize};
 use log::warn;
-use lsp_types::{CodeAction, CodeActionKind, Url, WorkspaceEdit};
+use lsp_types::{
+    CodeAction, CodeActionKind, FoldingRange, FoldingRangeKind as LspFoldingRangeKind, Location,
+    Url, WorkspaceEdit,
+};
+use squawk_ide::builtins::{builtins_line_index, builtins_url};
 use squawk_ide::code_actions::ActionKind;
+use squawk_ide::db::line_index;
+use squawk_ide::folding_ranges::{Fold, FoldKind};
+
+use crate::system::System;
 
 fn text_range(index: &LineIndex, range: lsp_types::Range) -> Option<TextRange> {
     let start = offset(index, range.start)?;
@@ -51,27 +61,21 @@ pub(crate) fn code_action(
     CodeAction {
         title: action.title,
         kind: Some(kind),
-        diagnostics: None,
-        edit: Some(WorkspaceEdit {
-            changes: Some({
-                let mut changes = HashMap::new();
-                let edits = action
-                    .edits
-                    .into_iter()
-                    .map(|edit| lsp_types::TextEdit {
-                        range: range(line_index, edit.text_range),
-                        new_text: edit.text.unwrap_or_default(),
-                    })
-                    .collect();
-                changes.insert(uri, edits);
-                changes
-            }),
-            ..Default::default()
-        }),
-        command: None,
+        edit: Some(WorkspaceEdit::new({
+            let mut changes = FxHashMap::default();
+            let edits = action
+                .edits
+                .into_iter()
+                .map(|edit| lsp_types::TextEdit {
+                    range: range(line_index, edit.text_range),
+                    new_text: edit.text.unwrap_or_default(),
+                })
+                .collect();
+            changes.insert(uri, edits);
+            changes.into_iter().collect()
+        })),
         is_preferred: Some(true),
-        disabled: None,
-        data: None,
+        ..Default::default()
     }
 }
 
@@ -143,6 +147,23 @@ pub(crate) fn range(line_index: &LineIndex, range: TextRange) -> lsp_types::Rang
     )
 }
 
+pub(crate) fn folding_range(line_index: &LineIndex, fold: Fold) -> FoldingRange {
+    let start = line_index.line_col(fold.range.start());
+    let end = line_index.line_col(fold.range.end());
+    let kind = match fold.kind {
+        FoldKind::Comment => Some(LspFoldingRangeKind::Comment),
+        _ => Some(LspFoldingRangeKind::Region),
+    };
+    FoldingRange {
+        start_line: start.line,
+        start_character: Some(start.col),
+        end_line: end.line,
+        end_character: Some(end.col),
+        kind,
+        collapsed_text: None,
+    }
+}
+
 // base on rust-analyzer's
 // see: https://github.com/rust-lang/rust-analyzer/blob/3816d0ae53c19fe75532a8b41d8c546d94246b53/crates/rust-analyzer/src/lsp/utils.rs#L168C1-L168C1
 pub(crate) fn apply_incremental_changes(
@@ -187,6 +208,25 @@ pub(crate) fn apply_incremental_changes(
     }
 
     text
+}
+
+pub(crate) fn to_location(
+    db: &dyn salsa::Database,
+    system: &dyn System,
+    uri: &Url,
+    loc: squawk_ide::goto_definition::Location,
+) -> Option<Location> {
+    let file = system.file(uri).unwrap();
+    let uri = match loc.file {
+        squawk_ide::goto_definition::FileId::Current => uri.clone(),
+        squawk_ide::goto_definition::FileId::Builtins => builtins_url(db)?,
+    };
+    let line_index = match loc.file {
+        squawk_ide::goto_definition::FileId::Current => &line_index(db, file),
+        squawk_ide::goto_definition::FileId::Builtins => &builtins_line_index(db),
+    };
+    let range = range(line_index, loc.range);
+    Some(Location { uri, range })
 }
 
 #[cfg(test)]

@@ -1118,6 +1118,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -3803,6 +3811,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -4346,6 +4362,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -5005,6 +5029,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -5608,6 +5640,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -7160,6 +7200,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName
@@ -7804,6 +7852,14 @@ class Client(BaseClient):
               isCustom
               isGranted
               order
+              dependencyFeature {
+                refId
+                displayName
+                description
+                featureType
+                featureUnits
+                featureUnitsPlural
+              }
               customCurrency {
                 currencyId
                 displayName

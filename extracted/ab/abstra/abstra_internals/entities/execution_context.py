@@ -1,7 +1,7 @@
-from typing import Dict, List, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
 import flask
-from pydantic import Field
+from pydantic import Discriminator, Field, Tag
 
 from abstra_internals.repositories.tasks import TaskDTO
 from abstra_internals.utils.dict import filter_non_string_values
@@ -41,11 +41,16 @@ class JobExecutionMock(ExecutionMock):
     pass
 
 
+class PageExecutionMock(ExecutionMock):
+    pass
+
+
 class CodeSnippetExecutionMock(ExecutionMock):
     pass
 
 
 class HookContext(Serializable):
+    type: Literal["hook"] = "hook"
     request: Request
     response: Response
     sent_tasks: List[str] = Field(default_factory=list)
@@ -54,6 +59,7 @@ class HookContext(Serializable):
 
 
 class FormContext(Serializable):
+    type: Literal["form"] = "form"
     request: Request
     sent_tasks: List[str] = Field(default_factory=list)
     legacy_thread_data: dict = Field(default_factory=dict)
@@ -61,6 +67,7 @@ class FormContext(Serializable):
 
 
 class ScriptContext(Serializable):
+    type: Literal["script"] = "script"
     task_id: str
     sent_tasks: List[str] = Field(default_factory=list)
     legacy_thread_data: dict = Field(default_factory=dict)
@@ -68,19 +75,56 @@ class ScriptContext(Serializable):
 
 
 class JobContext(Serializable):
+    type: Literal["job"] = "job"
     sent_tasks: List[str] = Field(default_factory=list)
     legacy_thread_data: dict = Field(default_factory=dict)
     mock_execution: JobExecutionMock = Field(default_factory=JobExecutionMock)
 
 
+class PageContext(Serializable):
+    type: Literal["page"] = "page"
+    request: Request
+    response: Response
+    sent_tasks: List[str] = Field(default_factory=list)
+    legacy_thread_data: dict = Field(default_factory=dict)
+    mock_execution: PageExecutionMock = Field(default_factory=PageExecutionMock)
+
+
 class CodeSnippetContext(Serializable):
+    type: Literal["code_snippet"] = "code_snippet"
     mock_execution: CodeSnippetExecutionMock = Field(
         default_factory=CodeSnippetExecutionMock
     )
 
 
-ClientContext = Union[
-    HookContext, FormContext, ScriptContext, JobContext, CodeSnippetContext
+def _context_discriminator(v):
+    if isinstance(v, dict):
+        t = v.get("type")
+        if t is not None:
+            return t
+        # Legacy messages without type field (pages never existed without it)
+        if "taskId" in v or "task_id" in v:
+            return "script"
+        if "request" in v and "response" in v:
+            return "hook"
+        if "request" in v:
+            return "form"
+        if "sentTasks" in v or "sent_tasks" in v:
+            return "job"
+        return "code_snippet"
+    return getattr(v, "type", None)
+
+
+ClientContext = Annotated[
+    Union[
+        Annotated[HookContext, Tag("hook")],
+        Annotated[FormContext, Tag("form")],
+        Annotated[ScriptContext, Tag("script")],
+        Annotated[JobContext, Tag("job")],
+        Annotated[PageContext, Tag("page")],
+        Annotated[CodeSnippetContext, Tag("code_snippet")],
+    ],
+    Discriminator(_context_discriminator),
 ]
 
 

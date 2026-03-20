@@ -20,6 +20,12 @@ def cli_command_add_label(ctx, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--page-at-id", default=None)
 @click.option("--navigation-enabled", type=bool, default=None)
+@click.option(
+    "--page-size",
+    type=int,
+    default=100,
+    help="number of items in each pagination, useful ONLY when page-at-id is set",
+)
 @click.pass_context
 def cli_command_list_labels(ctx, **kwargs):
     result = labels.list_labels(ctx, **kwargs)
@@ -94,6 +100,12 @@ def cli_command_add_labelled_object(ctx, **kwargs):
 @click.option("--excludes-any-label", multiple=True, default=None)
 @click.option("--page-at-id", default=None)
 @click.option("--limit", type=int, default=None)
+@click.option(
+    "--page-size",
+    type=int,
+    default=100,
+    help="number of items in each pagination, useful ONLY when page-at-id is set",
+)
 @click.pass_context
 def cli_command_list_labelled_objects(ctx, **kwargs):
     result = labels.list_labelled_objects(ctx, **kwargs)

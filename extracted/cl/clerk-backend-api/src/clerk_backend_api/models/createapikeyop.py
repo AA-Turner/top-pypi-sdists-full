@@ -65,7 +65,7 @@ class CreateAPIKeyRequestBody(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
             is_nullable_and_explicitly_set = (
                 k in nullable_fields
                 and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
@@ -157,7 +157,7 @@ class CreateAPIKeyObject(str, Enum):
 
 
 class CreateAPIKeyResponseBodyTypedDict(TypedDict):
-    r"""200 OK"""
+    r"""201 Created"""
 
     object: CreateAPIKeyObject
     id: str
@@ -183,7 +183,7 @@ class CreateAPIKeyResponseBodyTypedDict(TypedDict):
 
 
 class CreateAPIKeyResponseBody(BaseModel):
-    r"""200 OK"""
+    r"""201 Created"""
 
     object: CreateAPIKeyObject
 
@@ -241,7 +241,7 @@ class CreateAPIKeyResponseBody(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
             is_nullable_and_explicitly_set = (
                 k in nullable_fields
                 and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member

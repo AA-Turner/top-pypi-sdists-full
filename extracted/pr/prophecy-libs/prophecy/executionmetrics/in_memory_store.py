@@ -505,12 +505,25 @@ class InMemoryStore:
         self.logger.info(f"Updating Selective Interim: {key}")
         parts = re.sub(r"_interim.*$", "", key).split("__")
         component = parts[0]
-        port = parts[1]
-        runId = parts[2] if len(parts) == 3 else None
+        port = parts[1] if len(parts) > 1 else None
+        runId = parts[2] if len(parts) > 2 else None
+
+        if not port:
+            return
 
         parsed_payload = json.loads(payload)
+        if not isinstance(parsed_payload, dict):
+            return
+
+        if "data" not in parsed_payload or "schema" not in parsed_payload:
+            return
+
+        raw_schema = json.loads(parsed_payload["schema"]) if parsed_payload["schema"] else None
+        if not raw_schema:
+            return
+
         data = json.loads(parsed_payload["data"])
-        schema = StructType.fromJson(json.loads(parsed_payload["schema"]))
+        schema = StructType.fromJson(raw_schema)
 
         interims = LInterimContent(
             subgraph="subgraph",
@@ -753,12 +766,12 @@ class InMemoryStore:
                 self.logger.warning(f"Could not read logs from path: {e}")
 
         # Perform the actual offload
-        self.logger.info(f"Storage details: {self._storage_metadata}")
-        self.logger.info(f"In memory state before offloading metrics\n {self}")
+        self.logger.debug(f"Storage details: {self._storage_metadata}")
+        self.logger.debug(f"In memory state before offloading metrics\n {self}")
         self.logger.info(
             f"Inserting pipeline run id {self.uuid} for pipeline {self._pipeline_uri}"
         )
-        self.logger.info(
+        self.logger.debug(
             f"Offload flags: {offload_flags}, interim keys: {interim_keys_for_offload}"
         )
 
@@ -816,7 +829,7 @@ class InMemoryStore:
                     (r.component_uri, r.interim_process_id, r.interim_out_port): r.uid
                     for r in component_runs
                 }
-                self.logger.info(f"Run UID map: {self.component_runs_uid_map}")
+                self.logger.debug(f"Run UID map: {self.component_runs_uid_map}")
             except Exception as e:
                 self.logger.info(f"Error while calling init_runs: {e}")
 

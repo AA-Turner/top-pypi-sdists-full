@@ -394,6 +394,7 @@ __all__ = [
     'RegionBackendServiceConsistentHashHttpCookieTtl',
     'RegionBackendServiceCustomMetric',
     'RegionBackendServiceDynamicForwarding',
+    'RegionBackendServiceDynamicForwardingForwardProxy',
     'RegionBackendServiceDynamicForwardingIpPortSelection',
     'RegionBackendServiceFailoverPolicy',
     'RegionBackendServiceHaPolicy',
@@ -1031,6 +1032,7 @@ __all__ = [
     'GetRegionBackendServiceConsistentHashHttpCookyTtlResult',
     'GetRegionBackendServiceCustomMetricResult',
     'GetRegionBackendServiceDynamicForwardingResult',
+    'GetRegionBackendServiceDynamicForwardingForwardProxyResult',
     'GetRegionBackendServiceDynamicForwardingIpPortSelectionResult',
     'GetRegionBackendServiceFailoverPolicyResult',
     'GetRegionBackendServiceHaPolicyResult',
@@ -30097,7 +30099,9 @@ class RegionBackendServiceDynamicForwarding(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "ipPortSelection":
+        if key == "forwardProxy":
+            suggest = "forward_proxy"
+        elif key == "ipPortSelection":
             suggest = "ip_port_selection"
 
         if suggest:
@@ -30112,14 +30116,30 @@ class RegionBackendServiceDynamicForwarding(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 forward_proxy: Optional['outputs.RegionBackendServiceDynamicForwardingForwardProxy'] = None,
                  ip_port_selection: Optional['outputs.RegionBackendServiceDynamicForwardingIpPortSelection'] = None):
         """
+        :param 'RegionBackendServiceDynamicForwardingForwardProxyArgs' forward_proxy: (Optional, Beta)
+               Dynamic Forwarding Proxy configuration.
+               Structure is documented below.
         :param 'RegionBackendServiceDynamicForwardingIpPortSelectionArgs' ip_port_selection: (Optional, Beta)
                IP:PORT based dynamic forwarding configuration.
                Structure is documented below.
         """
+        if forward_proxy is not None:
+            pulumi.set(__self__, "forward_proxy", forward_proxy)
         if ip_port_selection is not None:
             pulumi.set(__self__, "ip_port_selection", ip_port_selection)
+
+    @_builtins.property
+    @pulumi.getter(name="forwardProxy")
+    def forward_proxy(self) -> Optional['outputs.RegionBackendServiceDynamicForwardingForwardProxy']:
+        """
+        (Optional, Beta)
+        Dynamic Forwarding Proxy configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "forward_proxy")
 
     @_builtins.property
     @pulumi.getter(name="ipPortSelection")
@@ -30130,6 +30150,58 @@ class RegionBackendServiceDynamicForwarding(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "ip_port_selection")
+
+
+@pulumi.output_type
+class RegionBackendServiceDynamicForwardingForwardProxy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "proxyMode":
+            suggest = "proxy_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceDynamicForwardingForwardProxy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionBackendServiceDynamicForwardingForwardProxy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionBackendServiceDynamicForwardingForwardProxy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 proxy_mode: _builtins.str):
+        """
+        :param _builtins.bool enabled: (Required, Beta)
+               A boolean flag enabling dynamic forwarding proxy.
+        :param _builtins.str proxy_mode: (Required, Beta)
+               Determines the dynamic forwarding proxy mode
+               Possible values are: `DIRECT_FORWARDING`, `CLOUD_RUN`.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "proxy_mode", proxy_mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        (Required, Beta)
+        A boolean flag enabling dynamic forwarding proxy.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="proxyMode")
+    def proxy_mode(self) -> _builtins.str:
+        """
+        (Required, Beta)
+        Determines the dynamic forwarding proxy mode
+        Possible values are: `DIRECT_FORWARDING`, `CLOUD_RUN`.
+        """
+        return pulumi.get(self, "proxy_mode")
 
 
 @pulumi.output_type
@@ -50870,6 +50942,8 @@ class ResourcePolicyWorkloadPolicy(dict):
         suggest = None
         if key == "acceleratorTopology":
             suggest = "accelerator_topology"
+        elif key == "acceleratorTopologyMode":
+            suggest = "accelerator_topology_mode"
         elif key == "maxTopologyDistance":
             suggest = "max_topology_distance"
 
@@ -50887,19 +50961,30 @@ class ResourcePolicyWorkloadPolicy(dict):
     def __init__(__self__, *,
                  type: _builtins.str,
                  accelerator_topology: Optional[_builtins.str] = None,
+                 accelerator_topology_mode: Optional[_builtins.str] = None,
                  max_topology_distance: Optional[_builtins.str] = None):
         """
         :param _builtins.str type: The type of workload policy.
                Possible values are: `HIGH_AVAILABILITY`, `HIGH_THROUGHPUT`.
         :param _builtins.str accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT
                and cannot be set if max topology distance is set.
+        :param _builtins.str accelerator_topology_mode: (Optional, Beta)
+               Specifies the connection mode for the accelerator topology.
+               Supported values are:
+               * `AUTO_CONNECT`: The interconnected chips are pre-configured at the time of VM creation.
+               * `PROVISION_ONLY`: The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+               If not specified, the default is AUTO_CONNECT.
+               This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set.
+               Possible values are: `AUTO_CONNECT`, `PROVISION_ONLY`.
         :param _builtins.str max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-               and cannot be set if accelerator topology is set.
+               and cannot be set if accelerator topology or accelerator topology mode is set.
                Possible values are: `BLOCK`, `CLUSTER`, `SUBBLOCK`.
         """
         pulumi.set(__self__, "type", type)
         if accelerator_topology is not None:
             pulumi.set(__self__, "accelerator_topology", accelerator_topology)
+        if accelerator_topology_mode is not None:
+            pulumi.set(__self__, "accelerator_topology_mode", accelerator_topology_mode)
         if max_topology_distance is not None:
             pulumi.set(__self__, "max_topology_distance", max_topology_distance)
 
@@ -50922,11 +51007,26 @@ class ResourcePolicyWorkloadPolicy(dict):
         return pulumi.get(self, "accelerator_topology")
 
     @_builtins.property
+    @pulumi.getter(name="acceleratorTopologyMode")
+    def accelerator_topology_mode(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Beta)
+        Specifies the connection mode for the accelerator topology.
+        Supported values are:
+        * `AUTO_CONNECT`: The interconnected chips are pre-configured at the time of VM creation.
+        * `PROVISION_ONLY`: The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+        If not specified, the default is AUTO_CONNECT.
+        This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set.
+        Possible values are: `AUTO_CONNECT`, `PROVISION_ONLY`.
+        """
+        return pulumi.get(self, "accelerator_topology_mode")
+
+    @_builtins.property
     @pulumi.getter(name="maxTopologyDistance")
     def max_topology_distance(self) -> Optional[_builtins.str]:
         """
         The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-        and cannot be set if accelerator topology is set.
+        and cannot be set if accelerator topology or accelerator topology mode is set.
         Possible values are: `BLOCK`, `CLUSTER`, `SUBBLOCK`.
         """
         return pulumi.get(self, "max_topology_distance")
@@ -55730,8 +55830,7 @@ class ServiceAttachmentConsumerAcceptList(dict):
         """
         :param _builtins.int connection_limit: The number of consumer forwarding rules the consumer project can
                create.
-        :param _builtins.str endpoint_url: (Optional, Beta)
-               The endpoint that is allowed to connect to this service attachment.
+        :param _builtins.str endpoint_url: The endpoint that is allowed to connect to this service attachment.
                Only one of project_id_or_num, network_url and endpoint_url may be set.
         :param _builtins.str network_url: The network that is allowed to connect to this service attachment.
                Only one of project_id_or_num and network_url may be set.
@@ -55759,7 +55858,6 @@ class ServiceAttachmentConsumerAcceptList(dict):
     @pulumi.getter(name="endpointUrl")
     def endpoint_url(self) -> Optional[_builtins.str]:
         """
-        (Optional, Beta)
         The endpoint that is allowed to connect to this service attachment.
         Only one of project_id_or_num, network_url and endpoint_url may be set.
         """
@@ -75460,11 +75558,22 @@ class GetRegionBackendServiceCustomMetricResult(dict):
 @pulumi.output_type
 class GetRegionBackendServiceDynamicForwardingResult(dict):
     def __init__(__self__, *,
+                 forward_proxies: Sequence['outputs.GetRegionBackendServiceDynamicForwardingForwardProxyResult'],
                  ip_port_selections: Sequence['outputs.GetRegionBackendServiceDynamicForwardingIpPortSelectionResult']):
         """
+        :param Sequence['GetRegionBackendServiceDynamicForwardingForwardProxyArgs'] forward_proxies: Dynamic Forwarding Proxy configuration.
         :param Sequence['GetRegionBackendServiceDynamicForwardingIpPortSelectionArgs'] ip_port_selections: IP:PORT based dynamic forwarding configuration.
         """
+        pulumi.set(__self__, "forward_proxies", forward_proxies)
         pulumi.set(__self__, "ip_port_selections", ip_port_selections)
+
+    @_builtins.property
+    @pulumi.getter(name="forwardProxies")
+    def forward_proxies(self) -> Sequence['outputs.GetRegionBackendServiceDynamicForwardingForwardProxyResult']:
+        """
+        Dynamic Forwarding Proxy configuration.
+        """
+        return pulumi.get(self, "forward_proxies")
 
     @_builtins.property
     @pulumi.getter(name="ipPortSelections")
@@ -75473,6 +75582,35 @@ class GetRegionBackendServiceDynamicForwardingResult(dict):
         IP:PORT based dynamic forwarding configuration.
         """
         return pulumi.get(self, "ip_port_selections")
+
+
+@pulumi.output_type
+class GetRegionBackendServiceDynamicForwardingForwardProxyResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 proxy_mode: _builtins.str):
+        """
+        :param _builtins.bool enabled: A boolean flag enabling dynamic forwarding proxy.
+        :param _builtins.str proxy_mode: Determines the dynamic forwarding proxy mode Possible values: ["DIRECT_FORWARDING", "CLOUD_RUN"]
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "proxy_mode", proxy_mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        A boolean flag enabling dynamic forwarding proxy.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="proxyMode")
+    def proxy_mode(self) -> _builtins.str:
+        """
+        Determines the dynamic forwarding proxy mode Possible values: ["DIRECT_FORWARDING", "CLOUD_RUN"]
+        """
+        return pulumi.get(self, "proxy_mode")
 
 
 @pulumi.output_type
@@ -82036,16 +82174,25 @@ class GetResourcePolicySnapshotSchedulePolicySnapshotPropertyResult(dict):
 class GetResourcePolicyWorkloadPolicyResult(dict):
     def __init__(__self__, *,
                  accelerator_topology: _builtins.str,
+                 accelerator_topology_mode: _builtins.str,
                  max_topology_distance: _builtins.str,
                  type: _builtins.str):
         """
         :param _builtins.str accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT
                and cannot be set if max topology distance is set.
+        :param _builtins.str accelerator_topology_mode: Specifies the connection mode for the accelerator topology.
+               Supported values are:
+                 * 'AUTO_CONNECT': The interconnected chips are pre-configured at the time of VM creation.
+                 * 'PROVISION_ONLY': The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+               
+               If not specified, the default is AUTO_CONNECT.
+               This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Possible values: ["AUTO_CONNECT", "PROVISION_ONLY"]
         :param _builtins.str max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-               and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]
+               and cannot be set if accelerator topology or accelerator topology mode is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]
         :param _builtins.str type: The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]
         """
         pulumi.set(__self__, "accelerator_topology", accelerator_topology)
+        pulumi.set(__self__, "accelerator_topology_mode", accelerator_topology_mode)
         pulumi.set(__self__, "max_topology_distance", max_topology_distance)
         pulumi.set(__self__, "type", type)
 
@@ -82059,11 +82206,25 @@ class GetResourcePolicyWorkloadPolicyResult(dict):
         return pulumi.get(self, "accelerator_topology")
 
     @_builtins.property
+    @pulumi.getter(name="acceleratorTopologyMode")
+    def accelerator_topology_mode(self) -> _builtins.str:
+        """
+        Specifies the connection mode for the accelerator topology.
+        Supported values are:
+          * 'AUTO_CONNECT': The interconnected chips are pre-configured at the time of VM creation.
+          * 'PROVISION_ONLY': The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+
+        If not specified, the default is AUTO_CONNECT.
+        This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Possible values: ["AUTO_CONNECT", "PROVISION_ONLY"]
+        """
+        return pulumi.get(self, "accelerator_topology_mode")
+
+    @_builtins.property
     @pulumi.getter(name="maxTopologyDistance")
     def max_topology_distance(self) -> _builtins.str:
         """
         The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-        and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]
+        and cannot be set if accelerator topology or accelerator topology mode is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]
         """
         return pulumi.get(self, "max_topology_distance")
 

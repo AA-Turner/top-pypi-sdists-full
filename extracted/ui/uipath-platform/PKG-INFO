@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-platform
-Version: 0.0.28
+Version: 0.1.0
 Summary: HTTP client library for programmatic access to UiPath Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-python

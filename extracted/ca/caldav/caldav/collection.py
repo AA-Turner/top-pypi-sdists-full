@@ -13,19 +13,13 @@ A SynchronizableCalendarObjectCollection contains a local copy of objects from a
 import logging
 import uuid
 import warnings
-from datetime import datetime
+from datetime import date as _date
+from datetime import datetime, timezone
 from time import sleep
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 from urllib.parse import ParseResult, SplitResult, quote, unquote
 
 import icalendar
-
-try:
-    from typing import Optional
-
-    TimeStamp = Optional[date | datetime]
-except:
-    pass
 
 if TYPE_CHECKING:
     from icalendar import vCalAddress
@@ -252,7 +246,7 @@ class Principal(DAVObject):
         """
         self._calendar_home_set = calendar_home_set
 
-        super(Principal, self).__init__(client=client, url=url, **kwargs)
+        super().__init__(client=client, url=url, **kwargs)
         if url is None:
             if self.client is None:
                 raise ValueError("Unexpected value None for self.client")
@@ -854,7 +848,7 @@ class Calendar(DAVObject):
         """Async helper for add_object(): awaits save() then handles reverse relations."""
         o = await o.save(no_overwrite=no_overwrite, no_create=no_create)
         if o.url is not None:
-            o._handle_reverse_relations(fix=True)
+            await o._async_handle_reverse_relations(fix=True)
         return o
 
     def add_event(self, *largs, **kwargs) -> "Event":
@@ -1180,6 +1174,41 @@ class Calendar(DAVObject):
             )
         return (response, matches)
 
+    def _populate_searcher(self, my_searcher, searchargs: dict, sort_reverse: bool) -> None:
+        """Populate a CalDAVSearcher from a dict of search keyword arguments.
+
+        Shared by :meth:`searcher` and :meth:`search`.
+        """
+        for key in searchargs:
+            assert key[0] != "_"  ## not allowed
+            alias = key
+            if key == "class_":  ## because class is a reserved word
+                alias = "class"
+            if key == "no_category":
+                alias = "no_categories"
+            if key == "no_class_":
+                alias = "no_class"
+            if key == "sort_keys":
+                if isinstance(searchargs["sort_keys"], str):
+                    searchargs["sort_keys"] = [searchargs["sort_keys"]]
+                for sortkey in searchargs["sort_keys"]:
+                    my_searcher.add_sort_key(sortkey, sort_reverse)
+            elif key == "sort_reverse":
+                pass  # handled with sort_keys
+            elif key == "comp_class" or key in my_searcher.__dataclass_fields__:
+                value = searchargs[key]
+                if (
+                    key in ("start", "end", "alarm_start", "alarm_end")
+                    and isinstance(value, _date)
+                    and not isinstance(value, datetime)
+                ):
+                    value = datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+                setattr(my_searcher, key, value)
+            elif alias.startswith("no_"):
+                my_searcher.add_property_filter(alias[3:], searchargs[key], operator="undef")
+            else:
+                my_searcher.add_property_filter(alias, searchargs[key])
+
     def searcher(self, **searchargs) -> "CalDAVSearcher":
         """Create a searcher object for building complex search queries.
 
@@ -1203,31 +1232,7 @@ class Calendar(DAVObject):
 
         my_searcher = CalDAVSearcher()
         my_searcher._calendar = self
-
-        for key in searchargs:
-            assert key[0] != "_"  ## not allowed
-            alias = key
-            if key == "class_":  ## because class is a reserved word
-                alias = "class"
-            if key == "no_category":
-                alias = "no_categories"
-            if key == "no_class_":
-                alias = "no_class"
-            if key == "sort_keys":
-                sort_reverse = searchargs.get("sort_reverse", False)
-                if isinstance(searchargs["sort_keys"], str):
-                    searchargs["sort_keys"] = [searchargs["sort_keys"]]
-                for sortkey in searchargs["sort_keys"]:
-                    my_searcher.add_sort_key(sortkey, sort_reverse)
-            elif key == "sort_reverse":
-                pass  # handled with sort_keys
-            elif key == "comp_class" or key in my_searcher.__dataclass_fields__:
-                setattr(my_searcher, key, searchargs[key])
-            elif alias.startswith("no_"):
-                my_searcher.add_property_filter(alias[3:], searchargs[key], operator="undef")
-            else:
-                my_searcher.add_property_filter(alias, searchargs[key])
-
+        self._populate_searcher(my_searcher, searchargs, searchargs.get("sort_reverse", False))
         return my_searcher
 
     def search(
@@ -1344,28 +1349,7 @@ class Calendar(DAVObject):
 
         ## Transfer all the arguments to CalDAVSearcher
         my_searcher = CalDAVSearcher()
-        for key in searchargs:
-            assert key[0] != "_"  ## not allowed
-            alias = key
-            if key == "class_":  ## because class is a reserved word
-                alias = "class"
-            if key == "no_category":
-                alias = "no_categories"
-            if key == "no_class_":
-                alias = "no_class"
-            if key == "sort_keys":
-                if isinstance(searchargs["sort_keys"], str):
-                    searchargs["sort_keys"] = [searchargs["sort_keys"]]
-                for sortkey in searchargs["sort_keys"]:
-                    my_searcher.add_sort_key(sortkey, sort_reverse)
-                    continue
-            elif key == "comp_class" or key in my_searcher.__dataclass_fields__:
-                setattr(my_searcher, key, searchargs[key])
-                continue
-            elif alias.startswith("no_"):
-                my_searcher.add_property_filter(alias[3:], searchargs[key], operator="undef")
-            else:
-                my_searcher.add_property_filter(alias, searchargs[key])
+        self._populate_searcher(my_searcher, searchargs, sort_reverse)
 
         if not xml and filters:
             xml = filters
@@ -1493,6 +1477,8 @@ class Calendar(DAVObject):
         Returns:
          CalendarObjectResource (Event, Todo, or Journal)
         """
+        if self.is_async_client:
+            return self._async_get_object_by_uid(uid, comp_filter, comp_class)
         ## Use self.search() rather than CalDAVSearcher directly, so that any
         ## monkey-patching of Calendar.search (e.g. the search-cache delay for
         ## servers with lazy search indexes) is respected.  This mirrors the
@@ -1502,6 +1488,23 @@ class Calendar(DAVObject):
         ## apply an exact match filter afterwards to preserve the semantics of
         ## this method (see testObjectByUID).
         items_found = self.search(
+            uid=uid, comp_class=comp_class, xml=comp_filter, post_filter=True, _hacks="insist"
+        )
+        items_found = [o for o in items_found if o.id == uid]
+
+        if not items_found:
+            raise error.NotFoundError("%s not found on server" % uid)
+        error.assert_(len(items_found) == 1)
+        return items_found[0]
+
+    async def _async_get_object_by_uid(
+        self,
+        uid: str,
+        comp_filter: cdav.CompFilter | None = None,
+        comp_class: Optional["CalendarObjectResource"] = None,
+    ) -> "Event":
+        """Async helper for get_object_by_uid()."""
+        items_found = await self.search(
             uid=uid, comp_class=comp_class, xml=comp_filter, post_filter=True, _hacks="insist"
         )
         items_found = [o for o in items_found if o.id == uid]
@@ -1819,7 +1822,7 @@ class ScheduleMailbox(Calendar):
         """
         Will locate the mbox if no url is given
         """
-        super(ScheduleMailbox, self).__init__(client=client, url=url)
+        super().__init__(client=client, url=url)
         self._items = None
         if not client and principal:
             self.client = principal.client
@@ -1853,7 +1856,7 @@ class ScheduleMailbox(Calendar):
                 # properly fix in a future revision
                 raise error.NotFoundError(
                     "principal has no %s.  %s" % (str(self.findprop()), error.ERR_FRAGMENT)  # type: ignore
-                )
+                ) from None
 
     def get_items(self):
         """

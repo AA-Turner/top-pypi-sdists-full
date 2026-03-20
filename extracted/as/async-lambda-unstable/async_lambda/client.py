@@ -12,6 +12,7 @@ class Clients:
         s3_client (Optional[Any]): The AWS S3 client instance.
         sqs_client (Optional[Any]): The AWS SQS client instance.
         sts_client (Optional[Any]): The AWS STS client instance.
+        scheduler_client (Optional[Any]): The AWS EventBridge Scheduler client instance.
 
     Methods:
         reset():
@@ -21,14 +22,16 @@ class Clients:
     s3_client: Optional[Any] = None
     sqs_client: Optional[Any] = None
     sts_client: Optional[Any] = None
+    scheduler_client: Optional[Any] = None
 
     def reset(self):
         """
-        Resets the AWS service clients (S3, SQS, STS) by setting them to None.
+        Resets the AWS service clients (S3, SQS, STS, Scheduler) by setting them to None.
         """
         self.s3_client = None
         self.sqs_client = None
         self.sts_client = None
+        self.scheduler_client = None
 
 
 clients = Clients()
@@ -92,3 +95,18 @@ def get_sts_client():
     if clients.sts_client is None:
         clients.sts_client = boto3.client("sts", **get_client_kwargs())
     return clients.sts_client
+
+
+def get_scheduler_client():
+    """
+    Returns a cached AWS EventBridge Scheduler client instance.
+
+    If the client does not exist, it creates a new one using boto3 with the provided keyword arguments.
+    Subsequent calls will return the cached client.
+
+    Returns:
+        boto3.client: An AWS EventBridge Scheduler client instance.
+    """
+    if clients.scheduler_client is None:
+        clients.scheduler_client = boto3.client("scheduler", **get_client_kwargs())
+    return clients.scheduler_client

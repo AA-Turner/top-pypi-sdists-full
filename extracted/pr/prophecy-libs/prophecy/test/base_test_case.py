@@ -3,7 +3,13 @@ import unittest
 from pyspark.sql import SparkSession
 import glob
 import os
+import logging
+import pyspark
+
 from prophecy.libs.utils import isBlank
+from prophecy.config import is_scala_enabled
+
+logger = logging.getLogger(__name__)
 
 
 class BaseTestCase(unittest.TestCase):
@@ -32,16 +38,20 @@ class BaseTestCase(unittest.TestCase):
                 print(f"An error occurred parsing config {config_json_str} with exception:", e)
                 raise
 
-        jars = os.getenv('SPARK_JARS_CONFIG')
-        fallBackSparkPackages = [
-            "io.prophecy:prophecy-libs_2.12:6.3.0-3.1.2"
-        ]
+        if is_scala_enabled():
+            jars = os.getenv('SPARK_JARS_CONFIG')
+            spark_version = pyspark.__version__
+            fallBackSparkPackages = [
+                "io.prophecy:prophecy-libs_2.12:6.3.0-3.1.2"
+            ]
 
-        if not isBlank(jars):
-            sparkSessionWithReqdDependencies = sparkSession.config("spark.jars", jars)
+            if not isBlank(jars):
+                sparkSessionWithReqdDependencies = sparkSession.config("spark.jars", jars)
+            else:
+                sparkSessionWithReqdDependencies = sparkSession.config("spark.jars.packages",
+                                                                       ",".join(fallBackSparkPackages))
         else:
-            sparkSessionWithReqdDependencies = sparkSession.config("spark.jars.packages",
-                                                                   ",".join(fallBackSparkPackages))
+            sparkSessionWithReqdDependencies = sparkSession
 
         cls.spark = (sparkSessionWithReqdDependencies.getOrCreate())
         cls.maxUnequalRowsToShow = 5

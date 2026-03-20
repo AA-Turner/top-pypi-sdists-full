@@ -26,6 +26,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AutomationStreamStatusType,
+    BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
@@ -63,10 +64,13 @@ __all__ = (
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserEnterprisePolicyTypeDef",
     "BrowserExtensionTypeDef",
     "BrowserProfileConfigurationTypeDef",
     "BrowserSessionStreamTypeDef",
     "BrowserSessionSummaryTypeDef",
+    "CertificateLocationTypeDef",
+    "CertificateTypeDef",
     "CodeInterpreterResultTypeDef",
     "CodeInterpreterSessionSummaryTypeDef",
     "CodeInterpreterStreamOutputTypeDef",
@@ -185,6 +189,7 @@ __all__ = (
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
     "SearchCriteriaTypeDef",
+    "SecretsManagerLocationTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
     "SessionSummaryTypeDef",
     "SpanContextTypeDef",
@@ -284,6 +289,10 @@ class BrowserSessionSummaryTypeDef(TypedDict):
     createdAt: datetime
     name: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
+
+
+class SecretsManagerLocationTypeDef(TypedDict):
+    secretArn: str
 
 
 class ToolResultStructuredContentTypeDef(TypedDict):
@@ -562,15 +571,6 @@ class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
-    codeInterpreterIdentifier: str
-    traceId: NotRequired[str]
-    traceParent: NotRequired[str]
-    name: NotRequired[str]
-    sessionTimeoutSeconds: NotRequired[int]
-    clientToken: NotRequired[str]
-
-
 class StopBrowserSessionRequestTypeDef(TypedDict):
     browserIdentifier: str
     sessionId: str
@@ -639,16 +639,6 @@ class GetAgentCardResponseTypeDef(TypedDict):
     runtimeSessionId: str
     agentCard: dict[str, Any]
     statusCode: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
-    codeInterpreterIdentifier: str
-    sessionId: str
-    name: str
-    createdAt: datetime
-    sessionTimeoutSeconds: int
-    status: CodeInterpreterSessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -777,6 +767,10 @@ class ListBrowserSessionsResponseTypeDef(TypedDict):
     items: list[BrowserSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CertificateLocationTypeDef(TypedDict):
+    secretsManager: NotRequired[SecretsManagerLocationTypeDef]
 
 
 class ListCodeInterpreterSessionsResponseTypeDef(TypedDict):
@@ -994,6 +988,10 @@ class UpdateBrowserStreamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CertificateTypeDef(TypedDict):
+    location: CertificateLocationTypeDef
+
+
 class CodeInterpreterResultTypeDef(TypedDict):
     content: list[ContentBlockTypeDef]
     structuredContent: NotRequired[ToolResultStructuredContentTypeDef]
@@ -1079,6 +1077,15 @@ class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
     records: Sequence[MemoryRecordUpdateInputTypeDef]
 
 
+BrowserEnterprisePolicyTypeDef = TypedDict(
+    "BrowserEnterprisePolicyTypeDef",
+    {
+        "location": ResourceLocationTypeDef,
+        "type": NotRequired[BrowserEnterprisePolicyTypeType],
+    },
+)
+
+
 class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
@@ -1109,6 +1116,27 @@ class InvokeCodeInterpreterRequestTypeDef(TypedDict):
     traceId: NotRequired[str]
     traceParent: NotRequired[str]
     arguments: NotRequired[ToolArgumentsTypeDef]
+
+
+class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
+    codeInterpreterIdentifier: str
+    sessionId: str
+    name: str
+    createdAt: datetime
+    sessionTimeoutSeconds: int
+    status: CodeInterpreterSessionStatusType
+    certificates: list[CertificateTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
+    codeInterpreterIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    name: NotRequired[str]
+    sessionTimeoutSeconds: NotRequired[int]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
+    clientToken: NotRequired[str]
 
 
 class CodeInterpreterStreamOutputTypeDef(TypedDict):
@@ -1261,11 +1289,13 @@ class GetBrowserSessionResponseTypeDef(TypedDict):
     createdAt: datetime
     viewPort: ViewPortTypeDef
     extensions: list[BrowserExtensionTypeDef]
+    enterprisePolicies: list[BrowserEnterprisePolicyTypeDef]
     profileConfiguration: BrowserProfileConfigurationTypeDef
     sessionTimeoutSeconds: int
     status: BrowserSessionStatusType
     streams: BrowserSessionStreamTypeDef
     proxyConfiguration: ProxyConfigurationOutputTypeDef
+    certificates: list[CertificateTypeDef]
     sessionReplayArtifact: str
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1284,4 +1314,6 @@ class StartBrowserSessionRequestTypeDef(TypedDict):
     extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
     profileConfiguration: NotRequired[BrowserProfileConfigurationTypeDef]
     proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
+    enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
     clientToken: NotRequired[str]

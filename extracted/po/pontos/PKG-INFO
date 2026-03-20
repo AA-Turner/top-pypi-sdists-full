@@ -1,19 +1,18 @@
 Metadata-Version: 2.4
 Name: pontos
-Version: 26.2.0
+Version: 26.3.0
 Summary: Common utilities and tools maintained by Greenbone Networks
 License: GPL-3.0-or-later
 License-File: LICENSE
 Author: Greenbone AG
 Author-email: info@greenbone.net
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -73,7 +72,7 @@ The documentation for pontos can be found at https://greenbone.github.io/pontos/
 
 ### Requirements
 
-Python 3.9 and later is supported.
+Python 3.10 and later is supported.
 
 ### Install using pipx
 

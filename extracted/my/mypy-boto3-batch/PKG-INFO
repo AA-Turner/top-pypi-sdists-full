@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-batch
-Version: 1.42.59
-Summary: Type annotations for boto3 Batch 1.42.59 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.72
+Summary: Type annotations for boto3 Batch 1.42.72 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Batch 1.42.59](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Batch 1.42.72](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.59' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.72' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Batch` service.
 4. Use provided commands to install generated packages.
@@ -345,6 +345,7 @@ from mypy_boto3_batch.paginator import (
     ListConsumableResourcesPaginator,
     ListJobsByConsumableResourcePaginator,
     ListJobsPaginator,
+    ListQuotaSharesPaginator,
     ListSchedulingPoliciesPaginator,
     ListServiceJobsPaginator,
 )
@@ -372,6 +373,7 @@ list_jobs_by_consumable_resource_paginator: ListJobsByConsumableResourcePaginato
     client.get_paginator("list_jobs_by_consumable_resource")
 )
 list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
+list_quota_shares_paginator: ListQuotaSharesPaginator = client.get_paginator("list_quota_shares")
 list_scheduling_policies_paginator: ListSchedulingPoliciesPaginator = client.get_paginator(
     "list_scheduling_policies"
 )

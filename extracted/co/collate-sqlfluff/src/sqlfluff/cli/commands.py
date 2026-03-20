@@ -7,7 +7,7 @@ import sys
 import time
 from itertools import chain
 from logging import LogRecord
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 import click
 
@@ -18,10 +18,7 @@ from tqdm import tqdm
 
 from sqlfluff.cli import EXIT_ERROR, EXIT_FAIL, EXIT_SUCCESS
 from sqlfluff.cli.autocomplete import dialect_shell_complete, shell_completion_enabled
-from sqlfluff.cli.formatters import (
-    OutputStreamFormatter,
-    format_linting_result_header,
-)
+from sqlfluff.cli.formatters import OutputStreamFormatter, format_linting_result_header
 from sqlfluff.cli.helpers import LazySequence, get_package_version
 from sqlfluff.cli.outputstream import OutputStream, make_output_stream
 
@@ -165,9 +162,8 @@ def common_options(f: Callable) -> Callable:
         ),
     )(f)
     f = click.option(
-        "-n",
-        "--nocolor",
-        is_flag=True,
+        "-n/ ",
+        "--nocolor/--color",
         default=None,
         help="No color - output will be without ANSI color codes.",
     )(f)
@@ -369,6 +365,11 @@ def lint_options(f: Callable) -> Callable:
         default=False,
         help="Warn about unneeded '-- noqa:' comments.",
     )(f)
+    f = click.option(
+        "--disregard-sqlfluffignores",
+        is_flag=True,
+        help="Perform the operation regardless of .sqlfluffignore configurations",
+    )(f)
     return f
 
 
@@ -440,7 +441,7 @@ def get_linter_and_formatter(
     cfg: FluffConfig,
     output_stream: Optional[OutputStream] = None,
     show_lint_violations: bool = False,
-) -> Tuple[Linter, OutputStreamFormatter]:
+) -> tuple[Linter, OutputStreamFormatter]:
     """Get a linter object given a config."""
     try:
         # We're just making sure it exists at this stage.
@@ -576,14 +577,9 @@ def dump_file_payload(filename: Optional[str], payload: str) -> None:
         "found. This is potentially useful during rollout."
     ),
 )
-@click.option(
-    "--disregard-sqlfluffignores",
-    is_flag=True,
-    help="Perform the operation regardless of .sqlfluffignore configurations",
-)
 @click.argument("paths", nargs=-1, type=click.Path(allow_dash=True))
 def lint(
-    paths: Tuple[str],
+    paths: tuple[str],
     format: str,
     write_output: Optional[str],
     annotation_level: str,
@@ -646,8 +642,12 @@ def lint(
         # add stdin if specified via lone '-'
         if ("-",) == paths:
             if stdin_filename:
-                lnt.config = lnt.config.make_child_from_path(stdin_filename)
-            result = lnt.lint_string_wrapped(sys.stdin.read(), fname="stdin")
+                lnt.config = lnt.config.make_child_from_path(
+                    stdin_filename, require_dialect=False
+                )
+            result = lnt.lint_string_wrapped(
+                sys.stdin.read(), fname="stdin", stdin_filename=stdin_filename
+            )
         else:
             result = lnt.lint_paths(
                 paths,
@@ -838,13 +838,18 @@ def _handle_unparsable(
 
 
 def _stdin_fix(
-    linter: Linter, formatter: OutputStreamFormatter, fix_even_unparsable: bool
+    linter: Linter,
+    formatter: OutputStreamFormatter,
+    fix_even_unparsable: bool,
+    stdin_filename: Optional[str] = None,
 ) -> None:
     """Handle fixing from stdin."""
     exit_code = EXIT_SUCCESS
     stdin = sys.stdin.read()
 
-    result = linter.lint_string_wrapped(stdin, fname="stdin", fix=True)
+    result = linter.lint_string_wrapped(
+        stdin, fname="stdin", fix=True, stdin_filename=stdin_filename
+    )
     templater_error = result.num_violations(types=SQLTemplaterError) > 0
     unfixable_error = result.num_violations(types=SQLLintError, fixable=False) > 0
 
@@ -892,6 +897,7 @@ def _paths_fix(
     show_lint_violations,
     check: bool = False,
     persist_timing: Optional[str] = None,
+    ignore_files: bool = True,
 ) -> None:
     """Handle fixing from paths."""
     # Lint the paths (not with the fix argument at this stage), outputting as we go.
@@ -904,6 +910,7 @@ def _paths_fix(
             paths,
             fix=True,
             ignore_non_existent_files=False,
+            ignore_files=ignore_files,
             processes=processes,
             # If --check is set, then don't apply any fixes until the end.
             apply_fixes=not check,
@@ -931,7 +938,7 @@ def _paths_fix(
         if check and formatter.verbosity >= 0:
             click.echo("==== fixing violations ====")
 
-        click.echo(f"{num_fixable} " "fixable linting violations found")
+        click.echo(f"{num_fixable} fixable linting violations found")
 
         if check:
             click.echo(
@@ -1058,7 +1065,8 @@ def _paths_fix(
 @click.argument("paths", nargs=-1, type=click.Path(allow_dash=True))
 def fix(
     force: bool,
-    paths: Tuple[str],
+    paths: tuple[str],
+    disregard_sqlfluffignores: bool,
     check: bool = False,
     bench: bool = False,
     quiet: bool = False,
@@ -1128,8 +1136,10 @@ def fix(
         # handle stdin case. should output formatted sql to stdout and nothing else.
         if fixing_stdin:
             if stdin_filename:
-                lnt.config = lnt.config.make_child_from_path(stdin_filename)
-            _stdin_fix(lnt, formatter, fix_even_unparsable)
+                lnt.config = lnt.config.make_child_from_path(
+                    stdin_filename, require_dialect=False
+                )
+            _stdin_fix(lnt, formatter, fix_even_unparsable, stdin_filename)
         else:
             _paths_fix(
                 lnt,
@@ -1142,6 +1152,7 @@ def fix(
                 show_lint_violations,
                 check=check,
                 persist_timing=persist_timing,
+                ignore_files=not disregard_sqlfluffignores,
             )
 
 
@@ -1157,7 +1168,8 @@ def fix(
 )
 @click.argument("paths", nargs=-1, type=click.Path(allow_dash=True))
 def cli_format(
-    paths: Tuple[str],
+    paths: tuple[str],
+    disregard_sqlfluffignores: bool,
     bench: bool = False,
     fixed_suffix: str = "",
     logger: Optional[logging.Logger] = None,
@@ -1230,8 +1242,12 @@ def cli_format(
         # handle stdin case. should output formatted sql to stdout and nothing else.
         if fixing_stdin:
             if stdin_filename:
-                lnt.config = lnt.config.make_child_from_path(stdin_filename)
-            _stdin_fix(lnt, formatter, fix_even_unparsable=False)
+                lnt.config = lnt.config.make_child_from_path(
+                    stdin_filename, require_dialect=False
+                )
+            _stdin_fix(
+                lnt, formatter, fix_even_unparsable=False, stdin_filename=stdin_filename
+            )
         else:
             _paths_fix(
                 lnt,
@@ -1243,6 +1259,7 @@ def cli_format(
                 bench=bench,
                 show_lint_violations=False,
                 persist_timing=persist_timing,
+                ignore_files=not disregard_sqlfluffignores,
             )
 
 
@@ -1363,7 +1380,9 @@ def parse(
         if "-" == path:
             file_config = lnt.config
             if stdin_filename:
-                file_config = file_config.make_child_from_path(stdin_filename)
+                file_config = file_config.make_child_from_path(
+                    stdin_filename, require_dialect=False
+                )
             parsed_strings = [
                 lnt.parse_string(
                     sys.stdin.read(),

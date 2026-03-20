@@ -15,9 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import subprocess
 import sys
+from io import StringIO
 from textwrap import dedent
 from unittest import mock
 
@@ -27,7 +29,7 @@ from fixtures import MonkeyPatch
 from fixtures import TempDir
 from testtools import TestCase
 
-from bindep.__main__ import main
+from bindep.__main__ import main, configure_logging
 
 
 class MainFixture(Fixture):
@@ -206,3 +208,49 @@ class TestMain(TestCase):
         result2 = subprocess.check_output(
             [sys.executable, "-m", "bindep", "--version"])
         assert result == result2
+
+    def test_logging_split(self):
+        """Test logging to stdout and stderr.
+
+        INFO|WARNING -> stdout
+        ERROR|CRITICAL -> stderr.
+        """
+        stderr_capture = StringIO()
+        stdout_capture = StringIO()
+
+        # Clear existing handlers
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+
+        # Patch sys.stdout and sys.stderr
+        with mock.patch('sys.stdout', stdout_capture), \
+             mock.patch('sys.stderr', stderr_capture):
+            configure_logging()
+            logging.critical("Test critical message")
+            logging.error("Test error message")
+            logging.warning("Test warning message")
+            logging.info("Test info message")
+
+        # Verify output routing
+        stderr_out = stderr_capture.getvalue()
+        stdout_out = stdout_capture.getvalue()
+
+        # stderr
+        self.assertIn("Test critical message\n", stderr_out)
+        self.assertIn("Test error message\n", stderr_out)
+        # stdout
+        self.assertIn("Test warning message\n", stdout_out)
+        self.assertIn("Test info message\n", stdout_out)
+
+    def test_invalid_syntax_returns_exit_code_2(self):
+        """Test that parsing errors return exit code 2."""
+        fixture = self.useFixture(MainFixture())
+        self.useFixture(MonkeyPatch('sys.argv', ['bindep']))
+
+        # Create file with invalid syntax
+        with open(fixture.path + '/bindep.txt', 'wt') as f:
+            f.write('foo [platform:bar@baz]\n')
+
+        self.assertEqual(2, main())
+        self.assertIn("Requirements parsing error:", fixture.logger.output)

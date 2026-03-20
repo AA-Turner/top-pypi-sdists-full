@@ -296,6 +296,7 @@ __all__ = (
     "FleetInstanceMatchCriteriaType",
     "FleetOnDemandAllocationStrategyType",
     "FleetReplacementStrategyType",
+    "FleetReservationTypeType",
     "FleetStateCodeType",
     "FleetTypeType",
     "FlexibleEnaQueuesSupportType",
@@ -908,7 +909,7 @@ DefaultInstanceMetadataEndpointStateType = Literal["disabled", "enabled", "no-pr
 DefaultInstanceMetadataTagsStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultRouteTableAssociationValueType = Literal["disable", "enable"]
 DefaultRouteTablePropagationValueType = Literal["disable", "enable"]
-DefaultTargetCapacityTypeType = Literal["capacity-block", "on-demand", "spot"]
+DefaultTargetCapacityTypeType = Literal["capacity-block", "on-demand", "reserved-capacity", "spot"]
 DeleteFleetErrorCodeType = Literal[
     "fleetIdDoesNotExist", "fleetIdMalformed", "fleetNotInDeletableState", "unexpectedError"
 ]
@@ -1186,6 +1187,7 @@ FleetExcessCapacityTerminationPolicyType = Literal["no-termination", "terminatio
 FleetInstanceMatchCriteriaType = Literal["open"]
 FleetOnDemandAllocationStrategyType = Literal["lowest-price", "prioritized"]
 FleetReplacementStrategyType = Literal["launch", "launch-before-terminate"]
+FleetReservationTypeType = Literal["interruptible-capacity-reservation"]
 FleetStateCodeType = Literal[
     "active",
     "deleted",
@@ -1350,7 +1352,7 @@ InstanceExistsWaiterName = Literal["instance_exists"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthStatusType = Literal["healthy", "unhealthy"]
 InstanceInterruptionBehaviorType = Literal["hibernate", "stop", "terminate"]
-InstanceLifecycleType = Literal["on-demand", "spot"]
+InstanceLifecycleType = Literal["interruptible-capacity-reservation", "on-demand", "spot"]
 InstanceLifecycleTypeType = Literal[
     "capacity-block", "interruptible-capacity-reservation", "scheduled", "spot"
 ]

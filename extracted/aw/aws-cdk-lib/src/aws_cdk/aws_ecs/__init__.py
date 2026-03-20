@@ -2505,6 +2505,33 @@ ecs.ExternalService(self, "ExternalService",
 )
 ```
 
+### Force New Deployment
+
+You can force a new deployment of a service without changing the task definition or desired count.
+This is useful when you want ECS to pull the latest container image with the same tag or to trigger a redeployment.
+
+When called without a nonce, a timestamp is generated automatically. This means every `cdk synth`
+produces a different template and every `cdk deploy` triggers a new deployment, regardless of
+whether any code has changed. To control when deployments happen, provide a stable nonce that only
+changes when you intentionally want to redeploy (e.g., an image digest or a version string).
+
+```python
+# cluster: ecs.Cluster
+# task_definition: ecs.TaskDefinition
+
+
+service = ecs.FargateService(self, "Service",
+    cluster=cluster,
+    task_definition=task_definition
+)
+
+# Force a new deployment with an auto-generated nonce (deploys on every `cdk deploy`)
+service.force_new_deployment()
+
+# Or provide your own nonce to control when deployments are triggered
+service.force_new_deployment("my-custom-nonce-v2")
+```
+
 ## Mixins
 
 ECS provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
@@ -50031,6 +50058,25 @@ class BaseService(
 
         return typing.cast(None, jsii.invoke(self, "enableServiceConnect", [config]))
 
+    @jsii.member(jsii_name="forceNewDeployment")
+    def force_new_deployment(self, nonce: typing.Optional[builtins.str] = None) -> None:
+        '''Forces a new deployment of the service.
+
+        This can be used to trigger a deployment without changing the task definition or desired count.
+        ECS will start a new deployment even if there are no changes to the service configuration.
+
+        **Important:** When called without a nonce, a timestamp is generated automatically, which means
+        every ``cdk synth`` produces a different template and every ``cdk deploy`` triggers a new deployment
+        regardless of whether any code has changed. To avoid this, provide a stable nonce value that only
+        changes when you intentionally want to force a redeployment (e.g., an image digest or a version string).
+
+        :param nonce: - A unique string (1-255 characters) that signals ECS to start a new deployment. If not provided, a timestamp-based nonce is generated.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a6ae3f5533805e2e165fe5302ffbb8edd78f100821779f2b653eccdfce8efb7)
+            check_type(argname="argument nonce", value=nonce, expected_type=type_hints["nonce"])
+        return typing.cast(None, jsii.invoke(self, "forceNewDeployment", [nonce]))
+
     @jsii.member(jsii_name="isUsingECSDeploymentController")
     def is_using_ecs_deployment_controller(self) -> builtins.bool:
         '''Checks if the service is using the ECS deployment controller.
@@ -56850,6 +56896,12 @@ def _typecheckingstub__027c7741168086e6dc84ce3b453e99740a28a87dabd7b69b28195c0b3
     alarm_names: typing.Sequence[builtins.str],
     *,
     behavior: typing.Optional[AlarmBehavior] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a6ae3f5533805e2e165fe5302ffbb8edd78f100821779f2b653eccdfce8efb7(
+    nonce: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

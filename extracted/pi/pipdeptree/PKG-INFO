@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 2.31.0
+Version: 2.32.0
 Summary: Command line utility to show dependency tree of packages.
 Project-URL: Changelog, https://github.com/tox-dev/pipdeptree/releases
 Project-URL: Documentation, https://github.com/tox-dev/pipdeptree/blob/main/README.md#pipdeptree
@@ -27,6 +27,8 @@ Requires-Dist: packaging>=26
 Requires-Dist: pip>=25.2
 Provides-Extra: graphviz
 Requires-Dist: graphviz>=0.21; extra == 'graphviz'
+Provides-Extra: rich
+Requires-Dist: rich>=14.3.3; extra == 'rich'
 Provides-Extra: test
 Requires-Dist: covdefaults>=2.3; extra == 'test'
 Requires-Dist: diff-cover>=9.7.1; extra == 'test'

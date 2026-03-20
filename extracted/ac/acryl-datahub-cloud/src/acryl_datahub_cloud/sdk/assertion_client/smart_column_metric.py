@@ -15,13 +15,17 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     _merge_field,
     _print_experimental_warning,
     _validate_required_field,
+    extract_existing_backfill_config,
+    extract_existing_time_bucketing_strategy,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
+    BackfillConfigInputTypes,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
+    TimeBucketingStrategyInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     MetricInputType,
@@ -104,6 +108,8 @@ class SmartColumnMetricAssertionClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> SmartColumnMetricAssertion:
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
@@ -133,6 +139,8 @@ class SmartColumnMetricAssertionClient:
                 updated_by=updated_by,
                 now_utc=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
+                backfill_config=backfill_config,
             )
         )
 
@@ -228,6 +236,8 @@ class SmartColumnMetricAssertionClient:
         updated_by: Union[str, CorpUserUrn],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> _SmartColumnMetricAssertionInput:
         # 1. If urn is not provided, validate required fields and build a new assertion input directly
         if urn is None:
@@ -257,6 +267,8 @@ class SmartColumnMetricAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
+                backfill_config=backfill_config,
             )
 
         # 2. Retrieve any existing assertion and monitor entities
@@ -307,6 +319,8 @@ class SmartColumnMetricAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
+                backfill_config=backfill_config,
             )
 
         # 6. Build assertion input for validation
@@ -328,6 +342,8 @@ class SmartColumnMetricAssertionClient:
             updated_by=updated_by,
             updated_at=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
         # 7. Create existing assertion from entities
@@ -368,6 +384,8 @@ class SmartColumnMetricAssertionClient:
             maybe_assertion_entity=maybe_assertion_entity,
             maybe_monitor_entity=maybe_monitor_entity,
             existing_assertion=existing_assertion,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
         return merged_assertion_input
@@ -392,6 +410,8 @@ class SmartColumnMetricAssertionClient:
         maybe_assertion_entity: Optional[Assertion],
         maybe_monitor_entity: Optional[Monitor],
         existing_assertion: SmartColumnMetricAssertion,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> _SmartColumnMetricAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -418,6 +438,20 @@ class SmartColumnMetricAssertionClient:
         Returns:
             The merged assertion input.
         """
+        existing_time_bucketing = extract_existing_time_bucketing_strategy(
+            maybe_monitor_entity
+        )
+        existing_backfill = extract_existing_backfill_config(maybe_monitor_entity)
+
+        effective_time_bucketing = (
+            time_bucketing_strategy
+            if time_bucketing_strategy is not None
+            else existing_time_bucketing
+        )
+        effective_backfill = (
+            backfill_config if backfill_config is not None else existing_backfill
+        )
+
         merged_assertion_input = _SmartColumnMetricAssertionInput(
             urn=urn,
             entity_client=self.client.entities,
@@ -529,6 +563,8 @@ class SmartColumnMetricAssertionClient:
                 if maybe_assertion_entity
                 else None,
             ),
+            time_bucketing_strategy=effective_time_bucketing,
+            backfill_config=effective_backfill,
             created_by=existing_assertion.created_by
             or DEFAULT_CREATED_BY,  # Override with the existing assertion's created_by or the default created_by if not set
             created_at=existing_assertion.created_at

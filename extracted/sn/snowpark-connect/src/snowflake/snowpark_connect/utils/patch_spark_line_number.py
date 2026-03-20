@@ -179,3 +179,22 @@ def patch_pyspark_connect() -> None:
     SparkConnectClient._interrupt_request = exec_with_debug_info(
         SparkConnectClient._interrupt_request
     )
+
+
+def patch_proto_to_string() -> None:
+    """
+    Monkeypatch _proto_to_string as a short-term fix for RecursionError on deeply nested plans.
+
+    text_format.MessageToString hits Python's recursion limit on deep protobuf
+    plans, and the f-string in logger.info() evaluates eagerly even when logging
+    is disabled. This patch prevents the crash by returning a placeholder string.
+    """
+    _original_proto_to_string = SparkConnectClient._proto_to_string
+
+    def _safe_proto_to_string(self, p):
+        try:
+            return _original_proto_to_string(self, p)
+        except RecursionError:
+            return "<plan too deep to serialize>"
+
+    SparkConnectClient._proto_to_string = _safe_proto_to_string

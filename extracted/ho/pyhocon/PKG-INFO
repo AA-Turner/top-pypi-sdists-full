@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhocon
-Version: 0.3.62
+Version: 0.3.63
 Summary: HOCON parser for Python
 Home-page: http://github.com/chimpler/pyhocon/
 Author: Francois Dang Ngoc

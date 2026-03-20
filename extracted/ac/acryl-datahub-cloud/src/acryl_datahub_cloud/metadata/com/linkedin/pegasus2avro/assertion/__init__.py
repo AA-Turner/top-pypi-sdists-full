@@ -19,6 +19,7 @@ from .....schema_classes import AssertionExclusionWindowClass
 from .....schema_classes import AssertionExclusionWindowTypeClass
 from .....schema_classes import AssertionInferenceDetailsClass
 from .....schema_classes import AssertionInfoClass
+from .....schema_classes import AssertionManagedByClass
 from .....schema_classes import AssertionMetricClass
 from .....schema_classes import AssertionMonitorSensitivityClass
 from .....schema_classes import AssertionNoteClass
@@ -31,6 +32,7 @@ from .....schema_classes import AssertionRunStatusClass
 from .....schema_classes import AssertionRunSummaryClass
 from .....schema_classes import AssertionSourceClass
 from .....schema_classes import AssertionSourceTypeClass
+from .....schema_classes import AssertionStatusClass
 from .....schema_classes import AssertionStdAggregationClass
 from .....schema_classes import AssertionStdOperatorClass
 from .....schema_classes import AssertionStdParameterClass
@@ -86,6 +88,7 @@ AssertionExclusionWindow = AssertionExclusionWindowClass
 AssertionExclusionWindowType = AssertionExclusionWindowTypeClass
 AssertionInferenceDetails = AssertionInferenceDetailsClass
 AssertionInfo = AssertionInfoClass
+AssertionManagedBy = AssertionManagedByClass
 AssertionMetric = AssertionMetricClass
 AssertionMonitorSensitivity = AssertionMonitorSensitivityClass
 AssertionNote = AssertionNoteClass
@@ -98,6 +101,7 @@ AssertionRunStatus = AssertionRunStatusClass
 AssertionRunSummary = AssertionRunSummaryClass
 AssertionSource = AssertionSourceClass
 AssertionSourceType = AssertionSourceTypeClass
+AssertionStatus = AssertionStatusClass
 AssertionStdAggregation = AssertionStdAggregationClass
 AssertionStdOperator = AssertionStdOperatorClass
 AssertionStdParameter = AssertionStdParameterClass

@@ -85861,6 +85861,9 @@ class Scene(ID, bpy_struct):
     active_clip: MovieClip | None
     """ Active Movie Clip that can be used by motion tracking constraints or as a camera's background image"""
 
+    allow_preroll: bool
+    """ Allows playing back frames before the playback start frame (default False)"""
+
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 

@@ -3,27 +3,15 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from copy import copy, deepcopy
 from itertools import chain
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pluggy
 
 from sqlfluff.core.config.ini import coerce_value
-from sqlfluff.core.config.loader import (
-    load_config_string,
-    load_config_up_to_path,
-)
+from sqlfluff.core.config.loader import load_config_string, load_config_up_to_path
 from sqlfluff.core.config.validate import validate_config_dict
 from sqlfluff.core.errors import SQLFluffUserError
 from sqlfluff.core.helpers.dict import (
@@ -132,8 +120,10 @@ class FluffConfig:
         # If any existing configs are provided. Validate them:
         if configs:
             validate_config_dict(configs, "<provided configs>")
+        empty_config: ConfigMappingType = {"core": {}}
+        empty_overrides: ConfigMappingType = {}
         self._configs = nested_combine(
-            defaults, configs or {"core": {}}, overrides or {}
+            defaults, configs or empty_config, overrides or empty_overrides
         )
         # Some configs require special treatment
         self._configs["core"]["color"] = (
@@ -194,7 +184,7 @@ class FluffConfig:
                 f"{', '.join([d.label for d in dialect_readout()])}"
             )
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         # Copy the object's state from self.__dict__ which contains
         # all our instance attributes. Always use the dict.copy()
         # method to avoid modifying the original state.
@@ -214,7 +204,7 @@ class FluffConfig:
         state["_configs"]["core"]["templater_obj"] = None
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:  # pragma: no cover
+    def __setstate__(self, state: dict[str, Any]) -> None:  # pragma: no cover
         # Restore instance attributes
         self.__dict__.update(state)
         # NOTE: Rather than rehydrating the previous plugin manager, we
@@ -355,6 +345,7 @@ class FluffConfig:
         ignore_local_config: bool = False,
         overrides: Optional[ConfigMappingType] = None,
         plugin_manager: Optional[pluggy.PluginManager] = None,
+        require_dialect: bool = True,
     ) -> FluffConfig:
         """Loads a config object given a particular path.
 
@@ -380,6 +371,8 @@ class FluffConfig:
                 this, as the class will fetch it's own if not provided.
                 This argument is used when creating new class instances to
                 avoid reloading the manager.
+            require_dialect (bool, optional, default is True): When True
+                an error will be raise if the dialect config value is unset.
 
         Returns:
             :obj:`FluffConfig`: The loaded config object.
@@ -395,14 +388,15 @@ class FluffConfig:
             ignore_local_config=ignore_local_config,
             overrides=overrides,
             plugin_manager=plugin_manager,
+            require_dialect=require_dialect,
         )
 
     @classmethod
     def from_kwargs(
         cls,
         dialect: Optional[str] = None,
-        rules: Optional[List[str]] = None,
-        exclude_rules: Optional[List[str]] = None,
+        rules: Optional[list[str]] = None,
+        exclude_rules: Optional[list[str]] = None,
         require_dialect: bool = True,
     ) -> FluffConfig:
         """Instantiate a config from a subset of common options.
@@ -437,7 +431,7 @@ class FluffConfig:
 
         return cls(overrides=overrides, require_dialect=require_dialect)
 
-    def get_templater_class(self) -> Type["RawTemplater"]:
+    def get_templater_class(self) -> type[RawTemplater]:
         """Get the configured templater class.
 
         .. note::
@@ -447,7 +441,7 @@ class FluffConfig:
            full templater. Instantiated templaters don't pickle well, so aren't
            automatically passed around between threads/processes.
         """
-        templater_lookup: Dict[str, Type["RawTemplater"]] = {
+        templater_lookup: dict[str, type[RawTemplater]] = {
             templater.name: templater
             for templater in chain.from_iterable(
                 self._plugin_manager.hook.get_templaters()
@@ -455,10 +449,9 @@ class FluffConfig:
         }
         # Fetch the config value.
         templater_name = self._configs["core"].get("templater", "<no value set>")
-        assert isinstance(templater_name, str), (
-            "Config value `templater` expected to be a string. "
-            f"Not: {templater_name!r}"
-        )
+        assert isinstance(
+            templater_name, str
+        ), f"Config value `templater` expected to be a string. Not: {templater_name!r}"
         try:
             cls = templater_lookup[templater_name]
             # Return class. Do not instantiate yet. That happens in `get_templater()`
@@ -476,16 +469,20 @@ class FluffConfig:
                 "{}".format(templater_name, ", ".join(templater_lookup.keys()))
             )
 
-    def get_templater(self, **kwargs: Any) -> "RawTemplater":
+    def get_templater(self, **kwargs: Any) -> RawTemplater:
         """Instantiate the configured templater."""
         return self.get_templater_class()(**kwargs)
 
-    def make_child_from_path(self, path: str) -> FluffConfig:
+    def make_child_from_path(
+        self, path: str, require_dialect: bool = True
+    ) -> FluffConfig:
         """Make a child config at a path but pass on overrides and extra_config_path.
 
         Args:
             path (str): The path to load the new config object from, inheriting
                 the content of the calling `FluffConfig` as base values.
+            require_dialect (bool, optional, default is True): When True
+                an error will be raise if the dialect config value is unset.
 
         Returns:
             :obj:`FluffConfig`: A new config object which copies the current
@@ -498,6 +495,7 @@ class FluffConfig:
             ignore_local_config=self._ignore_local_config,
             overrides=self._overrides,
             plugin_manager=self._plugin_manager,
+            require_dialect=require_dialect,
         )
 
     def diff_to(self, other: FluffConfig) -> ConfigMappingType:
@@ -576,9 +574,10 @@ class FluffConfig:
             # Try iterating
             buff = self._configs
             for sec in section:
-                buff = buff.get(sec, None)
-                if buff is None:
+                temp = buff.get(sec, None)
+                if temp is None:
                     return None
+                buff = temp
             return buff
 
     def set_value(self, config_path: Iterable[str], val: Any) -> None:
@@ -621,7 +620,7 @@ class FluffConfig:
 
     def iter_vals(
         self, cfg: Optional[ConfigMappingType] = None
-    ) -> Iterable[Tuple[int, str, ConfigValueOrListType]]:
+    ) -> Iterable[tuple[int, str, ConfigValueOrListType]]:
         """Return an iterable of tuples representing keys.
 
         Args:

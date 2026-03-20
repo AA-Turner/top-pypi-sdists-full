@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.94.0
+Version: 0.94.1
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -29,7 +29,7 @@ Requires-Dist: jsonref
 Requires-Dist: opentelemetry-sdk==1.38.0
 Requires-Dist: packaging>=24.1
 Requires-Dist: psutil>=5.0.0
-Requires-Dist: pydantic>=2.0,<=2.11.9
+Requires-Dist: pydantic>=2.0,<=2.12.5
 Requires-Dist: python-dateutil>=2.8.1,<3.0.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: rich>=12.0.0
@@ -99,6 +99,7 @@ Requires-Dist: types-six>=1.16.2 ; extra == 'dev'
 Requires-Dist: types-termcolor>=1.1.2 ; extra == 'dev'
 Requires-Dist: types-psutil>=5.8.13 ; extra == 'dev'
 Requires-Dist: types-passlib>=1.7.7 ; extra == 'dev'
+Requires-Dist: types-jsonschema>=4.26.0 ; extra == 'dev'
 Requires-Dist: gcsfs>=2022.11.0 ; extra == 'gcsfs'
 Requires-Dist: rich[jupyter]>=12.0.0 ; extra == 'jupyter'
 Requires-Dist: alembic>=1.8.1,<=1.15.2 ; extra == 'local'
@@ -108,6 +109,7 @@ Requires-Dist: pymysql~=1.1.0,>=1.1.1 ; extra == 'local'
 Requires-Dist: sqlalchemy>=2.0.0,<3.0.0 ; extra == 'local'
 Requires-Dist: sqlalchemy-utils ; extra == 'local'
 Requires-Dist: sqlmodel==0.0.18 ; extra == 'local'
+Requires-Dist: jsonschema>=4.0.0 ; extra == 'local'
 Requires-Dist: s3fs>=2022.11.0,!=2025.3.1 ; extra == 's3fs'
 Requires-Dist: sagemaker>=2.237.3,<3.0.0 ; extra == 'sagemaker'
 Requires-Dist: boto3>=1.16.0 ; extra == 'secrets-aws'

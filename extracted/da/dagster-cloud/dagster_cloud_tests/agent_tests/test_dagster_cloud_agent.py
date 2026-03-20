@@ -431,12 +431,12 @@ def _code_server_heartbeat_for_location(
 
 
 def _run_initial_reconcilation(
-    agent, user_code_launcher, upload_all=True, agent_id=FAKE_AGENT_UUID
+    agent, user_code_launcher, upload_outdated=True, agent_id=FAKE_AGENT_UUID
 ):
     # pulls initial locations from graphql and tells the user code launcher to asynchronously
     # reconcile them
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=upload_all
+        user_code_launcher, upload_outdated=upload_outdated
     )
 
     agent._check_add_heartbeat(  # noqa: SLF001
@@ -576,7 +576,7 @@ def test_agent_heartbeat_utilization_metrics(
     with DagsterCloudAgent(metrics_instance) as agent:
         agent._check_update_workspace(  # noqa: SLF001
             user_code_launcher,
-            upload_all=True,
+            upload_outdated=True,
         )
         agent._update_utilization_metrics(user_code_launcher)  # noqa: SLF001
         # Simulate enough time passing for the agent to update utilization metrics on the next pass.
@@ -667,7 +667,7 @@ def test_agent_heartbeat_resource_metrics(
         with freeze_time(freeze_datetime):
             agent._check_update_workspace(  # noqa: SLF001
                 user_code_launcher,
-                upload_all=True,
+                upload_outdated=True,
             )
             # Test the case where no metrics are successfully retrieved.
             cpu_usage_mock.return_value = None
@@ -789,14 +789,14 @@ def test_agent_heartbeat_resource_metrics(
             )
 
 
-@pytest.mark.parametrize("upload_all", [True, False])
+@pytest.mark.parametrize("upload_outdated", [True, False])
 def test_initial_reconcilation_populates_servers(
     agent,
     agent_instance,
     user_code_launcher,
     host_instance,
     cloud_storage,
-    upload_all,
+    upload_outdated,
 ):
     _add_location(cloud_storage, location_name="location1")
 
@@ -804,7 +804,7 @@ def test_initial_reconcilation_populates_servers(
         user_code_launcher.get_grpc_endpoint("sandbox", "location1")
 
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=upload_all
+        user_code_launcher, upload_outdated=upload_outdated
     )
 
     agent._check_add_heartbeat(  # noqa: SLF001
@@ -832,12 +832,47 @@ def test_initial_reconcilation_populates_servers(
 
     location_entry = cloud_storage.get_workspace_location_entry("location1")
 
-    if upload_all:
+    if upload_outdated:
         assert location_entry.code_location
     else:
         # Does not automatically upload
         assert not location_entry.load_error
         assert not location_entry.code_location
+
+
+def test_upload_outdated_only_uploads_outdated_locations(
+    agent,
+    agent_instance,
+    user_code_launcher,
+    host_instance,
+    cloud_storage,
+):
+    """Verify that upload_outdated=True only queues locations the control plane marks as outdated,
+    not all locations.
+    """
+    # Set up location1 and fully reconcile so its data is uploaded (no longer outdated)
+    _add_location(cloud_storage, location_name="location1")
+    _run_initial_reconcilation(agent, user_code_launcher, upload_outdated=True)
+
+    location1_entry = cloud_storage.get_workspace_location_entry("location1")
+    assert location1_entry.code_location, "location1 should have data uploaded after reconciliation"
+
+    # Now add a new location2 which has no data uploaded yet (outdated)
+    _add_location(cloud_storage, location_name="location2")
+
+    # Query workspace with upload_outdated=True — only location2 should be queued for upload
+    # Call _query_for_workspace_updates directly to bypass the time-based throttle
+    agent._query_for_workspace_updates(  # noqa: SLF001
+        user_code_launcher, upload_outdated=True
+    )
+
+    upload_locations = user_code_launcher._upload_locations  # noqa: SLF001
+    assert ("sandbox", "location2") in upload_locations, (
+        "location2 (outdated) should be queued for upload"
+    )
+    assert ("sandbox", "location1") not in upload_locations, (
+        "location1 (up-to-date) should NOT be queued for upload"
+    )
 
 
 def _test_check_initial_deployment_names(agent_token, ursula_graphql_client, agent, agent_instance):
@@ -887,7 +922,7 @@ def test_location_import_error(
         code_location_deploy_data=CodeLocationDeployData(package_name="does_not_exist"),
     )
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=False
+        user_code_launcher, upload_outdated=False
     )
 
     agent._check_add_heartbeat(  # noqa: SLF001
@@ -1076,7 +1111,7 @@ def test_agent_heartbeat_truncation(
         )
 
         agent._check_update_workspace(  # noqa: SLF001
-            agent_instance.user_code_launcher, upload_all=True
+            agent_instance.user_code_launcher, upload_outdated=True
         )
 
         with mock.patch.object(
@@ -1193,7 +1228,7 @@ def test_agent_with_ttl(
         # Once we update the workspace and reconcile, the next iteration actually
         # runs the request since the server is now up to date
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         agent._check_add_heartbeat(  # noqa: SLF001
@@ -1254,7 +1289,7 @@ def test_agent_with_ttl(
         assert len(agent._pending_requests) == 0  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -1272,7 +1307,7 @@ def test_agent_with_ttl(
             ),
         ):
             agent._query_for_workspace_updates(  # noqa: SLF001
-                user_code_launcher, upload_all=False
+                user_code_launcher, upload_outdated=False
             )
 
         user_code_launcher.reconcile()
@@ -1292,7 +1327,7 @@ def test_agent_with_ttl(
         assert len(agent._pending_requests) == 1  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -1321,7 +1356,7 @@ def test_upload_error_written(
     with mock.patch.object(user_code_launcher, "upload_job_snap_direct", new=_raise):
         _add_location(cloud_storage, "error_loc")
 
-        _run_initial_reconcilation(agent, user_code_launcher, upload_all=False)
+        _run_initial_reconcilation(agent, user_code_launcher, upload_outdated=False)
 
         dagster_cloud_api_call(
             host_instance,
@@ -1372,7 +1407,7 @@ def test_check_for_workspace_updates_affects_ttl(
         # Server stays up after the next reconcilation loop too
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
         user_code_launcher.reconcile()
 
@@ -1418,7 +1453,7 @@ def test_ping_location_affects_ttl(
         next(agent.run_iteration(user_code_launcher))
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -1473,7 +1508,7 @@ def test_wait_to_pull_requests_after_limit(
 
         # Once a reconcilation happens and the queue goes back down to 0, subsequent requests will start again
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -1535,7 +1570,7 @@ def test_max_server_limit(
         assert len(agent._pending_requests) == num_locations  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
         user_code_launcher.reconcile()
 
@@ -1547,7 +1582,7 @@ def test_max_server_limit(
         _run_to_request_completion(agent, user_code_launcher)
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
         user_code_launcher.reconcile()
 
@@ -1609,7 +1644,7 @@ def test_location_removal_clears_pending_requests(
         assert len(agent._pending_requests) == 2  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         next(agent.run_iteration(user_code_launcher))
@@ -1670,7 +1705,7 @@ def test_agent_automatically_syncs(
 
     # After the next worskpace check + reconcile, both locations are set
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=False
+        user_code_launcher, upload_outdated=False
     )
     user_code_launcher.reconcile()
 
@@ -1707,7 +1742,7 @@ def test_autosync_while_checking_for_workspace_updates(
 
     # agent also polls for an update, gets one
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=False
+        user_code_launcher, upload_outdated=False
     )
 
     # next reconcilation should still result in the upload triggered by the
@@ -1765,7 +1800,7 @@ def test_no_requests_before_initial_reconciliation(
     agent, agent_instance, user_code_launcher, host_instance, cloud_storage
 ):
     agent._check_update_workspace(  # noqa: SLF001
-        user_code_launcher, upload_all=True
+        user_code_launcher, upload_outdated=True
     )
 
     agent._check_add_heartbeat(  # noqa: SLF001
@@ -1782,7 +1817,7 @@ def test_no_requests_before_initial_reconciliation(
     assert list(agent.run_iteration(user_code_launcher)) == []
 
     assert not agent.request_ids_to_futures
-    _run_initial_reconcilation(agent, user_code_launcher, upload_all=False)
+    _run_initial_reconcilation(agent, user_code_launcher, upload_outdated=False)
     next(agent.run_iteration(user_code_launcher))
     assert agent.request_ids_to_futures
     _run_to_request_completion(agent, user_code_launcher)
@@ -2488,7 +2523,7 @@ def test_no_server_endpoint_unreachable(
     assert len(agent._pending_requests) == 1  # noqa: SLF001
 
     agent._query_for_workspace_updates(  # noqa: SLF001
-        user_code_launcher, upload_all=False
+        user_code_launcher, upload_outdated=False
     )
 
     _run_to_request_completion(agent, user_code_launcher)
@@ -2658,7 +2693,7 @@ def test_branch_deployments_agent(
         assert len(agent._pending_requests) == 2  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         agent._check_add_heartbeat(  # noqa: SLF001
@@ -2744,7 +2779,7 @@ def test_branch_deployments_agent(
         )
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -2845,7 +2880,7 @@ def test_branch_deployments_and_serverless_agent(
         assert len(agent._pending_requests) == 2  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -2919,7 +2954,7 @@ def test_branch_deployments_and_serverless_agent(
         )
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -3016,7 +3051,7 @@ def test_branch_deployments_and_prod_deployments_agent(
         assert len(agent._pending_requests) == 2  # noqa: SLF001
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()
@@ -3092,7 +3127,7 @@ def test_branch_deployments_and_prod_deployments_agent(
         )
 
         agent._query_for_workspace_updates(  # noqa: SLF001
-            user_code_launcher, upload_all=False
+            user_code_launcher, upload_outdated=False
         )
 
         user_code_launcher.reconcile()

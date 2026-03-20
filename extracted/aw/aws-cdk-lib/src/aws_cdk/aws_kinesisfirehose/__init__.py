@@ -936,6 +936,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     Size as _Size_7b441c34,
     TagManager as _TagManager_0a598cb3,
@@ -11206,6 +11207,28 @@ class DeliveryStreamGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("DeliveryStreamGrants", jsii.sinvoke(cls, "fromDeliveryStream", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a2625767)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="putRecords")
     def put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grant the ``grantee`` identity permissions to perform ``actions``.
@@ -16981,6 +17004,15 @@ def _typecheckingstub__045ad458e5c2129dfab9cbc14581304a5f9f38f34ef8d143791a7e6ee
 
 def _typecheckingstub__e32ddc623c6c3aa08dd0aeb089ffef45a2403ab8f504c9c8b20868b2996cda90(
     resource: _IDeliveryStreamRef_678f5e53,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__505174724150683a28bf72b2d27a5b4ad7c01e39040b331105e03df7a2625767(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

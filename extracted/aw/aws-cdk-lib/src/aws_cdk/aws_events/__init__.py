@@ -428,6 +428,7 @@ from .. import (
     IResolveContext as _IResolveContext_b2df1921,
     IResource as _IResource_c80c4260,
     ITaggableV2 as _ITaggableV2_4e6798f8,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     SecretValue as _SecretValue_3dd0ddae,
     TagManager as _TagManager_0a598cb3,
@@ -9111,6 +9112,28 @@ class EventBusGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("EventBusGrants", jsii.sinvoke(cls, "fromEventBus", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2ad5fe5a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="allPutEvents")
     def all_put_events(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Permits an IAM Principal to send custom events to EventBridge so that they can be matched to rules.
@@ -14355,6 +14378,15 @@ def _typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a79033
 
 def _typecheckingstub__6ba7a45aeb8041abf98c164c1fefb79c4cfd2e21b154605ca852ffc2f1c0510d(
     resource: _IEventBusRef_aa86e9b4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b0e84903cd0d4a71169d9a1cc26922ea34b5145bcd96c8407a2d88d2ad5fe5a(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -8,6 +8,8 @@ r"""
     在此处封装swanlab在日志记录模式下的各种接口
 """
 import os
+import random
+import secrets
 import time
 from datetime import datetime
 from typing import Union, Dict, Literal, List
@@ -23,6 +25,7 @@ from swanlab.formatter import (
     check_desc_format,
     check_tags_format,
     check_run_id_format,
+    check_color_format,
 )
 from swanlab.log import swanlog
 from swanlab.swanlab_settings import Settings, get_settings, set_settings, read_folder_settings
@@ -107,7 +110,9 @@ class SwanLabInitializer:
         settings: Settings = None,
         id: str = None,
         resume: Union[Literal['must', 'allow', 'never'], bool] = None,
+        parallel: Union[Literal['none', 'shared'], bool] = None,
         reinit: bool = None,
+        color: str = None,
         **kwargs,
     ) -> SwanLabRun:
         """
@@ -184,10 +189,18 @@ class SwanLabInitializer:
                 - never: You cannot pass the `id` parameter, and a new run will be created.
             You can also pass a boolean value, where `True` is equivalent to 'allow' and `False` is equivalent to 'never'.
             [Notice that] This parameter is only valid when mode='cloud'
+        parallel : Literal['none', 'shared'], optional
+            Whether to run experiments in parallel or not:
+                - none: Run experiments sequentially.
+                - shared: Run experiments in parallel, equivalent to `mode='cloud' and resume='allow'`.
         id : str, optional
             The run ID of the previous run, which is used to resume the previous run.
         reinit : bool, optional
             Whether to reinitialize SwanLabRun, the default is False.
+        color : str, optional
+            The experiment color displayed in the web interface.
+            Supports preset colors (e.g., "green"), RGB format (e.g., "rgb(82,141,89)"),
+            or hex format (e.g., "#528d59", "528d59").
         """
         # 一个进程同时只能有一个实验在运行
         if SwanLabRun.is_started():
@@ -236,6 +249,7 @@ class SwanLabInitializer:
             public = _load_from_dict(load_data, "private", public)
             id = _load_from_dict(load_data, "id", id)
             resume = _load_from_dict(load_data, "resume", resume)
+            parallel = _load_from_dict(load_data, "parallel", parallel)
         # 1.2 初始化confi参数
         config = _init_config(config)
         # 如果config是以下几个类别之一，则抛出异常
@@ -256,6 +270,8 @@ class SwanLabInitializer:
         resume = _load_from_env(SwanLabEnv.RESUME.value, resume)
         id = _load_from_env(SwanLabEnv.RUN_ID.value, id)
         logdir = _load_from_env(SwanLabEnv.SWANLOG_FOLDER.value, logdir)
+        color = _load_from_env(SwanLabEnv.EXP_COLOR.value, color)
+        parallel = _load_from_env(SwanLabEnv.RUN_PARALLEL.value, parallel)
         # 2. 部分格式校验
         # 2.1 校验项目名称，默认实验名称为当前目录名
         project = project if project else os.path.basename(os.getcwd())
@@ -266,7 +282,9 @@ class SwanLabInitializer:
         # 2.2 校验实验名称
         # 处理空字符串或纯空格字符串情况
         if experiment_name is not None and not experiment_name.strip():
-            swanlog.warning("The experiment name is an empty or whitespace-only string, automatically converted to None.")
+            swanlog.warning(
+                "The experiment name is an empty or whitespace-only string, automatically converted to None."
+            )
             experiment_name = None
         if experiment_name:
             e = check_exp_name_format(experiment_name)
@@ -298,9 +316,21 @@ class SwanLabInitializer:
                 if tags[i] != new_tags[i]:
                     swanlog.warning("The tag has been truncated automatically.")
                     tags[i] = new_tags[i]
+        # 2.7 校验颜色格式
+        if color:
+            try:
+                color = check_color_format(color)
+            except ValueError as e:
+                swanlog.warning(f"Invalid color format: {e}, will use random color")
+                color = None
         # 3. 校验回调函数
         callbacks = check_callback_format(self.cbs + callbacks)
         self.cbs = []
+        # 4. 校验并行模式
+        if str(parallel).lower() in ["shared", "true", "yes"]:
+            resume = "allow"
+            mode = "cloud"
+            id = id or secrets.token_hex(4)
         # 5. 校验mode参数并适配 backup 模式
         mode = "cloud" if mode == "online" else mode
         mode, login_info = _init_mode(mode, folder_settings.mode)
@@ -311,7 +341,9 @@ class SwanLabInitializer:
         resume = resume or 'never'
         # 非 cloud 模式下，resume 只支持 'never'
         if resume in ('must', 'allow') and mode != "cloud":
-            swanlog.warning(f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'.")
+            swanlog.warning(
+                f"resume='{resume}' is only supported in cloud mode, automatically switch to resume='never'."
+            )
             resume = 'never'
             id = None
         # 根据 resume 的最终值进行校验
@@ -352,6 +384,7 @@ class SwanLabInitializer:
         run_store.tags = tags
         run_store.description = description
         run_store.run_name = experiment_name
+        run_store.run_colors = (color, color) if color else None
         run_store.swanlog_dir = logdir
         # 2. 启动操作员，注册运行实例
         operator = _create_operator(mode, login_info, callbacks)
@@ -427,7 +460,7 @@ def log(
         The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
     step : int, optional
         The step number of the current data, if not provided, it will be automatically incremented.
-        If step is duplicated, the data will be ignored.
+        If step is duplicated, the latest data will overwrite the previous data on that step.
     print_to_console : bool, optional
         Whether to print the data to the console, the default is False.
     """

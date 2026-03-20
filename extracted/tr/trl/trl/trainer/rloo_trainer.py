@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import datasets
+import numpy as np
 import pandas as pd
 import torch
 import torch.utils.data
@@ -522,8 +523,6 @@ class RLOOTrainer(BaseTrainer):
                 max_completion_length=self.max_completion_length,
                 logprobs=None,  # we don't need logprobs from vLLM in RLOO
                 generation_kwargs=args.generation_kwargs,
-                # Chat/tool configuration
-                chat_template_kwargs=self.chat_template_kwargs,
             )
             self._last_loaded_step = -1  # tag to avoid useless loading during grad accumulation
         else:
@@ -883,7 +882,48 @@ class RLOOTrainer(BaseTrainer):
         rewards_per_func = gather(rewards_per_func)
         return rewards_per_func
 
-    def _generate_single_turn(self, prompts: list):
+    def _tokenize_prompts(self, prompts: list):
+        """Tokenize prompts and extract images/multimodal fields for generation."""
+        if is_conversational({"prompt": prompts[0]}):
+            # Extract images from messages for VLM support
+            images = []
+            has_images = False
+            for prompt in prompts:
+                prompt_images = []
+                for message in prompt:
+                    if isinstance(message["content"], list):
+                        for part in message["content"]:
+                            if part["type"] == "image":
+                                prompt_images.append(part["image"])
+                                has_images = True
+                images.append(prompt_images if prompt_images else None)
+            images = images if has_images else None
+
+            # We pass padding=True to work around a bug introduced in transformers 5.2.0 in some processors
+            # (e.g. Qwen2.5-VL) that crash on batched unpadded input. We then unpad input_ids using attention_mask.
+            # See: https://github.com/huggingface/transformers/issues/44514
+            tokenized = self.processing_class.apply_chat_template(
+                conversation=prompts,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                padding=True,
+                **self.chat_template_kwargs,
+            )
+            # Unpad input_ids: remove padding tokens using attention_mask to get per-sequence lists
+            prompt_ids = [
+                [tok for tok, m in zip(ids, mask, strict=True) if m]
+                for ids, mask in zip(tokenized["input_ids"], tokenized["attention_mask"], strict=True)
+            ]
+            # For VLMs, the processor returns extra multimodal fields (pixel_values, image_grid_thw, etc.)
+            multimodal_fields = {k: v for k, v in tokenized.items() if k not in ("input_ids", "attention_mask")}
+        else:
+            prompt_ids = self.processing_class(text=prompts)["input_ids"]
+            images = None
+            multimodal_fields = {}
+        return prompt_ids, images, multimodal_fields
+
+    def _generate_single_turn(self, prompt_ids, images, multimodal_fields):
         device = self.accelerator.device
         mode = "train" if self.model.training else "eval"
 
@@ -897,22 +937,14 @@ class RLOOTrainer(BaseTrainer):
 
             # Generate using vLLM (note: RLOO doesn't use logprobs from generation, so we ignore them)
             num_generations = self.num_generations if mode == "train" else self.num_generations_eval
-            prompt_ids, completion_ids, _, _, _ = self.vllm_generation.generate(
-                prompts=prompts, num_generations=num_generations, profiler=profiling_context(self, "vLLM.generate")
+            _, completion_ids, _, _, _ = self.vllm_generation.generate(
+                prompts=prompt_ids,
+                images=images,
+                num_generations=num_generations,
+                profiler=profiling_context(self, "vLLM.generate"),
             )
 
         elif self.use_transformers_paged:
-            if is_conversational({"prompt": prompts[0]}):
-                processor_outputs = self.processing_class.apply_chat_template(
-                    conversation=prompts,
-                    add_generation_prompt=True,
-                    tokenize=True,
-                    return_dict=True,
-                    **self.chat_template_kwargs,
-                )
-            else:
-                processor_outputs = self.processing_class(text=prompts)
-
             with (
                 profiling_context(self, "transformers.generate_batch"),
                 unwrap_model_for_generation(
@@ -929,29 +961,26 @@ class RLOOTrainer(BaseTrainer):
                 with torch.inference_mode():
                     # Continuous batching API expects 'inputs' arg only
                     all_outputs = unwrapped_model.generate_batch(
-                        processor_outputs["input_ids"], generation_config=self.generation_config, progress_bar=False
+                        prompt_ids, generation_config=self.generation_config, progress_bar=False
                     )
                     unwrapped_model.train()  # restore training mode, as generate_batch forces eval mode
             completion_ids = [output.generated_tokens for output in all_outputs.values()]
-            prompt_ids = processor_outputs["input_ids"]
 
         else:
-            # Regular generation path
-            if is_conversational({"prompt": prompts[0]}):
-                generate_inputs = self.processing_class.apply_chat_template(
-                    conversation=prompts,
-                    add_generation_prompt=True,
-                    tokenize=True,
-                    padding=True,
-                    padding_side="left",
-                    return_tensors="pt",
-                    return_dict=True,
-                    **self.chat_template_kwargs,
-                )
-            else:
-                generate_inputs = self.processing_class(
-                    text=prompts, padding=True, padding_side="left", return_tensors="pt"
-                )
+            # Regular generation path: left-pad token IDs into tensors
+            prompt_tensors = [torch.tensor(ids) for ids in prompt_ids]
+            padded_ids = pad(prompt_tensors, padding_value=self.pad_token_id, padding_side="left")
+            attention_mask = pad([torch.ones_like(t) for t in prompt_tensors], padding_value=0, padding_side="left")
+            generate_inputs = {"input_ids": padded_ids, "attention_mask": attention_mask}
+            # For VLMs, include multimodal fields as tensors (pixel_values, image_grid_thw, etc.)
+            for k, v in multimodal_fields.items():
+                if isinstance(v, torch.Tensor):
+                    generate_inputs[k] = v
+                elif isinstance(v, list) and v and isinstance(v[0], list):
+                    # Per-token field (e.g., token_type_ids): left-pad like input_ids
+                    generate_inputs[k] = pad([torch.tensor(x) for x in v], padding_value=0, padding_side="left")
+                else:
+                    generate_inputs[k] = torch.tensor(np.array(v))
             generate_inputs = super()._prepare_inputs(generate_inputs)
 
             with (
@@ -969,8 +998,7 @@ class RLOOTrainer(BaseTrainer):
                     **generate_inputs, generation_config=self.generation_config, disable_compile=True
                 )
             # Compute prompt length and extract completion ids
-            prompt_ids, prompt_mask = generate_inputs["input_ids"], generate_inputs["attention_mask"]
-            prompt_length = prompt_ids.size(1)
+            prompt_length = generate_inputs["input_ids"].size(1)
             completion_ids = prompt_completion_ids[:, prompt_length:]
 
             # Mask everything after the first EOS token
@@ -979,10 +1007,9 @@ class RLOOTrainer(BaseTrainer):
             eos_idx[is_eos.any(dim=1)] = is_eos.int().argmax(dim=1)[is_eos.any(dim=1)]
             sequence_indices = torch.arange(is_eos.size(1), device=device).expand(is_eos.size(0), -1)
             completion_mask = (sequence_indices <= eos_idx.unsqueeze(1)).int()
-            prompt_ids = [p[m].tolist() for p, m in zip(prompt_ids, prompt_mask.bool(), strict=True)]
             completion_ids = [c[m].tolist() for c, m in zip(completion_ids, completion_mask.bool(), strict=True)]
 
-        return prompt_ids, completion_ids
+        return completion_ids
 
     def _generate(self, prompts: list):
         device = self.accelerator.device
@@ -991,7 +1018,8 @@ class RLOOTrainer(BaseTrainer):
         # Copy the prompts to avoid modifying the original list
         prompts = copy.deepcopy(prompts)
 
-        prompt_ids, completion_ids = self._generate_single_turn(prompts)
+        prompt_ids, images, multimodal_fields = self._tokenize_prompts(prompts)
+        completion_ids = self._generate_single_turn(prompt_ids, images, multimodal_fields)
 
         # Decode completions. It's important to use `parse_response` when possible, because it handles tool calls.
         if is_conversational({"prompt": prompts[0]}):
@@ -1110,6 +1138,12 @@ class RLOOTrainer(BaseTrainer):
             token_type_ids = forward_kwargs["token_type_ids"]
             forward_kwargs["token_type_ids"] = torch.cat(
                 [token_type_ids, token_type_ids.new_zeros(completion_ids.shape)], dim=1
+            )
+        # If mm_token_type_ids are used, extend them with zeros for the completion part
+        if "mm_token_type_ids" in forward_kwargs:
+            mm_token_type_ids = forward_kwargs["mm_token_type_ids"]
+            forward_kwargs["mm_token_type_ids"] = torch.cat(
+                [mm_token_type_ids, mm_token_type_ids.new_zeros(completion_ids.shape)], dim=1
             )
 
         # When gradient checkpointing is enabled with use_reentrant=True (non default), calling the model inside a
@@ -1257,6 +1291,8 @@ class RLOOTrainer(BaseTrainer):
             output["image_sizes"] = forward_kwargs["image_sizes"]
         if "token_type_ids" in forward_kwargs:
             output["token_type_ids"] = forward_kwargs["token_type_ids"]
+        if "mm_token_type_ids" in forward_kwargs:
+            output["mm_token_type_ids"] = forward_kwargs["mm_token_type_ids"]
         if images is not None:
             output["num_images"] = num_images
         return output
@@ -1288,6 +1324,7 @@ class RLOOTrainer(BaseTrainer):
             pixel_attention_mask=inputs.get("pixel_attention_mask"),
             image_sizes=inputs.get("image_sizes"),
             token_type_ids=inputs.get("token_type_ids"),
+            mm_token_type_ids=inputs.get("mm_token_type_ids"),
         )
 
         logps = (per_token_logps * completion_mask).sum(1)  # mask out padding and tokens after EOS

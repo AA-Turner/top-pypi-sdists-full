@@ -479,6 +479,124 @@ class CreateServiceTokenResponse(_message.Message):
         client_secret: _Optional[str] = ...,
     ) -> None: ...
 
+class CreateServiceTokenTeamScopedRequest(_message.Message):
+    __slots__ = ("name", "team_permissions", "customer_claims", "feature_tag_to_permission", "default_permission")
+    class FeatureTagToPermissionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _featurepermission_pb2.FeaturePermission
+        def __init__(
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+        ) -> None: ...
+
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
+    feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
+    default_permission: _featurepermission_pb2.FeaturePermission
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        team_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
+        feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
+        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+    ) -> None: ...
+
+class CreateServiceTokenTeamScopedResponse(_message.Message):
+    __slots__ = ("agent", "client_secret")
+    AGENT_FIELD_NUMBER: _ClassVar[int]
+    CLIENT_SECRET_FIELD_NUMBER: _ClassVar[int]
+    agent: _agent_pb2.ServiceTokenAgent
+    client_secret: str
+    def __init__(
+        self,
+        agent: _Optional[_Union[_agent_pb2.ServiceTokenAgent, _Mapping]] = ...,
+        client_secret: _Optional[str] = ...,
+    ) -> None: ...
+
+class UpdateServiceTokenTeamScopedRequest(_message.Message):
+    __slots__ = (
+        "client_id",
+        "name",
+        "team_permissions",
+        "customer_claims",
+        "feature_tag_to_permission",
+        "default_permission",
+    )
+    class FeatureTagToPermissionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _featurepermission_pb2.FeaturePermission
+        def __init__(
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+        ) -> None: ...
+
+    CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    client_id: str
+    name: str
+    team_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
+    feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
+    default_permission: _featurepermission_pb2.FeaturePermission
+    def __init__(
+        self,
+        client_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        team_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
+        feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
+        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
+    ) -> None: ...
+
+class UpdateServiceTokenTeamScopedResponse(_message.Message):
+    __slots__ = ("agent",)
+    AGENT_FIELD_NUMBER: _ClassVar[int]
+    agent: _displayagent_pb2.DisplayServiceTokenAgent
+    def __init__(
+        self, agent: _Optional[_Union[_displayagent_pb2.DisplayServiceTokenAgent, _Mapping]] = ...
+    ) -> None: ...
+
+class DeleteServiceTokenTeamScopedRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteServiceTokenTeamScopedResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListServiceTokensTeamScopedRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListServiceTokensTeamScopedResponse(_message.Message):
+    __slots__ = ("agents",)
+    AGENTS_FIELD_NUMBER: _ClassVar[int]
+    agents: _containers.RepeatedCompositeFieldContainer[_displayagent_pb2.DisplayServiceTokenAgent]
+    def __init__(
+        self, agents: _Optional[_Iterable[_Union[_displayagent_pb2.DisplayServiceTokenAgent, _Mapping]]] = ...
+    ) -> None: ...
+
 class DeleteServiceTokenRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]

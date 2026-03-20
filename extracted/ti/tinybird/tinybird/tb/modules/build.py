@@ -48,9 +48,11 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
     if project.has_deeper_level():
         click.echo(
             FeedbackManager.warning(
-                message="Your project contains directories nested deeper than the default scan depth (max_depth=3). "
+                message=f"Your project contains directories nested deeper than the used scan depth (max_depth={project.max_depth}). "
                 "Files in these deeper directories will not be processed. "
-                "To include all nested directories, run `tb --max-depth <depth> <cmd>` with a higher depth value."
+                f"If you have tinybird files in directories deeper than {project.max_depth} levels, you can use "
+                "`tb --max-depth <depth> <cmd>` with a higher depth value. "
+                "Otherwise you can ignore this warning."
             )
         )
 

@@ -67,6 +67,10 @@ class SmartColumnMetricAssertion(
         detection_mechanism: Optional[
             _DetectionMechanismTypes
         ] = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: Optional[
+            models.AssertionTimeBucketingStrategyClass
+        ] = None,
+        backfill_config: Optional[models.AssertionMonitorBootstrapConfigClass] = None,
         tags: list[TagUrn],
         created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
@@ -79,13 +83,18 @@ class SmartColumnMetricAssertion(
         Args:
             urn: The URN of the assertion.
             dataset_urn: The URN of the dataset to monitor.
+            column_name: The name of the column to monitor.
+            metric_type: The type of metric to compute.
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active/inactive).
+            schedule: The cron schedule for evaluating the assertion.
             sensitivity: The sensitivity of the assertion (low/medium/high).
             exclusion_windows: The exclusion windows to apply to the assertion.
             training_data_lookback_days: The number of days of data to use for training.
             incident_behavior: The behavior when incidents occur.
             detection_mechanism: The mechanism used to detect changes.
+            time_bucketing_strategy: Optional time bucketing strategy for data partitioning.
+            backfill_config: Optional backfill configuration for bootstrapping historical metrics.
             tags: The tags to apply to the assertion.
             created_by: The URN of the user who created the assertion.
             created_at: The timestamp when the assertion was created.
@@ -101,6 +110,7 @@ class SmartColumnMetricAssertion(
             tags=tags,
             incident_behavior=incident_behavior,
             detection_mechanism=detection_mechanism,
+            time_bucketing_strategy=time_bucketing_strategy,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
@@ -111,6 +121,7 @@ class SmartColumnMetricAssertion(
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
             training_data_lookback_days=training_data_lookback_days,
+            backfill_config=backfill_config,
         )
         _HasSchedule.__init__(
             self,
@@ -152,6 +163,8 @@ class SmartColumnMetricAssertion(
             training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
+            time_bucketing_strategy=cls._get_time_bucketing_strategy(monitor),
+            backfill_config=_HasSmartFunctionality._get_backfill_config(monitor),
             tags=cls._get_tags(assertion),
             created_by=cls._get_created_by(assertion),
             created_at=cls._get_created_at(assertion),

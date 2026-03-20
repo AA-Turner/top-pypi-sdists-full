@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["dependencies"]
-version = "3.11.3"
+version = "3.11.5"
 
 [project.scripts]
 cycode = "cycode.cli.app:app"

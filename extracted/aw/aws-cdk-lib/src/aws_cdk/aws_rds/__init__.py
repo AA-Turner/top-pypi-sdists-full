@@ -1419,6 +1419,44 @@ rds.DatabaseInstance(self, "Database",
 
 You cannot specify a parameter map and a parameter group at the same time.
 
+### Creating Standalone Parameter Groups
+
+In some scenarios, you may want to create a parameter group that exists independently
+of a database instance or cluster.
+
+By default, `ParameterGroup` uses a lazy creation pattern and only generates the
+CloudFormation resource when bound to an instance or cluster. To create a standalone
+parameter group, use the static factory methods `forInstance()` or `forCluster()`:
+
+**For instance parameter group (AWS::RDS::DBParameterGroup):**
+
+```python
+parameter_group = rds.ParameterGroup.for_instance(self, "InstanceParameterGroup",
+    engine=rds.DatabaseInstanceEngine.mysql(
+        version=rds.MysqlEngineVersion.VER_8_0_35
+    ),
+    description="Parameter group for MySQL",
+    parameters={
+        "max_connections": "150",
+        "slow_query_log": "1"
+    }
+)
+```
+
+**For cluster parameter group (AWS::RDS::DBClusterParameterGroup):**
+
+```python
+cluster_parameter_group = rds.ParameterGroup.for_cluster(self, "ClusterParameterGroup",
+    engine=rds.DatabaseClusterEngine.aurora_mysql(
+        version=rds.AuroraMysqlEngineVersion.VER_3_04_0
+    ),
+    description="Parameter group for Aurora MySQL",
+    parameters={
+        "aurora_parallel_query": "1"
+    }
+)
+```
+
 ## Serverless v1
 
 [Amazon Aurora Serverless v1](https://aws.amazon.com/rds/aurora/serverless/) is an on-demand, auto-scaling configuration for Amazon
@@ -2417,17 +2455,14 @@ class AuroraMysqlEngineVersion(
         
         cluster = rds.DatabaseCluster(self, "Database",
             engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
             writer=rds.ClusterInstance.provisioned("writer",
-                publicly_accessible=False
+                ca_certificate=rds.CaCertificate.RDS_CA_RSA2048_G1
             ),
             readers=[
-                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
-                rds.ClusterInstance.serverless_v2("reader2")
+                rds.ClusterInstance.serverless_v2("reader",
+                    ca_certificate=rds.CaCertificate.of("custom-ca")
+                )
             ],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
             vpc=vpc
         )
     '''
@@ -22786,20 +22821,19 @@ class DatabaseClusterEngine(
 
         # vpc: ec2.Vpc
         
-        cluster = rds.DatabaseCluster(self, "Database",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
-            writer=rds.ClusterInstance.provisioned("writer",
-                publicly_accessible=False
-            ),
-            readers=[
-                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
-                rds.ClusterInstance.serverless_v2("reader2")
-            ],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
-            vpc=vpc
+        
+        cluster = rds.ServerlessCluster(self, "AnotherCluster",
+            engine=rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+            copy_tags_to_snapshot=True,  # whether to save the cluster tags when creating the snapshot. Default is 'true'
+            parameter_group=rds.ParameterGroup.from_parameter_group_name(self, "ParameterGroup", "default.aurora-postgresql11"),
+            vpc=vpc,
+            scaling=rds.ServerlessScalingOptions(
+                auto_pause=Duration.minutes(10),  # default is to pause after 5 minutes of idle time
+                min_capacity=rds.AuroraCapacityUnit.ACU_8,  # default is 2 Aurora capacity units (ACUs)
+                max_capacity=rds.AuroraCapacityUnit.ACU_32,  # default is 16 Aurora capacity units (ACUs)
+                timeout=Duration.seconds(100),  # default is 5 minutes
+                timeout_action=rds.TimeoutAction.FORCE_APPLY_CAPACITY_CHANGE
+            )
         )
     '''
 
@@ -37640,8 +37674,8 @@ class ParameterGroup(
 ):
     '''A parameter group.
 
-    Represents both a cluster parameter group,
-    and an instance parameter group.
+    Represents both a cluster parameter group (AWS::RDS::DBClusterParameterGroup),
+    and an instance parameter group (AWS::RDS::DBParameterGroup).
 
     :resource: AWS::RDS::DBParameterGroup
     :exampleMetadata: infused
@@ -37699,6 +37733,90 @@ class ParameterGroup(
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="forCluster")
+    @builtins.classmethod
+    def for_cluster(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        engine: "IEngine",
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> "IParameterGroup":
+        '''Creates a standalone cluster parameter group.
+
+        This method allows you to explicitly create a parameter group
+        without binding it to a database cluster.
+
+        :param scope: -
+        :param id: -
+        :param engine: The database engine for this parameter group.
+        :param description: Description for this parameter group. Default: a CDK generated description
+        :param name: The name of this parameter group. Default: - CloudFormation-generated name
+        :param parameters: The parameters in this parameter group. Default: - None
+        :param removal_policy: The CloudFormation policy to apply when the instance is removed from the stack or replaced during an update. Default: - RemovalPolicy.DESTROY
+
+        :return: cluster parameter group (AWS::RDS::DBClusterParameterGroup)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ba1870959bf37be8903623e49db23d6a92e99a965ed77bf5a4f44e1e97cb634)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ParameterGroupProps(
+            engine=engine,
+            description=description,
+            name=name,
+            parameters=parameters,
+            removal_policy=removal_policy,
+        )
+
+        return typing.cast("IParameterGroup", jsii.sinvoke(cls, "forCluster", [scope, id, props]))
+
+    @jsii.member(jsii_name="forInstance")
+    @builtins.classmethod
+    def for_instance(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        engine: "IEngine",
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> "IParameterGroup":
+        '''Creates a standalone instance parameter group.
+
+        This method allows you to explicitly create a parameter group
+        without binding it to a database instance.
+
+        :param scope: -
+        :param id: -
+        :param engine: The database engine for this parameter group.
+        :param description: Description for this parameter group. Default: a CDK generated description
+        :param name: The name of this parameter group. Default: - CloudFormation-generated name
+        :param parameters: The parameters in this parameter group. Default: - None
+        :param removal_policy: The CloudFormation policy to apply when the instance is removed from the stack or replaced during an update. Default: - RemovalPolicy.DESTROY
+
+        :return: instance parameter group (AWS::RDS::DBParameterGroup)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b5766f2f9a25f407d49d67262c0d814a38ed0ca9098af7794104d9ea1211194)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ParameterGroupProps(
+            engine=engine,
+            description=description,
+            name=name,
+            parameters=parameters,
+            removal_policy=removal_policy,
+        )
+
+        return typing.cast("IParameterGroup", jsii.sinvoke(cls, "forInstance", [scope, id, props]))
 
     @jsii.member(jsii_name="fromParameterGroupName")
     @builtins.classmethod
@@ -37966,23 +38084,15 @@ class ParameterGroupProps:
 
         Example::
 
-            # vpc: ec2.Vpc
-            
-            
-            parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-                engine=rds.DatabaseInstanceEngine.sql_server_ee(
-                    version=rds.SqlServerEngineVersion.VER_11
+            parameter_group = rds.ParameterGroup.for_instance(self, "InstanceParameterGroup",
+                engine=rds.DatabaseInstanceEngine.mysql(
+                    version=rds.MysqlEngineVersion.VER_8_0_35
                 ),
-                name="my-parameter-group",
+                description="Parameter group for MySQL",
                 parameters={
-                    "locks": "100"
+                    "max_connections": "150",
+                    "slow_query_log": "1"
                 }
-            )
-            
-            rds.DatabaseInstance(self, "Database",
-                engine=rds.DatabaseInstanceEngine.SQL_SERVER_EE,
-                vpc=vpc,
-                parameter_group=parameter_group
             )
         '''
         if __debug__:
@@ -55665,6 +55775,32 @@ def _typecheckingstub__bcc940fc8d41bf3f6987a41ed5c0e515ca1de2a62978cc1e0c466f7db
     pass
 
 def _typecheckingstub__dca000a45931b5c98666d6840c64a03368a633b520e82623c6e2572986e745e6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    engine: IEngine,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ba1870959bf37be8903623e49db23d6a92e99a965ed77bf5a4f44e1e97cb634(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    engine: IEngine,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b5766f2f9a25f407d49d67262c0d814a38ed0ca9098af7794104d9ea1211194(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,

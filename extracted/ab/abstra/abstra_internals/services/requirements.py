@@ -9,7 +9,7 @@ from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp
-from typing import Dict, List, Literal, Optional, Set
+from typing import Dict, List, Literal, Mapping, Optional, Set, Tuple
 
 from importlib_metadata import packages_distributions
 from packaging.requirements import Requirement
@@ -17,11 +17,169 @@ from pip._internal.cli.main import main as pip_main
 
 from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.fs import FileSystemService
+from abstra_internals.services.pypi_cache import PyPIVerificationCache
 from abstra_internals.settings import Settings
 from abstra_internals.utils.ast_cache import ASTCache
 from abstra_internals.utils.format import pip_name
 
 install_lock = threading.Lock()
+
+
+class _PackagesDistributionsCache:
+    """
+    Cache for packages_distributions() which is expensive (~180ms).
+
+    This mapping only changes when packages are installed/uninstalled,
+    which is rare during normal editing. We use a simple TTL-based cache.
+    """
+
+    _cache: Optional[Mapping[str, List[str]]] = None
+    _cache_time: Optional[float] = None
+    _TTL_SECONDS: float = 60.0  # Cache for 60 seconds
+
+    @classmethod
+    def get(cls) -> Mapping[str, List[str]]:
+        import time
+
+        now = time.time()
+
+        if (
+            cls._cache is not None
+            and cls._cache_time is not None
+            and (now - cls._cache_time) < cls._TTL_SECONDS
+        ):
+            return cls._cache
+
+        cls._cache = packages_distributions()
+        cls._cache_time = now
+        return cls._cache
+
+    @classmethod
+    def invalidate(cls) -> None:
+        cls._cache = None
+        cls._cache_time = None
+
+
+class _TransitiveDependenciesCache:
+    """
+    Cache for transitive dependencies calculation.
+
+    Invalidates when requirements.txt is modified (based on mtime).
+    This is important for editor performance since get_requirements_lint_markers
+    is called on every code change.
+    """
+
+    _cache: Optional[Set[str]] = None
+    _requirements_mtime: Optional[float] = None
+    _requirements_names: Optional[Set[str]] = None
+
+    @classmethod
+    def _get_requirements_path(cls) -> Path:
+        return Settings.root_path / "requirements.txt"
+
+    @classmethod
+    def _get_current_mtime(cls) -> Optional[float]:
+        try:
+            path = cls._get_requirements_path()
+            if path.exists():
+                return path.stat().st_mtime
+            return None
+        except Exception:
+            return None
+
+    @classmethod
+    def get_covered_packages(cls, requirements_names: Set[str]) -> Set[str]:
+        """
+        Get cached covered packages, recomputing if requirements.txt changed.
+        """
+        current_mtime = cls._get_current_mtime()
+
+        # Check if cache is valid
+        if (
+            cls._cache is not None
+            and cls._requirements_mtime == current_mtime
+            and cls._requirements_names == requirements_names
+        ):
+            return cls._cache
+
+        # Recompute
+        cls._cache = get_transitive_dependencies(requirements_names)
+        cls._requirements_mtime = current_mtime
+        cls._requirements_names = requirements_names.copy()
+
+        return cls._cache
+
+    @classmethod
+    def invalidate(cls) -> None:
+        """Force cache invalidation."""
+        cls._cache = None
+        cls._requirements_mtime = None
+        cls._requirements_names = None
+
+
+def _is_extra_dependency(req: Requirement) -> bool:
+    """
+    Check if a requirement is an optional extra dependency.
+
+    Extra dependencies have markers like 'extra == "dev"' or 'extra == "test"'.
+    These are only installed when explicitly requested (e.g., pip install pkg[dev]).
+    """
+    if req.marker is None:
+        return False
+
+    # Check if the marker contains 'extra' variable
+    # Markers like 'extra == "test"' indicate optional dependencies
+    marker_str = str(req.marker)
+    return "extra" in marker_str
+
+
+def get_transitive_dependencies(package_names: Set[str]) -> Set[str]:
+    """
+    Get all transitive dependencies of the given packages.
+
+    Returns a set of normalized package names that includes:
+    - The input packages themselves
+    - All their direct and transitive dependencies (excluding optional extras)
+
+    This is used to determine if an installed package is "covered" by
+    the requirements.txt (either directly listed or as a transitive dependency).
+
+    Note: Optional extras (e.g., dependencies with 'extra == "dev"') are excluded
+    unless explicitly included in the input package_names.
+    """
+    covered: Set[str] = set()
+    to_process = list(package_names)
+
+    while to_process:
+        pkg = to_process.pop()
+        normalized = pip_name(pkg)
+
+        if normalized in covered:
+            continue
+
+        covered.add(normalized)
+
+        try:
+            dist = distribution(pkg)
+            requires = dist.requires or []
+
+            for req_str in requires:
+                try:
+                    req = Requirement(req_str)
+
+                    # Skip optional extra dependencies
+                    if _is_extra_dependency(req):
+                        continue
+
+                    dep_name = pip_name(req.name)
+                    if dep_name not in covered:
+                        to_process.append(req.name)
+                except Exception:
+                    continue
+        except PackageNotFoundError:
+            continue
+
+    return covered
 
 
 def stream_output(cmd: List[str]):
@@ -42,10 +200,19 @@ def check_package(package_name) -> Literal["builtin", "installed", "unknown"]:
         return "builtin"
 
     spec = importlib.util.find_spec(package_name)
-    if spec is not None and spec.origin is not None:
-        if "site-packages" in spec.origin:
-            return "installed"
-        return "builtin"
+    if spec is not None:
+        # Regular package with __init__.py
+        if spec.origin is not None:
+            if "site-packages" in spec.origin:
+                return "installed"
+            return "builtin"
+
+        # Namespace package (PEP 420) - no __init__.py, but has submodule_search_locations
+        if spec.submodule_search_locations:
+            for location in spec.submodule_search_locations:
+                if "site-packages" in location:
+                    return "installed"
+            return "builtin"
 
     return "unknown"
 
@@ -164,6 +331,310 @@ def is_local_module(pkg_name: str) -> bool:
         )
 
     return False
+
+
+@dataclass
+class ImportAnalysisResult:
+    """
+    Result of analyzing a single import statement.
+
+    This follows the decision tree:
+    1. Is import local? → skip (not included in results)
+    2. Is import builtin? → skip (not included in results)
+    3. Can import be resolved (installed)?
+       3.a Yes → Is it in requirements.txt?
+           3.a.1 Yes → status="ok"
+           3.a.2 No → status="missing_in_requirements"
+       3.b No → Go to step 4
+    4. Are all libs in requirements.txt installed?
+       4.a No → status="unknown" (can't determine)
+       4.b Yes → Go to step 5
+    5. Does the import name exist on PyPI?
+       5.a Yes → status="missing_in_requirements"
+       5.b No → status="invalid_import"
+    """
+
+    import_name: str
+    package_name: str  # The actual package name (may differ from import_name)
+    file_path: Optional[Path]
+    line: int
+    col_start: int
+    col_end: int
+    code: str
+    status: Literal["ok", "missing_in_requirements", "invalid_import", "unknown"]
+
+
+def get_uninstalled_requirements(
+    requirements: Optional["Requirements"] = None,
+) -> List[str]:
+    if requirements is None:
+        requirements = RequirementsRepository.load()
+
+    uninstalled = []
+
+    for lib in requirements.libraries:
+        # Skip URL-based packages
+        if lib.url:
+            continue
+
+        installed_version = get_installed_version(lib.name)
+        if installed_version is None:
+            uninstalled.append(lib.name)
+
+    return uninstalled
+
+
+def analyze_code_imports(
+    code: str,
+    file_path: Optional[Path] = None,
+    requirements_names: Optional[Set[str]] = None,
+    uninstalled_libs: Optional[List[str]] = None,
+    package_dist_cache: Optional[Mapping[str, List[str]]] = None,
+    skip_pypi_check: bool = False,
+    parsed_ast: Optional[ast.Module] = None,
+    covered_packages: Optional[Set[str]] = None,
+) -> List[ImportAnalysisResult]:
+    """
+    Analyze imports in a code string following the decision tree flow.
+
+    Args:
+        code: Python source code to analyze
+        file_path: Optional path to the file (for reporting)
+        requirements_names: Set of normalized package names in requirements.txt.
+                           If None, will be loaded from RequirementsRepository.
+        uninstalled_libs: List of uninstalled packages from requirements.txt.
+                         If None, will be computed.
+        package_dist_cache: Cache from packages_distributions().
+                           If None, will be computed.
+        skip_pypi_check: If True, skip PyPI verification for unknown packages.
+        parsed_ast: Optional pre-parsed AST. If provided, skips parsing.
+                   Use with ASTCache.get_with_content() for efficiency.
+        covered_packages: Set of normalized package names that are covered by
+                         requirements.txt (including transitive dependencies).
+                         If None, will be computed from requirements_names.
+
+    Returns:
+        List of ImportAnalysisResult for imports that need attention
+        (excludes local modules and builtins).
+    """
+    results: List[ImportAnalysisResult] = []
+
+    # Use pre-parsed AST if provided, otherwise parse the code
+    if parsed_ast is not None:
+        parsed = parsed_ast
+    else:
+        try:
+            parsed = ast.parse(code)
+        except SyntaxError:
+            return results
+
+    lines = code.splitlines()
+
+    # Load dependencies if not provided
+    requirements = None
+    if requirements_names is None:
+        requirements = RequirementsRepository.load()
+        requirements_names = {pip_name(lib.name) for lib in requirements.libraries}
+
+    if uninstalled_libs is None:
+        uninstalled_libs = get_uninstalled_requirements(requirements)
+
+    if package_dist_cache is None:
+        package_dist_cache = _PackagesDistributionsCache.get()
+
+    # Compute covered packages (requirements + their transitive dependencies)
+    # Uses cache to avoid recomputation on every editor keystroke
+    if covered_packages is None:
+        covered_packages = _TransitiveDependenciesCache.get_covered_packages(
+            requirements_names
+        )
+
+    has_uninstalled_libs = len(uninstalled_libs) > 0
+
+    visited_packages: Set[str] = set()
+
+    for node in ast.walk(parsed):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            imports_info: List[tuple] = []  # (pkg_name, col_start, col_end)
+            lineno = node.lineno
+            source_line = lines[lineno - 1] if lineno <= len(lines) else ""
+
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    pkg_name = alias.name.split(".")[0]
+                    col_start = source_line.find(alias.name)
+                    if col_start == -1:
+                        col_start = node.col_offset
+                    col_end = col_start + len(pkg_name)
+                    imports_info.append((pkg_name, col_start, col_end))
+            elif (
+                isinstance(node, ast.ImportFrom)
+                and node.module is not None
+                and node.level == 0  # Skip relative imports
+            ):
+                pkg_name = node.module.split(".")[0]
+                from_idx = source_line.find("from ")
+                if from_idx != -1:
+                    col_start = source_line.find(node.module, from_idx + 5)
+                else:
+                    col_start = source_line.find(node.module)
+                if col_start == -1:
+                    col_start = node.col_offset
+                col_end = col_start + len(pkg_name)
+                imports_info.append((pkg_name, col_start, col_end))
+
+            for pkg_name, col_start, col_end in imports_info:
+                if pkg_name in visited_packages:
+                    continue
+                visited_packages.add(pkg_name)
+
+                # Step 1: Is it a local module?
+                if is_local_module(pkg_name):
+                    continue
+
+                # Step 2: Check package status
+                kind = check_package(pkg_name)
+
+                # Skip builtin modules
+                if kind == "builtin":
+                    continue
+
+                # Step 3: Can the import be resolved (installed)?
+                if kind == "installed":
+                    # Get the actual package names that provide this import
+                    lib_names = package_dist_cache.get(pkg_name, [pkg_name])
+
+                    # Check if ANY of the providing packages is covered by requirements
+                    # (either directly in requirements.txt or as a transitive dependency)
+                    is_covered = any(
+                        pip_name(lib_name) in covered_packages for lib_name in lib_names
+                    )
+
+                    if is_covered:
+                        # 3.a.1: Installed and covered by requirements → OK
+                        continue
+                    else:
+                        # 3.a.2: Installed but NOT covered by requirements → Error
+                        package_name = lib_names[0] if lib_names else pkg_name
+                        results.append(
+                            ImportAnalysisResult(
+                                import_name=pkg_name,
+                                package_name=package_name,
+                                file_path=file_path,
+                                line=lineno,
+                                col_start=col_start,
+                                col_end=col_end,
+                                code=source_line,
+                                status="missing_in_requirements",
+                            )
+                        )
+                        continue
+
+                # Step 4: Import is not resolved (unknown)
+                # If there are uninstalled libs, we can't reliably check PyPI
+                if has_uninstalled_libs or skip_pypi_check:
+                    results.append(
+                        ImportAnalysisResult(
+                            import_name=pkg_name,
+                            package_name=pkg_name,
+                            file_path=file_path,
+                            line=lineno,
+                            col_start=col_start,
+                            col_end=col_end,
+                            code=source_line,
+                            status="unknown",
+                        )
+                    )
+                    continue
+
+                # Step 5: All requirements are installed, check PyPI
+                exists_on_pypi = PyPIVerificationCache.verify_package_exists(pkg_name)
+
+                if exists_on_pypi:
+                    # 5.a: Exists on PyPI → Missing package
+                    results.append(
+                        ImportAnalysisResult(
+                            import_name=pkg_name,
+                            package_name=pkg_name,
+                            file_path=file_path,
+                            line=lineno,
+                            col_start=col_start,
+                            col_end=col_end,
+                            code=source_line,
+                            status="missing_in_requirements",
+                        )
+                    )
+                else:
+                    # 5.b: Not on PyPI → Invalid import
+                    results.append(
+                        ImportAnalysisResult(
+                            import_name=pkg_name,
+                            package_name=pkg_name,
+                            file_path=file_path,
+                            line=lineno,
+                            col_start=col_start,
+                            col_end=col_end,
+                            code=source_line,
+                            status="invalid_import",
+                        )
+                    )
+
+    return results
+
+
+def analyze_project_imports(
+    skip_pypi_check: bool = False,
+) -> Tuple[List[ImportAnalysisResult], List[str]]:
+    """
+    Analyze imports across all project files.
+
+    Returns:
+        Tuple of (results, uninstalled_libs) where:
+        - results: List of ImportAnalysisResult for all imports needing attention
+        - uninstalled_libs: List of package names from requirements.txt that aren't installed
+    """
+    all_results: List[ImportAnalysisResult] = []
+
+    # Load shared state once
+    requirements = RequirementsRepository.load()
+    requirements_names = {pip_name(lib.name) for lib in requirements.libraries}
+    uninstalled_libs = get_uninstalled_requirements(requirements)
+    package_dist_cache = packages_distributions()
+    covered_packages = get_transitive_dependencies(requirements_names)
+
+    # Track visited packages across all files
+    visited_packages: Set[str] = set()
+
+    project = LocalProjectRepository().load()
+
+    for python_file in project.project_files:
+        if not python_file.exists():
+            continue
+
+        try:
+            # Use ASTCache to avoid re-parsing files on multiple linter runs
+            parsed_ast, code = ASTCache.get_with_content(python_file)
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+
+        file_results = analyze_code_imports(
+            code=code,
+            file_path=python_file,
+            requirements_names=requirements_names,
+            uninstalled_libs=uninstalled_libs,
+            package_dist_cache=package_dist_cache,
+            skip_pypi_check=skip_pypi_check,
+            parsed_ast=parsed_ast,
+            covered_packages=covered_packages,
+        )
+
+        # Filter to only include first occurrence of each package
+        for result in file_results:
+            if result.import_name not in visited_packages:
+                visited_packages.add(result.import_name)
+                all_results.append(result)
+
+    return all_results, uninstalled_libs
 
 
 # Helper functions to extend packaging.requirements.Requirement functionality
@@ -289,86 +760,32 @@ def get_requirements_lint_markers(code: str) -> List[dict]:
     Parse code for imports not in requirements.txt.
     Returns Monaco-compatible lint markers.
 
+    Uses the shared analyze_code_imports() function with PyPI check disabled
+    for performance (this is called frequently in the editor).
+
     Args:
         code: The Python source code to analyze
 
     Returns:
         List of dicts with: line, column, until_line, until_column, message, severity
     """
+    # Use shared analysis with PyPI check disabled for editor performance
+    results = analyze_code_imports(code, skip_pypi_check=True)
+
     markers: List[dict] = []
-
-    try:
-        parsed = ast.parse(code)
-    except SyntaxError:
-        return markers
-
-    lines = code.splitlines()
-    requirements = RequirementsRepository.load()
-    already_in_requirements = {pip_name(lib.name) for lib in requirements.libraries}
-
-    visited_packages: Set[str] = set()
-
-    for node in ast.walk(parsed):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            pkg_names_with_positions: List[tuple] = []
-            lineno = node.lineno
-            source_line = lines[lineno - 1] if lineno <= len(lines) else ""
-
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    pkg_name = alias.name.split(".")[0]
-                    col_start = source_line.find(alias.name)
-                    if col_start == -1:
-                        col_start = node.col_offset
-                    col_end = col_start + len(pkg_name)
-                    pkg_names_with_positions.append(
-                        (pkg_name, lineno, col_start, lineno, col_end)
-                    )
-            elif (
-                isinstance(node, ast.ImportFrom)
-                and node.module is not None
-                and node.level == 0  # Skip relative imports
-            ):
-                pkg_name = node.module.split(".")[0]
-                from_idx = source_line.find("from ")
-                if from_idx != -1:
-                    col_start = source_line.find(node.module, from_idx + 5)
-                else:
-                    col_start = source_line.find(node.module)
-                if col_start == -1:
-                    col_start = node.col_offset
-                col_end = col_start + len(pkg_name)
-                pkg_names_with_positions.append(
-                    (pkg_name, lineno, col_start, lineno, col_end)
-                )
-
-            for pkg_name, line, col, end_line, end_col in pkg_names_with_positions:
-                if pkg_name in visited_packages:
-                    continue
-
-                visited_packages.add(pkg_name)
-
-                if is_local_module(pkg_name):
-                    continue
-
-                kind = check_package(pkg_name)
-
-                if kind == "builtin":
-                    continue
-
-                if pip_name(pkg_name) in already_in_requirements:
-                    continue
-
-                markers.append(
-                    {
-                        "line": line,
-                        "column": col + 1,
-                        "until_line": end_line,
-                        "until_column": end_col + 1,
-                        "message": f"'{pkg_name}' is imported but not in requirements.txt",
-                        "severity": "warning",
-                    }
-                )
+    for result in results:
+        # Only show missing_in_requirements and unknown (potential issues)
+        if result.status in ("missing_in_requirements", "unknown"):
+            markers.append(
+                {
+                    "line": result.line,
+                    "column": result.col_start + 1,
+                    "until_line": result.line,
+                    "until_column": result.col_end + 1,
+                    "message": f"'{result.import_name}' is imported but not in requirements.txt",
+                    "severity": "warning",
+                }
+            )
 
     return markers
 
@@ -666,101 +1083,38 @@ class RequirementsRepository:
 
     @classmethod
     def get_recommendation(cls) -> List[RequirementRecommendation]:
-        imported_modules: Set[RequirementRecommendation] = set()
+        """
+        Get recommendations for packages to add to requirements.txt.
 
-        project = LocalProjectRepository().load()
-        visited_set = set()
-        already_added = {pip_name(lib.name) for lib in cls.load().libraries}
-        package_dist_cache = packages_distributions()
+        Uses the shared analyze_project_imports() function and converts
+        the results to RequirementRecommendation objects.
+        """
+        # Use shared analysis (skip PyPI check as we only recommend installed packages)
+        results, _ = analyze_project_imports(skip_pypi_check=True)
 
-        for python_file in project.project_files:
-            if not python_file.exists():
+        recommendations: Set[RequirementRecommendation] = set()
+
+        for result in results:
+            # Only recommend packages that are missing from requirements
+            if result.status != "missing_in_requirements":
                 continue
 
+            # For installed packages, get the version
             try:
-                parsed = ASTCache.get(python_file)
-                if parsed is None:
-                    continue
+                version = distribution(result.package_name).version
+            except PackageNotFoundError:
+                version = None
 
-                file_lines = python_file.read_text(encoding="utf-8").splitlines()
+            recommendations.add(
+                RequirementRecommendation(
+                    requirement=create_requirement(result.package_name, version),
+                    reason_file=result.file_path or Path("."),
+                    reason_line=result.line,
+                    reason_code=result.code,
+                )
+            )
 
-                for node in ast.walk(parsed):
-                    if isinstance(node, (ast.Import, ast.ImportFrom)):
-                        pkg_names = []
-
-                        if isinstance(node, ast.Import):
-                            pkg_names.extend(
-                                alias.name.split(".")[0] for alias in node.names
-                            )
-                        elif (
-                            isinstance(node, ast.ImportFrom)
-                            and node.module is not None
-                            and node.level == 0  # Skip relative imports
-                        ):
-                            pkg_names.append(node.module.split(".")[0])
-
-                        for pkg_name in pkg_names:
-                            if pkg_name in visited_set:
-                                continue
-
-                            visited_set.add(pkg_name)
-
-                            if is_local_module(pkg_name):
-                                continue
-
-                            kind = check_package(pkg_name)
-
-                            if kind == "builtin":
-                                continue
-
-                            if kind == "installed":
-                                lib_names = package_dist_cache.get(pkg_name, [])
-                                for lib_name in lib_names:
-                                    if pip_name(lib_name) in already_added:
-                                        continue
-
-                                    try:
-                                        version = distribution(lib_name).version
-                                        if version is None:
-                                            continue
-
-                                        imported_modules.add(
-                                            RequirementRecommendation(
-                                                requirement=create_requirement(
-                                                    lib_name,
-                                                    version,
-                                                ),
-                                                reason_file=python_file,
-                                                reason_line=node.lineno,
-                                                reason_code=file_lines[node.lineno - 1],
-                                            )
-                                        )
-                                    except PackageNotFoundError:
-                                        continue
-                            else:
-                                if pip_name(pkg_name) in already_added:
-                                    continue
-                                imported_modules.add(
-                                    RequirementRecommendation(
-                                        requirement=create_requirement(pkg_name),
-                                        reason_file=python_file,
-                                        reason_line=node.lineno,
-                                        reason_code=file_lines[node.lineno - 1],
-                                    )
-                                )
-
-            except (SyntaxError, UnicodeDecodeError):
-                continue
-
-        modules_in_requirements = set(
-            [pip_name(lib.name) for lib in cls.load().libraries]
-        )
-
-        return [
-            module
-            for module in imported_modules
-            if pip_name(module.requirement.name) not in modules_in_requirements
-        ]
+        return list(recommendations)
 
     @classmethod
     def save(cls, requirements: Requirements):

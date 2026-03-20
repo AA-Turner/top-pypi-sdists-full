@@ -27,6 +27,7 @@ from .literals import (
     AgentRuntimeStatusType,
     ApiKeyCredentialLocationType,
     AuthorizerTypeType,
+    BrowserEnterprisePolicyTypeType,
     BrowserNetworkModeType,
     BrowserProfileStatusType,
     BrowserStatusType,
@@ -97,6 +98,7 @@ __all__ = (
     "AuthorizingClaimMatchValueTypeTypeDef",
     "BedrockEvaluatorModelConfigOutputTypeDef",
     "BedrockEvaluatorModelConfigTypeDef",
+    "BrowserEnterprisePolicyTypeDef",
     "BrowserNetworkConfigurationOutputTypeDef",
     "BrowserNetworkConfigurationTypeDef",
     "BrowserNetworkConfigurationUnionTypeDef",
@@ -106,6 +108,8 @@ __all__ = (
     "BrowserSummaryTypeDef",
     "CategoricalScaleDefinitionTypeDef",
     "CedarPolicyTypeDef",
+    "CertificateLocationTypeDef",
+    "CertificateTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
     "ClaimMatchValueTypeTypeDef",
     "CloudWatchLogsInputConfigOutputTypeDef",
@@ -414,6 +418,7 @@ __all__ = (
     "RequestHeaderConfigurationOutputTypeDef",
     "RequestHeaderConfigurationTypeDef",
     "RequestHeaderConfigurationUnionTypeDef",
+    "ResourceLocationTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
     "RuleOutputTypeDef",
@@ -428,6 +433,7 @@ __all__ = (
     "SchemaDefinitionOutputTypeDef",
     "SchemaDefinitionTypeDef",
     "SecretTypeDef",
+    "SecretsManagerLocationTypeDef",
     "SelfManagedConfigurationInputTypeDef",
     "SelfManagedConfigurationTypeDef",
     "SemanticConsolidationOverrideTypeDef",
@@ -654,6 +660,10 @@ class CategoricalScaleDefinitionTypeDef(TypedDict):
 
 class CedarPolicyTypeDef(TypedDict):
     statement: str
+
+
+class SecretsManagerLocationTypeDef(TypedDict):
+    secretArn: str
 
 
 class CloudWatchLogsInputConfigOutputTypeDef(TypedDict):
@@ -1574,6 +1584,10 @@ class NetworkConfigurationTypeDef(TypedDict):
     networkModeConfig: NotRequired[VpcConfigTypeDef]
 
 
+class CertificateLocationTypeDef(TypedDict):
+    secretsManager: NotRequired[SecretsManagerLocationTypeDef]
+
+
 class DataSourceConfigOutputTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigOutputTypeDef]
 
@@ -1593,6 +1607,10 @@ class CodeTypeDef(TypedDict):
 class RecordingConfigTypeDef(TypedDict):
     enabled: NotRequired[bool]
     s3Location: NotRequired[S3LocationTypeDef]
+
+
+class ResourceLocationTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
 
 
 class KinesisResourceOutputTypeDef(TypedDict):
@@ -2403,20 +2421,6 @@ class EvaluatorModelConfigTypeDef(TypedDict):
     bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigTypeDef]
 
 
-class GetCodeInterpreterResponseTypeDef(TypedDict):
-    codeInterpreterId: str
-    codeInterpreterArn: str
-    name: str
-    description: str
-    executionRoleArn: str
-    networkConfiguration: CodeInterpreterNetworkConfigurationOutputTypeDef
-    status: CodeInterpreterStatusType
-    failureReason: str
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 BrowserNetworkConfigurationUnionTypeDef = Union[
     BrowserNetworkConfigurationTypeDef, BrowserNetworkConfigurationOutputTypeDef
 ]
@@ -2426,6 +2430,12 @@ CodeInterpreterNetworkConfigurationUnionTypeDef = Union[
 NetworkConfigurationUnionTypeDef = Union[
     NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
 ]
+
+
+class CertificateTypeDef(TypedDict):
+    location: CertificateLocationTypeDef
+
+
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
 
 
@@ -2452,20 +2462,13 @@ class CodeConfigurationTypeDef(TypedDict):
     entryPoint: Sequence[str]
 
 
-class GetBrowserResponseTypeDef(TypedDict):
-    browserId: str
-    browserArn: str
-    name: str
-    description: str
-    executionRoleArn: str
-    networkConfiguration: BrowserNetworkConfigurationOutputTypeDef
-    recording: RecordingConfigTypeDef
-    browserSigning: BrowserSigningConfigOutputTypeDef
-    status: BrowserStatusType
-    failureReason: str
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
+BrowserEnterprisePolicyTypeDef = TypedDict(
+    "BrowserEnterprisePolicyTypeDef",
+    {
+        "location": ResourceLocationTypeDef,
+        "type": NotRequired[BrowserEnterprisePolicyTypeType],
+    },
+)
 
 
 class StreamDeliveryResourceOutputTypeDef(TypedDict):
@@ -2746,24 +2749,29 @@ class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
     modelConfig: EvaluatorModelConfigTypeDef
 
 
-class CreateBrowserRequestTypeDef(TypedDict):
-    name: str
-    networkConfiguration: BrowserNetworkConfigurationUnionTypeDef
-    description: NotRequired[str]
-    executionRoleArn: NotRequired[str]
-    recording: NotRequired[RecordingConfigTypeDef]
-    browserSigning: NotRequired[BrowserSigningConfigInputTypeDef]
-    clientToken: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-
 class CreateCodeInterpreterRequestTypeDef(TypedDict):
     name: str
     networkConfiguration: CodeInterpreterNetworkConfigurationUnionTypeDef
     description: NotRequired[str]
     executionRoleArn: NotRequired[str]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+
+class GetCodeInterpreterResponseTypeDef(TypedDict):
+    codeInterpreterId: str
+    codeInterpreterArn: str
+    name: str
+    description: str
+    executionRoleArn: str
+    networkConfiguration: CodeInterpreterNetworkConfigurationOutputTypeDef
+    status: CodeInterpreterStatusType
+    certificates: list[CertificateTypeDef]
+    failureReason: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AgentRuntimeArtifactOutputTypeDef(TypedDict):
@@ -2774,6 +2782,37 @@ class AgentRuntimeArtifactOutputTypeDef(TypedDict):
 class AgentRuntimeArtifactTypeDef(TypedDict):
     containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
     codeConfiguration: NotRequired[CodeConfigurationTypeDef]
+
+
+class CreateBrowserRequestTypeDef(TypedDict):
+    name: str
+    networkConfiguration: BrowserNetworkConfigurationUnionTypeDef
+    description: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    recording: NotRequired[RecordingConfigTypeDef]
+    browserSigning: NotRequired[BrowserSigningConfigInputTypeDef]
+    enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class GetBrowserResponseTypeDef(TypedDict):
+    browserId: str
+    browserArn: str
+    name: str
+    description: str
+    executionRoleArn: str
+    networkConfiguration: BrowserNetworkConfigurationOutputTypeDef
+    recording: RecordingConfigTypeDef
+    browserSigning: BrowserSigningConfigOutputTypeDef
+    enterprisePolicies: list[BrowserEnterprisePolicyTypeDef]
+    certificates: list[CertificateTypeDef]
+    status: BrowserStatusType
+    failureReason: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StreamDeliveryResourcesOutputTypeDef(TypedDict):

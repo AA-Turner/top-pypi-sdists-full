@@ -59,7 +59,8 @@ def default_to_neutral_style(fn):
 
 def _ensure_dict(k, v):
     import numpy as np
-    from .schematic import hash_to_color, get_color
+
+    from .schematic import get_color, hash_to_color
 
     # ensure is a dictionaty
     if not isinstance(v, dict):
@@ -240,10 +241,12 @@ def plot_multi_series_zoom(
     axs[-1, 0].xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
     axs[-1, 0].xaxis.set_major_formatter(
         mpl.ticker.FuncFormatter(
-            lambda x, _: f"{int(x):,}"
-            if math.isclose(x, 0)
-            or (x > 1 and math.isclose(math.log10(x) % 1, 0))
-            else ""
+            lambda x, _: (
+                f"{int(x):,}"
+                if math.isclose(x, 0)
+                or (x > 1 and math.isclose(math.log10(x) % 1, 0))
+                else ""
+            )
         )
     )
 

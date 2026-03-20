@@ -4,12 +4,14 @@
 
 import datetime
 import functools
+import inspect
 import math
 import operator
 import random
 import re
 import string
 import sys
+import tempfile
 import time
 import uuid
 from collections import defaultdict
@@ -17,7 +19,8 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal
-from functools import reduce
+from functools import partial, reduce
+from pathlib import Path
 from typing import List, Optional
 from urllib.parse import quote, unquote
 
@@ -124,7 +127,6 @@ from snowflake.snowpark_connect.typed_column import (
     TypedColumnWithDeferredCast,
     TypedColumnWithDeferredWindowBuilder,
 )
-from snowflake.snowpark_connect.utils import sfdb_udfs
 from snowflake.snowpark_connect.utils.context import (
     add_sql_aggregate_function,
     get_current_grouping_columns,
@@ -152,7 +154,14 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_sql_udf,
 )
 from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
-from snowflake.snowpark_connect.utils.xxhash64 import DEFAULT_SEED
+from snowflake.snowpark_connect.utils.xxhash64 import (
+    DEFAULT_SEED,
+    xxhash64_double,
+    xxhash64_float,
+    xxhash64_int,
+    xxhash64_long,
+    xxhash64_string,
+)
 
 MAX_UINT64 = 2**64 - 1
 MAX_INT64 = 2**63 - 1
@@ -3328,17 +3337,28 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            if isinstance(snowpark_typed_args[0].typ, BinaryType):
-                result_exp = snowpark_fn.call_function(
-                    sfdb_udfs.crc32_binary, snowpark_args[0]
-                )
-            else:
-                result_exp = snowpark_fn.call_function(
-                    sfdb_udfs.crc32_string,
-                    snowpark_fn.cast(snowpark_args[0], StringType()),
-                )
+            # UDF to calculate the unsigned CRC32 value of data in bytes. Returns the CRC32 value
+            # as a 32-bit INT, or None if the input is None.
+            @cached_udf(
+                input_types=[snowpark_typed_args[0].typ],
+                return_type=LongType(),
+            )
+            def _crc32(data):
+                import zlib
 
+                if data is None:
+                    return None
+
+                if isinstance(data, bytes) or isinstance(data, bytearray):
+                    crc32_value = zlib.crc32(data)
+                else:
+                    crc32_value = zlib.crc32(data.encode("utf-8"))
+
+                return crc32_value
+
+            result_exp = _crc32(snowpark_args[0])
             result_type = LongType()
+
         case "csc":
             spark_function_name = f"CSC({snowpark_arg_names[0]})"
             result_exp = snowpark_fn.when(
@@ -4702,7 +4722,17 @@ def map_unresolved_function(
             json_str = snowpark_args[0]
             json_path = unwrap_literal(exp.unresolved_function.arguments[1])
 
-            if json_path is None:
+            def _extract_json_path(col_: Column, path_: str) -> Column:
+                """
+                TRY_PARSE_JSON + GET_PATH: parses JSON once instead of twice (CHECK_JSON + JSON_EXTRACT_PATH_TEXT).
+                """
+
+                parsed = snowpark_fn.try_parse_json(col_)
+                extracted = snowpark_fn.get_path(parsed, snowpark_fn.lit(path_))
+
+                return extracted.cast(StringType())
+
+            if not json_path:
                 result_exp = snowpark_fn.lit(None)
             else:
                 path_start_with_dollar_dot = False
@@ -4719,30 +4749,14 @@ def map_unresolved_function(
 
                 # Spark behavior: $.0 (dot notation with digit) returns NULL
                 # But $[0] (bracket notation) should work for array access
-                # Check if path starts with digit after removing $.
                 if path_start_with_dollar_dot and json_path and json_path[0].isdigit():
-                    # Check if it's a pure digit path (like "0" from "$.0")
-                    # vs a path with digits in property names (like "0abc" from "$.0abc")
                     match = re.match(r"^(\d+)($|\.|\[)", json_path)
                     if match:
-                        # Pure digit at start with dot notation - return NULL to match Spark behavior
                         result_exp = snowpark_fn.lit(None)
                     else:
-                        # Property name starts with digit but has other chars - continue normally
-                        result_exp = snowpark_fn.when(
-                            snowpark_fn.is_null(snowpark_fn.check_json(json_str)),
-                            snowpark_fn.json_extract_path_text(
-                                json_str, snowpark_fn.lit(json_path)
-                            ),
-                        ).otherwise(snowpark_fn.lit(None))
+                        result_exp = _extract_json_path(json_str, json_path)
                 else:
-                    # Normal path processing (includes $[0] bracket notation)
-                    result_exp = snowpark_fn.when(
-                        snowpark_fn.is_null(snowpark_fn.check_json(json_str)),
-                        snowpark_fn.json_extract_path_text(
-                            json_str, snowpark_fn.lit(json_path)
-                        ),
-                    ).otherwise(snowpark_fn.lit(None))
+                    result_exp = _extract_json_path(json_str, json_path)
             result_type = StringType()
         case "greatest":
             all_structs = all(
@@ -10672,44 +10686,80 @@ def map_unresolved_function(
             result_type = StringType()
             result_exp = _create_xpath_expression("xpath_string", "STRING")
         case "xxhash64":
+            import snowflake.snowpark_connect.utils.xxhash64 as xxhash64
+
+            xxhash64_src_file = Path(__file__).parent.parent / "utils" / "xxhash64.py"
+
+            # In the notebook environment, the physical file may not be where it's expected, if not found
+            # then temporarily create in another location.
+            if not xxhash64_src_file.exists():
+                xxhash64_src_bytes = inspect.getsource(xxhash64).encode("utf-8")
+                sub_dir = (
+                    Path(tempfile.gettempdir())
+                    / "snowflake"
+                    / "snowpark_connect"
+                    / "utils"
+                )
+                xxhash64_src_file = sub_dir / "xxhash64.py"
+                # If the file doesn't exist (from a prior run) or it's a different size, then recreate.
+                # Otherwise we can use the previously created xxhash64 source file.
+                if (
+                    not xxhash64_src_file.exists()
+                    or xxhash64_src_file.stat().st_size != len(xxhash64_src_bytes)
+                ):
+                    sub_dir.mkdir(parents=True, exist_ok=True)
+                    xxhash64_src_file.write_bytes(xxhash64_src_bytes)
+
+            xxhash_udf_imports = [
+                (
+                    str(xxhash64_src_file),
+                    "snowflake.snowpark_connect.utils.xxhash64",
+                )
+            ]
+
+            xxhash_udf = partial(
+                cached_udf, return_type=LongType(), imports=xxhash_udf_imports
+            )
+
             result_exp = snowpark_fn.lit(DEFAULT_SEED)
 
             for arg in snowpark_typed_args:
                 match arg.typ:
                     case IntegerType() | ShortType() | ByteType() | BooleanType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_int,
-                            snowpark_fn.cast(arg.col, IntegerType()),
-                            result_exp,
+                        xxhash64_udf_int = xxhash_udf(
+                            xxhash64_int, input_types=[LongType(), LongType()]
+                        )
+
+                        result_exp = xxhash64_udf_int(
+                            snowpark_fn.cast(arg.col, LongType()), result_exp
                         )
                     case FloatType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_float, arg.col, result_exp
+                        xxhash64_udf_float = xxhash_udf(
+                            xxhash64_float, input_types=[FloatType(), LongType()]
                         )
+
+                        result_exp = xxhash64_udf_float(arg.col, result_exp)
                     case DoubleType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_double, arg.col, result_exp
+                        xxhash64_udf_double = xxhash_udf(
+                            xxhash64_double, input_types=[DoubleType(), LongType()]
                         )
+
+                        result_exp = xxhash64_udf_double(arg.col, result_exp)
                     case LongType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_long, arg.col, result_exp
+                        xxhash64_udf_long = xxhash_udf(
+                            xxhash64_long, input_types=[LongType(), LongType()]
                         )
-                    case BinaryType():
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_bytes, arg.col, result_exp
-                        )
+
+                        result_exp = xxhash64_udf_long(arg.col, result_exp)
                     case _:
-                        hash_result = snowpark_fn.call_function(
-                            sfdb_udfs.xxhash64_string,
-                            snowpark_fn.cast(arg.col, StringType()),
-                            result_exp,
+                        xxhash64_udf_str = xxhash_udf(
+                            xxhash64_string, input_types=[StringType(), LongType()]
                         )
 
-                result_exp = snowpark_fn.when(arg.col.isNull(), result_exp).otherwise(
-                    hash_result
-                )
-
-            result_type = LongType()
+                        result_exp = xxhash64_udf_str(
+                            snowpark_fn.cast(arg.col, StringType()), result_exp
+                        )
+                result_type = LongType()
         case "year":
             if isinstance(snowpark_typed_args[0].typ, StringType):
                 result_exp = snowpark_fn.year(
@@ -11214,6 +11264,8 @@ def _resolve_function_with_lambda(
                 return tc.typ.key_type, tc.typ.value_type
             case MapType():
                 return VariantType(), VariantType()
+            case VariantType():
+                return StringType(), VariantType()
             case t:
                 exception = AnalysisException(
                     f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Parameter 1 requires the "MAP" type, however "id" has the type "{t}".'

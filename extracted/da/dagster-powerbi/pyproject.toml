@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster_powerbi"
-version = "0.28.19"
+version = "0.28.20"
 description = "Build assets representing Power BI dashboards and reports."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.19",
+    "dagster==1.12.20",
 ]
 
 [project.urls]
@@ -33,5 +33,6 @@ dagster_powerbi = "dagster_powerbi"
 
 [project.optional-dependencies]
 test = [
-    "dagster-dg[test]",
+    "dagster-dg-core[test]==1.12.20",
+    "dagster-dg-cli==1.12.20",
 ]

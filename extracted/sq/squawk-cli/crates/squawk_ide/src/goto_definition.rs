@@ -1,15 +1,21 @@
+use crate::binder;
+use crate::builtins::parse_builtins;
+use crate::db::{File, parse};
 use crate::offsets::token_from_offset;
 use crate::resolve;
-use crate::{binder, builtins::BUILTINS_SQL};
 use rowan::{TextRange, TextSize};
+use salsa::Database as Db;
 use smallvec::{SmallVec, smallvec};
 use squawk_syntax::{
     SyntaxKind,
     ast::{self, AstNode},
 };
 
-pub fn goto_definition(file: &ast::SourceFile, offset: TextSize) -> SmallVec<[Location; 1]> {
-    let Some(token) = token_from_offset(file, offset) else {
+#[salsa::tracked]
+pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[Location; 1]> {
+    let parse = parse(db, file);
+    let source_file = &parse.tree();
+    let Some(token) = token_from_offset(source_file, offset) else {
         return smallvec![];
     };
     let Some(parent) = token.parent() else {
@@ -32,21 +38,22 @@ pub fn goto_definition(file: &ast::SourceFile, offset: TextSize) -> SmallVec<[Lo
 
     // goto def on COMMIT -> BEGIN/START TRANSACTION
     if ast::Commit::can_cast(parent.kind())
-        && let Some(begin_range) = find_preceding_begin(file, token.text_range().start())
+        && let Some(begin_range) = find_preceding_begin(source_file, token.text_range().start())
     {
         return smallvec![Location::range(begin_range)];
     }
 
     // goto def on ROLLBACK -> BEGIN/START TRANSACTION
     if ast::Rollback::can_cast(parent.kind())
-        && let Some(begin_range) = find_preceding_begin(file, token.text_range().start())
+        && let Some(begin_range) = find_preceding_begin(source_file, token.text_range().start())
     {
         return smallvec![Location::range(begin_range)];
     }
 
     // goto def on BEGIN/START TRANSACTION -> COMMIT or ROLLBACK
     if ast::Begin::can_cast(parent.kind())
-        && let Some(end_range) = find_following_commit_or_rollback(file, token.text_range().end())
+        && let Some(end_range) =
+            find_following_commit_or_rollback(source_file, token.text_range().end())
     {
         return smallvec![Location::range(end_range)];
     }
@@ -58,9 +65,9 @@ pub fn goto_definition(file: &ast::SourceFile, offset: TextSize) -> SmallVec<[Lo
     if let Some(name_ref) = ast::NameRef::cast(parent.clone()) {
         for file_id in [FileId::Current, FileId::Builtins] {
             let file = match file_id {
-                FileId::Current => file,
+                FileId::Current => source_file,
                 // TODO: we should salsa this
-                FileId::Builtins => &ast::SourceFile::parse(BUILTINS_SQL).tree(),
+                FileId::Builtins => &parse_builtins(db).tree(),
             };
             // TODO: we should salsa this
             let binder_output = binder::bind(file);
@@ -90,9 +97,9 @@ pub fn goto_definition(file: &ast::SourceFile, offset: TextSize) -> SmallVec<[Lo
     if let Some(ty) = type_node {
         for file_id in [FileId::Current, FileId::Builtins] {
             let file = match file_id {
-                FileId::Current => file,
+                FileId::Current => source_file,
                 // TODO: we should salsa this
-                FileId::Builtins => &ast::SourceFile::parse(BUILTINS_SQL).tree(),
+                FileId::Builtins => &parse_builtins(db).tree(),
             };
             // TODO: we should salsa this
             let binder_output = binder::bind(file);
@@ -115,7 +122,7 @@ pub enum FileId {
     Builtins,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
     pub file: FileId,
     pub range: TextRange,
@@ -160,14 +167,13 @@ fn find_following_commit_or_rollback(file: &ast::SourceFile, after: TextSize) ->
 #[cfg(test)]
 mod test {
     use crate::builtins::BUILTINS_SQL;
+    use crate::db::{Database, File};
     use crate::goto_definition::{FileId, goto_definition};
     use crate::test_utils::fixture;
     use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
     use insta::assert_snapshot;
     use log::info;
     use rowan::TextRange;
-
-    use squawk_syntax::ast;
 
     #[track_caller]
     fn goto(sql: &str) -> String {
@@ -181,10 +187,10 @@ mod test {
         // For go to def we want the previous character since we usually put the
         // marker after the item we're trying to go to def on.
         offset = offset.checked_sub(1.into()).unwrap_or_default();
-        let parse = ast::SourceFile::parse(&sql);
-        assert_eq!(parse.errors(), vec![]);
-        let file: ast::SourceFile = parse.tree();
-        let results = goto_definition(&file, offset);
+        let db = Database::default();
+        let file = File::new(&db, sql.clone().into());
+        assert_eq!(crate::db::parse(&db, file).errors(), vec![]);
+        let results = goto_definition(&db, file, offset);
         if !results.is_empty() {
             let offset: usize = offset.into();
             let mut current_dests = vec![];
@@ -2312,13 +2318,13 @@ drop type person$0;
     fn goto_create_table_type_reference() {
         assert_snapshot!(goto("
 create type person_info as (name text, email text);
-create table user(id int, member person_info$0);
-"), @r"
+create table users(id int, member person_info$0);
+"), @"
           ╭▸ 
         2 │ create type person_info as (name text, email text);
           │             ─────────── 2. destination
-        3 │ create table user(id int, member person_info);
-          ╰╴                                           ─ 1. source
+        3 │ create table users(id int, member person_info);
+          ╰╴                                            ─ 1. source
         ");
     }
 
@@ -2410,14 +2416,14 @@ create table data(id int, value myint$0);
     fn goto_composite_type_field() {
         assert_snapshot!(goto("
 create type person_info as (name text, email text);
-create table user(id int, member person_info);
-select (member).name$0 from user;
-"), @r"
+create table users(id int, member person_info);
+select (member).name$0 from users;
+"), @"
           ╭▸ 
         2 │ create type person_info as (name text, email text);
           │                             ──── 2. destination
-        3 │ create table user(id int, member person_info);
-        4 │ select (member).name from user;
+        3 │ create table users(id int, member person_info);
+        4 │ select (member).name from users;
           ╰╴                   ─ 1. source
         ");
     }
@@ -4831,6 +4837,34 @@ select a$0 from (select 1 as a);
           ╭▸ 
         2 │ select a from (select 1 as a);
           ╰╴       ─ 1. source         ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_compound_select_column() {
+        assert_snapshot!(goto("
+select c$0 from (select 1 c union select 2 c);
+"), @r"
+          ╭▸ 
+        2 │ select c from (select 1 c union select 2 c);
+          ╰╴       ─ 1. source      ─ 2. destination
+        ");
+    }
+
+    #[test]
+    fn goto_subquery_compound_select_column_with_nested_parens() {
+        assert_snapshot!(goto("
+with t as (
+  select 1 as c
+)
+select c$0 from ((select * from t) union all (select * from t));
+"), @r"
+          ╭▸ 
+        3 │   select 1 as c
+          │               ─ 2. destination
+        4 │ )
+        5 │ select c from ((select * from t) union all (select * from t));
+          ╰╴       ─ 1. source
         ");
     }
 
@@ -8965,6 +8999,124 @@ create operator ||| (leftarg = int, rightarg = int, procedure = f$0);
           │                 ─ 2. destination
         3 │ create operator ||| (leftarg = int, rightarg = int, procedure = f);
           ╰╴                                                                ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_window_partition_column_from_create_table_if_not_exists() {
+        assert_snapshot!(goto("
+create table t (
+    id bigint primary key,
+    group_col text not null,
+    update_date date not null
+);
+
+with row_number_added as (
+  select
+    *,
+    row_number() over (
+      partition by group_col$0
+      order by update_date desc
+    ) as rn
+  from t
+)
+select * from row_number_added
+"), @"
+           ╭▸ 
+         4 │     group_col text not null,
+           │     ───────── 2. destination
+           ‡
+        12 │       partition by group_col
+           ╰╴                           ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_window_order_column_from_create_table_if_not_exists() {
+        assert_snapshot!(goto("
+create table t (
+    id bigint primary key,
+    group_col text not null,
+    update_date date not null
+);
+
+with row_number_added as (
+  select
+    *,
+    row_number() over (
+      partition by group_col
+      order by update_date$0 desc
+    ) as rn
+  from t
+)
+select * from row_number_added
+"), @"
+           ╭▸ 
+         5 │     update_date date not null
+           │     ─────────── 2. destination
+           ‡
+        13 │       order by update_date desc
+           ╰╴                         ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_cte_window_partition_function_call_from_create_table() {
+        assert_snapshot!(goto("
+create function length(text) returns int language internal;
+
+create table t (
+    id bigint primary key,
+    group_col text not null,
+    update_date date not null
+);
+
+with row_number_added as (
+  select
+    *,
+    row_number() over (
+      partition by length$0(group_col)
+      order by update_date$0 desc
+    ) as rn
+  from t
+)
+select * from row_number_added
+"), @"
+           ╭▸ 
+         2 │ create function length(text) returns int language internal;
+           │                 ────── 2. destination
+           ‡
+        14 │       partition by length(group_col)
+           ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_select_window_def_reuse() {
+        assert_snapshot!(goto("
+create table tbl (
+  id bigint primary key,
+  group_col text not null,
+  update_date date not null,
+  value text
+);
+select
+  id,
+  group_col,
+  row_number() over w as rn,
+  lag(value) over w$0 as prev_value
+from tbl
+window w as (
+  partition by group_col
+  order by update_date desc
+);
+"), @r"
+          ╭▸ 
+       12 │   lag(value) over w as prev_value
+          │                   ─ 1. source
+       13 │ from tbl
+       14 │ window w as (
+          ╰╴       ─ 2. destination
         ");
     }
 }

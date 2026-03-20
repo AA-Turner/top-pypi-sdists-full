@@ -71,6 +71,27 @@ class ErrorToolResult(ToolResult, tag="error"):
     is_assistant_error: bool = False
 
 
+APPLY_PATCH_TOOL_NAME = "apply_patch"
+
+
+class ApplyPatchToolInput(ToolInput, tag=APPLY_PATCH_TOOL_NAME):
+    operation_type: str
+    path: str
+    diff: str | None = None
+
+
+class ApplyPatchToolResult(ToolResult, tag=APPLY_PATCH_TOOL_NAME):
+    status: str
+    output: str | None = None
+
+    def to_text(self) -> str:
+        if self.output:
+            return self.output
+        if self.status == "completed":
+            return "apply_patch completed."
+        return "apply_patch failed."
+
+
 READ_TOOL_NAME = "read"
 READ_TOOL_ARTIFACT_NAME = "read_tool_artifact"
 
@@ -92,7 +113,11 @@ class ReadToolArtifactResult(ToolResult, tag=READ_TOOL_ARTIFACT_NAME):
     media_type: str
 
     def to_text(self) -> str:
-        return f"[Image artifact uploaded to {self.s3_uri}]"
+        # Text fallback used when the LLM provider doesn't support native image
+        # content blocks (OpenRouter) or when chat_context is unavailable
+        # (e.g. during compaction). Normally the image is delivered as a base64
+        # content block by the provider-specific history builder.
+        return f"[Image artifact: {self.file_path}]"
 
     async def get_base64_content(self, chat_uuid: str) -> str:
         """Download the artifact from S3 and return as base64-encoded string.
@@ -337,7 +362,8 @@ class HttpResponse(msgspec.Struct, tag="http_fetch_cli"):
 
 
 ToolInputType = (
-    ReadToolInput
+    ApplyPatchToolInput
+    | ReadToolInput
     | WriteToolInput
     | GlobToolInput
     | GrepToolInput
@@ -350,7 +376,8 @@ ToolInputType = (
 PartialToolResultType = PartialBashToolResult
 
 ToolResultType = (
-    ReadToolResult
+    ApplyPatchToolResult
+    | ReadToolResult
     | ReadToolArtifactResult
     | WriteToolResult
     | GlobToolResult
@@ -545,6 +572,7 @@ class CliRpcRequest(msgspec.Struct):
         | ListTerminalsRequest
         | StreamingCodeExecutionRequest
     )
+    idempotency_key: str | None = None
 
 
 class ToolExecutionResponse(msgspec.Struct, tag="tool_execution"):

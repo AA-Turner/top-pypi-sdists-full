@@ -34,8 +34,8 @@ from acryl_datahub_cloud.sdk.assertion_input.column_assertion_utils import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
     ALLOWED_COLUMN_TYPES_FOR_COLUMN_METRIC_ASSERTION,
+    FIELD_METRIC_OPERATOR_CONFIG,
     FIELD_METRIC_TYPE_CONFIG,
-    FIELD_VALUES_OPERATOR_CONFIG,
     MetricInputType,
     OperatorInputType,
     RangeInputType,
@@ -167,6 +167,7 @@ class _ColumnMetricAssertionInput(_AssertionInput):
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
         gms_criteria_type_info: Optional[tuple] = None,
+        time_bucketing_strategy=None,
     ):
         """
         Initialize a column metric assertion input.
@@ -202,12 +203,13 @@ class _ColumnMetricAssertionInput(_AssertionInput):
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            source_type=models.AssertionSourceTypeClass.NATIVE,  # Column metric assertions are of type native
+            source_type=models.AssertionSourceTypeClass.NATIVE,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
             default_detection_mechanism=DEFAULT_DETECTION_MECHANISM_COLUMN_METRIC_ASSERTION,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         # Column metric assertions (non-smart) don't use exclusion_windows, sensitivity or training_data_lookback_days
@@ -499,6 +501,7 @@ class _ColumnMetricAssertionInput(_AssertionInput):
                     ),
                 ],
                 settings=None,
+                bootstrapConfig=None,
             ),
         )
 
@@ -580,6 +583,7 @@ class _ColumnMetricAssertionInput(_AssertionInput):
             datasetFieldParameters=models.DatasetFieldAssertionParametersClass(
                 sourceType=source_type,
                 changedRowsField=field,
+                timeBucketingStrategy=self.time_bucketing_strategy,
             ),
         )
 
@@ -712,22 +716,24 @@ class _ColumnMetricAssertionInput(_AssertionInput):
     def _validate_field_type_and_operator_compatibility(
         self, column_name: str, operator: models.AssertionStdOperatorClass
     ) -> None:
-        """Validate that the field type is compatible with the operator.
+        """Validate that the operator is compatible with column metric assertions.
 
-        See FIELD_VALUES_OPERATOR_CONFIG in the frontend for the allowed operators for each field type.
+        Column metric assertions always produce numeric results, regardless of the underlying
+        column's data type. For example, NULL_COUNT on a DATE column produces a numeric count,
+        not a date. Therefore, operators are validated against FIELD_METRIC_OPERATOR_CONFIG
+        (the numeric metric operators) rather than against the column's raw data type.
 
         Args:
             column_name: The name of the column to validate.
             operator: The operator to validate against.
 
         Raises:
-            SDKUsageError: If the field type is not compatible with the operator.
+            SDKUsageError: If the operator is not valid for column metric assertions.
         """
-        field_spec = self._get_schema_field_spec(column_name)
-        allowed_operators = FIELD_VALUES_OPERATOR_CONFIG.get(field_spec.type, [])
-        if operator not in allowed_operators:
+        if operator not in FIELD_METRIC_OPERATOR_CONFIG:
             raise SDKUsageError(
-                f"Operator {operator} is not allowed for field type {field_spec.type} for column '{column_name}'. Allowed operators: {', '.join(str(op) for op in allowed_operators)}"
+                f"Operator {operator} is not allowed for column metric assertions on column '{column_name}'. "
+                f"Allowed operators: {', '.join(str(op) for op in FIELD_METRIC_OPERATOR_CONFIG)}"
             )
 
     def _validate_field_type_and_metric_type_compatibility(

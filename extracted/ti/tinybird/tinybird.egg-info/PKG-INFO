@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.2.1
+Version: 4.2.2
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.2.2
+*******
+
+- `Changed` Improved the `max-depth` warning message to clarify when the warning can be safely ignored.
 
 4.1.1
 *******

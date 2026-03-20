@@ -17,19 +17,12 @@ import uuid
 import warnings
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import ParseResult, SplitResult
 
 import icalendar
 from dateutil.rrule import rrulestr
 from icalendar import vCalAddress, vText
-
-try:
-    from typing import ClassVar, Optional
-
-    TimeStamp = Optional[date | datetime]
-except:
-    pass
 
 if TYPE_CHECKING:
     from icalendar import vCalAddress
@@ -142,9 +135,7 @@ class CalendarObjectResource(DAVObject):
         CalendarObjectResource has an additional parameter for its constructor:
          * data = "...", vCal data for the event
         """
-        super(CalendarObjectResource, self).__init__(
-            client=client, url=url, parent=parent, id=id, props=props
-        )
+        super().__init__(client=client, url=url, parent=parent, id=id, props=props)
         if data is not None:
             self.data = data
             if id and self._get_component_type_cheap():
@@ -292,16 +283,27 @@ class CalendarObjectResource(DAVObject):
             else:
                 # Use cheap accessor to avoid format conversion (issue #613)
                 uid = other._get_uid_cheap() or other.icalendar_component["uid"]
+            other_obj = other
         else:
             uid = other
-            if set_reverse:
-                other = self.parent.get_object_by_uid(uid)
+            other_obj = None  # Resolved below (possibly async)
+
+        if self.is_async_client:
+            return self._async_set_relation(uid, other_obj, reltype, set_reverse)
+
+        if other_obj is None and set_reverse:
+            other_obj = self.parent.get_object_by_uid(uid)
         if set_reverse:
             ## TODO: special handling of NEXT/FIRST.
             ## STARTTOFINISH does not have any equivalent "reverse".
             reltype_reverse = self.RELTYPE_REVERSE_MAP[reltype]
-            other.set_relation(other=self, reltype=reltype_reverse, set_reverse=False)
+            other_obj.set_relation(other=self, reltype=reltype_reverse, set_reverse=False)
 
+        self._add_relation_to_ical(uid, reltype)
+        self.save()
+
+    def _add_relation_to_ical(self, uid, reltype) -> None:
+        """Add a RELATED-TO property to the icalendar component (no-op if already present)."""
         existing_relation = self.icalendar_component.get("related-to", None)
         existing_relations = (
             existing_relation if isinstance(existing_relation, list) else [existing_relation]
@@ -315,16 +317,45 @@ class CalendarObjectResource(DAVObject):
         #  then Component._encode does miss adding properties
         #  see https://github.com/collective/icalendar/issues/557
         #  workaround should be safe to remove if issue gets fixed
-        uid = str(uid)
         self.icalendar_component.add(
-            "related-to", uid, parameters={"RELTYPE": reltype}, encode=True
+            "related-to", str(uid), parameters={"RELTYPE": reltype}, encode=True
         )
 
-        self.save()
+    async def _async_set_relation(self, uid, other_obj, reltype, set_reverse) -> None:
+        """Async implementation of set_relation() for async clients."""
+        if other_obj is None and set_reverse:
+            other_obj = await self.parent.get_object_by_uid(uid)
+        if set_reverse:
+            ## TODO: special handling of NEXT/FIRST.
+            reltype_reverse = self.RELTYPE_REVERSE_MAP[reltype]
+            # set_relation() returns a coroutine when is_async_client, so await it
+            await other_obj.set_relation(other=self, reltype=reltype_reverse, set_reverse=False)
+
+        self._add_relation_to_ical(uid, reltype)
+        await self.save()
 
     ## TODO: this method is undertested in the caldav library.
     ## However, as this consolidated and eliminated quite some duplicated code in the
     ## plann project, it is extensively tested in plann.
+    def _parse_relatives_from_ical(
+        self,
+        reltypes: "Container[str] | None",
+        relfilter: "Callable[[Any], bool] | None",
+    ) -> "defaultdict[str, set[str]]":
+        """Extract RELATED-TO properties as a {reltype: {uid, ...}} dict (pure, no I/O)."""
+        ret: defaultdict[str, set[str]] = defaultdict(set)
+        relations = self.icalendar_component.get("RELATED-TO", [])
+        if not isinstance(relations, list):
+            relations = [relations]
+        for rel in relations:
+            if relfilter and not relfilter(rel):
+                continue
+            reltype = rel.params.get("RELTYPE", "PARENT")
+            if reltypes and reltype not in reltypes:
+                continue
+            ret[reltype].add(str(rel))
+        return ret
+
     def get_relatives(
         self,
         reltypes: Container[str] | None = None,
@@ -349,24 +380,17 @@ class CalendarObjectResource(DAVObject):
         (but due to backward compatibility requirement, such an object should behave like
         the current dict)
         """
+        if self.is_async_client:
+            return self._async_get_relatives(reltypes, relfilter, fetch_objects, ignore_missing)
+
         from .collection import Calendar  ## late import to avoid cycling imports
 
-        ret = defaultdict(set)
-        relations = self.icalendar_component.get("RELATED-TO", [])
-        if not isinstance(relations, list):
-            relations = [relations]
-        for rel in relations:
-            if relfilter and not relfilter(rel):
-                continue
-            reltype = rel.params.get("RELTYPE", "PARENT")
-            if reltypes and reltype not in reltypes:
-                continue
-            ret[reltype].add(str(rel))
+        ret = self._parse_relatives_from_ical(reltypes, relfilter)
 
         if fetch_objects:
             for reltype in ret:
                 uids = ret[reltype]
-                reltype_set = set()
+                reltype_set: set = set()
 
                 if self.parent is None:
                     raise ValueError("Unexpected value None for self.parent")
@@ -385,6 +409,37 @@ class CalendarObjectResource(DAVObject):
 
         return ret
 
+    async def _async_get_relatives(
+        self,
+        reltypes: "Container[str] | None",
+        relfilter: "Callable[[Any], bool] | None",
+        fetch_objects: bool,
+        ignore_missing: bool,
+    ) -> "defaultdict[str, set]":
+        """Async implementation of get_relatives() for async clients."""
+        from .collection import Calendar  ## late import to avoid cycling imports
+
+        ret = self._parse_relatives_from_ical(reltypes, relfilter)
+
+        if fetch_objects:
+            if self.parent is None:
+                raise ValueError("Unexpected value None for self.parent")
+            if not isinstance(self.parent, Calendar):
+                raise ValueError("self.parent expected to be of type Calendar but it is not")
+
+            for reltype in ret:
+                uids = ret[reltype]
+                reltype_set: set = set()
+                for obj in uids:
+                    try:
+                        reltype_set.add(await self.parent.get_object_by_uid(obj))
+                    except error.NotFoundError:
+                        if not ignore_missing:
+                            raise
+                ret[reltype] = reltype_set
+
+        return ret
+
     def _set_reverse_relation(self, other, reltype):
         ## TODO: handle RFC9253 better!  Particularly next/first-lists
         reverse_reltype = self.RELTYPE_REVERSE_MAP.get(reltype)
@@ -392,6 +447,14 @@ class CalendarObjectResource(DAVObject):
             logging.error("Reltype %s not supported in object uid %s" % (reltype, self.id))
             return
         other.set_relation(self, reverse_reltype, other)
+
+    async def _async_set_reverse_relation(self, other, reltype):
+        """Async version of _set_reverse_relation."""
+        reverse_reltype = self.RELTYPE_REVERSE_MAP.get(reltype)
+        if not reverse_reltype:
+            logging.error("Reltype %s not supported in object uid %s" % (reltype, self.id))
+            return
+        await other.set_relation(self, reverse_reltype, other)
 
     def _verify_reverse_relation(self, other, reltype) -> tuple:
         revreltype = self.RELTYPE_REVERSE_MAP[reltype]
@@ -405,6 +468,36 @@ class CalendarObjectResource(DAVObject):
             ## have to leave it like this.
             return (other, revreltype)
         return False
+
+    async def _async_verify_reverse_relation(self, other, reltype) -> tuple:
+        """Async version of _verify_reverse_relation."""
+        revreltype = self.RELTYPE_REVERSE_MAP[reltype]
+        other_relations = await other.get_relatives(fetch_objects=False, reltypes={revreltype})
+        my_uid = self._get_uid_cheap() or str(self.icalendar_component["uid"])
+        if my_uid not in other_relations[revreltype]:
+            return (other, revreltype)
+        return False
+
+    async def _async_handle_reverse_relations(
+        self, verify: bool = False, fix: bool = False, pdb: bool = False
+    ) -> list:
+        """Async version of _handle_reverse_relations for async clients."""
+        ret = []
+        assert verify or fix
+        relations = await self.get_relatives()
+        for reltype in relations:
+            for other in relations[reltype]:
+                if verify:
+                    foobar = await self._async_verify_reverse_relation(other, reltype)
+                    if foobar:
+                        ret.append(foobar)
+                        if pdb:
+                            breakpoint()
+                        if fix:
+                            await self._async_set_reverse_relation(other, reltype)
+                elif fix:
+                    await self._async_set_reverse_relation(other, reltype)
+        return ret
 
     def _handle_reverse_relations(
         self, verify: bool = False, fix: bool = False, pdb: bool = False
@@ -630,6 +723,11 @@ class CalendarObjectResource(DAVObject):
     ## partstat can also be set to COMPLETED and IN-PROGRESS.
 
     def _reply_to_invite_request(self, partstat, calendar) -> None:
+        if self.is_async_client:
+            raise NotImplementedError(
+                "accept_invite/decline_invite/tentatively_accept_invite are not yet supported "
+                "for async clients"
+            )
         error.assert_(self.is_invite_request())
         if not calendar:
             calendar = self.client.principal().get_calendars()[0]
@@ -871,9 +969,9 @@ class CalendarObjectResource(DAVObject):
                 except ImportError:
                     retry_on_failure = False
             if retry_on_failure:
-                ## This looks like a noop, but the object may be "cleaned".
+                ## Accessing vobject_instance may "clean" the object.
                 ## See https://github.com/python-caldav/caldav/issues/43
-                self.vobject_instance
+                self.get_vobject_instance()
                 return self._put(False)
             else:
                 raise error.PutError(errmsg(r))
@@ -895,7 +993,7 @@ class CalendarObjectResource(DAVObject):
                 except ImportError:
                     retry_on_failure = False
             if retry_on_failure:
-                self.vobject_instance
+                self.get_vobject_instance()
                 return await self._async_put(False)
             else:
                 raise error.PutError(errmsg(r))
@@ -950,7 +1048,10 @@ class CalendarObjectResource(DAVObject):
         attendee_lines = ical_obj["attendee"]
         if isinstance(attendee_lines, str):
             attendee_lines = [attendee_lines]
-        strip_mailto = lambda x: str(x).lower().replace("mailto:", "")
+
+        def strip_mailto(x):
+            return str(x).lower().replace("mailto:", "")
+
         for attendee_line in attendee_lines:
             if strip_mailto(attendee_line) == strip_mailto(attendee):
                 attendee_line.params.update(kwargs)
@@ -1007,6 +1108,19 @@ class CalendarObjectResource(DAVObject):
         if not self.is_loaded():
             return self
 
+        # Delegate to async version for async clients (all logic that calls parent
+        # collection methods must be async-aware to avoid getting unawaited coroutines)
+        if self.is_async_client:
+            return self._async_save(
+                no_overwrite=no_overwrite,
+                no_create=no_create,
+                obj_type=obj_type,
+                increase_seqno=increase_seqno,
+                if_schedule_tag_match=if_schedule_tag_match,
+                only_this_recurrence=only_this_recurrence,
+                all_recurrences=all_recurrences,
+            )
+
         # Helper function to get the full object by UID
         def get_self():
             from caldav.lib import error
@@ -1028,113 +1142,145 @@ class CalendarObjectResource(DAVObject):
                     return None
             return None
 
-        # Handle no_overwrite/no_create validation BEFORE async delegation
-        # This must be done here because it requires collection methods (get_event_by_uid, etc.)
-        # which are sync and can't be called from async context (nested event loop issue)
         if no_overwrite or no_create:
-            from caldav.lib import error
-
-            if not obj_type:
-                obj_type = self.__class__.__name__.lower()
-
-            # Determine the ID
             uid = self.id or self.icalendar_component.get("uid")
-
-            # Check if object exists using parent collection methods
             existing = get_self()
+            self._validate_save_constraints(existing, uid, no_overwrite, no_create)
 
-            # Validate constraints
-            if not uid and no_create:
-                raise error.ConsistencyError("no_create flag was set, but no ID given")
-            if no_overwrite and existing:
-                raise error.ConsistencyError("no_overwrite flag was set, but object already exists")
-            if no_create and not existing:
-                raise error.ConsistencyError("no_create flag was set, but object does not exist")
-
-        # Handle recurrence instances BEFORE async delegation
-        # When saving a single recurrence instance, we need to:
-        # - Get the full recurring event from the server
-        # - Add/update the recurrence instance in the event's subcomponents
-        # - Save the full event back
-        # This prevents overwriting the entire recurring event with just one instance
         if (
             only_this_recurrence or all_recurrences
         ) and "RECURRENCE-ID" in self.icalendar_component:
-            import icalendar
-
             from caldav.lib import error
 
-            obj = get_self()  # Get the full object, not only the recurrence
+            obj = get_self()
             if obj is None:
                 raise error.NotFoundError("Could not find parent recurring event")
+            self._incorporate_recurrence_into_parent(obj, only_this_recurrence, all_recurrences)
+            return obj.save(increase_seqno=increase_seqno)
 
-            ici = obj.icalendar_instance  # ical instance
+        self._maybe_increment_sequence(increase_seqno)
+        path = self.url.path if self.url else None
+        self._create(id=self.id, path=path)
+        return self
 
-            if all_recurrences:
-                occ = obj.icalendar_component  # original calendar component
-                ncc = self.icalendar_component.copy()  # new calendar component
-                for prop in ["exdate", "exrule", "rdate", "rrule"]:
-                    if prop in occ:
-                        ncc[prop] = occ[prop]
+    def _validate_save_constraints(self, existing, uid, no_overwrite, no_create):
+        """Raise ConsistencyError if no_overwrite/no_create constraints are violated."""
+        from caldav.lib import error
 
-                # dtstart_diff = how much we've moved the time
-                dtstart_diff = ncc.start.astimezone() - ncc["recurrence-id"].dt.astimezone()
-                new_duration = ncc.duration
-                ncc.pop("dtstart")
-                ncc.add("dtstart", occ.start + dtstart_diff)
-                for ep in ("duration", "dtend"):
-                    if ep in ncc:
-                        ncc.pop(ep)
-                ncc.add("dtend", ncc.start + new_duration)
-                ncc.pop("recurrence-id")
-                s = ici.subcomponents
+        if not uid and no_create:
+            raise error.ConsistencyError("no_create flag was set, but no ID given")
+        if no_overwrite and existing:
+            raise error.ConsistencyError("no_overwrite flag was set, but object already exists")
+        if no_create and not existing:
+            raise error.ConsistencyError("no_create flag was set, but object does not exist")
 
-                # Replace the "root" subcomponent
-                comp_idxes = [
-                    i for i in range(0, len(s)) if not isinstance(s[i], icalendar.Timezone)
-                ]
-                comp_idx = comp_idxes[0]
-                s[comp_idx] = ncc
+    def _incorporate_recurrence_into_parent(self, obj, only_this_recurrence, all_recurrences):
+        """Mutate obj's icalendar_instance to include/update self (a recurrence instance).
 
-                # The recurrence-ids of all objects has to be recalculated
-                if dtstart_diff:
-                    for i in comp_idxes[1:]:
-                        rid = s[i].pop("recurrence-id")
-                        s[i].add("recurrence-id", rid.dt + dtstart_diff)
+        When saving a single recurrence instance we need to merge it into the
+        full recurring event rather than overwrite it on the server.  This method
+        performs that pure icalendar manipulation so it can be shared between the
+        sync and async save paths.
+        """
+        import icalendar
 
-                return obj.save(increase_seqno=increase_seqno)
+        from caldav.lib import error
 
-            if only_this_recurrence:
-                existing_idx = [
-                    i
-                    for i in range(0, len(ici.subcomponents))
-                    if ici.subcomponents[i].get("recurrence-id")
-                    == self.icalendar_component["recurrence-id"]
-                ]
-                error.assert_(len(existing_idx) <= 1)
-                if existing_idx:
-                    ici.subcomponents[existing_idx[0]] = self.icalendar_component
-                else:
-                    ici.add_component(self.icalendar_component)
-                return obj.save(increase_seqno=increase_seqno)
+        ici = obj.icalendar_instance
 
-        # Handle SEQUENCE increment
+        if all_recurrences:
+            occ = obj.icalendar_component
+            ncc = self.icalendar_component.copy()
+            for prop in ["exdate", "exrule", "rdate", "rrule"]:
+                if prop in occ:
+                    ncc[prop] = occ[prop]
+
+            # dtstart_diff = how much we've moved the time
+            dtstart_diff = ncc.start.astimezone() - ncc["recurrence-id"].dt.astimezone()
+            new_duration = ncc.duration
+            ncc.pop("dtstart")
+            ncc.add("dtstart", occ.start + dtstart_diff)
+            for ep in ("duration", "dtend"):
+                if ep in ncc:
+                    ncc.pop(ep)
+            ncc.add("dtend", ncc.start + new_duration)
+            ncc.pop("recurrence-id")
+            s = ici.subcomponents
+
+            # Replace the "root" subcomponent
+            comp_idxes = [i for i in range(len(s)) if not isinstance(s[i], icalendar.Timezone)]
+            s[comp_idxes[0]] = ncc
+
+            # The recurrence-ids of all objects has to be recalculated
+            if dtstart_diff:
+                for i in comp_idxes[1:]:
+                    rid = s[i].pop("recurrence-id")
+                    s[i].add("recurrence-id", rid.dt + dtstart_diff)
+
+        elif only_this_recurrence:
+            existing_idx = [
+                i
+                for i in range(len(ici.subcomponents))
+                if ici.subcomponents[i].get("recurrence-id")
+                == self.icalendar_component["recurrence-id"]
+            ]
+            error.assert_(len(existing_idx) <= 1)
+            if existing_idx:
+                ici.subcomponents[existing_idx[0]] = self.icalendar_component
+            else:
+                ici.add_component(self.icalendar_component)
+
+    def _maybe_increment_sequence(self, increase_seqno):
+        """Increment SEQUENCE number if present and increase_seqno is True."""
         if increase_seqno and "SEQUENCE" in self.icalendar_component:
             seqno = self.icalendar_component.pop("SEQUENCE", None)
             if seqno is not None:
                 self.icalendar_component.add("SEQUENCE", seqno + 1)
 
+    async def _async_save(
+        self,
+        no_overwrite: bool = False,
+        no_create: bool = False,
+        obj_type: str | None = None,
+        increase_seqno: bool = True,
+        if_schedule_tag_match: bool = False,
+        only_this_recurrence: bool = True,
+        all_recurrences: bool = False,
+    ) -> Self:
+        """Async implementation of save() for async clients."""
+        from caldav.lib import error
+
+        async def get_self():
+            uid = self.id or self.icalendar_component.get("uid")
+            if uid and self.parent:
+                try:
+                    _obj_type = obj_type or self.__class__.__name__.lower()
+                    if _obj_type:
+                        method_name = f"get_{_obj_type}_by_uid"
+                        if hasattr(self.parent, method_name):
+                            return await getattr(self.parent, method_name)(uid)
+                    if hasattr(self.parent, "get_object_by_uid"):
+                        return await self.parent.get_object_by_uid(uid)
+                except error.NotFoundError:
+                    return None
+            return None
+
+        if no_overwrite or no_create:
+            uid = self.id or self.icalendar_component.get("uid")
+            existing = await get_self()
+            self._validate_save_constraints(existing, uid, no_overwrite, no_create)
+
+        if (
+            only_this_recurrence or all_recurrences
+        ) and "RECURRENCE-ID" in self.icalendar_component:
+            obj = await get_self()
+            if obj is None:
+                raise error.NotFoundError("Could not find parent recurring event")
+            self._incorporate_recurrence_into_parent(obj, only_this_recurrence, all_recurrences)
+            return await obj.save(increase_seqno=increase_seqno)
+
+        self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
-
-        # Dual-mode support: async clients return a coroutine
-        if self.is_async_client:
-            return self._async_save_final(path)
-
-        self._create(id=self.id, path=path)
-        return self
-
-    async def _async_save_final(self, path) -> Self:
-        """Async helper for the final save operation."""
         await self._async_create(id=self.id, path=path)
         return self
 
@@ -1353,6 +1499,23 @@ class CalendarObjectResource(DAVObject):
         """
         return self._ensure_state().get_icalendar_copy()
 
+    def get_icalendar_component(self) -> "icalendar.Component":
+        """Get a COPY of the inner icalendar component (VEVENT/VTODO/VJOURNAL) for read-only access.
+
+        This is safe for inspection - modifications to the returned object
+        will NOT be saved. For editing, use edit_icalendar_component().
+
+        For recurring events with multiple components, returns the first
+        non-timezone component (the master RRULE component).  Use
+        ``search(..., expand=True)`` to get individual expanded occurrences.
+
+        Returns:
+            A copy of the first non-timezone subcomponent.
+        """
+        import copy
+
+        return copy.deepcopy(self.icalendar_component)
+
     def get_vobject_instance(self) -> "vobject.base.Component":
         """Get a COPY of the vobject object for read-only access.
 
@@ -1406,6 +1569,32 @@ class CalendarObjectResource(DAVObject):
             yield self._state.get_authoritative_icalendar()
         finally:
             self._borrowed = False
+
+    @contextmanager
+    def edit_icalendar_component(self):
+        """Context manager to borrow the inner icalendar component for editing.
+
+        Like :meth:`edit_icalendar_instance` but yields the first
+        ``VEVENT`` / ``VTODO`` / ``VJOURNAL`` subcomponent directly,
+        rather than the ``VCALENDAR`` wrapper.  This is convenient when
+        you only need to modify a single property on the component itself.
+
+        Usage::
+
+            with event.edit_icalendar_component() as comp:
+                comp['SUMMARY'] = 'New Summary'
+            event.save()
+
+        Yields:
+            The first non-``VTIMEZONE`` subcomponent of the icalendar object.
+
+        Raises:
+            RuntimeError: If another representation is currently borrowed.
+            StopIteration: If the calendar contains no non-timezone components.
+        """
+        with self.edit_icalendar_instance() as cal:
+            component = next(c for c in cal.subcomponents if c.name != "VTIMEZONE")
+            yield component
 
     @contextmanager
     def edit_vobject_instance(self):
@@ -1832,10 +2021,28 @@ class Todo(CalendarObjectResource):
         if not completion_timestamp:
             completion_timestamp = datetime.now(timezone.utc)
 
+        if self.is_async_client:
+            return self._async_complete(completion_timestamp, handle_rrule, rrule_mode)
+
         if "RRULE" in self.icalendar_component and handle_rrule:
             return getattr(self, "_complete_recurring_%s" % rrule_mode)(completion_timestamp)
         self._complete_ical(completion_timestamp=completion_timestamp)
         self.save()
+
+    async def _async_complete(
+        self,
+        completion_timestamp: datetime,
+        handle_rrule: bool = False,
+        rrule_mode: str = "safe",
+    ) -> None:
+        """Async implementation of complete()."""
+        if "RRULE" in self.icalendar_component and handle_rrule:
+            # _complete_recurring_* methods are sync-only for now; they internally
+            # call self.save() which would return an unawaited coroutine in async mode.
+            # This is a known limitation - handle_rrule is not yet async-safe.
+            raise NotImplementedError("handle_rrule=True is not yet supported for async clients")
+        self._complete_ical(completion_timestamp=completion_timestamp)
+        await self.save()
 
     def _complete_ical(self, i=None, completion_timestamp=None) -> None:
         if i is None:
@@ -1855,7 +2062,7 @@ class Todo(CalendarObjectResource):
         if i.get("STATUS", "NEEDS-ACTION") in ("CANCELLED", "COMPLETED"):
             return False
         ## input data does not conform to the RFC
-        assert False
+        raise AssertionError
 
     def uncomplete(self) -> None:
         """Undo completion - marks a completed task as not completed"""
@@ -1866,7 +2073,13 @@ class Todo(CalendarObjectResource):
         self.icalendar_component.add("status", "NEEDS-ACTION")
         if "completed" in self.icalendar_component:
             self.icalendar_component.pop("completed")
+        if self.is_async_client:
+            return self._async_uncomplete()
         self.save()
+
+    async def _async_uncomplete(self) -> None:
+        """Async implementation of uncomplete() for async clients."""
+        await self.save()
 
     ## TODO: should be moved up to the base class
     def set_duration(self, duration, movable_attr="DTSTART"):

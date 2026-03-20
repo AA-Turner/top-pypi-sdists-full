@@ -29,6 +29,7 @@
 #include "sherpa-onnx/csrc/offline-speech-denoiser.h"
 #include "sherpa-onnx/csrc/online-punctuation.h"
 #include "sherpa-onnx/csrc/online-recognizer.h"
+#include "sherpa-onnx/csrc/online-speech-denoiser.h"
 #include "sherpa-onnx/csrc/resample.h"
 #include "sherpa-onnx/csrc/speaker-embedding-extractor.h"
 #include "sherpa-onnx/csrc/speaker-embedding-manager.h"
@@ -204,6 +205,7 @@ const SherpaOnnxOnlineRecognizer *SherpaOnnxCreateOnlineRecognizer(
 
 void SherpaOnnxDestroyOnlineRecognizer(
     const SherpaOnnxOnlineRecognizer *recognizer) {
+  if (!recognizer) return;
   delete recognizer;
 }
 
@@ -222,6 +224,7 @@ const SherpaOnnxOnlineStream *SherpaOnnxCreateOnlineStreamWithHotwords(
 }
 
 void SherpaOnnxDestroyOnlineStream(const SherpaOnnxOnlineStream *stream) {
+  if (!stream) return;
   delete stream;
 }
 
@@ -340,7 +343,10 @@ const char *SherpaOnnxGetOnlineStreamResultAsJson(
   return pJson;
 }
 
-void SherpaOnnxDestroyOnlineStreamResultJson(const char *s) { delete[] s; }
+void SherpaOnnxDestroyOnlineStreamResultJson(const char *s) {
+  if (!s) return;
+  delete[] s;
+}
 
 void SherpaOnnxOnlineStreamReset(const SherpaOnnxOnlineRecognizer *recognizer,
                                  const SherpaOnnxOnlineStream *stream) {
@@ -349,6 +355,24 @@ void SherpaOnnxOnlineStreamReset(const SherpaOnnxOnlineRecognizer *recognizer,
 
 void SherpaOnnxOnlineStreamInputFinished(const SherpaOnnxOnlineStream *stream) {
   stream->impl->InputFinished();
+}
+
+void SherpaOnnxOnlineStreamSetOption(const SherpaOnnxOnlineStream *stream,
+                                     const char *key, const char *value) {
+  if (!stream || !key || !value) return;
+  stream->impl->SetOption(key, value);
+}
+
+const char *SherpaOnnxOnlineStreamGetOption(
+    const SherpaOnnxOnlineStream *stream, const char *key) {
+  if (!stream || !key) return nullptr;
+  return stream->impl->GetOption(key).c_str();
+}
+
+int32_t SherpaOnnxOnlineStreamHasOption(const SherpaOnnxOnlineStream *stream,
+                                        const char *key) {
+  if (!stream || !key) return 0;
+  return stream->impl->HasOption(key);
 }
 
 int32_t SherpaOnnxOnlineStreamIsEndpoint(
@@ -364,6 +388,7 @@ const SherpaOnnxDisplay *SherpaOnnxCreateDisplay(int32_t max_word_per_line) {
 }
 
 void SherpaOnnxDestroyDisplay(const SherpaOnnxDisplay *display) {
+  if (!display) return;
   delete display;
 }
 
@@ -626,6 +651,7 @@ void SherpaOnnxOfflineRecognizerSetConfig(
 
 void SherpaOnnxDestroyOfflineRecognizer(
     const SherpaOnnxOfflineRecognizer *recognizer) {
+  if (!recognizer) return;
   delete recognizer;
 }
 
@@ -644,6 +670,7 @@ const SherpaOnnxOfflineStream *SherpaOnnxCreateOfflineStreamWithHotwords(
 }
 
 void SherpaOnnxDestroyOfflineStream(const SherpaOnnxOfflineStream *stream) {
+  if (!stream) return;
   delete stream;
 }
 
@@ -651,6 +678,24 @@ void SherpaOnnxAcceptWaveformOffline(const SherpaOnnxOfflineStream *stream,
                                      int32_t sample_rate, const float *samples,
                                      int32_t n) {
   stream->impl->AcceptWaveform(sample_rate, samples, n);
+}
+
+void SherpaOnnxOfflineStreamSetOption(const SherpaOnnxOfflineStream *stream,
+                                      const char *key, const char *value) {
+  if (!stream || !key || !value) return;
+  stream->impl->SetOption(key, value);
+}
+
+const char *SherpaOnnxOfflineStreamGetOption(
+    const SherpaOnnxOfflineStream *stream, const char *key) {
+  if (!stream || !key) return nullptr;
+  return stream->impl->GetOption(key).c_str();
+}
+
+int32_t SherpaOnnxOfflineStreamHasOption(const SherpaOnnxOfflineStream *stream,
+                                         const char *key) {
+  if (!stream || !key) return 0;
+  return stream->impl->HasOption(key);
 }
 
 void SherpaOnnxDecodeOfflineStream(
@@ -844,7 +889,10 @@ const char *SherpaOnnxGetOfflineStreamResultAsJson(
   return pJson;
 }
 
-void SherpaOnnxDestroyOfflineStreamResultJson(const char *s) { delete[] s; }
+void SherpaOnnxDestroyOfflineStreamResultJson(const char *s) {
+  if (!s) return;
+  delete[] s;
+}
 
 // ============================================================
 // For Keyword Spot
@@ -918,7 +966,7 @@ static sherpa_onnx::KeywordSpotterConfig GetKeywordSpotterConfig(
   }
 
   if (spotter_config.model_config.debug) {
-#if OHOS
+#if __OHOS__
     SHERPA_ONNX_LOGE("%{public}s\n", spotter_config.ToString().c_str());
 #else
     SHERPA_ONNX_LOGE("%s\n", spotter_config.ToString().c_str());
@@ -944,6 +992,7 @@ const SherpaOnnxKeywordSpotter *SherpaOnnxCreateKeywordSpotter(
 }
 
 void SherpaOnnxDestroyKeywordSpotter(const SherpaOnnxKeywordSpotter *spotter) {
+  if (!spotter) return;
   delete spotter;
 }
 
@@ -1076,7 +1125,10 @@ const char *SherpaOnnxGetKeywordResultAsJson(
   return pJson;
 }
 
-void SherpaOnnxFreeKeywordResultJson(const char *s) { delete[] s; }
+void SherpaOnnxFreeKeywordResultJson(const char *s) {
+  if (!s) return;
+  delete[] s;
+}
 
 // ============================================================
 // For VAD
@@ -1094,6 +1146,7 @@ const SherpaOnnxCircularBuffer *SherpaOnnxCreateCircularBuffer(
 }
 
 void SherpaOnnxDestroyCircularBuffer(const SherpaOnnxCircularBuffer *buffer) {
+  if (!buffer) return;
   delete buffer;
 }
 
@@ -1111,7 +1164,10 @@ const float *SherpaOnnxCircularBufferGet(const SherpaOnnxCircularBuffer *buffer,
   return p;
 }
 
-void SherpaOnnxCircularBufferFree(const float *p) { delete[] p; }
+void SherpaOnnxCircularBufferFree(const float *p) {
+  if (!p) return;
+  delete[] p;
+}
 
 void SherpaOnnxCircularBufferPop(const SherpaOnnxCircularBuffer *buffer,
                                  int32_t n) {
@@ -1212,6 +1268,7 @@ const SherpaOnnxVoiceActivityDetector *SherpaOnnxCreateVoiceActivityDetector(
 
 void SherpaOnnxDestroyVoiceActivityDetector(
     const SherpaOnnxVoiceActivityDetector *p) {
+  if (!p) return;
   delete p;
 }
 
@@ -1485,6 +1542,7 @@ const SherpaOnnxOfflineTts *SherpaOnnxCreateOfflineTts(
 }
 
 void SherpaOnnxDestroyOfflineTts(const SherpaOnnxOfflineTts *tts) {
+  if (!tts) return;
   delete tts;
 }
 
@@ -1699,6 +1757,7 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithZipvoice(
     const float *prompt_samples, int32_t n_prompt, int32_t prompt_sr,
     float speed, int32_t num_steps) {
   if (!tts) {
+    SHERPA_ONNX_LOGE("tts is nullptr");
     return nullptr;
   }
 
@@ -1721,7 +1780,7 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithZipvoice(
   std::string ptext_s = prompt_text;
 
   std::vector<float> prompt_vec;
-  if (prompt_samples && n_prompt > 0) {
+  if (n_prompt > 0) {
     prompt_vec.assign(prompt_samples,
                       prompt_samples + static_cast<size_t>(n_prompt));
   }
@@ -1730,17 +1789,17 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithZipvoice(
                                  num_steps,
                                  /*callback=*/nullptr);
 
+  if (out.samples.empty()) {
+    return nullptr;
+  }
+
   auto *ans = new SherpaOnnxGeneratedAudio;
   ans->sample_rate = static_cast<int32_t>(out.sample_rate);
   ans->n = static_cast<int32_t>(out.samples.size());
 
-  if (!out.samples.empty()) {
-    float *buf = new float[out.samples.size()];
-    std::copy(out.samples.begin(), out.samples.end(), buf);
-    ans->samples = buf;
-  } else {
-    ans->samples = nullptr;
-  }
+  float *buf = new float[out.samples.size()];
+  std::copy(out.samples.begin(), out.samples.end(), buf);
+  ans->samples = buf;
 
   return ans;
 }
@@ -1750,6 +1809,7 @@ const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerateWithConfig(
     const SherpaOnnxGenerationConfig *config,
     SherpaOnnxGeneratedAudioProgressCallbackWithArg callback, void *arg) {
   if (!tts) {
+    SHERPA_ONNX_LOGE("tts is nullptr");
     return nullptr;
   }
 
@@ -1949,7 +2009,11 @@ SherpaOnnxCreateSpokenLanguageIdentification(
   }
 
   if (slid_config.debug) {
+#if __OHOS__
+    SHERPA_ONNX_LOGE("%{public}s\n", slid_config.ToString().c_str());
+#else
     SHERPA_ONNX_LOGE("%s\n", slid_config.ToString().c_str());
+#endif
   }
 
   if (!slid_config.Validate()) {
@@ -1967,6 +2031,7 @@ SherpaOnnxCreateSpokenLanguageIdentification(
 
 void SherpaOnnxDestroySpokenLanguageIdentification(
     const SherpaOnnxSpokenLanguageIdentification *slid) {
+  if (!slid) return;
   delete slid;
 }
 
@@ -2047,6 +2112,7 @@ SherpaOnnxCreateSpeakerEmbeddingExtractor(
 
 void SherpaOnnxDestroySpeakerEmbeddingExtractor(
     const SherpaOnnxSpeakerEmbeddingExtractor *p) {
+  if (!p) return;
   delete p;
 }
 
@@ -2078,6 +2144,7 @@ const float *SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding(
 }
 
 void SherpaOnnxSpeakerEmbeddingExtractorDestroyEmbedding(const float *v) {
+  if (!v) return;
   delete[] v;
 }
 
@@ -2094,6 +2161,7 @@ SherpaOnnxCreateSpeakerEmbeddingManager(int32_t dim) {
 
 void SherpaOnnxDestroySpeakerEmbeddingManager(
     const SherpaOnnxSpeakerEmbeddingManager *p) {
+  if (!p) return;
   delete p;
 }
 
@@ -2163,6 +2231,7 @@ const char *SherpaOnnxSpeakerEmbeddingManagerSearch(
 }
 
 void SherpaOnnxSpeakerEmbeddingManagerFreeSearch(const char *name) {
+  if (!name) return;
   delete[] name;
 }
 
@@ -2274,7 +2343,11 @@ const SherpaOnnxAudioTagging *SherpaOnnxCreateAudioTagging(
   ac.top_k = SHERPA_ONNX_OR(config->top_k, 5);
 
   if (ac.model.debug) {
+#if __OHOS__
+    SHERPA_ONNX_LOGE("%{public}s\n", ac.ToString().c_str());
+#else
     SHERPA_ONNX_LOGE("%s\n", ac.ToString().c_str());
+#endif
   }
 
   if (!ac.Validate()) {
@@ -2289,6 +2362,7 @@ const SherpaOnnxAudioTagging *SherpaOnnxCreateAudioTagging(
 }
 
 void SherpaOnnxDestroyAudioTagging(const SherpaOnnxAudioTagging *tagger) {
+  if (!tagger) return;
   delete tagger;
 }
 
@@ -2349,7 +2423,7 @@ struct SherpaOnnxOfflinePunctuation {
   std::unique_ptr<sherpa_onnx::OfflinePunctuation> impl;
 };
 
-const SherpaOnnxOfflinePunctuation *SherpaOnnxCreateOfflinePunctuation(
+static sherpa_onnx::OfflinePunctuationConfig GetOfflinePunctuationConfig(
     const SherpaOnnxOfflinePunctuationConfig *config) {
   sherpa_onnx::OfflinePunctuationConfig c;
   c.model.ct_transformer = SHERPA_ONNX_OR(config->model.ct_transformer, "");
@@ -2360,9 +2434,24 @@ const SherpaOnnxOfflinePunctuation *SherpaOnnxCreateOfflinePunctuation(
     c.model.provider = "cpu";
   }
 
-  if (c.model.debug) {
+  if (config->model.debug) {
+#if __OHOS__
+    SHERPA_ONNX_LOGE("%{public}s\n", c.ToString().c_str());
+#else
     SHERPA_ONNX_LOGE("%s\n", c.ToString().c_str());
+#endif
   }
+
+  return c;
+}
+
+const SherpaOnnxOfflinePunctuation *SherpaOnnxCreateOfflinePunctuation(
+    const SherpaOnnxOfflinePunctuationConfig *config) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  auto c = GetOfflinePunctuationConfig(config);
 
   if (!c.Validate()) {
     SHERPA_ONNX_LOGE("Errors in config");
@@ -2377,11 +2466,13 @@ const SherpaOnnxOfflinePunctuation *SherpaOnnxCreateOfflinePunctuation(
 
 void SherpaOnnxDestroyOfflinePunctuation(
     const SherpaOnnxOfflinePunctuation *punct) {
+  if (!punct) return;
   delete punct;
 }
 
 const char *SherpaOfflinePunctuationAddPunct(
     const SherpaOnnxOfflinePunctuation *punct, const char *text) {
+  if (!punct || !text) return nullptr;
   std::string text_with_punct = punct->impl->AddPunctuation(text);
 
   char *ans = new char[text_with_punct.size() + 1];
@@ -2391,38 +2482,63 @@ const char *SherpaOfflinePunctuationAddPunct(
   return ans;
 }
 
-void SherpaOfflinePunctuationFreeText(const char *text) { delete[] text; }
+void SherpaOfflinePunctuationFreeText(const char *text) {
+  if (!text) return;
+  delete[] text;
+}
 
 struct SherpaOnnxOnlinePunctuation {
   std::unique_ptr<sherpa_onnx::OnlinePunctuation> impl;
 };
 
+static sherpa_onnx::OnlinePunctuationConfig GetOnlinePunctuationConfig(
+    const SherpaOnnxOnlinePunctuationConfig *config) {
+  sherpa_onnx::OnlinePunctuationConfig punctuation_config;
+  punctuation_config.model.cnn_bilstm =
+      SHERPA_ONNX_OR(config->model.cnn_bilstm, "");
+  punctuation_config.model.bpe_vocab =
+      SHERPA_ONNX_OR(config->model.bpe_vocab, "");
+  punctuation_config.model.num_threads =
+      SHERPA_ONNX_OR(config->model.num_threads, 1);
+  punctuation_config.model.debug = config->model.debug;
+  punctuation_config.model.provider =
+      SHERPA_ONNX_OR(config->model.provider, "cpu");
+
+  if (config->model.debug) {
+#if __OHOS__
+    auto str_vec = sherpa_onnx::SplitString(punctuation_config.ToString(), 128);
+    for (const auto &s : str_vec) {
+      SHERPA_ONNX_LOGE("%{public}s\n", s.c_str());
+      SHERPA_ONNX_LOGE("%s\n", s.c_str());
+    }
+#else
+    SHERPA_ONNX_LOGE("%s", punctuation_config.ToString().c_str());
+#endif
+  }
+
+  return punctuation_config;
+}
+
 const SherpaOnnxOnlinePunctuation *SherpaOnnxCreateOnlinePunctuation(
     const SherpaOnnxOnlinePunctuationConfig *config) {
-  auto p = new SherpaOnnxOnlinePunctuation;
-  try {
-    sherpa_onnx::OnlinePunctuationConfig punctuation_config;
-    punctuation_config.model.cnn_bilstm =
-        SHERPA_ONNX_OR(config->model.cnn_bilstm, "");
-    punctuation_config.model.bpe_vocab =
-        SHERPA_ONNX_OR(config->model.bpe_vocab, "");
-    punctuation_config.model.num_threads =
-        SHERPA_ONNX_OR(config->model.num_threads, 1);
-    punctuation_config.model.debug = config->model.debug;
-    punctuation_config.model.provider =
-        SHERPA_ONNX_OR(config->model.provider, "cpu");
-
-    p->impl =
-        std::make_unique<sherpa_onnx::OnlinePunctuation>(punctuation_config);
-  } catch (const std::exception &e) {
-    SHERPA_ONNX_LOGE("Failed to create online punctuation: %s", e.what());
-    delete p;
+  if (config == nullptr) {
     return nullptr;
   }
+
+  auto punctuation_config = GetOnlinePunctuationConfig(config);
+  if (!punctuation_config.Validate()) {
+    SHERPA_ONNX_LOGE("Errors in config");
+    return nullptr;
+  }
+
+  auto *p = new SherpaOnnxOnlinePunctuation;
+  p->impl =
+      std::make_unique<sherpa_onnx::OnlinePunctuation>(punctuation_config);
   return p;
 }
 
 void SherpaOnnxDestroyOnlinePunctuation(const SherpaOnnxOnlinePunctuation *p) {
+  if (!p) return;
   delete p;
 }
 
@@ -2442,7 +2558,10 @@ const char *SherpaOnnxOnlinePunctuationAddPunct(
   }
 }
 
-void SherpaOnnxOnlinePunctuationFreeText(const char *text) { delete[] text; }
+void SherpaOnnxOnlinePunctuationFreeText(const char *text) {
+  if (!text) return;
+  delete[] text;
+}
 
 struct SherpaOnnxLinearResampler {
   std::unique_ptr<sherpa_onnx::LinearResample> impl;
@@ -2459,6 +2578,7 @@ const SherpaOnnxLinearResampler *SherpaOnnxCreateLinearResampler(
 }
 
 void SherpaOnnxDestroyLinearResampler(const SherpaOnnxLinearResampler *p) {
+  if (!p) return;
   delete p;
 }
 
@@ -2479,6 +2599,7 @@ const SherpaOnnxResampleOut *SherpaOnnxLinearResamplerResample(
 }
 
 void SherpaOnnxLinearResamplerResampleFree(const SherpaOnnxResampleOut *p) {
+  if (!p) return;
   delete[] p->samples;
   delete p;
 }
@@ -2505,6 +2626,23 @@ struct SherpaOnnxOfflineSpeechDenoiser {
   std::unique_ptr<sherpa_onnx::OfflineSpeechDenoiser> impl;
 };
 
+static const SherpaOnnxDenoisedAudio *CreateDenoisedAudio(
+    const sherpa_onnx::DenoisedAudio &audio) {
+  auto ans = new SherpaOnnxDenoisedAudio;
+
+  float *denoised_samples = nullptr;
+  if (!audio.samples.empty()) {
+    denoised_samples = new float[audio.samples.size()];
+    std::copy(audio.samples.begin(), audio.samples.end(), denoised_samples);
+  }
+
+  ans->samples = denoised_samples;
+  ans->n = audio.samples.size();
+  ans->sample_rate = audio.sample_rate;
+
+  return ans;
+}
+
 static sherpa_onnx::OfflineSpeechDenoiserConfig GetOfflineSpeechDenoiserConfig(
     const SherpaOnnxOfflineSpeechDenoiserConfig *config) {
   sherpa_onnx::OfflineSpeechDenoiserConfig c;
@@ -2512,6 +2650,7 @@ static sherpa_onnx::OfflineSpeechDenoiserConfig GetOfflineSpeechDenoiserConfig(
   c.model.num_threads = SHERPA_ONNX_OR(config->model.num_threads, 1);
   c.model.debug = config->model.debug;
   c.model.provider = SHERPA_ONNX_OR(config->model.provider, "cpu");
+  c.model.dpdfnet.model = SHERPA_ONNX_OR(config->model.dpdfnet.model, "");
 
   if (c.model.debug) {
 #if __OHOS__
@@ -2526,6 +2665,10 @@ static sherpa_onnx::OfflineSpeechDenoiserConfig GetOfflineSpeechDenoiserConfig(
 
 const SherpaOnnxOfflineSpeechDenoiser *SherpaOnnxCreateOfflineSpeechDenoiser(
     const SherpaOnnxOfflineSpeechDenoiserConfig *config) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
   auto sd_config = GetOfflineSpeechDenoiserConfig(config);
 
   if (!sd_config.Validate()) {
@@ -2542,34 +2685,148 @@ const SherpaOnnxOfflineSpeechDenoiser *SherpaOnnxCreateOfflineSpeechDenoiser(
 
 void SherpaOnnxDestroyOfflineSpeechDenoiser(
     const SherpaOnnxOfflineSpeechDenoiser *sd) {
+  if (!sd) return;
   delete sd;
 }
 
 int32_t SherpaOnnxOfflineSpeechDenoiserGetSampleRate(
     const SherpaOnnxOfflineSpeechDenoiser *sd) {
+  if (sd == nullptr) {
+    return 0;
+  }
+
   return sd->impl->GetSampleRate();
 }
 
 const SherpaOnnxDenoisedAudio *SherpaOnnxOfflineSpeechDenoiserRun(
     const SherpaOnnxOfflineSpeechDenoiser *sd, const float *samples, int32_t n,
     int32_t sample_rate) {
+  if (sd == nullptr) {
+    return nullptr;
+  }
+
+  if (samples == nullptr && n > 0) {
+    return nullptr;
+  }
+
   auto audio = sd->impl->Run(samples, n, sample_rate);
-
-  auto ans = new SherpaOnnxDenoisedAudio;
-
-  float *denoised_samples = new float[audio.samples.size()];
-  std::copy(audio.samples.begin(), audio.samples.end(), denoised_samples);
-
-  ans->samples = denoised_samples;
-  ans->n = audio.samples.size();
-  ans->sample_rate = audio.sample_rate;
-
-  return ans;
+  return CreateDenoisedAudio(audio);
 }
 
 void SherpaOnnxDestroyDenoisedAudio(const SherpaOnnxDenoisedAudio *p) {
+  if (!p) return;
   delete[] p->samples;
   delete p;
+}
+
+struct SherpaOnnxOnlineSpeechDenoiser {
+  std::unique_ptr<sherpa_onnx::OnlineSpeechDenoiser> impl;
+};
+
+static sherpa_onnx::OnlineSpeechDenoiserConfig GetOnlineSpeechDenoiserConfig(
+    const SherpaOnnxOnlineSpeechDenoiserConfig *config) {
+  sherpa_onnx::OnlineSpeechDenoiserConfig c;
+  c.model.gtcrn.model = SHERPA_ONNX_OR(config->model.gtcrn.model, "");
+  c.model.num_threads = SHERPA_ONNX_OR(config->model.num_threads, 1);
+  c.model.debug = config->model.debug;
+  c.model.provider = SHERPA_ONNX_OR(config->model.provider, "cpu");
+  c.model.dpdfnet.model = SHERPA_ONNX_OR(config->model.dpdfnet.model, "");
+
+  if (c.model.debug) {
+#if __OHOS__
+    SHERPA_ONNX_LOGE("%{public}s\n", c.ToString().c_str());
+#else
+    SHERPA_ONNX_LOGE("%s\n", c.ToString().c_str());
+#endif
+  }
+
+  return c;
+}
+
+const SherpaOnnxOnlineSpeechDenoiser *SherpaOnnxCreateOnlineSpeechDenoiser(
+    const SherpaOnnxOnlineSpeechDenoiserConfig *config) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  auto sd_config = GetOnlineSpeechDenoiserConfig(config);
+
+  if (!sd_config.Validate()) {
+    SHERPA_ONNX_LOGE("Errors in config");
+    return nullptr;
+  }
+
+  auto *sd = new SherpaOnnxOnlineSpeechDenoiser;
+  sd->impl = std::make_unique<sherpa_onnx::OnlineSpeechDenoiser>(sd_config);
+  return sd;
+}
+
+void SherpaOnnxDestroyOnlineSpeechDenoiser(
+    const SherpaOnnxOnlineSpeechDenoiser *sd) {
+  if (!sd) return;
+  delete sd;
+}
+
+int32_t SherpaOnnxOnlineSpeechDenoiserGetSampleRate(
+    const SherpaOnnxOnlineSpeechDenoiser *sd) {
+  if (sd == nullptr) {
+    return 0;
+  }
+
+  return sd->impl->GetSampleRate();
+}
+
+int32_t SherpaOnnxOnlineSpeechDenoiserGetFrameShiftInSamples(
+    const SherpaOnnxOnlineSpeechDenoiser *sd) {
+  if (sd == nullptr) {
+    return 0;
+  }
+
+  return sd->impl->GetFrameShiftInSamples();
+}
+
+const SherpaOnnxDenoisedAudio *SherpaOnnxOnlineSpeechDenoiserRun(
+    const SherpaOnnxOnlineSpeechDenoiser *sd, const float *samples, int32_t n,
+    int32_t sample_rate) {
+  if (sd == nullptr) {
+    return nullptr;
+  }
+
+  if (samples == nullptr && n > 0) {
+    return nullptr;
+  }
+
+  auto audio = sd->impl->Run(samples, n, sample_rate);
+
+  if (audio.samples.empty()) {
+    return nullptr;
+  }
+
+  return CreateDenoisedAudio(audio);
+}
+
+const SherpaOnnxDenoisedAudio *SherpaOnnxOnlineSpeechDenoiserFlush(
+    const SherpaOnnxOnlineSpeechDenoiser *sd) {
+  if (sd == nullptr) {
+    return nullptr;
+  }
+
+  auto audio = sd->impl->Flush();
+
+  if (audio.samples.empty()) {
+    return nullptr;
+  }
+
+  return CreateDenoisedAudio(audio);
+}
+
+void SherpaOnnxOnlineSpeechDenoiserReset(
+    const SherpaOnnxOnlineSpeechDenoiser *sd) {
+  if (sd == nullptr) {
+    return;
+  }
+
+  sd->impl->Reset();
 }
 
 #if SHERPA_ONNX_ENABLE_SPEAKER_DIARIZATION == 1
@@ -2650,6 +2907,7 @@ SherpaOnnxCreateOfflineSpeakerDiarization(
 
 void SherpaOnnxDestroyOfflineSpeakerDiarization(
     const SherpaOnnxOfflineSpeakerDiarization *sd) {
+  if (!sd) return;
   delete sd;
 }
 
@@ -2708,6 +2966,7 @@ SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime(
 
 void SherpaOnnxOfflineSpeakerDiarizationDestroySegment(
     const SherpaOnnxOfflineSpeakerDiarizationSegment *s) {
+  if (!s) return;
   delete[] s;
 }
 
@@ -2723,6 +2982,7 @@ SherpaOnnxOfflineSpeakerDiarizationProcess(
 
 void SherpaOnnxOfflineSpeakerDiarizationDestroyResult(
     const SherpaOnnxOfflineSpeakerDiarizationResult *r) {
+  if (!r) return;
   delete r;
 }
 
@@ -2853,11 +3113,40 @@ const SherpaOnnxOfflineSpeechDenoiser *
 SherpaOnnxCreateOfflineSpeechDenoiserOHOS(
     const SherpaOnnxOfflineSpeechDenoiserConfig *config,
     NativeResourceManager *mgr) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  if (!mgr) {
+    return SherpaOnnxCreateOfflineSpeechDenoiser(config);
+  }
+
   auto sd_config = GetOfflineSpeechDenoiserConfig(config);
 
   SherpaOnnxOfflineSpeechDenoiser *sd = new SherpaOnnxOfflineSpeechDenoiser;
 
-  sd->impl = std::make_unique<sherpa_onnx::OfflineSpeechDenoiser>(sd_config);
+  sd->impl =
+      std::make_unique<sherpa_onnx::OfflineSpeechDenoiser>(mgr, sd_config);
+
+  return sd;
+}
+
+const SherpaOnnxOnlineSpeechDenoiser *SherpaOnnxCreateOnlineSpeechDenoiserOHOS(
+    const SherpaOnnxOnlineSpeechDenoiserConfig *config,
+    NativeResourceManager *mgr) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  if (mgr == nullptr) {
+    return SherpaOnnxCreateOnlineSpeechDenoiser(config);
+  }
+
+  auto sd_config = GetOnlineSpeechDenoiserConfig(config);
+
+  auto *sd = new SherpaOnnxOnlineSpeechDenoiser;
+  sd->impl =
+      std::make_unique<sherpa_onnx::OnlineSpeechDenoiser>(mgr, sd_config);
 
   return sd;
 }
@@ -2865,6 +3154,10 @@ SherpaOnnxCreateOfflineSpeechDenoiserOHOS(
 const SherpaOnnxOnlineRecognizer *SherpaOnnxCreateOnlineRecognizerOHOS(
     const SherpaOnnxOnlineRecognizerConfig *config,
     NativeResourceManager *mgr) {
+  if (!mgr) {
+    return SherpaOnnxCreateOnlineRecognizer(config);
+  }
+
   sherpa_onnx::OnlineRecognizerConfig recognizer_config =
       GetOnlineRecognizerConfig(config);
 
@@ -2874,6 +3167,24 @@ const SherpaOnnxOnlineRecognizer *SherpaOnnxCreateOnlineRecognizerOHOS(
       std::make_unique<sherpa_onnx::OnlineRecognizer>(mgr, recognizer_config);
 
   return recognizer;
+}
+
+const SherpaOnnxOnlinePunctuation *SherpaOnnxCreateOnlinePunctuationOHOS(
+    const SherpaOnnxOnlinePunctuationConfig *config,
+    NativeResourceManager *mgr) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  if (mgr == nullptr) {
+    return SherpaOnnxCreateOnlinePunctuation(config);
+  }
+
+  auto punctuation_config = GetOnlinePunctuationConfig(config);
+  auto *p = new SherpaOnnxOnlinePunctuation;
+  p->impl =
+      std::make_unique<sherpa_onnx::OnlinePunctuation>(mgr, punctuation_config);
+  return p;
 }
 
 const SherpaOnnxOfflineRecognizer *SherpaOnnxCreateOfflineRecognizerOHOS(
@@ -2967,7 +3278,30 @@ const SherpaOnnxOfflineTts *SherpaOnnxCreateOfflineTtsOHOS(
   return nullptr;
 }
 #endif  // #if SHERPA_ONNX_ENABLE_TTS == 1
-        //
+
+const SherpaOnnxOfflinePunctuation *SherpaOnnxCreateOfflinePunctuationOHOS(
+    const SherpaOnnxOfflinePunctuationConfig *config,
+    NativeResourceManager *mgr) {
+  if (config == nullptr) {
+    return nullptr;
+  }
+
+  if (!mgr) {
+    return SherpaOnnxCreateOfflinePunctuation(config);
+  }
+
+  auto c = GetOfflinePunctuationConfig(config);
+  if (c.model.ct_transformer.empty()) {
+    SHERPA_ONNX_LOGE("Please specify a punctuation model! Return a null pointer");
+    return nullptr;
+  }
+
+  auto *punct = new SherpaOnnxOfflinePunctuation;
+  punct->impl = std::make_unique<sherpa_onnx::OfflinePunctuation>(mgr, c);
+
+  return punct;
+}
+
 #if SHERPA_ONNX_ENABLE_SPEAKER_DIARIZATION == 1
 const SherpaOnnxOfflineSpeakerDiarization *
 SherpaOnnxCreateOfflineSpeakerDiarizationOHOS(

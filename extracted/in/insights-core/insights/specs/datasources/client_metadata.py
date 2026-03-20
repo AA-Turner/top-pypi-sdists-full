@@ -11,6 +11,7 @@ from itertools import chain
 
 from insights import package_info
 from insights.client.constants import InsightsConstants as constants
+from insights.components.insights_core import CoreEgg
 from insights.core.blacklist import BLACKLISTED_SPECS
 from insights.core.context import HostContext
 from insights.core.exceptions import SkipComponent, ContentException
@@ -199,17 +200,17 @@ def display_name(broker):
     raise SkipComponent
 
 
-@datasource(HostContext)
+@datasource(HostContext, CoreEgg)
 def egg_release(broker):
     """
-    Custom datasource for ``display_name`` getting from insights-client
-    configuration.
+    Custom datasource for ``egg_release`` getting from egg release file.
+    It can only be collected when Egg is used as collector.
 
     Raises:
         SkipComponent: When cannot get the `egg_release`.
 
     Returns:
-        str: The JSON strings
+        str: Content of the egg release file.
     """
     egg_release = ''
     try:

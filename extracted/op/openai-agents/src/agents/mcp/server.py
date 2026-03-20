@@ -14,11 +14,13 @@ import httpx
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup  # pyright: ignore[reportMissingImports]
+from anyio import ClosedResourceError
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp import ClientSession, StdioServerParameters, Tool as MCPTool, stdio_client
 from mcp.client.session import MessageHandlerFnT
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import GetSessionIdCallback, streamablehttp_client
+from mcp.shared.exceptions import McpError
 from mcp.shared.message import SessionMessage
 from mcp.types import CallToolResult, GetPromptResult, InitializeResult, ListPromptsResult
 from typing_extensions import NotRequired, TypedDict
@@ -918,6 +920,17 @@ class MCPServerSseParams(TypedDict):
     sse_read_timeout: NotRequired[float]
     """The timeout for the SSE connection, in seconds. Defaults to 5 minutes."""
 
+    auth: NotRequired[httpx.Auth | None]
+    """Optional httpx authentication handler (e.g. ``httpx.BasicAuth``, a custom
+    ``httpx.Auth`` subclass for OAuth token refresh, etc.).  When provided, it is
+    passed directly to the underlying ``httpx.AsyncClient`` used by the SSE transport.
+    """
+
+    httpx_client_factory: NotRequired[HttpClientFactory]
+    """Custom HTTP client factory for configuring httpx.AsyncClient behavior (e.g.
+    to set custom SSL certificates, proxies, or other transport options).
+    """
+
 
 class MCPServerSse(_MCPServerWithClientSession):
     """MCP server implementation that uses the HTTP with SSE transport. See the [spec]
@@ -999,12 +1012,17 @@ class MCPServerSse(_MCPServerWithClientSession):
         self,
     ) -> AbstractAsyncContextManager[MCPStreamTransport]:
         """Create the streams for the server."""
-        return sse_client(
-            url=self.params["url"],
-            headers=self.params.get("headers", None),
-            timeout=self.params.get("timeout", 5),
-            sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
-        )
+        kwargs: dict[str, Any] = {
+            "url": self.params["url"],
+            "headers": self.params.get("headers", None),
+            "timeout": self.params.get("timeout", 5),
+            "sse_read_timeout": self.params.get("sse_read_timeout", 60 * 5),
+        }
+        if "auth" in self.params:
+            kwargs["auth"] = self.params["auth"]
+        if "httpx_client_factory" in self.params:
+            kwargs["httpx_client_factory"] = self.params["httpx_client_factory"]
+        return sse_client(**kwargs)
 
     @property
     def name(self) -> str:
@@ -1032,6 +1050,13 @@ class MCPServerStreamableHttpParams(TypedDict):
 
     httpx_client_factory: NotRequired[HttpClientFactory]
     """Custom HTTP client factory for configuring httpx.AsyncClient behavior."""
+
+    auth: NotRequired[httpx.Auth | None]
+    """Optional httpx authentication handler (e.g. ``httpx.BasicAuth``, a custom
+    ``httpx.Auth`` subclass for OAuth token refresh, etc.).  When provided, it is
+    passed directly to the underlying ``httpx.AsyncClient`` used by the Streamable HTTP
+    transport.
+    """
 
 
 class MCPServerStreamableHttp(_MCPServerWithClientSession):
@@ -1116,24 +1141,18 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         self,
     ) -> AbstractAsyncContextManager[MCPStreamTransport]:
         """Create the streams for the server."""
-        # Only pass httpx_client_factory if it's provided
+        kwargs: dict[str, Any] = {
+            "url": self.params["url"],
+            "headers": self.params.get("headers", None),
+            "timeout": self.params.get("timeout", 5),
+            "sse_read_timeout": self.params.get("sse_read_timeout", 60 * 5),
+            "terminate_on_close": self.params.get("terminate_on_close", True),
+        }
         if "httpx_client_factory" in self.params:
-            return streamablehttp_client(
-                url=self.params["url"],
-                headers=self.params.get("headers", None),
-                timeout=self.params.get("timeout", 5),
-                sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
-                terminate_on_close=self.params.get("terminate_on_close", True),
-                httpx_client_factory=self.params["httpx_client_factory"],
-            )
-        else:
-            return streamablehttp_client(
-                url=self.params["url"],
-                headers=self.params.get("headers", None),
-                timeout=self.params.get("timeout", 5),
-                sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
-                terminate_on_close=self.params.get("terminate_on_close", True),
-            )
+            kwargs["httpx_client_factory"] = self.params["httpx_client_factory"]
+        if "auth" in self.params:
+            kwargs["auth"] = self.params["auth"]
+        return streamablehttp_client(**kwargs)
 
     @asynccontextmanager
     async def _isolated_client_session(self):
@@ -1165,10 +1184,20 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         return await session.call_tool(tool_name, arguments, meta=meta)
 
     def _should_retry_in_isolated_session(self, exc: BaseException) -> bool:
-        if isinstance(exc, (asyncio.CancelledError, httpx.ConnectError, httpx.TimeoutException)):
+        if isinstance(
+            exc,
+            (
+                asyncio.CancelledError,
+                ClosedResourceError,
+                httpx.ConnectError,
+                httpx.TimeoutException,
+            ),
+        ):
             return True
         if isinstance(exc, httpx.HTTPStatusError):
             return exc.response.status_code >= 500
+        if isinstance(exc, McpError):
+            return exc.error.code == httpx.codes.REQUEST_TIMEOUT
         if isinstance(exc, BaseExceptionGroup):
             return bool(exc.exceptions) and all(
                 self._should_retry_in_isolated_session(inner) for inner in exc.exceptions

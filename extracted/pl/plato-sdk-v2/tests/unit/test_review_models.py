@@ -7,7 +7,6 @@ from typing import Annotated
 import pytest
 from pydantic import BaseModel, Field
 
-from plato.verifiers.models import VerifierFinding, VerifierResult, VerifierSignal
 from plato.worlds.review import (
     FeedbackField,
     RenderHint,
@@ -17,6 +16,7 @@ from plato.worlds.review import (
     review_model,
     review_model_to_json_schema,
 )
+from plato.worlds.review.result import ReviewFinding, ReviewResult, ReviewSignal
 
 # ---------------------------------------------------------------------------
 # Test fixtures — sample review models
@@ -186,15 +186,15 @@ class TestCollectReviewSchemas:
 
 
 # ---------------------------------------------------------------------------
-# Integration with VerifierFinding
+# Integration with ReviewFinding
 # ---------------------------------------------------------------------------
 
 
-class TestVerifierFindingIntegration:
+class TestReviewFindingIntegration:
     def test_finding_accepts_review_data(self) -> None:
         data = TestScoreReview(score=0.9, evidence="looks great", passed=True)
-        finding = VerifierFinding(
-            signal=VerifierSignal.PASS,
+        finding = ReviewFinding(
+            signal=ReviewSignal.PASS,
             title="test-task",
             data=data,
         )
@@ -204,8 +204,8 @@ class TestVerifierFindingIntegration:
 
     def test_finding_serializes_data_to_dict(self) -> None:
         data = TestScoreReview(score=0.7, passed=True)
-        finding = VerifierFinding(
-            signal=VerifierSignal.PASS,
+        finding = ReviewFinding(
+            signal=ReviewSignal.PASS,
             title="test",
             data=data,
         )
@@ -215,8 +215,8 @@ class TestVerifierFindingIntegration:
         assert serialized["data"]["score"] == 0.7
 
     def test_result_with_review_data(self) -> None:
-        result = VerifierResult(
-            signal=VerifierSignal.PASS,
+        result = ReviewResult(
+            signal=ReviewSignal.PASS,
             summary="all good",
             data=TestScoreReview(score=1.0, passed=True),
         )
@@ -224,8 +224,8 @@ class TestVerifierFindingIntegration:
         assert serialized["data"]["type"] == "test_score"
 
     def test_finding_none_data(self) -> None:
-        finding = VerifierFinding(
-            signal=VerifierSignal.SKIP,
+        finding = ReviewFinding(
+            signal=ReviewSignal.SKIP,
             title="skip",
         )
         assert finding.data is None

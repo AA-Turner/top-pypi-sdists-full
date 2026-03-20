@@ -4,7 +4,7 @@ import json
 import re
 import time
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from itertools import chain, cycle
 from unittest import mock
 
@@ -1099,3 +1099,129 @@ def test_assign_public_ip_override():
         assign_public_ip=False,
     )
     assert client.network_configuration["awsvpcConfiguration"]["assignPublicIp"] == "DISABLED"
+
+
+def _make_sts_credentials(expires_in_minutes=60):
+    """Create fake STS assume_role response credentials."""
+    expiration = datetime.now(tz=timezone.utc) + timedelta(minutes=expires_in_minutes)
+    return {
+        "Credentials": {
+            "AccessKeyId": "fake-access-key",
+            "SecretAccessKey": "fake-secret-key",
+            "SessionToken": "fake-session-token",
+            "Expiration": expiration,
+        },
+        "AssumedRoleUser": {
+            "AssumedRoleId": "fake-role-id",
+            "Arn": "arn:aws:sts::123456789012:assumed-role/test-role/session",
+        },
+    }
+
+
+def test_client_without_service_discovery_role_arn():
+    """Client without service_discovery_role_arn uses default boto3 client."""
+    client = Client(
+        cluster_name="test",
+        service_discovery_namespace_id="fake-namespace",
+        log_group="fake-log-group",
+        grace_period=0,
+    )
+    assert client._service_discovery_role_arn is None
+    assert client._service_discovery is not None
+
+
+def test_client_with_service_discovery_role_arn():
+    """Client with service_discovery_role_arn assumes role via STS."""
+    role_arn = "arn:aws:iam::123456789012:role/cross-account-sd"
+    fake_creds = _make_sts_credentials()
+
+    with (
+        mock.patch("boto3.client") as mock_boto_client,
+        mock.patch("boto3.Session") as mock_session_cls,
+    ):
+        mock_sts = mock.MagicMock()
+        mock_sts.assume_role.return_value = fake_creds
+
+        def _client_factory(service, **kwargs):
+            if service == "sts":
+                return mock_sts
+            return mock.MagicMock()
+
+        mock_boto_client.side_effect = _client_factory
+        mock_session = mock.MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        client = Client(
+            cluster_name="test",
+            service_discovery_namespace_id="fake-namespace",
+            log_group="fake-log-group",
+            grace_period=0,
+            service_discovery_role_arn=role_arn,
+        )
+
+        mock_sts.assume_role.assert_called_once()
+        call_kwargs = mock_sts.assume_role.call_args.kwargs
+        assert call_kwargs["RoleArn"] == role_arn
+        assert call_kwargs["DurationSeconds"] == 3600
+        assert "dagster-ecs-sd-" in call_kwargs["RoleSessionName"]
+
+        mock_session_cls.assert_called_once_with(
+            aws_access_key_id="fake-access-key",
+            aws_secret_access_key="fake-secret-key",
+            aws_session_token="fake-session-token",
+        )
+
+        mock_session.client.assert_called_once()
+        assert client._service_discovery_role_arn == role_arn
+
+
+def test_service_discovery_session_refresh():
+    """Service discovery session is refreshed when near expiration."""
+    role_arn = "arn:aws:iam::123456789012:role/cross-account-sd"
+
+    with mock.patch("boto3.client") as mock_boto_client, mock.patch("boto3.Session"):
+        mock_sts = mock.MagicMock()
+        mock_sts.assume_role.return_value = _make_sts_credentials()
+
+        def _client_factory(service, **kwargs):
+            if service == "sts":
+                return mock_sts
+            return mock.MagicMock()
+
+        mock_boto_client.side_effect = _client_factory
+
+        client = Client(
+            cluster_name="test",
+            service_discovery_namespace_id="fake-namespace",
+            log_group="fake-log-group",
+            grace_period=0,
+            service_discovery_role_arn=role_arn,
+        )
+
+        assert mock_sts.assume_role.call_count == 1
+
+        # Access the property — session is still valid, no refresh
+        _ = client.service_discovery
+        assert mock_sts.assume_role.call_count == 1
+
+        # Simulate session about to expire (within 5-minute buffer)
+        client._sd_session_expires = datetime.now(tz=timezone.utc) + timedelta(minutes=2)
+        mock_sts.assume_role.return_value = _make_sts_credentials()
+
+        # Access triggers refresh
+        _ = client.service_discovery
+        assert mock_sts.assume_role.call_count == 2
+
+
+def test_service_discovery_no_refresh_without_role_arn():
+    """Without role ARN, service_discovery property returns client directly without refresh."""
+    client = Client(
+        cluster_name="test",
+        service_discovery_namespace_id="fake-namespace",
+        log_group="fake-log-group",
+        grace_period=0,
+    )
+
+    sd_client = client.service_discovery
+    # Accessing multiple times returns the same client, no refresh logic involved
+    assert client.service_discovery is sd_client

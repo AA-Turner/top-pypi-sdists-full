@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: garth
-Version: 0.7.10
+Version: 0.7.11
 Summary: Garmin SSO auth + Connect client
 Project-URL: Homepage, https://github.com/matin/garth
 Project-URL: Documentation, https://garth.readthedocs.io

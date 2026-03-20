@@ -482,7 +482,8 @@ def register_bz2_file_processor_udtf(
                     fs.part_number,
                     fs.start_byte,
                     mode,
-                    compressed
+                    compressed,
+                    encoding
                 ) OVER (PARTITION BY fs.part_number)
             ) records;
 
@@ -495,6 +496,25 @@ def register_bz2_file_processor_udtf(
         def __init__(self) -> None:
             self._logger = logging.getLogger(self.__class__.__name__)
 
+        def sanitize_for_utf8(self, obj):
+            """Recursively ensure all strings are valid UTF-8 encodable."""
+            if isinstance(obj, str):
+                # Fast path: try encoding (most strings are fine)
+                try:
+                    obj.encode("utf-8")
+                    return obj
+                except UnicodeEncodeError:
+                    # Only slow path if needed
+                    return obj.encode("utf-8", "replace").decode("utf-8")
+            elif isinstance(obj, dict):
+                return {
+                    self.sanitize_for_utf8(k): self.sanitize_for_utf8(v)
+                    for k, v in obj.items()
+                }
+            elif isinstance(obj, list):
+                return [self.sanitize_for_utf8(x) for x in obj]
+            return obj
+
         def process(
             self,
             file_url: str,
@@ -503,6 +523,7 @@ def register_bz2_file_processor_udtf(
             start_byte: int,
             mode: str,
             compressed: bool,
+            encoding: str,
         ):
             """H
             Process a byte range and yield each line as a record.
@@ -514,6 +535,7 @@ def register_bz2_file_processor_udtf(
                 start_byte: Starting byte offset for this range
                 mode: PERMISSIVE or FAILFAST (for parsing)
                 compressed: Is the file BZ2 compressed?
+                encoding: Character encoding used to decode bytes
 
             Yields:
                 Tuples of (line_number, line_content)
@@ -543,14 +565,15 @@ def register_bz2_file_processor_udtf(
                     bytes_read += len(line_bytes)
                     if start_consuming_records:
                         line_number += 1
-                        line_content = line_bytes.decode(
-                            "utf-8", errors="replace"
-                        ).rstrip("\n\r")
                         try:
                             # Decode bytes to string, strip trailing newline
-                            yield line_number, json.loads(line_content)
-                        except json.JSONDecodeError as e:
-                            record = line_content[:1024]
+                            line_content = line_bytes.decode(
+                                encoding, errors="replace"
+                            ).rstrip("\n\r")
+                            value = self.sanitize_for_utf8(json.loads(line_content))
+                            yield line_number, value
+                        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                            record = line_bytes[:1024]
                             self._logger.warning("Error parsing line: %s", record)
                             if mode.lower() == "failfast":
                                 raise ValueError(f"Error parsing line: {record}") from e
@@ -594,6 +617,7 @@ def register_bz2_file_processor_udtf(
             LongType(),
             StringType(),
             BooleanType(),
+            StringType(),
         ],
         name=name,
         is_permanent=False,
@@ -621,6 +645,7 @@ def load_bz2_file(
     auto_register_udtfs: bool = True,
     mode: str = "PERMISSIVE",
     compressed: bool = True,
+    encoding: str = "utf-8",
 ) -> DataFrame:
     """
     Load a large BZ2-compressed or uncompressed newline-delimited file from a Snowflake stage.
@@ -633,6 +658,7 @@ def load_bz2_file(
         auto_register_udtfs: Whether to automatically register UDTFs (default: True)
         mode: set to "FAILFAST" to throw error if any record is malformed (default: PERMISSIVE)
         compressed: Whether the file to load is compressed or not
+        encoding: Character encoding used to decode file bytes (default: utf-8)
 
     Returns:
         DataFrame with columns: split_size_bytes, part_number, start_byte, line_number, line_content
@@ -671,6 +697,7 @@ def load_bz2_file(
         col("start_byte"),
         lit(mode),
         lit(compressed),
+        lit(encoding),
     )  # .over(partition_by="part_number")
 
     result_df = byte_ranges_df.join_table_function(udtf_call)

@@ -14,7 +14,7 @@ from dagster_cloud_cli.core.pex_builder.deps import BuildMethod
 from dagster_cloud_tests import gen_agent_instance
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--agent-batching-enabled",
         action="store_true",

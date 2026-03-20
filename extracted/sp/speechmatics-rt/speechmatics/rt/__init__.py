@@ -1,4 +1,4 @@
-__version__ = "0.5.3"
+__version__ = "1.0.0"
 
 from ._async_client import AsyncClient
 from ._async_multi_channel_client import AsyncMultiChannelClient

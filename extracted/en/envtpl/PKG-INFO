@@ -1,19 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: envtpl
-Version: 0.7.2
+Version: 0.8.0
 Summary: Render jinja2 templates on the command line using shell environment variables
 Home-page: https://github.com/andreasjansson/envtpl
 Author: Andreas Jansson
 Author-email: andreas@jansson.me.uk
 License: GPL v3
 Keywords: template environment variables parameter substitution shell jinja2 docker
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
-Requires-Python: >3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: Jinja2~=3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 envtpl

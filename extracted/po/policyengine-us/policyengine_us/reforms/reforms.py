@@ -19,6 +19,7 @@ from .biden.budget_2025 import (
 )
 from .biden.budget_2025 import create_capital_gains_tax_increase_reform
 from .eitc import create_halve_joint_eitc_phase_out_rate_reform
+from .eitc import create_streamlined_eitc_reform
 from .states.ny.wftc import create_ny_working_families_tax_credit_reform
 from .states.ny.a04038 import create_ny_a04038_enhanced_escc_infants_reform
 from .states.sc.h3492 import create_sc_h3492_eitc_refundable_reform
@@ -70,6 +71,7 @@ from .ctc import (
     create_ctc_per_child_phase_in_reform,
     create_ctc_per_child_phase_out_reform,
     create_ctc_minimum_refundable_amount_reform,
+    create_ctc_linear_phase_out_reform,
 )
 from .snap import (
     create_abolish_snap_deductions_reform,
@@ -344,6 +346,8 @@ def create_structural_reforms_from_parameters(parameters, period):
     cdcc_single_parent_work_requirement = (
         create_cdcc_single_parent_work_requirement_reform(parameters, period)
     )
+    streamlined_eitc = create_streamlined_eitc_reform(parameters, period)
+    ctc_linear_phase_out = create_ctc_linear_phase_out_reform(parameters, period)
     ky_graduated_income_tax = create_ky_graduated_income_tax_reform(parameters, period)
     pa_ctc_flat_amount = create_pa_ctc_flat_amount_reform(parameters, period)
     pa_ctc_match = create_pa_ctc_match_reform(parameters, period)
@@ -428,6 +432,8 @@ def create_structural_reforms_from_parameters(parameters, period):
         aca_ptc_simplified_bracket,
         aca_ptc_700_fpl_cliff,
         cdcc_single_parent_work_requirement,
+        streamlined_eitc,
+        ctc_linear_phase_out,
         ky_graduated_income_tax,
         pa_ctc_flat_amount,
         pa_ctc_match,

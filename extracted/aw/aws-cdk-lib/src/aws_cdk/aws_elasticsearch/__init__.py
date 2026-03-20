@@ -468,6 +468,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     RemovalPolicy as _RemovalPolicy_9f93c814,
     Resource as _Resource_45bc6135,
     SecretValue as _SecretValue_3dd0ddae,
@@ -3414,6 +3415,28 @@ class DomainGrants(
             type_hints = typing.get_type_hints(_typecheckingstub__d4eb4c309d3ec514b4242abf2edd58c6a39a0bdd6070dfb9eacddc73729b94ab)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("DomainGrants", jsii.sinvoke(cls, "fromDomain", [resource]))
+
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5b984600bcdce22813f080bf22de821b8d49dfd4f1d9cbce92d597eb76d3147)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="read")
     def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
@@ -8412,6 +8435,15 @@ def _typecheckingstub__72419130e136fdde5577319d89e912d0d4cabd7e160115eb7fb1c0f58
 
 def _typecheckingstub__d4eb4c309d3ec514b4242abf2edd58c6a39a0bdd6070dfb9eacddc73729b94ab(
     resource: _IDomainRef_67910ee2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5b984600bcdce22813f080bf22de821b8d49dfd4f1d9cbce92d597eb76d3147(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

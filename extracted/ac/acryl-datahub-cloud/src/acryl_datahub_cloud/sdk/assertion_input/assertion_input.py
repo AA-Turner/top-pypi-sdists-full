@@ -532,6 +532,194 @@ def _try_parse_time_window_size(
         )
 
 
+class TimeBucketingStrategy(BaseModel):
+    """Configuration for time-based bucketing of assertion evaluation.
+
+    Defines how to partition data into time buckets for evaluation, enabling
+    assertions to be evaluated over specific time windows rather than the
+    entire dataset.
+
+    Args:
+        timestamp_field_path: Path to the timestamp field used for bucketing (column name).
+        bucket_interval: Size of each time bucket (e.g. 1 DAY, 2 HOURs).
+        late_arrival_grace_period: Optional grace period after bucket end before
+            considering the bucket complete. Allows for late-arriving data.
+        timezone: IANA timezone for bucket boundaries (e.g. "America/Los_Angeles").
+            Defaults to "UTC".
+    """
+
+    timestamp_field_path: str
+    bucket_interval: TimeWindowSizeInputTypes
+    late_arrival_grace_period: Optional[TimeWindowSizeInputTypes] = None
+    timezone: str = "UTC"
+
+    class Config:
+        extra = Extra.forbid
+        arbitrary_types_allowed = True
+
+
+TimeBucketingStrategyInputTypes: TypeAlias = Union[
+    TimeBucketingStrategy,
+    models.AssertionTimeBucketingStrategyClass,
+    dict[str, Union[str, int, dict[str, Union[str, int]], None]],
+    None,
+]
+
+TIME_BUCKETING_STRATEGY_EXAMPLES = {
+    "Time bucketing from object": 'TimeBucketingStrategy(timestamp_field_path="created_at", bucket_interval={"unit": "DAY", "multiple": 1}, timezone="UTC")',
+    "Time bucketing from dict": '{"timestamp_field_path": "created_at", "bucket_interval": {"unit": "DAY", "multiple": 1}, "timezone": "UTC"}',
+    "Time bucketing with grace period": '{"timestamp_field_path": "event_time", "bucket_interval": {"unit": "HOUR", "multiple": 1}, "late_arrival_grace_period": {"unit": "MINUTE", "multiple": 30}, "timezone": "America/Los_Angeles"}',
+}
+
+
+def _try_parse_time_bucketing_strategy(
+    config: TimeBucketingStrategyInputTypes,
+) -> Optional[models.AssertionTimeBucketingStrategyClass]:
+    """Parse a time bucketing strategy configuration into the model class.
+
+    Args:
+        config: The time bucketing strategy configuration.
+
+    Returns:
+        An AssertionTimeBucketingStrategyClass or None.
+    """
+    if config is None:
+        return None
+    if isinstance(config, models.AssertionTimeBucketingStrategyClass):
+        return config
+    if isinstance(config, TimeBucketingStrategy):
+        bucket_interval = _try_parse_time_window_size(config.bucket_interval)
+        grace_period = (
+            _try_parse_time_window_size(config.late_arrival_grace_period)
+            if config.late_arrival_grace_period
+            else None
+        )
+        return models.AssertionTimeBucketingStrategyClass(
+            timestampFieldPath=config.timestamp_field_path,
+            bucketInterval=bucket_interval,
+            lateArrivalGracePeriod=grace_period,
+            timezone=config.timezone,
+        )
+    if isinstance(config, dict):
+        timestamp_field_path = config.get("timestamp_field_path")
+        if not timestamp_field_path or not isinstance(timestamp_field_path, str):
+            raise SDKUsageErrorWithExamples(
+                msg="timestamp_field_path is required and must be a string",
+                examples=TIME_BUCKETING_STRATEGY_EXAMPLES,
+            )
+        bucket_interval_raw = config.get("bucket_interval")
+        if not bucket_interval_raw:
+            raise SDKUsageErrorWithExamples(
+                msg="bucket_interval is required",
+                examples=TIME_BUCKETING_STRATEGY_EXAMPLES,
+            )
+        bucket_interval = _try_parse_time_window_size(bucket_interval_raw)  # type: ignore[arg-type]
+        grace_period_raw = config.get("late_arrival_grace_period")
+        grace_period = (
+            _try_parse_time_window_size(grace_period_raw)  # type: ignore[arg-type]
+            if grace_period_raw
+            else None
+        )
+        timezone = config.get("timezone", "UTC")
+        if not isinstance(timezone, str):
+            raise SDKUsageErrorWithExamples(
+                msg="timezone must be a string",
+                examples=TIME_BUCKETING_STRATEGY_EXAMPLES,
+            )
+        return models.AssertionTimeBucketingStrategyClass(
+            timestampFieldPath=timestamp_field_path,
+            bucketInterval=bucket_interval,
+            lateArrivalGracePeriod=grace_period,
+            timezone=timezone,
+        )
+    raise SDKUsageErrorWithExamples(
+        msg=f"Invalid time bucketing strategy: {config}",
+        examples=TIME_BUCKETING_STRATEGY_EXAMPLES,
+    )
+
+
+class BackfillConfig(BaseModel):
+    """Configuration for backfilling historical assertion data.
+
+    When set on an assertion monitor, the system will evaluate the assertion
+    against historical data starting from the specified date.
+
+    Backend validation limits (relative to assertion creation time):
+      - DAY bucketing:  max 365 days before assertion creation
+      - WEEK bucketing: max 156 weeks (~3 years) before assertion creation
+      - No bucketing (volume only): max 365 days before assertion creation
+
+    Args:
+        backfill_start_date_ms: The earliest date to backfill from, as epoch
+            milliseconds or a datetime object.
+    """
+
+    backfill_start_date_ms: Union[int, datetime]
+
+    class Config:
+        extra = Extra.forbid
+        arbitrary_types_allowed = True
+
+
+BackfillConfigInputTypes: TypeAlias = Union[
+    BackfillConfig,
+    models.AssertionMonitorBootstrapConfigClass,
+    dict[str, Union[str, int]],
+    None,
+]
+
+BACKFILL_CONFIG_EXAMPLES = {
+    "Backfill from object (epoch ms)": "BackfillConfig(backfill_start_date_ms=1704067200000)",
+    "Backfill from object (datetime)": "BackfillConfig(backfill_start_date_ms=datetime(2024, 1, 1))",
+    "Backfill from dict": '{"backfill_start_date_ms": 1704067200000}',
+    "Backfill from model": "models.AssertionMonitorBootstrapConfigClass(backfillStartDateMs=1704067200000)",
+}
+
+
+def _convert_to_epoch_ms(value: Union[int, datetime]) -> int:
+    """Convert an int (epoch ms) or datetime to epoch milliseconds."""
+    if isinstance(value, datetime):
+        return int(value.timestamp() * 1000)
+    return int(value)
+
+
+def _try_parse_backfill_config(
+    config: BackfillConfigInputTypes,
+) -> Optional[models.AssertionMonitorBootstrapConfigClass]:
+    """Parse a backfill configuration into the model class.
+
+    Args:
+        config: The backfill configuration.
+
+    Returns:
+        An AssertionMonitorBootstrapConfigClass or None.
+    """
+    if config is None:
+        return None
+    if isinstance(config, models.AssertionMonitorBootstrapConfigClass):
+        return config
+    if isinstance(config, BackfillConfig):
+        epoch_ms = _convert_to_epoch_ms(config.backfill_start_date_ms)
+        return models.AssertionMonitorBootstrapConfigClass(
+            backfillStartDateMs=epoch_ms,
+        )
+    if isinstance(config, dict):
+        raw_value = config.get("backfill_start_date_ms")
+        if raw_value is None:
+            raise SDKUsageErrorWithExamples(
+                msg="backfill_start_date_ms is required",
+                examples=BACKFILL_CONFIG_EXAMPLES,
+            )
+        epoch_ms = _convert_to_epoch_ms(raw_value)  # type: ignore[arg-type]
+        return models.AssertionMonitorBootstrapConfigClass(
+            backfillStartDateMs=epoch_ms,
+        )
+    raise SDKUsageErrorWithExamples(
+        msg=f"Invalid backfill config: {config}",
+        examples=BACKFILL_CONFIG_EXAMPLES,
+    )
+
+
 class FixedRangeExclusionWindow(BaseModel):
     type: Literal["fixed_range_exclusion_window"] = "fixed_range_exclusion_window"
     start: datetime
@@ -1047,6 +1235,8 @@ class _AssertionInput(ABC):
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
         default_detection_mechanism: _DetectionMechanismTypes = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ):
         """
         Create an AssertionInput object.
@@ -1104,6 +1294,10 @@ class _AssertionInput(ABC):
         self.created_at = created_at
         self.updated_by = updated_by
         self.updated_at = updated_at
+        self.time_bucketing_strategy = _try_parse_time_bucketing_strategy(
+            time_bucketing_strategy
+        )
+        self.backfill_config = _try_parse_backfill_config(backfill_config)
         self.cached_dataset: Optional[Dataset] = None
 
     def to_assertion_and_monitor_entities(self) -> tuple[Assertion, Monitor]:

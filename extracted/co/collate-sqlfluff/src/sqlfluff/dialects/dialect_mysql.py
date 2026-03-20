@@ -14,6 +14,7 @@ from sqlfluff.core.parser import (
     Bracketed,
     CodeSegment,
     CommentSegment,
+    CompositeComparisonOperatorSegment,
     Dedent,
     Delimited,
     IdentifierSegment,
@@ -176,12 +177,14 @@ mysql_dialect.replace(
             Ref("SystemVariableSegment"),
         ]
     ),
+    PostTableExpressionGrammar=OneOf(
+        Ref("IndexHintClauseSegment"),
+        Ref("SelectPartitionClauseSegment"),
+    ),
     FromClauseTerminatorGrammar=ansi_dialect.get_grammar(
         "FromClauseTerminatorGrammar"
     ).copy(
         insert=[
-            Ref("IndexHintClauseSegment"),
-            Ref("SelectPartitionClauseSegment"),
             Ref("ForClauseSegment"),
             Ref("SetOperatorSegment"),
             Ref("WithNoSchemaBindingClauseSegment"),
@@ -305,6 +308,10 @@ mysql_dialect.replace(
         )
     ),
     LikeGrammar=OneOf("LIKE", "RLIKE", "REGEXP"),
+    CollateGrammar=Sequence("COLLATE", Ref("CollationReferenceSegment")),
+    ComparisonOperatorGrammar=ansi_dialect.get_grammar(
+        "ComparisonOperatorGrammar"
+    ).copy(insert=[Ref("NullSafeEqualsSegment")]),
 )
 
 mysql_dialect.add(
@@ -324,7 +331,7 @@ mysql_dialect.add(
         type="at_sign_literal",
     ),
     SystemVariableSegment=RegexParser(
-        r"@@((session|global)\.)?[A-Za-z0-9_]+",
+        r"@@((session|global|local|persist|persist_only)\.)?[A-Za-z0-9_]+",
         CodeSegment,
         type="system_variable",
     ),
@@ -345,7 +352,7 @@ mysql_dialect.add(
 )
 
 
-class AliasExpressionSegment(BaseSegment):
+class AliasExpressionSegment(ansi.AliasExpressionSegment):
     """A reference to an object with an `AS` clause.
 
     The optional AS keyword allows both implicit and explicit aliasing.
@@ -354,9 +361,12 @@ class AliasExpressionSegment(BaseSegment):
     type = "alias_expression"
     match_grammar = Sequence(
         Indent,
-        Ref.keyword("AS", optional=True),
+        Ref("AsAliasOperatorSegment", optional=True),
         OneOf(
-            Ref("SingleIdentifierGrammar"),
+            Sequence(
+                Ref("SingleIdentifierGrammar"),
+                Bracketed(Ref("SingleIdentifierListSegment"), optional=True),
+            ),
             Ref("SingleQuotedIdentifierSegment"),
             Ref("DoubleQuotedIdentifierSegment"),
         ),
@@ -378,7 +388,7 @@ class ColumnDefinitionSegment(BaseSegment):
             ),
             Sequence(
                 OneOf("DATETIME", "TIMESTAMP"),
-                Bracketed(Ref("NumericLiteralSegment"), optional=True),  # Precision
+                Ref("BracketedArguments", optional=True),  # Precision
                 AnyNumberOf(
                     # Allow NULL/NOT NULL, DEFAULT, and ON UPDATE in any order
                     Sequence(Sequence("NOT", optional=True), "NULL", optional=True),
@@ -975,14 +985,24 @@ class ColumnConstraintSegment(ansi.ColumnConstraintSegment):
 
     match_grammar: Matchable = OneOf(
         ansi.ColumnConstraintSegment.match_grammar,
-        Sequence("CHARACTER", "SET", Ref("NakedIdentifierSegment")),
-        Sequence("COLLATE", Ref("CollationReferenceSegment")),
+        Sequence(
+            "CHARACTER",
+            "SET",
+            OneOf(
+                Ref("SingleIdentifierGrammar"),
+                Ref("SingleQuotedIdentifierSegment"),
+                Ref("DoubleQuotedIdentifierSegment"),
+            ),
+        ),
+        Ref("CollateGrammar"),
         Sequence(
             Sequence("GENERATED", "ALWAYS", optional=True),
             "AS",
             Bracketed(Ref("ExpressionSegment")),
             OneOf("STORED", "VIRTUAL", optional=True),
         ),
+        Sequence("SRID", Ref("NumericLiteralSegment")),
+        OneOf("INVISIBLE", "VISIBLE"),
     )
 
 
@@ -1463,6 +1483,7 @@ class CreateProcedureStatementSegment(BaseSegment):
         "CREATE",
         Ref("DefinerSegment", optional=True),
         "PROCEDURE",
+        Ref("IfNotExistsGrammar", optional=True),
         Ref("FunctionNameSegment"),
         Ref("ProcedureParameterListGrammar", optional=True),
         Ref("CommentClauseSegment", optional=True),
@@ -1558,6 +1579,25 @@ class AlterTableStatementSegment(BaseSegment):
                         optional=True,
                     ),
                 ),
+                # Alter Column
+                Sequence(
+                    "ALTER",
+                    Ref.keyword("COLUMN", optional=True),
+                    Ref("SingleIdentifierGrammar"),  # Column name
+                    AnySetOf(
+                        OneOf(
+                            Sequence(
+                                "SET",
+                                "DEFAULT",
+                                OneOf(Ref("LiteralGrammar"), Ref("ExpressionSegment")),
+                            ),
+                            Sequence("DROP", "DEFAULT"),
+                        ),
+                        Sequence("SET", OneOf("INVISIBLE", "VISIBLE")),
+                        min_times=1,
+                    ),
+                ),
+                # Modify Column
                 Sequence(
                     "MODIFY",
                     Ref.keyword("COLUMN", optional=True),
@@ -1795,7 +1835,7 @@ class ProcedureParameterListGrammar(BaseSegment):
 class SetAssignmentStatementSegment(BaseSegment):
     """A `SET` statement.
 
-    https://dev.mysql.com/doc/refman/8.0/en/set-variable.html
+    https://dev.mysql.com/doc/refman/9.3/en/set-variable.html
     """
 
     type = "set_statement"
@@ -1806,13 +1846,24 @@ class SetAssignmentStatementSegment(BaseSegment):
             Sequence(
                 Sequence(OneOf("NEW", "OLD"), Ref("DotSegment"), optional=True),
                 OneOf(
-                    Ref("SessionVariableNameSegment"), Ref("LocalVariableNameSegment")
+                    "GLOBAL",
+                    "PERSIST",
+                    "PERSIST_ONLY",
+                    "SESSION",
+                    "LOCAL",
+                    optional=True,
+                ),
+                OneOf(
+                    Ref("SessionVariableNameSegment"),
+                    Ref("LocalVariableNameSegment"),
+                    Ref("SystemVariableSegment"),
                 ),
                 OneOf(
                     Ref("EqualsSegment"),
                     Ref("WalrusOperatorSegment"),
                 ),
                 AnyNumberOf(
+                    Ref("NumericLiteralSegment"),
                     Ref("QuotedLiteralSegment"),
                     Ref("DoubleQuotedLiteralSegment"),
                     Ref("SessionVariableNameSegment"),
@@ -2982,7 +3033,11 @@ class AlterOptionSegment(BaseSegment):
                 "CHARACTER",
                 "SET",
                 Ref("EqualsSegment", optional=True),
-                Ref("NakedIdentifierSegment"),
+                OneOf(
+                    Ref("SingleIdentifierGrammar"),
+                    Ref("SingleQuotedIdentifierSegment"),
+                    Ref("DoubleQuotedIdentifierSegment"),
+                ),
             ),
             Sequence(
                 Ref.keyword("DEFAULT", optional=True),
@@ -3168,4 +3223,66 @@ class DropEventStatementSegment(BaseSegment):
         "EVENT",
         Ref("IfExistsGrammar", optional=True),
         Ref("ObjectReferenceSegment"),
+    )
+
+
+class DatatypeSegment(BaseSegment):
+    """A data type segment.
+
+    Supports timestamp with(out) time zone. Doesn't currently support intervals.
+    """
+
+    type = "data_type"
+    match_grammar: Matchable = OneOf(
+        Ref("TimeWithTZGrammar"),
+        Sequence(
+            "DOUBLE",
+            "PRECISION",
+        ),
+        Sequence(
+            OneOf(
+                Sequence(
+                    OneOf("CHARACTER", "BINARY"),
+                    OneOf("VARYING", Sequence("LARGE", "OBJECT")),
+                ),
+                Sequence(
+                    # Some dialects allow optional qualification of data types with
+                    # schemas
+                    Sequence(
+                        Ref("SingleIdentifierGrammar"),
+                        Ref("DotSegment"),
+                        allow_gaps=False,
+                        optional=True,
+                    ),
+                    Ref("DatatypeIdentifierSegment"),
+                    allow_gaps=False,
+                ),
+            ),
+            # There may be no brackets for some data types
+            Ref("BracketedArguments", optional=True),
+            OneOf(
+                Ref("CharCharacterSetGrammar"),
+                "SIGNED",
+                "UNSIGNED",
+                "ZEROFILL",
+                Sequence("ZEROFILL", "UNSIGNED"),
+                Sequence("UNSIGNED", "ZEROFILL"),
+                optional=True,
+            ),
+        ),
+        Ref("ArrayTypeSegment"),
+    )
+
+
+class NullSafeEqualsSegment(CompositeComparisonOperatorSegment):
+    """NULL-safe equals operator.
+
+    https://dev.mysql.com/doc/refman/9.3/en/comparison-operators.html#operator_equal-to
+    """
+
+    match_grammar: Matchable = Sequence(
+        Ref("RawLessThanSegment"),
+        Ref("RawEqualsSegment"),
+        Ref("RawGreaterThanSegment"),
+        allow_gaps=False,
     )

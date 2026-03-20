@@ -280,6 +280,7 @@ from .short_code_list_params import ShortCodeListParams as ShortCodeListParams
 from .sim_card_delete_params import SimCardDeleteParams as SimCardDeleteParams
 from .sim_card_update_params import SimCardUpdateParams as SimCardUpdateParams
 from .texml_secrets_response import TexmlSecretsResponse as TexmlSecretsResponse
+from .traffic_policy_profile import TrafficPolicyProfile as TrafficPolicyProfile
 from .url_shortener_settings import URLShortenerSettings as URLShortenerSettings
 from .user_tag_list_response import UserTagListResponse as UserTagListResponse
 from .whatsapp_contact_param import WhatsappContactParam as WhatsappContactParam
@@ -288,6 +289,7 @@ from .address_delete_response import AddressDeleteResponse as AddressDeleteRespo
 from .audit_event_list_params import AuditEventListParams as AuditEventListParams
 from .authentication_provider import AuthenticationProvider as AuthenticationProvider
 from .call_conversation_ended import CallConversationEnded as CallConversationEnded
+from .call_cost_webhook_event import CallCostWebhookEvent as CallCostWebhookEvent
 from .comment_create_response import CommentCreateResponse as CommentCreateResponse
 from .custom_sip_header_param import CustomSipHeaderParam as CustomSipHeaderParam
 from .customer_service_record import CustomerServiceRecord as CustomerServiceRecord
@@ -412,7 +414,7 @@ from .user_address_create_params import UserAddressCreateParams as UserAddressCr
 from .verify_profile_list_params import VerifyProfileListParams as VerifyProfileListParams
 from .voice_design_create_params import VoiceDesignCreateParams as VoiceDesignCreateParams
 from .voice_design_list_response import VoiceDesignListResponse as VoiceDesignListResponse
-from .voice_design_rename_params import VoiceDesignRenameParams as VoiceDesignRenameParams
+from .voice_design_update_params import VoiceDesignUpdateParams as VoiceDesignUpdateParams
 from .whatsapp_interactive_param import WhatsappInteractiveParam as WhatsappInteractiveParam
 from .wireguard_peer_list_params import WireguardPeerListParams as WireguardPeerListParams
 from .access_ip_range_list_params import AccessIPRangeListParams as AccessIPRangeListParams
@@ -487,8 +489,8 @@ from .verified_number_data_wrapper import VerifiedNumberDataWrapper as VerifiedN
 from .verify_profile_create_params import VerifyProfileCreateParams as VerifyProfileCreateParams
 from .verify_profile_update_params import VerifyProfileUpdateParams as VerifyProfileUpdateParams
 from .voice_design_create_response import VoiceDesignCreateResponse as VoiceDesignCreateResponse
-from .voice_design_rename_response import VoiceDesignRenameResponse as VoiceDesignRenameResponse
 from .voice_design_retrieve_params import VoiceDesignRetrieveParams as VoiceDesignRetrieveParams
+from .voice_design_update_response import VoiceDesignUpdateResponse as VoiceDesignUpdateResponse
 from .webhook_delivery_list_params import WebhookDeliveryListParams as WebhookDeliveryListParams
 from .websocket_connection_options import WebSocketConnectionOptions as WebSocketConnectionOptions
 from .wireguard_peer_create_params import WireguardPeerCreateParams as WireguardPeerCreateParams
@@ -732,6 +734,7 @@ from .stream_bidirectional_sampling_rate import StreamBidirectionalSamplingRate 
 from .sub_number_order_retrieve_response import SubNumberOrderRetrieveResponse as SubNumberOrderRetrieveResponse
 from .telephony_credential_create_params import TelephonyCredentialCreateParams as TelephonyCredentialCreateParams
 from .telephony_credential_update_params import TelephonyCredentialUpdateParams as TelephonyCredentialUpdateParams
+from .traffic_policy_profile_list_params import TrafficPolicyProfileListParams as TrafficPolicyProfileListParams
 from .webhook_delivery_retrieve_response import WebhookDeliveryRetrieveResponse as WebhookDeliveryRetrieveResponse
 from .wireless_blocklist_create_response import WirelessBlocklistCreateResponse as WirelessBlocklistCreateResponse
 from .wireless_blocklist_delete_response import WirelessBlocklistDeleteResponse as WirelessBlocklistDeleteResponse
@@ -807,6 +810,8 @@ from .sim_card_get_device_details_response import SimCardGetDeviceDetailsRespons
 from .telephony_credential_create_response import TelephonyCredentialCreateResponse as TelephonyCredentialCreateResponse
 from .telephony_credential_delete_response import TelephonyCredentialDeleteResponse as TelephonyCredentialDeleteResponse
 from .telephony_credential_update_response import TelephonyCredentialUpdateResponse as TelephonyCredentialUpdateResponse
+from .traffic_policy_profile_create_params import TrafficPolicyProfileCreateParams as TrafficPolicyProfileCreateParams
+from .traffic_policy_profile_update_params import TrafficPolicyProfileUpdateParams as TrafficPolicyProfileUpdateParams
 from .wireless_blocklist_retrieve_response import WirelessBlocklistRetrieveResponse as WirelessBlocklistRetrieveResponse
 from .wireless_blocklist_value_list_params import WirelessBlocklistValueListParams as WirelessBlocklistValueListParams
 from .authentication_provider_create_params import (
@@ -976,6 +981,15 @@ from .sub_number_orders_report_create_params import (
 from .telephony_credential_retrieve_response import (
     TelephonyCredentialRetrieveResponse as TelephonyCredentialRetrieveResponse,
 )
+from .traffic_policy_profile_create_response import (
+    TrafficPolicyProfileCreateResponse as TrafficPolicyProfileCreateResponse,
+)
+from .traffic_policy_profile_delete_response import (
+    TrafficPolicyProfileDeleteResponse as TrafficPolicyProfileDeleteResponse,
+)
+from .traffic_policy_profile_update_response import (
+    TrafficPolicyProfileUpdateResponse as TrafficPolicyProfileUpdateResponse,
+)
 from .wireless_blocklist_value_list_response import (
     WirelessBlocklistValueListResponse as WirelessBlocklistValueListResponse,
 )
@@ -1119,6 +1133,9 @@ from .regulatory_requirement_retrieve_response import (
 )
 from .sub_number_orders_report_create_response import (
     SubNumberOrdersReportCreateResponse as SubNumberOrdersReportCreateResponse,
+)
+from .traffic_policy_profile_retrieve_response import (
+    TrafficPolicyProfileRetrieveResponse as TrafficPolicyProfileRetrieveResponse,
 )
 from .verify_profile_message_template_response import (
     VerifyProfileMessageTemplateResponse as VerifyProfileMessageTemplateResponse,
@@ -1270,6 +1287,9 @@ from .porting_order_retrieve_sub_request_response import (
 from .seti_retrieve_black_box_test_results_params import (
     SetiRetrieveBlackBoxTestResultsParams as SetiRetrieveBlackBoxTestResultsParams,
 )
+from .traffic_policy_profile_list_services_params import (
+    TrafficPolicyProfileListServicesParams as TrafficPolicyProfileListServicesParams,
+)
 from .virtual_cross_connects_coverage_list_params import (
     VirtualCrossConnectsCoverageListParams as VirtualCrossConnectsCoverageListParams,
 )
@@ -1317,6 +1337,9 @@ from .messaging_numbers_bulk_update_create_response import (
 )
 from .seti_retrieve_black_box_test_results_response import (
     SetiRetrieveBlackBoxTestResultsResponse as SetiRetrieveBlackBoxTestResultsResponse,
+)
+from .traffic_policy_profile_list_services_response import (
+    TrafficPolicyProfileListServicesResponse as TrafficPolicyProfileListServicesResponse,
 )
 from .virtual_cross_connects_coverage_list_response import (
     VirtualCrossConnectsCoverageListResponse as VirtualCrossConnectsCoverageListResponse,

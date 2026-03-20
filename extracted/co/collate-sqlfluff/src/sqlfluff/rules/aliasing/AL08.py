@@ -1,6 +1,6 @@
 """Implementation of Rule AL08."""
 
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 from sqlfluff.core.parser import BaseSegment
 from sqlfluff.core.rules import BaseRule, EvalResultType, LintResult, RuleContext
@@ -64,14 +64,14 @@ class Rule_AL08(BaseRule):
 
     name = "aliasing.unique.column"
     aliases = ()
-    groups: Tuple[str, ...] = ("all", "core", "aliasing", "aliasing.unique")
+    groups: tuple[str, ...] = ("all", "core", "aliasing", "aliasing.unique")
     crawl_behaviour = SegmentSeekerCrawler({"select_clause"})
 
     def _eval(self, context: RuleContext) -> EvalResultType:
         """Walk through select clauses, looking for matching identifiers."""
         assert context.segment.is_type("select_clause")
 
-        used_aliases: Dict[str, BaseSegment] = {}
+        used_aliases: dict[str, BaseSegment] = {}
         violations = []
 
         # Work through each of the elements
@@ -80,14 +80,10 @@ class Rule_AL08(BaseRule):
             alias_expression = clause_element.get_child("alias_expression")
             column_alias: Optional[BaseSegment] = None
             if alias_expression:
-                # Get the alias (it will be the next code element after AS)
-                seg: Optional[BaseSegment] = None
-                for seg in alias_expression.segments:
-                    if not seg or not seg.is_code or seg.raw_upper == "AS":
-                        continue
-                    break
-                assert seg
-                column_alias = seg
+                # The alias can be the naked_identifier or the quoted_identifier
+                column_alias = alias_expression.get_child(
+                    "naked_identifier", "quoted_identifier"
+                )
             # No alias, the only other thing we'll track are column references.
             else:
                 column_reference = clause_element.get_child("column_reference")

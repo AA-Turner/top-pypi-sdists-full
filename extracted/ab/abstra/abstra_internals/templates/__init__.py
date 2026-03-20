@@ -17,6 +17,9 @@ new_script_code = (pathlib.Path(__file__).parent / "new_script.py").read_text(
 new_agent_code = (pathlib.Path(__file__).parent / "new_agent.md").read_text(
     encoding="utf-8"
 )
+new_page_code = (pathlib.Path(__file__).parent / "new_page.py").read_text(
+    encoding="utf-8"
+)
 vscode_launch_json = json.load(
     (pathlib.Path(__file__).parent / "vscode_launch.json").open()
 )

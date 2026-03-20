@@ -147,6 +147,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
@@ -3438,6 +3439,28 @@ class RepositoryGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("RepositoryGrants", jsii.sinvoke(cls, "fromRepository", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a71e50b6)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="pull")
     def pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grants pull permissions.
@@ -4571,6 +4594,15 @@ def _typecheckingstub__1a5f61873c1de6801c610dc52c1b0aead08c4373e86647a8107cc8b1b
 
 def _typecheckingstub__23e951e2c1f738817fb29649abf6005e6a77f22795ceb81f64c3ab284713e314(
     resource: _IRepositoryRef_f6c56413,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d5bf94e5cd7f05409d1884a18522130556d3020170388cfc39b7441a71e50b6(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

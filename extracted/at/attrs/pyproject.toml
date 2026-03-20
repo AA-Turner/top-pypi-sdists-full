@@ -129,6 +129,11 @@ url = "https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=
 img = "Tidelift.svg"
 
 [[tool.sponcon.sponsors]]
+title = "Kraken Tech"
+url = "https://kraken.tech/"
+img = "Kraken.svg"
+
+[[tool.sponcon.sponsors]]
 title = "Privacy Solutions"
 url = "https://privacy-solutions.org/"
 img = "Privacy-Solutions.svg"
@@ -137,6 +142,11 @@ img = "Privacy-Solutions.svg"
 title = "FilePreviews"
 url = "https://filepreviews.io/"
 img = "FilePreviews.svg"
+
+[[tool.sponcon.sponsors]]
+title = "TestMu AI"
+url = "https://www.testmuai.com/?utm_medium=sponsor&utm_source=structlog"
+img = "TestMu-AI.svg"
 
 [[tool.sponcon.sponsors]]
 title = "Polar"

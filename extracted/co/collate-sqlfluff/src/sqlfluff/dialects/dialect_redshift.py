@@ -16,6 +16,7 @@ from sqlfluff.core.parser import (
     IdentifierSegment,
     ImplicitIndent,
     Indent,
+    LiteralKeywordSegment,
     Matchable,
     Nothing,
     OneOf,
@@ -25,6 +26,7 @@ from sqlfluff.core.parser import (
     RegexParser,
     SegmentGenerator,
     Sequence,
+    StringParser,
     WordSegment,
 )
 from sqlfluff.dialects import dialect_ansi as ansi
@@ -49,7 +51,7 @@ the `Redshift Names & Identifiers Docs`_).
 The dialect for `Redshift`_ on Amazon Web Services (AWS).
 
 .. _`Redshift`: https://aws.amazon.com/redshift/
-.. _`Redshift Names & Identifiers Docs`: https://spark.apache.org/docs/latest/sql-ref.html
+.. _`Redshift Names & Identifiers Docs`: https://docs.aws.amazon.com/redshift/latest/dg/r_names.html
 """,  # noqa: E501
 )
 
@@ -208,6 +210,12 @@ redshift_dialect.replace(
             casefold=str.lower,
         )
     ),
+    LiteralGrammar=ansi_dialect.get_grammar("LiteralGrammar").copy(
+        insert=[
+            Ref("MaxLiteralSegment"),
+            Ref("DollarNumericLiteralSegment"),
+        ]
+    ),
 )
 
 redshift_dialect.patch_lexer_matchers(
@@ -263,7 +271,210 @@ redshift_dialect.add(
             "UNLIMITED",
         ),
     ),
+    MaxLiteralSegment=StringParser("max", LiteralKeywordSegment, type="max_literal"),
 )
+
+
+class FromIntegrationClauseSegment(BaseSegment):
+    """A `FROM INTEGRATION` clause for `CREATE DATABASE`.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "from_integration_clause"
+    match_grammar = Sequence(
+        "FROM",
+        "INTEGRATION",
+        Ref("QuotedLiteralSegment"),
+        Sequence("DATABASE", Ref("QuotedLiteralSegment"), optional=True),
+        AnySetOf(
+            "SET",
+            Sequence(
+                "ACCEPTINVCHARS",
+                Ref("EqualsSegment", optional=True),
+                Ref("BooleanLiteralGrammar"),
+            ),
+            Sequence(
+                "QUERY_ALL_STATES",
+                Ref("EqualsSegment", optional=True),
+                Ref("BooleanLiteralGrammar"),
+            ),
+            Sequence("REFRESH_INTERVAL", Ref("NumericLiteralSegment")),
+            Sequence(
+                "TRUNCATECOLUMNS",
+                Ref("EqualsSegment", optional=True),
+                Ref("BooleanLiteralGrammar"),
+            ),
+            Sequence(
+                "HISTORY_MODE",
+                Ref("EqualsSegment", optional=True),
+                Ref("BooleanLiteralGrammar"),
+            ),
+        ),
+    )
+
+
+class IamRoleClauseSegment(BaseSegment):
+    """IAM Role Clause Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "iam_role_clause"
+    match_grammar = Sequence(
+        "IAM_ROLE",
+        OneOf(
+            "DEFAULT",
+            Ref(
+                "QuotedLiteralSegment"
+            ),  # 'SESSION' or 'arn:aws:iam::<account-id>:role/<role-name>'
+        ),
+    )
+
+
+class IsolationLevelClauseSegment(BaseSegment):
+    """Isolation Level Clause Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "isolation_level_clause"
+    match_grammar = Sequence(
+        "ISOLATION",
+        "LEVEL",
+        OneOf("SERIALIZABLE", "SNAPSHOT"),
+    )
+
+
+class CollationClauseSegment(BaseSegment):
+    """Collation Clause Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "collation_clause"
+    match_grammar = Sequence(
+        "COLLATE", OneOf("CASE_SENSITIVE", "CS", "CASE_INSENSITIVE", "CI")
+    )
+
+
+class ConnectionLimitSegment(BaseSegment):
+    """Connection Limit Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "connection_limit_segment"
+
+    match_grammar = Sequence(
+        "CONNECTION",
+        "LIMIT",
+        OneOf(Ref("NumericLiteralSegment"), "UNLIMITED"),
+    )
+
+
+class CreateDatabaseWithOptionsSegment(BaseSegment):
+    """Create Database With Options Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "create_database_with_options"
+    match_grammar = AnySetOf(
+        Sequence(
+            "OWNER", Ref("EqualsSegment", optional=True), Ref("RoleReferenceSegment")
+        ),
+        Ref("ConnectionLimitSegment"),
+        Ref("CollationClauseSegment"),
+        Ref("IsolationLevelClauseSegment"),
+    )
+
+
+class FromDatashareClauseSegment(BaseSegment):
+    """[WITH PERMISSIONS] FROM DATASHARE ... clause for CREATE DATABASE."""
+
+    type = "from_datashare_clause"
+    match_grammar = Sequence(
+        Sequence("WITH", "PERMISSIONS", optional=True),
+        "FROM",
+        "DATASHARE",
+        Ref("ObjectReferenceSegment"),
+        "OF",
+        Sequence(
+            "ACCOUNT",
+            OneOf(
+                Ref("QuotedLiteralSegment"),
+                Ref("NumericLiteralSegment"),
+                Ref("ObjectReferenceSegment"),
+            ),
+            optional=True,
+        ),
+        "NAMESPACE",
+        OneOf(
+            Ref("QuotedLiteralSegment"),
+            Ref("ObjectReferenceSegment"),
+        ),
+        optional=True,
+    )
+
+
+class ArnCatalogSchemaSegment(BaseSegment):
+    """ARN Catalog Schema Segment.
+
+    As specified in
+        https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "arn_catalog_schema_segment"
+    match_grammar = Sequence(
+        "FROM",
+        "ARN",
+        Ref("QuotedLiteralSegment"),
+        OneOf(
+            Sequence(
+                "WITH",
+                "DATA",
+                "CATALOG",
+                "SCHEMA",
+                Ref("QuotedLiteralSegment"),
+            ),
+            Sequence(
+                "WITH",
+                "NO",
+                "DATA",
+                "CATALOG",
+                "SCHEMA",
+            ),
+        ),
+    )
+
+
+class CreateDatabaseStatementSegment(postgres.CreateDatabaseStatementSegment):
+    """A `CREATE DATABASE` statement.
+
+    https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_DATABASE.html
+    """
+
+    type = "create_database_statement"
+
+    match_grammar = Sequence(
+        "CREATE",
+        "DATABASE",
+        Ref("DatabaseReferenceSegment"),
+        AnySetOf(
+            Ref("FromIntegrationClauseSegment"),
+            Sequence("WITH", Ref("CreateDatabaseWithOptionsSegment")),
+            Ref("ArnCatalogSchemaSegment"),
+            Ref("IamRoleClauseSegment"),
+            Ref("FromDatashareClauseSegment"),
+        ),
+    )
 
 
 class FromUnpivotExpressionSegment(BaseSegment):
@@ -454,6 +665,13 @@ class DatatypeSegment(BaseSegment):
             "ACLITEM",
             # quoted types
             Ref("QuotedIdentifierSegment"),
+            # qualified types (e.g. schema.type)
+            Sequence(
+                Ref("SingleIdentifierGrammar"),
+                Ref("DotSegment"),
+                Ref("DatatypeIdentifierSegment"),
+                allow_gaps=False,
+            ),
         ),
         # array types
         AnyNumberOf(
@@ -719,6 +937,7 @@ class AlterTableActionSegment(BaseSegment):
             Ref("ColumnReferenceSegment"),
             Ref("DatatypeSegment"),
             Sequence("DEFAULT", Ref("ExpressionSegment"), optional=True),
+            Sequence("ENCODE", Ref("ColumnEncodingGrammar"), optional=True),
             Sequence("COLLATE", Ref("CollationReferenceSegment"), optional=True),
             AnyNumberOf(Ref("ColumnConstraintSegment")),
         ),
@@ -734,6 +953,11 @@ class AlterTableActionSegment(BaseSegment):
             Ref("TableReferenceSegment"),
             Ref.keyword("IGNOREEXTRA", optional=True),
             Ref.keyword("FILLTARGET", optional=True),
+        ),
+        Sequence(
+            "SET",
+            "LOCATION",
+            Ref("QuotedLiteralSegment"),
         ),
     )
 
@@ -826,7 +1050,7 @@ class CreateTableStatementSegment(BaseSegment):
         Bracketed(
             Delimited(
                 # Columns and comment syntax:
-                AnyNumberOf(
+                OneOf(
                     Sequence(
                         Ref("ColumnReferenceSegment"),
                         Ref("DatatypeSegment"),
@@ -1191,7 +1415,9 @@ class CreateExternalSchemaStatementSegment(BaseSegment):
             "POSTGRES",
             "MYSQL",
             "KINESIS",
+            "MSK",
             "REDSHIFT",
+            "KAFKA",
         ),
         AnySetOf(
             Sequence("DATABASE", Ref("QuotedLiteralSegment")),
@@ -1209,7 +1435,11 @@ class CreateExternalSchemaStatementSegment(BaseSegment):
                     Ref("QuotedLiteralSegment"),
                 ),
             ),
-            Sequence("SECRET_ARN", Ref("QuotedLiteralSegment")),
+            Sequence("AUTHENTICATION", OneOf("NONE", "IAM", "MTLS")),
+            OneOf(
+                Sequence("AUTHENTICATION_ARN", Ref("QuotedLiteralSegment")),
+                Sequence("SECRET_ARN", Ref("QuotedLiteralSegment")),
+            ),
             Sequence("CATALOG_ROLE", Ref("QuotedLiteralSegment")),
             Sequence("CREATE", "EXTERNAL", "DATABASE", "IF", "NOT", "EXISTS"),
             optional=True,
@@ -1611,10 +1841,7 @@ class ProcedureParameterListSegment(BaseSegment):
 class CreateProcedureStatementSegment(BaseSegment):
     """A `CREATE PROCEDURE` statement.
 
-    https://www.postgresql.org/docs/14/sql-createprocedure.html
-
-    TODO: Just a basic statement for now, without full syntax.
-    based on CreateFunctionStatementSegment without a return type.
+    https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_PROCEDURE.html
     """
 
     type = "create_procedure_statement"
@@ -1625,6 +1852,7 @@ class CreateProcedureStatementSegment(BaseSegment):
         "PROCEDURE",
         Ref("FunctionNameSegment"),
         Ref("ProcedureParameterListSegment"),
+        Ref.keyword("NONATOMIC", optional=True),
         Ref("FunctionDefinitionGrammar"),
     )
 
@@ -2197,14 +2425,7 @@ class CreateUserStatementSegment(ansi.CreateUserStatementSegment):
             ),
             Sequence("IN", "GROUP", Delimited(Ref("ObjectReferenceSegment"))),
             Sequence("VALID", "UNTIL", Ref("QuotedLiteralSegment")),
-            Sequence(
-                "CONNECTION",
-                "LIMIT",
-                OneOf(
-                    Ref("NumericLiteralSegment"),
-                    "UNLIMITED",
-                ),
-            ),
+            Ref("ConnectionLimitSegment"),
             Sequence(
                 "SESSION",
                 "TIMEOUT",
@@ -2280,14 +2501,7 @@ class AlterUserStatementSegment(BaseSegment):
                 "TO",
                 Ref("ObjectReferenceSegment"),
             ),
-            Sequence(
-                "CONNECTION",
-                "LIMIT",
-                OneOf(
-                    Ref("NumericLiteralSegment"),
-                    "UNLIMITED",
-                ),
-            ),
+            Ref("ConnectionLimitSegment"),
             OneOf(
                 Sequence(
                     "SESSION",
@@ -2729,6 +2943,33 @@ class UnorderedSelectStatementSegment(ansi.UnorderedSelectStatementSegment):
     )
 
 
+class WildcardExpressionSegment(ansi.WildcardExpressionSegment):
+    """An extension of the star expression for Redshift."""
+
+    match_grammar = ansi.WildcardExpressionSegment.match_grammar.copy(
+        insert=[
+            # Optional Exclude
+            Ref("ExcludeClauseSegment", optional=True),
+        ]
+    )
+
+
+class ExcludeClauseSegment(BaseSegment):
+    """A Redshift SELECT EXCLUDE clause.
+
+    https://docs.aws.amazon.com/redshift/latest/dg/r_EXCLUDE_list.html
+    """
+
+    type = "select_exclude_clause"
+    match_grammar = Sequence(
+        "EXCLUDE",
+        OneOf(
+            Bracketed(Delimited(Ref("SingleIdentifierGrammar"))),
+            Ref("SingleIdentifierGrammar"),
+        ),
+    )
+
+
 class GroupByClauseSegment(postgres.GroupByClauseSegment):
     """A `GROUP BY` clause like in `SELECT`."""
 
@@ -2759,4 +3000,63 @@ class GroupByClauseSegment(postgres.GroupByClauseSegment):
             ],
         ),
         Dedent,
+    )
+
+
+class MergeStatementSegment(ansi.MergeStatementSegment):
+    """A `MERGE` statement.
+
+    https://docs.aws.amazon.com/pt_br/redshift/latest/dg/r_MERGE.html
+    """
+
+    match_grammar = ansi.MergeStatementSegment.match_grammar.copy(
+        insert=[OneOf(Ref("MergeMatchSegment"), Sequence("REMOVE", "DUPLICATES"))],
+        remove=[
+            Ref("MergeMatchSegment"),
+        ],
+    )
+
+
+class SetOperatorSegment(ansi.SetOperatorSegment):
+    """A set operator such as Union, Minus, Except or Intersect.
+
+    https://docs.aws.amazon.com/redshift/latest/dg/r_UNION.html#r_UNION-parameters
+    """
+
+    type = "set_operator"
+    match_grammar: Matchable = OneOf(
+        Ref("UnionGrammar"),
+        "INTERSECT",
+        "EXCEPT",
+        "MINUS",
+    )
+
+
+class PrepareStatementSegment(postgres.PrepareStatementSegment):
+    """A `PREPARE` statement.
+
+    https://docs.aws.amazon.com/redshift/latest/dg/r_PREPARE.html
+    """
+
+    type = "prepare_statement"
+    match_grammar = Sequence(
+        "PREPARE",
+        Ref("ObjectReferenceSegment"),
+        Bracketed(Delimited(Ref("DatatypeSegment")), optional=True),
+        "AS",
+        Ref("SelectableGrammar"),
+    )
+
+
+class DeallocateStatementSegment(postgres.DeallocateStatementSegment):
+    """A `DEALLOCATE` statement.
+
+    https://docs.aws.amazon.com/redshift/latest/dg/r_DEALLOCATE.html
+    """
+
+    type = "deallocate_statement"
+    match_grammar = Sequence(
+        "DEALLOCATE",
+        Ref.keyword("PREPARE", optional=True),
+        Ref("ObjectReferenceSegment"),
     )

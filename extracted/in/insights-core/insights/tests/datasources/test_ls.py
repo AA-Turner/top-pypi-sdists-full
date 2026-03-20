@@ -2,11 +2,6 @@ import pytest
 
 from collections import defaultdict
 
-try:
-    from unittest.mock import patch
-except Exception:
-    from mock import patch
-
 from insights.core import filters
 from insights.core.exceptions import SkipComponent
 from insights.parsers.blkid import BlockIDInfo
@@ -14,7 +9,6 @@ from insights.parsers.fstab import FSTab
 from insights.parsers.lvm import Pvs
 from insights.specs import Specs
 from insights.specs.datasources.ls import (
-    list_files_with_lH,
     list_with_la,
     list_with_la_filtered,
     list_with_lan,
@@ -71,6 +65,16 @@ FSTAB_DUPLICATE_CONTEXT = """
 /dev/mapper/rhel_rhel7-hana3 /hana/data/rhel7-hana1                       xfs     defaults        0 0
 """.strip()
 
+FSTAB_NFS = """
+10.xx.xxx.01:/opt/appfiles/p_07503_sccd /opt/appfiles/p_07503_sccd nfs defaults,rw,sync,vers=4        0 0
+--10.xx.xxx.02:/opt/programas/sccd/was8/profiles/p_07503_sccd/integracao /opt/appfiles/integracao nfs defaults,rw,sync,vers=4      0 0
+10.xx.xxx.03:/opt/jmsfiles/p_07503_sccd/ /opt/jmsfiles nfs defaults,rw,sync,vers=4      0 0
+10.xx.xxx.04:/opt/appfiles21/p_07503_sccd /opt/appfiles21/p_07503_sccd nfs defaults,rw,sync,vers=4        0 0
+--10.xx.xxx.05:/opt/carga_alocacao /opt/carga_alocacao  nfs defaults,rw,sync,vers=4        0 0
+--10.xx.xxx.06:/opt/ilmtfiles/p_07503_sccd /opt/ilmtfiles/p_07503_sccd  nfs defaults,rw,sync,vers=4        0 0
+--10.xx.xxx.07:/opt/jsonfile /opt/jsonfile  nfs defaults,rw,sync,vers=4        0 0
+""".strip()
+
 
 def setup_function(func):
     if func is test_la_empty:
@@ -95,19 +99,6 @@ def setup_function(func):
         filters.add_filter(Specs.ls_laZ_dirs, ["/", '/mnt'])
     if func is test_lan_with_fstab_mounted_filter:
         filters.add_filter(Specs.ls_lan_dirs, ["/", '/boot', 'fstab_mounted.dirs'])
-    if func is test_lH_files:
-        filters.add_filter(
-            Specs.ls_lH_files,
-            ["/etc/redhat-release", '/var/log/messages', 'fstab_mounted.devices', 'pvs.devices'],
-        )
-    if func is test_lH_files_pvs:
-        filters.add_filter(
-            Specs.ls_lH_files, ["/etc/redhat-release", '/var/log/messages', 'pvs.devices']
-        )
-    if func is test_lH_files_fstab_blkid:
-        filters.add_filter(
-            Specs.ls_lH_files, ["/etc/redhat-release", '/var/log/messages', 'fstab_mounted.devices']
-        )
     if func is test_ldH_files:
         filters.add_filter(
             Specs.ls_ldH_items,
@@ -117,7 +108,7 @@ def setup_function(func):
         filters.add_filter(
             Specs.ls_ldH_items, ["/etc/redhat-release", '/var/log/messages', 'pvs.devices']
         )
-    if func is test_ldH_files_fstab_blkid:
+    if func in (test_ldH_files_fstab_blkid, test_ldH_files_fstab_blkid_nfs):
         filters.add_filter(
             Specs.ls_ldH_items, ["/etc/redhat-release", '/var/log/messages', 'fstab_mounted.devices']
         )
@@ -190,32 +181,6 @@ def test_lan_with_fstab_mounted_filter():
     assert ret == '/ /boot /hana/data'
 
 
-@patch("os.path.isdir", return_value=False)
-def test_lH_files(_):
-    ret = list_files_with_lH({})
-    assert ret == '/etc/redhat-release /var/log/messages fstab_mounted.devices pvs.devices'
-
-
-@patch("os.path.isdir", return_value=False)
-def test_lH_files_pvs(_):
-    pvs_info = Pvs(context_wrap(PVS_DATA))
-    broker = {Pvs: pvs_info}
-    ret = list_files_with_lH(broker)
-    assert ret == '/dev/vda1 /dev/vda2 /etc/redhat-release /var/log/messages'
-
-
-@patch("os.path.isdir", return_value=False)
-def test_lH_files_fstab_blkid(_):
-    fstab_info = FSTab(context_wrap(FSTAB_DATA))
-    blkid_info = BlockIDInfo(context_wrap(BLKID_DATA))
-    broker = {FSTab: fstab_info, BlockIDInfo: blkid_info}
-    ret = list_files_with_lH(broker)
-    assert (
-        ret
-        == '/dev/mapper/rhel-home /dev/mapper/rhel-root /dev/mapper/rhel-var /dev/sdb2 /etc/redhat-release /var/log/messages'
-    )
-
-
 def test_ldH_files():
     ret = list_with_ldH({})
     assert ret == '/etc/redhat-release /var/log/messages fstab_mounted.devices pvs.devices'
@@ -239,6 +204,17 @@ def test_ldH_files_fstab_blkid():
     )
 
 
+def test_ldH_files_fstab_blkid_nfs():
+    fstab_info = FSTab(context_wrap(FSTAB_NFS))
+    blkid_info = BlockIDInfo(context_wrap(BLKID_DATA))
+    broker = {FSTab: fstab_info, BlockIDInfo: blkid_info}
+    ret = list_with_ldH(broker)
+    assert (
+        ret
+        == '/etc/redhat-release /var/log/messages'
+    )
+
+
 def test_ldZ_with_fstab_mounted_filter():
     ret = list_with_ldZ({})
     assert ret == '/ /mnt fstab_mounted.dirs'
@@ -246,7 +222,9 @@ def test_ldZ_with_fstab_mounted_filter():
     fstab = FSTab(context_wrap(FSTAB_CONTEXT))
     broker = {FSTab: fstab}
     ret = list_with_ldZ(broker)
-    assert ret == '/ /boot /hana/data/rhel7-hana1 /hana/data/rhel7-hana2 /hana/data/rhel7-hana3 /mnt'
+    assert (
+        ret == '/ /boot /hana/data/rhel7-hana1 /hana/data/rhel7-hana2 /hana/data/rhel7-hana3 /mnt'
+    )
 
     fstab = FSTab(context_wrap(FSTAB_DUPLICATE_CONTEXT))
     broker = {FSTab: fstab}

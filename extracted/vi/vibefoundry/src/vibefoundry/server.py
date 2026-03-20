@@ -1807,6 +1807,17 @@ async def serve_index():
     return FileResponse(index_path)
 
 
+# Serve root-level static files (icon.svg, etc.)
+@app.get("/icon.svg")
+async def serve_icon():
+    """Serve the favicon SVG"""
+    static_dir = get_static_dir()
+    icon_path = static_dir / "icon.svg"
+    if icon_path.exists():
+        return FileResponse(icon_path, media_type="image/svg+xml")
+    return JSONResponse(status_code=404, content={"error": "icon.svg not found"})
+
+
 # Mount static files for assets (at module load time)
 _static_dir = get_static_dir()
 _assets_dir = _static_dir / "assets"

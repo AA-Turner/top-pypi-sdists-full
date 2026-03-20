@@ -23,6 +23,7 @@ class EnqueueRunRequest(BaseModel):
     target_kind: str = Field(default="generic", max_length=64)
     target_ref: str = Field(max_length=512)
     inputs: dict[str, Any] | None = None
+    params: dict[str, str] | None = None
     space_id: str | None = None
 
 
@@ -101,6 +102,7 @@ async def enqueue_workflow_run(request: Request, body: EnqueueRunRequest) -> dic
             inputs=body.inputs,
             space_id=body.space_id,
             trigger_source="web_api",
+            param_overrides=body.params,
         )
     except ValueError:
         raise HTTPException(status_code=422, detail="Workflow validation failed")

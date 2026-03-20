@@ -17,6 +17,7 @@ from exponent.core.config import get_chat_artifacts_dir
 from exponent.core.file_layout import bash_result_path, generate_bash_id
 from exponent.core.remote_execution import files
 from exponent.core.remote_execution.cli_rpc_types import (
+    ApplyPatchToolInput,
     BashToolInput,
     BashToolResult,
     DownloadArtifactToolInput,
@@ -24,6 +25,7 @@ from exponent.core.remote_execution.cli_rpc_types import (
     EditToolInput,
     EditToolResult,
     ErrorToolResult,
+    FileMetadata,
     GlobToolInput,
     GlobToolResult,
     GrepToolInput,
@@ -50,6 +52,7 @@ from exponent.core.remote_execution.file_write import execute_full_file_rewrite
 from exponent.core.remote_execution.languages.shell_streaming import (
     get_rc_file_source_command,
 )
+from exponent.core.remote_execution.openai_apply_patch import execute_apply_patch_tool
 from exponent.core.remote_execution.truncation import truncate_tool_result
 from exponent.core.remote_execution.utils import (
     assert_unreachable,
@@ -80,7 +83,9 @@ async def execute_tool(
     working_directory: str,
     client: "RemoteExecutionClient",
 ) -> ToolResultType:
-    if isinstance(tool_input, ReadToolInput):
+    if isinstance(tool_input, ApplyPatchToolInput):
+        return await execute_apply_patch_tool(tool_input, working_directory)
+    elif isinstance(tool_input, ReadToolInput):
         return await execute_read_file(tool_input, working_directory, client)
     elif isinstance(tool_input, WriteToolInput):
         return await execute_write_file(tool_input, working_directory)
@@ -115,14 +120,14 @@ def is_image_file(file_path: str) -> tuple[bool, str | None]:
     return (False, None)
 
 
-async def execute_read_file(  # noqa: PLR0911
+async def execute_read_file(
     tool_input: ReadToolInput,
     working_directory: str,
     client: "RemoteExecutionClient",
 ) -> ReadToolResult | ErrorToolResult:
-    # Validate absolute path requirement
-    if not tool_input.file_path.startswith("/"):
-        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {tool_input.file_path}")
+    validation_error = _validate_absolute_file_path(tool_input.file_path)
+    if validation_error is not None:
+        return validation_error
 
     # Validate offset and limit
     offset = tool_input.offset if tool_input.offset is not None else 0
@@ -171,34 +176,10 @@ async def execute_read_file(  # noqa: PLR0911
         except Exception as e:
             return ErrorToolResult(error_message=f"Failed to upload image to S3: {e!s}")
 
-    try:
-        exists = await file.exists()
-    except (OSError, PermissionError) as e:
-        return ErrorToolResult(error_message=f"Cannot access file: {e!s}")
-
-    if not exists:
-        return ErrorToolResult(
-            error_message="File not found",
-        )
-
-    try:
-        if await file.is_dir():
-            return ErrorToolResult(
-                error_message=f"{await file.absolute()} is a directory",
-            )
-    except (OSError, PermissionError) as e:
-        return ErrorToolResult(error_message=f"Cannot check file type: {e!s}")
-
-    try:
-        content = await safe_read_file(file)
-    except PermissionError:
-        return ErrorToolResult(error_message=f"Permission denied: cannot read {tool_input.file_path}")
-    except UnicodeDecodeError:
-        return ErrorToolResult(error_message="File appears to be binary or has invalid text encoding")
-    except Exception as e:
-        return ErrorToolResult(error_message=f"Error reading file: {e!s}")
-
-    metadata = await safe_get_file_metadata(file)
+    read_result = await _read_text_file(tool_input.file_path, working_directory)
+    if isinstance(read_result, ErrorToolResult):
+        return read_result
+    content, metadata = read_result
 
     # Handle empty files
     if not content:
@@ -285,6 +266,53 @@ async def execute_read_file(  # noqa: PLR0911
         total_lines=total_lines,
         metadata=metadata,
     )
+
+
+def _validate_absolute_file_path(file_path: str) -> ErrorToolResult | None:
+    if not file_path.startswith("/"):
+        return ErrorToolResult(error_message=f"File path must be absolute, got relative path: {file_path}")
+    return None
+
+
+async def _read_text_file(
+    file_path: str,
+    working_directory: str,
+) -> tuple[str, FileMetadata | None] | ErrorToolResult:
+    validation_error = _validate_absolute_file_path(file_path)
+    if validation_error is not None:
+        return validation_error
+
+    file = AsyncPath(working_directory, file_path)
+
+    try:
+        exists = await file.exists()
+    except (OSError, PermissionError) as e:
+        return ErrorToolResult(error_message=f"Cannot access file: {e!s}")
+
+    if not exists:
+        return ErrorToolResult(
+            error_message="File not found",
+        )
+
+    try:
+        if await file.is_dir():
+            return ErrorToolResult(
+                error_message=f"{await file.absolute()} is a directory",
+            )
+    except (OSError, PermissionError) as e:
+        return ErrorToolResult(error_message=f"Cannot check file type: {e!s}")
+
+    try:
+        content = await safe_read_file(file)
+    except PermissionError:
+        return ErrorToolResult(error_message=f"Permission denied: cannot read {file_path}")
+    except UnicodeDecodeError:
+        return ErrorToolResult(error_message="File appears to be binary or has invalid text encoding")
+    except Exception as e:
+        return ErrorToolResult(error_message=f"Error reading file: {e!s}")
+
+    metadata = await safe_get_file_metadata(file)
+    return content, metadata
 
 
 async def execute_write_file(tool_input: WriteToolInput, working_directory: str) -> WriteToolResult:

@@ -4,9 +4,11 @@ from typing import Dict, Optional
 from abstra_internals.controllers.execution.execution_client import ExecutionClient
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
+from abstra_internals.controllers.execution.execution_client_page import PageClient
 from abstra_internals.controllers.sdk.sdk_ai import AiSDKController
 from abstra_internals.controllers.sdk.sdk_forms import FormSDKController
 from abstra_internals.controllers.sdk.sdk_hooks import HookSDKController
+from abstra_internals.controllers.sdk.sdk_pages import PageSDKController
 from abstra_internals.controllers.sdk.sdk_tasks import TasksSDKController
 from abstra_internals.entities.execution import Execution
 from abstra_internals.interface.sdk.user_exceptions import ExecutionNotFound
@@ -35,6 +37,12 @@ class SDKContext:
 
         if isinstance(self.client, HookClient):
             self.hook_sdk = HookSDKController(self.client)
+
+        if isinstance(self.client, PageClient):
+            self.page_sdk = PageSDKController(
+                self.client, self.repositories.users, user_jwt=self.user_jwt
+            )
+            self.client._before_send = self.page_sdk.handle_request
 
     def __enter__(self):
         SDKContextStore.register(self)

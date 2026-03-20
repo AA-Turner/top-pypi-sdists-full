@@ -31,6 +31,7 @@ class Medium:
             else:
                 Nt = self.params.general['Nt']
             self.kgrid.setTime(Nt,1/float(self.params.acoustic['f_AQ']))
+        self.Nt_reshaped = self.kgrid.Nt
 
 
     @abstractmethod

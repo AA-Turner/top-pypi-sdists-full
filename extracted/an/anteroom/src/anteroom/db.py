@@ -298,7 +298,8 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     workflow_version TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN (
         'pending', 'claimed', 'running', 'paused', 'waiting_for_approval', 'waiting_for_input',
-        'blocked', 'completed', 'failed', 'cancelled'
+        'blocked', 'completed', 'failed', 'cancelled',
+        'compensating', 'compensated', 'compensation_failed'
     )),
     target_kind TEXT NOT NULL,
     target_ref TEXT NOT NULL,
@@ -306,6 +307,7 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     attempt_count INTEGER NOT NULL DEFAULT 0,
     stop_reason TEXT,
     inputs_json TEXT,
+    params_json TEXT,
     space_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -327,7 +329,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     run_id TEXT NOT NULL,
     step_id TEXT NOT NULL,
     step_type TEXT NOT NULL CHECK(step_type IN (
-        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm'
+        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
     )),
     runner_type TEXT,
     status TEXT NOT NULL CHECK(status IN (
@@ -346,6 +348,8 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     approval_request_id TEXT,
     decision_id TEXT,
     idempotency_key TEXT DEFAULT NULL,
+    branch_id TEXT DEFAULT NULL,
+    is_compensation INTEGER DEFAULT 0,
     FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
 );
 
@@ -1509,7 +1513,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 workflow_version TEXT NOT NULL,
                 status TEXT NOT NULL CHECK(status IN (
                     'pending', 'claimed', 'running', 'paused', 'waiting_for_approval',
-                    'waiting_for_input', 'blocked', 'completed', 'failed', 'cancelled'
+                    'waiting_for_input', 'blocked', 'completed', 'failed', 'cancelled',
+                    'compensating', 'compensated', 'compensation_failed'
                 )),
                 target_kind TEXT NOT NULL,
                 target_ref TEXT NOT NULL,
@@ -1517,6 +1522,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 attempt_count INTEGER NOT NULL DEFAULT 0,
                 stop_reason TEXT,
                 inputs_json TEXT,
+                params_json TEXT,
                 space_id TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -1540,7 +1546,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 run_id TEXT NOT NULL,
                 step_id TEXT NOT NULL,
                 step_type TEXT NOT NULL CHECK(step_type IN (
-                    'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm'
+                    'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
                 )),
                 runner_type TEXT,
                 status TEXT NOT NULL CHECK(status IN (
@@ -1559,6 +1565,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 approval_request_id TEXT,
                 decision_id TEXT,
                 idempotency_key TEXT DEFAULT NULL,
+                branch_id TEXT DEFAULT NULL,
+                is_compensation INTEGER DEFAULT 0,
                 FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
             )"""
         )
@@ -1616,6 +1624,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             conn.execute("ALTER TABLE workflow_runs ADD COLUMN budget_json TEXT DEFAULT NULL")
         if "budget_usage_json" not in wf_run_cols:
             conn.execute("ALTER TABLE workflow_runs ADD COLUMN budget_usage_json TEXT DEFAULT NULL")
+        if "params_json" not in wf_run_cols:
+            conn.execute("ALTER TABLE workflow_runs ADD COLUMN params_json TEXT DEFAULT NULL")
 
     # Add approval_request_id and decision_id to workflow_steps if missing (#950, #955)
     if "workflow_steps" in wf_tables:
@@ -1735,6 +1745,162 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             conn.commit()
             logger.info("workflow_steps table rebuilt with 'llm' step type")
 
+    # Add 'parallel' step type and branch_id column to workflow_steps (#976)
+    if "workflow_steps" in wf_tables:
+        create_sql_row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='workflow_steps'"
+        ).fetchone()
+        if create_sql_row and "'parallel'" not in (create_sql_row[0] or ""):
+            logger.info("Rebuilding workflow_steps table to add 'parallel' step type and branch_id column")
+            conn.execute("PRAGMA foreign_keys=OFF")
+            # Detect existing columns for safe migration
+            existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_steps)").fetchall()}
+            has_branch_id = "branch_id" in existing_cols
+            conn.execute(
+                """CREATE TABLE workflow_steps_v2 (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    step_id TEXT NOT NULL,
+                    step_type TEXT NOT NULL CHECK(step_type IN (
+                        'runner', 'gate', 'loop', 'human_gate', 'publish', 'llm', 'parallel'
+                    )),
+                    runner_type TEXT,
+                    status TEXT NOT NULL CHECK(status IN (
+                        'pending', 'running', 'completed', 'failed', 'interrupted', 'skipped'
+                    )),
+                    attempt INTEGER NOT NULL DEFAULT 1,
+                    result_status TEXT,
+                    result_summary TEXT,
+                    result_artifacts_json TEXT,
+                    result_findings_json TEXT,
+                    raw_output_path TEXT,
+                    duration_ms INTEGER,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    approval_request_id TEXT,
+                    decision_id TEXT,
+                    idempotency_key TEXT DEFAULT NULL,
+                    branch_id TEXT DEFAULT NULL,
+                    FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+                )"""
+            )
+            if has_branch_id:
+                conn.execute("INSERT INTO workflow_steps_v2 SELECT * FROM workflow_steps")
+            else:
+                conn.execute(
+                    "INSERT INTO workflow_steps_v2"
+                    " (id, run_id, step_id, step_type, runner_type, status, attempt,"
+                    "  result_status, result_summary, result_artifacts_json, result_findings_json,"
+                    "  raw_output_path, duration_ms, created_at, started_at, completed_at,"
+                    "  approval_request_id, decision_id, idempotency_key)"
+                    " SELECT id, run_id, step_id, step_type, runner_type, status, attempt,"
+                    "  result_status, result_summary, result_artifacts_json, result_findings_json,"
+                    "  raw_output_path, duration_ms, created_at, started_at, completed_at,"
+                    "  approval_request_id, decision_id, idempotency_key"
+                    " FROM workflow_steps"
+                )
+            conn.execute("DROP TABLE workflow_steps")
+            conn.execute("ALTER TABLE workflow_steps_v2 RENAME TO workflow_steps")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_wf_steps_run ON workflow_steps(run_id)")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.commit()
+            logger.info("workflow_steps table rebuilt with 'parallel' step type and branch_id")
+        else:
+            # Table already has 'parallel' — just ensure branch_id column exists
+            wf_step_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_steps)").fetchall()}
+            if "branch_id" not in wf_step_cols:
+                conn.execute("ALTER TABLE workflow_steps ADD COLUMN branch_id TEXT DEFAULT NULL")
+
+    # Add is_compensation column to workflow_steps (#978)
+    if "workflow_steps" in wf_tables:
+        wf_step_cols_comp = {row[1] for row in conn.execute("PRAGMA table_info(workflow_steps)").fetchall()}
+        if "is_compensation" not in wf_step_cols_comp:
+            conn.execute("ALTER TABLE workflow_steps ADD COLUMN is_compensation INTEGER DEFAULT 0")
+
+    # Add compensation statuses to workflow_runs (#978)
+    if "workflow_runs" in wf_tables:
+        create_sql_row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='workflow_runs'"
+        ).fetchone()
+        if create_sql_row and "'compensating'" not in (create_sql_row[0] or ""):
+            logger.info("Rebuilding workflow_runs table to add compensation statuses (#978)")
+            conn.execute("PRAGMA foreign_keys=OFF")
+            existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(workflow_runs)").fetchall()}
+            conn.execute(
+                """CREATE TABLE workflow_runs_v3 (
+                    id TEXT PRIMARY KEY,
+                    workflow_id TEXT NOT NULL,
+                    workflow_version TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN (
+                        'pending', 'claimed', 'running', 'paused', 'waiting_for_approval',
+                        'waiting_for_input', 'blocked', 'completed', 'failed', 'cancelled',
+                        'compensating', 'compensated', 'compensation_failed'
+                    )),
+                    target_kind TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    current_step_id TEXT,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    stop_reason TEXT,
+                    inputs_json TEXT,
+                    params_json TEXT,
+                    space_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    heartbeat_at TEXT,
+                    definition_hash TEXT,
+                    definition_content TEXT,
+                    budget_json TEXT,
+                    budget_usage_json TEXT,
+                    trigger_source TEXT,
+                    trigger_meta_json TEXT,
+                    claimed_by TEXT,
+                    claimed_at TEXT
+                )"""
+            )
+            # Build column list from intersection of existing and target columns
+            _target_cols = [
+                "id",
+                "workflow_id",
+                "workflow_version",
+                "status",
+                "target_kind",
+                "target_ref",
+                "current_step_id",
+                "attempt_count",
+                "stop_reason",
+                "inputs_json",
+                "params_json",
+                "space_id",
+                "created_at",
+                "updated_at",
+                "started_at",
+                "completed_at",
+                "heartbeat_at",
+                "definition_hash",
+                "definition_content",
+                "budget_json",
+                "budget_usage_json",
+                "trigger_source",
+                "trigger_meta_json",
+                "claimed_by",
+                "claimed_at",
+            ]
+            _sel = ", ".join(c for c in _target_cols if c in existing_cols)
+            conn.execute(f"INSERT INTO workflow_runs_v3 ({_sel}) SELECT {_sel} FROM workflow_runs")
+            conn.execute("DROP TABLE workflow_runs")
+            conn.execute("ALTER TABLE workflow_runs_v3 RENAME TO workflow_runs")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflow_runs_target ON workflow_runs(target_kind, target_ref)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_workflow_runs_pending ON workflow_runs(status, created_at)")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.commit()
+            logger.info("workflow_runs table rebuilt with compensation statuses")
+
     # Workflow checkpoints table (#979)
     if "workflow_checkpoints" not in wf_tables:
         conn.execute(
@@ -1765,7 +1931,8 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     workflow_version TEXT NOT NULL,
                     status TEXT NOT NULL CHECK(status IN (
                         'pending', 'claimed', 'running', 'paused', 'waiting_for_approval',
-                        'waiting_for_input', 'blocked', 'completed', 'failed', 'cancelled'
+                        'waiting_for_input', 'blocked', 'completed', 'failed', 'cancelled',
+                        'compensating', 'compensated', 'compensation_failed'
                     )),
                     target_kind TEXT NOT NULL,
                     target_ref TEXT NOT NULL,
@@ -1773,6 +1940,7 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                     attempt_count INTEGER NOT NULL DEFAULT 0,
                     stop_reason TEXT,
                     inputs_json TEXT,
+                    params_json TEXT,
                     space_id TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,

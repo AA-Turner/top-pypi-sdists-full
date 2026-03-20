@@ -1605,6 +1605,7 @@ class ActionWorkflowFieldClass(DictWrapper):
         allowedValues: Union[None, List["PropertyValueClass"]]=None,
         required: Optional[bool]=None,
         condition: Union[None, "ActionWorkflowFieldConditionClass"]=None,
+        valuesSource: Union[None, "ActionWorkflowFieldValuesSourceClass"]=None,
     ):
         super().__init__()
         
@@ -1621,6 +1622,7 @@ class ActionWorkflowFieldClass(DictWrapper):
         else:
             self.required = required
         self.condition = condition
+        self.valuesSource = valuesSource
     
     def _restore_defaults(self) -> None:
         self.id = str()
@@ -1632,6 +1634,7 @@ class ActionWorkflowFieldClass(DictWrapper):
         self.cardinality = PropertyCardinalityClass.SINGLE
         self.required = self.RECORD_SCHEMA.fields_dict["required"].default
         self.condition = self.RECORD_SCHEMA.fields_dict["condition"].default
+        self.valuesSource = self.RECORD_SCHEMA.fields_dict["valuesSource"].default
     
     
     @property
@@ -1726,6 +1729,18 @@ class ActionWorkflowFieldClass(DictWrapper):
         self._inner_dict['condition'] = value
     
     
+    @property
+    def valuesSource(self) -> Union[None, "ActionWorkflowFieldValuesSourceClass"]:
+        """An optional dynamic source for field values. When specified, restricts
+    the selectable values to those from the specified source instead of showing
+    a general search."""
+        return self._inner_dict.get('valuesSource')  # type: ignore
+    
+    @valuesSource.setter
+    def valuesSource(self, value: Union[None, "ActionWorkflowFieldValuesSourceClass"]) -> None:
+        self._inner_dict['valuesSource'] = value
+    
+    
 class ActionWorkflowFieldConditionClass(DictWrapper):
     """A condition that determines whether a form field should be shown in the action workflow.
     This may evolve in the future to have additional condition types."""
@@ -1770,6 +1785,53 @@ class ActionWorkflowFieldConditionTypeClass(object):
     
     SINGLE_FIELD_VALUE = "SINGLE_FIELD_VALUE"
     """The field should be shown if the value of a previously completed field matches the specified value."""
+    
+    
+    
+class ActionWorkflowFieldValuesSourceClass(DictWrapper):
+    """Specifies a dynamic source for field values, restricting the selectable set
+    to a scoped subset rather than a general search."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFieldValuesSource")
+    def __init__(self,
+        type: Union[str, "ActionWorkflowFieldValuesSourceTypeClass"],
+        nameRegex: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.type = type
+        self.nameRegex = nameRegex
+    
+    def _restore_defaults(self) -> None:
+        self.type = ActionWorkflowFieldValuesSourceTypeClass.CURRENT_USER_GROUPS
+        self.nameRegex = self.RECORD_SCHEMA.fields_dict["nameRegex"].default
+    
+    
+    @property
+    def type(self) -> Union[str, "ActionWorkflowFieldValuesSourceTypeClass"]:
+        """The type of values source restriction to apply."""
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[str, "ActionWorkflowFieldValuesSourceTypeClass"]) -> None:
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def nameRegex(self) -> Union[None, str]:
+        """A regex pattern applied to entity names. Only entities whose name matches this pattern will be shown."""
+        return self._inner_dict.get('nameRegex')  # type: ignore
+    
+    @nameRegex.setter
+    def nameRegex(self, value: Union[None, str]) -> None:
+        self._inner_dict['nameRegex'] = value
+    
+    
+class ActionWorkflowFieldValuesSourceTypeClass(object):
+    # No docs available.
+    
+    CURRENT_USER_GROUPS = "CURRENT_USER_GROUPS"
+    """Restrict selection to groups the current user is a member of."""
     
     
     
@@ -4241,6 +4303,46 @@ class AssertionInfoClass(_Aspect):
         self._inner_dict['entityUrn'] = value
     
     
+class AssertionManagedByClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionManagedBy")
+    def __init__(self,
+        sourceEntity: Union[None, str]=None,
+        runId: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.sourceEntity = sourceEntity
+        self.runId = runId
+    
+    def _restore_defaults(self) -> None:
+        self.sourceEntity = self.RECORD_SCHEMA.fields_dict["sourceEntity"].default
+        self.runId = self.RECORD_SCHEMA.fields_dict["runId"].default
+    
+    
+    @property
+    def sourceEntity(self) -> Union[None, str]:
+        """The source entity that created or manages this assertion
+    (e.g. an Assertion Assignment Rule URN)."""
+        return self._inner_dict.get('sourceEntity')  # type: ignore
+    
+    @sourceEntity.setter
+    def sourceEntity(self, value: Union[None, str]) -> None:
+        self._inner_dict['sourceEntity'] = value
+    
+    
+    @property
+    def runId(self) -> Union[None, str]:
+        """An operational run identifier used for tracking which execution
+    of a rule created or last touched this assertion."""
+        return self._inner_dict.get('runId')  # type: ignore
+    
+    @runId.setter
+    def runId(self, value: Union[None, str]) -> None:
+        self._inner_dict['runId'] = value
+    
+    
 class AssertionMetricClass(DictWrapper):
     # No docs available.
     
@@ -4599,6 +4701,30 @@ class AssertionResultErrorTypeClass(object):
     FIELD_ASSERTION_ERROR = "FIELD_ASSERTION_ERROR"
     """ Error while executing a field assertion"""
     
+    MISSING_EVALUATION_PARAMETERS = "MISSING_EVALUATION_PARAMETERS"
+    """ Missing evaluation parameters for assertion execution"""
+    
+    EVALUATOR_NOT_FOUND = "EVALUATOR_NOT_FOUND"
+    """ No evaluator registered for the assertion type"""
+    
+    METRIC_RESOLVER_UNSUPPORTED_METRIC = "METRIC_RESOLVER_UNSUPPORTED_METRIC"
+    """ Metric resolver does not support the requested metric"""
+    
+    METRIC_RESOLVER_INVALID_SOURCE_TYPE = "METRIC_RESOLVER_INVALID_SOURCE_TYPE"
+    """ Metric resolver received an invalid source type"""
+    
+    STATE_PERSISTENCE_FAILED = "STATE_PERSISTENCE_FAILED"
+    """ Failed to persist assertion state"""
+    
+    METRIC_PERSISTENCE_FAILED = "METRIC_PERSISTENCE_FAILED"
+    """ Failed to persist collected metric values"""
+    
+    RESULT_EMISSION_FAILED = "RESULT_EMISSION_FAILED"
+    """ Failed to emit assertion run event"""
+    
+    NO_MATURE_BUCKET = "NO_MATURE_BUCKET"
+    """ No new mature time bucket is available to evaluate"""
+    
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
     """ Unknown error"""
     
@@ -4808,6 +4934,7 @@ class AssertionRunSummaryClass(_Aspect):
         lastErroredAtMillis: Union[None, int]=None,
         lastPassedAtMillis: Union[None, int]=None,
         lastInitializedAtMillis: Union[None, int]=None,
+        assertionStatus: Union[None, Union[str, "AssertionStatusClass"]]=None,
     ):
         super().__init__()
         
@@ -4815,12 +4942,14 @@ class AssertionRunSummaryClass(_Aspect):
         self.lastErroredAtMillis = lastErroredAtMillis
         self.lastPassedAtMillis = lastPassedAtMillis
         self.lastInitializedAtMillis = lastInitializedAtMillis
+        self.assertionStatus = assertionStatus
     
     def _restore_defaults(self) -> None:
         self.lastFailedAtMillis = self.RECORD_SCHEMA.fields_dict["lastFailedAtMillis"].default
         self.lastErroredAtMillis = self.RECORD_SCHEMA.fields_dict["lastErroredAtMillis"].default
         self.lastPassedAtMillis = self.RECORD_SCHEMA.fields_dict["lastPassedAtMillis"].default
         self.lastInitializedAtMillis = self.RECORD_SCHEMA.fields_dict["lastInitializedAtMillis"].default
+        self.assertionStatus = self.RECORD_SCHEMA.fields_dict["assertionStatus"].default
     
     
     @property
@@ -4863,6 +4992,16 @@ class AssertionRunSummaryClass(_Aspect):
         self._inner_dict['lastInitializedAtMillis'] = value
     
     
+    @property
+    def assertionStatus(self) -> Union[None, Union[str, "AssertionStatusClass"]]:
+        """The latest assertion status, incorporating run results and monitor errors."""
+        return self._inner_dict.get('assertionStatus')  # type: ignore
+    
+    @assertionStatus.setter
+    def assertionStatus(self, value: Union[None, Union[str, "AssertionStatusClass"]]) -> None:
+        self._inner_dict['assertionStatus'] = value
+    
+    
 class AssertionSourceClass(DictWrapper):
     """The source of an assertion"""
     
@@ -4870,20 +5009,23 @@ class AssertionSourceClass(DictWrapper):
     def __init__(self,
         type: Union[str, "AssertionSourceTypeClass"],
         created: Union[None, "AuditStampClass"]=None,
+        managedBy: Union[None, "AssertionManagedByClass"]=None,
     ):
         super().__init__()
         
         self.type = type
         self.created = created
+        self.managedBy = managedBy
     
     def _restore_defaults(self) -> None:
         self.type = AssertionSourceTypeClass.NATIVE
         self.created = self.RECORD_SCHEMA.fields_dict["created"].default
+        self.managedBy = self.RECORD_SCHEMA.fields_dict["managedBy"].default
     
     
     @property
     def type(self) -> Union[str, "AssertionSourceTypeClass"]:
-        """The type of the Assertion Source"""
+        """Note, in reality this describes the execution mode rather than the actual source type of the assertion."""
         return self._inner_dict.get('type')  # type: ignore
     
     @type.setter
@@ -4902,20 +5044,39 @@ class AssertionSourceClass(DictWrapper):
         self._inner_dict['created'] = value
     
     
+    @property
+    def managedBy(self) -> Union[None, "AssertionManagedByClass"]:
+        """Operational metadata about the system entity managing this assertion."""
+        return self._inner_dict.get('managedBy')  # type: ignore
+    
+    @managedBy.setter
+    def managedBy(self, value: Union[None, "AssertionManagedByClass"]) -> None:
+        self._inner_dict['managedBy'] = value
+    
+    
 class AssertionSourceTypeClass(object):
     # No docs available.
     
     NATIVE = "NATIVE"
-    """The assertion was defined natively on DataHub by a user.
+    """The assertion was defined natively on DataHub, with exact criteria.
     DataHub Cloud only"""
     
     EXTERNAL = "EXTERNAL"
     """The assertion was defined and managed externally of DataHub."""
     
     INFERRED = "INFERRED"
-    """The assertion was inferred, e.g. from offline AI / ML models.
+    """The assertion's criteria was inferred, and potentially generated automatically e.g. from AI suggestions.
     DataHub Cloud only"""
     
+    
+    
+class AssertionStatusClass(object):
+    """Latest assertion status derived from run results and monitor errors."""
+    
+    PASSING = "PASSING"
+    FAILING = "FAILING"
+    ERROR = "ERROR"
+    INIT = "INIT"
     
     
 class AssertionStdAggregationClass(object):
@@ -6949,6 +7110,382 @@ class VolumeAssertionTypeClass(object):
     This can be used to track changes between subsequent date partition
     in a table, for example."""
     
+    
+    
+class AssertionAssignmentRuleFilterClass(DictWrapper):
+    """The filter criteria used to match entities for an Assertion Assignment Rule."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleFilter")
+    def __init__(self,
+        filter: "FilterClass",
+        json: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.filter = filter
+        self.json = json
+    
+    def _restore_defaults(self) -> None:
+        self.filter = FilterClass._construct_with_defaults()
+        self.json = self.RECORD_SCHEMA.fields_dict["json"].default
+    
+    
+    @property
+    def filter(self) -> "FilterClass":
+        """The structured filter used to match entities for assertion assignment."""
+        return self._inner_dict.get('filter')  # type: ignore
+    
+    @filter.setter
+    def filter(self, value: "FilterClass") -> None:
+        self._inner_dict['filter'] = value
+    
+    
+    @property
+    def json(self) -> Union[None, str]:
+        """The serialized JSON representation of the filter, used for UI rendering.
+    The UI builds a logical predicate tree that is flattened into orFilters for GraphQL.
+    This string preserves the original tree structure so the UI can restore it."""
+        return self._inner_dict.get('json')  # type: ignore
+    
+    @json.setter
+    def json(self, value: Union[None, str]) -> None:
+        self._inner_dict['json'] = value
+    
+    
+class AssertionAssignmentRuleInfoClass(_Aspect):
+    """Information about an Assertion Assignment Rule.
+    An Assertion Assignment Rule automatically assigns assertions and subscriptions
+    to entities matching a filter."""
+
+
+    ASPECT_NAME = 'assertionAssignmentRuleInfo'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleInfo")
+
+    def __init__(self,
+        name: str,
+        entityFilter: "AssertionAssignmentRuleFilterClass",
+        mode: Optional[Union[str, "AssertionAssignmentRuleModeClass"]]=None,
+        freshnessConfig: Union[None, "FreshnessAssertionAssignmentRuleConfigClass"]=None,
+        volumeConfig: Union[None, "VolumeAssertionAssignmentRuleConfigClass"]=None,
+        subscriptionConfig: Union[None, "SubscriptionAssignmentRuleConfigClass"]=None,
+        created: Union[None, "AuditStampClass"]=None,
+        updated: Union[None, "AuditStampClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        if mode is None:
+            # default: 'ENABLED'
+            self.mode = self.RECORD_SCHEMA.fields_dict["mode"].default
+        else:
+            self.mode = mode
+        self.entityFilter = entityFilter
+        self.freshnessConfig = freshnessConfig
+        self.volumeConfig = volumeConfig
+        self.subscriptionConfig = subscriptionConfig
+        self.created = created
+        self.updated = updated
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.mode = self.RECORD_SCHEMA.fields_dict["mode"].default
+        self.entityFilter = AssertionAssignmentRuleFilterClass._construct_with_defaults()
+        self.freshnessConfig = self.RECORD_SCHEMA.fields_dict["freshnessConfig"].default
+        self.volumeConfig = self.RECORD_SCHEMA.fields_dict["volumeConfig"].default
+        self.subscriptionConfig = self.RECORD_SCHEMA.fields_dict["subscriptionConfig"].default
+        self.created = self.RECORD_SCHEMA.fields_dict["created"].default
+        self.updated = self.RECORD_SCHEMA.fields_dict["updated"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Display name of the rule."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def mode(self) -> Union[str, "AssertionAssignmentRuleModeClass"]:
+        """The mode of the rule (ENABLED or DISABLED)."""
+        return self._inner_dict.get('mode')  # type: ignore
+    
+    @mode.setter
+    def mode(self, value: Union[str, "AssertionAssignmentRuleModeClass"]) -> None:
+        self._inner_dict['mode'] = value
+    
+    
+    @property
+    def entityFilter(self) -> "AssertionAssignmentRuleFilterClass":
+        """The filter criteria used to match entities for assertion assignment."""
+        return self._inner_dict.get('entityFilter')  # type: ignore
+    
+    @entityFilter.setter
+    def entityFilter(self, value: "AssertionAssignmentRuleFilterClass") -> None:
+        self._inner_dict['entityFilter'] = value
+    
+    
+    @property
+    def freshnessConfig(self) -> Union[None, "FreshnessAssertionAssignmentRuleConfigClass"]:
+        """Configuration for freshness assertions."""
+        return self._inner_dict.get('freshnessConfig')  # type: ignore
+    
+    @freshnessConfig.setter
+    def freshnessConfig(self, value: Union[None, "FreshnessAssertionAssignmentRuleConfigClass"]) -> None:
+        self._inner_dict['freshnessConfig'] = value
+    
+    
+    @property
+    def volumeConfig(self) -> Union[None, "VolumeAssertionAssignmentRuleConfigClass"]:
+        """Configuration for volume assertions."""
+        return self._inner_dict.get('volumeConfig')  # type: ignore
+    
+    @volumeConfig.setter
+    def volumeConfig(self, value: Union[None, "VolumeAssertionAssignmentRuleConfigClass"]) -> None:
+        self._inner_dict['volumeConfig'] = value
+    
+    
+    @property
+    def subscriptionConfig(self) -> Union[None, "SubscriptionAssignmentRuleConfigClass"]:
+        """Configuration for subscriptions."""
+        return self._inner_dict.get('subscriptionConfig')  # type: ignore
+    
+    @subscriptionConfig.setter
+    def subscriptionConfig(self, value: Union[None, "SubscriptionAssignmentRuleConfigClass"]) -> None:
+        self._inner_dict['subscriptionConfig'] = value
+    
+    
+    @property
+    def created(self) -> Union[None, "AuditStampClass"]:
+        """Audit stamp capturing when and by whom this rule was created."""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    @created.setter
+    def created(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def updated(self) -> Union[None, "AuditStampClass"]:
+        """Audit stamp capturing when and by whom this rule was last updated."""
+        return self._inner_dict.get('updated')  # type: ignore
+    
+    @updated.setter
+    def updated(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['updated'] = value
+    
+    
+class AssertionAssignmentRuleModeClass(object):
+    """The mode of an Assertion Assignment Rule."""
+    
+    ENABLED = "ENABLED"
+    """The rule is actively evaluating and assigning assertions."""
+    
+    DISABLED = "DISABLED"
+    """The rule is paused and not evaluating."""
+    
+    
+    
+class FreshnessAssertionAssignmentRuleConfigClass(DictWrapper):
+    """Configuration for freshness assertions in an Assertion Assignment Rule."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.FreshnessAssertionAssignmentRuleConfig")
+    def __init__(self,
+        enabled: Optional[bool]=None,
+        preferredEvaluationParameters: Union[None, "DatasetFreshnessAssertionParametersClass"]=None,
+        onSuccess: Union[None, List["AssertionActionClass"]]=None,
+        onFailure: Union[None, List["AssertionActionClass"]]=None,
+    ):
+        super().__init__()
+        
+        if enabled is None:
+            # default: True
+            self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        else:
+            self.enabled = enabled
+        self.preferredEvaluationParameters = preferredEvaluationParameters
+        self.onSuccess = onSuccess
+        self.onFailure = onFailure
+    
+    def _restore_defaults(self) -> None:
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.preferredEvaluationParameters = self.RECORD_SCHEMA.fields_dict["preferredEvaluationParameters"].default
+        self.onSuccess = self.RECORD_SCHEMA.fields_dict["onSuccess"].default
+        self.onFailure = self.RECORD_SCHEMA.fields_dict["onFailure"].default
+    
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether freshness assertion assignment is enabled."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def preferredEvaluationParameters(self) -> Union[None, "DatasetFreshnessAssertionParametersClass"]:
+        """Preferred parameters for freshness evaluation (source type, field spec, audit log spec, etc.)."""
+        return self._inner_dict.get('preferredEvaluationParameters')  # type: ignore
+    
+    @preferredEvaluationParameters.setter
+    def preferredEvaluationParameters(self, value: Union[None, "DatasetFreshnessAssertionParametersClass"]) -> None:
+        self._inner_dict['preferredEvaluationParameters'] = value
+    
+    
+    @property
+    def onSuccess(self) -> Union[None, List["AssertionActionClass"]]:
+        """Actions to take when the assertion succeeds."""
+        return self._inner_dict.get('onSuccess')  # type: ignore
+    
+    @onSuccess.setter
+    def onSuccess(self, value: Union[None, List["AssertionActionClass"]]) -> None:
+        self._inner_dict['onSuccess'] = value
+    
+    
+    @property
+    def onFailure(self) -> Union[None, List["AssertionActionClass"]]:
+        """Actions to take when the assertion fails."""
+        return self._inner_dict.get('onFailure')  # type: ignore
+    
+    @onFailure.setter
+    def onFailure(self, value: Union[None, List["AssertionActionClass"]]) -> None:
+        self._inner_dict['onFailure'] = value
+    
+    
+class SubscriberAssignmentConfigClass(DictWrapper):
+    """Per-subscriber configuration within an Assertion Assignment Rule."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.SubscriberAssignmentConfig")
+    def __init__(self,
+        subscriberUrn: str,
+        entityChangeTypes: List[Union[str, "EntityChangeTypeClass"]],
+    ):
+        super().__init__()
+        
+        self.subscriberUrn = subscriberUrn
+        self.entityChangeTypes = entityChangeTypes
+    
+    def _restore_defaults(self) -> None:
+        self.subscriberUrn = str()
+        self.entityChangeTypes = list()
+    
+    
+    @property
+    def subscriberUrn(self) -> str:
+        """The subscriber URN (corpuser or corpGroup)."""
+        return self._inner_dict.get('subscriberUrn')  # type: ignore
+    
+    @subscriberUrn.setter
+    def subscriberUrn(self, value: str) -> None:
+        self._inner_dict['subscriberUrn'] = value
+    
+    
+    @property
+    def entityChangeTypes(self) -> List[Union[str, "EntityChangeTypeClass"]]:
+        """Entity change types that trigger notifications for this subscriber."""
+        return self._inner_dict.get('entityChangeTypes')  # type: ignore
+    
+    @entityChangeTypes.setter
+    def entityChangeTypes(self, value: List[Union[str, "EntityChangeTypeClass"]]) -> None:
+        self._inner_dict['entityChangeTypes'] = value
+    
+    
+class SubscriptionAssignmentRuleConfigClass(DictWrapper):
+    """Configuration for subscriptions in an Assertion Assignment Rule."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.SubscriptionAssignmentRuleConfig")
+    def __init__(self,
+        subscriberConfigs: Union[None, List["SubscriberAssignmentConfigClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.subscriberConfigs = subscriberConfigs
+    
+    def _restore_defaults(self) -> None:
+        self.subscriberConfigs = self.RECORD_SCHEMA.fields_dict["subscriberConfigs"].default
+    
+    
+    @property
+    def subscriberConfigs(self) -> Union[None, List["SubscriberAssignmentConfigClass"]]:
+        """Per-subscriber notification configuration."""
+        return self._inner_dict.get('subscriberConfigs')  # type: ignore
+    
+    @subscriberConfigs.setter
+    def subscriberConfigs(self, value: Union[None, List["SubscriberAssignmentConfigClass"]]) -> None:
+        self._inner_dict['subscriberConfigs'] = value
+    
+    
+class VolumeAssertionAssignmentRuleConfigClass(DictWrapper):
+    """Configuration for volume assertions in an Assertion Assignment Rule."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.rule.VolumeAssertionAssignmentRuleConfig")
+    def __init__(self,
+        enabled: Optional[bool]=None,
+        preferredEvaluationParameters: Union[None, "DatasetVolumeAssertionParametersClass"]=None,
+        onSuccess: Union[None, List["AssertionActionClass"]]=None,
+        onFailure: Union[None, List["AssertionActionClass"]]=None,
+    ):
+        super().__init__()
+        
+        if enabled is None:
+            # default: True
+            self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        else:
+            self.enabled = enabled
+        self.preferredEvaluationParameters = preferredEvaluationParameters
+        self.onSuccess = onSuccess
+        self.onFailure = onFailure
+    
+    def _restore_defaults(self) -> None:
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.preferredEvaluationParameters = self.RECORD_SCHEMA.fields_dict["preferredEvaluationParameters"].default
+        self.onSuccess = self.RECORD_SCHEMA.fields_dict["onSuccess"].default
+        self.onFailure = self.RECORD_SCHEMA.fields_dict["onFailure"].default
+    
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether volume assertion assignment is enabled."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def preferredEvaluationParameters(self) -> Union[None, "DatasetVolumeAssertionParametersClass"]:
+        """Preferred parameters for volume evaluation (source type, time bucketing strategy, etc.)."""
+        return self._inner_dict.get('preferredEvaluationParameters')  # type: ignore
+    
+    @preferredEvaluationParameters.setter
+    def preferredEvaluationParameters(self, value: Union[None, "DatasetVolumeAssertionParametersClass"]) -> None:
+        self._inner_dict['preferredEvaluationParameters'] = value
+    
+    
+    @property
+    def onSuccess(self) -> Union[None, List["AssertionActionClass"]]:
+        """Actions to take when the assertion succeeds."""
+        return self._inner_dict.get('onSuccess')  # type: ignore
+    
+    @onSuccess.setter
+    def onSuccess(self, value: Union[None, List["AssertionActionClass"]]) -> None:
+        self._inner_dict['onSuccess'] = value
+    
+    
+    @property
+    def onFailure(self) -> Union[None, List["AssertionActionClass"]]:
+        """Actions to take when the assertion fails."""
+        return self._inner_dict.get('onFailure')  # type: ignore
+    
+    @onFailure.setter
+    def onFailure(self, value: Union[None, List["AssertionActionClass"]]) -> None:
+        self._inner_dict['onFailure'] = value
     
     
 class BusinessAttributeAssociationClass(DictWrapper):
@@ -12509,6 +13046,7 @@ class DataHubAiConversationInfoClass(_Aspect):
         title: Union[None, str]=None,
         originType: Optional[Union[str, "DataHubAiConversationOriginTypeClass"]]=None,
         context: Union[None, "DataHubAiConversationContextClass"]=None,
+        lastMessageTime: Union[None, int]=None,
     ):
         super().__init__()
         
@@ -12521,6 +13059,7 @@ class DataHubAiConversationInfoClass(_Aspect):
         else:
             self.originType = originType
         self.context = context
+        self.lastMessageTime = lastMessageTime
     
     def _restore_defaults(self) -> None:
         self.title = self.RECORD_SCHEMA.fields_dict["title"].default
@@ -12528,6 +13067,7 @@ class DataHubAiConversationInfoClass(_Aspect):
         self.created = AuditStampClass._construct_with_defaults()
         self.originType = self.RECORD_SCHEMA.fields_dict["originType"].default
         self.context = self.RECORD_SCHEMA.fields_dict["context"].default
+        self.lastMessageTime = self.RECORD_SCHEMA.fields_dict["lastMessageTime"].default
     
     
     @property
@@ -12580,6 +13120,16 @@ class DataHubAiConversationInfoClass(_Aspect):
     @context.setter
     def context(self, value: Union[None, "DataHubAiConversationContextClass"]) -> None:
         self._inner_dict['context'] = value
+    
+    
+    @property
+    def lastMessageTime(self) -> Union[None, int]:
+        """Timestamp of the last message in this conversation."""
+        return self._inner_dict.get('lastMessageTime')  # type: ignore
+    
+    @lastMessageTime.setter
+    def lastMessageTime(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastMessageTime'] = value
     
     
 class DataHubAiConversationMessageClass(DictWrapper):
@@ -12717,6 +13267,9 @@ class DataHubAiConversationOriginTypeClass(object):
     
     INGESTION_UI = "INGESTION_UI"
     """Chat session originated in Ingestion UI"""
+    
+    SLACK = "SLACK"
+    """Chat session originated from Slack integration"""
     
     
     
@@ -19259,22 +19812,37 @@ class SlackNotificationSettingsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.event.notification.settings.SlackNotificationSettings")
     def __init__(self,
+        user: Union[None, "SlackUserClass"]=None,
         userHandle: Union[None, str]=None,
         channels: Union[None, List[str]]=None,
     ):
         super().__init__()
         
+        self.user = user
         self.userHandle = userHandle
         self.channels = channels
     
     def _restore_defaults(self) -> None:
+        self.user = self.RECORD_SCHEMA.fields_dict["user"].default
         self.userHandle = self.RECORD_SCHEMA.fields_dict["userHandle"].default
         self.channels = self.RECORD_SCHEMA.fields_dict["channels"].default
     
     
     @property
+    def user(self) -> Union[None, "SlackUserClass"]:
+        """Optional structured user information with cached metadata.
+    Supports Slack user ID with cached display name and email."""
+        return self._inner_dict.get('user')  # type: ignore
+    
+    @user.setter
+    def user(self, value: Union[None, "SlackUserClass"]) -> None:
+        self._inner_dict['user'] = value
+    
+    
+    @property
     def userHandle(self) -> Union[None, str]:
-        """Optional user handle"""
+        """Optional user handle (deprecated - use 'user' field instead).
+    Kept for backward compatibility with existing implementations."""
         return self._inner_dict.get('userHandle')  # type: ignore
     
     @userHandle.setter
@@ -22289,6 +22857,7 @@ class CorpUserSettingsClass(_Aspect):
         notificationSettings: Union[None, "NotificationSettingsClass"]=None,
         homePage: Union[None, "CorpUserHomePageSettingsClass"]=None,
         aiAssistant: Union[None, "AiAssistantSettingsClass"]=None,
+        aiPluginSettings: Union[None, "UserAiPluginSettingsClass"]=None,
     ):
         super().__init__()
         
@@ -22297,6 +22866,7 @@ class CorpUserSettingsClass(_Aspect):
         self.notificationSettings = notificationSettings
         self.homePage = homePage
         self.aiAssistant = aiAssistant
+        self.aiPluginSettings = aiPluginSettings
     
     def _restore_defaults(self) -> None:
         self.appearance = CorpUserAppearanceSettingsClass._construct_with_defaults()
@@ -22304,6 +22874,7 @@ class CorpUserSettingsClass(_Aspect):
         self.notificationSettings = self.RECORD_SCHEMA.fields_dict["notificationSettings"].default
         self.homePage = self.RECORD_SCHEMA.fields_dict["homePage"].default
         self.aiAssistant = self.RECORD_SCHEMA.fields_dict["aiAssistant"].default
+        self.aiPluginSettings = self.RECORD_SCHEMA.fields_dict["aiPluginSettings"].default
     
     
     @property
@@ -22354,6 +22925,17 @@ class CorpUserSettingsClass(_Aspect):
     @aiAssistant.setter
     def aiAssistant(self, value: Union[None, "AiAssistantSettingsClass"]) -> None:
         self._inner_dict['aiAssistant'] = value
+    
+    
+    @property
+    def aiPluginSettings(self) -> Union[None, "UserAiPluginSettingsClass"]:
+        """User-specific settings for AI plugins (MCP servers, etc.).
+    Contains user overrides and credentials for globally-configured plugins."""
+        return self._inner_dict.get('aiPluginSettings')  # type: ignore
+    
+    @aiPluginSettings.setter
+    def aiPluginSettings(self, value: Union[None, "UserAiPluginSettingsClass"]) -> None:
+        self._inner_dict['aiPluginSettings'] = value
     
     
 class CorpUserStatusClass(_Aspect):
@@ -22588,6 +23170,211 @@ class TokenTypeClass(object):
     INDIVIDUAL = "INDIVIDUAL"
     """Individual token generated for bulk invitations. Single-use, consumed on signup."""
     
+    
+    
+class UserAiPluginConfigClass(DictWrapper):
+    """User-specific configuration for a single AI plugin.
+    
+    Users can:
+    - Enable/disable plugins for themselves
+    - Restrict which tools they want to use (future)
+    - Store their own credentials (API keys or OAuth tokens)
+    
+    The id field must match a plugin id from AiPluginSettings in GlobalSettings."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.UserAiPluginConfig")
+    def __init__(self,
+        id: str,
+        enabled: Union[None, bool]=None,
+        allowedTools: Union[None, List[str]]=None,
+        apiKeyConfig: Union[None, "UserApiKeyConnectionConfigClass"]=None,
+        oauthConfig: Union[None, "UserOAuthConnectionConfigClass"]=None,
+        customHeaders: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.id = id
+        self.enabled = enabled
+        self.allowedTools = allowedTools
+        self.apiKeyConfig = apiKeyConfig
+        self.oauthConfig = oauthConfig
+        self.customHeaders = customHeaders
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.allowedTools = self.RECORD_SCHEMA.fields_dict["allowedTools"].default
+        self.apiKeyConfig = self.RECORD_SCHEMA.fields_dict["apiKeyConfig"].default
+        self.oauthConfig = self.RECORD_SCHEMA.fields_dict["oauthConfig"].default
+        self.customHeaders = self.RECORD_SCHEMA.fields_dict["customHeaders"].default
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier matching the global plugin configuration.
+    Example: 'urn:li:service:glean-search'"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+    @property
+    def enabled(self) -> Union[None, bool]:
+        """Whether this plugin is enabled for the user.
+    If not set, inherits from global settings."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: Union[None, bool]) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def allowedTools(self) -> Union[None, List[str]]:
+        """Restrict which tools from this plugin the user wants to use.
+    If empty or not set, all tools from the plugin are available.
+    This is for user preference, not security (users can only restrict, not expand).
+    Reserved for future use."""
+        return self._inner_dict.get('allowedTools')  # type: ignore
+    
+    @allowedTools.setter
+    def allowedTools(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['allowedTools'] = value
+    
+    
+    @property
+    def apiKeyConfig(self) -> Union[None, "UserApiKeyConnectionConfigClass"]:
+        """User's API key configuration.
+    Present when the plugin uses USER_API_KEY auth and the user has configured their key."""
+        return self._inner_dict.get('apiKeyConfig')  # type: ignore
+    
+    @apiKeyConfig.setter
+    def apiKeyConfig(self, value: Union[None, "UserApiKeyConnectionConfigClass"]) -> None:
+        self._inner_dict['apiKeyConfig'] = value
+    
+    
+    @property
+    def oauthConfig(self) -> Union[None, "UserOAuthConnectionConfigClass"]:
+        """User's OAuth configuration.
+    Present when the plugin uses USER_OAUTH auth and the user has connected."""
+        return self._inner_dict.get('oauthConfig')  # type: ignore
+    
+    @oauthConfig.setter
+    def oauthConfig(self, value: Union[None, "UserOAuthConnectionConfigClass"]) -> None:
+        self._inner_dict['oauthConfig'] = value
+    
+    
+    @property
+    def customHeaders(self) -> Union[None, Dict[str, str]]:
+        """User-specific custom headers to send with requests to this plugin's MCP server.
+    These are merged with (and override) admin-configured custom headers.
+    Example: {"x-dbt-prod-environment-id": "362762"}"""
+        return self._inner_dict.get('customHeaders')  # type: ignore
+    
+    @customHeaders.setter
+    def customHeaders(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['customHeaders'] = value
+    
+    
+class UserAiPluginSettingsClass(DictWrapper):
+    """User-specific settings for AI plugins in Ask DataHub.
+    Stored as part of CorpUserSettings aspect.
+    
+    This mirrors the structure of AiPluginSettings in GlobalSettings,
+    allowing users to customize their experience with AI plugins."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.UserAiPluginSettings")
+    def __init__(self,
+        plugins: Optional[List["UserAiPluginConfigClass"]]=None,
+    ):
+        super().__init__()
+        
+        if plugins is None:
+            # default: []
+            self.plugins = list()
+        else:
+            self.plugins = plugins
+    
+    def _restore_defaults(self) -> None:
+        self.plugins = list()
+    
+    
+    @property
+    def plugins(self) -> List["UserAiPluginConfigClass"]:
+        """List of user configurations for AI plugins.
+    Each entry corresponds to a globally-configured plugin (matched by id).
+    Only plugins listed here have user-specific overrides."""
+        return self._inner_dict.get('plugins')  # type: ignore
+    
+    @plugins.setter
+    def plugins(self, value: List["UserAiPluginConfigClass"]) -> None:
+        self._inner_dict['plugins'] = value
+    
+    
+class UserApiKeyConnectionConfigClass(DictWrapper):
+    """Configuration for user-provided API key credentials.
+    Links to a DataHubConnection entity containing the encrypted API key."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.UserApiKeyConnectionConfig")
+    def __init__(self,
+        connectionUrn: str,
+    ):
+        super().__init__()
+        
+        self.connectionUrn = connectionUrn
+    
+    def _restore_defaults(self) -> None:
+        self.connectionUrn = str()
+    
+    
+    @property
+    def connectionUrn(self) -> str:
+        """URN of the DataHubConnection containing the user's API key.
+    Format: urn:li:dataHubConnection:urn_li_corpuser_johndoe__pluginId
+    Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field.
+    The connection payload contains: {"apiKey": "..."}"""
+        return self._inner_dict.get('connectionUrn')  # type: ignore
+    
+    @connectionUrn.setter
+    def connectionUrn(self, value: str) -> None:
+        self._inner_dict['connectionUrn'] = value
+    
+    
+class UserOAuthConnectionConfigClass(DictWrapper):
+    """Configuration for user OAuth credentials.
+    Links to a DataHubConnection entity containing the OAuth tokens."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.UserOAuthConnectionConfig")
+    def __init__(self,
+        connectionUrn: str,
+    ):
+        super().__init__()
+        
+        self.connectionUrn = connectionUrn
+    
+    def _restore_defaults(self) -> None:
+        self.connectionUrn = str()
+    
+    
+    @property
+    def connectionUrn(self) -> str:
+        """URN of the DataHubConnection containing the user's OAuth tokens.
+    Format: urn:li:dataHubConnection:urn_li_corpuser_johndoe__pluginId
+    Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field.
+    The connection payload contains:
+    {
+      "accessToken": "...",
+      "refreshToken": "...",
+      "expiresAt": 1234567890,
+      "tokenType": "Bearer"
+    }"""
+        return self._inner_dict.get('connectionUrn')  # type: ignore
+    
+    @connectionUrn.setter
+    def connectionUrn(self, value: str) -> None:
+        self._inner_dict['connectionUrn'] = value
     
     
 class IncidentActivityChangeClass(DictWrapper):
@@ -24652,6 +25439,35 @@ class AnomalyKeyClass(_Aspect):
         self._inner_dict['id'] = value
     
     
+class AssertionAssignmentRuleKeyClass(_Aspect):
+    """Key for an Assertion Assignment Rule"""
+
+
+    ASPECT_NAME = 'assertionAssignmentRuleKey'
+    ASPECT_INFO = {'keyForEntity': 'assertionAssignmentRule', 'entityCategory': 'core', 'entityAspects': ['assertionAssignmentRuleInfo', 'ownership', 'status'], 'entityDoc': 'A rule that automatically assigns assertions and subscriptions to entities matching a filter.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AssertionAssignmentRuleKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique id for the assertion assignment rule."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
 class AssertionKeyClass(_Aspect):
     """Key for a Assertion"""
 
@@ -26400,7 +27216,7 @@ class MonitorKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'monitorKey'
-    ASPECT_INFO = {'keyForEntity': 'monitor', 'entityCategory': 'core', 'entityAspects': ['monitorInfo', 'monitorTimeseriesState', 'monitorAnomalyEvent', 'status']}
+    ASPECT_INFO = {'keyForEntity': 'monitor', 'entityCategory': 'core', 'entityAspects': ['monitorInfo', 'monitorBootstrapStatus', 'monitorTimeseriesState', 'monitorAnomalyEvent', 'status']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MonitorKey")
 
     def __init__(self,
@@ -26438,11 +27254,16 @@ class MonitorKeyClass(_Aspect):
     
     
 class MonitorSuiteKeyClass(_Aspect):
-    """Key for a monitor suite."""
+    """Key for a monitor suite.
+    
+    @deprecated DO NOT USE. This entity was never implemented — no service layer, no hooks, no UI,
+    no customer data exists. It is a schema-only placeholder that was never wired into the system.
+    Use {@link com.linkedin.pegasus2avro.metadata.key.AssertionAssignmentRuleKey} instead.
+    Safe to remove entirely in a future release."""
 
 
     ASPECT_NAME = 'monitorSuiteKey'
-    ASPECT_INFO = {'keyForEntity': 'monitorSuite', 'entityCategory': 'core', 'entityAspects': ['monitorSuiteInfo']}
+    ASPECT_INFO = {'keyForEntity': 'monitorSuite', 'entityCategory': 'core', 'entityAspects': ['monitorSuiteInfo'], 'entityDoc': 'DEPRECATED - DO NOT USE. Never implemented (no service layer, hooks, UI, or customer data). Schema-only placeholder. Use assertionAssignmentRule instead. Safe to remove entirely.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MonitorSuiteKey")
 
     def __init__(self,
@@ -31749,17 +32570,20 @@ class AssertionMonitorClass(DictWrapper):
     def __init__(self,
         assertions: List["AssertionEvaluationSpecClass"],
         settings: Union[None, "AssertionMonitorSettingsClass"]=None,
+        bootstrapConfig: Union[None, "AssertionMonitorBootstrapConfigClass"]=None,
         bootstrapStatus: Union[None, "AssertionMonitorBootstrapStatusClass"]=None,
     ):
         super().__init__()
         
         self.assertions = assertions
         self.settings = settings
+        self.bootstrapConfig = bootstrapConfig
         self.bootstrapStatus = bootstrapStatus
     
     def _restore_defaults(self) -> None:
         self.assertions = list()
         self.settings = self.RECORD_SCHEMA.fields_dict["settings"].default
+        self.bootstrapConfig = self.RECORD_SCHEMA.fields_dict["bootstrapConfig"].default
         self.bootstrapStatus = self.RECORD_SCHEMA.fields_dict["bootstrapStatus"].default
     
     
@@ -31786,8 +32610,19 @@ class AssertionMonitorClass(DictWrapper):
     
     
     @property
+    def bootstrapConfig(self) -> Union[None, "AssertionMonitorBootstrapConfigClass"]:
+        """Configuration for bootstrapping the metrics cube."""
+        return self._inner_dict.get('bootstrapConfig')  # type: ignore
+    
+    @bootstrapConfig.setter
+    def bootstrapConfig(self, value: Union[None, "AssertionMonitorBootstrapConfigClass"]) -> None:
+        self._inner_dict['bootstrapConfig'] = value
+    
+    
+    @property
     def bootstrapStatus(self) -> Union[None, "AssertionMonitorBootstrapStatusClass"]:
-        """The status of the bootstrap actions performed on the assertion."""
+        """@deprecated Use the monitorBootstrapStatus aspect instead. This field is no longer read or
+    written by the service layer and will be removed in a future release."""
         return self._inner_dict.get('bootstrapStatus')  # type: ignore
     
     @bootstrapStatus.setter
@@ -31795,10 +32630,47 @@ class AssertionMonitorClass(DictWrapper):
         self._inner_dict['bootstrapStatus'] = value
     
     
-class AssertionMonitorBootstrapStatusClass(DictWrapper):
-    # No docs available.
+class AssertionMonitorBootstrapConfigClass(DictWrapper):
+    """Configuration for bootstrapping the metrics cube for an assertion monitor."""
     
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.AssertionMonitorBootstrapConfig")
+    def __init__(self,
+        backfillStartDateMs: int,
+    ):
+        super().__init__()
+        
+        self.backfillStartDateMs = backfillStartDateMs
+    
+    def _restore_defaults(self) -> None:
+        self.backfillStartDateMs = int()
+    
+    
+    @property
+    def backfillStartDateMs(self) -> int:
+        """The earliest date (ms since epoch) to backfill from. Must be within the
+    maximum lookback window relative to the assertion's creation time.
+    
+    Limits by bucketing strategy:
+      - DAY bucketing:  max 365 days before assertion creation
+      - WEEK bucketing: max 156 weeks (≈3 years) before assertion creation
+      - No bucketing (volume only): max 365 days before assertion creation"""
+        return self._inner_dict.get('backfillStartDateMs')  # type: ignore
+    
+    @backfillStartDateMs.setter
+    def backfillStartDateMs(self, value: int) -> None:
+        self._inner_dict['backfillStartDateMs'] = value
+    
+    
+class AssertionMonitorBootstrapStatusClass(_Aspect):
+    """The status of bootstrap actions performed on an assertion monitor.
+    This is a separate aspect from monitorInfo so that the executor can update
+    bootstrap progress without conflicting with user-initiated monitor config changes."""
+
+
+    ASPECT_NAME = 'monitorBootstrapStatus'
+    ASPECT_INFO = {}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.AssertionMonitorBootstrapStatus")
+
     def __init__(self,
         metricsCubeBootstrapStatus: Union[None, "AssertionMonitorMetricsCubeBootstrapStatusClass"]=None,
     ):
@@ -31812,7 +32684,7 @@ class AssertionMonitorBootstrapStatusClass(DictWrapper):
     
     @property
     def metricsCubeBootstrapStatus(self) -> Union[None, "AssertionMonitorMetricsCubeBootstrapStatusClass"]:
-        """Whether the metrics cube for this monitor has been bootstrapped."""
+        """The status of the metrics cube bootstrap."""
         return self._inner_dict.get('metricsCubeBootstrapStatus')  # type: ignore
     
     @metricsCubeBootstrapStatus.setter
@@ -31842,13 +32714,24 @@ class AssertionMonitorMetricsCubeBootstrapStateClass(object):
     # No docs available.
     
     PENDING = "PENDING"
-    """The metrics cube for this monitor has not been bootstrapped."""
+    """Awaiting pickup by the bootstrap job."""
+    
+    SUBMITTED = "SUBMITTED"
+    """The bootstrap task has been submitted to the bootstrap job queue."""
+    
+    RUNNING = "RUNNING"
+    """The bootstrap job is actively running."""
     
     FAILED = "FAILED"
-    """The metrics cube for this monitor has failed to bootstrap."""
+    """The bootstrap task failed with an unrecoverable error."""
     
     COMPLETED = "COMPLETED"
-    """The metrics cube for this monitor has been bootstrapped."""
+    """All historical buckets have been successfully processed."""
+    
+    REJECTED = "REJECTED"
+    """Bootstrap was rejected. This can occur when bootstrapConfig is
+    not present on the monitor, or when the bootstrap job determines the
+    monitor is ineligible (e.g. missing or invalid bootstrapConfig)."""
     
     
     
@@ -31858,21 +32741,48 @@ class AssertionMonitorMetricsCubeBootstrapStatusClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.AssertionMonitorMetricsCubeBootstrapStatus")
     def __init__(self,
         state: Union[str, "AssertionMonitorMetricsCubeBootstrapStateClass"],
+        submissionTimeMs: Union[None, int]=None,
+        heartbeatTimestampMs: Union[None, int]=None,
+        lastBucketStartTimeMs: Union[None, int]=None,
+        firstBucketStartTimeMs: Union[None, int]=None,
+        isHardReset: Union[None, bool]=None,
         message: Union[None, str]=None,
     ):
         super().__init__()
         
         self.state = state
+        self.submissionTimeMs = submissionTimeMs
+        self.heartbeatTimestampMs = heartbeatTimestampMs
+        self.lastBucketStartTimeMs = lastBucketStartTimeMs
+        self.firstBucketStartTimeMs = firstBucketStartTimeMs
+        self.isHardReset = isHardReset
         self.message = message
     
     def _restore_defaults(self) -> None:
         self.state = AssertionMonitorMetricsCubeBootstrapStateClass.PENDING
+        self.submissionTimeMs = self.RECORD_SCHEMA.fields_dict["submissionTimeMs"].default
+        self.heartbeatTimestampMs = self.RECORD_SCHEMA.fields_dict["heartbeatTimestampMs"].default
+        self.lastBucketStartTimeMs = self.RECORD_SCHEMA.fields_dict["lastBucketStartTimeMs"].default
+        self.firstBucketStartTimeMs = self.RECORD_SCHEMA.fields_dict["firstBucketStartTimeMs"].default
+        self.isHardReset = self.RECORD_SCHEMA.fields_dict["isHardReset"].default
         self.message = self.RECORD_SCHEMA.fields_dict["message"].default
     
     
     @property
     def state(self) -> Union[str, "AssertionMonitorMetricsCubeBootstrapStateClass"]:
-        """Whether the metrics cube for this monitor has been bootstrapped."""
+        """The state of the metrics cube bootstrap for this monitor.
+    
+    State transitions:
+      PENDING -> SUBMITTED  (bootstrap job picks up the task)
+      PENDING -> REJECTED   (scheduler finds monitor ineligible, e.g. missing bootstrapConfig)
+      SUBMITTED -> RUNNING  (bootstrap job begins processing)
+      SUBMITTED -> PENDING  (sweeper resets stale SUBMITTED task for re-submission)
+      RUNNING -> COMPLETED  (all buckets processed)
+      RUNNING -> FAILED     (unrecoverable error during processing)
+      FAILED -> PENDING     (bootstrapConfig changed or re-provided)
+      COMPLETED -> PENDING  (bootstrapConfig changed or re-provided)
+      REJECTED -> PENDING   (bootstrapConfig changed or re-provided)
+    -> REJECTED         (bootstrapConfig removed from monitor)"""
         return self._inner_dict.get('state')  # type: ignore
     
     @state.setter
@@ -31881,9 +32791,65 @@ class AssertionMonitorMetricsCubeBootstrapStatusClass(DictWrapper):
     
     
     @property
+    def submissionTimeMs(self) -> Union[None, int]:
+        """Timestamp (ms since epoch) when the bootstrap task was submitted to the bootstrap job queue."""
+        return self._inner_dict.get('submissionTimeMs')  # type: ignore
+    
+    @submissionTimeMs.setter
+    def submissionTimeMs(self, value: Union[None, int]) -> None:
+        self._inner_dict['submissionTimeMs'] = value
+    
+    
+    @property
+    def heartbeatTimestampMs(self) -> Union[None, int]:
+        """Timestamp (ms since epoch) of the last heartbeat from the bootstrap job running the bootstrap.
+    Used to detect stale RUNNING jobs."""
+        return self._inner_dict.get('heartbeatTimestampMs')  # type: ignore
+    
+    @heartbeatTimestampMs.setter
+    def heartbeatTimestampMs(self, value: Union[None, int]) -> None:
+        self._inner_dict['heartbeatTimestampMs'] = value
+    
+    
+    @property
+    def lastBucketStartTimeMs(self) -> Union[None, int]:
+        """Start timestamp (ms since epoch) of the last bucket that was successfully processed."""
+        return self._inner_dict.get('lastBucketStartTimeMs')  # type: ignore
+    
+    @lastBucketStartTimeMs.setter
+    def lastBucketStartTimeMs(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastBucketStartTimeMs'] = value
+    
+    
+    @property
+    def firstBucketStartTimeMs(self) -> Union[None, int]:
+        """Start timestamp (ms since epoch) of the first bucket that was processed during the
+    current or most recent backfill run. Used to detect lookback increases: if a new run
+    computes a start earlier than this value, only the leading gap needs to be filled."""
+        return self._inner_dict.get('firstBucketStartTimeMs')  # type: ignore
+    
+    @firstBucketStartTimeMs.setter
+    def firstBucketStartTimeMs(self, value: Union[None, int]) -> None:
+        self._inner_dict['firstBucketStartTimeMs'] = value
+    
+    
+    @property
+    def isHardReset(self) -> Union[None, bool]:
+        """When true, signals the bootstrap fetcher to pass hard_reset=true to the executor,
+    which will ignore any resume/gap-fill logic and redo the entire backfill from scratch.
+    Set by the retryMonitorBackfill mutation; consumed by the fetcher when building the
+    ExecutionRequest."""
+        return self._inner_dict.get('isHardReset')  # type: ignore
+    
+    @isHardReset.setter
+    def isHardReset(self, value: Union[None, bool]) -> None:
+        self._inner_dict['isHardReset'] = value
+    
+    
+    @property
     def message(self) -> Union[None, str]:
         """The message associated with the bootstrap status.
-    I.e., an error message if the bootstrap failed."""
+    I.e., an error message if the bootstrap job failed."""
         return self._inner_dict.get('message')  # type: ignore
     
     @message.setter
@@ -31931,6 +32897,72 @@ class AssertionMonitorSettingsClass(DictWrapper):
     @capabilities.setter
     def capabilities(self, value: List[Union[str, "AssertionMonitorCapabilityClass"]]) -> None:
         self._inner_dict['capabilities'] = value
+    
+    
+class AssertionTimeBucketingStrategyClass(DictWrapper):
+    """Time bucketing strategy for assertion evaluation.
+    Defines how to partition data into time buckets for evaluation."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.AssertionTimeBucketingStrategy")
+    def __init__(self,
+        timestampFieldPath: str,
+        bucketInterval: "TimeWindowSizeClass",
+        timezone: str,
+        lateArrivalGracePeriod: Union[None, "TimeWindowSizeClass"]=None,
+    ):
+        super().__init__()
+        
+        self.timestampFieldPath = timestampFieldPath
+        self.bucketInterval = bucketInterval
+        self.lateArrivalGracePeriod = lateArrivalGracePeriod
+        self.timezone = timezone
+    
+    def _restore_defaults(self) -> None:
+        self.timestampFieldPath = str()
+        self.bucketInterval = TimeWindowSizeClass._construct_with_defaults()
+        self.lateArrivalGracePeriod = self.RECORD_SCHEMA.fields_dict["lateArrivalGracePeriod"].default
+        self.timezone = str()
+    
+    
+    @property
+    def timestampFieldPath(self) -> str:
+        """Path to the timestamp field used for bucketing."""
+        return self._inner_dict.get('timestampFieldPath')  # type: ignore
+    
+    @timestampFieldPath.setter
+    def timestampFieldPath(self, value: str) -> None:
+        self._inner_dict['timestampFieldPath'] = value
+    
+    
+    @property
+    def bucketInterval(self) -> "TimeWindowSizeClass":
+        """Interval for time buckets (e.g. 1 DAY, 2 WEEKs)."""
+        return self._inner_dict.get('bucketInterval')  # type: ignore
+    
+    @bucketInterval.setter
+    def bucketInterval(self, value: "TimeWindowSizeClass") -> None:
+        self._inner_dict['bucketInterval'] = value
+    
+    
+    @property
+    def lateArrivalGracePeriod(self) -> Union[None, "TimeWindowSizeClass"]:
+        """Grace period after bucket end before considering the bucket complete.
+    Allows for late-arriving data; evaluation runs only after bucket_end + grace period."""
+        return self._inner_dict.get('lateArrivalGracePeriod')  # type: ignore
+    
+    @lateArrivalGracePeriod.setter
+    def lateArrivalGracePeriod(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
+        self._inner_dict['lateArrivalGracePeriod'] = value
+    
+    
+    @property
+    def timezone(self) -> str:
+        """IANA timezone (e.g. "America/Los_Angeles") for bucket boundaries."""
+        return self._inner_dict.get('timezone')  # type: ignore
+    
+    @timezone.setter
+    def timezone(self, value: str) -> None:
+        self._inner_dict['timezone'] = value
     
     
 class AuditLogSpecClass(DictWrapper):
@@ -32016,15 +33048,18 @@ class DatasetFieldAssertionParametersClass(DictWrapper):
     def __init__(self,
         sourceType: Union[str, "DatasetFieldAssertionSourceTypeClass"],
         changedRowsField: Union[None, "FreshnessFieldSpecClass"]=None,
+        timeBucketingStrategy: Union[None, "AssertionTimeBucketingStrategyClass"]=None,
     ):
         super().__init__()
         
         self.sourceType = sourceType
         self.changedRowsField = changedRowsField
+        self.timeBucketingStrategy = timeBucketingStrategy
     
     def _restore_defaults(self) -> None:
         self.sourceType = DatasetFieldAssertionSourceTypeClass.ALL_ROWS_QUERY
         self.changedRowsField = self.RECORD_SCHEMA.fields_dict["changedRowsField"].default
+        self.timeBucketingStrategy = self.RECORD_SCHEMA.fields_dict["timeBucketingStrategy"].default
     
     
     @property
@@ -32050,6 +33085,16 @@ class DatasetFieldAssertionParametersClass(DictWrapper):
     @changedRowsField.setter
     def changedRowsField(self, value: Union[None, "FreshnessFieldSpecClass"]) -> None:
         self._inner_dict['changedRowsField'] = value
+    
+    
+    @property
+    def timeBucketingStrategy(self) -> Union[None, "AssertionTimeBucketingStrategyClass"]:
+        """Optional time bucketing strategy for evaluating the assertion over time windows."""
+        return self._inner_dict.get('timeBucketingStrategy')  # type: ignore
+    
+    @timeBucketingStrategy.setter
+    def timeBucketingStrategy(self, value: Union[None, "AssertionTimeBucketingStrategyClass"]) -> None:
+        self._inner_dict['timeBucketingStrategy'] = value
     
     
 class DatasetFieldAssertionSourceTypeClass(object):
@@ -32192,13 +33237,16 @@ class DatasetVolumeAssertionParametersClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.DatasetVolumeAssertionParameters")
     def __init__(self,
         sourceType: Union[str, "DatasetVolumeSourceTypeClass"],
+        timeBucketingStrategy: Union[None, "AssertionTimeBucketingStrategyClass"]=None,
     ):
         super().__init__()
         
         self.sourceType = sourceType
+        self.timeBucketingStrategy = timeBucketingStrategy
     
     def _restore_defaults(self) -> None:
         self.sourceType = DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        self.timeBucketingStrategy = self.RECORD_SCHEMA.fields_dict["timeBucketingStrategy"].default
     
     
     @property
@@ -32209,6 +33257,16 @@ class DatasetVolumeAssertionParametersClass(DictWrapper):
     @sourceType.setter
     def sourceType(self, value: Union[str, "DatasetVolumeSourceTypeClass"]) -> None:
         self._inner_dict['sourceType'] = value
+    
+    
+    @property
+    def timeBucketingStrategy(self) -> Union[None, "AssertionTimeBucketingStrategyClass"]:
+        """Optional time bucketing strategy for evaluating the assertion over time windows."""
+        return self._inner_dict.get('timeBucketingStrategy')  # type: ignore
+    
+    @timeBucketingStrategy.setter
+    def timeBucketingStrategy(self, value: Union[None, "AssertionTimeBucketingStrategyClass"]) -> None:
+        self._inner_dict['timeBucketingStrategy'] = value
     
     
 class DatasetVolumeSourceTypeClass(object):
@@ -32283,15 +33341,18 @@ class MonitorErrorClass(DictWrapper):
     def __init__(self,
         type: Union[str, "MonitorErrorTypeClass"],
         message: Union[None, str]=None,
+        properties: Union[None, Dict[str, str]]=None,
     ):
         super().__init__()
         
         self.type = type
         self.message = message
+        self.properties = properties
     
     def _restore_defaults(self) -> None:
-        self.type = MonitorErrorTypeClass.UNKNOWN
+        self.type = MonitorErrorTypeClass.TRAINING_DATA_INSUFFICIENT
         self.message = self.RECORD_SCHEMA.fields_dict["message"].default
+        self.properties = self.RECORD_SCHEMA.fields_dict["properties"].default
     
     
     @property
@@ -32314,11 +33375,51 @@ class MonitorErrorClass(DictWrapper):
         self._inner_dict['message'] = value
     
     
+    @property
+    def properties(self) -> Union[None, Dict[str, str]]:
+        """Additional metadata depending on the type of error"""
+        return self._inner_dict.get('properties')  # type: ignore
+    
+    @properties.setter
+    def properties(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['properties'] = value
+    
+    
 class MonitorErrorTypeClass(object):
     # No docs available.
     
+    TRAINING_DATA_INSUFFICIENT = "TRAINING_DATA_INSUFFICIENT"
+    """Insufficient data to train or evaluate model quality."""
+    
+    INPUT_DATA_INVALID = "INPUT_DATA_INVALID"
+    """Input data is invalid or missing required fields."""
+    
+    INPUT_DATA_INSUFFICIENT = "INPUT_DATA_INSUFFICIENT"
+    """Input data could not be retrieved or is incomplete."""
+    
+    INVALID_PARAMETERS = "INVALID_PARAMETERS"
+    """Invalid training configuration or parameters."""
+    
+    MODEL_CREATION_FAILED = "MODEL_CREATION_FAILED"
+    """Model creation failed before training."""
+    
+    MODEL_TRAINING_FAILED = "MODEL_TRAINING_FAILED"
+    """Model training failed."""
+    
+    MODEL_EVALUATION_FAILED = "MODEL_EVALUATION_FAILED"
+    """Model evaluation failed."""
+    
+    PREDICTION_NOT_CONFIDENT = "PREDICTION_NOT_CONFIDENT"
+    """Training succeeded but model quality is below threshold."""
+    
+    PREDICTION_FORMAT_ERROR = "PREDICTION_FORMAT_ERROR"
+    """Prediction is not in the expected format (ex. missing fields)."""
+    
+    PERSISTENCE_FAILED = "PERSISTENCE_FAILED"
+    """Failed to persist training outputs or related metadata."""
+    
     UNKNOWN = "UNKNOWN"
-    """An unknown error occurred"""
+    """An unknown error occurred during training."""
     
     
     
@@ -32446,7 +33547,7 @@ class MonitorStateClass(object):
     """The monitor is in the evaluation stage."""
     
     ERROR = "ERROR"
-    """The monitor is in the evaluation stage."""
+    """The monitor is in the error stage."""
     
     
     
@@ -32486,7 +33587,7 @@ class MonitorStatusClass(DictWrapper):
     
     @property
     def state(self) -> Union[None, Union[str, "MonitorStateClass"]]:
-        """The start time of the monitor"""
+        """The phase the monitor is in"""
         return self._inner_dict.get('state')  # type: ignore
     
     @state.setter
@@ -32515,7 +33616,10 @@ class MonitorStatusClass(DictWrapper):
     
     
 class MonitorSuiteAssertionSettingsClass(DictWrapper):
-    """Settings for assertion monitors within a monitor suite."""
+    """Settings for assertion monitors within a monitor suite.
+    
+    @deprecated DO NOT USE. MonitorSuite was never implemented — no service layer, no hooks, no UI,
+    no customer data exists. Safe to remove entirely in a future release."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.MonitorSuiteAssertionSettings")
     def __init__(self,
@@ -32587,7 +33691,10 @@ class MonitorSuiteAssertionSettingsClass(DictWrapper):
     
     
 class MonitorSuiteAssignmentSpecClass(DictWrapper):
-    """Information about entities that should be monitored by a monitor suite."""
+    """Information about entities that should be monitored by a monitor suite.
+    
+    @deprecated DO NOT USE. MonitorSuite was never implemented — no service layer, no hooks, no UI,
+    no customer data exists. Safe to remove entirely in a future release."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.MonitorSuiteAssignmentSpec")
     def __init__(self,
@@ -32629,7 +33736,12 @@ class MonitorSuiteAssignmentSpecClass(DictWrapper):
     
     
 class MonitorSuiteInfoClass(_Aspect):
-    """Information about an asset monitor."""
+    """Information about an asset monitor.
+    
+    @deprecated DO NOT USE. This entity was never implemented — no service layer, no hooks, no UI,
+    no customer data exists. It is a schema-only placeholder that was never wired into the system.
+    Use {@link com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleInfo} instead.
+    Safe to remove entirely in a future release."""
 
 
     ASPECT_NAME = 'monitorSuiteInfo'
@@ -32723,7 +33835,10 @@ class MonitorSuiteInfoClass(_Aspect):
     
     
 class MonitorSuiteNotificationSettingsClass(DictWrapper):
-    """Settings for notifications from monitors within a monitor suite."""
+    """Settings for notifications from monitors within a monitor suite.
+    
+    @deprecated DO NOT USE. MonitorSuite was never implemented — no service layer, no hooks, no UI,
+    no customer data exists. Safe to remove entirely in a future release."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.MonitorSuiteNotificationSettings")
     def __init__(self,
@@ -34147,6 +35262,312 @@ class FormNotificationsClass(_Aspect):
     @notificationDetails.setter
     def notificationDetails(self, value: List["FormNotificationDetailsClass"]) -> None:
         self._inner_dict['notificationDetails'] = value
+    
+    
+class AuthLocationClass(object):
+    # No docs available.
+    
+    HEADER = "HEADER"
+    """Send credential in HTTP header."""
+    
+    QUERY_PARAM = "QUERY_PARAM"
+    """Send credential as query parameter."""
+    
+    
+    
+class OAuthAuthorizationServerKeyClass(_Aspect):
+    """Key for an OAuth Authorization Server entity.
+    
+    An OAuth Authorization Server represents an external OAuth provider
+    that DataHub can use to obtain tokens for calling external APIs.
+    This is for OUTBOUND OAuth (DataHub as client), not INBOUND auth
+    (users authenticating to DataHub)."""
+
+
+    ASPECT_NAME = 'oauthAuthorizationServerKey'
+    ASPECT_INFO = {'keyForEntity': 'oauthAuthorizationServer', 'entityCategory': 'core', 'entityAspects': ['oauthAuthorizationServerProperties', 'ownership', 'status'], 'entityDoc': 'An OAuth Authorization Server that DataHub can use to obtain tokens for calling external APIs.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.oauth.OAuthAuthorizationServerKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for this authorization server.
+    Examples: glean, snowflake, github"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class OAuthAuthorizationServerPropertiesClass(_Aspect):
+    """Properties of an OAuth Authorization Server.
+    
+    This represents an authorization server that DataHub can use to obtain tokens
+    for calling external APIs (OUTBOUND OAuth). It may be:
+    - The service's own OAuth server (e.g., Glean, GitHub)
+    - A third-party IDP configured for a service (e.g., Okta, Azure AD)
+    
+    This entity contains OAuth configuration (how to get tokens) and auth injection
+    settings (how to use tokens). Actual credentials are stored separately in
+    DataHubConnection entities.
+    
+    For API key services, set supportedCredentialTypes to [API_KEY]. The auth injection
+    settings will be used, but OAuth config fields are optional."""
+
+
+    ASPECT_NAME = 'oauthAuthorizationServerProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.oauth.OAuthAuthorizationServerProperties")
+
+    def __init__(self,
+        displayName: str,
+        description: Union[None, str]=None,
+        clientId: Union[None, str]=None,
+        clientSecretUrn: Union[None, str]=None,
+        authorizationUrl: Union[None, str]=None,
+        tokenUrl: Union[None, str]=None,
+        scopes: Union[None, List[str]]=None,
+        tokenAuthMethod: Optional[Union[str, "TokenAuthMethodClass"]]=None,
+        additionalTokenParams: Union[None, Dict[str, str]]=None,
+        additionalAuthParams: Union[None, Dict[str, str]]=None,
+        authLocation: Optional[Union[str, "AuthLocationClass"]]=None,
+        authHeaderName: Optional[str]=None,
+        authScheme: Optional[Union[str, None]]=None,
+        authQueryParam: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.displayName = displayName
+        self.description = description
+        self.clientId = clientId
+        self.clientSecretUrn = clientSecretUrn
+        self.authorizationUrl = authorizationUrl
+        self.tokenUrl = tokenUrl
+        self.scopes = scopes
+        if tokenAuthMethod is None:
+            # default: 'POST_BODY'
+            self.tokenAuthMethod = self.RECORD_SCHEMA.fields_dict["tokenAuthMethod"].default
+        else:
+            self.tokenAuthMethod = tokenAuthMethod
+        self.additionalTokenParams = additionalTokenParams
+        self.additionalAuthParams = additionalAuthParams
+        if authLocation is None:
+            # default: 'HEADER'
+            self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        else:
+            self.authLocation = authLocation
+        if authHeaderName is None:
+            # default: 'Authorization'
+            self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        else:
+            self.authHeaderName = authHeaderName
+        if authScheme is None:
+            # default: 'Bearer'
+            self.authScheme = self.RECORD_SCHEMA.fields_dict["authScheme"].default
+        else:
+            self.authScheme = authScheme
+        self.authQueryParam = authQueryParam
+    
+    def _restore_defaults(self) -> None:
+        self.displayName = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.clientId = self.RECORD_SCHEMA.fields_dict["clientId"].default
+        self.clientSecretUrn = self.RECORD_SCHEMA.fields_dict["clientSecretUrn"].default
+        self.authorizationUrl = self.RECORD_SCHEMA.fields_dict["authorizationUrl"].default
+        self.tokenUrl = self.RECORD_SCHEMA.fields_dict["tokenUrl"].default
+        self.scopes = self.RECORD_SCHEMA.fields_dict["scopes"].default
+        self.tokenAuthMethod = self.RECORD_SCHEMA.fields_dict["tokenAuthMethod"].default
+        self.additionalTokenParams = self.RECORD_SCHEMA.fields_dict["additionalTokenParams"].default
+        self.additionalAuthParams = self.RECORD_SCHEMA.fields_dict["additionalAuthParams"].default
+        self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        self.authScheme = self.RECORD_SCHEMA.fields_dict["authScheme"].default
+        self.authQueryParam = self.RECORD_SCHEMA.fields_dict["authQueryParam"].default
+    
+    
+    @property
+    def displayName(self) -> str:
+        """Display name shown in UI.
+    Examples: Glean, Snowflake via Okta, Internal Tools API"""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: str) -> None:
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this authorization server provides access to."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def clientId(self) -> Union[None, str]:
+        """OAuth client ID (public, safe to expose in UI)."""
+        return self._inner_dict.get('clientId')  # type: ignore
+    
+    @clientId.setter
+    def clientId(self, value: Union[None, str]) -> None:
+        self._inner_dict['clientId'] = value
+    
+    
+    @property
+    def clientSecretUrn(self) -> Union[None, str]:
+        """URN of DataHubSecret containing OAuth client secret.
+    Never stored as plain string - always encrypted."""
+        return self._inner_dict.get('clientSecretUrn')  # type: ignore
+    
+    @clientSecretUrn.setter
+    def clientSecretUrn(self, value: Union[None, str]) -> None:
+        self._inner_dict['clientSecretUrn'] = value
+    
+    
+    @property
+    def authorizationUrl(self) -> Union[None, str]:
+        """OAuth authorization endpoint URL.
+    Example: https://accounts.google.com/o/oauth2/v2/auth"""
+        return self._inner_dict.get('authorizationUrl')  # type: ignore
+    
+    @authorizationUrl.setter
+    def authorizationUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['authorizationUrl'] = value
+    
+    
+    @property
+    def tokenUrl(self) -> Union[None, str]:
+        """OAuth token endpoint URL.
+    Example: https://oauth2.googleapis.com/token"""
+        return self._inner_dict.get('tokenUrl')  # type: ignore
+    
+    @tokenUrl.setter
+    def tokenUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['tokenUrl'] = value
+    
+    
+    @property
+    def scopes(self) -> Union[None, List[str]]:
+        """Default OAuth scopes to request.
+    Stored as array for UI chip rendering and scope merging."""
+        return self._inner_dict.get('scopes')  # type: ignore
+    
+    @scopes.setter
+    def scopes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['scopes'] = value
+    
+    
+    @property
+    def tokenAuthMethod(self) -> Union[str, "TokenAuthMethodClass"]:
+        """How to authenticate at the token endpoint.
+    - BASIC: client_id:client_secret in Authorization header
+    - POST_BODY: client_id and client_secret in request body
+    - NONE: No client authentication (public clients)
+    - CUSTOM: Custom auth scheme using authScheme field (e.g., "Token" for dbt Cloud)"""
+        return self._inner_dict.get('tokenAuthMethod')  # type: ignore
+    
+    @tokenAuthMethod.setter
+    def tokenAuthMethod(self, value: Union[str, "TokenAuthMethodClass"]) -> None:
+        self._inner_dict['tokenAuthMethod'] = value
+    
+    
+    @property
+    def additionalTokenParams(self) -> Union[None, Dict[str, str]]:
+        """Additional parameters for token requests.
+    Examples: Auth0 audience, Azure AD resource"""
+        return self._inner_dict.get('additionalTokenParams')  # type: ignore
+    
+    @additionalTokenParams.setter
+    def additionalTokenParams(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['additionalTokenParams'] = value
+    
+    
+    @property
+    def additionalAuthParams(self) -> Union[None, Dict[str, str]]:
+        """Additional parameters for authorization URL.
+    Examples: prompt=consent, tenant=my-org"""
+        return self._inner_dict.get('additionalAuthParams')  # type: ignore
+    
+    @additionalAuthParams.setter
+    def additionalAuthParams(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['additionalAuthParams'] = value
+    
+    
+    @property
+    def authLocation(self) -> Union[str, "AuthLocationClass"]:
+        """Where to inject the credential in HTTP requests."""
+        return self._inner_dict.get('authLocation')  # type: ignore
+    
+    @authLocation.setter
+    def authLocation(self, value: Union[str, "AuthLocationClass"]) -> None:
+        self._inner_dict['authLocation'] = value
+    
+    
+    @property
+    def authHeaderName(self) -> str:
+        """For HEADER: which header name.
+    Default: Authorization"""
+        return self._inner_dict.get('authHeaderName')  # type: ignore
+    
+    @authHeaderName.setter
+    def authHeaderName(self, value: str) -> None:
+        self._inner_dict['authHeaderName'] = value
+    
+    
+    @property
+    def authScheme(self) -> Union[str, None]:
+        """For HEADER: scheme prefix before the token.
+    Default: Bearer (produces Authorization: Bearer TOKEN).
+    Set to empty string for raw token (e.g., X-API-Key: TOKEN)."""
+        return self._inner_dict.get('authScheme')  # type: ignore
+    
+    @authScheme.setter
+    def authScheme(self, value: Union[str, None]) -> None:
+        self._inner_dict['authScheme'] = value
+    
+    
+    @property
+    def authQueryParam(self) -> Union[None, str]:
+        """For QUERY_PARAM: parameter name.
+    Example: access_token produces ?access_token=TOKEN"""
+        return self._inner_dict.get('authQueryParam')  # type: ignore
+    
+    @authQueryParam.setter
+    def authQueryParam(self, value: Union[None, str]) -> None:
+        self._inner_dict['authQueryParam'] = value
+    
+    
+class TokenAuthMethodClass(object):
+    # No docs available.
+    
+    BASIC = "BASIC"
+    """HTTP Basic Auth: client_id:client_secret in Authorization header."""
+    
+    POST_BODY = "POST_BODY"
+    """Form POST body: client_id and client_secret as form parameters."""
+    
+    NONE = "NONE"
+    """No client authentication (for public clients)."""
+    
+    CUSTOM = "CUSTOM"
+    """Custom auth scheme: uses authScheme field to format the Authorization header.
+    Format: Authorization: {authScheme} {client_secret}
+    Example: Token for dbt Cloud produces Authorization: Token {client_secret}"""
+    
     
     
 class OwnershipTypeInfoClass(_Aspect):
@@ -37662,6 +39083,187 @@ class DataHubSecretValueClass(_Aspect):
         self._inner_dict['created'] = value
     
     
+class McpServerPropertiesClass(_Aspect):
+    """MCP-specific properties for Services of subtype MCP_SERVER.
+    
+    Only attached to Service entities where subType = MCP_SERVER.
+    Contains connection details for the MCP server.
+    
+    Note: This contains only connection information (URL, transport, timeout).
+    Authentication and Ask DataHub configuration are in GlobalSettings.aiPlugins."""
+
+
+    ASPECT_NAME = 'mcpServerProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.McpServerProperties")
+
+    def __init__(self,
+        url: str,
+        transport: Optional[Union[str, "McpTransportClass"]]=None,
+        timeout: Optional[float]=None,
+        customHeaders: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.url = url
+        if transport is None:
+            # default: 'HTTP'
+            self.transport = self.RECORD_SCHEMA.fields_dict["transport"].default
+        else:
+            self.transport = transport
+        if timeout is None:
+            # default: 30.0
+            self.timeout = self.RECORD_SCHEMA.fields_dict["timeout"].default
+        else:
+            self.timeout = timeout
+        self.customHeaders = customHeaders
+    
+    def _restore_defaults(self) -> None:
+        self.url = str()
+        self.transport = self.RECORD_SCHEMA.fields_dict["transport"].default
+        self.timeout = self.RECORD_SCHEMA.fields_dict["timeout"].default
+        self.customHeaders = self.RECORD_SCHEMA.fields_dict["customHeaders"].default
+    
+    
+    @property
+    def url(self) -> str:
+        """MCP server endpoint URL.
+    Example: https://mcp.glean.com/v1"""
+        return self._inner_dict.get('url')  # type: ignore
+    
+    @url.setter
+    def url(self, value: str) -> None:
+        self._inner_dict['url'] = value
+    
+    
+    @property
+    def transport(self) -> Union[str, "McpTransportClass"]:
+        """Transport protocol for MCP communication."""
+        return self._inner_dict.get('transport')  # type: ignore
+    
+    @transport.setter
+    def transport(self, value: Union[str, "McpTransportClass"]) -> None:
+        self._inner_dict['transport'] = value
+    
+    
+    @property
+    def timeout(self) -> float:
+        """Connection timeout in seconds."""
+        return self._inner_dict.get('timeout')  # type: ignore
+    
+    @timeout.setter
+    def timeout(self, value: float) -> None:
+        self._inner_dict['timeout'] = value
+    
+    
+    @property
+    def customHeaders(self) -> Union[None, Dict[str, str]]:
+        """Custom headers to send with every request.
+    These are non-auth headers (e.g., X-Tenant-ID, X-Client-Version).
+    Auth headers are configured in GlobalSettings.aiPlugins."""
+        return self._inner_dict.get('customHeaders')  # type: ignore
+    
+    @customHeaders.setter
+    def customHeaders(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['customHeaders'] = value
+    
+    
+class McpTransportClass(object):
+    # No docs available.
+    
+    HTTP = "HTTP"
+    """Standard HTTP/HTTPS transport."""
+    
+    SSE = "SSE"
+    """Server-Sent Events for streaming responses."""
+    
+    WEBSOCKET = "WEBSOCKET"
+    """WebSocket for bidirectional communication."""
+    
+    
+    
+class ServiceKeyClass(_Aspect):
+    """Key for a Service entity.
+    
+    A Service represents an external service that can be integrated with DataHub,
+    such as an MCP server, REST API, or other service types."""
+
+
+    ASPECT_NAME = 'serviceKey'
+    ASPECT_INFO = {'keyForEntity': 'service', 'entityCategory': 'core', 'entityAspects': ['serviceProperties', 'mcpServerProperties', 'subTypes', 'ownership', 'status', 'globalTags', 'dataPlatformInstance'], 'entityDoc': 'A Service represents an external service that can be integrated with DataHub, such as an MCP server.'}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceKey")
+
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for this service.
+    Examples: glean-search, internal-tools, weather-api"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+class ServicePropertiesClass(_Aspect):
+    """Common properties for all Service types.
+    
+    A Service is a catalog entry for an external service (MCP server, REST API, etc.).
+    This aspect contains identity and descriptive information.
+    Subtype-specific properties are in separate aspects (e.g., McpServerProperties).
+    
+    Note: This contains only catalog information (identity, description).
+    Ask DataHub configuration (auth, instructions) is in GlobalSettings.aiPlugins."""
+
+
+    ASPECT_NAME = 'serviceProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceProperties")
+
+    def __init__(self,
+        displayName: str,
+        description: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.displayName = displayName
+        self.description = description
+    
+    def _restore_defaults(self) -> None:
+        self.displayName = str()
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+    
+    
+    @property
+    def displayName(self) -> str:
+        """Display name shown in UI and search results."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: str) -> None:
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Description of what this service provides."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
 class NotificationSettingClass(DictWrapper):
     # No docs available.
     
@@ -37940,6 +39542,220 @@ class AiInstructionTypeClass(object):
     
     
     
+class AiPluginAuthTypeClass(object):
+    # No docs available.
+    
+    NONE = "NONE"
+    """No authentication required (public API)."""
+    
+    SHARED_API_KEY = "SHARED_API_KEY"
+    """System-wide API key shared across all users.
+    Configuration in sharedApiKeyConfig."""
+    
+    USER_API_KEY = "USER_API_KEY"
+    """User provides their own API key.
+    Configuration in userApiKeyConfig."""
+    
+    USER_OAUTH = "USER_OAUTH"
+    """User authenticates via OAuth2 flow.
+    Configuration in oauthConfig."""
+    
+    
+    
+class AiPluginConfigClass(DictWrapper):
+    """Ask DataHub configuration for an AI plugin.
+    
+    This record configures how a Service entity is used by the Ask DataHub agent.
+    The Service entity contains catalog info (URL, transport), while this record
+    contains agent-specific settings (auth, instructions, enabled).
+    
+    Stored in AiPluginSettings.plugins array."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.AiPluginConfig")
+    def __init__(self,
+        id: str,
+        type: Union[str, "AiPluginTypeClass"],
+        serviceUrn: str,
+        authType: Union[str, "AiPluginAuthTypeClass"],
+        enabled: Optional[bool]=None,
+        instructions: Union[None, str]=None,
+        oauthConfig: Union[None, "OAuthAiPluginConfigClass"]=None,
+        sharedApiKeyConfig: Union[None, "SharedApiKeyAiPluginConfigClass"]=None,
+        userApiKeyConfig: Union[None, "UserApiKeyAiPluginConfigClass"]=None,
+    ):
+        super().__init__()
+        
+        self.id = id
+        self.type = type
+        self.serviceUrn = serviceUrn
+        if enabled is None:
+            # default: True
+            self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        else:
+            self.enabled = enabled
+        self.instructions = instructions
+        self.authType = authType
+        self.oauthConfig = oauthConfig
+        self.sharedApiKeyConfig = sharedApiKeyConfig
+        self.userApiKeyConfig = userApiKeyConfig
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+        self.type = AiPluginTypeClass.MCP_SERVER
+        self.serviceUrn = str()
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.instructions = self.RECORD_SCHEMA.fields_dict["instructions"].default
+        self.authType = AiPluginAuthTypeClass.NONE
+        self.oauthConfig = self.RECORD_SCHEMA.fields_dict["oauthConfig"].default
+        self.sharedApiKeyConfig = self.RECORD_SCHEMA.fields_dict["sharedApiKeyConfig"].default
+        self.userApiKeyConfig = self.RECORD_SCHEMA.fields_dict["userApiKeyConfig"].default
+    
+    
+    @property
+    def id(self) -> str:
+        """Unique identifier for this plugin configuration.
+    Typically the service URN string for easy correlation.
+    Example: urn:li:service:glean-search"""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        self._inner_dict['id'] = value
+    
+    
+    @property
+    def type(self) -> Union[str, "AiPluginTypeClass"]:
+        """Type of AI plugin (determines how the agent uses it)."""
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[str, "AiPluginTypeClass"]) -> None:
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def serviceUrn(self) -> str:
+        """Reference to the Service entity (catalog entry).
+    Example: urn:li:service:glean-search"""
+        return self._inner_dict.get('serviceUrn')  # type: ignore
+    
+    @serviceUrn.setter
+    def serviceUrn(self, value: str) -> None:
+        self._inner_dict['serviceUrn'] = value
+    
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether this plugin is enabled for Ask DataHub.
+    Disabled plugins are not available to the agent."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def instructions(self) -> Union[None, str]:
+        """Custom instructions for the LLM when using this plugin's tools.
+    Injected into the agent's system prompt.
+    Example: Use Glean for searching company documentation and wikis."""
+        return self._inner_dict.get('instructions')  # type: ignore
+    
+    @instructions.setter
+    def instructions(self, value: Union[None, str]) -> None:
+        self._inner_dict['instructions'] = value
+    
+    
+    @property
+    def authType(self) -> Union[str, "AiPluginAuthTypeClass"]:
+        """How this plugin authenticates requests."""
+        return self._inner_dict.get('authType')  # type: ignore
+    
+    @authType.setter
+    def authType(self, value: Union[str, "AiPluginAuthTypeClass"]) -> None:
+        self._inner_dict['authType'] = value
+    
+    
+    @property
+    def oauthConfig(self) -> Union[None, "OAuthAiPluginConfigClass"]:
+        """OAuth configuration.
+    Required when authType is USER_OAUTH."""
+        return self._inner_dict.get('oauthConfig')  # type: ignore
+    
+    @oauthConfig.setter
+    def oauthConfig(self, value: Union[None, "OAuthAiPluginConfigClass"]) -> None:
+        self._inner_dict['oauthConfig'] = value
+    
+    
+    @property
+    def sharedApiKeyConfig(self) -> Union[None, "SharedApiKeyAiPluginConfigClass"]:
+        """Shared API key configuration.
+    Required when authType is SHARED_API_KEY.
+    
+    Auth injection settings are embedded directly because shared API keys
+    don't need OAuth configuration."""
+        return self._inner_dict.get('sharedApiKeyConfig')  # type: ignore
+    
+    @sharedApiKeyConfig.setter
+    def sharedApiKeyConfig(self, value: Union[None, "SharedApiKeyAiPluginConfigClass"]) -> None:
+        self._inner_dict['sharedApiKeyConfig'] = value
+    
+    
+    @property
+    def userApiKeyConfig(self) -> Union[None, "UserApiKeyAiPluginConfigClass"]:
+        """User API key configuration.
+    Required when authType is USER_API_KEY.
+    
+    User credentials are stored in DataHubConnection keyed by (userUrn, serviceId).
+    This config defines how to inject the user's API key into requests."""
+        return self._inner_dict.get('userApiKeyConfig')  # type: ignore
+    
+    @userApiKeyConfig.setter
+    def userApiKeyConfig(self, value: Union[None, "UserApiKeyAiPluginConfigClass"]) -> None:
+        self._inner_dict['userApiKeyConfig'] = value
+    
+    
+class AiPluginSettingsClass(DictWrapper):
+    """Settings for AI plugins (MCP servers, etc.) in Ask DataHub.
+    This is a wrapper object following the GlobalSettings pattern."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.AiPluginSettings")
+    def __init__(self,
+        plugins: Optional[List["AiPluginConfigClass"]]=None,
+    ):
+        super().__init__()
+        
+        if plugins is None:
+            # default: []
+            self.plugins = list()
+        else:
+            self.plugins = plugins
+    
+    def _restore_defaults(self) -> None:
+        self.plugins = list()
+    
+    
+    @property
+    def plugins(self) -> List["AiPluginConfigClass"]:
+        """List of configured AI plugins.
+    Each plugin references a Service entity and provides agent-specific settings."""
+        return self._inner_dict.get('plugins')  # type: ignore
+    
+    @plugins.setter
+    def plugins(self, value: List["AiPluginConfigClass"]) -> None:
+        self._inner_dict['plugins'] = value
+    
+    
+class AiPluginTypeClass(object):
+    # No docs available.
+    
+    MCP_SERVER = "MCP_SERVER"
+    """Model Context Protocol (MCP) server.
+    Service entity should have McpServerProperties aspect."""
+    
+    
+    
 class ApplicationsSettingsClass(DictWrapper):
     # No docs available.
     
@@ -37991,6 +39807,13 @@ class ApplicationsSettingsClass(DictWrapper):
     @configVersion.setter
     def configVersion(self, value: Union[None, str]) -> None:
         self._inner_dict['configVersion'] = value
+    
+    
+class AuthInjectionLocationClass(object):
+    # No docs available.
+    
+    HEADER = "HEADER"
+    QUERY_PARAM = "QUERY_PARAM"
     
     
 class DocPropagationFeatureSettingsClass(DictWrapper):
@@ -38311,6 +40134,8 @@ class GlobalSettingsInfoClass(_Aspect):
         documentationAi: Union[None, "DocumentationAiSettingsClass"]=None,
         aiAssistant: Union[None, "AiAssistantSettingsClass"]=None,
         visual: Union[None, "GlobalVisualSettingsClass"]=None,
+        aiPluginSettings: Union[None, "AiPluginSettingsClass"]=None,
+        maintenanceWindow: Union[None, "MaintenanceWindowSettingsClass"]=None,
     ):
         super().__init__()
         
@@ -38329,6 +40154,8 @@ class GlobalSettingsInfoClass(_Aspect):
         self.documentationAi = documentationAi
         self.aiAssistant = aiAssistant
         self.visual = visual
+        self.aiPluginSettings = aiPluginSettings
+        self.maintenanceWindow = maintenanceWindow
     
     def _restore_defaults(self) -> None:
         self.integrations = self.RECORD_SCHEMA.fields_dict["integrations"].default
@@ -38342,6 +40169,8 @@ class GlobalSettingsInfoClass(_Aspect):
         self.documentationAi = self.RECORD_SCHEMA.fields_dict["documentationAi"].default
         self.aiAssistant = self.RECORD_SCHEMA.fields_dict["aiAssistant"].default
         self.visual = self.RECORD_SCHEMA.fields_dict["visual"].default
+        self.aiPluginSettings = self.RECORD_SCHEMA.fields_dict["aiPluginSettings"].default
+        self.maintenanceWindow = self.RECORD_SCHEMA.fields_dict["maintenanceWindow"].default
     
     
     @property
@@ -38452,6 +40281,26 @@ class GlobalSettingsInfoClass(_Aspect):
     @visual.setter
     def visual(self, value: Union[None, "GlobalVisualSettingsClass"]) -> None:
         self._inner_dict['visual'] = value
+    
+    
+    @property
+    def aiPluginSettings(self) -> Union[None, "AiPluginSettingsClass"]:
+        """AI plugin settings for Ask DataHub (MCP servers, etc.)."""
+        return self._inner_dict.get('aiPluginSettings')  # type: ignore
+    
+    @aiPluginSettings.setter
+    def aiPluginSettings(self, value: Union[None, "AiPluginSettingsClass"]) -> None:
+        self._inner_dict['aiPluginSettings'] = value
+    
+    
+    @property
+    def maintenanceWindow(self) -> Union[None, "MaintenanceWindowSettingsClass"]:
+        """Settings for platform-wide maintenance window announcements"""
+        return self._inner_dict.get('maintenanceWindow')  # type: ignore
+    
+    @maintenanceWindow.setter
+    def maintenanceWindow(self, value: Union[None, "MaintenanceWindowSettingsClass"]) -> None:
+        self._inner_dict['maintenanceWindow'] = value
     
     
 class GlobalViewsSettingsClass(DictWrapper):
@@ -38592,6 +40441,168 @@ class HelpLinkClass(DictWrapper):
     @link.setter
     def link(self, value: str) -> None:
         self._inner_dict['link'] = value
+    
+    
+class MaintenanceSeverityClass(object):
+    """Severity level for maintenance window announcements."""
+    
+    INFO = "INFO"
+    """Informational maintenance notice (e.g., scheduled maintenance window)."""
+    
+    WARNING = "WARNING"
+    """Warning level maintenance (e.g., degraded performance expected)."""
+    
+    CRITICAL = "CRITICAL"
+    """Critical maintenance (e.g., major outage or emergency maintenance)."""
+    
+    
+    
+class MaintenanceWindowSettingsClass(DictWrapper):
+    """Settings for platform-wide maintenance window announcements.
+    When enabled, a banner is displayed to all authenticated users."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.MaintenanceWindowSettings")
+    def __init__(self,
+        enabled: Optional[bool]=None,
+        message: Union[None, str]=None,
+        severity: Union[None, Union[str, "MaintenanceSeverityClass"]]=None,
+        linkUrl: Union[None, str]=None,
+        linkText: Union[None, str]=None,
+        enabledAt: Union[None, int]=None,
+        enabledBy: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        if enabled is None:
+            # default: False
+            self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        else:
+            self.enabled = enabled
+        self.message = message
+        self.severity = severity
+        self.linkUrl = linkUrl
+        self.linkText = linkText
+        self.enabledAt = enabledAt
+        self.enabledBy = enabledBy
+    
+    def _restore_defaults(self) -> None:
+        self.enabled = self.RECORD_SCHEMA.fields_dict["enabled"].default
+        self.message = self.RECORD_SCHEMA.fields_dict["message"].default
+        self.severity = self.RECORD_SCHEMA.fields_dict["severity"].default
+        self.linkUrl = self.RECORD_SCHEMA.fields_dict["linkUrl"].default
+        self.linkText = self.RECORD_SCHEMA.fields_dict["linkText"].default
+        self.enabledAt = self.RECORD_SCHEMA.fields_dict["enabledAt"].default
+        self.enabledBy = self.RECORD_SCHEMA.fields_dict["enabledBy"].default
+    
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether maintenance mode is currently active."""
+        return self._inner_dict.get('enabled')  # type: ignore
+    
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self._inner_dict['enabled'] = value
+    
+    
+    @property
+    def message(self) -> Union[None, str]:
+        """Message to display to users during maintenance."""
+        return self._inner_dict.get('message')  # type: ignore
+    
+    @message.setter
+    def message(self, value: Union[None, str]) -> None:
+        self._inner_dict['message'] = value
+    
+    
+    @property
+    def severity(self) -> Union[None, Union[str, "MaintenanceSeverityClass"]]:
+        """Severity level affecting banner color."""
+        return self._inner_dict.get('severity')  # type: ignore
+    
+    @severity.setter
+    def severity(self, value: Union[None, Union[str, "MaintenanceSeverityClass"]]) -> None:
+        self._inner_dict['severity'] = value
+    
+    
+    @property
+    def linkUrl(self) -> Union[None, str]:
+        """Optional URL for more details (e.g., status page)."""
+        return self._inner_dict.get('linkUrl')  # type: ignore
+    
+    @linkUrl.setter
+    def linkUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['linkUrl'] = value
+    
+    
+    @property
+    def linkText(self) -> Union[None, str]:
+        """Optional text for the link (defaults to "Learn more" if linkUrl provided)."""
+        return self._inner_dict.get('linkText')  # type: ignore
+    
+    @linkText.setter
+    def linkText(self, value: Union[None, str]) -> None:
+        self._inner_dict['linkText'] = value
+    
+    
+    @property
+    def enabledAt(self) -> Union[None, int]:
+        """Timestamp when maintenance mode was enabled (epoch millis)."""
+        return self._inner_dict.get('enabledAt')  # type: ignore
+    
+    @enabledAt.setter
+    def enabledAt(self, value: Union[None, int]) -> None:
+        self._inner_dict['enabledAt'] = value
+    
+    
+    @property
+    def enabledBy(self) -> Union[None, str]:
+        """URN of user who enabled maintenance mode."""
+        return self._inner_dict.get('enabledBy')  # type: ignore
+    
+    @enabledBy.setter
+    def enabledBy(self, value: Union[None, str]) -> None:
+        self._inner_dict['enabledBy'] = value
+    
+    
+class OAuthAiPluginConfigClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.OAuthAiPluginConfig")
+    def __init__(self,
+        serverUrn: str,
+        requiredScopes: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.serverUrn = serverUrn
+        self.requiredScopes = requiredScopes
+    
+    def _restore_defaults(self) -> None:
+        self.serverUrn = str()
+        self.requiredScopes = self.RECORD_SCHEMA.fields_dict["requiredScopes"].default
+    
+    
+    @property
+    def serverUrn(self) -> str:
+        """URN of the OAuthAuthorizationServer that provides OAuth configuration.
+    Contains clientId, authorization URL, token URL, scopes, and auth injection settings."""
+        return self._inner_dict.get('serverUrn')  # type: ignore
+    
+    @serverUrn.setter
+    def serverUrn(self, value: str) -> None:
+        self._inner_dict['serverUrn'] = value
+    
+    
+    @property
+    def requiredScopes(self) -> Union[None, List[str]]:
+        """Additional scopes required by this plugin.
+    Merged with the authorization server's base scopes when user connects."""
+        return self._inner_dict.get('requiredScopes')  # type: ignore
+    
+    @requiredScopes.setter
+    def requiredScopes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['requiredScopes'] = value
     
     
 class OAuthProviderClass(DictWrapper):
@@ -39030,6 +41041,94 @@ class SampleDataStatusClass(object):
     
     
     
+class SharedApiKeyAiPluginConfigClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.SharedApiKeyAiPluginConfig")
+    def __init__(self,
+        credentialUrn: str,
+        authLocation: Optional[Union[str, "AuthInjectionLocationClass"]]=None,
+        authHeaderName: Optional[str]=None,
+        authScheme: Union[None, str]=None,
+        authQueryParam: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.credentialUrn = credentialUrn
+        if authLocation is None:
+            # default: 'HEADER'
+            self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        else:
+            self.authLocation = authLocation
+        if authHeaderName is None:
+            # default: 'Authorization'
+            self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        else:
+            self.authHeaderName = authHeaderName
+        self.authScheme = authScheme
+        self.authQueryParam = authQueryParam
+    
+    def _restore_defaults(self) -> None:
+        self.credentialUrn = str()
+        self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        self.authScheme = self.RECORD_SCHEMA.fields_dict["authScheme"].default
+        self.authQueryParam = self.RECORD_SCHEMA.fields_dict["authQueryParam"].default
+    
+    
+    @property
+    def credentialUrn(self) -> str:
+        """URN of DataHubConnection containing the shared API key.
+    The DataHubConnection is owned by the Service entity.
+    Example: urn:li:dataHubConnection:urn_li_service_internal-tools__apiKey
+    Note: Uses double-underscore separator (not tuple format) since DataHubConnectionKey has a single id field."""
+        return self._inner_dict.get('credentialUrn')  # type: ignore
+    
+    @credentialUrn.setter
+    def credentialUrn(self, value: str) -> None:
+        self._inner_dict['credentialUrn'] = value
+    
+    
+    @property
+    def authLocation(self) -> Union[str, "AuthInjectionLocationClass"]:
+        """Where to inject the API key in HTTP requests."""
+        return self._inner_dict.get('authLocation')  # type: ignore
+    
+    @authLocation.setter
+    def authLocation(self, value: Union[str, "AuthInjectionLocationClass"]) -> None:
+        self._inner_dict['authLocation'] = value
+    
+    
+    @property
+    def authHeaderName(self) -> str:
+        """For HEADER: which header name to use."""
+        return self._inner_dict.get('authHeaderName')  # type: ignore
+    
+    @authHeaderName.setter
+    def authHeaderName(self, value: str) -> None:
+        self._inner_dict['authHeaderName'] = value
+    
+    
+    @property
+    def authScheme(self) -> Union[None, str]:
+        """For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey")."""
+        return self._inner_dict.get('authScheme')  # type: ignore
+    
+    @authScheme.setter
+    def authScheme(self, value: Union[None, str]) -> None:
+        self._inner_dict['authScheme'] = value
+    
+    
+    @property
+    def authQueryParam(self) -> Union[None, str]:
+        """For QUERY_PARAM: which query parameter name to use."""
+        return self._inner_dict.get('authQueryParam')  # type: ignore
+    
+    @authQueryParam.setter
+    def authQueryParam(self, value: Union[None, str]) -> None:
+        self._inner_dict['authQueryParam'] = value
+    
+    
 class SlackIntegrationSettingsClass(DictWrapper):
     """Slack integration settings."""
     
@@ -39100,6 +41199,76 @@ class SlackIntegrationSettingsClass(DictWrapper):
     @datahubAtMentionEnabled.setter
     def datahubAtMentionEnabled(self, value: Union[None, bool]) -> None:
         self._inner_dict['datahubAtMentionEnabled'] = value
+    
+    
+class SlackUserClass(DictWrapper):
+    """Slack user information with cached display name and multiple ID support.
+    Follows the same caching pattern as TeamsUser for consistency."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.SlackUser")
+    def __init__(self,
+        slackUserId: Union[None, str]=None,
+        email: Union[None, str]=None,
+        displayName: Union[None, str]=None,
+        lastUpdated: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.slackUserId = slackUserId
+        self.email = email
+        self.displayName = displayName
+        self.lastUpdated = lastUpdated
+    
+    def _restore_defaults(self) -> None:
+        self.slackUserId = self.RECORD_SCHEMA.fields_dict["slackUserId"].default
+        self.email = self.RECORD_SCHEMA.fields_dict["email"].default
+        self.displayName = self.RECORD_SCHEMA.fields_dict["displayName"].default
+        self.lastUpdated = self.RECORD_SCHEMA.fields_dict["lastUpdated"].default
+    
+    
+    @property
+    def slackUserId(self) -> Union[None, str]:
+        """The Slack user ID (Slack member UUID).
+    This is the primary identifier used for Slack messaging via DM.
+    Searchable to enable lookup of DataHub users by their Slack ID."""
+        return self._inner_dict.get('slackUserId')  # type: ignore
+    
+    @slackUserId.setter
+    def slackUserId(self, value: Union[None, str]) -> None:
+        self._inner_dict['slackUserId'] = value
+    
+    
+    @property
+    def email(self) -> Union[None, str]:
+        """The user's email address (fallback identifier).
+    Used when Slack user ID is not available or for email-based user resolution."""
+        return self._inner_dict.get('email')  # type: ignore
+    
+    @email.setter
+    def email(self, value: Union[None, str]) -> None:
+        self._inner_dict['email'] = value
+    
+    
+    @property
+    def displayName(self) -> Union[None, str]:
+        """The user's display name (cached value, may be stale).
+    Retrieved from Slack API and cached for performance."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: Union[None, str]) -> None:
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def lastUpdated(self) -> Union[None, int]:
+        """The timestamp when the cached display name was last updated.
+    Used for TTL-based cache invalidation (milliseconds since epoch)."""
+        return self._inner_dict.get('lastUpdated')  # type: ignore
+    
+    @lastUpdated.setter
+    def lastUpdated(self, value: Union[None, int]) -> None:
+        self._inner_dict['lastUpdated'] = value
     
     
 class SsoSettingsClass(DictWrapper):
@@ -39345,6 +41514,78 @@ class TeamsUserClass(DictWrapper):
     @lastUpdated.setter
     def lastUpdated(self, value: Union[None, int]) -> None:
         self._inner_dict['lastUpdated'] = value
+    
+    
+class UserApiKeyAiPluginConfigClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.global.UserApiKeyAiPluginConfig")
+    def __init__(self,
+        authLocation: Optional[Union[str, "AuthInjectionLocationClass"]]=None,
+        authHeaderName: Optional[str]=None,
+        authScheme: Union[None, str]=None,
+        authQueryParam: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        if authLocation is None:
+            # default: 'HEADER'
+            self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        else:
+            self.authLocation = authLocation
+        if authHeaderName is None:
+            # default: 'Authorization'
+            self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        else:
+            self.authHeaderName = authHeaderName
+        self.authScheme = authScheme
+        self.authQueryParam = authQueryParam
+    
+    def _restore_defaults(self) -> None:
+        self.authLocation = self.RECORD_SCHEMA.fields_dict["authLocation"].default
+        self.authHeaderName = self.RECORD_SCHEMA.fields_dict["authHeaderName"].default
+        self.authScheme = self.RECORD_SCHEMA.fields_dict["authScheme"].default
+        self.authQueryParam = self.RECORD_SCHEMA.fields_dict["authQueryParam"].default
+    
+    
+    @property
+    def authLocation(self) -> Union[str, "AuthInjectionLocationClass"]:
+        """Where to inject the API key in HTTP requests."""
+        return self._inner_dict.get('authLocation')  # type: ignore
+    
+    @authLocation.setter
+    def authLocation(self, value: Union[str, "AuthInjectionLocationClass"]) -> None:
+        self._inner_dict['authLocation'] = value
+    
+    
+    @property
+    def authHeaderName(self) -> str:
+        """For HEADER: which header name to use."""
+        return self._inner_dict.get('authHeaderName')  # type: ignore
+    
+    @authHeaderName.setter
+    def authHeaderName(self, value: str) -> None:
+        self._inner_dict['authHeaderName'] = value
+    
+    
+    @property
+    def authScheme(self) -> Union[None, str]:
+        """For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey")."""
+        return self._inner_dict.get('authScheme')  # type: ignore
+    
+    @authScheme.setter
+    def authScheme(self, value: Union[None, str]) -> None:
+        self._inner_dict['authScheme'] = value
+    
+    
+    @property
+    def authQueryParam(self) -> Union[None, str]:
+        """For QUERY_PARAM: which query parameter name to use."""
+        return self._inner_dict.get('authQueryParam')  # type: ignore
+    
+    @authQueryParam.setter
+    def authQueryParam(self, value: Union[None, str]) -> None:
+        self._inner_dict['authQueryParam'] = value
     
     
 class DataHubStepStatePropertiesClass(_Aspect):
@@ -40089,6 +42330,7 @@ class SubscriptionInfoClass(_Aspect):
         updatedOn: "AuditStampClass",
         entityUrn: Union[None, str]=None,
         entityChangeTypes: Union[None, List["EntityChangeDetailsClass"]]=None,
+        managedBy: Union[None, List["SubscriptionManagedByClass"]]=None,
         notificationConfig: Union[None, "SubscriptionNotificationConfigClass"]=None,
     ):
         super().__init__()
@@ -40100,6 +42342,7 @@ class SubscriptionInfoClass(_Aspect):
         self.updatedOn = updatedOn
         self.entityUrn = entityUrn
         self.entityChangeTypes = entityChangeTypes
+        self.managedBy = managedBy
         self.notificationConfig = notificationConfig
     
     def _restore_defaults(self) -> None:
@@ -40110,6 +42353,7 @@ class SubscriptionInfoClass(_Aspect):
         self.updatedOn = AuditStampClass._construct_with_defaults()
         self.entityUrn = self.RECORD_SCHEMA.fields_dict["entityUrn"].default
         self.entityChangeTypes = self.RECORD_SCHEMA.fields_dict["entityChangeTypes"].default
+        self.managedBy = self.RECORD_SCHEMA.fields_dict["managedBy"].default
         self.notificationConfig = self.RECORD_SCHEMA.fields_dict["notificationConfig"].default
     
     
@@ -40184,6 +42428,17 @@ class SubscriptionInfoClass(_Aspect):
     
     
     @property
+    def managedBy(self) -> Union[None, List["SubscriptionManagedByClass"]]:
+        """Operational metadata about source entities currently managing this subscription.
+    A subscription may be managed by multiple source entities."""
+        return self._inner_dict.get('managedBy')  # type: ignore
+    
+    @managedBy.setter
+    def managedBy(self, value: Union[None, List["SubscriptionManagedByClass"]]) -> None:
+        self._inner_dict['managedBy'] = value
+    
+    
+    @property
     def notificationConfig(self) -> Union[None, "SubscriptionNotificationConfigClass"]:
         """Optional notification config."""
         return self._inner_dict.get('notificationConfig')  # type: ignore
@@ -40191,6 +42446,44 @@ class SubscriptionInfoClass(_Aspect):
     @notificationConfig.setter
     def notificationConfig(self, value: Union[None, "SubscriptionNotificationConfigClass"]) -> None:
         self._inner_dict['notificationConfig'] = value
+    
+    
+class SubscriptionManagedByClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.subscription.SubscriptionManagedBy")
+    def __init__(self,
+        sourceEntity: str,
+        lastAppliedChangeTypes: Union[None, List[Union[str, "EntityChangeTypeClass"]]]=None,
+    ):
+        super().__init__()
+        
+        self.sourceEntity = sourceEntity
+        self.lastAppliedChangeTypes = lastAppliedChangeTypes
+    
+    def _restore_defaults(self) -> None:
+        self.sourceEntity = str()
+        self.lastAppliedChangeTypes = self.RECORD_SCHEMA.fields_dict["lastAppliedChangeTypes"].default
+    
+    
+    @property
+    def sourceEntity(self) -> str:
+        """The source entity managing this subscription."""
+        return self._inner_dict.get('sourceEntity')  # type: ignore
+    
+    @sourceEntity.setter
+    def sourceEntity(self, value: str) -> None:
+        self._inner_dict['sourceEntity'] = value
+    
+    
+    @property
+    def lastAppliedChangeTypes(self) -> Union[None, List[Union[str, "EntityChangeTypeClass"]]]:
+        """Optional list of typed change categories most recently applied by this source entity."""
+        return self._inner_dict.get('lastAppliedChangeTypes')  # type: ignore
+    
+    @lastAppliedChangeTypes.setter
+    def lastAppliedChangeTypes(self, value: Union[None, List[Union[str, "EntityChangeTypeClass"]]]) -> None:
+        self._inner_dict['lastAppliedChangeTypes'] = value
     
     
 class SubscriptionNotificationConfigClass(DictWrapper):
@@ -40590,6 +42883,7 @@ class BatchTestRunEventClass(_Aspect):
     def __init__(self,
         timestampMillis: int,
         status: Union[str, "BatchTestRunStatusClass"],
+        runId: Union[None, str]=None,
         result: Union[None, "BatchTestRunResultClass"]=None,
         eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
         partitionSpec: Optional[Union["PartitionSpecClass", None]]=None,
@@ -40598,6 +42892,7 @@ class BatchTestRunEventClass(_Aspect):
         super().__init__()
         
         self.timestampMillis = timestampMillis
+        self.runId = runId
         self.status = status
         self.result = result
         self.eventGranularity = eventGranularity
@@ -40610,6 +42905,7 @@ class BatchTestRunEventClass(_Aspect):
     
     def _restore_defaults(self) -> None:
         self.timestampMillis = int()
+        self.runId = self.RECORD_SCHEMA.fields_dict["runId"].default
         self.status = BatchTestRunStatusClass.RUNNING
         self.result = self.RECORD_SCHEMA.fields_dict["result"].default
         self.eventGranularity = self.RECORD_SCHEMA.fields_dict["eventGranularity"].default
@@ -40625,6 +42921,16 @@ class BatchTestRunEventClass(_Aspect):
     @timestampMillis.setter
     def timestampMillis(self, value: int) -> None:
         self._inner_dict['timestampMillis'] = value
+    
+    
+    @property
+    def runId(self) -> Union[None, str]:
+        """Identifier for the test engine run that produced this event."""
+        return self._inner_dict.get('runId')  # type: ignore
+    
+    @runId.setter
+    def runId(self, value: Union[None, str]) -> None:
+        self._inner_dict['runId'] = value
     
     
     @property
@@ -41322,6 +43628,9 @@ class TestSourceTypeClass(object):
     FORM_PROMPT = "FORM_PROMPT"
     """The test was system-generated by the system for the FORMs feature to test
     for form prompt completion."""
+    
+    ASSERTION_ASSIGNMENT_RULE = "ASSERTION_ASSIGNMENT_RULE"
+    """The test was system-generated by an Assertion Assignment Rule."""
     
     
     
@@ -42276,6 +44585,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowField': ActionWorkflowFieldClass,
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFieldCondition': ActionWorkflowFieldConditionClass,
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFieldConditionType': ActionWorkflowFieldConditionTypeClass,
+    'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFieldValuesSource': ActionWorkflowFieldValuesSourceClass,
+    'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFieldValuesSourceType': ActionWorkflowFieldValuesSourceTypeClass,
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowForm': ActionWorkflowFormClass,
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFormRequest': ActionWorkflowFormRequestClass,
     'com.linkedin.pegasus2avro.actionworkflow.ActionWorkflowFormRequestField': ActionWorkflowFormRequestFieldClass,
@@ -42316,6 +44627,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.assertion.AssertionExclusionWindowType': AssertionExclusionWindowTypeClass,
     'com.linkedin.pegasus2avro.assertion.AssertionInferenceDetails': AssertionInferenceDetailsClass,
     'com.linkedin.pegasus2avro.assertion.AssertionInfo': AssertionInfoClass,
+    'com.linkedin.pegasus2avro.assertion.AssertionManagedBy': AssertionManagedByClass,
     'com.linkedin.pegasus2avro.assertion.AssertionMetric': AssertionMetricClass,
     'com.linkedin.pegasus2avro.assertion.AssertionMonitorSensitivity': AssertionMonitorSensitivityClass,
     'com.linkedin.pegasus2avro.assertion.AssertionNote': AssertionNoteClass,
@@ -42328,6 +44640,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.assertion.AssertionRunSummary': AssertionRunSummaryClass,
     'com.linkedin.pegasus2avro.assertion.AssertionSource': AssertionSourceClass,
     'com.linkedin.pegasus2avro.assertion.AssertionSourceType': AssertionSourceTypeClass,
+    'com.linkedin.pegasus2avro.assertion.AssertionStatus': AssertionStatusClass,
     'com.linkedin.pegasus2avro.assertion.AssertionStdAggregation': AssertionStdAggregationClass,
     'com.linkedin.pegasus2avro.assertion.AssertionStdOperator': AssertionStdOperatorClass,
     'com.linkedin.pegasus2avro.assertion.AssertionStdParameter': AssertionStdParameterClass,
@@ -42369,6 +44682,13 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.assertion.SqlAssertionType': SqlAssertionTypeClass,
     'com.linkedin.pegasus2avro.assertion.VolumeAssertionInfo': VolumeAssertionInfoClass,
     'com.linkedin.pegasus2avro.assertion.VolumeAssertionType': VolumeAssertionTypeClass,
+    'com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleFilter': AssertionAssignmentRuleFilterClass,
+    'com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleInfo': AssertionAssignmentRuleInfoClass,
+    'com.linkedin.pegasus2avro.assertion.rule.AssertionAssignmentRuleMode': AssertionAssignmentRuleModeClass,
+    'com.linkedin.pegasus2avro.assertion.rule.FreshnessAssertionAssignmentRuleConfig': FreshnessAssertionAssignmentRuleConfigClass,
+    'com.linkedin.pegasus2avro.assertion.rule.SubscriberAssignmentConfig': SubscriberAssignmentConfigClass,
+    'com.linkedin.pegasus2avro.assertion.rule.SubscriptionAssignmentRuleConfig': SubscriptionAssignmentRuleConfigClass,
+    'com.linkedin.pegasus2avro.assertion.rule.VolumeAssertionAssignmentRuleConfig': VolumeAssertionAssignmentRuleConfigClass,
     'com.linkedin.pegasus2avro.businessattribute.BusinessAttributeAssociation': BusinessAttributeAssociationClass,
     'com.linkedin.pegasus2avro.businessattribute.BusinessAttributeInfo': BusinessAttributeInfoClass,
     'com.linkedin.pegasus2avro.businessattribute.BusinessAttributeKey': BusinessAttributeKeyClass,
@@ -42635,6 +44955,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.identity.NativeGroupMembership': NativeGroupMembershipClass,
     'com.linkedin.pegasus2avro.identity.RoleMembership': RoleMembershipClass,
     'com.linkedin.pegasus2avro.identity.TokenType': TokenTypeClass,
+    'com.linkedin.pegasus2avro.identity.UserAiPluginConfig': UserAiPluginConfigClass,
+    'com.linkedin.pegasus2avro.identity.UserAiPluginSettings': UserAiPluginSettingsClass,
+    'com.linkedin.pegasus2avro.identity.UserApiKeyConnectionConfig': UserApiKeyConnectionConfigClass,
+    'com.linkedin.pegasus2avro.identity.UserOAuthConnectionConfig': UserOAuthConnectionConfigClass,
     'com.linkedin.pegasus2avro.incident.IncidentActivityChange': IncidentActivityChangeClass,
     'com.linkedin.pegasus2avro.incident.IncidentActivityChangeType': IncidentActivityChangeTypeClass,
     'com.linkedin.pegasus2avro.incident.IncidentActivityEvent': IncidentActivityEventClass,
@@ -42683,6 +45007,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.ActionRequestKey': ActionRequestKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ActionWorkflowKey': ActionWorkflowKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.AnomalyKey': AnomalyKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.AssertionAssignmentRuleKey': AssertionAssignmentRuleKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.AssertionKey': AssertionKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.ConstraintKey': ConstraintKeyClass,
@@ -42842,11 +45167,13 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.monitor.AssertionEvaluationParametersType': AssertionEvaluationParametersTypeClass,
     'com.linkedin.pegasus2avro.monitor.AssertionEvaluationSpec': AssertionEvaluationSpecClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitor': AssertionMonitorClass,
+    'com.linkedin.pegasus2avro.monitor.AssertionMonitorBootstrapConfig': AssertionMonitorBootstrapConfigClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitorBootstrapStatus': AssertionMonitorBootstrapStatusClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitorCapability': AssertionMonitorCapabilityClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitorMetricsCubeBootstrapState': AssertionMonitorMetricsCubeBootstrapStateClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitorMetricsCubeBootstrapStatus': AssertionMonitorMetricsCubeBootstrapStatusClass,
     'com.linkedin.pegasus2avro.monitor.AssertionMonitorSettings': AssertionMonitorSettingsClass,
+    'com.linkedin.pegasus2avro.monitor.AssertionTimeBucketingStrategy': AssertionTimeBucketingStrategyClass,
     'com.linkedin.pegasus2avro.monitor.AuditLogSpec': AuditLogSpecClass,
     'com.linkedin.pegasus2avro.monitor.DataHubOperationSpec': DataHubOperationSpecClass,
     'com.linkedin.pegasus2avro.monitor.DatasetFieldAssertionParameters': DatasetFieldAssertionParametersClass,
@@ -42890,6 +45217,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.notification.FormNotificationDetails': FormNotificationDetailsClass,
     'com.linkedin.pegasus2avro.notification.FormNotificationEntry': FormNotificationEntryClass,
     'com.linkedin.pegasus2avro.notification.FormNotifications': FormNotificationsClass,
+    'com.linkedin.pegasus2avro.oauth.AuthLocation': AuthLocationClass,
+    'com.linkedin.pegasus2avro.oauth.OAuthAuthorizationServerKey': OAuthAuthorizationServerKeyClass,
+    'com.linkedin.pegasus2avro.oauth.OAuthAuthorizationServerProperties': OAuthAuthorizationServerPropertiesClass,
+    'com.linkedin.pegasus2avro.oauth.TokenAuthMethod': TokenAuthMethodClass,
     'com.linkedin.pegasus2avro.ownership.OwnershipTypeInfo': OwnershipTypeInfoClass,
     'com.linkedin.pegasus2avro.persona.DataHubPersonaInfo': DataHubPersonaInfoClass,
     'com.linkedin.pegasus2avro.platform.event.v1.EntityChangeEvent': EntityChangeEventClass,
@@ -42963,6 +45294,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldAliases': SchemaFieldAliasesClass,
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldInfo': SchemaFieldInfoClass,
     'com.linkedin.pegasus2avro.secret.DataHubSecretValue': DataHubSecretValueClass,
+    'com.linkedin.pegasus2avro.service.McpServerProperties': McpServerPropertiesClass,
+    'com.linkedin.pegasus2avro.service.McpTransport': McpTransportClass,
+    'com.linkedin.pegasus2avro.service.ServiceKey': ServiceKeyClass,
+    'com.linkedin.pegasus2avro.service.ServiceProperties': ServicePropertiesClass,
     'com.linkedin.pegasus2avro.settings.NotificationSetting': NotificationSettingClass,
     'com.linkedin.pegasus2avro.settings.NotificationSettingValue': NotificationSettingValueClass,
     'com.linkedin.pegasus2avro.settings.asset.AssetSettings': AssetSettingsClass,
@@ -42972,7 +45307,12 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.settings.global.AiInstruction': AiInstructionClass,
     'com.linkedin.pegasus2avro.settings.global.AiInstructionState': AiInstructionStateClass,
     'com.linkedin.pegasus2avro.settings.global.AiInstructionType': AiInstructionTypeClass,
+    'com.linkedin.pegasus2avro.settings.global.AiPluginAuthType': AiPluginAuthTypeClass,
+    'com.linkedin.pegasus2avro.settings.global.AiPluginConfig': AiPluginConfigClass,
+    'com.linkedin.pegasus2avro.settings.global.AiPluginSettings': AiPluginSettingsClass,
+    'com.linkedin.pegasus2avro.settings.global.AiPluginType': AiPluginTypeClass,
     'com.linkedin.pegasus2avro.settings.global.ApplicationsSettings': ApplicationsSettingsClass,
+    'com.linkedin.pegasus2avro.settings.global.AuthInjectionLocation': AuthInjectionLocationClass,
     'com.linkedin.pegasus2avro.settings.global.DocPropagationFeatureSettings': DocPropagationFeatureSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.DocumentationAiSettings': DocumentationAiSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.EmailIntegrationSettings': EmailIntegrationSettingsClass,
@@ -42984,16 +45324,22 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.settings.global.GlobalViewsSettings': GlobalViewsSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.GlobalVisualSettings': GlobalVisualSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.HelpLink': HelpLinkClass,
+    'com.linkedin.pegasus2avro.settings.global.MaintenanceSeverity': MaintenanceSeverityClass,
+    'com.linkedin.pegasus2avro.settings.global.MaintenanceWindowSettings': MaintenanceWindowSettingsClass,
+    'com.linkedin.pegasus2avro.settings.global.OAuthAiPluginConfig': OAuthAiPluginConfigClass,
     'com.linkedin.pegasus2avro.settings.global.OAuthProvider': OAuthProviderClass,
     'com.linkedin.pegasus2avro.settings.global.OAuthSettings': OAuthSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.OidcSettings': OidcSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.SampleDataSettings': SampleDataSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.SampleDataStatus': SampleDataStatusClass,
+    'com.linkedin.pegasus2avro.settings.global.SharedApiKeyAiPluginConfig': SharedApiKeyAiPluginConfigClass,
     'com.linkedin.pegasus2avro.settings.global.SlackIntegrationSettings': SlackIntegrationSettingsClass,
+    'com.linkedin.pegasus2avro.settings.global.SlackUser': SlackUserClass,
     'com.linkedin.pegasus2avro.settings.global.SsoSettings': SsoSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.TeamsChannel': TeamsChannelClass,
     'com.linkedin.pegasus2avro.settings.global.TeamsIntegrationSettings': TeamsIntegrationSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.TeamsUser': TeamsUserClass,
+    'com.linkedin.pegasus2avro.settings.global.UserApiKeyAiPluginConfig': UserApiKeyAiPluginConfigClass,
     'com.linkedin.pegasus2avro.step.DataHubStepStateProperties': DataHubStepStatePropertiesClass,
     'com.linkedin.pegasus2avro.structured.PropertyCardinality': PropertyCardinalityClass,
     'com.linkedin.pegasus2avro.structured.PropertyValue': PropertyValueClass,
@@ -43007,6 +45353,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.subscription.EntityChangeDetailsFilter': EntityChangeDetailsFilterClass,
     'com.linkedin.pegasus2avro.subscription.EntityChangeType': EntityChangeTypeClass,
     'com.linkedin.pegasus2avro.subscription.SubscriptionInfo': SubscriptionInfoClass,
+    'com.linkedin.pegasus2avro.subscription.SubscriptionManagedBy': SubscriptionManagedByClass,
     'com.linkedin.pegasus2avro.subscription.SubscriptionNotificationConfig': SubscriptionNotificationConfigClass,
     'com.linkedin.pegasus2avro.subscription.SubscriptionType': SubscriptionTypeClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
@@ -43090,6 +45437,8 @@ __SCHEMA_TYPES = {
     'ActionWorkflowField': ActionWorkflowFieldClass,
     'ActionWorkflowFieldCondition': ActionWorkflowFieldConditionClass,
     'ActionWorkflowFieldConditionType': ActionWorkflowFieldConditionTypeClass,
+    'ActionWorkflowFieldValuesSource': ActionWorkflowFieldValuesSourceClass,
+    'ActionWorkflowFieldValuesSourceType': ActionWorkflowFieldValuesSourceTypeClass,
     'ActionWorkflowForm': ActionWorkflowFormClass,
     'ActionWorkflowFormRequest': ActionWorkflowFormRequestClass,
     'ActionWorkflowFormRequestField': ActionWorkflowFormRequestFieldClass,
@@ -43130,6 +45479,7 @@ __SCHEMA_TYPES = {
     'AssertionExclusionWindowType': AssertionExclusionWindowTypeClass,
     'AssertionInferenceDetails': AssertionInferenceDetailsClass,
     'AssertionInfo': AssertionInfoClass,
+    'AssertionManagedBy': AssertionManagedByClass,
     'AssertionMetric': AssertionMetricClass,
     'AssertionMonitorSensitivity': AssertionMonitorSensitivityClass,
     'AssertionNote': AssertionNoteClass,
@@ -43142,6 +45492,7 @@ __SCHEMA_TYPES = {
     'AssertionRunSummary': AssertionRunSummaryClass,
     'AssertionSource': AssertionSourceClass,
     'AssertionSourceType': AssertionSourceTypeClass,
+    'AssertionStatus': AssertionStatusClass,
     'AssertionStdAggregation': AssertionStdAggregationClass,
     'AssertionStdOperator': AssertionStdOperatorClass,
     'AssertionStdParameter': AssertionStdParameterClass,
@@ -43183,6 +45534,13 @@ __SCHEMA_TYPES = {
     'SqlAssertionType': SqlAssertionTypeClass,
     'VolumeAssertionInfo': VolumeAssertionInfoClass,
     'VolumeAssertionType': VolumeAssertionTypeClass,
+    'AssertionAssignmentRuleFilter': AssertionAssignmentRuleFilterClass,
+    'AssertionAssignmentRuleInfo': AssertionAssignmentRuleInfoClass,
+    'AssertionAssignmentRuleMode': AssertionAssignmentRuleModeClass,
+    'FreshnessAssertionAssignmentRuleConfig': FreshnessAssertionAssignmentRuleConfigClass,
+    'SubscriberAssignmentConfig': SubscriberAssignmentConfigClass,
+    'SubscriptionAssignmentRuleConfig': SubscriptionAssignmentRuleConfigClass,
+    'VolumeAssertionAssignmentRuleConfig': VolumeAssertionAssignmentRuleConfigClass,
     'BusinessAttributeAssociation': BusinessAttributeAssociationClass,
     'BusinessAttributeInfo': BusinessAttributeInfoClass,
     'BusinessAttributeKey': BusinessAttributeKeyClass,
@@ -43449,6 +45807,10 @@ __SCHEMA_TYPES = {
     'NativeGroupMembership': NativeGroupMembershipClass,
     'RoleMembership': RoleMembershipClass,
     'TokenType': TokenTypeClass,
+    'UserAiPluginConfig': UserAiPluginConfigClass,
+    'UserAiPluginSettings': UserAiPluginSettingsClass,
+    'UserApiKeyConnectionConfig': UserApiKeyConnectionConfigClass,
+    'UserOAuthConnectionConfig': UserOAuthConnectionConfigClass,
     'IncidentActivityChange': IncidentActivityChangeClass,
     'IncidentActivityChangeType': IncidentActivityChangeTypeClass,
     'IncidentActivityEvent': IncidentActivityEventClass,
@@ -43497,6 +45859,7 @@ __SCHEMA_TYPES = {
     'ActionRequestKey': ActionRequestKeyClass,
     'ActionWorkflowKey': ActionWorkflowKeyClass,
     'AnomalyKey': AnomalyKeyClass,
+    'AssertionAssignmentRuleKey': AssertionAssignmentRuleKeyClass,
     'AssertionKey': AssertionKeyClass,
     'ChartKey': ChartKeyClass,
     'ConstraintKey': ConstraintKeyClass,
@@ -43656,11 +46019,13 @@ __SCHEMA_TYPES = {
     'AssertionEvaluationParametersType': AssertionEvaluationParametersTypeClass,
     'AssertionEvaluationSpec': AssertionEvaluationSpecClass,
     'AssertionMonitor': AssertionMonitorClass,
+    'AssertionMonitorBootstrapConfig': AssertionMonitorBootstrapConfigClass,
     'AssertionMonitorBootstrapStatus': AssertionMonitorBootstrapStatusClass,
     'AssertionMonitorCapability': AssertionMonitorCapabilityClass,
     'AssertionMonitorMetricsCubeBootstrapState': AssertionMonitorMetricsCubeBootstrapStateClass,
     'AssertionMonitorMetricsCubeBootstrapStatus': AssertionMonitorMetricsCubeBootstrapStatusClass,
     'AssertionMonitorSettings': AssertionMonitorSettingsClass,
+    'AssertionTimeBucketingStrategy': AssertionTimeBucketingStrategyClass,
     'AuditLogSpec': AuditLogSpecClass,
     'DataHubOperationSpec': DataHubOperationSpecClass,
     'DatasetFieldAssertionParameters': DatasetFieldAssertionParametersClass,
@@ -43704,6 +46069,10 @@ __SCHEMA_TYPES = {
     'FormNotificationDetails': FormNotificationDetailsClass,
     'FormNotificationEntry': FormNotificationEntryClass,
     'FormNotifications': FormNotificationsClass,
+    'AuthLocation': AuthLocationClass,
+    'OAuthAuthorizationServerKey': OAuthAuthorizationServerKeyClass,
+    'OAuthAuthorizationServerProperties': OAuthAuthorizationServerPropertiesClass,
+    'TokenAuthMethod': TokenAuthMethodClass,
     'OwnershipTypeInfo': OwnershipTypeInfoClass,
     'DataHubPersonaInfo': DataHubPersonaInfoClass,
     'EntityChangeEvent': EntityChangeEventClass,
@@ -43777,6 +46146,10 @@ __SCHEMA_TYPES = {
     'SchemaFieldAliases': SchemaFieldAliasesClass,
     'SchemaFieldInfo': SchemaFieldInfoClass,
     'DataHubSecretValue': DataHubSecretValueClass,
+    'McpServerProperties': McpServerPropertiesClass,
+    'McpTransport': McpTransportClass,
+    'ServiceKey': ServiceKeyClass,
+    'ServiceProperties': ServicePropertiesClass,
     'NotificationSetting': NotificationSettingClass,
     'NotificationSettingValue': NotificationSettingValueClass,
     'AssetSettings': AssetSettingsClass,
@@ -43786,7 +46159,12 @@ __SCHEMA_TYPES = {
     'AiInstruction': AiInstructionClass,
     'AiInstructionState': AiInstructionStateClass,
     'AiInstructionType': AiInstructionTypeClass,
+    'AiPluginAuthType': AiPluginAuthTypeClass,
+    'AiPluginConfig': AiPluginConfigClass,
+    'AiPluginSettings': AiPluginSettingsClass,
+    'AiPluginType': AiPluginTypeClass,
     'ApplicationsSettings': ApplicationsSettingsClass,
+    'AuthInjectionLocation': AuthInjectionLocationClass,
     'DocPropagationFeatureSettings': DocPropagationFeatureSettingsClass,
     'DocumentationAiSettings': DocumentationAiSettingsClass,
     'EmailIntegrationSettings': EmailIntegrationSettingsClass,
@@ -43798,16 +46176,22 @@ __SCHEMA_TYPES = {
     'GlobalViewsSettings': GlobalViewsSettingsClass,
     'GlobalVisualSettings': GlobalVisualSettingsClass,
     'HelpLink': HelpLinkClass,
+    'MaintenanceSeverity': MaintenanceSeverityClass,
+    'MaintenanceWindowSettings': MaintenanceWindowSettingsClass,
+    'OAuthAiPluginConfig': OAuthAiPluginConfigClass,
     'OAuthProvider': OAuthProviderClass,
     'OAuthSettings': OAuthSettingsClass,
     'OidcSettings': OidcSettingsClass,
     'SampleDataSettings': SampleDataSettingsClass,
     'SampleDataStatus': SampleDataStatusClass,
+    'SharedApiKeyAiPluginConfig': SharedApiKeyAiPluginConfigClass,
     'SlackIntegrationSettings': SlackIntegrationSettingsClass,
+    'SlackUser': SlackUserClass,
     'SsoSettings': SsoSettingsClass,
     'TeamsChannel': TeamsChannelClass,
     'TeamsIntegrationSettings': TeamsIntegrationSettingsClass,
     'TeamsUser': TeamsUserClass,
+    'UserApiKeyAiPluginConfig': UserApiKeyAiPluginConfigClass,
     'DataHubStepStateProperties': DataHubStepStatePropertiesClass,
     'PropertyCardinality': PropertyCardinalityClass,
     'PropertyValue': PropertyValueClass,
@@ -43821,6 +46205,7 @@ __SCHEMA_TYPES = {
     'EntityChangeDetailsFilter': EntityChangeDetailsFilterClass,
     'EntityChangeType': EntityChangeTypeClass,
     'SubscriptionInfo': SubscriptionInfoClass,
+    'SubscriptionManagedBy': SubscriptionManagedByClass,
     'SubscriptionNotificationConfig': SubscriptionNotificationConfigClass,
     'SubscriptionType': SubscriptionTypeClass,
     'TagProperties': TagPropertiesClass,
@@ -43963,6 +46348,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     TestKeyClass,
     InviteTokenKeyClass,
     DataHubAiConversationKeyClass,
+    AssertionAssignmentRuleKeyClass,
     ChartKeyClass,
     DataHubConnectionKeyClass,
     MLPrimaryKeyKeyClass,
@@ -43990,6 +46376,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     MonitorTimeseriesStateClass,
     MonitorSuiteInfoClass,
     MonitorInfoClass,
+    AssertionMonitorBootstrapStatusClass,
     RemoteExecutorPoolGlobalConfigClass,
     DataHubAccessTokenInfoClass,
     DomainsClass,
@@ -44001,6 +46388,9 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     DataProductKeyClass,
     DataProductPropertiesClass,
     DataHubAiConversationInfoClass,
+    ServiceKeyClass,
+    McpServerPropertiesClass,
+    ServicePropertiesClass,
     EntityTypeKeyClass,
     EntityTypeInfoClass,
     ChartInfoClass,
@@ -44017,6 +46407,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     AssertionInfoClass,
     AssertionDryRunEventClass,
     AssertionAnalyticsRunEventClass,
+    AssertionAssignmentRuleInfoClass,
     DataHubPageModulePropertiesClass,
     TagPropertiesClass,
     IncidentNotificationDetailsClass,
@@ -44147,6 +46538,8 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     ExecutionRequestResultClass,
     DataHubMetricCubeDefinitionClass,
     DataHubMetricCubeEventClass,
+    OAuthAuthorizationServerPropertiesClass,
+    OAuthAuthorizationServerKeyClass,
     SchemaFieldAliasesClass,
     SchemaFieldInfoClass,
     PostInfoClass,
@@ -44269,6 +46662,7 @@ class AspectBag(TypedDict, total=False):
     testKey: TestKeyClass
     inviteTokenKey: InviteTokenKeyClass
     dataHubAiConversationKey: DataHubAiConversationKeyClass
+    assertionAssignmentRuleKey: AssertionAssignmentRuleKeyClass
     chartKey: ChartKeyClass
     dataHubConnectionKey: DataHubConnectionKeyClass
     mlPrimaryKeyKey: MLPrimaryKeyKeyClass
@@ -44296,6 +46690,7 @@ class AspectBag(TypedDict, total=False):
     monitorTimeseriesState: MonitorTimeseriesStateClass
     monitorSuiteInfo: MonitorSuiteInfoClass
     monitorInfo: MonitorInfoClass
+    monitorBootstrapStatus: AssertionMonitorBootstrapStatusClass
     dataHubRemoteExecutorPoolGlobalConfig: RemoteExecutorPoolGlobalConfigClass
     dataHubAccessTokenInfo: DataHubAccessTokenInfoClass
     domains: DomainsClass
@@ -44307,6 +46702,9 @@ class AspectBag(TypedDict, total=False):
     dataProductKey: DataProductKeyClass
     dataProductProperties: DataProductPropertiesClass
     dataHubAiConversationInfo: DataHubAiConversationInfoClass
+    serviceKey: ServiceKeyClass
+    mcpServerProperties: McpServerPropertiesClass
+    serviceProperties: ServicePropertiesClass
     entityTypeKey: EntityTypeKeyClass
     entityTypeInfo: EntityTypeInfoClass
     chartInfo: ChartInfoClass
@@ -44323,6 +46721,7 @@ class AspectBag(TypedDict, total=False):
     assertionInfo: AssertionInfoClass
     assertionDryRunEvent: AssertionDryRunEventClass
     assertionAnalyticsRunEvent: AssertionAnalyticsRunEventClass
+    assertionAssignmentRuleInfo: AssertionAssignmentRuleInfoClass
     dataHubPageModuleProperties: DataHubPageModulePropertiesClass
     tagProperties: TagPropertiesClass
     incidentNotificationDetails: IncidentNotificationDetailsClass
@@ -44453,6 +46852,8 @@ class AspectBag(TypedDict, total=False):
     dataHubExecutionRequestResult: ExecutionRequestResultClass
     dataHubMetricCubeDefinition: DataHubMetricCubeDefinitionClass
     dataHubMetricCubeEvent: DataHubMetricCubeEventClass
+    oauthAuthorizationServerProperties: OAuthAuthorizationServerPropertiesClass
+    oauthAuthorizationServerKey: OAuthAuthorizationServerKeyClass
     schemaFieldAliases: SchemaFieldAliasesClass
     schemafieldInfo: SchemaFieldInfoClass
     postInfo: PostInfoClass
@@ -44543,6 +46944,7 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
     'test': TestKeyClass,
     'inviteToken': InviteTokenKeyClass,
     'dataHubAiConversation': DataHubAiConversationKeyClass,
+    'assertionAssignmentRule': AssertionAssignmentRuleKeyClass,
     'chart': ChartKeyClass,
     'dataHubConnection': DataHubConnectionKeyClass,
     'mlPrimaryKey': MLPrimaryKeyKeyClass,
@@ -44556,11 +46958,13 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {
     'dataProcessInstance': DataProcessInstanceKeyClass,
     'glossaryTerm': GlossaryTermKeyClass,
     'dataProduct': DataProductKeyClass,
+    'service': ServiceKeyClass,
     'entityType': EntityTypeKeyClass,
     'application': ApplicationKeyClass,
     'businessAttribute': BusinessAttributeKeyClass,
     'platformResource': PlatformResourceKeyClass,
     'dataType': DataTypeKeyClass,
+    'oauthAuthorizationServer': OAuthAuthorizationServerKeyClass,
     'structuredProperty': StructuredPropertyKeyClass
 }
 
@@ -44624,6 +47028,7 @@ ENTITY_TYPE_NAMES: List[str] = [
     'test',
     'inviteToken',
     'dataHubAiConversation',
+    'assertionAssignmentRule',
     'chart',
     'dataHubConnection',
     'mlPrimaryKey',
@@ -44637,11 +47042,13 @@ ENTITY_TYPE_NAMES: List[str] = [
     'dataProcessInstance',
     'glossaryTerm',
     'dataProduct',
+    'service',
     'entityType',
     'application',
     'businessAttribute',
     'platformResource',
     'dataType',
+    'oauthAuthorizationServer',
     'structuredProperty'
 ]
 EntityTypeName = Literal[
@@ -44702,6 +47109,7 @@ EntityTypeName = Literal[
     'test',
     'inviteToken',
     'dataHubAiConversation',
+    'assertionAssignmentRule',
     'chart',
     'dataHubConnection',
     'mlPrimaryKey',
@@ -44715,11 +47123,13 @@ EntityTypeName = Literal[
     'dataProcessInstance',
     'glossaryTerm',
     'dataProduct',
+    'service',
     'entityType',
     'application',
     'businessAttribute',
     'platformResource',
     'dataType',
+    'oauthAuthorizationServer',
     'structuredProperty'
 ]
 

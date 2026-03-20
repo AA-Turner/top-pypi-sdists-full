@@ -39,6 +39,7 @@ from sherpa_onnx.lib._sherpa_onnx import (
     OfflineSpeakerSegmentationPyannoteModelConfig,
     OfflineSpeechDenoiser,
     OfflineSpeechDenoiserConfig,
+    OfflineSpeechDenoiserDpdfNetModelConfig,
     OfflineSpeechDenoiserGtcrnModelConfig,
     OfflineSpeechDenoiserModelConfig,
     OfflineStream,
@@ -61,6 +62,8 @@ from sherpa_onnx.lib._sherpa_onnx import (
     OnlinePunctuation,
     OnlinePunctuationConfig,
     OnlinePunctuationModelConfig,
+    OnlineSpeechDenoiser,
+    OnlineSpeechDenoiserConfig,
     OnlineStream,
     SentencePieceTokenizer,
     SileroVadModelConfig,
@@ -86,4 +89,4 @@ from .keyword_spotter import KeywordSpotter
 from .offline_recognizer import OfflineRecognizer
 from .online_recognizer import OnlineRecognizer
 from .utils import text2token
-__version__ = '1.12.29'
+__version__ = '1.12.30'

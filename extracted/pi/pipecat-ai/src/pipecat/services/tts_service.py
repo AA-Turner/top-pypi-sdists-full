@@ -245,6 +245,26 @@ class TTSService(AIService):
             **kwargs,
         )
 
+        # Convert Language enum to service-specific format at init time.
+        # Runtime updates are handled by _update_settings(), but init-time
+        # settings bypass that path and need explicit conversion.
+        # Raw strings (e.g. "de-DE") are first converted to Language enums
+        # so they go through the same resolution logic.
+        if isinstance(self._settings.language, str) and not isinstance(
+            self._settings.language, Language
+        ):
+            try:
+                self._settings.language = Language(self._settings.language)
+            except ValueError:
+                logger.warning(
+                    f"Language string '{self._settings.language}' is not a recognized "
+                    f"Language code. It will be passed to the service as-is."
+                )
+        if isinstance(self._settings.language, Language):
+            converted = self.language_to_service_language(self._settings.language)
+            if converted is not None:
+                self._settings.language = converted
+
         # Resolve text_aggregation_mode from the new param or deprecated aggregate_sentences
         if aggregate_sentences is not None:
             import warnings
@@ -536,15 +556,15 @@ class TTSService(AIService):
             frame: The end frame.
         """
         await super().stop(frame)
-        if self._stop_frame_task:
-            await self.cancel_task(self._stop_frame_task)
-            self._stop_frame_task = None
         if self._audio_context_task:
             # Indicate no more audio contexts are available; this will end the
             # task cleanly after all contexts have been processed.
             await self._contexts_queue.put(None)
             await self._audio_context_task
             self._audio_context_task = None
+        if self._stop_frame_task:
+            await self.cancel_task(self._stop_frame_task)
+            self._stop_frame_task = None
 
     async def cancel(self, frame: CancelFrame):
         """Cancel the TTS service.
@@ -602,7 +622,20 @@ class TTSService(AIService):
         Returns:
             Dict mapping changed field names to their previous values.
         """
-        # Translate language *before* applying so the stored value is canonical
+        # Translate language *before* applying so the stored value is canonical.
+        # Raw strings are first converted to Language enums for proper resolution.
+        if (
+            is_given(delta.language)
+            and isinstance(delta.language, str)
+            and not isinstance(delta.language, Language)
+        ):
+            try:
+                delta.language = Language(delta.language)
+            except ValueError:
+                logger.warning(
+                    f"Language string '{delta.language}' is not a recognized "
+                    f"Language code. It will be passed to the service as-is."
+                )
         if is_given(delta.language) and isinstance(delta.language, Language):
             converted = self.language_to_service_language(delta.language)
             if converted is not None:
@@ -687,17 +720,17 @@ class TTSService(AIService):
             self._turn_context_id = self.create_context_id()
             await self.push_frame(frame, direction)
         elif isinstance(frame, (LLMFullResponseEndFrame, EndFrame)):
-            # We pause processing incoming frames if the LLM response included
-            # text (it might be that it's only a function calling response). We
-            # pause to avoid audio overlapping.
-            await self._maybe_pause_frame_processing()
-
             # Flush any remaining text (including text waiting for lookahead)
             remaining = await self._text_aggregator.flush()
             # Stop the aggregation metric (no-op if already stopped on first sentence).
             await self.stop_text_aggregation_metrics()
             if remaining:
                 await self._push_tts_frames(AggregatedTextFrame(remaining.text, remaining.type))
+
+            # We pause processing incoming frames if the LLM response included
+            # text (it might be that it's only a function calling response). We
+            # pause to avoid audio overlapping.
+            await self._maybe_pause_frame_processing()
 
             # Log accumulated streamed text and emit aggregated usage metric.
             if self._streamed_text:
@@ -738,7 +771,9 @@ class TTSService(AIService):
             self._turn_context_id = saved_turn_context_id
             self._processing_text = processing_text
         elif isinstance(frame, TTSUpdateSettingsFrame):
-            if frame.delta is not None:
+            if frame.service is not None and frame.service is not self:
+                await self.push_frame(frame, direction)
+            elif frame.delta is not None:
                 await self._update_settings(frame.delta)
             elif frame.settings:
                 # Backward-compatible path: convert legacy dict to settings object.

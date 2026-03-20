@@ -38,11 +38,19 @@ def _now() -> str:
 
 
 @dataclass
+class BranchDef:
+    """A named branch within a parallel step (#976)."""
+
+    id: str
+    steps: list[WorkflowStepDef] = field(default_factory=list)
+
+
+@dataclass
 class WorkflowStepDef:
     """A single step in a workflow definition. Domain-neutral."""
 
     id: str
-    type: str  # "runner", "gate", "loop"
+    type: str  # "runner", "gate", "loop", "parallel"
     # Runner fields (opaque + agent)
     runner: str | None = None
     command: str | None = None  # shell: command string; python_script: script path
@@ -81,6 +89,11 @@ class WorkflowStepDef:
     when: dict[str, Any] | None = None
     # Retry configuration (#962)
     retry: dict[str, Any] | None = None
+    # Parallel step fields (#976)
+    branches: list[BranchDef] | None = None
+    join: str | None = None
+    # Compensation (#978)
+    compensate: WorkflowStepDef | None = None
     # Common
     approval_mode: str | None = None
     timeout: int | None = None
@@ -105,6 +118,7 @@ class WorkflowDefinition:
     id: str
     version: str
     inputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    params: dict[str, dict[str, Any]] = field(default_factory=dict)
     policies: dict[str, Any] = field(default_factory=dict)
     steps: list[WorkflowStepDef] = field(default_factory=list)
     notifications: dict[str, Any] | None = None
@@ -339,6 +353,7 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
         id=raw["id"],
         version=raw["version"],
         inputs=raw.get("inputs", {}),
+        params=raw.get("params", {}),
         policies=raw.get("policies", {}),
         steps=steps,
         notifications=raw.get("notifications"),
@@ -372,22 +387,70 @@ def _parse_trigger(raw: dict[str, Any]) -> TriggerDef:
     )
 
 
-def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
+def _parse_step(raw: dict[str, Any], *, _inside_parallel: bool = False) -> WorkflowStepDef:
     if not raw.get("id"):
         raise ValueError("Each step must have an 'id' field")
+    step_id = raw["id"]
+    if "/" in step_id:
+        raise ValueError(f"Step id {step_id!r} must not contain '/' (reserved for parallel branch qualification)")
     if not raw.get("type"):
-        raise ValueError(f"Step {raw['id']!r} must have a 'type' field")
+        raise ValueError(f"Step {step_id!r} must have a 'type' field")
     step_type = raw["type"]
-    if step_type not in ("runner", "gate", "loop", "human_gate", "publish", "llm"):
-        raise ValueError(f"Step {raw['id']!r}: invalid type {step_type!r}")
+    if step_type not in ("runner", "gate", "loop", "human_gate", "publish", "llm", "parallel"):
+        raise ValueError(f"Step {step_id!r}: invalid type {step_type!r}")
 
     nested_steps = None
     if step_type == "loop":
         nested_raw = raw.get("steps", [])
-        nested_steps = [_parse_step(s) for s in nested_raw]
+        nested_steps = [_parse_step(s, _inside_parallel=_inside_parallel) for s in nested_raw]
+
+    # Parallel step parsing (#976)
+    branches: list[BranchDef] | None = None
+    join: str | None = None
+    if step_type == "parallel":
+        if _inside_parallel:
+            raise ValueError(f"Step {step_id!r}: nested parallel steps are not allowed")
+        raw_branches = raw.get("branches", [])
+        if not raw_branches:
+            raise ValueError(f"Parallel step {step_id!r} must have at least one branch")
+        join = raw.get("join", "all")
+        if join != "all":
+            raise ValueError(f"Parallel step {step_id!r}: only join='all' is supported in V1, got {join!r}")
+        branch_ids: set[str] = set()
+        branches = []
+        for br in raw_branches:
+            if not isinstance(br, dict) or not br.get("id"):
+                raise ValueError(f"Parallel step {step_id!r}: each branch must have an 'id' field")
+            br_id = br["id"]
+            if "/" in br_id:
+                raise ValueError(f"Parallel step {step_id!r}: branch id {br_id!r} must not contain '/'")
+            if br_id in branch_ids:
+                raise ValueError(f"Parallel step {step_id!r}: duplicate branch id {br_id!r}")
+            branch_ids.add(br_id)
+            br_steps = [_parse_step(s, _inside_parallel=True) for s in br.get("steps", [])]
+            for bs in br_steps:
+                if bs.type == "human_gate":
+                    raise ValueError(f"Parallel step {step_id!r}: human_gate steps are not allowed inside branches")
+            branches.append(BranchDef(id=br_id, steps=br_steps))
+
+    # Compensation block parsing (#978)
+    compensate: WorkflowStepDef | None = None
+    raw_compensate = raw.get("compensate")
+    if raw_compensate:
+        if not isinstance(raw_compensate, dict):
+            raise ValueError(f"Step {step_id!r}: 'compensate' must be a mapping")
+        comp_type = raw_compensate.get("type")
+        if comp_type not in ("runner", "llm"):
+            raise ValueError(f"Step {step_id!r}: compensate type must be 'runner' or 'llm', got {comp_type!r}")
+        if raw_compensate.get("compensate"):
+            raise ValueError(f"Step {step_id!r}: nested compensate blocks are not allowed")
+        comp_id = raw_compensate.get("id") or f"{step_id}_compensate"
+        raw_compensate = dict(raw_compensate)
+        raw_compensate["id"] = comp_id
+        compensate = _parse_step(raw_compensate, _inside_parallel=_inside_parallel)
 
     return WorkflowStepDef(
-        id=raw["id"],
+        id=step_id,
         type=step_type,
         runner=raw.get("runner"),
         command=raw.get("command"),
@@ -419,7 +482,150 @@ def _parse_step(raw: dict[str, Any]) -> WorkflowStepDef:
         temperature=raw.get("temperature"),
         max_tokens=raw.get("max_tokens"),
         response_format=raw.get("response_format"),
+        branches=branches,
+        join=join,
+        compensate=compensate,
     )
+
+
+def _validate_step_common(step: WorkflowStepDef, seen_step_ids: set[str], defn: WorkflowDefinition) -> None:
+    """Validate a single step's payload and references (shared between top-level and branch)."""
+    from .workflow_runners import AGENT_RUNNER_TYPES
+
+    # Validate `/` reservation as a fallback (parse already checks)
+    if "/" in step.id:
+        raise ValueError(f"Step id {step.id!r} must not contain '/' (reserved for parallel branch qualification)")
+
+    if step.type == "runner":
+        if not step.runner:
+            raise ValueError(f"Runner step {step.id!r} has no runner type")
+        if step.runner in ("shell",) and not step.command:
+            raise ValueError(f"Shell runner step {step.id!r} requires a 'command' field")
+        if step.runner == "python_script" and not step.command:
+            raise ValueError(f"Python script runner step {step.id!r} requires a 'command' field")
+        if step.runner in AGENT_RUNNER_TYPES and not step.prompt and not step.skill_name:
+            raise ValueError(f"Agent runner step {step.id!r} requires a 'prompt' or 'skill_name' field")
+        if step.skill_name and step.runner not in AGENT_RUNNER_TYPES:
+            raise ValueError(f"Step {step.id!r}: skill_name requires an agent runner, got {step.runner!r}")
+    elif step.type == "gate":
+        if not step.condition:
+            raise ValueError(f"Gate step {step.id!r} requires a 'condition' field")
+    elif step.type == "human_gate":
+        if not step.prompt:
+            raise ValueError(f"Human gate step {step.id!r} requires a 'prompt' field")
+        if not step.options:
+            raise ValueError(f"Human gate step {step.id!r} requires an 'options' field")
+        for opt in step.options:
+            if not opt.get("id") or not opt.get("label") or not opt.get("outcome"):
+                raise ValueError(f"Human gate step {step.id!r}: each option needs 'id', 'label', 'outcome'")
+            if opt["outcome"] == "branch" and not opt.get("next_step"):
+                raise ValueError(f"Human gate step {step.id!r}: branch option {opt['id']!r} requires 'next_step'")
+            if opt["outcome"] == "stop" and not opt.get("stop_reason"):
+                raise ValueError(f"Human gate step {step.id!r}: stop option {opt['id']!r} requires 'stop_reason'")
+            # Validate branch targets: top-level forward only
+            if opt["outcome"] == "branch":
+                top_level_ids = [s.id for s in defn.steps]
+                target = opt["next_step"]
+                if target not in top_level_ids:
+                    raise ValueError(
+                        f"Human gate step {step.id!r}: branch target {target!r} not found in top-level steps"
+                    )
+                current_idx = top_level_ids.index(step.id) if step.id in top_level_ids else -1
+                target_idx = top_level_ids.index(target)
+                if target_idx <= current_idx:
+                    raise ValueError(
+                        f"Human gate step {step.id!r}: branch target {target!r} must appear"
+                        f" after the current step (forward-only in V1)"
+                    )
+
+    if step.credentials:
+        if not isinstance(step.credentials, list):
+            raise ValueError(f"Step {step.id!r}: 'credentials' must be a list")
+        for cred in step.credentials:
+            if not isinstance(cred, dict):
+                raise ValueError(f"Step {step.id!r}: each credential entry must be a mapping")
+
+    if step.context_from:
+        for ref in step.context_from:
+            ref_step = ref.get("step")
+            if not ref_step:
+                raise ValueError(f"Step {step.id!r}: context_from entry missing 'step' field")
+            if not ref.get("field"):
+                raise ValueError(f"Step {step.id!r}: context_from entry missing 'field' field")
+            if ref_step not in seen_step_ids:
+                raise ValueError(
+                    f"Step {step.id!r}: context_from references step {ref_step!r}"
+                    f" which has not appeared before this step in execution order"
+                )
+
+    if step.when:
+        when_operators = {"equals", "not_equals", "is_not_empty", "is_empty", "contains"}
+        when_fields = {"result_status", "result_summary", "result_artifacts", "result_findings"}
+        when = step.when
+        if not isinstance(when, dict):
+            raise ValueError(f"Step {step.id!r}: 'when' must be a mapping")
+        if "step" not in when:
+            raise ValueError(f"Step {step.id!r}: 'when' requires a 'step' field")
+        if "field" not in when:
+            raise ValueError(f"Step {step.id!r}: 'when' requires a 'field' field")
+        ref_step = when["step"]
+        if ref_step not in seen_step_ids:
+            raise ValueError(
+                f"Step {step.id!r}: when references step {ref_step!r}"
+                f" which has not appeared before this step in execution order"
+            )
+        top_field = when["field"].split(".")[0]
+        if top_field not in when_fields:
+            raise ValueError(f"Step {step.id!r}: when field {when['field']!r} must start with one of {when_fields}")
+        ops_found = when_operators & set(when.keys())
+        if len(ops_found) != 1:
+            raise ValueError(
+                f"Step {step.id!r}: 'when' must have exactly one operator from {when_operators},"
+                f" found {ops_found or 'none'}"
+            )
+
+    if step.retry:
+        if not isinstance(step.retry, dict):
+            raise ValueError(f"Step {step.id!r}: 'retry' must be a mapping")
+        if step.type in ("gate", "human_gate"):
+            raise ValueError(f"Step {step.id!r}: 'retry' is not allowed on {step.type} steps")
+        max_attempts = step.retry.get("max_attempts")
+        if max_attempts is None or not isinstance(max_attempts, int) or max_attempts < 1:
+            raise ValueError(f"Step {step.id!r}: retry.max_attempts must be an integer >= 1")
+        backoff = step.retry.get("backoff", "exponential")
+        if backoff not in ("exponential", "fixed"):
+            raise ValueError(f"Step {step.id!r}: retry.backoff must be 'exponential' or 'fixed', got {backoff!r}")
+        initial_delay = step.retry.get("initial_delay", 5)
+        if not isinstance(initial_delay, (int, float)) or initial_delay <= 0:
+            raise ValueError(f"Step {step.id!r}: retry.initial_delay must be a positive number")
+        max_delay = step.retry.get("max_delay", 60)
+        if not isinstance(max_delay, (int, float)) or max_delay < initial_delay:
+            raise ValueError(f"Step {step.id!r}: retry.max_delay must be >= initial_delay ({initial_delay})")
+
+    if step.type == "llm":
+        if not step.prompt:
+            raise ValueError(f"LLM step {step.id!r} requires a 'prompt' field")
+        if step.response_format is not None:
+            if step.response_format != "json_object":
+                raise ValueError(
+                    f"LLM step {step.id!r}: response_format must be 'json_object', got {step.response_format!r}"
+                )
+
+    if step.response_format is not None and step.type != "llm":
+        raise ValueError(f"Step {step.id!r}: response_format is only allowed on llm steps")
+
+    if step.type == "publish":
+        if not step.destination:
+            raise ValueError(f"Publish step {step.id!r} requires a 'destination' field")
+        if not isinstance(step.destination, dict):
+            raise ValueError(f"Publish step {step.id!r}: 'destination' must be a mapping")
+        adapter = step.destination.get("adapter")
+        if adapter not in ("file", "webhook"):
+            raise ValueError(f"Publish step {step.id!r}: unknown adapter {adapter!r}, must be 'file' or 'webhook'")
+        if adapter == "file" and not step.destination.get("path"):
+            raise ValueError(f"Publish step {step.id!r}: file adapter requires a 'path' field")
+        if adapter == "webhook" and not step.destination.get("url"):
+            raise ValueError(f"Publish step {step.id!r}: webhook adapter requires a 'url' field")
 
 
 def _validate_definition(defn: WorkflowDefinition) -> None:
@@ -430,145 +636,59 @@ def _validate_definition(defn: WorkflowDefinition) -> None:
     - Agent runner steps have a prompt
     - Gate steps have a condition
     - context_from references point to steps that appear earlier in execution order
+    - Parallel branches have scope-aware context_from visibility (#976)
     """
-    from .workflow_runners import AGENT_RUNNER_TYPES
-
-    all_steps = _all_steps(defn.steps)
     seen_step_ids: set[str] = set()
 
-    for step in all_steps:
-        if step.type == "runner":
-            if not step.runner:
-                raise ValueError(f"Runner step {step.id!r} has no runner type")
-            if step.runner in ("shell",) and not step.command:
-                raise ValueError(f"Shell runner step {step.id!r} requires a 'command' field")
-            if step.runner == "python_script" and not step.command:
-                raise ValueError(f"Python script runner step {step.id!r} requires a 'command' field")
-            if step.runner in AGENT_RUNNER_TYPES and not step.prompt and not step.skill_name:
-                raise ValueError(f"Agent runner step {step.id!r} requires a 'prompt' or 'skill_name' field")
-            if step.skill_name and step.runner not in AGENT_RUNNER_TYPES:
-                raise ValueError(f"Step {step.id!r}: skill_name requires an agent runner, got {step.runner!r}")
-        elif step.type == "gate":
-            if not step.condition:
-                raise ValueError(f"Gate step {step.id!r} requires a 'condition' field")
-        elif step.type == "human_gate":
-            if not step.prompt:
-                raise ValueError(f"Human gate step {step.id!r} requires a 'prompt' field")
-            if not step.options:
-                raise ValueError(f"Human gate step {step.id!r} requires an 'options' field")
-            for opt in step.options:
-                if not opt.get("id") or not opt.get("label") or not opt.get("outcome"):
-                    raise ValueError(f"Human gate step {step.id!r}: each option needs 'id', 'label', 'outcome'")
-                if opt["outcome"] == "branch" and not opt.get("next_step"):
-                    raise ValueError(f"Human gate step {step.id!r}: branch option {opt['id']!r} requires 'next_step'")
-                if opt["outcome"] == "stop" and not opt.get("stop_reason"):
-                    raise ValueError(f"Human gate step {step.id!r}: stop option {opt['id']!r} requires 'stop_reason'")
-                # Validate branch targets: top-level forward only
-                if opt["outcome"] == "branch":
-                    top_level_ids = [s.id for s in defn.steps]
-                    target = opt["next_step"]
-                    if target not in top_level_ids:
-                        raise ValueError(
-                            f"Human gate step {step.id!r}: branch target {target!r} not found in top-level steps"
-                        )
-                    current_idx = top_level_ids.index(step.id) if step.id in top_level_ids else -1
-                    target_idx = top_level_ids.index(target)
-                    if target_idx <= current_idx:
-                        raise ValueError(
-                            f"Human gate step {step.id!r}: branch target {target!r} must appear"
-                            f" after the current step (forward-only in V1)"
-                        )
+    for step in defn.steps:
+        # For parallel steps, validate branches with scoped visibility
+        if step.type == "parallel" and step.branches:
+            _validate_step_common(step, seen_step_ids, defn)
+            pre_parallel_ids = seen_step_ids.copy()
+            all_qualified_ids: set[str] = set()
+            for branch in step.branches:
+                branch_seen = pre_parallel_ids.copy()
+                for bs in branch.steps:
+                    _validate_step_common(bs, branch_seen, defn)
+                    branch_seen.add(bs.id)
+                    all_qualified_ids.add(f"{branch.id}/{bs.id}")
+            seen_step_ids.add(step.id)
+            seen_step_ids.update(all_qualified_ids)
+        else:
+            _validate_step_common(step, seen_step_ids, defn)
+            seen_step_ids.add(step.id)
+            # Validate and add nested loop steps to seen_step_ids
+            if step.steps:
+                for ns in _all_steps(step.steps):
+                    _validate_step_common(ns, seen_step_ids, defn)
+                    seen_step_ids.add(ns.id)
 
-        if step.credentials:
-            if not isinstance(step.credentials, list):
-                raise ValueError(f"Step {step.id!r}: 'credentials' must be a list")
-            for cred in step.credentials:
-                if not isinstance(cred, dict):
-                    raise ValueError(f"Step {step.id!r}: each credential entry must be a mapping")
+    # Param/input namespace overlap check (#958)
+    overlap = set(defn.params) & set(defn.inputs)
+    if overlap:
+        raise ValueError(f"Param keys overlap with input keys: {sorted(overlap)}")
 
-        if step.context_from:
-            for ref in step.context_from:
-                ref_step = ref.get("step")
-                if not ref_step:
-                    raise ValueError(f"Step {step.id!r}: context_from entry missing 'step' field")
-                if not ref.get("field"):
-                    raise ValueError(f"Step {step.id!r}: context_from entry missing 'field' field")
-                if ref_step not in seen_step_ids:
-                    raise ValueError(
-                        f"Step {step.id!r}: context_from references step {ref_step!r}"
-                        f" which has not appeared before this step in execution order"
-                    )
 
-        if step.when:
-            when_operators = {"equals", "not_equals", "is_not_empty", "is_empty", "contains"}
-            when_fields = {"result_status", "result_summary", "result_artifacts", "result_findings"}
-            when = step.when
-            if not isinstance(when, dict):
-                raise ValueError(f"Step {step.id!r}: 'when' must be a mapping")
-            if "step" not in when:
-                raise ValueError(f"Step {step.id!r}: 'when' requires a 'step' field")
-            if "field" not in when:
-                raise ValueError(f"Step {step.id!r}: 'when' requires a 'field' field")
-            ref_step = when["step"]
-            if ref_step not in seen_step_ids:
-                raise ValueError(
-                    f"Step {step.id!r}: when references step {ref_step!r}"
-                    f" which has not appeared before this step in execution order"
-                )
-            top_field = when["field"].split(".")[0]
-            if top_field not in when_fields:
-                raise ValueError(f"Step {step.id!r}: when field {when['field']!r} must start with one of {when_fields}")
-            ops_found = when_operators & set(when.keys())
-            if len(ops_found) != 1:
-                raise ValueError(
-                    f"Step {step.id!r}: 'when' must have exactly one operator from {when_operators},"
-                    f" found {ops_found or 'none'}"
-                )
+def _resolve_params(
+    definition: WorkflowDefinition,
+    overrides: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Resolve workflow params: overrides win over definition defaults.
 
-        if step.retry:
-            if not isinstance(step.retry, dict):
-                raise ValueError(f"Step {step.id!r}: 'retry' must be a mapping")
-            if step.type in ("gate", "human_gate"):
-                raise ValueError(f"Step {step.id!r}: 'retry' is not allowed on {step.type} steps")
-            max_attempts = step.retry.get("max_attempts")
-            if max_attempts is None or not isinstance(max_attempts, int) or max_attempts < 1:
-                raise ValueError(f"Step {step.id!r}: retry.max_attempts must be an integer >= 1")
-            backoff = step.retry.get("backoff", "exponential")
-            if backoff not in ("exponential", "fixed"):
-                raise ValueError(f"Step {step.id!r}: retry.backoff must be 'exponential' or 'fixed', got {backoff!r}")
-            initial_delay = step.retry.get("initial_delay", 5)
-            if not isinstance(initial_delay, (int, float)) or initial_delay <= 0:
-                raise ValueError(f"Step {step.id!r}: retry.initial_delay must be a positive number")
-            max_delay = step.retry.get("max_delay", 60)
-            if not isinstance(max_delay, (int, float)) or max_delay < initial_delay:
-                raise ValueError(f"Step {step.id!r}: retry.max_delay must be >= initial_delay ({initial_delay})")
-
-        if step.type == "llm":
-            if not step.prompt:
-                raise ValueError(f"LLM step {step.id!r} requires a 'prompt' field")
-            if step.response_format is not None:
-                if step.response_format != "json_object":
-                    raise ValueError(
-                        f"LLM step {step.id!r}: response_format must be 'json_object', got {step.response_format!r}"
-                    )
-
-        if step.response_format is not None and step.type != "llm":
-            raise ValueError(f"Step {step.id!r}: response_format is only allowed on llm steps")
-
-        if step.type == "publish":
-            if not step.destination:
-                raise ValueError(f"Publish step {step.id!r} requires a 'destination' field")
-            if not isinstance(step.destination, dict):
-                raise ValueError(f"Publish step {step.id!r}: 'destination' must be a mapping")
-            adapter = step.destination.get("adapter")
-            if adapter not in ("file", "webhook"):
-                raise ValueError(f"Publish step {step.id!r}: unknown adapter {adapter!r}, must be 'file' or 'webhook'")
-            if adapter == "file" and not step.destination.get("path"):
-                raise ValueError(f"Publish step {step.id!r}: file adapter requires a 'path' field")
-            if adapter == "webhook" and not step.destination.get("url"):
-                raise ValueError(f"Publish step {step.id!r}: webhook adapter requires a 'url' field")
-
-        seen_step_ids.add(step.id)
+    Params without a ``default`` key are required — they must be supplied via
+    *overrides* or a ``ValueError`` is raised.  Returns a flat dict ready to
+    be merged with ``inputs`` for template resolution.
+    """
+    overrides = overrides or {}
+    resolved: dict[str, str] = {}
+    for key, schema in definition.params.items():
+        if key in overrides:
+            resolved[key] = str(overrides[key])
+        elif "default" in schema:
+            resolved[key] = str(schema["default"])
+        else:
+            raise ValueError(f"Required param {key!r} not provided")
+    return resolved
 
 
 def validate_approval_mode(
@@ -607,11 +727,23 @@ def validate_approval_mode(
 
 
 def _all_steps(steps: list[WorkflowStepDef]) -> list[WorkflowStepDef]:
-    """Flatten all steps including nested loop steps."""
+    """Flatten all steps including nested loop and parallel branch steps.
+
+    For parallel steps, branch steps are yielded with qualified IDs
+    in the form ``{branch_id}/{step_id}`` (#976).
+    """
+    import copy
+
     result: list[WorkflowStepDef] = []
     for step in steps:
         result.append(step)
-        if step.steps:
+        if step.type == "parallel" and step.branches:
+            for branch in step.branches:
+                for bs in branch.steps:
+                    qualified = copy.copy(bs)
+                    qualified.id = f"{branch.id}/{bs.id}"
+                    result.append(qualified)
+        elif step.steps:
             result.extend(_all_steps(step.steps))
     return result
 
@@ -648,6 +780,101 @@ def _build_drift_report(run: dict[str, Any], definition: WorkflowDefinition) -> 
         lines.append("  Step IDs unchanged — other definition content changed.")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Compensation helpers (#978)
+# ---------------------------------------------------------------------------
+
+
+def _build_compensate_lookup(definition: WorkflowDefinition) -> dict[str, WorkflowStepDef]:
+    """Build a flat dict mapping qualified step IDs to their compensate blocks.
+
+    Top-level steps: {step.id: step.compensate}
+    Branch steps (from #976): {branch_id/step.id: step.compensate}
+    Loop steps: {step.id: step.compensate} (base ID, not round-suffixed)
+    """
+    lookup: dict[str, WorkflowStepDef] = {}
+    for step in definition.steps:
+        if step.compensate:
+            lookup[step.id] = step.compensate
+        if step.type == "parallel" and step.branches:
+            for branch in step.branches:
+                for bs in branch.steps:
+                    if bs.compensate:
+                        lookup[f"{branch.id}/{bs.id}"] = bs.compensate
+        if step.type == "loop" and step.steps:
+            for ns in step.steps:
+                if ns.compensate:
+                    lookup[ns.id] = ns.compensate
+    return lookup
+
+
+def _build_compensation_queue(
+    db: Any,
+    run_id: str,
+    definition: WorkflowDefinition,
+) -> list[dict[str, Any]]:
+    """Build ordered list of compensation entries from completed steps.
+
+    Returns entries in reverse chronological order (last completed first).
+    Each entry has: original_step_id, compensate_step_id, compensate_def, branch_id.
+    Loop round steps are deduplicated (only the last round per base ID).
+    """
+    from . import workflow_storage as ws
+
+    lookup = _build_compensate_lookup(definition)
+    if not lookup:
+        return []
+
+    all_steps = ws.list_workflow_steps(db, run_id)
+    completed_steps = [s for s in all_steps if s["status"] == "completed" and s.get("is_compensation", 0) == 0]
+
+    # Sort by completed_at DESC for reverse chronological order
+    completed_steps.sort(key=lambda s: s.get("completed_at") or "", reverse=True)
+
+    queue: list[dict[str, Any]] = []
+    seen_base_ids: set[str] = set()
+
+    for step in completed_steps:
+        step_id = step["step_id"]
+        branch_id = step.get("branch_id")
+
+        # For loop round steps (e.g., "step_R1"), use base ID for lookup
+        base_id = step_id
+        for loop_step in definition.steps:
+            if loop_step.type == "loop" and loop_step.steps:
+                for ns in loop_step.steps:
+                    if step_id.startswith(ns.id + "_R"):
+                        base_id = ns.id
+                        break
+
+        # Build qualified ID for branch steps
+        qualified_id = f"{branch_id}/{base_id}" if branch_id else base_id
+
+        # Deduplicate loop rounds — only keep the first (most recent) per base ID
+        dedup_key = qualified_id
+        if dedup_key in seen_base_ids:
+            continue
+
+        comp_def = lookup.get(qualified_id)
+        if comp_def is None:
+            # Try base_id without branch qualification for top-level
+            comp_def = lookup.get(base_id)
+        if comp_def is None:
+            continue
+
+        seen_base_ids.add(dedup_key)
+        queue.append(
+            {
+                "original_step_id": step_id,
+                "compensate_step_id": comp_def.id,
+                "compensate_def": comp_def,
+                "branch_id": branch_id,
+            }
+        )
+
+    return queue
 
 
 # ---------------------------------------------------------------------------
@@ -1025,6 +1252,7 @@ class WorkflowEngine:
         target_ref: str,
         inputs: dict[str, Any] | None = None,
         space_id: str | None = None,
+        param_overrides: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Start a new workflow run. Returns the run dict."""
         from . import workflow_storage as ws
@@ -1062,6 +1290,9 @@ class WorkflowEngine:
             if schema.get("required") and (not inputs or name not in inputs):
                 raise ValueError(f"Missing required input: {name!r}")
 
+        # Resolve workflow params (#958)
+        resolved_params = _resolve_params(definition, param_overrides)
+
         # Validate credential bindings BEFORE run creation/lock (#970)
         self._validate_step_credentials(definition)
 
@@ -1080,6 +1311,7 @@ class WorkflowEngine:
             definition_hash=definition.content_hash or None,
             definition_content=definition.raw_yaml.decode("utf-8", errors="replace") if definition.raw_yaml else None,
             budget=budget or None,
+            params=resolved_params or None,
         )
 
         # Acquire concurrency lock
@@ -1112,10 +1344,11 @@ class WorkflowEngine:
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(run["id"]))
 
         try:
+            template_vars = {**resolved_params, **(inputs or {})}
             run = await self._execute_steps(
                 run,
                 definition.steps,
-                inputs or {},
+                template_vars,
                 definition,
                 budget_start_time=time.monotonic(),
             )
@@ -1148,6 +1381,7 @@ class WorkflowEngine:
         space_id: str | None = None,
         trigger_source: str | None = None,
         trigger_meta: dict[str, Any] | None = None,
+        param_overrides: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Enqueue a workflow run as pending without executing it.
 
@@ -1174,6 +1408,9 @@ class WorkflowEngine:
             if schema.get("required") and (not inputs or name not in inputs):
                 raise ValueError(f"Missing required input: {name!r}")
 
+        # Resolve workflow params (#958)
+        resolved_params = _resolve_params(definition, param_overrides)
+
         self._validate_step_credentials(definition)
         budget = self._compute_effective_budget(definition)
 
@@ -1190,6 +1427,7 @@ class WorkflowEngine:
             budget=budget or None,
             trigger_source=trigger_source,
             trigger_meta=trigger_meta,
+            params=resolved_params or None,
         )
 
         await self._emit_event(
@@ -1256,10 +1494,11 @@ class WorkflowEngine:
         run_id_for_cleanup = run["id"]
 
         try:
+            template_vars = {**(run.get("params") or {}), **(run.get("inputs") or {})}
             run = await self._execute_steps(
                 run,
                 definition.steps,
-                run.get("inputs") or {},
+                template_vars,
                 definition,
                 budget_start_time=time.monotonic(),
             )
@@ -1303,9 +1542,11 @@ class WorkflowEngine:
             pass
 
     async def recover_interrupted_runs(self) -> list[dict[str, Any]]:
-        """Find stale running runs, mark as paused, repair step state, release locks.
+        """Find stale running/compensating runs, repair step state, release locks.
 
         Called on-demand by list/resume CLI commands, not on generic startup.
+        Runs stuck in 'compensating' stay in 'compensating' (not paused) so
+        resume knows to continue compensation (#978).
         """
         from . import workflow_storage as ws
 
@@ -1321,12 +1562,22 @@ class WorkflowEngine:
                     completed_at=datetime.now(timezone.utc).isoformat(),
                 )
 
-            ws.update_workflow_run(
-                self._db,
-                run["id"],
-                status="paused",
-                stop_reason="process_interrupted",
-            )
+            if run["status"] == "compensating":
+                # Keep in compensating so resume continues compensation.
+                # Transition to paused to prevent re-recovery on next stale pass (#978).
+                ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    status="paused",
+                    stop_reason="process_interrupted_during_compensation",
+                )
+            else:
+                ws.update_workflow_run(
+                    self._db,
+                    run["id"],
+                    status="paused",
+                    stop_reason="process_interrupted",
+                )
             ws.release_lock(self._db, run_id=run["id"])
             await self._emit_event(
                 run_id=run["id"],
@@ -1360,10 +1611,10 @@ class WorkflowEngine:
         run = ws.get_workflow_run(self._db, run_id)
         if not run:
             raise ValueError(f"Run not found: {run_id}")
-        if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input"):
+        if run["status"] not in ("paused", "waiting_for_approval", "waiting_for_input", "compensating"):
             raise ValueError(
                 f"Run {run_id} is not resumable (status: {run['status']}). "
-                f"Only paused, waiting_for_approval, or waiting_for_input runs can be resumed."
+                f"Only paused, waiting_for_approval, waiting_for_input, or compensating runs can be resumed."
             )
 
         # Definition drift detection (#964)
@@ -1532,6 +1783,61 @@ class WorkflowEngine:
                                 # "continue" = just add the gate step to completed and proceed
                                 completed.add(current_step_id)
 
+        # Resume from compensating (#978): reload checkpoint, continue compensation.
+        # Recovered compensating runs are transitioned to paused with a distinctive
+        # stop_reason so resume can route back to the compensation path.
+        _resume_compensation = run["status"] == "compensating" or (
+            run["status"] == "paused" and run.get("stop_reason") == "process_interrupted_during_compensation"
+        )
+        if _resume_compensation:
+            ws.update_workflow_run(self._db, run_id, status="compensating", heartbeat_at=_now())
+            heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id))
+            await self._emit_event(
+                run_id=run_id,
+                event_type="run_resumed",
+                payload={"resume_phase": "compensation"},
+            )
+            try:
+                inputs_for_comp = {**(run.get("params") or {}), **(run.get("inputs") or {})}
+                # Rebuild compensation queue
+                comp_queue = _build_compensation_queue(self._db, run_id, definition)
+                # Load latest compensation checkpoint to find completed/failed entries
+                checkpoints = ws.list_checkpoints(self._db, run_id)
+                comp_completed: list[str] = []
+                comp_failed: list[str] = []
+                for cp in reversed(checkpoints):
+                    if cp.get("label") == "compensation_queue":
+                        sr = cp.get("step_results") or {}
+                        comp_completed = sr.get("completed", [])
+                        comp_failed = sr.get("failed", [])
+                        break
+                run = await self._execute_compensation(
+                    run,
+                    comp_queue,
+                    definition,
+                    inputs_for_comp,
+                    step_results,
+                    completed_entries=comp_completed,
+                    failed_entries=comp_failed,
+                )
+            except Exception:
+                logger.exception("Compensation resume for run %s failed with exception", run_id)
+                run = ws.update_workflow_run(
+                    self._db,
+                    run_id,
+                    status="compensation_failed",
+                    stop_reason="unhandled_exception",
+                )
+            finally:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
+                ws.release_lock(self._db, run_id=run_id)
+                await self._drain_hooks()
+            return run
+
         # Mark running, write initial heartbeat
         run = ws.update_workflow_run(self._db, run_id, status="running", stop_reason=None)
         ws.update_workflow_run(self._db, run_id, heartbeat_at=_now())
@@ -1544,7 +1850,7 @@ class WorkflowEngine:
         )
 
         try:
-            inputs = run.get("inputs") or {}
+            inputs = {**(run.get("params") or {}), **(run.get("inputs") or {})}
             # Reload budget usage from run record for resume (#967)
             budget_usage = run.get("budget_usage")
             run = await self._execute_steps(
@@ -1591,6 +1897,214 @@ class WorkflowEngine:
                     "result_findings": step.get("result_findings"),
                 }
         return results
+
+    async def _execute_compensation(
+        self,
+        run: dict[str, Any],
+        queue: list[dict[str, Any]],
+        definition: WorkflowDefinition,
+        inputs: dict[str, Any],
+        step_results: dict[str, dict[str, Any]],
+        *,
+        completed_entries: list[str] | None = None,
+        failed_entries: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Execute compensation steps in order (best-effort).
+
+        Transitions run to 'compensating', then to 'compensated' or
+        'compensation_failed' depending on results.
+        """
+        from . import workflow_storage as ws
+
+        completed_list: list[str] = list(completed_entries or [])
+        failed_list: list[str] = list(failed_entries or [])
+
+        # Transition to compensating if not already
+        if run.get("status") != "compensating":
+            run = ws.update_workflow_run(self._db, run["id"], status="compensating")
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="compensation_started",
+                payload={"queue_size": len(queue)},
+                definition=definition,
+            )
+
+        # Create initial checkpoint
+        ws.create_checkpoint(
+            self._db,
+            run_id=run["id"],
+            label="compensation_queue",
+            step_id=None,
+            step_results={
+                "queue": [e["original_step_id"] for e in queue],
+                "completed": completed_list,
+                "failed": failed_list,
+            },
+            budget_usage=None,
+            run_status="compensating",
+        )
+
+        for entry in queue:
+            orig_step_id = entry["original_step_id"]
+
+            # Skip already processed entries (for resume)
+            if orig_step_id in completed_list or orig_step_id in failed_list:
+                continue
+
+            comp_def: WorkflowStepDef = entry["compensate_def"]
+            branch_id = entry.get("branch_id")
+
+            step_record = ws.create_workflow_step(
+                self._db,
+                run_id=run["id"],
+                step_id=comp_def.id,
+                step_type=comp_def.type,
+                runner_type=comp_def.runner,
+                branch_id=branch_id,
+                is_compensation=1,
+            )
+            ws.update_workflow_step(
+                self._db,
+                step_record["id"],
+                status="running",
+                started_at=_now(),
+            )
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="step_started",
+                step_id=comp_def.id,
+                payload={"step_type": comp_def.type, "is_compensation": True, "original_step": orig_step_id},
+            )
+
+            start_time = time.monotonic()
+            try:
+                if comp_def.type == "runner":
+                    result = await self._execute_runner_step(
+                        comp_def, run, inputs, step_results, definition, step_record=step_record
+                    )
+                elif comp_def.type == "llm":
+                    result = await self._execute_llm_step(comp_def, run, inputs, step_results, definition)
+                else:
+                    raise ValueError(f"Unsupported compensation step type: {comp_def.type!r}")
+
+                duration_ms = int((time.monotonic() - start_time) * 1000)
+
+                if result.status == "failed":
+                    ws.update_workflow_step(
+                        self._db,
+                        step_record["id"],
+                        status="failed",
+                        result_status="failed",
+                        result_summary=result.summary,
+                        duration_ms=duration_ms,
+                        completed_at=_now(),
+                    )
+                    failed_list.append(orig_step_id)
+                    await self._emit_event(
+                        run_id=run["id"],
+                        event_type="compensation_step_failed",
+                        step_id=comp_def.id,
+                        payload={"original_step": orig_step_id, "error": result.summary},
+                    )
+                else:
+                    ws.update_workflow_step(
+                        self._db,
+                        step_record["id"],
+                        status="completed",
+                        result_status=result.status,
+                        result_summary=result.summary,
+                        result_artifacts=result.artifacts,
+                        duration_ms=duration_ms,
+                        completed_at=_now(),
+                    )
+                    completed_list.append(orig_step_id)
+                    await self._emit_event(
+                        run_id=run["id"],
+                        event_type="compensation_step_completed",
+                        step_id=comp_def.id,
+                        payload={"original_step": orig_step_id},
+                    )
+
+                    # Update budget usage (but no budget enforcement during compensation)
+                    run_record = ws.get_workflow_run(self._db, run["id"])
+                    if run_record:
+                        budget_usage = run_record.get("budget_usage") or {}
+                        budget_usage["steps_completed"] = budget_usage.get("steps_completed", 0) + 1
+                        budget_usage["total_tokens"] = budget_usage.get("total_tokens", 0) + result.artifacts.get(
+                            "total_tokens", 0
+                        )
+                        budget_usage["prompt_tokens"] = budget_usage.get("prompt_tokens", 0) + result.artifacts.get(
+                            "prompt_tokens", 0
+                        )
+                        budget_usage["completion_tokens"] = budget_usage.get(
+                            "completion_tokens", 0
+                        ) + result.artifacts.get("completion_tokens", 0)
+                        ws.update_workflow_run(self._db, run["id"], budget_usage_json=budget_usage)
+
+            except Exception as exc:
+                duration_ms = int((time.monotonic() - start_time) * 1000)
+                ws.update_workflow_step(
+                    self._db,
+                    step_record["id"],
+                    status="failed",
+                    result_status="failed",
+                    result_summary=str(exc),
+                    duration_ms=duration_ms,
+                    completed_at=_now(),
+                )
+                failed_list.append(orig_step_id)
+                await self._emit_event(
+                    run_id=run["id"],
+                    event_type="compensation_step_failed",
+                    step_id=comp_def.id,
+                    payload={"original_step": orig_step_id, "error": str(exc)},
+                )
+
+            # Update checkpoint after each compensation step
+            ws.create_checkpoint(
+                self._db,
+                run_id=run["id"],
+                label="compensation_queue",
+                step_id=comp_def.id,
+                step_results={
+                    "queue": [e["original_step_id"] for e in queue],
+                    "completed": completed_list,
+                    "failed": failed_list,
+                },
+                budget_usage=None,
+                run_status="compensating",
+            )
+
+        # Final status
+        if failed_list:
+            run = ws.update_workflow_run(
+                self._db,
+                run["id"],
+                status="compensation_failed",
+                stop_reason=f"compensation_failed:{','.join(failed_list)}",
+                completed_at=_now(),
+            )
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="run_compensation_failed",
+                payload={"completed": completed_list, "failed": failed_list},
+                definition=definition,
+            )
+        else:
+            run = ws.update_workflow_run(
+                self._db,
+                run["id"],
+                status="compensated",
+                completed_at=_now(),
+            )
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="run_compensated",
+                payload={"completed": completed_list},
+                definition=definition,
+            )
+
+        return run
 
     async def _execute_human_gate_step(
         self,
@@ -1851,6 +2365,19 @@ class WorkflowEngine:
                         result = await self._execute_publish_step(step_def, run, inputs, step_results)
                     elif step_def.type == "llm":
                         result = await self._execute_llm_step(step_def, run, inputs, step_results, definition)
+                    elif step_def.type == "parallel":
+                        par_result = await self._execute_parallel_step(
+                            step_def,
+                            run,
+                            inputs,
+                            definition,
+                            step_results,
+                            budget_usage,
+                            skip_completed=skip_completed,
+                        )
+                        if par_result is None:
+                            raise RuntimeError(f"Parallel step {step_def.id!r} failed")
+                        result = par_result
                     elif step_def.type == "human_gate":
                         hg_run = await self._execute_human_gate_step(
                             step_def,
@@ -1948,6 +2475,16 @@ class WorkflowEngine:
                         budget_usage=dict(budget_usage),
                         run_status="failed",
                     )
+                    # Compensation (#978)
+                    comp_queue = _build_compensation_queue(self._db, run["id"], definition)
+                    if comp_queue:
+                        run = await self._execute_compensation(
+                            run,
+                            comp_queue,
+                            definition,
+                            inputs,
+                            step_results,
+                        )
                     return run
 
                 duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -2079,6 +2616,16 @@ class WorkflowEngine:
                         budget_usage=dict(budget_usage),
                         run_status="failed",
                     )
+                    # Compensation (#978)
+                    comp_queue = _build_compensation_queue(self._db, run["id"], definition)
+                    if comp_queue:
+                        run = await self._execute_compensation(
+                            run,
+                            comp_queue,
+                            definition,
+                            inputs,
+                            step_results,
+                        )
                     return run
 
                 # Success — break out of retry loop
@@ -2656,4 +3203,247 @@ class WorkflowEngine:
         return RunnerResult(
             status="success",
             summary=f"Loop completed after {rounds_completed}/{max_rounds} rounds",
+        )
+
+    async def _execute_branch_steps(
+        self,
+        branch_id: str,
+        steps: list[WorkflowStepDef],
+        run: dict[str, Any],
+        inputs: dict[str, Any],
+        definition: WorkflowDefinition,
+        skip_completed: set[str] | None,
+        branch_results: dict[str, dict[str, Any]],
+        branch_budget_usage: dict[str, Any],
+    ) -> None:
+        """Execute steps for a single parallel branch.
+
+        Prefixes all step IDs with ``{branch_id}/``.
+        Does NOT update ``run.current_step_id``, create checkpoints, or transition run status.
+        On step failure, raises an exception so ``asyncio.wait`` can detect it (#976).
+        """
+        from . import workflow_storage as ws
+
+        for step_def in steps:
+            qualified_id = f"{branch_id}/{step_def.id}"
+
+            if skip_completed and qualified_id in skip_completed:
+                logger.info("Skipping completed branch step %r on resume", qualified_id)
+                continue
+
+            step_record = ws.create_workflow_step(
+                self._db,
+                run_id=run["id"],
+                step_id=qualified_id,
+                step_type=step_def.type,
+                runner_type=step_def.runner,
+                branch_id=branch_id,
+            )
+
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="step_started",
+                step_id=qualified_id,
+                payload={"step_type": step_def.type, "branch": branch_id},
+            )
+
+            ws.update_workflow_step(
+                self._db,
+                step_record["id"],
+                status="running",
+                started_at=datetime.now(timezone.utc).isoformat(),
+            )
+
+            start_time = time.monotonic()
+
+            try:
+                if step_def.type == "runner":
+                    result = await self._execute_runner_step(
+                        step_def, run, inputs, branch_results, definition, step_record=step_record
+                    )
+                elif step_def.type == "gate":
+                    result = await self._execute_gate_step(step_def, run, inputs)
+                elif step_def.type == "loop":
+                    result = await self._execute_loop_step(step_def, run, inputs, definition, branch_results)
+                elif step_def.type == "publish":
+                    result = await self._execute_publish_step(step_def, run, inputs, branch_results)
+                elif step_def.type == "llm":
+                    result = await self._execute_llm_step(step_def, run, inputs, branch_results, definition)
+                else:
+                    raise ValueError(f"Unsupported step type in parallel branch: {step_def.type!r}")
+            except Exception as exc:
+                duration_ms = int((time.monotonic() - start_time) * 1000)
+                ws.update_workflow_step(
+                    self._db,
+                    step_record["id"],
+                    status="failed",
+                    result_status="failed",
+                    result_summary=str(exc),
+                    duration_ms=duration_ms,
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                )
+                await self._emit_event(
+                    run_id=run["id"],
+                    event_type="step_failed",
+                    step_id=qualified_id,
+                    payload={"error": str(exc), "branch": branch_id},
+                )
+                raise
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+
+            if result.status == "failed":
+                ws.update_workflow_step(
+                    self._db,
+                    step_record["id"],
+                    status="failed",
+                    result_status="failed",
+                    result_summary=result.summary,
+                    result_artifacts=result.artifacts,
+                    result_findings=result.findings,
+                    duration_ms=duration_ms,
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                )
+                await self._emit_event(
+                    run_id=run["id"],
+                    event_type="step_failed",
+                    step_id=qualified_id,
+                    payload={"result_status": "failed", "summary": result.summary, "branch": branch_id},
+                )
+                raise RuntimeError(f"Branch {branch_id} step {step_def.id} failed: {result.summary}")
+
+            ws.update_workflow_step(
+                self._db,
+                step_record["id"],
+                status="completed",
+                result_status=result.status,
+                result_summary=result.summary,
+                result_artifacts=result.artifacts,
+                result_findings=result.findings,
+                raw_output_path=result.raw_output_path,
+                duration_ms=duration_ms,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+            )
+            await self._emit_event(
+                run_id=run["id"],
+                event_type="step_finished",
+                step_id=qualified_id,
+                payload={"result_status": result.status, "duration_ms": duration_ms, "branch": branch_id},
+            )
+
+            branch_results[qualified_id] = {
+                "result_status": result.status,
+                "result_summary": result.summary,
+                "result_artifacts": result.artifacts,
+                "result_findings": result.findings,
+            }
+
+            # Track budget usage per branch
+            branch_budget_usage["steps_completed"] = branch_budget_usage.get("steps_completed", 0) + 1
+            step_tokens = result.artifacts.get("total_tokens", 0)
+            branch_budget_usage["total_tokens"] = branch_budget_usage.get("total_tokens", 0) + step_tokens
+            branch_budget_usage["prompt_tokens"] = branch_budget_usage.get("prompt_tokens", 0) + result.artifacts.get(
+                "prompt_tokens", 0
+            )
+            branch_budget_usage["completion_tokens"] = branch_budget_usage.get(
+                "completion_tokens", 0
+            ) + result.artifacts.get("completion_tokens", 0)
+
+    async def _execute_parallel_step(
+        self,
+        step_def: WorkflowStepDef,
+        run: dict[str, Any],
+        inputs: dict[str, Any],
+        definition: WorkflowDefinition,
+        step_results: dict[str, dict[str, Any]],
+        budget_usage: dict[str, Any],
+        *,
+        skip_completed: set[str] | None = None,
+    ) -> RunnerResult | None:
+        """Execute a parallel step with named branches and join:all semantics (#976).
+
+        Uses ``asyncio.wait(return_when=FIRST_EXCEPTION)`` for fail-fast.
+        On any branch failure, cancels remaining tasks.
+        Merges branch results into parent step_results.
+        Returns RunnerResult on success, None on failure (run status already set).
+        """
+        from .workflow_runners import RunnerResult as _RunnerResult
+
+        if not step_def.branches:
+            return _RunnerResult(status="success", summary="Parallel step with no branches", duration_ms=0)
+
+        branch_results_per_branch: dict[str, dict[str, dict[str, Any]]] = {}
+        branch_budget_per_branch: dict[str, dict[str, Any]] = {}
+        tasks: dict[asyncio.Task[None], str] = {}
+
+        for branch in step_def.branches:
+            br_results: dict[str, dict[str, Any]] = {}
+            br_budget: dict[str, Any] = {
+                "steps_completed": 0,
+                "total_tokens": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+            }
+            branch_results_per_branch[branch.id] = br_results
+            branch_budget_per_branch[branch.id] = br_budget
+            task = asyncio.create_task(
+                self._execute_branch_steps(
+                    branch_id=branch.id,
+                    steps=branch.steps,
+                    run=run,
+                    inputs=inputs,
+                    definition=definition,
+                    skip_completed=skip_completed,
+                    branch_results=br_results,
+                    branch_budget_usage=br_budget,
+                ),
+                name=f"branch:{branch.id}",
+            )
+            tasks[task] = branch.id
+
+        # Wait for all tasks, fail-fast on first exception
+        done: set[asyncio.Task[None]] = set()
+        pending: set[asyncio.Task[None]] = set(tasks.keys())
+        failed = False
+
+        while pending:
+            finished, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_EXCEPTION)
+            done.update(finished)
+            for t in finished:
+                if t.exception() is not None:
+                    failed = True
+                    break
+            if failed:
+                break
+
+        if failed:
+            # Cancel remaining tasks
+            for t in pending:
+                t.cancel()
+            if pending:
+                await asyncio.wait(pending)
+            # Merge whatever partial results we got
+            for br_results in branch_results_per_branch.values():
+                step_results.update(br_results)
+            return None  # Caller handles run status
+
+        # All branches succeeded — merge results and budget
+        for br_results in branch_results_per_branch.values():
+            step_results.update(br_results)
+
+        for br_budget in branch_budget_per_branch.values():
+            budget_usage["steps_completed"] = budget_usage.get("steps_completed", 0) + br_budget.get(
+                "steps_completed", 0
+            )
+            budget_usage["total_tokens"] = budget_usage.get("total_tokens", 0) + br_budget.get("total_tokens", 0)
+            budget_usage["prompt_tokens"] = budget_usage.get("prompt_tokens", 0) + br_budget.get("prompt_tokens", 0)
+            budget_usage["completion_tokens"] = budget_usage.get("completion_tokens", 0) + br_budget.get(
+                "completion_tokens", 0
+            )
+
+        branch_ids = [b.id for b in step_def.branches]
+        return _RunnerResult(
+            status="success",
+            summary=f"Parallel step completed: branches {branch_ids}",
+            duration_ms=0,
         )

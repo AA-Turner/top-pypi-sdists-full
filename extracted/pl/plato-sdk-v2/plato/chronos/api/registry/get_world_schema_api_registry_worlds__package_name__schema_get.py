@@ -13,6 +13,7 @@ from plato.chronos.models import WorldSchemaResponse
 def _build_request_args(
     package_name: str,
     version: str | None = None,
+    world_name: str | None = None,
     allow_prerelease: bool | None = False,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -21,6 +22,8 @@ def _build_request_args(
     params: dict[str, Any] = {}
     if version is not None:
         params["version"] = version
+    if world_name is not None:
+        params["world_name"] = world_name
     if allow_prerelease is not None:
         params["allow_prerelease"] = allow_prerelease
 
@@ -35,9 +38,13 @@ def sync(
     client: httpx.Client,
     package_name: str,
     version: str | None = None,
+    world_name: str | None = None,
     allow_prerelease: bool | None = False,
 ) -> WorldSchemaResponse:
     """Get schema for a world package from the registry.
+
+    For packages with multiple worlds (catalog format), specify
+    ``world_name`` to select which world's schema to return.
 
     First tries the registry's schema endpoint, then falls back to
     extracting schema.json directly from the wheel."""
@@ -45,6 +52,7 @@ def sync(
     request_args = _build_request_args(
         package_name=package_name,
         version=version,
+        world_name=world_name,
         allow_prerelease=allow_prerelease,
     )
 
@@ -57,9 +65,13 @@ async def asyncio(
     client: httpx.AsyncClient,
     package_name: str,
     version: str | None = None,
+    world_name: str | None = None,
     allow_prerelease: bool | None = False,
 ) -> WorldSchemaResponse:
     """Get schema for a world package from the registry.
+
+    For packages with multiple worlds (catalog format), specify
+    ``world_name`` to select which world's schema to return.
 
     First tries the registry's schema endpoint, then falls back to
     extracting schema.json directly from the wheel."""
@@ -67,6 +79,7 @@ async def asyncio(
     request_args = _build_request_args(
         package_name=package_name,
         version=version,
+        world_name=world_name,
         allow_prerelease=allow_prerelease,
     )
 

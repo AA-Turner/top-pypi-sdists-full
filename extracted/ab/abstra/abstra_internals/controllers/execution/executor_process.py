@@ -22,13 +22,18 @@ from abstra_internals.controllers.execution.execution_client import (
 )
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
+from abstra_internals.controllers.execution.execution_client_page import PageClient
 from abstra_internals.controllers.execution.execution_conn import (
     set_broadcast_publisher,
     set_execution_conn,
 )
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution import ClientContext
-from abstra_internals.entities.execution_context import FormContext, HookContext
+from abstra_internals.entities.execution_context import (
+    FormContext,
+    HookContext,
+    PageContext,
+)
 from abstra_internals.environment import (
     EDITOR_MODE,
     IS_DEVELOPMENT,
@@ -144,6 +149,12 @@ def make_client_from_context(
         )
     elif isinstance(ctx, HookContext):
         return HookClient(
+            context=ctx,
+            conn=connection,
+            production_mode=IS_PRODUCTION,
+        )
+    elif isinstance(ctx, PageContext):
+        return PageClient(
             context=ctx,
             conn=connection,
             production_mode=IS_PRODUCTION,

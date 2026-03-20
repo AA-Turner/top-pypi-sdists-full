@@ -1,48 +1,143 @@
 """Functions for generating quantum operators."""
 
-import math
 import functools
 import itertools
+import math
 import operator
 
 import numpy as np
 import scipy.sparse as sp
 from scipy.special import comb
 
-from ..utils import isiterable, concat, unique
 from ..core import (
-    qarray,
-    make_immutable,
-    get_thread_pool,
-    par_reduce,
-    isreal,
-    qu,
     eye,
-    kron,
+    get_thread_pool,
     ikron,
+    isreal,
+    kron,
+    make_immutable,
+    par_reduce,
+    qarray,
+    qu,
 )
-
+from ..utils import concat, isiterable, unique
 
 # --------------------------------------------------------------------------- #
 #                      gates and other simple operators                       #
 # --------------------------------------------------------------------------- #
 
 
+@functools.lru_cache(maxsize=8)
+def pauli(xyz, dim=2, **kwargs):
+    r"""Generate a Pauli matrix. For dim=2 these are:
+
+    .. math::
+
+        I = \begin{bmatrix}
+        1 & 0 \\
+        0 & 1
+        \end{bmatrix}, \quad
+        X = \begin{bmatrix}
+        0 & 1 \\
+        1 & 0
+        \end{bmatrix}, \quad
+        Y = \begin{bmatrix}
+        0 & -i \\
+        i & 0
+        \end{bmatrix}, \quad
+        Z = \begin{bmatrix}
+        1 & 0 \\
+        0 & -1
+        \end{bmatrix}
+
+
+    Parameters
+    ----------
+    xyz : str
+        Which spatial direction, upper or lower case from
+        ``{'I', 'X', 'Y', 'Z'}``.
+    dim : int, optional
+        Dimension of spin operator (e.g. 3 for spin-1), defaults to 2 for
+        spin half.
+    kwargs
+        Passed to ``quimbify``.
+
+    Returns
+    -------
+    P : immutable operator
+        The pauli operator.
+
+    See Also
+    --------
+    spin_operator
+    """
+    xyzmap = {
+        0: "i",
+        "i": "i",
+        "I": "i",
+        1: "x",
+        "x": "x",
+        "X": "x",
+        2: "y",
+        "y": "y",
+        "Y": "y",
+        3: "z",
+        "z": "z",
+        "Z": "z",
+    }
+    opmap = {
+        ("i", 2): lambda: eye(2, **kwargs),
+        ("x", 2): lambda: qu([[0, 1], [1, 0]], **kwargs),
+        ("y", 2): lambda: qu([[0, -1j], [1j, 0]], **kwargs),
+        ("z", 2): lambda: qu([[1, 0], [0, -1]], **kwargs),
+        ("i", 3): lambda: eye(3, **kwargs),
+        ("x", 3): lambda: (
+            qu([[0, 1, 0], [1, 0, 1], [0, 1, 0]], **kwargs) / 2**0.5
+        ),
+        ("y", 3): lambda: (
+            qu([[0, -1j, 0], [1j, 0, -1j], [0, 1j, 0]], **kwargs) / 2**0.5
+        ),
+        ("z", 3): lambda: qu([[1, 0, 0], [0, 0, 0], [0, 0, -1]], **kwargs),
+    }
+    op = opmap[(xyzmap[xyz], dim)]()
+
+    # Operator is cached, so make sure it cannot be modified
+    make_immutable(op)
+
+    return op
+
+
 @functools.lru_cache(maxsize=16)
 def spin_operator(label, S=1 / 2, **kwargs):
-    """Generate a general spin-operator.
+    r"""Generate a general spin-operator.
+
+    The operators are defined as:
+
+    .. math::
+
+        S^z |m\rangle = m |m\rangle
+
+        S^+ |m\rangle = \sqrt{S(S+1) - m(m+1)} |m+1\rangle
+
+        S^- |m\rangle = \sqrt{S(S+1) - m(m-1)} |m-1\rangle
+
+        S^x = \frac{1}{2}(S^+ + S^-)
+
+        S^y = \frac{1}{2i}(S^+ - S^-)
+
+    where :math:`m \in \{S, S-1, \dots, -S\}`.
 
     Parameters
     ----------
     label : str
         The type of operator, can be one of six options:
 
-            - ``{'x', 'X'}``, x-spin operator.
-            - ``{'y', 'Y'}``, y-spin operator.
-            - ``{'z', 'Z'}``, z-spin operator.
-            - ``{'+', 'p'}``, Raising operator.
-            - ``{'-', 'm'}``, Lowering operator.
-            - ``{'i', 'I'}``, identity operator.
+        - ``{'x', 'X'}``, x-spin operator.
+        - ``{'y', 'Y'}``, y-spin operator.
+        - ``{'z', 'Z'}``, z-spin operator.
+        - ``{'+', 'p'}``, Raising operator.
+        - ``{'-', 'm'}``, Lowering operator.
+        - ``{'i', 'I'}``, identity operator.
 
     S : float, optional
         The spin of particle to act on, default to spin-1/2.
@@ -115,67 +210,106 @@ def spin_operator(label, S=1 / 2, **kwargs):
     return op
 
 
-@functools.lru_cache(maxsize=8)
-def pauli(xyz, dim=2, **kwargs):
-    """Generates the pauli operators for dimension 2 or 3.
+@functools.lru_cache(32)
+def shift(dim, power=1, **kwargs):
+    r"""Generate the cyclic shift operator for a subsystem of dimension `dim`:
+
+    .. math::
+
+        S = \sum_{i=0}^{d-1} |(i + p) \mod d\rangle \langle i|
+        =
+        \begin{bmatrix}
+        0 & 0 & \cdots  & 0 & 1 \\
+        1 & 0 & \cdots  & 0 & 0 \\
+        0 & 1 & \cdots  & 0 & 0 \\
+        \vdots & \vdots & \ddots & \vdots & \vdots \\
+        0 & 0 & \cdots  & 1 & 0
+        \end{bmatrix}^p
 
     Parameters
     ----------
-    xyz : str
-        Which spatial direction, upper or lower case from ``{'I', 'X', 'Y',
-        'Z'}``.
-    dim : int, optional
-        Dimension of spin operator (e.g. 3 for spin-1), defaults to 2 for
-        spin half.
+    dim : int
+        Dimension of the subsystem to shift.
+    power : int, optional
+        Number of places to shift by, defaults to 1. This is equivalent to
+        raising the operator to this power.
     kwargs
-        Passed to ``quimbify``.
+        Passed to :func:`quimbify`.
 
     Returns
     -------
-    P : immutable operator
-        The pauli operator.
-
-    See Also
-    --------
-    spin_operator
+    S : qarray or sparse matrix
+        The shift operator, immutable.
     """
-    xyzmap = {
-        0: "i",
-        "i": "i",
-        "I": "i",
-        1: "x",
-        "x": "x",
-        "X": "x",
-        2: "y",
-        "y": "y",
-        "Y": "y",
-        3: "z",
-        "z": "z",
-        "Z": "z",
-    }
-    opmap = {
-        ("i", 2): lambda: eye(2, **kwargs),
-        ("x", 2): lambda: qu([[0, 1], [1, 0]], **kwargs),
-        ("y", 2): lambda: qu([[0, -1j], [1j, 0]], **kwargs),
-        ("z", 2): lambda: qu([[1, 0], [0, -1]], **kwargs),
-        ("i", 3): lambda: eye(3, **kwargs),
-        ("x", 3): lambda: qu([[0, 1, 0], [1, 0, 1], [0, 1, 0]], **kwargs)
-        / 2**0.5,
-        ("y", 3): lambda: qu([[0, -1j, 0], [1j, 0, -1j], [0, 1j, 0]], **kwargs)
-        / 2**0.5,
-        ("z", 3): lambda: qu([[1, 0, 0], [0, 0, 0], [0, 0, -1]], **kwargs),
-    }
-    op = opmap[(xyzmap[xyz], dim)]()
+    power = power % dim  # wrap around
 
-    # Operator is cached, so make sure it cannot be modified
-    make_immutable(op)
+    S = np.zeros((dim, dim), dtype=complex)
+    for i in range(dim):
+        S[(i + power) % dim, i] = 1.0
 
-    return op
+    S = qu(S, **kwargs)
+    make_immutable(S)
+    return S
+
+
+@functools.lru_cache(8)
+def clock(dim, power=1, **kwargs):
+    r"""Generate the clock operator for a subsystem of dimension `dim`:
+
+    .. math::
+
+        C = \sum_{i=0}^{d-1} \omega^{p
+        \cdot i} |i\rangle \langle i|
+        =
+        \begin{bmatrix}
+        1 & 0 & 0 & \cdots & 0 \\
+        0 & \omega & 0 & \cdots & 0 \\
+        0 & 0 & \omega^2 & \cdots & 0 \\
+        \vdots & \vdots & \vdots & \ddots & \vdots \\
+        0 & 0 & 0 & \cdots & \omega^{(d-1)}
+        \end{bmatrix}^p
+
+    where :math:`\omega = e^{2 \pi i / d}` is the primitive d-th root of unity,
+    with `power=` :math:`p`.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension of the subsystem.
+    power : int, optional
+        Power to raise the operator to, defaults to 1.
+    kwargs
+        Passed to :func:`quimbify`.
+
+    Returns
+    -------
+    C : qarray or sparse matrix
+        The clock operator, immutable.
+    """
+    omega = np.exp(power * 2j * np.pi / dim)
+
+    C = np.zeros((dim, dim), dtype=complex)
+    for i in range(dim):
+        C[i, i] = omega**i
+
+    C = qu(C, **kwargs)
+    make_immutable(C)
+    return C
 
 
 @functools.lru_cache(8)
 def hadamard(dtype=complex, sparse=False):
-    """The Hadamard gate."""
+    r"""The Hadamard gate:
+
+    .. math::
+
+        H = \frac{1}{\sqrt{2}}
+        \begin{bmatrix}
+        1 & 1 \\
+        1 & -1
+        \end{bmatrix}
+
+    """
     H = qu([[1.0, 1.0], [1.0, -1.0]], dtype=dtype, sparse=sparse) / 2**0.5
     make_immutable(H)
     return H
@@ -183,8 +317,17 @@ def hadamard(dtype=complex, sparse=False):
 
 @functools.lru_cache(128)
 def phase_gate(phi, dtype=complex, sparse=False):
-    """The generalized qubit phase-gate, which adds phase ``phi`` to the
-    ``|1>`` state.
+    r"""The generalized qubit phase-gate, which adds phase ``phi`` to the
+    ``|1>`` state:
+
+    .. math::
+
+        R_p(\phi) =
+        \begin{bmatrix}
+        1 & 0 \\
+        0 & e^{i \phi}
+        \end{bmatrix}
+
     """
     Rp = qu(
         [[1.0, 0.0], [0.0, np.exp(1.0j * phi)]], dtype=dtype, sparse=sparse
@@ -195,19 +338,46 @@ def phase_gate(phi, dtype=complex, sparse=False):
 
 @functools.lru_cache(8)
 def T_gate(dtype=complex, sparse=False):
-    """The T-gate (pi/8 gate)."""
+    r"""The T-gate (pi/8 gate):
+
+    .. math::
+
+        T = \begin{bmatrix}
+        1 & 0 \\
+        0 & e^{i \pi / 4}
+        \end{bmatrix}
+        = R_p(\pi / 4)
+
+    """
     return phase_gate(math.pi / 4, dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(8)
 def S_gate(dtype=complex, sparse=False):
-    """The S-gate (phase gate)."""
+    r"""The S-gate (phase gate).
+
+    .. math::
+
+        S = \begin{bmatrix}
+        1 & 0 \\
+        0 & i
+        \end{bmatrix}
+        = R_p(\pi / 2)
+
+    """
     return phase_gate(math.pi / 2, dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(128)
 def rotation(phi, xyz="Z", dtype=complex, sparse=False):
-    """The single qubit rotation gate."""
+    r"""The single qubit rotation gate:
+
+    .. math::
+
+        R_{\alpha}(\phi) = \cos(\phi / 2) I - i \sin(\phi / 2) \sigma_{\alpha}
+
+    where :math:`\alpha \in \{x, y, z\}` = `xyz`.
+    """
     R = math.cos(phi / 2) * pauli("I") - 1.0j * math.sin(phi / 2) * pauli(xyz)
     R = qu(R, dtype=dtype, sparse=sparse)
     make_immutable(R)
@@ -245,7 +415,7 @@ def U_gate(theta, phi, lamda, dtype=complex, sparse=False):
     U : (2, 2) array
         The unitary matrix, cached.
     """
-    from cmath import cos, sin, exp
+    from cmath import cos, exp, sin
 
     c2, s2 = cos(theta / 2), sin(theta / 2)
     U = qu(
@@ -326,7 +496,20 @@ def Wsqrt(**qu_opts):
 
 @functools.lru_cache(maxsize=8)
 def swap(dim=2, dtype=complex, **kwargs):
-    """The SWAP operator acting on subsystems of dimension `dim`."""
+    r"""The SWAP operator acting on subsystems of dimension `dim`.
+
+    .. math::
+
+        \mathrm{SWAP} = \sum_{i, j} |j\rangle \langle i| \otimes |i\rangle \langle j|
+        =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & 0 & 1 & 0 \\
+        0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 1
+        \end{bmatrix}
+
+    """
     S = np.identity(dim**2, dtype=dtype)
     S = (
         S.reshape([dim, dim, dim, dim])
@@ -356,7 +539,7 @@ def fsim(theta, phi, dtype=complex, **kwargs):
     convention with this gate varies. Here for example,
     ``fsim(- pi / 2, 0) == iswap()``.
     """
-    from cmath import cos, sin, exp
+    from cmath import cos, exp, sin
 
     a = cos(theta)
     b = -1j * sin(theta)
@@ -377,6 +560,7 @@ def fsimg(theta, zeta, chi, gamma, phi, dtype=complex, **kwargs):
         * :math:`\zeta, \chi, \gamma`  are single-qubit phase angles.
 
     .. math::
+
         \mathrm{fsimg}(\theta, \zeta, \chi, \gamma, \phi) =
         \begin{bmatrix}
         1 & 0 & 0 & 0\\
@@ -392,7 +576,7 @@ def fsimg(theta, zeta, chi, gamma, phi, dtype=complex, **kwargs):
     the sign convention with this gate varies. Here for example,
     ``fsimg(- pi / 2, 0, 0, 0,0) == iswap()``.
     """
-    from cmath import cos, sin, exp
+    from cmath import cos, exp, sin
 
     a1 = exp(-1j * (gamma + zeta)) * cos(theta)
     a2 = exp(-1j * (gamma - zeta)) * cos(theta)
@@ -410,6 +594,19 @@ def fsimg(theta, zeta, chi, gamma, phi, dtype=complex, **kwargs):
 
 @functools.lru_cache(maxsize=4)
 def iswap(dtype=complex, **kwargs):
+    r"""The iSWAP gate:
+
+    .. math::
+
+        \mathrm{iSWAP} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0\\
+        0 & 0 & i & 0\\
+        0 & i & 0 & 0\\
+        0 & 0 & 0 & 1
+        \end{bmatrix}
+
+    """
     iswap = qu(
         [
             [1.0, 0.0, 0.0, 0.0],
@@ -456,7 +653,11 @@ def ncontrolled_gate(ncontrol, gate, dtype=complex, sparse=False):
 
 @functools.lru_cache(maxsize=16)
 def controlled(s, dtype=complex, sparse=False):
-    """Construct a controlled pauli gate for two qubits.
+    r"""Construct a controlled pauli gate for two qubits.
+
+    .. math::
+
+        CU = |0\rangle \langle 0| \otimes I + |1\rangle \langle 1| \otimes U
 
     Parameters
     ----------
@@ -480,31 +681,95 @@ def controlled(s, dtype=complex, sparse=False):
 
 @functools.lru_cache(8)
 def CNOT(dtype=complex, sparse=False):
-    """The controlled-not gate."""
+    r"""The controlled-not gate.
+
+    .. math::
+
+        \mathrm{CNOT} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 1 \\
+        0 & 0 & 1 & 0
+        \end{bmatrix}
+
+    """
     return controlled("not", dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(8)
 def cX(dtype=complex, sparse=False):
-    """The controlled-X gate."""
+    r"""The controlled-X gate.
+
+    .. math::
+
+        \mathrm{CX} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 1 \\
+        0 & 0 & 1 & 0
+        \end{bmatrix}
+
+    """
     return controlled("not", dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(8)
 def cY(dtype=complex, sparse=False):
-    """The controlled-Y gate."""
+    r"""The controlled-Y gate.
+
+    .. math::
+
+        \mathrm{CY} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & -i \\
+        0 & 0 & i & 0
+        \end{bmatrix}
+
+    """
     return controlled("Y", dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(8)
 def cZ(dtype=complex, sparse=False):
-    """The controlled-Z gate."""
+    r"""The controlled-Z gate.
+
+    .. math::
+
+        \mathrm{CZ} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 \\
+        0 & 0 & 1 & 0 \\
+        0 & 0 & 0 & -1
+        \end{bmatrix}
+
+    """
     return controlled("Z", dtype=dtype, sparse=sparse)
 
 
 @functools.lru_cache(8)
 def ccX(dtype=complex, sparse=False):
-    """The double controlled X gate, or Toffoli gate."""
+    r"""The double controlled X gate, or Toffoli gate.
+
+    .. math::
+
+        \mathrm{CCX} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 1 & 0
+        \end{bmatrix}
+
+    """
     op = ncontrolled_gate(2, pauli("X"), dtype=dtype, sparse=sparse)
     make_immutable(op)
     return op
@@ -512,7 +777,23 @@ def ccX(dtype=complex, sparse=False):
 
 @functools.lru_cache(8)
 def ccY(dtype=complex, sparse=False):
-    """The double controlled Y gate."""
+    r"""The double controlled Y gate.
+
+    .. math::
+
+        \mathrm{CCY} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & -i \\
+        0 & 0 & 0 & 0 & 0 & 0 & i & 0
+        \end{bmatrix}
+
+    """
     op = ncontrolled_gate(2, pauli("Y"), dtype=dtype, sparse=sparse)
     make_immutable(op)
     return op
@@ -520,7 +801,23 @@ def ccY(dtype=complex, sparse=False):
 
 @functools.lru_cache(8)
 def ccZ(dtype=complex, sparse=False):
-    """The double controlled Z gate."""
+    r"""The double controlled Z gate.
+
+    .. math::
+
+        \mathrm{CCZ} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & -1
+        \end{bmatrix}
+
+    """
     op = ncontrolled_gate(2, pauli("Z"), dtype=dtype, sparse=sparse)
     make_immutable(op)
     return op
@@ -528,8 +825,23 @@ def ccZ(dtype=complex, sparse=False):
 
 @functools.lru_cache(8)
 def controlled_swap(dtype=complex, sparse=False):
-    """The controlled swap or Fredkin gate. The control qubit is the first
+    r"""The controlled swap or Fredkin gate. The control qubit is the first
     qubit, if in state |1> a swap is performed on the last two qubits.
+
+    .. math::
+
+        \mathrm{CSWAP} =
+        \begin{bmatrix}
+        1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & 1
+        \end{bmatrix}
+
     """
     op = ncontrolled_gate(1, swap(), dtype=dtype, sparse=sparse)
     make_immutable(op)
@@ -587,7 +899,20 @@ def ham_heis(
     nthreads=None,
     ownership=None,
 ):
-    """Constructs the nearest neighbour 1d heisenberg spin-1/2 hamiltonian.
+    r"""Constructs the nearest neighbour 1d heisenberg spin-1/2 hamiltonian.
+
+    .. math::
+
+        H = \sum_{i} \left(
+            J_x S^x_i S^x_{i+1} +
+            J_y S^y_i S^y_{i+1} +
+            J_z S^z_i S^z_{i+1}
+        \right)
+        - \sum_i \left(
+            B_x S^x_i +
+            B_y S^y_i +
+            B_z S^z_i
+        \right)
 
     Parameters
     ----------
@@ -717,8 +1042,16 @@ def ham_XXZ(n, delta, jxy=1.0, **ham_opts):
 @functools.lru_cache(maxsize=8)
 @hamiltonian_builder
 def ham_j1j2(n, j1=1.0, j2=0.5, bz=0.0, cyclic=False, ownership=None):
-    """Generate the j1-j2 hamiltonian, i.e. next nearest neighbour
+    r"""Generate the 1D j1-j2 hamiltonian, i.e. with next nearest neighbour
     interactions.
+
+    .. math::
+
+        H = J_1 \sum_{\langle i, j \rangle} \vec{S}_i \cdot \vec{S}_j
+        +
+        J_2 \sum_{\langle\langle i, j \rangle\rangle} \vec{S}_i \cdot \vec{S}_j
+        +
+        B_z \sum_i S^z_i
 
     Parameters
     ----------
@@ -843,9 +1176,16 @@ def ham_mbl(
     beta=None,
     ownership=None,
 ):
-    """Constructs a heisenberg hamiltonian with isotropic coupling and
+    r"""Constructs a 1D heisenberg hamiltonian with isotropic coupling and
     random fields acting on each spin - the many-body localized (MBL)
     spin hamiltonian.
+
+    .. math::
+
+        H =
+        J \sum_{i} \vec{S}_i \cdot \vec{S}_{i+1}
+        +
+        \sum_{i} \vec{h}_i \cdot \vec{S}_i
 
     Parameters
     ----------
@@ -853,7 +1193,8 @@ def ham_mbl(
         Number of spins.
     dh : float or (float, float, float)
         Strength of random fields (stdev of gaussian distribution), can be
-        scalar (isotropic noise) or 3-vector for (x, y, z) directions.
+        scalar (same for all dimensions given by `dh_dim`) or 3-vector for
+        (x, y, z) directions.
     j : float or (float, float, float), optional
         Coupling strength, can be scalar (isotropic) or 3-vector.
     bz : float, optional
@@ -1142,7 +1483,24 @@ def zspin_projector(n, sz=0, stype="csr", dtype=float):
 
 @functools.lru_cache(8)
 def create(n=2, **qu_opts):
-    """The creation operator acting on an n-level system."""
+    r"""The creation operator acting on an n-level system.
+
+    .. math::
+
+        a^\dagger =
+        \begin{bmatrix}
+        0 & 0 & 0 & \dots \\
+        1 & 0 & 0 & \dots \\
+        0 & \sqrt{2} & 0 & \dots \\
+        \vdots & \vdots & \ddots & \ddots
+        \end{bmatrix}
+
+    See Also
+    --------
+    destroy : The annihilation operator.
+    num : The number operator.
+    shift : The shift operator.
+    """
     data = np.zeros((n, n))
 
     for i in range(n):
@@ -1155,7 +1513,24 @@ def create(n=2, **qu_opts):
 
 @functools.lru_cache(8)
 def destroy(n=2, **qu_opts):
-    """The annihilation operator acting on an n-level system."""
+    r"""The annihilation operator acting on an n-level system.
+
+    .. math::
+
+        a =
+        \begin{bmatrix}
+        0 & 1 & 0 & \dots \\
+        0 & 0 & \sqrt{2} & \dots \\
+        0 & 0 & 0 & \dots \\
+        \vdots & \vdots & \vdots & \ddots
+        \end{bmatrix}
+
+    See Also
+    --------
+    create : The creation operator.
+    num : The number operator.
+    shift : The shift operator.
+    """
     am = create(n, **qu_opts).T.copy()
     make_immutable(am)
     return am
@@ -1163,7 +1538,19 @@ def destroy(n=2, **qu_opts):
 
 @functools.lru_cache(8)
 def num(n, **qu_opts):
-    """The number operator acting on an n-level system."""
+    r"""The number operator acting on an n-level system.
+
+    .. math::
+
+        n = a^\dagger a =
+        \begin{bmatrix}
+        0 & 0 & 0 & \dots \\
+        0 & 1 & 0 & \dots \\
+        0 & 0 & 2 & \dots \\
+        \vdots & \vdots & \vdots & \ddots
+        \end{bmatrix}
+
+    """
     ap, am = create(n, **qu_opts), destroy(n, **qu_opts)
     an = qu(ap @ am, **qu_opts)
     make_immutable(an)
@@ -1175,7 +1562,17 @@ def num(n, **qu_opts):
 def ham_hubbard_hardcore(
     n, t=0.5, V=1.0, mu=1.0, cyclic=False, parallel=False, ownership=None
 ):
-    """Generate the spinless fermion hopping hamiltonian.
+    r"""Generate the 1D hardcore boson hopping hamiltonian.
+
+    .. math::
+
+        H =
+        -t
+        \sum_{\langle i, j \rangle} (b^\dagger_i b_j + b^\dagger_j b_i)
+        +
+        V \sum_{\langle i, j \rangle} n_i n_j
+        -
+        \mu \sum_i n_i
 
     Parameters
     ----------
@@ -1212,7 +1609,7 @@ def ham_hubbard_hardcore(
     }
 
     cdag, c, cnum = (f(2, **op_kws) for f in (create, destroy, num))
-    neighbor_term = t * ((cdag & c) + (c & cdag)) + V * (cnum & cnum)
+    neighbor_term = -t * ((cdag & c) + (c & cdag)) + V * (cnum & cnum)
 
     dims = [2] * n
 
@@ -1223,8 +1620,8 @@ def ham_hubbard_hardcore(
 
         if cyclic:
             # can't sum terms and kron later since identity in middle
-            yield ikron([t * cdag, c], dims, (0, n - 1), **ikron_kws)
-            yield ikron([t * c, cdag], dims, (0, n - 1), **ikron_kws)
+            yield ikron([-t * cdag, c], dims, (0, n - 1), **ikron_kws)
+            yield ikron([-t * c, cdag], dims, (0, n - 1), **ikron_kws)
             yield ikron([V * cnum, cnum], dims, (0, n - 1), **ikron_kws)
 
         # single site terms

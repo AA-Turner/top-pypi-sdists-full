@@ -24,7 +24,6 @@ from unittest import mock
 
 import distro
 import fixtures
-import ometa.runtime
 from testtools import ExpectedException
 from testtools.matchers import Contains
 from testtools.matchers import Equals
@@ -39,6 +38,7 @@ from bindep.depends import Emerge
 from bindep.depends import Pacman
 from bindep.depends import Rpm
 from bindep.depends import Apk
+from bindep.depends import DependsException
 
 
 # NOTE(notmorgan): In python3 subprocess.check_output returns bytes not
@@ -541,8 +541,9 @@ class TestDepends(TestCase):
             depends.active_rules(["default"]))
 
     def test_parser_invalid(self):
-        self.assertRaises(ometa.runtime.ParseError,
-                          lambda: Depends("foo [platform:bar@baz]\n"))
+        with ExpectedException(DependsException,
+                               "Requirements parsing error:.*"):
+            Depends("foo [platform:bar@baz]\n")
 
     def test_platforms_include(self):
         # 9 tests for the nine cases of _include in Depends

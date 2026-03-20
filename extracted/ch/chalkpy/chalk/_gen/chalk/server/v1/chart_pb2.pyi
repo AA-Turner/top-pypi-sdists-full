@@ -159,6 +159,26 @@ class ListChartsResponse(_message.Message):
         next_page_token: _Optional[str] = ...,
     ) -> None: ...
 
+class ListChartsWithCronAlertsRequest(_message.Message):
+    __slots__ = ("limit", "page_token")
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    page_token: str
+    def __init__(self, limit: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class ListChartsWithCronAlertsResponse(_message.Message):
+    __slots__ = ("charts", "next_page_token")
+    CHARTS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    charts: _containers.RepeatedCompositeFieldContainer[_chart_pb2.Chart]
+    next_page_token: str
+    def __init__(
+        self,
+        charts: _Optional[_Iterable[_Union[_chart_pb2.Chart, _Mapping]]] = ...,
+        next_page_token: _Optional[str] = ...,
+    ) -> None: ...
+
 class UpdateMetricConfigOperation(_message.Message):
     __slots__ = ("name", "window_period", "series", "formulas", "trigger", "graph_generated")
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -435,11 +455,67 @@ class MetricOptions(_message.Message):
         window_functions: _Optional[_Iterable[_Union[WindowFunctionOption, _Mapping]]] = ...,
     ) -> None: ...
 
+class MetricFormulaFeatureOperandInput(_message.Message):
+    __slots__ = ("namespace", "feature_fqns")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FQNS_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    feature_fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, namespace: _Optional[str] = ..., feature_fqns: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class MetricFormulaFeatureOperandList(_message.Message):
+    __slots__ = ("namespace", "values", "features")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    values: _containers.RepeatedScalarFieldContainer[str]
+    features: _containers.RepeatedCompositeFieldContainer[MetricFormulaFeatureOperandInput]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        values: _Optional[_Iterable[str]] = ...,
+        features: _Optional[_Iterable[_Union[MetricFormulaFeatureOperandInput, _Mapping]]] = ...,
+    ) -> None: ...
+
+class MetricFormulaDatasetOperandInput(_message.Message):
+    __slots__ = ("id", "name", "output_fqns")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_FQNS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    output_fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, id: _Optional[str] = ..., name: _Optional[str] = ..., output_fqns: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
+
+class MetricFormulaDatasetOperandList(_message.Message):
+    __slots__ = ("values", "datasets")
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    DATASETS_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedScalarFieldContainer[str]
+    datasets: _containers.RepeatedCompositeFieldContainer[MetricFormulaDatasetOperandInput]
+    def __init__(
+        self,
+        values: _Optional[_Iterable[str]] = ...,
+        datasets: _Optional[_Iterable[_Union[MetricFormulaDatasetOperandInput, _Mapping]]] = ...,
+    ) -> None: ...
+
 class MetricFormulaOperand(_message.Message):
-    __slots__ = ("kind",)
+    __slots__ = ("kind", "dataset_operands", "feature_operands")
     KIND_FIELD_NUMBER: _ClassVar[int]
+    DATASET_OPERANDS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_OPERANDS_FIELD_NUMBER: _ClassVar[int]
     kind: MetricFormulaOperandKind
-    def __init__(self, kind: _Optional[_Union[MetricFormulaOperandKind, str]] = ...) -> None: ...
+    dataset_operands: MetricFormulaDatasetOperandList
+    feature_operands: MetricFormulaFeatureOperandList
+    def __init__(
+        self,
+        kind: _Optional[_Union[MetricFormulaOperandKind, str]] = ...,
+        dataset_operands: _Optional[_Union[MetricFormulaDatasetOperandList, _Mapping]] = ...,
+        feature_operands: _Optional[_Union[MetricFormulaFeatureOperandList, _Mapping]] = ...,
+    ) -> None: ...
 
 class MetricFormulaOption(_message.Message):
     __slots__ = ("display_name", "kind", "operands")
@@ -561,3 +637,15 @@ class GetMetricOptionsResponse(_message.Message):
     METRIC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     metric_options: MetricOptions
     def __init__(self, metric_options: _Optional[_Union[MetricOptions, _Mapping]] = ...) -> None: ...
+
+class GetFormulaOptionsRequest(_message.Message):
+    __slots__ = ("formula_kind",)
+    FORMULA_KIND_FIELD_NUMBER: _ClassVar[int]
+    formula_kind: _chart_pb2.MetricFormulaKind
+    def __init__(self, formula_kind: _Optional[_Union[_chart_pb2.MetricFormulaKind, str]] = ...) -> None: ...
+
+class GetFormulaOptionsResponse(_message.Message):
+    __slots__ = ("formula_options",)
+    FORMULA_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    formula_options: MetricFormulaOption
+    def __init__(self, formula_options: _Optional[_Union[MetricFormulaOption, _Mapping]] = ...) -> None: ...

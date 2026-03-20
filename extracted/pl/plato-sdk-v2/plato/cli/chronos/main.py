@@ -126,6 +126,7 @@ def launch(
                 tags=request.tags,
                 runtime=request.world.runtime.model_dump() if request.world.runtime else None,
                 allow_prerelease=request.allow_prerelease or False,
+                world_name=request.world.world_name,
             )
 
         console.print("\n[green]Job launched successfully![/green]")
@@ -449,6 +450,59 @@ def analysis(
         data = result.model_dump_json(indent=2)
         out = output or _default_output_path("analysis", session_id)
         _write_output(data, out)
+    except Exception as e:
+        console.print(f"[red]Failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# VM metrics
+# ---------------------------------------------------------------------------
+
+
+@chronos_app.command("metrics")
+def metrics(
+    session_id: Annotated[str, typer.Argument(help="Session ID")],
+    env_alias: Annotated[
+        str | None, typer.Option("--env-alias", help="Filter by env alias (e.g. agent, world)")
+    ] = None,
+    chronos_url: str = _chronos_url_option,
+    api_key: str = _api_key_option,
+    output: Path | None = _output_option,
+):
+    """Fetch and display VM metrics (CPU, memory, etc.) for a session."""
+    chronos_url = chronos_url or settings.chronos_url
+    api_key = _require_api_key(api_key)
+
+    try:
+        with Chronos(base_url=chronos_url, api_key=api_key) as client:
+            result = client.get_session_metrics(session_id, env_alias=env_alias)
+
+        data_points = result.get("data_points", [])
+        data = json.dumps(result, indent=2)
+        out = output or _default_output_path("metrics", session_id)
+        _write_output(data, out)
+
+        # Print summary table of metric names and counts
+        if data_points:
+            counts: dict[str, int] = {}
+            for dp in data_points:
+                name = dp.get("name", "unknown")
+                counts[name] = counts.get(name, 0) + 1
+
+            table = Table(title=f"Metrics Summary for {session_id[:12]}...")
+            table.add_column("Metric Name", style="cyan")
+            table.add_column("Data Points", style="green", justify="right")
+
+            for name, count in sorted(counts.items()):
+                table.add_row(name, str(count))
+
+            table.add_section()
+            table.add_row("[bold]Total[/bold]", f"[bold]{len(data_points)}[/bold]")
+            console.print(table)
+        else:
+            console.print("[yellow]No metrics data points found[/yellow]")
+
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
         raise typer.Exit(1)

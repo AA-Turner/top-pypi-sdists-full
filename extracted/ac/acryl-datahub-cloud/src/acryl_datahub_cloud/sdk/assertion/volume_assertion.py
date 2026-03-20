@@ -46,6 +46,9 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
         detection_mechanism: Optional[
             _DetectionMechanismTypes
         ] = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: Optional[
+            models.AssertionTimeBucketingStrategyClass
+        ] = None,
         created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
         updated_by: Optional[CorpUserUrn] = None,
@@ -66,6 +69,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             tags: The tags applied to the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
             detection_mechanism: The detection mechanism of the assertion.
+            time_bucketing_strategy: Optional time bucketing strategy for data partitioning.
             created_by: The urn of the user that created the assertion.
             created_at: The timestamp of when the assertion was created.
             updated_by: The urn of the user that updated the assertion.
@@ -80,6 +84,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             mode=mode,
             incident_behavior=incident_behavior,
             detection_mechanism=detection_mechanism,
+            time_bucketing_strategy=time_bucketing_strategy,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
@@ -148,6 +153,7 @@ class VolumeAssertion(_HasSchedule, _AssertionPublic):
             criteria=cls._get_volume_definition(assertion),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
+            time_bucketing_strategy=cls._get_time_bucketing_strategy(monitor),
             created_by=cls._get_created_by(assertion),
             created_at=cls._get_created_at(assertion),
             updated_by=cls._get_updated_by(assertion),

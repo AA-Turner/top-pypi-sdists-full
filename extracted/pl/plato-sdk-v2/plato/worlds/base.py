@@ -161,6 +161,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     # Class attributes
     name: ClassVar[str] = "base"
     description: ClassVar[str] = ""
+    world_type: ClassVar[str] = "world"
     review_models: ClassVar[list[type]] = []  # Set to DEFAULT_REVIEW_MODELS below after class definition
     _state_class: ClassVar[type[PydanticBaseModel] | None] = None
 
@@ -202,9 +203,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     @classmethod
     def get_config_class(cls) -> type[RunConfig]:
         """Get the config class from the generic parameter."""
-        for base in getattr(cls, "__orig_bases__", []):
+        for base in getattr(cls, "__orig_bases__", ()):
             origin = get_origin(base)
-            if origin is BaseWorld:
+            if origin is not None and issubclass(origin, BaseWorld):
                 args = get_args(base)
                 if args and isinstance(args[0], type) and issubclass(args[0], RunConfig):
                     return args[0]
@@ -247,8 +248,8 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     async def verify(self) -> Observation:
         """Run the world in verify mode.
 
-        Override this to run verifiers against the restored workspace state.
-        Called instead of the normal reset/step loop when config.verify.enabled=True.
+        Override this to run reviewers against the restored workspace state.
+        Called instead of the normal reset/step loop when config.review is set.
         The default raises NotImplementedError.
         """
         raise NotImplementedError(f"World '{self.name}' does not implement verify mode")
@@ -1040,7 +1041,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             try:
                 if self.config.preview.enabled:
                     await self._run_preview_loop(tracer)
-                elif self.config.verify.enabled:
+                elif self.config.review is not None:
                     await self._run_verify_loop(tracer)
                 else:
                     await self._run_loop(tracer)
@@ -1391,7 +1392,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         with tracer.start_as_current_span("verify") as verify_span:
             verify_span.set_attribute("plato.phase", "verify")
             verify_span.set_attribute("plato.world.name", self.name)
-            target_sid = self.config.verify.target_session_id or (self.session.session_id if self.session else "")
+            target_sid = self.session.session_id if self.session else ""
             verify_span.set_attribute("plato.verify.target_session_id", target_sid)
             obs = await self.verify()
             obs_data = obs.model_dump()

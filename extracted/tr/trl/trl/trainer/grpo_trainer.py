@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import datasets
+import numpy as np
 import pandas as pd
 import torch
 import torch.utils.data
@@ -232,8 +233,10 @@ class GRPOTrainer(BaseTrainer):
         rollout_func (`RolloutFunc`, *optional*):
             Function to use for generating completions. It receives the list of prompts allocated to the current
             process and the trainer instance. It must return a dict with `"prompt_ids"`, `"completion_ids"`, and
-            `"logprobs"` fields. Any other fields are forwarded to the reward functions. This feature is experimental
-            and may change or be removed at any time without prior notice.
+            `"logprobs"` fields. Any other fields are forwarded to the reward functions. The function receives the raw
+            per-process prompt slice with no duplication; it is responsible for returning the correct number of
+            completions per prompt (see `num_generations` / `num_generations_eval` on the trainer). This feature is
+            experimental and may change or be removed at any time without prior notice.
         environment_factory (`EnvironmentFactory`, *optional*):
             A callable that creates and returns an environment instance. The environment class should define methods
             that can be invoked as tools during generation. Each method should comply with the same requirements as the
@@ -703,13 +706,6 @@ class GRPOTrainer(BaseTrainer):
 
         if self.use_vllm:
             # Initialize vLLM generation backend
-            # Wrap rollout_func to capture trainer context if provided
-            rollout_func = None
-            if self.rollout_func is not None:
-
-                def rollout_func(prompts):
-                    return self.rollout_func(prompts, self)
-
             self.vllm_generation = VLLMGeneration(
                 model=self.model,
                 accelerator=self.accelerator,
@@ -742,11 +738,6 @@ class GRPOTrainer(BaseTrainer):
                 max_completion_length=self.max_completion_length,
                 logprobs=0,  # we only need the generated token logprobs for the importance sampling correction
                 generation_kwargs=args.generation_kwargs,
-                # Chat/tool configuration
-                chat_template=self.chat_template,
-                chat_template_kwargs=self.chat_template_kwargs,
-                tools=self.tools,
-                rollout_func=rollout_func,
             )
             self._last_loaded_step = -1  # tag to avoid useless loading during grad accumulation
         else:
@@ -1216,7 +1207,50 @@ class GRPOTrainer(BaseTrainer):
         rewards_per_func = gather(rewards_per_func)
         return rewards_per_func
 
-    def _generate_single_turn(self, prompts: list):
+    def _tokenize_prompts(self, prompts: list):
+        """Tokenize prompts and extract images/multimodal fields for generation."""
+        if is_conversational({"prompt": prompts[0]}):
+            # Extract images from messages for VLM support
+            images = []
+            has_images = False
+            for prompt in prompts:
+                prompt_images = []
+                for message in prompt:
+                    if isinstance(message["content"], list):
+                        for part in message["content"]:
+                            if part["type"] == "image":
+                                prompt_images.append(part["image"])
+                                has_images = True
+                images.append(prompt_images if prompt_images else None)
+            images = images if has_images else None
+
+            # We pass padding=True to work around a bug introduced in transformers 5.2.0 in some processors
+            # (e.g. Qwen2.5-VL) that crash on batched unpadded input. We then unpad input_ids using attention_mask.
+            # See: https://github.com/huggingface/transformers/issues/44514
+            tokenized = self.processing_class.apply_chat_template(
+                conversation=prompts,
+                tools=self.tools,
+                chat_template=self.chat_template,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                padding=True,
+                **self.chat_template_kwargs,
+            )
+            # Unpad input_ids: remove padding tokens using attention_mask to get per-sequence lists
+            prompt_ids = [
+                [tok for tok, m in zip(ids, mask, strict=True) if m]
+                for ids, mask in zip(tokenized["input_ids"], tokenized["attention_mask"], strict=True)
+            ]
+            # For VLMs, the processor returns extra multimodal fields (pixel_values, image_grid_thw, etc.)
+            multimodal_fields = {k: v for k, v in tokenized.items() if k not in ("input_ids", "attention_mask")}
+        else:
+            prompt_ids = self.processing_class(text=prompts)["input_ids"]
+            images = None
+            multimodal_fields = {}
+        return prompt_ids, images, multimodal_fields
+
+    def _generate_single_turn(self, prompt_ids, images, multimodal_fields):
         device = self.accelerator.device
         mode = "train" if self.model.training else "eval"
 
@@ -1228,28 +1262,18 @@ class GRPOTrainer(BaseTrainer):
                     self.vllm_generation.sync_weights()
                 self._last_loaded_step = self.state.global_step
 
-            # Generate using vLLM
+            # Generate using vLLM with raw token IDs
             num_generations = self.num_generations if mode == "train" else self.num_generations_eval
-            prompt_ids, completion_ids, logprobs, _, extra_fields = self.vllm_generation.generate(
-                prompts=prompts, num_generations=num_generations, profiler=profiling_context(self, "vLLM.generate")
+            _, completion_ids, logprobs, _, extra_fields = self.vllm_generation.generate(
+                prompts=prompt_ids,
+                images=images,
+                num_generations=num_generations,
+                profiler=profiling_context(self, "vLLM.generate"),
             )
             # vLLM returns per-token top-k logprobs; keep only the top-1 (sampled token) logprob
             logprobs = [[lp[0] for lp in seq] for seq in logprobs]
 
         elif self.use_transformers_paged:
-            if is_conversational({"prompt": prompts[0]}):
-                processor_outputs = self.processing_class.apply_chat_template(
-                    conversation=prompts,
-                    tools=self.tools,
-                    chat_template=self.chat_template,
-                    add_generation_prompt=True,
-                    tokenize=True,
-                    return_dict=True,
-                    **self.chat_template_kwargs,
-                )
-            else:
-                processor_outputs = self.processing_class(text=prompts)
-
             with (
                 profiling_context(self, "transformers.generate_batch"),
                 unwrap_model_for_generation(
@@ -1268,33 +1292,28 @@ class GRPOTrainer(BaseTrainer):
                 with torch.inference_mode():
                     # Continuous batching API expects 'inputs' arg only
                     all_outputs = unwrapped_model.generate_batch(
-                        processor_outputs["input_ids"], generation_config=self.generation_config, progress_bar=False
+                        prompt_ids, generation_config=self.generation_config, progress_bar=False
                     )
                     unwrapped_model.train()  # restore training mode, as generate_batch forces eval mode
             completion_ids = [output.generated_tokens for output in all_outputs.values()]
-            prompt_ids = processor_outputs["input_ids"]
             logprobs = None  # not used in this case
             extra_fields = {}  # No extra fields for paged mode
 
         else:
-            # Regular generation path
-            if is_conversational({"prompt": prompts[0]}):
-                generate_inputs = self.processing_class.apply_chat_template(
-                    conversation=prompts,
-                    tools=self.tools,
-                    chat_template=self.chat_template,
-                    add_generation_prompt=True,
-                    tokenize=True,
-                    padding=True,
-                    padding_side="left",
-                    return_tensors="pt",
-                    return_dict=True,
-                    **self.chat_template_kwargs,
-                )
-            else:
-                generate_inputs = self.processing_class(
-                    text=prompts, padding=True, padding_side="left", return_tensors="pt"
-                )
+            # Regular generation path: left-pad token IDs into tensors
+            prompt_tensors = [torch.tensor(ids) for ids in prompt_ids]
+            padded_ids = pad(prompt_tensors, padding_value=self.pad_token_id, padding_side="left")
+            attention_mask = pad([torch.ones_like(t) for t in prompt_tensors], padding_value=0, padding_side="left")
+            generate_inputs = {"input_ids": padded_ids, "attention_mask": attention_mask}
+            # For VLMs, include multimodal fields as tensors (pixel_values, image_grid_thw, etc.)
+            for k, v in multimodal_fields.items():
+                if isinstance(v, torch.Tensor):
+                    generate_inputs[k] = v
+                elif isinstance(v, list) and v and isinstance(v[0], list):
+                    # Per-token field (e.g., token_type_ids): left-pad like input_ids
+                    generate_inputs[k] = pad([torch.tensor(x) for x in v], padding_value=0, padding_side="left")
+                else:
+                    generate_inputs[k] = torch.tensor(np.array(v))
             generate_inputs = super()._prepare_inputs(generate_inputs)
 
             with (
@@ -1312,8 +1331,7 @@ class GRPOTrainer(BaseTrainer):
                     **generate_inputs, generation_config=self.generation_config, disable_compile=True
                 )
             # Compute prompt length and extract completion ids
-            prompt_ids, prompt_mask = generate_inputs["input_ids"], generate_inputs["attention_mask"]
-            prompt_length = prompt_ids.size(1)
+            prompt_length = generate_inputs["input_ids"].size(1)
             completion_ids = prompt_completion_ids[:, prompt_length:]
 
             # Mask everything after the first EOS token
@@ -1322,14 +1340,34 @@ class GRPOTrainer(BaseTrainer):
             eos_idx[is_eos.any(dim=1)] = is_eos.int().argmax(dim=1)[is_eos.any(dim=1)]
             sequence_indices = torch.arange(is_eos.size(1), device=device).expand(is_eos.size(0), -1)
             completion_mask = (sequence_indices <= eos_idx.unsqueeze(1)).int()
-            prompt_ids = [p[m].tolist() for p, m in zip(prompt_ids, prompt_mask.bool(), strict=True)]
             completion_ids = [c[m].tolist() for c, m in zip(completion_ids, completion_mask.bool(), strict=True)]
             logprobs = None  # not used in this case
             extra_fields = {}  # No extra fields for non-rollout_func paths
 
-        return prompt_ids, completion_ids, logprobs, extra_fields
+        return completion_ids, logprobs, extra_fields
 
-    def _tool_call_loop(self, prompts, prompt_ids, completion_ids, completions, logprobs):
+    def _get_tool_suffix_ids(self, tool_messages):
+        """Get token IDs for tool result formatting by using a minimal dummy conversation."""
+        dummy_messages = [{"role": "user", "content": "dummy"}, {"role": "assistant", "content": "dummy"}]
+        prefix_ids = self.processing_class.apply_chat_template(
+            dummy_messages,
+            add_generation_prompt=False,
+            chat_template=self.chat_template,
+            return_dict=False,
+            **self.chat_template_kwargs,
+        )
+        full_ids = self.processing_class.apply_chat_template(
+            dummy_messages + tool_messages,
+            add_generation_prompt=True,
+            chat_template=self.chat_template,
+            return_dict=False,
+            **self.chat_template_kwargs,
+        )
+        if not full_ids[: len(prefix_ids)] == prefix_ids:
+            raise ValueError("Unexpected tokenization: the prefix IDs are not a prefix of the full IDs.")
+        return full_ids[len(prefix_ids) :]
+
+    def _tool_call_loop(self, prompts, prompt_ids, completion_ids, completions, logprobs, images, multimodal_fields):
         # Tool execution loop: execute tools, then regenerate completions with tool results appended to the prompt
         tool_calls = [completion[0].get("tool_calls") for completion in completions]
         idxs_with_tool = [idx for idx, tool_call in enumerate(tool_calls) if tool_call]
@@ -1396,31 +1434,38 @@ class GRPOTrainer(BaseTrainer):
                     prompt_completion_tool.append(tool_message)
                     completions[idx_with_tool].append(tool_message)
 
-            # Tokenize and filter samples whose length exceeds max allowed length. This is important, because both
+            # Build token IDs by concatenation: prompt + completion + tool_suffix.
+            prompt_completion_tool_ids = []
+            for idx in range(len(idxs_with_tool)):
+                idx_with_tool = idxs_with_tool[idx]
+                # Extract trailing tool messages from completions
+                tool_messages = []
+                for message in reversed(completions[idx_with_tool]):
+                    if message["role"] == "tool":
+                        tool_messages.insert(0, message)
+                    else:
+                        break
+                suffix_ids = self._get_tool_suffix_ids(tool_messages)
+                prompt_completion_tool_ids.append(
+                    prompt_ids[idx_with_tool] + completion_ids[idx_with_tool] + suffix_ids
+                )
+
+            # Filter samples whose length exceeds max allowed length. This is important, because both
             # vLLM and transformers will error out if the input is longer than the model's max length.
-            pct_ids = self.processing_class.apply_chat_template(
-                prompt_completion_tools,
-                tools=self.tools,
-                chat_template=self.chat_template,
-                add_generation_prompt=True,
-                tokenize=True,
-                return_dict=False,
-                **self.chat_template_kwargs,
-            )
             if self.use_vllm and self.vllm_mode == "colocate":
-                max_model_len = self.llm.llm_engine.model_config.max_model_len
+                max_model_len = self.vllm_generation.llm.llm_engine.model_config.max_model_len
             elif not self.use_vllm:
                 max_model_len = self.model.config.max_position_embeddings
             else:
                 raise NotImplementedError(
                     f"Unsupported mode detected: use_vllm={self.use_vllm}, vllm_mode={self.vllm_mode}"
                 )
-            overlong = [len(pct) >= max_model_len for pct in pct_ids]
+            overlong = [len(pct) >= max_model_len for pct in prompt_completion_tool_ids]
             for idx in range(len(idxs_with_tool)):
                 idx_with_tool = idxs_with_tool[idx]
                 if overlong[idx]:
                     prompt_length = len(prompt_ids[idx_with_tool])
-                    ct = pct_ids[idx][prompt_length : prompt_length + self.max_completion_length]
+                    ct = prompt_completion_tool_ids[idx][prompt_length : prompt_length + self.max_completion_length]
                     completion_ids[idx_with_tool] = ct
                     tool_mask[idx_with_tool] += [1] * (len(ct) - len(tool_mask[idx_with_tool]))
                     if logprobs is not None:
@@ -1428,23 +1473,22 @@ class GRPOTrainer(BaseTrainer):
             # Keep only non-overlong items for further processing
             idxs_with_tool = [idx for idx, o in zip(idxs_with_tool, overlong, strict=True) if not o]
             prompt_completion_tools = [pct for pct, o in zip(prompt_completion_tools, overlong, strict=True) if not o]
+            prompt_completion_tool_ids = [
+                pct for pct, o in zip(prompt_completion_tool_ids, overlong, strict=True) if not o
+            ]
             if not idxs_with_tool:
                 break  # all overlong, exit tool loop
 
-            # Generate new completions after tool execution
-            prompt_completion_tool_ids, post_tool_ids, post_tool_logprobs, _ = self._generate_single_turn(
-                prompt_completion_tools
+            # Filter images and multimodal fields to match the current subset (index into full batch)
+            loop_images = [images[i] for i in idxs_with_tool] if images else None
+            loop_multimodal_fields = (
+                {k: [v[i] for i in idxs_with_tool] for k, v in multimodal_fields.items()} if multimodal_fields else {}
             )
 
-            # Sanity check: from experience, this is useful to catch bugs in the chat template
-            for idx in range(len(idxs_with_tool)):
-                idx_with_tool = idxs_with_tool[idx]
-                pct = prompt_completion_tool_ids[idx]  # = prompt-completion-tool
-                if prompt_ids[idx_with_tool] != pct[: len(prompt_ids[idx_with_tool])]:
-                    raise ValueError(
-                        "The chat template is not prefix-preserving. Please update it to use a prefix-preserving "
-                        "format."
-                    )
+            # Generate new completions after tool execution (using concatenated IDs, no re-tokenization)
+            post_tool_ids, post_tool_logprobs, _ = self._generate_single_turn(
+                prompt_completion_tool_ids, loop_images, loop_multimodal_fields
+            )
 
             # Truncate so that pct[len(prompt_ids[idx]) :] + post_tool does not exceed max_completion_length
             for idx in range(len(idxs_with_tool)):
@@ -1506,7 +1550,27 @@ class GRPOTrainer(BaseTrainer):
         # Copy the prompts to avoid modifying the original list
         prompts = copy.deepcopy(prompts)
 
-        prompt_ids, completion_ids, logprobs, extra_fields = self._generate_single_turn(prompts)
+        if self.rollout_func is not None:
+            # Keep vLLM weights in sync for custom rollouts that rely on vLLM utilities.
+            if self.use_vllm and self.state.global_step != self._last_loaded_step:
+                with profiling_context(self, "sync_weights"):
+                    self.vllm_generation.sync_weights()
+                self._last_loaded_step = self.state.global_step
+
+            # Pass prompts to rollout_func preserving structured messages.
+            # Chat templating must happen inside rollout_func, at the backend boundary, so that
+            # multimodal content (images, typed content blocks) is not lost before rollout logic runs.
+            output = self.rollout_func(prompts, self)
+            required_keys = {"prompt_ids", "completion_ids", "logprobs"}
+            missing_keys = required_keys - output.keys()
+            if missing_keys:
+                missing_keys_list = sorted(missing_keys)
+                raise ValueError(f"rollout_func must return keys {missing_keys_list} in its output dict.")
+            extra_fields = {k: v for k, v in output.items() if k not in required_keys}
+            prompt_ids, completion_ids, logprobs = output["prompt_ids"], output["completion_ids"], output["logprobs"]
+        else:
+            prompt_ids, images, multimodal_fields = self._tokenize_prompts(prompts)
+            completion_ids, logprobs, extra_fields = self._generate_single_turn(prompt_ids, images, multimodal_fields)
 
         # Decode completions. It's important to use `parse_response` when possible, because it handles tool calls.
         if is_conversational({"prompt": prompts[0]}):
@@ -1532,7 +1596,9 @@ class GRPOTrainer(BaseTrainer):
                 logprobs,
                 tool_call_count,
                 tool_failure_count,
-            ) = self._tool_call_loop(prompts, prompt_ids, completion_ids, completions, logprobs)
+            ) = self._tool_call_loop(
+                prompts, prompt_ids, completion_ids, completions, logprobs, images, multimodal_fields
+            )
         else:
             # Support custom env_mask from rollout_func (e.g., for environment feedback masking)
             # Internally treated as tool_mask - marks model tokens (1) vs external tokens (0)
@@ -1700,6 +1766,12 @@ class GRPOTrainer(BaseTrainer):
             token_type_ids = forward_kwargs["token_type_ids"]
             forward_kwargs["token_type_ids"] = torch.cat(
                 [token_type_ids, token_type_ids.new_zeros(completion_ids.shape)], dim=1
+            )
+        # If mm_token_type_ids are used, extend them with zeros for the completion part
+        if "mm_token_type_ids" in forward_kwargs:
+            mm_token_type_ids = forward_kwargs["mm_token_type_ids"]
+            forward_kwargs["mm_token_type_ids"] = torch.cat(
+                [mm_token_type_ids, mm_token_type_ids.new_zeros(completion_ids.shape)], dim=1
             )
 
         # When gradient checkpointing is enabled with use_reentrant=True (non default), calling the model inside a
@@ -1945,6 +2017,8 @@ class GRPOTrainer(BaseTrainer):
             output["image_sizes"] = forward_kwargs["image_sizes"]
         if "token_type_ids" in forward_kwargs:
             output["token_type_ids"] = forward_kwargs["token_type_ids"]
+        if "mm_token_type_ids" in forward_kwargs:
+            output["mm_token_type_ids"] = forward_kwargs["mm_token_type_ids"]
         if images is not None:
             output["num_images"] = num_images
         if tool_mask is not None:
@@ -2053,6 +2127,7 @@ class GRPOTrainer(BaseTrainer):
             pixel_attention_mask=inputs.get("pixel_attention_mask"),
             image_sizes=inputs.get("image_sizes"),
             token_type_ids=inputs.get("token_type_ids"),
+            mm_token_type_ids=inputs.get("mm_token_type_ids"),
         )
 
         if self.top_entropy_quantile < 1.0:

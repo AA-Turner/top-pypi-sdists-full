@@ -5,6 +5,7 @@ Tests for `attr.validators`.
 """
 
 import re
+import sys
 
 import pytest
 
@@ -94,6 +95,22 @@ class TestDisableValidators:
             assert _config._run_validators is False
 
             raise ValueError("haha!")
+
+        assert _config._run_validators is True
+
+    def test_disabled_ctx_nested(self):
+        """
+        Nested contextmanagers restore correct state.
+        """
+        assert _config._run_validators is True
+
+        with validator_module.disabled():
+            assert _config._run_validators is False
+
+            with validator_module.disabled():
+                assert _config._run_validators is False
+
+            assert _config._run_validators is False
 
         assert _config._run_validators is True
 
@@ -227,10 +244,13 @@ class TestMatchesRe:
         with pytest.raises(ValueError) as ei:
             matches_re("a", 0, lambda: None)
 
-        assert (
-            "'func' must be one of None, fullmatch, match, search."
-            == ei.value.args[0]
-        )
+        if sys.version_info >= (3, 15):
+            errmsg = (
+                "'func' must be one of None, fullmatch, prefixmatch, search."
+            )
+        else:
+            errmsg = "'func' must be one of None, fullmatch, match, search."
+        assert errmsg == ei.value.args[0]
 
     @pytest.mark.parametrize(
         "func", [None, getattr(re, "fullmatch", None), re.match, re.search]

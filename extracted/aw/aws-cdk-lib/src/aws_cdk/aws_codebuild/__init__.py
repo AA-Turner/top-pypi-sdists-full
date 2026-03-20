@@ -394,7 +394,7 @@ is available for specifying Lambda-compatible images.
 You can specify one of the predefined Windows/Linux images by using one
 of the constants such as `WindowsBuildImage.WIN_SERVER_CORE_2019_BASE`,
 `WindowsBuildImage.WINDOWS_BASE_2_0`, `LinuxBuildImage.STANDARD_2_0`,
-`LinuxBuildImage.AMAZON_LINUX_2_5`, `MacBuildImage.BASE_14`, `MacBuildImage.BASE_15`, `LinuxArmBuildImage.AMAZON_LINUX_2_ARM`,
+`LinuxBuildImage.AMAZON_LINUX_2_5`, `MacBuildImage.BASE_14`, `MacBuildImage.BASE_15`, `MacBuildImage.BASE_26`, `LinuxArmBuildImage.AMAZON_LINUX_2_ARM`,
 `LinuxLambdaBuildImage.AMAZON_LINUX_2_NODE_18` or `LinuxArmLambdaBuildImage.AMAZON_LINUX_2_NODE_18`.
 
 Alternatively, you can specify a custom image using one of the static methods on
@@ -14284,6 +14284,12 @@ class MacBuildImage(
     def BASE_15(cls) -> "IBuildImage":
         '''Corresponds to the CodeBuild image ``aws/codebuild/macos-arm-base:15``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "BASE_15"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="BASE_26")
+    def BASE_26(cls) -> "IBuildImage":
+        '''Corresponds to the CodeBuild image ``aws/codebuild/macos-arm-base:26``.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "BASE_26"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultComputeType")

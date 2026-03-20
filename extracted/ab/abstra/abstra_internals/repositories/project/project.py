@@ -48,8 +48,8 @@ from abstra_internals.utils.format import normalize_path
 from abstra_internals.utils.graph import Edge, Graph, Node
 from abstra_internals.utils.string import to_kebab_case
 
-ServedStage = Union["FormStage", "HookStage"]
-StageType = Literal["form", "hook", "job", "script", "component"]
+ServedStage = Union["FormStage", "HookStage", "PageStage"]
+StageType = Literal["form", "hook", "job", "script", "component", "page"]
 
 
 class Stage(ABC):
@@ -88,7 +88,7 @@ class StageWithFile(Stage):
         pass
 
 
-SecuredStage = Union["FormStage", "Home"]
+SecuredStage = Union["FormStage", "PageStage", "Home"]
 
 Languages = Literal[
     "en",
@@ -188,6 +188,8 @@ class WorkflowTransition:
             return "scripts:finished"
         elif source_type == "component":
             return "component:finished"
+        elif source_type == "page":
+            return "pages:finished"
         else:
             raise Exception(f"Invalid source type {source_type}")
 
@@ -885,6 +887,129 @@ class FormStage(StageWithFile):
 
 
 @dataclass
+class PageStage(StageWithFile):
+    id: str
+    file: str
+    path: str
+    title: str
+    workflow_transitions: list[WorkflowTransition]
+    workflow_position: tuple[float, float]
+    is_initial: bool = True
+    enabled: bool = False
+    type_name = "page"
+    input: bool = False
+    output: bool = False
+    task_schema: dict[str, Any] | None = None
+    access_control: AccessSettings = field(
+        default_factory=lambda: AccessSettings(is_public=False, required_roles=[])
+    )
+
+    @staticmethod
+    def create(
+        title: str,
+        file: str,
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
+    ):
+        _id: str = id or str(uuid.uuid4())
+        return PageStage(
+            id=_id,
+            file=file,
+            path=to_kebab_case(file[:-3]),
+            title=title,
+            is_initial=True,
+            workflow_transitions=[],
+            workflow_position=workflow_position,
+            input=False,
+            output=False,
+            access_control=AccessSettings(is_public=False, required_roles=[]),
+        )
+
+    @staticmethod
+    def from_dict(data: dict):
+        x, y = data["workflow_position"]
+        raw_access = data.get("access_control")
+        access_control = (
+            AccessSettings.from_dict(raw_access)
+            if isinstance(raw_access, dict) and raw_access
+            else AccessSettings(is_public=False, required_roles=[])
+        )
+        return PageStage(
+            id=data["id"],
+            file=data["file"],
+            path=data["path"],
+            title=data["title"],
+            enabled=data.get("enabled", False),
+            workflow_position=(x, y),
+            workflow_transitions=[
+                WorkflowTransition.from_dict(t) for t in data["transitions"]
+            ],
+            is_initial=data["is_initial"],
+            access_control=access_control,
+            input=data.get("input", False),
+            output=data.get("output", False),
+            task_schema=data.get("task_schema"),
+        )
+
+    @property
+    def to_sidebar_item(self) -> "SidebarItem":
+        return SidebarItem(
+            id=self.id,
+            name=self.title,
+            path=self.path,
+            type="page",
+        )
+
+    @property
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "file": self.file,
+            "path": self.path,
+            "title": self.title,
+            "enabled": self.enabled,
+            "workflow_position": self.workflow_position,
+            "is_initial": self.is_initial,
+            "transitions": [t.as_dict for t in self.workflow_transitions],
+            "access_control": self.access_control.as_dict,
+            "input": self.input,
+            "output": self.output,
+            "task_schema": self.task_schema,
+            "type": self.type_name,
+        }
+
+    @property
+    def editor_dto(self):
+        return self.as_dict
+
+    @property
+    def file_path(self):
+        return Settings.root_path.joinpath(self.file)
+
+    def update(self, changes: dict[str, Any]):
+        for attr, value in changes.items():
+            if attr in ["title", "enabled", "input", "output", "task_schema"]:
+                setattr(self, attr, value)
+            elif attr == "file":
+                _update_file(self, value)
+            elif attr == "path":
+                setattr(self, attr, normalize_path(value))
+            elif attr == "access_control":
+                self.access_control = AccessSettings.from_dict(value)
+            else:
+                raise Exception(f"Cannot update {attr} of page stage")
+
+    def to_access_dto(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "type": self.type_name,
+            "is_public": self.access_control.is_public,
+            "required_roles": self.access_control.required_roles,
+        }
+
+
+@dataclass
 class SidebarItem:
     id: str
     name: str
@@ -1149,6 +1274,7 @@ class Project:
     forms: list[FormStage]
     hooks: list[HookStage]
     jobs: list[JobStage]
+    pages: list[PageStage]
     components: list[ComponentStage]
 
     _graph: Graph
@@ -1163,7 +1289,12 @@ class Project:
                 target_stages.add(transition.target_id)
 
         for stage in (
-            self.jobs + self.forms + self.scripts + self.hooks + self.components
+            self.jobs
+            + self.forms
+            + self.scripts
+            + self.hooks
+            + self.pages
+            + self.components
         ):
             if stage.id in target_stages:
                 stage.is_initial = False
@@ -1176,6 +1307,7 @@ class Project:
             "jobs": [job.as_dict for job in self.jobs],
             "hooks": [hook.as_dict for hook in self.hooks],
             "forms": [form.as_dict for form in self.forms],
+            "pages": [page.as_dict for page in self.pages],
             "scripts": [script.as_dict for script in self.scripts],
             "components": [component.as_dict for component in self.components],
         }
@@ -1196,6 +1328,7 @@ class Project:
                 "jobs": [job.to_abstra_json_dto().to_dict() for job in self.jobs],
                 "hooks": [hook.to_abstra_json_dto().to_dict() for hook in self.hooks],
                 "forms": [form.to_abstra_json_dto().to_dict() for form in self.forms],
+                "pages": [page.as_dict for page in self.pages],
                 "scripts": [
                     script.to_abstra_json_dto().to_dict() for script in self.scripts
                 ],
@@ -1212,6 +1345,7 @@ class Project:
             *self.forms,
             *self.jobs,
             *self.hooks,
+            *self.pages,
             *self.scripts,
             *self.components,
         ]
@@ -1227,6 +1361,7 @@ class Project:
         stage_with_file_classes = (
             FormStage,
             HookStage,
+            PageStage,
             JobStage,
             ScriptStage,
         )
@@ -1282,6 +1417,8 @@ class Project:
             self.forms.append(stage)
         elif isinstance(stage, HookStage):
             self.hooks.append(stage)
+        elif isinstance(stage, PageStage):
+            self.pages.append(stage)
         elif isinstance(stage, JobStage):
             self.jobs.append(stage)
         elif isinstance(stage, ScriptStage):
@@ -1298,7 +1435,7 @@ class Project:
         )
 
     def get_access_control_by_stage_id(self, id: str) -> AccessSettings | None:
-        for stage in [self.home, *self.forms, *self.jobs]:
+        for stage in [self.home, *self.forms, *self.pages, *self.jobs]:
             if stage.id == id:
                 return stage.access_control
         return None
@@ -1311,7 +1448,7 @@ class Project:
 
     @property
     def secured_stages(self) -> list[SecuredStage]:
-        return [self.home, *self.forms]
+        return [self.home, *self.forms, *self.pages]
 
     def get_secured_stage(self, id: str) -> SecuredStage | None:
         for stage in self.secured_stages:
@@ -1335,7 +1472,7 @@ class Project:
             stage.update("access_control", change)
             return stage.to_access_dto()
         stage = self.update_stage(stage, {"access_control": change})
-        if not isinstance(stage, (FormStage)):
+        if not isinstance(stage, (FormStage, PageStage)):
             raise Exception(
                 f"Stage with id {stage.id} is a {type(stage.type_name)} does not have access control"
             )
@@ -1502,6 +1639,39 @@ class Project:
             if form.path == path:
                 return form
 
+    def get_page_stages(self, include_modules=True) -> list[PageStage]:
+        if not include_modules:
+            return self.pages
+
+        module_pages = []
+        for stage in self.module_stages:
+            if isinstance(stage, PageStage):
+                module_pages.append(stage)
+
+        return self.pages + module_pages
+
+    def get_page_stage(self, id: str, include_modules=True) -> PageStage | None:
+        for page in self.pages:
+            if page.id == id:
+                return page
+
+        if not include_modules:
+            return None
+
+        for module in self.get_installed_modules():
+            for stage in module.get_stages():
+                if isinstance(stage, PageStage) and stage.id == id:
+                    return stage
+
+        return None
+
+    def get_page_stage_by_path(self, path: str) -> PageStage | None:
+        for page in self.pages:
+            if page.path == path:
+                return page
+
+        return None
+
     def get_stage_by_path(self, path: str) -> Stage | None:
         for form in self.forms:
             if form.path == path:
@@ -1510,6 +1680,10 @@ class Project:
         for hook in self.hooks:
             if hook.path == path:
                 return hook
+
+        for page in self.pages:
+            if page.path == path:
+                return page
 
         return None
 
@@ -1611,9 +1785,7 @@ class Project:
         new_path = changes.get("path")
 
         if new_path:
-            if not isinstance(project_stage, FormStage) and not isinstance(
-                project_stage, HookStage
-            ):
+            if not isinstance(project_stage, (FormStage, HookStage, PageStage)):
                 raise Exception(
                     f"Stage with id {id} is a {type(project_stage)} does not have a path"
                 )
@@ -1638,6 +1810,7 @@ class Project:
         self.delete_transition_by_target(id)
         self.forms = [f for f in self.forms if f.id != id]
         self.hooks = [h for h in self.hooks if h.id != id]
+        self.pages = [u for u in self.pages if u.id != id]
         self.jobs = [j for j in self.jobs if j.id != id]
         self.scripts = [s for s in self.scripts if s.id != id]
         self.components = [p for p in self.components if p.id != id]
@@ -1663,7 +1836,7 @@ class Project:
         Returns:
             The project dictionary with deduplicated and cleaned transitions
         """
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
 
         # First, collect all valid stage IDs
         valid_stage_ids = set()
@@ -1741,7 +1914,7 @@ class Project:
             The project dictionary with deduplicated stages
         """
         seen_ids = set()
-        stage_keys = ["scripts", "forms", "hooks", "jobs", "components"]
+        stage_keys = ["scripts", "forms", "hooks", "jobs", "pages", "components"]
 
         for key in stage_keys:
             stages = data.get(key, [])
@@ -1768,7 +1941,7 @@ class Project:
         nodes = []
         edges = []
 
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
 
         data = Project._deduplicate_stages(data)
         data = Project._deduplicate_transitions(data)
@@ -1793,6 +1966,7 @@ class Project:
         forms = [FormStage.from_dict(form) for form in data.get("forms", [])]
         hooks = [HookStage.from_dict(hook) for hook in data.get("hooks", [])]
         jobs = [JobStage.from_dict(job) for job in data.get("jobs", [])]
+        pages = [PageStage.from_dict(p) for p in data.get("pages", [])]
         components = [
             ComponentStage.from_dict(component)
             for component in data.get("components", [])
@@ -1806,6 +1980,7 @@ class Project:
             forms=forms,
             hooks=hooks,
             jobs=jobs,
+            pages=pages,
             components=components,
             home=home,
             _graph=Graph.from_primitives(nodes=nodes, edges=edges),
@@ -1836,6 +2011,7 @@ class Project:
             forms=[],
             hooks=[],
             jobs=[],
+            pages=[],
             components=[],
             home=Home.create(),
             _graph=Graph.from_primitives([], []),
@@ -2048,7 +2224,7 @@ def filter_stages_from_data(data: dict, disabled_stages_ids: list[str] | None = 
     if disabled_stages_ids is None or len(disabled_stages_ids) == 0:
         return data
 
-    stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+    stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
 
     copy_data = data.copy()
 

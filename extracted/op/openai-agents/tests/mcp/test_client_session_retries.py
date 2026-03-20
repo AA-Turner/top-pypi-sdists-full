@@ -5,8 +5,10 @@ from typing import cast
 
 import httpx
 import pytest
+from anyio import ClosedResourceError
 from mcp import ClientSession, Tool as MCPTool
-from mcp.types import CallToolResult, GetPromptResult, ListPromptsResult, ListToolsResult
+from mcp.shared.exceptions import McpError
+from mcp.types import CallToolResult, ErrorData, GetPromptResult, ListPromptsResult, ListToolsResult
 
 from agents.exceptions import UserError
 from agents.mcp.server import MCPServerStreamableHttp, _MCPServerWithClientSession
@@ -218,6 +220,27 @@ class TimeoutSession:
         raise httpx.TimeoutException(self.message)
 
 
+class ClosedResourceSession:
+    def __init__(self):
+        self.call_tool_attempts = 0
+
+    async def call_tool(self, tool_name, arguments, meta=None):
+        self.call_tool_attempts += 1
+        raise ClosedResourceError()
+
+
+class McpRequestTimeoutSession:
+    def __init__(self, message: str = "timed out"):
+        self.call_tool_attempts = 0
+        self.message = message
+
+    async def call_tool(self, tool_name, arguments, meta=None):
+        self.call_tool_attempts += 1
+        raise McpError(
+            ErrorData(code=httpx.codes.REQUEST_TIMEOUT, message=self.message),
+        )
+
+
 class IsolatedRetrySession:
     def __init__(self):
         self.call_tool_attempts = 0
@@ -296,6 +319,33 @@ async def test_streamable_http_retries_cancelled_request_on_isolated_session():
 async def test_streamable_http_retries_5xx_on_isolated_session():
     isolated_session = IsolatedRetrySession()
     server = DummyStreamableHttpServer(SharedHttpStatusSession(504), isolated_session)
+    server.max_retry_attempts = 1
+
+    result = await server.call_tool("tool", None)
+
+    assert isinstance(result, CallToolResult)
+    assert isolated_session.call_tool_attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_retries_closed_resource_on_isolated_session():
+    isolated_session = IsolatedRetrySession()
+    server = DummyStreamableHttpServer(ClosedResourceSession(), isolated_session)
+    server.max_retry_attempts = 1
+
+    result = await server.call_tool("tool", None)
+
+    assert isinstance(result, CallToolResult)
+    assert isolated_session.call_tool_attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_retries_mcp_408_on_isolated_session():
+    isolated_session = IsolatedRetrySession()
+    server = DummyStreamableHttpServer(
+        McpRequestTimeoutSession("Timed out while waiting for response to ClientRequest."),
+        isolated_session,
+    )
     server.max_retry_attempts = 1
 
     result = await server.call_tool("tool", None)

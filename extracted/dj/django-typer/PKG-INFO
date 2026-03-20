@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-typer
-Version: 3.6.5
+Version: 3.6.6
 Summary: Use Typer to define the CLI for your Django management commands.
 Project-URL: Homepage, https://django-typer.readthedocs.io
 Project-URL: Documentation, https://django-typer.readthedocs.io

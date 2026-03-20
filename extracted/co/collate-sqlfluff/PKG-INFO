@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqlfluff
-Version: 3.3.7
+Version: 3.5.0
 Summary: The SQL Linter for Humans
 Author: open-metadata
 License: MIT License
@@ -32,7 +32,7 @@ Project-URL: Changes, https://github.com/open-metadata/collate-sqlfluff/blob/mai
 Project-URL: Issue Tracker, https://github.com/open-metadata/collate-sqlfluff/issues
 Project-URL: Twitter, https://twitter.com/SQLFluff
 Project-URL: Chat, https://github.com/open-metadata/collate-sqlfluff#sqlfluff-on-slack
-Keywords: sqlfluff,sql,linter,formatter,athena,bigquery,clickhouse,databricks,db2,duckdb,exasol,greenplum,hive,impala,materialize,mariadb,mysql,postgres,redshift,snowflake,soql,sparksql,sqlite,starrocks,teradata,trino,tsql,vertica,dbt
+Keywords: sqlfluff,sql,linter,formatter,athena,bigquery,clickhouse,databricks,db2,doris,duckdb,exasol,flink,greenplum,hive,impala,materialize,mariadb,mysql,postgres,redshift,snowflake,soql,sparksql,sqlite,starrocks,teradata,trino,tsql,vertica,dbt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -53,12 +53,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: platformdirs
 Requires-Dist: chardet
-Requires-Dist: click
+Requires-Dist: click<=8.3.0
 Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
 Requires-Dist: importlib_resources; python_version < "3.9"
@@ -68,7 +68,7 @@ Requires-Dist: pytest
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex
 Requires-Dist: tblib
-Requires-Dist: toml; python_version < "3.11"
+Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
 Dynamic: license-file
 
@@ -120,8 +120,10 @@ currently supports the following SQL dialects (though perhaps not in full):
 - [Databricks](https://databricks.com/) (note: this extends the `sparksql` dialect with
   [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/index.html) syntax).
 - [Db2](https://www.ibm.com/analytics/db2)
+- [Doris](https://doris.apache.org/)
 - [DuckDB](https://duckdb.org/)
 - [Exasol](https://www.exasol.com/)
+- [FlinkSQL](https://nightlies.apache.org/flink/flink-docs-master/)
 - [Greenplum](https://greenplum.org/)
 - [Hive](https://hive.apache.org/)
 - [Impala](https://impala.apache.org/)

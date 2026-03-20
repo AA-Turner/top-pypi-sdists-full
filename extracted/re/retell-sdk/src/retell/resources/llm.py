@@ -9,7 +9,7 @@ import httpx
 
 from ..types import llm_list_params, llm_create_params, llm_update_params, llm_retrieve_params
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -62,11 +62,13 @@ class LlmResource(SyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -78,10 +80,7 @@ class LlmResource(SyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[
-            Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]
-        ]
-        | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
@@ -227,7 +226,7 @@ class LlmResource(SyncAPIResource):
         if not llm_id:
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         return self._get(
-            f"/get-retell-llm/{llm_id}",
+            path_template("/get-retell-llm/{llm_id}", llm_id=llm_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -257,11 +256,13 @@ class LlmResource(SyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -273,10 +274,7 @@ class LlmResource(SyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[
-            Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]
-        ]
-        | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
@@ -366,7 +364,7 @@ class LlmResource(SyncAPIResource):
         if not llm_id:
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         return self._patch(
-            f"/update-retell-llm/{llm_id}",
+            path_template("/update-retell-llm/{llm_id}", llm_id=llm_id),
             body=maybe_transform(
                 {
                     "begin_after_user_silence_ms": begin_after_user_silence_ms,
@@ -481,7 +479,7 @@ class LlmResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/delete-retell-llm/{llm_id}",
+            path_template("/delete-retell-llm/{llm_id}", llm_id=llm_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -526,11 +524,13 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -542,10 +542,7 @@ class AsyncLlmResource(AsyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[
-            Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]
-        ]
-        | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
@@ -691,7 +688,7 @@ class AsyncLlmResource(AsyncAPIResource):
         if not llm_id:
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         return await self._get(
-            f"/get-retell-llm/{llm_id}",
+            path_template("/get-retell-llm/{llm_id}", llm_id=llm_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -721,11 +718,13 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -737,10 +736,7 @@ class AsyncLlmResource(AsyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[
-            Literal["gpt-4o-realtime", "gpt-4o-mini-realtime", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]
-        ]
-        | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
@@ -830,7 +826,7 @@ class AsyncLlmResource(AsyncAPIResource):
         if not llm_id:
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         return await self._patch(
-            f"/update-retell-llm/{llm_id}",
+            path_template("/update-retell-llm/{llm_id}", llm_id=llm_id),
             body=await async_maybe_transform(
                 {
                     "begin_after_user_silence_ms": begin_after_user_silence_ms,
@@ -945,7 +941,7 @@ class AsyncLlmResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `llm_id` but received {llm_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/delete-retell-llm/{llm_id}",
+            path_template("/delete-retell-llm/{llm_id}", llm_id=llm_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

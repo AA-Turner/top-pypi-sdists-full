@@ -1762,7 +1762,10 @@ def parse(
 
     def import_strategy_deprecated(*args: str, **kwargs: Any):
         raise DatafileSyntaxError(
-            f"{kwargs['cmd'].upper()} has been deprecated. It is now fixed to 'append'",
+            (
+                f"{kwargs['cmd'].upper()} has been deprecated. The built-in default is 'append'. "
+                "You can safely remove this setting from your Data Source file and the connection will be valid."
+            ),
             lineno=kwargs["lineno"],
             pos=1,
         )

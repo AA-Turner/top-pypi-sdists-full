@@ -51,6 +51,8 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        time_bucketing_strategy=None,
+        backfill_config=None,
     ):
         _AssertionInput.__init__(
             self,
@@ -63,11 +65,13 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            source_type=models.AssertionSourceTypeClass.INFERRED,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
         _HasSmartAssertionInputs.__init__(
             self,
@@ -115,6 +119,7 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
             type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
             datasetVolumeParameters=models.DatasetVolumeAssertionParametersClass(
                 sourceType=source_type,
+                timeBucketingStrategy=self.time_bucketing_strategy,
             ),
         )
 
@@ -181,6 +186,7 @@ class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
                         trainingDataLookbackWindowDays=self.training_data_lookback_days,
                     ),
                 ),
+                bootstrapConfig=self.backfill_config,
             ),
         )
 

@@ -2459,6 +2459,7 @@ class ImportSubscriptionInput(BaseModel):
     charges: Optional[List["ChargeInput"]] = None
     customer_id: str = Field(alias="customerId")
     end_date: Optional[Any] = Field(alias="endDate", default=None)
+    entitlements: Optional[List["SubscriptionEntitlementInputV2"]] = None
     plan_id: str = Field(alias="planId")
     resource_id: Optional[str] = Field(alias="resourceId", default=None)
     salesforce_id: Optional[str] = Field(alias="salesforceId", default=None)

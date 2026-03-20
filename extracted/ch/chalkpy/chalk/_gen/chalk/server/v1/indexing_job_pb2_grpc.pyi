@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.indexing_job_pb2 import (
+    CancelIndexingJobRequest,
+    CancelIndexingJobResponse,
     GetIndexingJobStatusRequest,
     GetIndexingJobStatusResponse,
 )
@@ -25,6 +27,10 @@ class IndexingJobServiceStub:
         GetIndexingJobStatusResponse,
     ]
     """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+    CancelIndexingJob: UnaryUnaryMultiCallable[
+        CancelIndexingJobRequest,
+        CancelIndexingJobResponse,
+    ]
 
 class IndexingJobServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -34,5 +40,11 @@ class IndexingJobServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetIndexingJobStatusResponse:
         """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+    @abstractmethod
+    def CancelIndexingJob(
+        self,
+        request: CancelIndexingJobRequest,
+        context: ServicerContext,
+    ) -> CancelIndexingJobResponse: ...
 
 def add_IndexingJobServiceServicer_to_server(servicer: IndexingJobServiceServicer, server: Server) -> None: ...

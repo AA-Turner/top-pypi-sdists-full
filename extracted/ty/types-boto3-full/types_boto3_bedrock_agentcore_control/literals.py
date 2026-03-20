@@ -29,6 +29,7 @@ __all__ = (
     "ApiKeyCredentialLocationType",
     "AuthorizerTypeType",
     "BedrockAgentCoreControlServiceName",
+    "BrowserEnterprisePolicyTypeType",
     "BrowserNetworkModeType",
     "BrowserProfileStatusType",
     "BrowserStatusType",
@@ -112,6 +113,7 @@ AgentRuntimeStatusType = Literal[
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
 AuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT", "NONE"]
+BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
 BrowserProfileStatusType = Literal["DELETED", "DELETING", "READY", "SAVING"]
 BrowserStatusType = Literal[

@@ -28,6 +28,7 @@ from abstra_internals.templates import (
     new_form_code,
     new_hook_code,
     new_job_code,
+    new_page_code,
     new_script_code,
 )
 from abstra_internals.utils.file import safe_write_file
@@ -119,7 +120,11 @@ class CodebaseController:
 
         return [
             AbstraLibApiEditorCodebaseFilesGetResponseItem(
-                file=self.file_node(child_path.relative_to(Settings.root_path)),
+                file=self.file_node(
+                    child_path.relative_to(Settings.root_path)
+                    if child_path.is_relative_to(Settings.root_path)
+                    else child_path
+                ),
                 stages=[
                     AbstraLibApiEditorCodebaseFilesGetResponseItemStagesItem(
                         id=stage.id,
@@ -136,9 +141,7 @@ class CodebaseController:
                 recursive=False,
                 allowed_suffixes=allowed_suffixes,
             )
-            if child_path != full_path
-            and child_path.name not in ALWAYS_HIDDEN
-            and child_path.is_relative_to(Settings.root_path)
+            if child_path != full_path and child_path.name not in ALWAYS_HIDDEN
         ]
 
     def init_file(self, path: str, type: str):
@@ -150,6 +153,8 @@ class CodebaseController:
             code = new_hook_code
         elif type == "jobs":
             code = new_job_code
+        elif type == "pages":
+            code = new_page_code
         elif type == "agents":
             code = new_agent_code
         else:
@@ -274,7 +279,9 @@ class CodebaseController:
             if not path.is_absolute()
             else path.resolve()
         )
-        if not resolved.is_relative_to(Settings.root_path.resolve()):
+        if not path.is_absolute() and not resolved.is_relative_to(
+            Settings.root_path.resolve()
+        ):
             flask.abort(403)
         if not resolved.exists():
             flask.abort(404)

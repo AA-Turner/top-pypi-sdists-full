@@ -179,6 +179,10 @@ class SHERPA_ONNX_API OnlineStream
 
   void InputFinished() const;
 
+  void SetOption(const char *key, const char *value) const;
+  const char *GetOption(const char *key) const;
+  int32_t HasOption(const char *key) const;
+
   void Destroy(const SherpaOnnxOnlineStream *p) const;
 };
 
@@ -212,29 +216,31 @@ class SHERPA_ONNX_API OnlineRecognizer
 // ============================================================================
 // Non-streaming ASR
 // ============================================================================
-struct SHERPA_ONNX_API OfflineTransducerModelConfig {
+struct OfflineTransducerModelConfig {
   std::string encoder;
   std::string decoder;
   std::string joiner;
 };
 
-struct SHERPA_ONNX_API OfflineParaformerModelConfig {
+struct OfflineParaformerModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineNemoEncDecCtcModelConfig {
+struct OfflineNemoEncDecCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineWhisperModelConfig {
+struct OfflineWhisperModelConfig {
   std::string encoder;
   std::string decoder;
   std::string language;
   std::string task = "transcribe";
   int32_t tail_paddings = -1;
+  bool enable_token_timestamps = false;
+  bool enable_segment_timestamps = false;
 };
 
-struct SHERPA_ONNX_API OfflineCanaryModelConfig {
+struct OfflineCanaryModelConfig {
   std::string encoder;
   std::string decoder;
   std::string src_lang;
@@ -242,46 +248,46 @@ struct SHERPA_ONNX_API OfflineCanaryModelConfig {
   bool use_pnc = true;
 };
 
-struct SHERPA_ONNX_API OfflineFireRedAsrModelConfig {
+struct OfflineFireRedAsrModelConfig {
   std::string encoder;
   std::string decoder;
 };
 
-struct SHERPA_ONNX_API OfflineFireRedAsrCtcModelConfig {
+struct OfflineFireRedAsrCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineTdnnModelConfig {
+struct OfflineTdnnModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineSenseVoiceModelConfig {
+struct OfflineSenseVoiceModelConfig {
   std::string model;
   std::string language;
   bool use_itn = false;
 };
 
-struct SHERPA_ONNX_API OfflineDolphinModelConfig {
+struct OfflineDolphinModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineZipformerCtcModelConfig {
+struct OfflineZipformerCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineWenetCtcModelConfig {
+struct OfflineWenetCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineOmnilingualAsrCtcModelConfig {
+struct OfflineOmnilingualAsrCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineMedAsrCtcModelConfig {
+struct OfflineMedAsrCtcModelConfig {
   std::string model;
 };
 
-struct SHERPA_ONNX_API OfflineMoonshineModelConfig {
+struct OfflineMoonshineModelConfig {
   std::string preprocessor;
   std::string encoder;
   std::string uncached_decoder;
@@ -289,7 +295,7 @@ struct SHERPA_ONNX_API OfflineMoonshineModelConfig {
   std::string merged_decoder;
 };
 
-struct SHERPA_ONNX_API OfflineFunASRNanoModelConfig {
+struct OfflineFunASRNanoModelConfig {
   std::string encoder_adaptor;
   std::string llm;
   std::string embedding;
@@ -305,7 +311,7 @@ struct SHERPA_ONNX_API OfflineFunASRNanoModelConfig {
   std::string hotwords;
 };
 
-struct SHERPA_ONNX_API OfflineModelConfig {
+struct OfflineModelConfig {
   OfflineTransducerModelConfig transducer;
   OfflineParaformerModelConfig paraformer;
   OfflineNemoEncDecCtcModelConfig nemo_ctc;
@@ -333,12 +339,12 @@ struct SHERPA_ONNX_API OfflineModelConfig {
   OfflineFireRedAsrCtcModelConfig fire_red_asr_ctc;
 };
 
-struct SHERPA_ONNX_API OfflineLMConfig {
+struct OfflineLMConfig {
   std::string model;
   float scale = 1.0;
 };
 
-struct SHERPA_ONNX_API OfflineRecognizerConfig {
+struct OfflineRecognizerConfig {
   FeatureConfig feat_config;
   OfflineModelConfig model_config;
   OfflineLMConfig lm_config;
@@ -355,7 +361,7 @@ struct SHERPA_ONNX_API OfflineRecognizerConfig {
   HomophoneReplacerConfig hr;
 };
 
-struct SHERPA_ONNX_API OfflineRecognizerResult {
+struct OfflineRecognizerResult {
   std::string text;
   std::vector<float> timestamps;
   std::vector<std::string> tokens;
@@ -375,6 +381,10 @@ class SHERPA_ONNX_API OfflineStream
 
   void AcceptWaveform(int32_t sample_rate, const float *samples,
                       int32_t n) const;
+
+  void SetOption(const char *key, const char *value) const;
+  const char *GetOption(const char *key) const;
+  int32_t HasOption(const char *key) const;
 
   void Destroy(const SherpaOnnxOfflineStream *p) const;
 };
@@ -593,7 +603,7 @@ struct KeywordResult {
   std::string keyword;
   std::vector<std::string> tokens;
   std::vector<float> timestamps;
-  float start_time;
+  float start_time = 0.0f;
   std::string json;
 };
 
@@ -605,6 +615,7 @@ struct KeywordSpotterConfig {
   float keywords_score = 1.0f;
   float keywords_threshold = 0.25f;
   std::string keywords_file;
+  std::string keywords_buf;
 };
 
 class SHERPA_ONNX_API KeywordSpotter
@@ -636,10 +647,15 @@ struct OfflineSpeechDenoiserGtcrnModelConfig {
   std::string model;
 };
 
+struct OfflineSpeechDenoiserDpdfNetModelConfig {
+  std::string model;
+};
+
 struct OfflineSpeechDenoiserModelConfig {
   OfflineSpeechDenoiserGtcrnModelConfig gtcrn;
+  OfflineSpeechDenoiserDpdfNetModelConfig dpdfnet;
   int32_t num_threads = 1;
-  int32_t debug = false;
+  bool debug = false;
   std::string provider = "cpu";
 };
 
@@ -649,7 +665,7 @@ struct OfflineSpeechDenoiserConfig {
 
 struct DenoisedAudio {
   std::vector<float> samples;  // in the range [-1, 1]
-  int32_t sample_rate;
+  int32_t sample_rate = 0;
 };
 
 class SHERPA_ONNX_API OfflineSpeechDenoiser
@@ -666,6 +682,31 @@ class SHERPA_ONNX_API OfflineSpeechDenoiser
 
  private:
   explicit OfflineSpeechDenoiser(const SherpaOnnxOfflineSpeechDenoiser *p);
+};
+
+struct OnlineSpeechDenoiserConfig {
+  OfflineSpeechDenoiserModelConfig model;
+};
+
+class SHERPA_ONNX_API OnlineSpeechDenoiser
+    : public MoveOnly<OnlineSpeechDenoiser, SherpaOnnxOnlineSpeechDenoiser> {
+ public:
+  static OnlineSpeechDenoiser Create(const OnlineSpeechDenoiserConfig &config);
+
+  void Destroy(const SherpaOnnxOnlineSpeechDenoiser *p) const;
+
+  DenoisedAudio Run(const float *samples, int32_t n, int32_t sample_rate) const;
+
+  DenoisedAudio Flush() const;
+
+  void Reset() const;
+
+  int32_t GetSampleRate() const;
+
+  int32_t GetFrameShiftInSamples() const;
+
+ private:
+  explicit OnlineSpeechDenoiser(const SherpaOnnxOnlineSpeechDenoiser *p);
 };
 
 // ==============================
@@ -701,7 +742,7 @@ struct VadModelConfig {
 };
 
 struct SpeechSegment {
-  int32_t start;
+  int32_t start = 0;
   std::vector<float> samples;
 };
 

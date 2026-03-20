@@ -61,6 +61,15 @@ def _split_into_chunks(items: list, chunk_size: int) -> list[list]:
     return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
 
+def normalize_stage_path(path: str) -> str:
+    """Strip surrounding single-quotes and any trailing slash from a stage path.
+
+    Quoted stage paths like ``'@stage/dir/'`` become ``@stage/dir``.
+    Unquoted paths are returned with only the trailing slash removed.
+    """
+    return path.strip("'").rstrip("/")
+
+
 def generate_stage_path_groups(paths: list[str]) -> list[tuple[str, list[str]]]:
     """
     Group quoted Snowflake stage paths by their stage.

@@ -29,6 +29,7 @@ from abstra_internals.credentials import (
 from abstra_internals.entities.execution_context import (
     HookContext,
     JobContext,
+    PageContext,
     Request,
     Response,
     ScriptContext,
@@ -52,6 +53,7 @@ from abstra_internals.repositories.project.project import (
     FormStage,
     HookStage,
     JobStage,
+    PageStage,
     ScriptStage,
     Stage,
     StageWithFile,
@@ -69,6 +71,7 @@ from abstra_internals.templates import (
     new_form_code,
     new_hook_code,
     new_job_code,
+    new_page_code,
     new_script_code,
 )
 from abstra_internals.utils.file import path2module
@@ -1560,6 +1563,77 @@ class MainController:
     def get_hook_by_path(self, path: str) -> HookStage | None:
         project = self.repositories.project.load()
         return project.get_hook_by_path(path)
+
+    # Page stage methods
+
+    def create_page_stage(
+        self,
+        title: str,
+        file: str,
+        workflow_position: tuple[int, int] = (0, 0),
+        id: str | None = None,
+    ) -> PageStage:
+        page = PageStage.create(title, file, workflow_position=workflow_position, id=id)
+        self.init_code_file(page.file, new_page_code)
+        with self.repositories.project.atomic() as project:
+            project.add_stage(page)
+        return page
+
+    def get_page_stage(self, id: str) -> PageStage | None:
+        project = self.repositories.project.load()
+        return project.get_page_stage(id)
+
+    def get_page_stages(self) -> list[PageStage]:
+        project = self.repositories.project.load()
+        pages = project.get_page_stages()
+        sorted_pages = sorted(pages, key=lambda u: u.title.lower())
+        return sorted_pages
+
+    def get_page_stage_by_path(self, path: str) -> PageStage | None:
+        project = self.repositories.project.load()
+        return project.get_page_stage_by_path(path)
+
+    def run_page_stage(self, id: str, request: Request, user_jwt: str | None = None):
+        page = self.get_page_stage(id)
+        if not page:
+            raise Exception(f"Page stage with id {id} not found")
+
+        context = PageContext(
+            request=request,
+            response=Response(headers={}, status=200, body=""),
+        )
+
+        connection = self.repositories.producer.enqueue(
+            page.id, context, user_jwt=user_jwt
+        )
+        start_msg = connection.recv()
+
+        if isinstance(start_msg, str):
+            start_msg = json.loads(start_msg)
+
+        try:
+            response = connection.recv()
+
+            if not response:
+                flask.abort(500)
+
+            if isinstance(response, str):
+                response = json.loads(response)
+
+            if not isinstance(response, Response):
+                response = Response(
+                    headers=response.get("headers", {}),
+                    status=response.get("status", 200),
+                    body=response.get("body", ""),
+                )
+        finally:
+            connection.close()
+
+        return {
+            "body": response.body,
+            "status": response.status,
+            "headers": response.headers,
+        }
 
     def get_jobs(self, include_disabled_jobs: bool = False) -> list[JobStage]:
         project = self.repositories.project.load(

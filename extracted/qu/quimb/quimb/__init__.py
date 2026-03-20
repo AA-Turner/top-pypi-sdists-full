@@ -10,8 +10,9 @@ except ImportError:
     # -- Source mode --
     try:
         # use setuptools_scm to get the current version from src using git
-        from setuptools_scm import get_version as _gv
         from pathlib import Path as _Path
+
+        from setuptools_scm import get_version as _gv
 
         __version__ = _gv(_Path(__file__).parent.parent)
     except ImportError:
@@ -134,6 +135,7 @@ from .gen.operators import (
     ccX,
     ccY,
     ccZ,
+    clock,
     controlled,
     controlled_swap,
     create,
@@ -160,6 +162,7 @@ from .gen.operators import (
     pauli,
     phase_gate,
     rotation,
+    shift,
     spin_operator,
     swap,
     toffoli,
@@ -262,9 +265,9 @@ from .utils import (
     tree_unflatten,
 )
 from .utils_plot import (
-    plot,
     NEUTRAL_STYLE,
     default_to_neutral_style,
+    plot,
     plot_multi_series_zoom,
 )
 
@@ -284,6 +287,7 @@ __all__ = [
     "ccY",
     "ccZ",
     "chop",
+    "clock",
     "CNOT",
     "computational_state",
     "concurrence",
@@ -454,6 +458,7 @@ __all__ = [
     "schmidt_gap",
     "seed_rand",
     "set_rand_bitgen",
+    "shift",
     "simulate_counts",
     "sin",
     "singlet_pairs",

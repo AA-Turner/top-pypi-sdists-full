@@ -771,6 +771,8 @@ __all__ = [
     'RegionBackendServiceCustomMetricArgsDict',
     'RegionBackendServiceDynamicForwardingArgs',
     'RegionBackendServiceDynamicForwardingArgsDict',
+    'RegionBackendServiceDynamicForwardingForwardProxyArgs',
+    'RegionBackendServiceDynamicForwardingForwardProxyArgsDict',
     'RegionBackendServiceDynamicForwardingIpPortSelectionArgs',
     'RegionBackendServiceDynamicForwardingIpPortSelectionArgsDict',
     'RegionBackendServiceFailoverPolicyArgs',
@@ -39096,6 +39098,12 @@ class RegionBackendServiceCustomMetricArgs:
 
 
 class RegionBackendServiceDynamicForwardingArgsDict(TypedDict):
+    forward_proxy: NotRequired[pulumi.Input['RegionBackendServiceDynamicForwardingForwardProxyArgsDict']]
+    """
+    (Optional, Beta)
+    Dynamic Forwarding Proxy configuration.
+    Structure is documented below.
+    """
     ip_port_selection: NotRequired[pulumi.Input['RegionBackendServiceDynamicForwardingIpPortSelectionArgsDict']]
     """
     (Optional, Beta)
@@ -39106,14 +39114,34 @@ class RegionBackendServiceDynamicForwardingArgsDict(TypedDict):
 @pulumi.input_type
 class RegionBackendServiceDynamicForwardingArgs:
     def __init__(__self__, *,
+                 forward_proxy: Optional[pulumi.Input['RegionBackendServiceDynamicForwardingForwardProxyArgs']] = None,
                  ip_port_selection: Optional[pulumi.Input['RegionBackendServiceDynamicForwardingIpPortSelectionArgs']] = None):
         """
+        :param pulumi.Input['RegionBackendServiceDynamicForwardingForwardProxyArgs'] forward_proxy: (Optional, Beta)
+               Dynamic Forwarding Proxy configuration.
+               Structure is documented below.
         :param pulumi.Input['RegionBackendServiceDynamicForwardingIpPortSelectionArgs'] ip_port_selection: (Optional, Beta)
                IP:PORT based dynamic forwarding configuration.
                Structure is documented below.
         """
+        if forward_proxy is not None:
+            pulumi.set(__self__, "forward_proxy", forward_proxy)
         if ip_port_selection is not None:
             pulumi.set(__self__, "ip_port_selection", ip_port_selection)
+
+    @_builtins.property
+    @pulumi.getter(name="forwardProxy")
+    def forward_proxy(self) -> Optional[pulumi.Input['RegionBackendServiceDynamicForwardingForwardProxyArgs']]:
+        """
+        (Optional, Beta)
+        Dynamic Forwarding Proxy configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "forward_proxy")
+
+    @forward_proxy.setter
+    def forward_proxy(self, value: Optional[pulumi.Input['RegionBackendServiceDynamicForwardingForwardProxyArgs']]):
+        pulumi.set(self, "forward_proxy", value)
 
     @_builtins.property
     @pulumi.getter(name="ipPortSelection")
@@ -39128,6 +39156,62 @@ class RegionBackendServiceDynamicForwardingArgs:
     @ip_port_selection.setter
     def ip_port_selection(self, value: Optional[pulumi.Input['RegionBackendServiceDynamicForwardingIpPortSelectionArgs']]):
         pulumi.set(self, "ip_port_selection", value)
+
+
+class RegionBackendServiceDynamicForwardingForwardProxyArgsDict(TypedDict):
+    enabled: pulumi.Input[_builtins.bool]
+    """
+    (Required, Beta)
+    A boolean flag enabling dynamic forwarding proxy.
+    """
+    proxy_mode: pulumi.Input[_builtins.str]
+    """
+    (Required, Beta)
+    Determines the dynamic forwarding proxy mode
+    Possible values are: `DIRECT_FORWARDING`, `CLOUD_RUN`.
+    """
+
+@pulumi.input_type
+class RegionBackendServiceDynamicForwardingForwardProxyArgs:
+    def __init__(__self__, *,
+                 enabled: pulumi.Input[_builtins.bool],
+                 proxy_mode: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.bool] enabled: (Required, Beta)
+               A boolean flag enabling dynamic forwarding proxy.
+        :param pulumi.Input[_builtins.str] proxy_mode: (Required, Beta)
+               Determines the dynamic forwarding proxy mode
+               Possible values are: `DIRECT_FORWARDING`, `CLOUD_RUN`.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "proxy_mode", proxy_mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> pulumi.Input[_builtins.bool]:
+        """
+        (Required, Beta)
+        A boolean flag enabling dynamic forwarding proxy.
+        """
+        return pulumi.get(self, "enabled")
+
+    @enabled.setter
+    def enabled(self, value: pulumi.Input[_builtins.bool]):
+        pulumi.set(self, "enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="proxyMode")
+    def proxy_mode(self) -> pulumi.Input[_builtins.str]:
+        """
+        (Required, Beta)
+        Determines the dynamic forwarding proxy mode
+        Possible values are: `DIRECT_FORWARDING`, `CLOUD_RUN`.
+        """
+        return pulumi.get(self, "proxy_mode")
+
+    @proxy_mode.setter
+    def proxy_mode(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "proxy_mode", value)
 
 
 class RegionBackendServiceDynamicForwardingIpPortSelectionArgsDict(TypedDict):
@@ -65651,10 +65735,21 @@ class ResourcePolicyWorkloadPolicyArgsDict(TypedDict):
     The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT
     and cannot be set if max topology distance is set.
     """
+    accelerator_topology_mode: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Optional, Beta)
+    Specifies the connection mode for the accelerator topology.
+    Supported values are:
+    * `AUTO_CONNECT`: The interconnected chips are pre-configured at the time of VM creation.
+    * `PROVISION_ONLY`: The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+    If not specified, the default is AUTO_CONNECT.
+    This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set.
+    Possible values are: `AUTO_CONNECT`, `PROVISION_ONLY`.
+    """
     max_topology_distance: NotRequired[pulumi.Input[_builtins.str]]
     """
     The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-    and cannot be set if accelerator topology is set.
+    and cannot be set if accelerator topology or accelerator topology mode is set.
     Possible values are: `BLOCK`, `CLUSTER`, `SUBBLOCK`.
     """
 
@@ -65663,19 +65758,30 @@ class ResourcePolicyWorkloadPolicyArgs:
     def __init__(__self__, *,
                  type: pulumi.Input[_builtins.str],
                  accelerator_topology: Optional[pulumi.Input[_builtins.str]] = None,
+                 accelerator_topology_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  max_topology_distance: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] type: The type of workload policy.
                Possible values are: `HIGH_AVAILABILITY`, `HIGH_THROUGHPUT`.
         :param pulumi.Input[_builtins.str] accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT
                and cannot be set if max topology distance is set.
+        :param pulumi.Input[_builtins.str] accelerator_topology_mode: (Optional, Beta)
+               Specifies the connection mode for the accelerator topology.
+               Supported values are:
+               * `AUTO_CONNECT`: The interconnected chips are pre-configured at the time of VM creation.
+               * `PROVISION_ONLY`: The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+               If not specified, the default is AUTO_CONNECT.
+               This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set.
+               Possible values are: `AUTO_CONNECT`, `PROVISION_ONLY`.
         :param pulumi.Input[_builtins.str] max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-               and cannot be set if accelerator topology is set.
+               and cannot be set if accelerator topology or accelerator topology mode is set.
                Possible values are: `BLOCK`, `CLUSTER`, `SUBBLOCK`.
         """
         pulumi.set(__self__, "type", type)
         if accelerator_topology is not None:
             pulumi.set(__self__, "accelerator_topology", accelerator_topology)
+        if accelerator_topology_mode is not None:
+            pulumi.set(__self__, "accelerator_topology_mode", accelerator_topology_mode)
         if max_topology_distance is not None:
             pulumi.set(__self__, "max_topology_distance", max_topology_distance)
 
@@ -65706,11 +65812,30 @@ class ResourcePolicyWorkloadPolicyArgs:
         pulumi.set(self, "accelerator_topology", value)
 
     @_builtins.property
+    @pulumi.getter(name="acceleratorTopologyMode")
+    def accelerator_topology_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Optional, Beta)
+        Specifies the connection mode for the accelerator topology.
+        Supported values are:
+        * `AUTO_CONNECT`: The interconnected chips are pre-configured at the time of VM creation.
+        * `PROVISION_ONLY`: The interconnected chips are connected on demand. At the time of VM creation, the chips are not connected.
+        If not specified, the default is AUTO_CONNECT.
+        This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set.
+        Possible values are: `AUTO_CONNECT`, `PROVISION_ONLY`.
+        """
+        return pulumi.get(self, "accelerator_topology_mode")
+
+    @accelerator_topology_mode.setter
+    def accelerator_topology_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "accelerator_topology_mode", value)
+
+    @_builtins.property
     @pulumi.getter(name="maxTopologyDistance")
     def max_topology_distance(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
-        and cannot be set if accelerator topology is set.
+        and cannot be set if accelerator topology or accelerator topology mode is set.
         Possible values are: `BLOCK`, `CLUSTER`, `SUBBLOCK`.
         """
         return pulumi.get(self, "max_topology_distance")
@@ -70468,7 +70593,6 @@ class ServiceAttachmentConsumerAcceptListArgsDict(TypedDict):
     """
     endpoint_url: NotRequired[pulumi.Input[_builtins.str]]
     """
-    (Optional, Beta)
     The endpoint that is allowed to connect to this service attachment.
     Only one of project_id_or_num, network_url and endpoint_url may be set.
     """
@@ -70493,8 +70617,7 @@ class ServiceAttachmentConsumerAcceptListArgs:
         """
         :param pulumi.Input[_builtins.int] connection_limit: The number of consumer forwarding rules the consumer project can
                create.
-        :param pulumi.Input[_builtins.str] endpoint_url: (Optional, Beta)
-               The endpoint that is allowed to connect to this service attachment.
+        :param pulumi.Input[_builtins.str] endpoint_url: The endpoint that is allowed to connect to this service attachment.
                Only one of project_id_or_num, network_url and endpoint_url may be set.
         :param pulumi.Input[_builtins.str] network_url: The network that is allowed to connect to this service attachment.
                Only one of project_id_or_num and network_url may be set.
@@ -70526,7 +70649,6 @@ class ServiceAttachmentConsumerAcceptListArgs:
     @pulumi.getter(name="endpointUrl")
     def endpoint_url(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Optional, Beta)
         The endpoint that is allowed to connect to this service attachment.
         Only one of project_id_or_num, network_url and endpoint_url may be set.
         """

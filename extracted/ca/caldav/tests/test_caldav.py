@@ -464,7 +464,7 @@ sched = sched_template % (
 
 @pytest.mark.skipif(
     not caldav_servers,
-    reason="Requirement: at least one working server in conf.py. The tail object of the server list will be chosen, that is typically the LocalRadicale or LocalXandikos server.",
+    reason="Requirement: at least one working server configured. The highest-priority server (index 0) will be used, typically Xandikos or Radicale.",
 )
 class TestGetDAVClient:
     """
@@ -475,7 +475,7 @@ class TestGetDAVClient:
     def testTestConfig(self):
         """Test that get_davclient(testconfig=True) finds config with testing_allowed."""
         # Start a test server using test_servers framework
-        server_params = caldav_servers[-1]
+        server_params = caldav_servers[0]
         with client(**server_params) as conn:
             # Create a config file with testing_allowed: true
             config = {"testing_allowed": True}
@@ -499,7 +499,7 @@ class TestGetDAVClient:
     def testEnvironment(self):
         """Test that get_davclient() reads from environment variables."""
         # Start a test server using test_servers framework
-        server_params = caldav_servers[-1]
+        server_params = caldav_servers[0]
         with client(**server_params) as conn:
             # Set environment variables (only if value is not None)
             for key in ("username", "password", "proxy"):
@@ -520,7 +520,7 @@ class TestGetDAVClient:
     def testConfigfile(self):
         """Test that get_davclient() reads from config file."""
         # Start a test server using test_servers framework
-        server_params = caldav_servers[-1]
+        server_params = caldav_servers[0]
         with client(**server_params) as conn:
             config = {}
             for key in ("username", "password", "proxy"):
@@ -536,6 +536,14 @@ class TestGetDAVClient:
                     config_file=tmp.name, testconfig=False, environment=False
                 ) as conn2:
                     assert conn2.principal()
+
+    def testAutoEmbeddedServer(self) -> None:
+        """Test that get_davclient(testconfig=True) auto-starts xandikos when no config file server found."""
+        pytest.importorskip("xandikos")
+        with get_davclient(testconfig=True, check_config_file=False, environment=False) as conn:
+            assert hasattr(conn, "server_name")
+            assert "xandikos" in conn.server_name.lower()
+            conn.principal()
 
     def testNoConfigfile(self, fs):
         """This is actually a unit test, not a functional test.
@@ -559,6 +567,107 @@ class TestGetDAVClient:
         )
         client = get_davclient(testconfig=False, environment=False)
         assert client.url == "https://caldav.example.com/dav"
+
+
+def test_get_davclient_returns_none_without_env_or_config(fs) -> None:
+    """get_davclient() must return None when PYTHON_CALDAV_USE_TEST_SERVER is not set
+    and no config file is present."""
+    from unittest.mock import patch
+
+    with patch.dict(os.environ, {}, clear=True):
+        result = get_davclient()
+    assert result is None
+
+
+@pytest.mark.skipif(not caldav_servers, reason="need at least one test server")
+class TestGetCalendarsConfig:
+    """
+    Tests for caldav.get_calendars() config-file integration:
+    - calendar_name / calendar_url in a config section filter the returned calendars
+    - meta-sections (contains: [...]) aggregate calendars from multiple servers
+    """
+
+    def _server_config(self, conn, server) -> dict:
+        """Build a caldav config dict for a running server connection."""
+        cfg: dict = {"caldav_url": str(conn.url)}
+        if server and server.username:
+            cfg["caldav_username"] = server.username
+        if server and server.password is not None:
+            cfg["caldav_password"] = server.password
+        return cfg
+
+    def test_calendar_name_from_config_filters(self) -> None:
+        """calendar_name in a config section must restrict which calendar is returned."""
+        from caldav import get_calendars
+
+        from .test_servers.helpers import client_context
+
+        with client_context(server_index=0) as conn:
+            principal = conn.principal()
+            principal.make_calendar(name="CalConfigA")
+            principal.make_calendar(name="CalConfigB")
+
+            server = _registry.get(conn.server_name)
+            cfg_section = self._server_config(conn, server)
+            cfg_section["calendar_name"] = "CalConfigA"
+
+            with tempfile.NamedTemporaryFile(delete=True, mode="w", suffix=".json") as tmp:
+                json.dump({"default": cfg_section}, tmp)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                with get_calendars(
+                    config_file=tmp.name,
+                    config_section="default",
+                    testconfig=False,
+                    environment=False,
+                ) as calendars:
+                    names = [c.get_display_name() for c in calendars]
+                    assert "CalConfigA" in names
+                    assert "CalConfigB" not in names
+
+    @pytest.mark.skipif(
+        not (test_radicale and test_xandikos),
+        reason="need both Xandikos and Radicale for multi-server test",
+    )
+    def test_multi_server_meta_section(self) -> None:
+        """A meta-section (contains: [...]) must aggregate calendars from multiple servers."""
+        from caldav import get_calendars
+
+        from .test_servers.helpers import client_context
+
+        with (
+            client_context(server_name="Xandikos") as x_conn,
+            client_context(server_name="Radicale") as r_conn,
+        ):
+            x_conn.principal().make_calendar(name="XandikosMetaCal")
+            r_conn.principal().make_calendar(name="RadicaleMetaCal")
+
+            x_cfg = self._server_config(x_conn, _xandikos_server)
+            x_cfg["calendar_name"] = "XandikosMetaCal"
+            r_cfg = self._server_config(r_conn, _radicale_server)
+            r_cfg["calendar_name"] = "RadicaleMetaCal"
+
+            config = {
+                "xandikos": x_cfg,
+                "radicale": r_cfg,
+                "both": {"contains": ["xandikos", "radicale"]},
+            }
+            with tempfile.NamedTemporaryFile(delete=True, mode="w", suffix=".json") as tmp:
+                json.dump(config, tmp)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                with get_calendars(
+                    config_file=tmp.name,
+                    config_section="both",
+                    testconfig=False,
+                    environment=False,
+                ) as calendars:
+                    names = {c.get_display_name() for c in calendars}
+                    assert "XandikosMetaCal" in names
+                    assert "RadicaleMetaCal" in names
+                    # calendars came from two distinct DAVClient instances
+                    clients = {id(c.client) for c in calendars}
+                    assert len(clients) == 2
 
 
 @pytest.mark.skipif(
@@ -1216,7 +1325,9 @@ END:VCALENDAR
 
         existing_events = c.get_events()
         existing_urls = {x.url for x in existing_events}
-        cleanse = lambda events: [x for x in events if x.url not in existing_urls]
+
+        def cleanse(events):
+            return [x for x in events if x.url not in existing_urls]
 
         if self.is_supported("create-calendar"):
             ## we're supposed to be working towards a brand new calendar
@@ -1899,9 +2010,10 @@ END:VCALENDAR
         c = self._fixCalendar(supported_calendar_component_set=["VTODO"])
         pre_todos = c.get_todos()
         pre_todo_uid_map = {x.icalendar_component["uid"] for x in pre_todos}
-        cleanse = lambda tasks: [
-            x for x in tasks if x.icalendar_component["uid"] not in pre_todo_uid_map
-        ]
+
+        def cleanse(tasks):
+            return [x for x in tasks if x.icalendar_component["uid"] not in pre_todo_uid_map]
+
         t1 = c.add_todo(
             summary="1 task overdue",
             due=date(2022, 12, 12),
@@ -2359,9 +2471,8 @@ END:VCALENDAR
         assert len(journals) == 1
         self.skip_unless_support("search.text.by-uid")
         j1_ = c.get_journal_by_uid(j1.id)
-        j1_.icalendar_instance
-        journals[0].icalendar_instance
-        assert j1_.data == journals[0].data
+        ## Direct comparison handles different line folding from different fetch methods
+        assert j1_.get_icalendar_instance() == journals[0].get_icalendar_instance()
         j2 = c.add_journal(
             dtstart=date(2011, 11, 11),
             summary="A childbirth in a hospital in Kupchino",
@@ -3403,11 +3514,6 @@ END:VCALENDAR
         recurrence.icalendar_component["summary"] = "six months of daily testing"
         recurrence.save()
         assert summary_by_month(7) == "six months of daily testing"
-
-        ## this new feature does not workk on python 3.8.  We will soon enough
-        ## release 2.0 and shed the 3.8-dependency.  As for now, just skip the rest of the test.
-        if sys.version_info < (3, 9):
-            return
 
         ## parameter all_recurrences should change all recurrences -
         ## except February and July

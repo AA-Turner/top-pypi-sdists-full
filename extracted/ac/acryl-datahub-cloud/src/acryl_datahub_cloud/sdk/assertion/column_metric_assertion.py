@@ -59,6 +59,9 @@ class ColumnMetricAssertion(
         detection_mechanism: Optional[
             _DetectionMechanismTypes
         ] = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: Optional[
+            models.AssertionTimeBucketingStrategyClass
+        ] = None,
         tags: list[TagUrn],
         created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
@@ -71,10 +74,16 @@ class ColumnMetricAssertion(
         Args:
             urn: The URN of the assertion.
             dataset_urn: The URN of the dataset to monitor.
+            column_name: The name of the column to monitor.
+            metric_type: The type of metric to compute.
+            operator: The comparison operator for the metric value.
+            criteria_parameters: Optional parameters for the criteria.
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active/inactive).
+            schedule: The cron schedule for evaluating the assertion.
             incident_behavior: The behavior when incidents occur.
             detection_mechanism: The mechanism used to detect changes.
+            time_bucketing_strategy: Optional time bucketing strategy for data partitioning.
             tags: The tags to apply to the assertion.
             created_by: The URN of the user who created the assertion.
             created_at: The timestamp when the assertion was created.
@@ -90,6 +99,7 @@ class ColumnMetricAssertion(
             tags=tags,
             incident_behavior=incident_behavior,
             detection_mechanism=detection_mechanism,
+            time_bucketing_strategy=time_bucketing_strategy,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
@@ -131,6 +141,7 @@ class ColumnMetricAssertion(
             schedule=cls._get_schedule(monitor),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
+            time_bucketing_strategy=cls._get_time_bucketing_strategy(monitor),
             tags=cls._get_tags(assertion),
             created_by=cls._get_created_by(assertion),
             created_at=cls._get_created_at(assertion),

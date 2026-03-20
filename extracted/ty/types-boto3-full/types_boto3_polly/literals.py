@@ -32,12 +32,15 @@ __all__ = (
     "OutputFormatType",
     "PaginatorName",
     "PollyServiceName",
+    "QuotaCodeType",
     "RegionName",
     "ResourceServiceName",
+    "ServiceCodeType",
     "ServiceName",
     "SpeechMarkTypeType",
     "TaskStatusType",
     "TextTypeType",
+    "ValidationExceptionReasonType",
     "VoiceIdType",
 )
 
@@ -92,9 +95,14 @@ LanguageCodeType = Literal[
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
 OutputFormatType = Literal["json", "mp3", "ogg_opus", "ogg_vorbis", "pcm"]
+QuotaCodeType = Literal["input-stream-inbound-event-timeout", "input-stream-timeout"]
+ServiceCodeType = Literal["polly"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
 TaskStatusType = Literal["completed", "failed", "inProgress", "scheduled"]
 TextTypeType = Literal["ssml", "text"]
+ValidationExceptionReasonType = Literal[
+    "fieldValidationFailed", "invalidInboundEvent", "other", "unsupportedOperation"
+]
 VoiceIdType = Literal[
     "Aditi",
     "Adriano",

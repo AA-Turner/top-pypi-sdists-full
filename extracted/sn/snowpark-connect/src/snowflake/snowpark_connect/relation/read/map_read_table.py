@@ -167,6 +167,10 @@ def get_table_from_name(
 def get_table_from_query(
     query: str, session: snowpark.Session, plan_id: int
 ) -> snowpark.DataFrame:
+    # Strip trailing semicolons from user-provided SQL to match Spark behavior.
+    # When SCOS wraps the query in SELECT ... FROM (user_sql), trailing semicolons
+    # cause syntax errors. See SNOW-3201788.
+    query = query.rstrip().rstrip(";")
     df = session.sql(query)
     return post_process_df(df, plan_id)
 

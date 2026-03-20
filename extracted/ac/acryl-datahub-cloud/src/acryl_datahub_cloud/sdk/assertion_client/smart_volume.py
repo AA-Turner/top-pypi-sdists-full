@@ -12,13 +12,17 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     DEFAULT_CREATED_BY,
     _merge_field,
     _print_experimental_warning,
+    extract_existing_backfill_config,
+    extract_existing_time_bucketing_strategy,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
+    BackfillConfigInputTypes,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
+    TimeBucketingStrategyInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.smart_volume_assertion_input import (
     _SmartVolumeAssertionInput,
@@ -56,6 +60,8 @@ class SmartVolumeAssertionClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> SmartVolumeAssertion:
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
@@ -82,6 +88,8 @@ class SmartVolumeAssertionClient:
             updated_by=updated_by,
             now_utc=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
         # 2. Upsert the assertion and monitor entities:
@@ -115,6 +123,8 @@ class SmartVolumeAssertionClient:
         updated_by: Union[str, CorpUserUrn],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> _SmartVolumeAssertionInput:
         # 1. If urn is not provided, build and return a new assertion input directly
         if urn is None:
@@ -136,6 +146,8 @@ class SmartVolumeAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
+                backfill_config=backfill_config,
             )
 
         # 2. Build initial assertion input for validation
@@ -155,6 +167,8 @@ class SmartVolumeAssertionClient:
             updated_by=updated_by,
             updated_at=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
         # 3. Retrieve any existing assertion and monitor entities:
@@ -198,6 +212,8 @@ class SmartVolumeAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
+                backfill_config=backfill_config,
             )
 
         # 5. Check for any issues e.g. different dataset urns
@@ -228,6 +244,8 @@ class SmartVolumeAssertionClient:
             maybe_assertion_entity=maybe_assertion_entity,
             maybe_monitor_entity=maybe_monitor_entity,
             existing_assertion=existing_assertion,
+            time_bucketing_strategy=time_bucketing_strategy,
+            backfill_config=backfill_config,
         )
 
         return merged_assertion_input
@@ -267,6 +285,8 @@ class SmartVolumeAssertionClient:
         maybe_assertion_entity: Optional[Assertion],
         maybe_monitor_entity: Optional[Monitor],
         existing_assertion: SmartVolumeAssertion,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
+        backfill_config: BackfillConfigInputTypes = None,
     ) -> _SmartVolumeAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -290,6 +310,20 @@ class SmartVolumeAssertionClient:
         Returns:
             The merged assertion input.
         """
+        existing_time_bucketing = extract_existing_time_bucketing_strategy(
+            maybe_monitor_entity
+        )
+        existing_backfill = extract_existing_backfill_config(maybe_monitor_entity)
+
+        effective_time_bucketing = (
+            time_bucketing_strategy
+            if time_bucketing_strategy is not None
+            else existing_time_bucketing
+        )
+        effective_backfill = (
+            backfill_config if backfill_config is not None else existing_backfill
+        )
+
         merged_assertion_input = _SmartVolumeAssertionInput(
             urn=urn,
             entity_client=self.client.entities,
@@ -369,6 +403,8 @@ class SmartVolumeAssertionClient:
                 existing_assertion,
                 maybe_assertion_entity.tags if maybe_assertion_entity else None,
             ),
+            time_bucketing_strategy=effective_time_bucketing,
+            backfill_config=effective_backfill,
             created_by=existing_assertion.created_by
             or DEFAULT_CREATED_BY,  # Override with the existing assertion's created_by or the default created_by if not set
             created_at=existing_assertion.created_at

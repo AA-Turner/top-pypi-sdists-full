@@ -3334,6 +3334,62 @@ class DataHubAiConversationUrn(_SpecificUrn):
         return self._entity_ids[0]
 
 if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import AssertionAssignmentRuleKeyClass
+
+class AssertionAssignmentRuleUrn(_SpecificUrn):
+    ENTITY_TYPE: ClassVar[Literal["assertionAssignmentRule"]] = "assertionAssignmentRule"
+    _URN_PARTS: ClassVar[int] = 1
+
+    def __init__(self, id: Union["AssertionAssignmentRuleUrn", str], *, _allow_coercion: bool = True) -> None:
+        if _allow_coercion:
+            # Field coercion logic (if any is required).
+            if isinstance(id, str):
+                if id.startswith('urn:li:'):
+                    try:
+                        id = AssertionAssignmentRuleUrn.from_string(id)
+                    except InvalidUrnError:
+                        raise InvalidUrnError(f'Expecting a AssertionAssignmentRuleUrn but got {id}')
+                else:
+                    id = UrnEncoder.encode_string(id)
+
+        # Validation logic.
+        if not id:
+            raise InvalidUrnError("AssertionAssignmentRuleUrn id cannot be empty")
+        if isinstance(id, AssertionAssignmentRuleUrn):
+            id = id.id
+        elif isinstance(id, Urn):
+            raise InvalidUrnError(f'Expecting a AssertionAssignmentRuleUrn but got {id}')
+        if UrnEncoder.contains_reserved_char(id):
+            raise InvalidUrnError(f'AssertionAssignmentRuleUrn id contains reserved characters')
+
+        super().__init__(self.ENTITY_TYPE, [id])
+
+    @classmethod
+    def _parse_ids(cls, entity_ids: List[str]) -> "AssertionAssignmentRuleUrn":
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"AssertionAssignmentRuleUrn should have {cls._URN_PARTS} parts, got {len(entity_ids)}: {entity_ids}")
+        return cls(id=entity_ids[0], _allow_coercion=False)
+
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["AssertionAssignmentRuleKeyClass"]:
+        from datahub.metadata.schema_classes import AssertionAssignmentRuleKeyClass
+
+        return AssertionAssignmentRuleKeyClass
+
+    def to_key_aspect(self) -> "AssertionAssignmentRuleKeyClass":
+        from datahub.metadata.schema_classes import AssertionAssignmentRuleKeyClass
+
+        return AssertionAssignmentRuleKeyClass(id=self.id)
+
+    @classmethod
+    def from_key_aspect(cls, key_aspect: "AssertionAssignmentRuleKeyClass") -> "AssertionAssignmentRuleUrn":
+        return cls(id=key_aspect.id)
+
+    @property
+    def id(self) -> str:
+        return self._entity_ids[0]
+
+if TYPE_CHECKING:
     from datahub.metadata.schema_classes import ChartKeyClass
 
 class ChartUrn(_SpecificUrn):
@@ -4115,6 +4171,62 @@ class DataProductUrn(_SpecificUrn):
         return self._entity_ids[0]
 
 if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import ServiceKeyClass
+
+class ServiceUrn(_SpecificUrn):
+    ENTITY_TYPE: ClassVar[Literal["service"]] = "service"
+    _URN_PARTS: ClassVar[int] = 1
+
+    def __init__(self, id: Union["ServiceUrn", str], *, _allow_coercion: bool = True) -> None:
+        if _allow_coercion:
+            # Field coercion logic (if any is required).
+            if isinstance(id, str):
+                if id.startswith('urn:li:'):
+                    try:
+                        id = ServiceUrn.from_string(id)
+                    except InvalidUrnError:
+                        raise InvalidUrnError(f'Expecting a ServiceUrn but got {id}')
+                else:
+                    id = UrnEncoder.encode_string(id)
+
+        # Validation logic.
+        if not id:
+            raise InvalidUrnError("ServiceUrn id cannot be empty")
+        if isinstance(id, ServiceUrn):
+            id = id.id
+        elif isinstance(id, Urn):
+            raise InvalidUrnError(f'Expecting a ServiceUrn but got {id}')
+        if UrnEncoder.contains_reserved_char(id):
+            raise InvalidUrnError(f'ServiceUrn id contains reserved characters')
+
+        super().__init__(self.ENTITY_TYPE, [id])
+
+    @classmethod
+    def _parse_ids(cls, entity_ids: List[str]) -> "ServiceUrn":
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"ServiceUrn should have {cls._URN_PARTS} parts, got {len(entity_ids)}: {entity_ids}")
+        return cls(id=entity_ids[0], _allow_coercion=False)
+
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["ServiceKeyClass"]:
+        from datahub.metadata.schema_classes import ServiceKeyClass
+
+        return ServiceKeyClass
+
+    def to_key_aspect(self) -> "ServiceKeyClass":
+        from datahub.metadata.schema_classes import ServiceKeyClass
+
+        return ServiceKeyClass(id=self.id)
+
+    @classmethod
+    def from_key_aspect(cls, key_aspect: "ServiceKeyClass") -> "ServiceUrn":
+        return cls(id=key_aspect.id)
+
+    @property
+    def id(self) -> str:
+        return self._entity_ids[0]
+
+if TYPE_CHECKING:
     from datahub.metadata.schema_classes import EntityTypeKeyClass
 
 class EntityTypeUrn(_SpecificUrn):
@@ -4388,6 +4500,62 @@ class DataTypeUrn(_SpecificUrn):
 
     @classmethod
     def from_key_aspect(cls, key_aspect: "DataTypeKeyClass") -> "DataTypeUrn":
+        return cls(id=key_aspect.id)
+
+    @property
+    def id(self) -> str:
+        return self._entity_ids[0]
+
+if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import OAuthAuthorizationServerKeyClass
+
+class OauthAuthorizationServerUrn(_SpecificUrn):
+    ENTITY_TYPE: ClassVar[Literal["oauthAuthorizationServer"]] = "oauthAuthorizationServer"
+    _URN_PARTS: ClassVar[int] = 1
+
+    def __init__(self, id: Union["OauthAuthorizationServerUrn", str], *, _allow_coercion: bool = True) -> None:
+        if _allow_coercion:
+            # Field coercion logic (if any is required).
+            if isinstance(id, str):
+                if id.startswith('urn:li:'):
+                    try:
+                        id = OauthAuthorizationServerUrn.from_string(id)
+                    except InvalidUrnError:
+                        raise InvalidUrnError(f'Expecting a OauthAuthorizationServerUrn but got {id}')
+                else:
+                    id = UrnEncoder.encode_string(id)
+
+        # Validation logic.
+        if not id:
+            raise InvalidUrnError("OauthAuthorizationServerUrn id cannot be empty")
+        if isinstance(id, OauthAuthorizationServerUrn):
+            id = id.id
+        elif isinstance(id, Urn):
+            raise InvalidUrnError(f'Expecting a OauthAuthorizationServerUrn but got {id}')
+        if UrnEncoder.contains_reserved_char(id):
+            raise InvalidUrnError(f'OauthAuthorizationServerUrn id contains reserved characters')
+
+        super().__init__(self.ENTITY_TYPE, [id])
+
+    @classmethod
+    def _parse_ids(cls, entity_ids: List[str]) -> "OauthAuthorizationServerUrn":
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"OauthAuthorizationServerUrn should have {cls._URN_PARTS} parts, got {len(entity_ids)}: {entity_ids}")
+        return cls(id=entity_ids[0], _allow_coercion=False)
+
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["OAuthAuthorizationServerKeyClass"]:
+        from datahub.metadata.schema_classes import OAuthAuthorizationServerKeyClass
+
+        return OAuthAuthorizationServerKeyClass
+
+    def to_key_aspect(self) -> "OAuthAuthorizationServerKeyClass":
+        from datahub.metadata.schema_classes import OAuthAuthorizationServerKeyClass
+
+        return OAuthAuthorizationServerKeyClass(id=self.id)
+
+    @classmethod
+    def from_key_aspect(cls, key_aspect: "OAuthAuthorizationServerKeyClass") -> "OauthAuthorizationServerUrn":
         return cls(id=key_aspect.id)
 
     @property

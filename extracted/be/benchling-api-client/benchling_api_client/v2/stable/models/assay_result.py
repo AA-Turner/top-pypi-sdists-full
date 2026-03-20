@@ -30,6 +30,7 @@ class AssayResult:
     _modified_at: Union[Unset, datetime.datetime] = UNSET
     _project_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, SchemaSummary] = UNSET
+    _v3_id: Union[Unset, str] = UNSET
     _validation_comment: Union[Unset, str] = UNSET
     _validation_status: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
@@ -47,6 +48,7 @@ class AssayResult:
         fields.append("modified_at={}".format(repr(self._modified_at)))
         fields.append("project_id={}".format(repr(self._project_id)))
         fields.append("schema={}".format(repr(self._schema)))
+        fields.append("v3_id={}".format(repr(self._v3_id)))
         fields.append("validation_comment={}".format(repr(self._validation_comment)))
         fields.append("validation_status={}".format(repr(self._validation_status)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
@@ -85,6 +87,7 @@ class AssayResult:
         if not isinstance(self._schema, Unset):
             schema = self._schema.to_dict()
 
+        v3_id = self._v3_id
         validation_comment = self._validation_comment
         validation_status = self._validation_status
 
@@ -113,6 +116,8 @@ class AssayResult:
             field_dict["projectId"] = project_id
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if v3_id is not UNSET:
+            field_dict["v3Id"] = v3_id
         if validation_comment is not UNSET:
             field_dict["validationComment"] = validation_comment
         if validation_status is not UNSET:
@@ -278,6 +283,17 @@ class AssayResult:
                 raise
             schema = cast(Union[Unset, SchemaSummary], UNSET)
 
+        def get_v3_id() -> Union[Unset, str]:
+            v3_id = d.pop("v3Id")
+            return v3_id
+
+        try:
+            v3_id = get_v3_id()
+        except KeyError:
+            if strict:
+                raise
+            v3_id = cast(Union[Unset, str], UNSET)
+
         def get_validation_comment() -> Union[Unset, str]:
             validation_comment = d.pop("validationComment")
             return validation_comment
@@ -312,6 +328,7 @@ class AssayResult:
             modified_at=modified_at,
             project_id=project_id,
             schema=schema,
+            v3_id=v3_id,
             validation_comment=validation_comment,
             validation_status=validation_status,
         )
@@ -498,6 +515,21 @@ class AssayResult:
     @schema.deleter
     def schema(self) -> None:
         self._schema = UNSET
+
+    @property
+    def v3_id(self) -> str:
+        """ V3 identifier for the result """
+        if isinstance(self._v3_id, Unset):
+            raise NotPresentError(self, "v3_id")
+        return self._v3_id
+
+    @v3_id.setter
+    def v3_id(self, value: str) -> None:
+        self._v3_id = value
+
+    @v3_id.deleter
+    def v3_id(self) -> None:
+        self._v3_id = UNSET
 
     @property
     def validation_comment(self) -> str:

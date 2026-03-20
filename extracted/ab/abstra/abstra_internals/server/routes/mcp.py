@@ -14,6 +14,8 @@ def get_editor_bp(main_controller: MainController):
 
     return mcp_bp(
         [
+            docs_controller.get_pages_guide,
+            docs_controller.get_pages_examples,
             docs_controller.get_forms_guide,
             docs_controller.get_forms_examples,
             docs_controller.read_abstra_docs,

@@ -60,11 +60,8 @@ elif cffi_mode_request == rpy2.situation.CFFI_MODE.ABI:
     cffi_mode = rpy2.situation.CFFI_MODE.ABI
 elif cffi_mode_request == rpy2.situation.CFFI_MODE.ANY:
     try:
-        if os.name == 'nt':
-            raise ImportError('On Windows, cffi mode "ANY" is only "ABI".')
-        else:
-            import _rinterface_cffi_api as _rinterface_cffi  # type: ignore
-            cffi_mode = rpy2.situation.CFFI_MODE.API
+        import _rinterface_cffi_api as _rinterface_cffi  # type: ignore
+        cffi_mode = rpy2.situation.CFFI_MODE.API
     except ImportError as ie_api:
         logger.warning(
             f'Error importing in API mode: {repr(ie_api)}'
@@ -243,4 +240,6 @@ def _VECTOR_PTR(robj):
 
 
 def _STRING_VALUE(robj):
-    return rlib.R_CHAR(rlib.Rf_asChar(robj))
+    return rlib.R_CHAR(
+        rlib.Rf_asChar(robj)
+    )

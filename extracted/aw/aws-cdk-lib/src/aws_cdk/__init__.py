@@ -427,6 +427,27 @@ Size.mebibytes(2).to_kibibytes() # yields 2048
 Size.kibibytes(2050).to_mebibytes(rounding=SizeRoundingBehavior.FLOOR)
 ```
 
+## Bitrate
+
+To make specification of bitrate values unambiguous, a class called
+`Bitrate` is available.
+
+An instance of `Bitrate` is initialized through one of its static factory methods:
+
+```python
+Bitrate.bps(5000) # 5,000 bits per second
+Bitrate.kbps(500) # 500 kilobits per second
+Bitrate.mbps(10) # 10 megabits per second
+Bitrate.gbps(1)
+```
+
+Instances of `Bitrate` created with one of the units can be converted into others:
+
+```python
+Bitrate.mbps(10).to_bps() # yields 10000000
+Bitrate.mbps(10).to_kbps()
+```
+
 ## Secrets
 
 To help avoid accidental storage of secrets as plain text, we use the `SecretValue` type to
@@ -2030,6 +2051,23 @@ for aspect_application in aspect_applications:
     # Change the priority
     aspect_application.priority = 700
 ```
+
+### Converting between Aspects and Mixins
+
+Since Mixins and Aspects are both implementations of the visitor pattern, they can be converted from each other using the `Shims` class:
+
+```python
+# Applies an Aspect immediately as a Mixin
+versioning_mixin = Shims.as_mixin(EnableBucketVersioning())
+Mixins.of(scope).apply(versioning_mixin)
+
+# Delays application of a Mixin to the synthesis phase
+public_access_aspect = Shims.as_aspect(BucketBlockPublicAccess())
+Aspects.of(scope).add(public_access_aspect)
+```
+
+When shimming a Mixin to an Aspect, the Mixin will automatically only be applied to supported constructs (via `supports()`).
+Going from an Aspect to a Mixin, the Aspect will be applied to every node.
 
 ## Blueprint Property Injection
 
@@ -4223,6 +4261,99 @@ class Aws(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Aws"):
     @jsii.member(jsii_name="URL_SUFFIX")
     def URL_SUFFIX(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "URL_SUFFIX"))
+
+
+class Bitrate(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Bitrate"):
+    '''Represents a bitrate value.
+
+    The amount can be specified either as a literal value (e.g: ``10``) which
+    cannot be negative, or as an unresolved number token.
+
+    When the amount is passed as a token, unit conversion is not possible.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        bitrate = cdk.Bitrate.bps(123)
+    '''
+
+    @jsii.member(jsii_name="bps")
+    @builtins.classmethod
+    def bps(cls, amount: jsii.Number) -> "Bitrate":
+        '''Create a Bitrate representing an amount of bits per second.
+
+        :param amount: the amount of bits per second.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9f3eabbb87c8ed55364cd9e7d13228c53e207863c05bbf5893cba25c3cdb0f0)
+            check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+        return typing.cast("Bitrate", jsii.sinvoke(cls, "bps", [amount]))
+
+    @jsii.member(jsii_name="gbps")
+    @builtins.classmethod
+    def gbps(cls, amount: jsii.Number) -> "Bitrate":
+        '''Create a Bitrate representing an amount of gigabits per second.
+
+        :param amount: the amount of gigabits per second.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f790de253f18e474ac5b2e8331bfe9936db1a8363d3b97119f9616575e12b290)
+            check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+        return typing.cast("Bitrate", jsii.sinvoke(cls, "gbps", [amount]))
+
+    @jsii.member(jsii_name="kbps")
+    @builtins.classmethod
+    def kbps(cls, amount: jsii.Number) -> "Bitrate":
+        '''Create a Bitrate representing an amount of kilobits per second.
+
+        :param amount: the amount of kilobits per second.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0597f4c285608429db5689c4b686726a16096b0361335f670bfeb79a603da41e)
+            check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+        return typing.cast("Bitrate", jsii.sinvoke(cls, "kbps", [amount]))
+
+    @jsii.member(jsii_name="mbps")
+    @builtins.classmethod
+    def mbps(cls, amount: jsii.Number) -> "Bitrate":
+        '''Create a Bitrate representing an amount of megabits per second.
+
+        :param amount: the amount of megabits per second.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__112666e6f21ef19635878f8970c6dabb90f086cab1666a216eecf5a1d1fffe0c)
+            check_type(argname="argument amount", value=amount, expected_type=type_hints["amount"])
+        return typing.cast("Bitrate", jsii.sinvoke(cls, "mbps", [amount]))
+
+    @jsii.member(jsii_name="isUnresolved")
+    def is_unresolved(self) -> builtins.bool:
+        '''Checks if bitrate is a token or a resolvable object.'''
+        return typing.cast(builtins.bool, jsii.invoke(self, "isUnresolved", []))
+
+    @jsii.member(jsii_name="toBps")
+    def to_bps(self) -> jsii.Number:
+        '''Return the total number of bits per second.'''
+        return typing.cast(jsii.Number, jsii.invoke(self, "toBps", []))
+
+    @jsii.member(jsii_name="toGbps")
+    def to_gbps(self) -> jsii.Number:
+        '''Return the total number of gigabits per second.'''
+        return typing.cast(jsii.Number, jsii.invoke(self, "toGbps", []))
+
+    @jsii.member(jsii_name="toKbps")
+    def to_kbps(self) -> jsii.Number:
+        '''Return the total number of kilobits per second.'''
+        return typing.cast(jsii.Number, jsii.invoke(self, "toKbps", []))
+
+    @jsii.member(jsii_name="toMbps")
+    def to_mbps(self) -> jsii.Number:
+        '''Return the total number of megabits per second.'''
+        return typing.cast(jsii.Number, jsii.invoke(self, "toMbps", []))
 
 
 @jsii.data_type(
@@ -20579,6 +20710,61 @@ class PermissionsBoundaryBindOptions:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.PermissionsOptions",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arns": "resourceArns"},
+)
+class PermissionsOptions:
+    def __init__(
+        self,
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Options for configuring permissions in the ``<Resource>.actions()`` method.
+
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            permissions_options = cdk.PermissionsOptions(
+                resource_arns=["resourceArns"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3358ef27690bcbf495ddb0cd22155f07ce2da1164a27b0e66f7b0f92134cf53)
+            check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resource_arns is not None:
+            self._values["resource_arns"] = resource_arns
+
+    @builtins.property
+    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the resources to grant permissions on.
+
+        :default: - The ARN of the resource associated with the grant is used.
+        '''
+        result = self._values.get("resource_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PermissionsOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class PhysicalName(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.PhysicalName"):
     '''Includes special markers for automatic generation of physical names.'''
 
@@ -22774,6 +22960,45 @@ class SecretsManagerSecretOptions:
         return "SecretsManagerSecretOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class Shims(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Shims"):
+    '''Converts between Mixins and Aspects.
+
+    Since Mixins and Aspects are both implementations of the visitor pattern,
+    they can be converted from each other. Mixins are applied immediately (imperative),
+    while Aspects are applied during synthesis (declarative).
+    '''
+
+    @jsii.member(jsii_name="asAspect")
+    @builtins.classmethod
+    def as_aspect(cls, mixin: "_constructs_77d1e7e8.IMixin") -> "IAspect":
+        '''Wraps a Mixin as an Aspect.
+
+        The resulting Aspect defers the Mixin's application to the synthesis phase.
+        The Mixin's ``supports()`` method is used to filter which constructs are visited.
+
+        :param mixin: The Mixin to wrap.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5cb5f4a2fc33f3e0315138212ea7b39bae799da9dfa5d97fbdffdfebef15d0d)
+            check_type(argname="argument mixin", value=mixin, expected_type=type_hints["mixin"])
+        return typing.cast("IAspect", jsii.sinvoke(cls, "asAspect", [mixin]))
+
+    @jsii.member(jsii_name="asMixin")
+    @builtins.classmethod
+    def as_mixin(cls, aspect: "IAspect") -> "_constructs_77d1e7e8.IMixin":
+        '''Wraps an Aspect as a Mixin.
+
+        The resulting Mixin applies the Aspect's ``visit()`` immediately to every node.
+        The Aspect is applied to all constructs since Aspects don't have a ``supports()`` filter.
+
+        :param aspect: The Aspect to wrap.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__886eee294742701004267c7f571f7be10fac298e099c280e1e453142feec6535)
+            check_type(argname="argument aspect", value=aspect, expected_type=type_hints["aspect"])
+        return typing.cast("_constructs_77d1e7e8.IMixin", jsii.sinvoke(cls, "asMixin", [aspect]))
 
 
 class Size(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Size"):
@@ -37673,6 +37898,76 @@ class DockerIgnoreStrategy(
         return typing.cast(builtins.bool, jsii.invoke(self, "ignores", [absolute_file_path]))
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.EncryptedPermissionsOptions",
+    jsii_struct_bases=[PermissionsOptions],
+    name_mapping={"resource_arns": "resourceArns", "key_actions": "keyActions"},
+)
+class EncryptedPermissionsOptions(PermissionsOptions):
+    def __init__(
+        self,
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Options for configuring permissions on encrypted resources.
+
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        :param key_actions: The KMS key actions to grant permissions for. Default: - No permission is added to the KMS key, even if it exists
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            encrypted_permissions_options = cdk.EncryptedPermissionsOptions(
+                key_actions=["keyActions"],
+                resource_arns=["resourceArns"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17acdb751a1f3bb6bff0f4148019102d47283637dec409812f982f8db734ee40)
+            check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+            check_type(argname="argument key_actions", value=key_actions, expected_type=type_hints["key_actions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resource_arns is not None:
+            self._values["resource_arns"] = resource_arns
+        if key_actions is not None:
+            self._values["key_actions"] = key_actions
+
+    @builtins.property
+    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the resources to grant permissions on.
+
+        :default: - The ARN of the resource associated with the grant is used.
+        '''
+        result = self._values.get("resource_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def key_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The KMS key actions to grant permissions for.
+
+        :default: - No permission is added to the KMS key, even if it exists
+        '''
+        result = self._values.get("key_actions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EncryptedPermissionsOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class GitIgnoreStrategy(
     IgnoreStrategy,
     metaclass=jsii.JSIIMeta,
@@ -39387,6 +39682,7 @@ __all__ = [
     "AssetStaging",
     "AssetStagingProps",
     "Aws",
+    "Bitrate",
     "BootstraplessSynthesizer",
     "BootstraplessSynthesizerProps",
     "BundlingFileAccess",
@@ -39502,6 +39798,7 @@ __all__ = [
     "DockerVolumeConsistency",
     "Duration",
     "EncodingOptions",
+    "EncryptedPermissionsOptions",
     "Environment",
     "Errors",
     "Expiration",
@@ -39577,6 +39874,7 @@ __all__ = [
     "NestedStackSynthesizer",
     "PermissionsBoundary",
     "PermissionsBoundaryBindOptions",
+    "PermissionsOptions",
     "PhysicalName",
     "PolicyValidationPluginReportBeta1",
     "PolicyValidationReportStatusBeta1",
@@ -39600,6 +39898,7 @@ __all__ = [
     "ScopedAws",
     "SecretValue",
     "SecretsManagerSecretOptions",
+    "Shims",
     "Size",
     "SizeConversionOptions",
     "SizeRoundingBehavior",
@@ -40521,6 +40820,30 @@ def _typecheckingstub__0f053317f7c7fa8d5fea51d4f55642f8c1c852f5f6a55a582cd7d0a4b
 
 def _typecheckingstub__a0469992f178f5300b0ff1d8ba46d3086938c1f776c6301aa42c7eaa791b1bd2(
     stack: Stack,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f3eabbb87c8ed55364cd9e7d13228c53e207863c05bbf5893cba25c3cdb0f0(
+    amount: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f790de253f18e474ac5b2e8331bfe9936db1a8363d3b97119f9616575e12b290(
+    amount: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0597f4c285608429db5689c4b686726a16096b0361335f670bfeb79a603da41e(
+    amount: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__112666e6f21ef19635878f8970c6dabb90f086cab1666a216eecf5a1d1fffe0c(
+    amount: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -42596,6 +42919,13 @@ def _typecheckingstub__bf7e2a64613c569c1b642bf8637f52fe0045cfdf4ca0f963af822a604
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d3358ef27690bcbf495ddb0cd22155f07ce2da1164a27b0e66f7b0f92134cf53(
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__53f32baa53504563bf348cb26d2308de0b3c94f4fea93a1c0384fb0aed6ab2f1(
     *,
     success: builtins.bool,
@@ -42917,6 +43247,18 @@ def _typecheckingstub__1604db81a502be4a73ee0dae76d864b5b7efab69b1c8d6e27afcb57ac
     json_field: typing.Optional[builtins.str] = None,
     version_id: typing.Optional[builtins.str] = None,
     version_stage: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5cb5f4a2fc33f3e0315138212ea7b39bae799da9dfa5d97fbdffdfebef15d0d(
+    mixin: _constructs_77d1e7e8.IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__886eee294742701004267c7f571f7be10fac298e099c280e1e453142feec6535(
+    aspect: IAspect,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45168,6 +45510,14 @@ def _typecheckingstub__4eeec3aad8660d3f77c7f5fd848b52abf32a847311801373080bbfe35
 
 def _typecheckingstub__a94afdff9185f6eef56446b1ee12df7551a9ea60e1fd57e80213dc039cb3980c(
     absolute_file_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17acdb751a1f3bb6bff0f4148019102d47283637dec409812f982f8db734ee40(
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,7 +1,8 @@
 """Implementation of Rule ST05."""
 
+from collections.abc import Iterator
 from functools import partial
-from typing import Iterator, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
+from typing import NamedTuple, Optional, TypeVar, cast
 
 from sqlfluff.core.dialects.base import Dialect
 from sqlfluff.core.dialects.common import AliasInfo
@@ -47,7 +48,7 @@ class _NestedSubQuerySummary(NamedTuple):
     query: Query
     selectable: Selectable
     table_alias: AliasInfo
-    select_source_names: Set[str]
+    select_source_names: set[str]
 
 
 class Rule_ST05(BaseRule):
@@ -100,6 +101,12 @@ class Rule_ST05(BaseRule):
     }
     is_fix_compatible = True
 
+    # These are dialects that support WITH ... INSERT ... SELECT instead of
+    # INSERT ... WITH ... SELECT
+    # NOTE: this may be incomplete
+    # NOTE: postgres supports both ways, so I've not included it here.
+    _with_before_insert = {"tsql"}
+
     def _eval(self, context: RuleContext) -> EvalResultType:
         """Join/From clauses should not contain subqueries. Use CTEs instead."""
         self.forbid_subquery_in: str
@@ -108,6 +115,7 @@ class Rule_ST05(BaseRule):
         parent_stack = functional_context.parent_stack
         is_select = segment.all(is_type(*_SELECT_TYPES))
         is_select_child = parent_stack.any(is_type(*_SELECT_TYPES))
+        insert_parent = parent_stack.last(is_type("insert_statement"))
         if not is_select or is_select_child:
             # Nothing to do.
             return None
@@ -131,8 +139,14 @@ class Rule_ST05(BaseRule):
                 is_type(
                     "set_expression",
                     "select_statement",
+                    "insert_statement",
                 )
             )
+        elif insert_parent and context.dialect.name in self._with_before_insert:
+            # Here we select the parent `insert_statement` because it should be where
+            # we place the new CTE.
+            output_select = insert_parent
+            segment = insert_parent
 
         # Issue 3617: In T-SQL (and possibly other dialects) the automated fix
         # leaves parentheses in a location that causes a syntax error. This is an
@@ -154,7 +168,7 @@ class Rule_ST05(BaseRule):
             clone_map=clone_map,
         )
 
-        results_list: List[Tuple[LintResult, BaseSegment, str, BaseSegment, bool]] = []
+        results_list: list[tuple[LintResult, BaseSegment, str, BaseSegment, bool]] = []
         for result in results:
             (
                 lint_result,
@@ -259,7 +273,7 @@ class Rule_ST05(BaseRule):
         ctes: "_CTEBuilder",
         case_preference: str,
         clone_map,
-    ) -> Iterator[Tuple[LintResult, BaseSegment, str, BaseSegment, bool]]:
+    ) -> Iterator[tuple[LintResult, BaseSegment, str, BaseSegment, bool]]:
         """Given the root query, compute lint warnings."""
         nsq: _NestedSubQuerySummary
         for nsq in self._nested_subqueries(query, dialect):
@@ -273,9 +287,9 @@ class Rule_ST05(BaseRule):
             # if the subquery is table_expression, get the bracketed child instead.
             if anchor.is_type("table_expression"):
                 bracket_anchor = anchor.get_child("bracketed")
-                assert (
-                    bracket_anchor
-                ), "table_expression should have a bracketed segment"
+                # if the table_expression isn't bracketed, assume it isn't a subquery.
+                if not bracket_anchor:
+                    continue
             else:
                 bracket_anchor = anchor
 
@@ -328,7 +342,7 @@ def _get_first_select_statement_descendant(
 
 
 def _is_correlated_subquery(
-    nested_select: Segments, select_source_names: Set[str], dialect: Dialect
+    nested_select: Segments, select_source_names: set[str], dialect: Dialect
 ) -> bool:
     """Given nested select and the sources of its parent, determine if correlated.
 
@@ -352,12 +366,12 @@ class _CTEBuilder:
     """Gather CTE parts, maintain order and track naming/aliasing."""
 
     def __init__(self) -> None:
-        self.ctes: List[CTEDefinitionSegment] = []
+        self.ctes: list[CTEDefinitionSegment] = []
         self.name_idx = 0
 
-    def list_used_names(self) -> List[str]:
+    def list_used_names(self) -> list[str]:
         """Check CTEs and return used aliases."""
-        used_names: List[str] = []
+        used_names: list[str] = []
         for cte in self.ctes:
             id_seg = cte.get_identifier()
             cte_name = id_seg.raw
@@ -384,7 +398,7 @@ class _CTEBuilder:
 
         self.ctes.insert(insert_position, cte)
 
-    def create_cte_alias(self, alias: Optional[AliasInfo]) -> Tuple[str, bool]:
+    def create_cte_alias(self, alias: Optional[AliasInfo]) -> tuple[str, bool]:
         """Find or create the name for the next CTE."""
         if alias and alias.aliased and alias.ref_str:
             # If we know the name use it
@@ -397,9 +411,9 @@ class _CTEBuilder:
             return self.create_cte_alias(None)
         return name, True
 
-    def get_cte_segments(self) -> List[BaseSegment]:
+    def get_cte_segments(self) -> list[BaseSegment]:
         """Return a valid list of CTES with required padding segments."""
-        cte_segments: List[BaseSegment] = []
+        cte_segments: list[BaseSegment] = []
         for cte in self.ctes:
             cte_segments += [
                 cte,
@@ -431,7 +445,7 @@ class _CTEBuilder:
         output_select: BaseSegment,
         output_select_clone: BaseSegment,
         subquery_parent: BaseSegment,
-    ) -> List[LintFix]:
+    ) -> list[LintFix]:
         """Ensure there's whitespace between "FROM" and the CTE table name."""
         fixes = []
         if subquery_parent is output_select:
@@ -509,7 +523,7 @@ def _is_child(maybe_parent: Segments, maybe_child: Segments) -> bool:
     return True
 
 
-S = TypeVar("S", bound=Type[BaseSegment])
+S = TypeVar("S", bound=type[BaseSegment])
 
 
 def _get_seg(class_def: S, dialect: Dialect) -> S:
@@ -521,7 +535,7 @@ def _create_cte_seg(
 ) -> CTEDefinitionSegment:
     CTESegment = _get_seg(CTEDefinitionSegment, dialect)
     IdentifierSegment = cast(
-        Type[CodeSegment], dialect.get_segment("IdentifierSegment")
+        type[CodeSegment], dialect.get_segment("IdentifierSegment")
     )
     element: CTEDefinitionSegment = CTESegment(
         segments=(
@@ -544,7 +558,7 @@ def _create_table_ref(table_name: str, dialect: Dialect) -> TableExpressionSegme
     TableExpressionSeg = Seg(TableExpressionSegment)
     TableReferenceSeg = Seg(TableReferenceSegment)
     IdentifierSegment = cast(
-        Type[CodeSegment], dialect.get_segment("IdentifierSegment")
+        type[CodeSegment], dialect.get_segment("IdentifierSegment")
     )
     return TableExpressionSeg(
         segments=(

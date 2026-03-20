@@ -2033,6 +2033,7 @@ from .. import (
     ITaggable as _ITaggable_36806126,
     ITaggableV2 as _ITaggableV2_4e6798f8,
     IgnoreMode as _IgnoreMode_655a98e8,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     RemovalPolicy as _RemovalPolicy_9f93c814,
     Resource as _Resource_45bc6135,
     ResourceProps as _ResourceProps_15a65b4e,
@@ -3402,6 +3403,28 @@ class ApiKeyGrants(
             type_hints = typing.get_type_hints(_typecheckingstub__c6f8aea4b84475655c8cf222854c17c9cd9fc4f2df16b3fd92e43d1365c7ae06)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("ApiKeyGrants", jsii.sinvoke(cls, "fromApiKey", [resource]))
+
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aaf6be5c5dd7e148b64ba8ea4fe9607721ee44e7395f4400e3da7714296a4493)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="read")
     def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
@@ -35405,6 +35428,15 @@ def _typecheckingstub__7192edd2401ec44496a976d34ff2eed58269d2776ace8b7d7116d0382
 
 def _typecheckingstub__c6f8aea4b84475655c8cf222854c17c9cd9fc4f2df16b3fd92e43d1365c7ae06(
     resource: _IApiKeyRef_6e16b46a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aaf6be5c5dd7e148b64ba8ea4fe9607721ee44e7395f4400e3da7714296a4493(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

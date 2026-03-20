@@ -2587,6 +2587,13 @@ def main() -> None:
     workflow_run_parser.add_argument("workflow_name", help="Workflow ID or YAML path")
     workflow_run_parser.add_argument("--issue", type=int, help="Issue number (for issue_delivery)")
     workflow_run_parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
+    workflow_run_parser.add_argument(
+        "--param",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Override a workflow param (repeatable, e.g. --param lint_command='eslint src/')",
+    )
     workflow_status_parser = workflow_subparsers.add_parser("status", help="Show run status")
     workflow_status_parser.add_argument("run_id", help="Run identifier")
     workflow_list_parser = workflow_subparsers.add_parser("list", help="List workflow runs")

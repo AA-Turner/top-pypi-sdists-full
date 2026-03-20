@@ -72,6 +72,10 @@ _REFS_PATTERN = """
 (decorator (call_expression function: (identifier) @ref))
 (export_specifier name: (identifier) @ref)
 (extends_clause (identifier) @ref)
+(ternary_expression consequence: (identifier) @ref)
+(ternary_expression alternative: (identifier) @ref)
+(as_expression (identifier) @ref)
+(satisfies_expression (identifier) @ref)
 (type_identifier) @type_ref
 """
 
@@ -365,8 +369,16 @@ class TypeScriptCore:
                         for spec in clause_child.children:
                             if spec.type == "import_specifier":
                                 name_node = spec.child_by_field_name("name")
+                                alias_node = spec.child_by_field_name("alias")
                                 if name_node:
-                                    names.append(self._get_text(name_node))
+                                    name_text = self._get_text(name_node)
+                                    if alias_node:
+                                        alias_text = self._get_text(alias_node)
+                                        names.append(
+                                            f"{name_text} as {alias_text}"
+                                        )
+                                    else:
+                                        names.append(name_text)
                     elif clause_child.type == "identifier":
                         names.append(self._get_text(clause_child))
                     elif clause_child.type == "namespace_import":
@@ -380,10 +392,20 @@ class TypeScriptCore:
                 for spec in child.children:
                     if spec.type == "export_specifier":
                         name_node = spec.child_by_field_name("name")
+                        alias_node = spec.child_by_field_name("alias")
                         if name_node:
-                            names.append(self._get_text(name_node))
+                            name_text = self._get_text(name_node)
+                            if alias_node:
+                                alias_text = self._get_text(alias_node)
+                                names.append(f"{name_text} as {alias_text}")
+                            else:
+                                names.append(name_text)
             elif child.type == "*":
-                names.append("*")
+                next_sib = child.next_named_sibling
+                if next_sib and next_sib.type == "identifier":
+                    names.append(f"* as {self._get_text(next_sib)}")
+                else:
+                    names.append("*")
         return names if names else ["*"]
 
     def _build_call_graph(self) -> None:

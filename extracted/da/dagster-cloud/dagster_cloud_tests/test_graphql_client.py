@@ -5,11 +5,10 @@ import re
 import time
 from contextlib import nullcontext
 from email.utils import formatdate
-from unittest import mock
 
 import freezegun
-import httpretty
 import pytest
+import responses
 from dagster._core.events import DagsterEvent, DagsterEventType, EngineEventData
 from dagster._core.events.log import EventLogEntry
 from dagster._core.test_utils import environ
@@ -21,8 +20,7 @@ from dagster_cloud_cli.core.headers.impl import (
     DAGSTER_CLOUD_VERSION_HEADER,
     PYTHON_VERSION_HEADER,
 )
-from urllib3.connectionpool import HTTPConnectionPool
-from urllib3.exceptions import ConnectTimeoutError, SSLError
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from dagster_cloud_tests import gen_agent_instance
 
@@ -97,19 +95,19 @@ def _store_event(agent_instance):
     agent_instance.event_log_storage.store_event(event_log_entry)
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_backoff_succeeds(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
     good_result = {"data": "youdidit"}
 
-    def my_callback(_request, _url: str, headers: dict):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
         if num_callbacks["num"] > 3:
-            return (200, headers, json.dumps(good_result))
+            return (200, {}, json.dumps(good_result))
 
-        return (502, headers, "")
+        return (502, {}, "")
 
-    httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
     _store_event(agent_instance)
 
@@ -117,20 +115,19 @@ def test_graphql_client_backoff_succeeds(agent_instance, fake_sleeps, graphql_ur
     assert fake_sleeps == [1, 2, 4]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_429(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
     good_result = {"data": "youdidit"}
 
-    def my_callback(_request, _url: str, headers: dict):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
         if num_callbacks["num"] > 3:
-            return (200, headers, json.dumps(good_result))
+            return (200, {}, json.dumps(good_result))
 
-        headers["Retry-After"] = "10"
-        return (429, headers, "")
+        return (429, {"Retry-After": "10"}, "")
 
-    httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
     _store_event(agent_instance)
 
@@ -138,7 +135,7 @@ def test_graphql_client_429(agent_instance, fake_sleeps, graphql_url):
     assert fake_sleeps == [10, 10, 10]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_429_date(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
     good_result = {"data": "youdidit"}
@@ -147,15 +144,14 @@ def test_graphql_client_429_date(agent_instance, fake_sleeps, graphql_url):
         now = time.time()
         future = now + 10
 
-        def my_callback(_request, _url: str, headers: dict):
+        def my_callback(request):
             num_callbacks["num"] = num_callbacks["num"] + 1
             if num_callbacks["num"] > 1:
-                return (200, headers, json.dumps(good_result))
+                return (200, {}, json.dumps(good_result))
 
-            headers["Retry-After"] = formatdate(future, usegmt=True)
-            return (429, headers, "")
+            return (429, {"Retry-After": formatdate(future, usegmt=True)}, "")
 
-        httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+        responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
         _store_event(agent_instance)
 
@@ -163,23 +159,23 @@ def test_graphql_client_429_date(agent_instance, fake_sleeps, graphql_url):
         assert fake_sleeps == [10]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_429_bad_retry_after(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
     good_result = {"data": "youdidit"}
 
-    def my_callback(_request, _url: str, headers: dict):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
         if num_callbacks["num"] > 3:
-            return (200, headers, json.dumps(good_result))
+            return (200, {}, json.dumps(good_result))
         elif num_callbacks["num"] > 2:
-            headers["Retry-After"] = "junk"
+            return (429, {"Retry-After": "junk"}, "")
         elif num_callbacks["num"] > 1:
-            headers["Retry-After"] = "-1"
+            return (429, {"Retry-After": "-1"}, "")
 
-        return (429, headers, "")
+        return (429, {}, "")
 
-    httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
     _store_event(agent_instance)
 
@@ -187,15 +183,15 @@ def test_graphql_client_429_bad_retry_after(agent_instance, fake_sleeps, graphql
     assert fake_sleeps == [1, 2, 4]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_backoff_fails(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
 
-    def my_callback(_request, _url: str, headers: dict):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
-        return (502, headers, "")
+        return (502, {}, "")
 
-    httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
     with pytest.raises(
         DagsterCloudAgentServerError, match=re.escape("too many 502 error responses")
@@ -206,73 +202,66 @@ def test_graphql_client_backoff_fails(agent_instance, fake_sleeps, graphql_url):
     assert fake_sleeps == [1, 2, 4, 8, 16, 32]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 @pytest.mark.parametrize(
-    "error_cls, error_args",
+    "error_msg",
     [
-        (SSLError, ()),
-        (ConnectTimeoutError, ()),
-        (ConnectionResetError, (104, "Connection reset by peer")),
+        "SSLError",
+        "ConnectTimeoutError",
+        "Connection reset by peer",
     ],
 )
 def test_graphql_client_connection_retry_succeeds(
-    agent_instance, fake_sleeps, error_cls, error_args, graphql_url
+    agent_instance, fake_sleeps, error_msg, graphql_url
 ):
-    orig_make_request = HTTPConnectionPool._make_request  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
-
     num_callbacks = {"num": 0}
     good_result = {"data": "youdidit"}
-    httpretty.register_uri(httpretty.POST, graphql_url, status=200, body=json.dumps(good_result))
 
-    def fake_http_request(*args, **kwargs):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
-
         if num_callbacks["num"] > 5:
-            return orig_make_request(*args, **kwargs)
+            return (200, {}, json.dumps(good_result))
+        raise RequestsConnectionError(error_msg)
 
-        raise error_cls(*error_args)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
-    with mock.patch.object(HTTPConnectionPool, "_make_request", new=fake_http_request):
-        _store_event(agent_instance)
+    _store_event(agent_instance)
 
-        assert num_callbacks["num"] == 6
-        assert fake_sleeps == [1, 2, 4, 8, 16]
+    assert num_callbacks["num"] == 6
+    assert fake_sleeps == [1, 2, 4, 8, 16]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_connection_reset_retry_fails(agent_instance, fake_sleeps, graphql_url):
     num_callbacks = {"num": 0}
-    good_result = {"data": "youdidit"}
-    httpretty.register_uri(httpretty.POST, graphql_url, status=200, body=json.dumps(good_result))
 
-    def fake_http_request(*_args, **_kwargs):
+    def my_callback(request):
         num_callbacks["num"] = num_callbacks["num"] + 1
-        raise ConnectionResetError(104, "Connection reset by peer")
+        raise RequestsConnectionError("Connection reset by peer")
 
-    with mock.patch.object(HTTPConnectionPool, "_make_request", new=fake_http_request):
-        with pytest.raises(
-            DagsterCloudAgentServerError, match=re.escape("Connection reset by peer")
-        ):
-            _store_event(agent_instance)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
 
-        assert num_callbacks["num"] == DEFAULT_RETRIES + 1
-        assert fake_sleeps == [1, 2, 4, 8, 16, 32]
+    with pytest.raises(DagsterCloudAgentServerError, match=re.escape("Connection reset by peer")):
+        _store_event(agent_instance)
+
+    assert num_callbacks["num"] == DEFAULT_RETRIES + 1
+    assert fake_sleeps == [1, 2, 4, 8, 16, 32]
 
 
-@httpretty.activate(allow_net_connect=False, verbose=True)
+@responses.activate
 def test_graphql_client_metrics(agent_instance, fake_sleeps, graphql_url, monkeypatch):
     metric_headers = []
 
-    def my_callback(_request, _url: str, headers: dict):
-        metric_header = _request.headers.get("Dagster-Cloud-Metric")
+    def my_callback(request):
+        metric_header = request.headers.get("Dagster-Cloud-Metric")
         if metric_header:
             metric_headers.append(json.loads(base64.b64decode(metric_header)))
         else:
             metric_headers.append(None)
 
-        return (200, headers, json.dumps({"data": "good"}))
+        return (200, {}, json.dumps({"data": "good"}))
 
-    httpretty.register_uri(httpretty.POST, graphql_url, body=my_callback)
+    responses.add_callback(responses.POST, graphql_url, callback=my_callback)
     monkeypatch.setenv("DISABLE_DAGSTER_CLOUD_STORE_EVENT_SEND_METRICS", "1")
     _store_event(agent_instance)
     monkeypatch.delenv("DISABLE_DAGSTER_CLOUD_STORE_EVENT_SEND_METRICS")

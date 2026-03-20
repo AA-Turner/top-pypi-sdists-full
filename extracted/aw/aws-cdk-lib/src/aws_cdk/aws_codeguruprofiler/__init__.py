@@ -76,6 +76,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
@@ -961,6 +962,28 @@ class ProfilingGroupGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("ProfilingGroupGrants", jsii.sinvoke(cls, "fromProfilingGroup", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b84655559)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="publish")
     def publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grant access to publish profiling information to the Profiling Group to the given identity.
@@ -1240,6 +1263,15 @@ def _typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f7
 
 def _typecheckingstub__c95659130416fb11cb6d16d8ed9700f8c4eb6298d863edbf774aac06ca65c37c(
     resource: _IProfilingGroupRef_d3751e1f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b84655559(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

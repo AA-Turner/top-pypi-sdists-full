@@ -1285,10 +1285,13 @@ def start_session(
     # introduced due to Scala OSS Test: org.apache.spark.sql.ClientE2ETestSuite.spark deep recursion
     sys.setrecursionlimit(1100)
 
-    # Apply PySpark Connect client patching for enhanced debugging (only if telemetry is enabled)
+    # Apply PySpark Connect client monkeypatches
     from snowflake.snowpark_connect.utils.patch_spark_line_number import (
+        patch_proto_to_string,
         patch_pyspark_connect,
     )
+
+    patch_proto_to_string()
 
     if is_telemetry_enabled():
         patch_pyspark_connect()
@@ -1399,6 +1402,103 @@ def init_spark_session(
             connection_parameters=connection_parameters,
         )
         return get_session(conf=conf)
+
+
+def execute_jar(
+    jar_path: str,
+    main_class: str,
+    jar_args: list[str] | None = None,
+    additional_jars: list[str] | None = None,
+    tcp_port: int | None = None,
+    jvm_options: list[str] | None = None,
+) -> None:
+    """
+    Run a Java/Scala JAR inside the SCOS server process.
+
+    1. Add user's JAR and additional dependency JARs to classpath (before JVM starts)
+    2. Inject JVM options and --add-opens flags into JAVA_OPTS env var
+    3. Start SCOS thick server (which starts JVM + gRPC server)
+    4. Set SPARK_REMOTE env var so customer's SparkSession.builder().getOrCreate()
+       connects automatically (zero code changes needed)
+    5. Execute JAR's main class via JPype with jar_args
+    6. Block until main() completes
+    7. Shut down SCOS server
+    8. Shut down JVM
+    9. Process exits
+
+    Args:
+        jar_path: Path to the customer's JAR file.
+        main_class: Fully qualified class name (e.g. com.example.MyApp).
+        jar_args: Arguments forwarded to main(String[] args).
+        additional_jars: Dependency JARs/globs added to classpath
+            (e.g. ["/path/to/gson.jar", "/path/to/lib/*.jar"]).
+        tcp_port: gRPC server port (default 15002).
+        jvm_options: JVM flags (e.g. ["-Xmx4g", "-Xms1g"]).
+    """
+    import glob
+    import time as _time
+
+    jar_path_resolved = os.path.abspath(jar_path)
+    if not os.path.isfile(jar_path_resolved):
+        raise FileNotFoundError(f"JAR not found: {jar_path_resolved}")
+
+    stop_event = threading.Event()
+
+    try:
+        # 1. Add user's JAR and additional dependency JARs to classpath
+        jpype.addClassPath(jar_path_resolved)
+        for pattern in additional_jars or []:
+            for resolved in glob.glob(pattern):
+                jpype.addClassPath(os.path.abspath(resolved))
+
+        # 2. Inject JVM options and --add-opens flags into JAVA_OPTS.
+        #    --add-opens is required because the Spark Connect client uses Apache Arrow
+        #    for data transfer, which needs reflective access to java.nio internals
+        #    for off-heap memory allocation (MemoryUtil / DirectByteBuffer).
+        required_flags = ["--add-opens=java.base/java.nio=ALL-UNNAMED"]
+        existing = os.environ.get("JAVA_OPTS", "").split()
+        all_opts = existing + (jvm_options or []) + required_flags
+        os.environ["JAVA_OPTS"] = " ".join(dict.fromkeys(all_opts))
+
+        # 3. Set SPARK_REMOTE env var BEFORE JVM starts (Java caches env at startup)
+        port = tcp_port or 15002
+        spark_remote_url = f"sc://127.0.0.1:{port}"
+        os.environ["SPARK_REMOTE"] = spark_remote_url
+
+        # 4. Start SCOS thick server (which starts JVM + gRPC server)
+        start_session(
+            is_daemon=True,
+            tcp_port=port,
+            stop_event=stop_event,
+        )
+        logger.info(f"Server ready at {spark_remote_url} (SPARK_REMOTE set)")
+
+        # 5. Execute JAR's main class via JPype
+        java_args = jar_args or []
+        JString = jpype.JClass("java.lang.String")
+        j_arr = jpype.JArray(JString)(java_args)
+
+        logger.info(f"Launching {main_class} with args {java_args}")
+        MainClass = jpype.JClass(main_class)
+
+        # 6. Block until main() completes
+        MainClass.main(j_arr)
+        logger.info(f"{main_class} completed.")
+
+    except Exception:
+        logger.error("execute_jar failed", exc_info=True)
+        raise
+    finally:
+        # 7. Shut down SCOS server
+        stop_event.set()
+        logger.info("Shutting down gRPC server...")
+        _time.sleep(1)
+
+        # 8. Shut down JVM
+        if jpype.isJVMStarted():
+            logger.info("Shutting down JVM...")
+            jpype.shutdownJVM()
+            logger.info("JVM shutdown complete.")
 
 
 def _get_files_metadata(data_source: relations_proto.Read.DataSource) -> List[str]:

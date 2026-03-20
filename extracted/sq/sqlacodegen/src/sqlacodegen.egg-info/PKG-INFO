@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlacodegen
-Version: 4.0.2
+Version: 4.0.3
 Summary: Automatic model code generator for SQLAlchemy
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>
 Maintainer-email: Idan Sheinberg <ishinberg0@gmail.com>

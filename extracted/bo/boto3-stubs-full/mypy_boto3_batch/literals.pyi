@@ -49,12 +49,18 @@ __all__ = (
     "ListConsumableResourcesPaginatorName",
     "ListJobsByConsumableResourcePaginatorName",
     "ListJobsPaginatorName",
+    "ListQuotaSharesPaginatorName",
     "ListSchedulingPoliciesPaginatorName",
     "ListServiceJobsPaginatorName",
     "LogDriverType",
     "OrchestrationTypeType",
     "PaginatorName",
     "PlatformCapabilityType",
+    "QuotaShareIdleResourceAssignmentStrategyType",
+    "QuotaShareInSharePreemptionStateType",
+    "QuotaShareResourceSharingStrategyType",
+    "QuotaShareStateType",
+    "QuotaShareStatusType",
     "RegionName",
     "ResourceServiceName",
     "ResourceTypeType",
@@ -102,6 +108,7 @@ JobStatusType = Literal[
 ListConsumableResourcesPaginatorName = Literal["list_consumable_resources"]
 ListJobsByConsumableResourcePaginatorName = Literal["list_jobs_by_consumable_resource"]
 ListJobsPaginatorName = Literal["list_jobs"]
+ListQuotaSharesPaginatorName = Literal["list_quota_shares"]
 ListSchedulingPoliciesPaginatorName = Literal["list_scheduling_policies"]
 ListServiceJobsPaginatorName = Literal["list_service_jobs"]
 LogDriverType = Literal[
@@ -109,6 +116,11 @@ LogDriverType = Literal[
 ]
 OrchestrationTypeType = Literal["ECS", "EKS"]
 PlatformCapabilityType = Literal["EC2", "FARGATE"]
+QuotaShareIdleResourceAssignmentStrategyType = Literal["FIFO"]
+QuotaShareInSharePreemptionStateType = Literal["DISABLED", "ENABLED"]
+QuotaShareResourceSharingStrategyType = Literal["LEND", "LEND_AND_BORROW", "RESERVE"]
+QuotaShareStateType = Literal["DISABLED", "ENABLED"]
+QuotaShareStatusType = Literal["CREATING", "DELETING", "INVALID", "UPDATING", "VALID"]
 ResourceTypeType = Literal["GPU", "MEMORY", "VCPU"]
 RetryActionType = Literal["EXIT", "RETRY"]
 ServiceEnvironmentStateType = Literal["DISABLED", "ENABLED"]
@@ -553,6 +565,7 @@ PaginatorName = Literal[
     "list_consumable_resources",
     "list_jobs",
     "list_jobs_by_consumable_resource",
+    "list_quota_shares",
     "list_scheduling_policies",
     "list_service_jobs",
 ]

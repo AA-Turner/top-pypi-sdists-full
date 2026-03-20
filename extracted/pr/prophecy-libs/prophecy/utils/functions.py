@@ -5,10 +5,17 @@ from pyspark.sql import Column
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, expr
 from pyspark.sql.types import StructType
+from prophecy.config import is_scala_disabled
 
 
 def get_alias(column: Column):
     # In case of UC Shared cluster, `._jc` is unavailable. Keeping this for backward compatibility purpose.
+    if is_scala_disabled():
+        try:
+            return column._jc.expr().sql()
+        except:
+            return None
+    
     try:
         return column._jc.expr().name()
     except:

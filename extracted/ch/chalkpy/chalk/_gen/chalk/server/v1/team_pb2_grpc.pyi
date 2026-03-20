@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateProjectResponse,
     CreateServiceTokenRequest,
     CreateServiceTokenResponse,
+    CreateServiceTokenTeamScopedRequest,
+    CreateServiceTokenTeamScopedResponse,
     CreateTeamRequest,
     CreateTeamResponse,
     CreateVectorDBConfigurationRequest,
@@ -36,6 +38,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     DeleteCustomRoleResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
+    DeleteServiceTokenTeamScopedRequest,
+    DeleteServiceTokenTeamScopedResponse,
     ExpireTeamInviteRequest,
     ExpireTeamInviteResponse,
     GetAgentRequest,
@@ -64,6 +68,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     InviteTeamMemberWithTeamRoleResponse,
     ListServiceTokensRequest,
     ListServiceTokensResponse,
+    ListServiceTokensTeamScopedRequest,
+    ListServiceTokensTeamScopedResponse,
     ListTeamInvitesRequest,
     ListTeamInvitesResponse,
     ReactivateUserRequest,
@@ -78,6 +84,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     UpdateScimGroupSettingsResponse,
     UpdateServiceTokenRequest,
     UpdateServiceTokenResponse,
+    UpdateServiceTokenTeamScopedRequest,
+    UpdateServiceTokenTeamScopedResponse,
     UpsertFeaturePermissionsRequest,
     UpsertFeaturePermissionsResponse,
 )
@@ -149,6 +157,22 @@ class TeamServiceStub:
     CreateServiceToken: UnaryUnaryMultiCallable[
         CreateServiceTokenRequest,
         CreateServiceTokenResponse,
+    ]
+    CreateServiceTokenTeamScoped: UnaryUnaryMultiCallable[
+        CreateServiceTokenTeamScopedRequest,
+        CreateServiceTokenTeamScopedResponse,
+    ]
+    UpdateServiceTokenTeamScoped: UnaryUnaryMultiCallable[
+        UpdateServiceTokenTeamScopedRequest,
+        UpdateServiceTokenTeamScopedResponse,
+    ]
+    DeleteServiceTokenTeamScoped: UnaryUnaryMultiCallable[
+        DeleteServiceTokenTeamScopedRequest,
+        DeleteServiceTokenTeamScopedResponse,
+    ]
+    ListServiceTokensTeamScoped: UnaryUnaryMultiCallable[
+        ListServiceTokensTeamScopedRequest,
+        ListServiceTokensTeamScopedResponse,
     ]
     DeleteServiceToken: UnaryUnaryMultiCallable[
         DeleteServiceTokenRequest,
@@ -334,6 +358,30 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: CreateServiceTokenRequest,
         context: ServicerContext,
     ) -> CreateServiceTokenResponse: ...
+    @abstractmethod
+    def CreateServiceTokenTeamScoped(
+        self,
+        request: CreateServiceTokenTeamScopedRequest,
+        context: ServicerContext,
+    ) -> CreateServiceTokenTeamScopedResponse: ...
+    @abstractmethod
+    def UpdateServiceTokenTeamScoped(
+        self,
+        request: UpdateServiceTokenTeamScopedRequest,
+        context: ServicerContext,
+    ) -> UpdateServiceTokenTeamScopedResponse: ...
+    @abstractmethod
+    def DeleteServiceTokenTeamScoped(
+        self,
+        request: DeleteServiceTokenTeamScopedRequest,
+        context: ServicerContext,
+    ) -> DeleteServiceTokenTeamScopedResponse: ...
+    @abstractmethod
+    def ListServiceTokensTeamScoped(
+        self,
+        request: ListServiceTokensTeamScopedRequest,
+        context: ServicerContext,
+    ) -> ListServiceTokensTeamScopedResponse: ...
     @abstractmethod
     def DeleteServiceToken(
         self,

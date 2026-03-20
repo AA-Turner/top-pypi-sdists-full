@@ -9,15 +9,9 @@ from .base_model import UNSET, UnsetType
 from .chats import Chats
 from .create_cloud_chat_from_repository import CreateCloudChatFromRepository
 from .current_user import CurrentUser
-from .enable_cloud_repository import EnableCloudRepository
 from .github_repositories import GithubRepositories
 from .halt_chat_stream import HaltChatStream
-from .input_types import (
-    ChatConfigInput,
-    ChatInput,
-    ChatResourceConfigInput,
-    RepositoryInput,
-)
+from .input_types import ChatConfigInput, ChatInput, ChatResourceConfigInput
 from .refresh_api_key import RefreshApiKey
 from .set_login_complete import SetLoginComplete
 from .start_chat_turn import StartChatTurn
@@ -99,39 +93,6 @@ class IndentGraphQLClient(AsyncBaseClient):
         )
         data = self.get_data(response)
         return CurrentUser.model_validate(data)
-
-    async def enable_cloud_repository(
-        self, repositories: list[RepositoryInput], **kwargs: Any
-    ) -> EnableCloudRepository:
-        query = gql("""
-            mutation EnableCloudRepository($repositories: [RepositoryInput!]!) {
-              enableCloudRepository(input: {repositories: $repositories}) {
-                __typename
-                ... on EnableCloudRepositoriesResult {
-                  results {
-                    orgName
-                    repoName
-                    success
-                    errorMessage
-                    images {
-                      buildRef
-                      createdAt
-                      updatedAt
-                    }
-                  }
-                }
-              }
-            }
-            """)
-        variables: dict[str, object] = {"repositories": repositories}
-        response = await self.execute(
-            query=query,
-            operation_name="EnableCloudRepository",
-            variables=variables,
-            **kwargs
-        )
-        data = self.get_data(response)
-        return EnableCloudRepository.model_validate(data)
 
     async def github_repositories(self, **kwargs: Any) -> GithubRepositories:
         query = gql("""

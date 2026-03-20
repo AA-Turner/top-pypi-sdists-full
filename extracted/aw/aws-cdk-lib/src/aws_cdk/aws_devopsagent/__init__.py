@@ -3394,6 +3394,38 @@ class CfnService(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForService")
+    @builtins.classmethod
+    def arn_for_service(cls, resource: "_IServiceRef_a4cfa131") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63b98edcc349c49d41c8d702a2d1265560096df266726e9b32106a9232bfcb58)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForService", [resource]))
+
+    @jsii.member(jsii_name="fromServiceId")
+    @builtins.classmethod
+    def from_service_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        service_id: builtins.str,
+    ) -> "_IServiceRef_a4cfa131":
+        '''Creates a new IServiceRef from a serviceId.
+
+        :param scope: -
+        :param id: -
+        :param service_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11a2a216e002defefea2458ea1a252ea60574ebd78f16163d6d5b2e7316a8412)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
+        return typing.cast("_IServiceRef_a4cfa131", jsii.sinvoke(cls, "fromServiceId", [scope, id, service_id]))
+
     @jsii.member(jsii_name="isCfnService")
     @builtins.classmethod
     def is_cfn_service(cls, x: typing.Any) -> builtins.bool:
@@ -6387,6 +6419,20 @@ def _typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb305
     *,
     service_type: builtins.str,
     service_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63b98edcc349c49d41c8d702a2d1265560096df266726e9b32106a9232bfcb58(
+    resource: _IServiceRef_a4cfa131,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11a2a216e002defefea2458ea1a252ea60574ebd78f16163d6d5b2e7316a8412(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    service_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

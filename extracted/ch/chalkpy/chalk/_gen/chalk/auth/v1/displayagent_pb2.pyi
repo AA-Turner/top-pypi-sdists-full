@@ -111,6 +111,7 @@ class DisplayServiceTokenAgent(_message.Message):
         "customer_claims",
         "feature_permissions",
         "created_at",
+        "team_permissions",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -125,6 +126,7 @@ class DisplayServiceTokenAgent(_message.Message):
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     client_id: str
     team_id: str
@@ -138,6 +140,7 @@ class DisplayServiceTokenAgent(_message.Message):
     customer_claims: _containers.RepeatedCompositeFieldContainer[DisplayCustomClaim]
     feature_permissions: _featurepermission_pb2.FeaturePermissions
     created_at: _timestamp_pb2.Timestamp
+    team_permissions: _containers.RepeatedCompositeFieldContainer[DisplayPermission]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -153,6 +156,7 @@ class DisplayServiceTokenAgent(_message.Message):
         customer_claims: _Optional[_Iterable[_Union[DisplayCustomClaim, _Mapping]]] = ...,
         feature_permissions: _Optional[_Union[_featurepermission_pb2.FeaturePermissions, _Mapping]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        team_permissions: _Optional[_Iterable[_Union[DisplayPermission, _Mapping]]] = ...,
     ) -> None: ...
 
 class DisplayEngineAgent(_message.Message):

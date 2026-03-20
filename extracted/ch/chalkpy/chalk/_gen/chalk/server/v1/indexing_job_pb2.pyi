@@ -1,4 +1,5 @@
 from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -59,3 +60,15 @@ class GetIndexingJobStatusResponse(_message.Message):
         export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
         status: _Optional[_Union[IndexingJobStatus, str]] = ...,
     ) -> None: ...
+
+class CancelIndexingJobRequest(_message.Message):
+    __slots__ = ("deployment_id", "build_id")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BUILD_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    build_id: str
+    def __init__(self, deployment_id: _Optional[str] = ..., build_id: _Optional[str] = ...) -> None: ...
+
+class CancelIndexingJobResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

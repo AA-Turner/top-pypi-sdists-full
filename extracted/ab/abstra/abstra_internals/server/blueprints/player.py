@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import flask
@@ -9,6 +10,7 @@ from abstra_internals.entities.execution_context import (
     FormContext,
     HookContext,
     JobContext,
+    PageContext,
     Response,
     extract_flask_request,
 )
@@ -74,16 +76,28 @@ def get_player_bp(controller: MainController):
     @player_usage
     def _get_page(path):
         form = controller.get_form_by_path(path)
-        if not form:
-            flask.abort(404)
-
-        auth = flask.request.headers.get(USER_AUTH_HEADER_KEY)
-        return {
-            form.type_name: {
-                **form.browser_runner_dto,
-                "workspace": guard.filtered_workspace(auth).as_dict,
+        if form:
+            auth = flask.request.headers.get(USER_AUTH_HEADER_KEY)
+            return {
+                form.type_name: {
+                    **form.browser_runner_dto,
+                    "workspace": guard.filtered_workspace(auth).as_dict,
+                }
             }
-        }
+
+        page = controller.get_page_stage_by_path(path)
+        if page:
+            auth = flask.request.headers.get(USER_AUTH_HEADER_KEY)
+            return {
+                "page": {
+                    "id": page.id,
+                    "path": page.path,
+                    "title": page.title,
+                    "workspace": guard.filtered_workspace(auth).as_dict,
+                }
+            }
+
+        flask.abort(404)
 
     @bp.get("/_version")
     def _get_version():
@@ -237,6 +251,75 @@ def get_player_bp(controller: MainController):
         )
 
         return result
+
+    @bp.route("/_page/<path:path>", methods=["GET", "POST"])
+    @guard.by(PathArgSelector("path"))
+    @player_usage
+    def page_runner(path):
+        page = controller.get_page_stage_by_path(path)
+
+        if not page:
+            flask.abort(404)
+
+        if not page.file:
+            flask.abort(500)
+
+        context = PageContext(
+            request=extract_flask_request(flask.request),
+            response=Response(headers={}, status=200, body=""),
+        )
+
+        connection = controller.repositories.producer.enqueue(page.id, context)
+
+        connection.recv()  # ExecutionStartedMessage
+        msg = connection.recv()
+
+        if not msg:
+            connection.close()
+            flask.abort(500)
+
+        # Streaming response (generator functions)
+        if isinstance(msg, dict) and msg.get("__page_stream__") == "start":
+
+            def generate():
+                try:
+                    while True:
+                        chunk = connection.recv()
+                        if not isinstance(chunk, dict):
+                            break
+                        if chunk.get("__page_stream__") == "chunk":
+                            yield json.dumps({"data": chunk["data"]}) + "\n"
+                        elif chunk.get("__page_stream__") == "error":
+                            yield json.dumps({"error": chunk["error"]}) + "\n"
+                            break
+                        elif chunk.get("__page_stream__") == "end":
+                            break
+                except (EOFError, BrokenPipeError):
+                    pass
+                finally:
+                    connection.close()
+
+            return flask.Response(
+                status=msg["status"],
+                response=generate(),
+                headers=msg["headers"],
+            )
+
+        # Regular response
+        connection.close()
+
+        if not isinstance(msg, Response):
+            msg = Response(
+                headers=msg.get("headers", {}),
+                status=msg.get("status", 200),
+                body=msg.get("body", ""),
+            )
+
+        return flask.Response(
+            status=msg.status,
+            response=msg.body,
+            headers=msg.headers,
+        )
 
     @bp.get("/_jobs")
     def list_jobs():

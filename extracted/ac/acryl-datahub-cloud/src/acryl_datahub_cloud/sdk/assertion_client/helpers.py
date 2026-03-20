@@ -11,6 +11,7 @@ from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.errors import ItemNotFoundError
+from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, MonitorUrn
 from datahub.sdk.search_filters import FilterDsl
 
@@ -94,6 +95,69 @@ def resolve_updated_by(
         )
         return DEFAULT_CREATED_BY
     return updated_by
+
+
+def extract_existing_time_bucketing_strategy(
+    monitor: Optional["Monitor"],
+) -> Optional["models.AssertionTimeBucketingStrategyClass"]:
+    """Extract the time bucketing strategy from an existing monitor entity.
+
+    Looks in the monitor's assertion evaluation parameters for both volume
+    (datasetVolumeParameters) and field (datasetFieldParameters) parameter types.
+
+    Args:
+        monitor: The existing monitor entity, or None.
+
+    Returns:
+        The existing AssertionTimeBucketingStrategyClass or None.
+    """
+    if monitor is None:
+        return None
+    try:
+        assertion_monitor = monitor.info.assertionMonitor
+        if assertion_monitor is None or not assertion_monitor.assertions:
+            return None
+        params = assertion_monitor.assertions[0].parameters
+        if params is None:
+            return None
+        if params.datasetVolumeParameters is not None:
+            return params.datasetVolumeParameters.timeBucketingStrategy
+        if params.datasetFieldParameters is not None:
+            return params.datasetFieldParameters.timeBucketingStrategy
+    except AttributeError:
+        logger.debug(
+            "Failed to extract time bucketing strategy from monitor %s",
+            monitor.urn if monitor else None,
+            exc_info=True,
+        )
+    return None
+
+
+def extract_existing_backfill_config(
+    monitor: Optional["Monitor"],
+) -> Optional["models.AssertionMonitorBootstrapConfigClass"]:
+    """Extract the backfill (bootstrap) config from an existing monitor entity.
+
+    Args:
+        monitor: The existing monitor entity, or None.
+
+    Returns:
+        The existing AssertionMonitorBootstrapConfigClass or None.
+    """
+    if monitor is None:
+        return None
+    try:
+        assertion_monitor = monitor.info.assertionMonitor
+        if assertion_monitor is None:
+            return None
+        return assertion_monitor.bootstrapConfig
+    except AttributeError:
+        logger.debug(
+            "Failed to extract backfill config from monitor %s",
+            monitor.urn if monitor else None,
+            exc_info=True,
+        )
+    return None
 
 
 def retrieve_assertion_and_monitor_by_urn(

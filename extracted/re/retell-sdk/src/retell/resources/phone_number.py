@@ -9,7 +9,7 @@ import httpx
 
 from ..types import phone_number_create_params, phone_number_import_params, phone_number_update_params
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -200,7 +200,7 @@ class PhoneNumberResource(SyncAPIResource):
         if not phone_number:
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         return self._get(
-            f"/get-phone-number/{phone_number}",
+            path_template("/get-phone-number/{phone_number}", phone_number=phone_number),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -320,7 +320,7 @@ class PhoneNumberResource(SyncAPIResource):
         if not phone_number:
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         return self._patch(
-            f"/update-phone-number/{phone_number}",
+            path_template("/update-phone-number/{phone_number}", phone_number=phone_number),
             body=maybe_transform(
                 {
                     "allowed_inbound_country_list": allowed_inbound_country_list,
@@ -396,7 +396,7 @@ class PhoneNumberResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/delete-phone-number/{phone_number}",
+            path_template("/delete-phone-number/{phone_number}", phone_number=phone_number),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -410,6 +410,7 @@ class PhoneNumberResource(SyncAPIResource):
         termination_uri: str,
         allowed_inbound_country_list: Optional[SequenceNotStr[str]] | Omit = omit,
         allowed_outbound_country_list: Optional[SequenceNotStr[str]] | Omit = omit,
+        ignore_e164_validation: bool | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
         inbound_agents: Optional[Iterable[phone_number_import_params.InboundAgent]] | Omit = omit,
@@ -445,6 +446,11 @@ class PhoneNumberResource(SyncAPIResource):
 
           allowed_outbound_country_list: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
               not set or empty, calls to all countries are allowed.
+
+          ignore_e164_validation: If true, E.164 validation for phone_number is skipped. This is useful for
+              internal pseudo numbers when using custom telephony. If omitted, default is
+              true. Must be a boolean literal; string values like "true" or "false" are
+              invalid.
 
           inbound_agent_id: Unique id of agent to bind to the number. The number will automatically use the
               agent when receiving inbound calls. If null, this number would not accept
@@ -502,6 +508,7 @@ class PhoneNumberResource(SyncAPIResource):
                     "termination_uri": termination_uri,
                     "allowed_inbound_country_list": allowed_inbound_country_list,
                     "allowed_outbound_country_list": allowed_outbound_country_list,
+                    "ignore_e164_validation": ignore_e164_validation,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
                     "inbound_agents": inbound_agents,
@@ -698,7 +705,7 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         if not phone_number:
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         return await self._get(
-            f"/get-phone-number/{phone_number}",
+            path_template("/get-phone-number/{phone_number}", phone_number=phone_number),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -818,7 +825,7 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         if not phone_number:
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         return await self._patch(
-            f"/update-phone-number/{phone_number}",
+            path_template("/update-phone-number/{phone_number}", phone_number=phone_number),
             body=await async_maybe_transform(
                 {
                     "allowed_inbound_country_list": allowed_inbound_country_list,
@@ -894,7 +901,7 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `phone_number` but received {phone_number!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/delete-phone-number/{phone_number}",
+            path_template("/delete-phone-number/{phone_number}", phone_number=phone_number),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -908,6 +915,7 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         termination_uri: str,
         allowed_inbound_country_list: Optional[SequenceNotStr[str]] | Omit = omit,
         allowed_outbound_country_list: Optional[SequenceNotStr[str]] | Omit = omit,
+        ignore_e164_validation: bool | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
         inbound_agents: Optional[Iterable[phone_number_import_params.InboundAgent]] | Omit = omit,
@@ -943,6 +951,11 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
 
           allowed_outbound_country_list: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
               not set or empty, calls to all countries are allowed.
+
+          ignore_e164_validation: If true, E.164 validation for phone_number is skipped. This is useful for
+              internal pseudo numbers when using custom telephony. If omitted, default is
+              true. Must be a boolean literal; string values like "true" or "false" are
+              invalid.
 
           inbound_agent_id: Unique id of agent to bind to the number. The number will automatically use the
               agent when receiving inbound calls. If null, this number would not accept
@@ -1000,6 +1013,7 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
                     "termination_uri": termination_uri,
                     "allowed_inbound_country_list": allowed_inbound_country_list,
                     "allowed_outbound_country_list": allowed_outbound_country_list,
+                    "ignore_e164_validation": ignore_e164_validation,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
                     "inbound_agents": inbound_agents,

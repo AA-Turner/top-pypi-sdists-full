@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-semantic-conventions-ai
-Version: 0.4.15
+Version: 0.4.16
 Summary: OpenTelemetry Semantic Conventions Extension for Large Language Models
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>, Tomer Friedman <tomer@traceloop.com>
 License-Expression: Apache-2.0

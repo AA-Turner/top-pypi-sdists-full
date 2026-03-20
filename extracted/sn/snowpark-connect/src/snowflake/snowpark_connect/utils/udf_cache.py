@@ -14,6 +14,9 @@ from snowflake.snowpark.column import Column
 from snowflake.snowpark.functions import call_udf, udaf, udf, udtf
 from snowflake.snowpark.types import DataType, StructType
 from snowflake.snowpark_connect import tcm
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.error.exceptions import MissingDatabase, MissingSchema
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.upload_java_jar import (
     JAVA_UDFS_JAR_NAME,
@@ -70,6 +73,40 @@ def _udxf_name(
     return f"{_BUILTIN_UDF_PREFIX}{input_types_hash}_{output_schema_hash}_{fn.__name__.upper()}"
 
 
+def _build_fully_qualified_name(session: Session, name: str) -> list[str]:
+    """
+    Build a fully qualified name list ``[database, schema, name]`` for a
+    UDF/UDTF/UDAF/stored procedure, using the session's current database and schema.
+
+    Returning a list (rather than a pre-joined string) lets Snowpark quote each
+    identifier part individually when calling udf()/udtf()/udaf().  For callers
+    that need a plain dot-joined string (e.g. ``call_udf`` or a ``CALL`` statement)
+    use ``".".join(_build_fully_qualified_name(session, name))``.
+
+    Raises ``ValueError`` if the session has no current database or schema, or if
+    ``name`` is empty, because Snowflake cannot resolve the object without a full
+    qualifier context.
+    """
+    db = session.get_current_database()
+    schema = session.get_current_schema()
+
+    if not name:
+        exception = ValueError(
+            "Cannot register a built-in UDF/UDTF/UDAF/stored procedure: "
+            "the object name must not be empty."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    if db is None:
+        raise MissingDatabase()
+
+    if schema is None:
+        raise MissingSchema()
+
+    return [db, schema, name]
+
+
 def cached_udaf(
     class_type: typing.Type,
     *,
@@ -97,11 +134,7 @@ def cached_udaf(
         # Register the function outside the lock to avoid contention
         wrapped_func = udaf(
             udaf_type,
-            name=[
-                Session.get_active_session().get_current_database(),
-                Session.get_active_session().get_current_schema(),
-                name,
-            ],
+            name=_build_fully_qualified_name(Session.get_active_session(), name),
             return_type=return_type,
             input_types=input_types,
             imports=imports,
@@ -158,11 +191,7 @@ def cached_udf(
         # but this will not cause any issues.
         wrapped_func = udf(
             _null_safe_wrapper,
-            name=[
-                Session.get_active_session().get_current_database(),
-                Session.get_active_session().get_current_schema(),
-                name,
-            ],
+            name=_build_fully_qualified_name(Session.get_active_session(), name),
             return_type=return_type,
             input_types=input_types,
             imports=imports,
@@ -212,11 +241,7 @@ def cached_udtf(
         # Register the function outside the lock to avoid contention
         wrapped_func = udtf(
             func,
-            name=[
-                Session.get_active_session().get_current_database(),
-                Session.get_active_session().get_current_schema(),
-                name,
-            ],
+            name=_build_fully_qualified_name(Session.get_active_session(), name),
             output_schema=output_schema,
             input_types=input_types,
             imports=imports,
@@ -318,11 +343,7 @@ def register_cached_sql_udf(
 
         with _lock:
             function_identifier = ".".join(
-                [
-                    Session.get_active_session().get_current_database(),
-                    Session.get_active_session().get_current_schema(),
-                    function_name,
-                ]
+                _build_fully_qualified_name(Session.get_active_session(), function_name)
             )
             cache[function_name] = function_identifier
     else:
@@ -380,11 +401,7 @@ def register_cached_java_udf(
 
         with _lock:
             function_identifier = ".".join(
-                [
-                    Session.get_active_session().get_current_database(),
-                    Session.get_active_session().get_current_schema(),
-                    function_name,
-                ]
+                _build_fully_qualified_name(Session.get_active_session(), function_name)
             )
             cache[function_name] = function_identifier
     else:
@@ -435,13 +452,12 @@ def register_cached_sproc(
         session = Session.get_active_session()
         cache = session._cached_sprocs
 
-        # Create fully qualified name with current database and schema
-        fully_qualified_name = ".".join(
-            [session.get_current_database(), session.get_current_schema(), sproc_name]
-        )
-
         if sproc_name in cache:
             return cache[sproc_name]
+
+    # Build the FQN outside the lock (and after the cache-hit early return) so
+    # that _build_fully_qualified_name's error check only runs on first registration.
+    fully_qualified_name = ".".join(_build_fully_qualified_name(session, sproc_name))
 
     args_str = ",".join(
         f"arg{idx} {type_}" for idx, type_ in enumerate(input_arg_types)

@@ -179,6 +179,7 @@ impl Conn {
         // Step 2: Await backend_task FIRST - it sends TCP FIN to guacd
         // Guacd receives FIN, closes its write, and to_webrtc will get EOF on next read
         if let Some(backend_task) = self.backend_task.take() {
+            let task_handle = backend_task.abort_handle();
             match tokio::time::timeout(Duration::from_secs(2), backend_task).await {
                 Ok(Ok(())) => {
                     debug!(
@@ -194,9 +195,10 @@ impl Conn {
                 }
                 Err(_elapsed) => {
                     warn!(
-                        "Backend shutdown timeout (2s) (channel_id: {}, conn_no: {})",
+                        "Backend shutdown timeout (2s), aborting (channel_id: {}, conn_no: {})",
                         channel_id, conn_no
                     );
+                    task_handle.abort();
                 }
             }
         } else {

@@ -29,6 +29,7 @@ from sqlfluff.core.parser import (
     TypedParser,
 )
 from sqlfluff.dialects import dialect_ansi as ansi
+from sqlfluff.dialects import dialect_trino as trino
 from sqlfluff.dialects.dialect_athena_keywords import (
     athena_reserved_keywords,
     athena_unreserved_keywords,
@@ -271,6 +272,12 @@ athena_dialect.replace(
         # UNNEST can optionally have a WITH ORDINALITY clause
         insert=[
             Sequence("WITH", "ORDINALITY", optional=True),
+            Ref("WithinGroupClauseSegment"),
+        ]
+    ),
+    FunctionContentsGrammar=ansi_dialect.get_grammar("FunctionContentsGrammar").copy(
+        insert=[
+            Ref("ListaggOverflowClauseSegment"),
         ]
     ),
     AlterTableDropColumnGrammar=Sequence(
@@ -279,6 +286,24 @@ athena_dialect.replace(
         Ref("SingleIdentifierGrammar"),
     ),
 )
+
+
+class WithinGroupClauseSegment(trino.WithinGroupClauseSegment):
+    """An WITHIN GROUP clause for window functions.
+
+    These are based on Trino.
+    https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html
+    https://trino.io/docs/current/functions/aggregate.html#listagg
+    """
+
+
+class ListaggOverflowClauseSegment(trino.ListaggOverflowClauseSegment):
+    """ON OVERFLOW clause of listagg function.
+
+    These are based on Trino.
+    https://docs.aws.amazon.com/athena/latest/ug/functions-env3.html
+    https://trino.io/docs/current/functions/aggregate.html#listagg
+    """
 
 
 class ArrayTypeSegment(ansi.ArrayTypeSegment):
@@ -581,6 +606,15 @@ class RowFormatClauseSegment(BaseSegment):
     )
 
 
+class ValuesClauseSegment(ansi.ValuesClauseSegment):
+    """A `VALUES` clause within in `WITH`, `SELECT`, `INSERT`."""
+
+    match_grammar = Sequence(
+        "VALUES",
+        Delimited(Ref("ExpressionSegment")),
+    )
+
+
 class InsertStatementSegment(BaseSegment):
     """`INSERT INTO` statement.
 
@@ -717,6 +751,116 @@ class GroupByClauseSegment(ansi.GroupByClauseSegment):
             ],
         ),
         Dedent,
+    )
+
+
+class AlterTableStatementSegment(ansi.AlterTableStatementSegment):
+    """An `ALTER TABLE` statement for Athena.
+
+    Extends ANSI to support comprehensive Athena-specific ALTER TABLE syntax.
+
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-add-columns.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-add-partition.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-change-column.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-drop-partition.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-rename-partition.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-replace-columns.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-set-location.html
+    https://docs.aws.amazon.com/athena/latest/ug/alter-table-set-tblproperties.html
+    """
+
+    match_grammar = Sequence(
+        "ALTER",
+        "TABLE",
+        Ref("TableReferenceSegment"),
+        OneOf(
+            # Inherit ANSI options
+            Delimited(Ref("AlterTableOptionsGrammar")),
+            # ADD COLUMNS
+            Sequence(
+                Ref("PartitionSpecGrammar", optional=True),
+                "ADD",
+                "COLUMNS",
+                Bracketed(
+                    Delimited(
+                        Ref("ColumnDefinitionSegment"),
+                    ),
+                ),
+            ),
+            # ADD PARTITION
+            Sequence(
+                "ADD",
+                Ref("IfNotExistsGrammar", optional=True),
+                AnyNumberOf(
+                    Sequence(
+                        Ref("PartitionSpecGrammar"),
+                        Sequence(
+                            "LOCATION", Ref("QuotedLiteralSegment"), optional=True
+                        ),
+                    ),
+                    min_times=1,
+                ),
+            ),
+            # CHANGE COLUMN
+            Sequence(
+                "CHANGE",
+                Ref.keyword("COLUMN", optional=True),
+                Ref("ColumnReferenceSegment"),
+                Ref("ColumnReferenceSegment"),
+                Ref("DatatypeSegment"),
+                Sequence("COMMENT", Ref("QuotedLiteralSegment"), optional=True),
+                OneOf(
+                    "FIRST",
+                    Sequence("AFTER", Ref("ColumnReferenceSegment")),
+                    optional=True,
+                ),
+            ),
+            # DROP PARTITION
+            Sequence(
+                "DROP",
+                Ref("IfExistsGrammar", optional=True),
+                Delimited(Ref("PartitionSpecGrammar")),
+            ),
+            # RENAME PARTITION
+            Sequence(
+                Ref("PartitionSpecGrammar"),
+                "RENAME",
+                "TO",
+                Ref("PartitionSpecGrammar"),
+            ),
+            # REPLACE COLUMNS
+            Sequence(
+                Ref("PartitionSpecGrammar", optional=True),
+                "REPLACE",
+                "COLUMNS",
+                Bracketed(
+                    Delimited(
+                        Ref("ColumnDefinitionSegment"),
+                    ),
+                ),
+            ),
+            # SET LOCATION
+            Sequence(
+                Ref("PartitionSpecGrammar", optional=True),
+                "SET",
+                "LOCATION",
+                Ref("QuotedLiteralSegment"),
+            ),
+            # SET TBLPROPERTIES
+            Sequence(
+                "SET",
+                "TBLPROPERTIES",
+                Bracketed(
+                    Delimited(
+                        Sequence(
+                            Ref("QuotedLiteralSegment"),
+                            Ref("EqualsSegment"),
+                            Ref("QuotedLiteralSegment"),
+                        ),
+                    ),
+                ),
+            ),
+        ),
     )
 
 

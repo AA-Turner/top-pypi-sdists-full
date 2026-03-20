@@ -11,12 +11,14 @@ nox.options.sessions = ["tests-3", "linters"]
 # version using --force-python.
 @nox.session(python="3")
 def linters(session):
+    # TODO: switch to a dependency group after Python 3.8 support is dropped
     session.install(".[test-linters]")
     session.run("flake8")
 
 
 @nox.session(python="3")
 def docs(session):
+    # TODO: switch to a dependency group after Python 3.8 support is dropped
     session.install(".[build-docs]")
     session.run(
         "sphinx-build", "-W",
@@ -28,6 +30,7 @@ def docs(session):
 
 @nox.session(python="3")
 def venv(session):
+    # TODO: switch to a dependency group after Python 3.8 support is dropped
     session.install("-e", ".[test-unit]")
     session.run(*session.posargs)
 
@@ -35,6 +38,7 @@ def venv(session):
 # This will attempt to run python3 tests by default.
 @nox.session(python=["3"])
 def tests(session):
+    # TODO: switch to a dependency group after Python 3.8 support is dropped
     session.install("-e", ".[test-unit]")
     session.run("stestr", "run", *session.posargs)
     session.run("stestr", "slowest")
@@ -42,6 +46,7 @@ def tests(session):
 
 @nox.session(python="3")
 def cover(session):
+    # TODO: switch to a dependency group after Python 3.8 support is dropped
     session.install("-e", ".[test-cover]")
     session.env["PYTHON"] = "coverage run --source bindep --parallel-mode"
     session.run("stestr", "run", *session.posargs)

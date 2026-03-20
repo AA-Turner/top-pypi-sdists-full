@@ -64,6 +64,11 @@ PY2 = "base-py2"
 PY3 = "base-py3"
 
 
+class DependsException(Exception):
+    """Exception raised by Depends."""
+    pass
+
+
 def get_depends(filename=None, default_blank=False):
     fd = get_depends_file(filename)
     if not fd:
@@ -140,12 +145,17 @@ class Depends(object):
         :param filename: The string name of the file from which requirements
             were loaded.
         """
+        self.filename = filename
+
         if not depends_string.endswith('\n'):
             # The parsley grammar expects each line to end with a newline
             depends_string += '\n'
-        parser = makeGrammar(grammar, {})(depends_string)
-        self._rules = parser.rules()
-        self.filename = filename
+
+        try:
+            parser = makeGrammar(grammar, {})(depends_string)
+            self._rules = parser.rules()
+        except Exception as e:
+            raise DependsException(f"Requirements parsing error: {e}")
 
     def _partition(self, rule):
         """Separate conditions into platform and user profiles.

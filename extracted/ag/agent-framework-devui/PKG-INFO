@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-devui
-Version: 1.0.0b260311
+Version: 1.0.0b260319
 Summary: Debug UI for Microsoft Agent Framework with OpenAI-compatible API server.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,15 +16,14 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.0.0rc4
-Requires-Dist: fastapi>=0.104.0
-Requires-Dist: uvicorn[standard]>=0.24.0
-Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: pytest>=7.0.0 ; extra == "all"
-Requires-Dist: watchdog>=3.0.0 ; extra == "all"
-Requires-Dist: pytest>=7.0.0 ; extra == "dev"
-Requires-Dist: watchdog>=3.0.0 ; extra == "dev"
-Requires-Dist: agent-framework-orchestrations ; extra == "dev"
+Requires-Dist: agent-framework-core>=1.0.0rc5
+Requires-Dist: fastapi>=0.115.0,<0.133.1
+Requires-Dist: uvicorn[standard]>=0.30.0,<0.42.0
+Requires-Dist: pytest==9.0.2 ; extra == "all"
+Requires-Dist: watchdog==6.0.0 ; extra == "all"
+Requires-Dist: pytest==9.0.2 ; extra == "dev"
+Requires-Dist: watchdog==6.0.0 ; extra == "dev"
+Requires-Dist: agent-framework-orchestrations==1.0.0b260304 ; extra == "dev"
 Project-URL: homepage, https://github.com/microsoft/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true

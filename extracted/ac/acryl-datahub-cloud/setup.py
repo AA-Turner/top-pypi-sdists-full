@@ -9,7 +9,7 @@ _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 acryl_datahub = [
     # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
     # Needs to stay pinned to prevent breaking changes
-    "acryl-datahub==1.4.0.4"
+    "acryl-datahub==1.4.0.9"
 ]
 
 # Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.
@@ -20,6 +20,8 @@ base_requirements = [
     "pytz",
     "types-croniter",
     "tzlocal",
+    "boto3",
+    "botocore!=1.23.0",
 ]
 
 stats_common = {"pandas", "pyarrow", "duckdb"}
@@ -55,6 +57,8 @@ plugins = {
 dev_requirements = {
     # acryl-datahub[dev] pulls in more things than are strictly necessary, but it's fine.
     "acryl-datahub[dev]",
+    # flatdict 4.0.1 has a broken setup.py that doesn't declare pkg_resources as a build dependency
+    "flatdict!=4.0.1",
     # Type stubs for external libraries
     "pyarrow-stubs",
     "scipy-stubs",

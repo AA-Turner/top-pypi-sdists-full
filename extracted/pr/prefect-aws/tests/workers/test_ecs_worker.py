@@ -2469,6 +2469,41 @@ async def test_retry_on_failed_task_start(
         ecs_client.run_task = original_run_task
 
 
+async def test_retry_on_failed_task_start_with_custom_settings(
+    aws_credentials: AwsCredentials, flow_run, ecs_mocks
+):
+    """Test that custom retry settings are respected when creating ECS task runs."""
+    run_task_mock = MagicMock(
+        return_value={"failures": [{"reason": "RESOURCE:MEMORY"}]}
+    )
+
+    configuration = await construct_configuration(
+        aws_credentials=aws_credentials, command="echo test"
+    )
+
+    ecs_client = configuration.aws_credentials.get_client("ecs")
+    original_run_task = ecs_client.run_task
+    ecs_client.run_task = run_task_mock
+
+    try:
+        with mock_patch.dict(
+            "os.environ",
+            {
+                "PREFECT_INTEGRATIONS_AWS_ECS_WORKER_CREATE_TASK_RUN_MAX_ATTEMPTS": "5",
+                "PREFECT_INTEGRATIONS_AWS_ECS_WORKER_CREATE_TASK_RUN_MIN_DELAY_SECONDS": "0",
+                "PREFECT_INTEGRATIONS_AWS_ECS_WORKER_CREATE_TASK_RUN_MIN_DELAY_JITTER_SECONDS": "0",
+                "PREFECT_INTEGRATIONS_AWS_ECS_WORKER_CREATE_TASK_RUN_MAX_DELAY_JITTER_SECONDS": "0",
+            },
+        ):
+            with catch({RuntimeError: lambda exc_group: None}):
+                async with ECSWorker(work_pool_name="test") as worker:
+                    await worker.run(flow_run, configuration)
+
+            assert run_task_mock.call_count == 5
+    finally:
+        ecs_client.run_task = original_run_task
+
+
 async def test_mask_sensitive_env_values():
     task_run_request = {
         "overrides": {
@@ -2929,3 +2964,45 @@ async def test_kill_infrastructure_raises_not_found(aws_credentials, flow_run):
                     configuration=configuration,
                     grace_seconds=30,
                 )
+
+
+class TestReportTaskRunCreationFailure:
+    """Tests for _report_task_run_creation_failure error handling."""
+
+    @staticmethod
+    def _call(configuration, task_run, exc):
+        worker = ECSWorker.__new__(ECSWorker)
+        try:
+            raise exc
+        except Exception:
+            worker._report_task_run_creation_failure(configuration, task_run, exc)
+
+    @pytest.mark.parametrize(
+        "message,expected_match",
+        [
+            ("TaskDefinition is inactive", "task definition is inactive"),
+            ("No capacity is available", "capacity provider error"),
+            ("The Capacity Provider strategy is invalid", "capacity provider error"),
+            (
+                "InvalidParameterException: The subnet ID 'subnet-xxx' does not exist",
+                "network configuration error",
+            ),
+            (
+                "InvalidParameterException: The security group 'sg-xxx' does not exist",
+                "network configuration error",
+            ),
+            (
+                "InvalidParameterException: The network configuration is invalid",
+                "network configuration error",
+            ),
+        ],
+    )
+    def test_known_error_messages(self, message, expected_match):
+        exc = Exception(message)
+        with pytest.raises(RuntimeError, match=expected_match):
+            self._call(MagicMock(), {}, exc)
+
+    def test_unknown_error_reraised(self):
+        exc = Exception("Something completely unexpected")
+        with pytest.raises(Exception, match="Something completely unexpected"):
+            self._call(MagicMock(), {}, exc)

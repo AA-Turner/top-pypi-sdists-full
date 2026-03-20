@@ -1659,6 +1659,7 @@ from .. import (
     ITaggable as _ITaggable_36806126,
     ITaggableV2 as _ITaggableV2_4e6798f8,
     IgnoreMode as _IgnoreMode_655a98e8,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
     TagManager as _TagManager_0a598cb3,
@@ -22096,6 +22097,28 @@ class DistributionGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("DistributionGrants", jsii.sinvoke(cls, "fromDistribution", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dede8d05653a5863a1d690a347febf7cc1e1dbd643c9654eb616c3d55c9c90b5)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="createInvalidation")
     def create_invalidation(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grant to create invalidations for this bucket to an IAM principal (Role/Group/User).
@@ -35032,6 +35055,15 @@ def _typecheckingstub__bdb1dabb4ef81db5426cfd2e6a993db830c4e51f34b7dd369e6f07cd6
 
 def _typecheckingstub__2ac08a6c122c19034ca945760835413305cfdcb03a12ceb1c1ce2a5b29d12243(
     resource: _IDistributionRef_36fd2094,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dede8d05653a5863a1d690a347febf7cc1e1dbd643c9654eb616c3d55c9c90b5(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

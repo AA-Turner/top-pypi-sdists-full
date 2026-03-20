@@ -4,8 +4,7 @@ build-backend = "pbr.build"
 
 [project]
 authors = [
-    {email = "service-discuss@lists.opendev.org"},
-    {name = "OpenDev Contributors"},
+    {name = "OpenDev Contributors", email = "service-discuss@lists.opendev.org"},
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -16,7 +15,6 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -45,16 +43,14 @@ keywords = [
     "distro",
     "package",
 ]
-# TODO: Add 'license-expression = "Apache-2.0"' here and drop the License
-# classifier once https://github.com/pypa/setuptools/issues/4629 is resolved.
-maintainers = [
-    {email = "service-discuss@lists.opendev.org"},
-    {name = "OpenDev Contributors"},
-]
+# TODO: Add 'license = "Apache-2.0"' here and drop the License classifier above
+# once support for Python 3.8 is dropped (requires SetupTools>=77).
 name = "bindep"
 readme = {charset = "UTF-8", content-type = "text/x-rst", file = "README.rst"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
+# TODO: replace these with PEP 735 compliant dependency groups once support for
+# Python 3.8 is dropped (requires pip>=25.1).
 [project.optional-dependencies]
 build-docs = [
     # needed because we use autodoc to document our tests in the dev docs

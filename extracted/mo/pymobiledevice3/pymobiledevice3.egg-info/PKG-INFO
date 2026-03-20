@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 9.4.5
+Version: 9.5.1
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -45,7 +45,7 @@ Requires-Dist: uvicorn>=0.15.0
 Requires-Dist: wsproto
 Requires-Dist: Pillow
 Requires-Dist: inquirer3>=0.6.0
-Requires-Dist: ipsw_parser>=1.5.0
+Requires-Dist: ipsw_parser>=1.6.0
 Requires-Dist: ifaddr
 Requires-Dist: hyperframe
 Requires-Dist: srptools
@@ -60,7 +60,6 @@ Requires-Dist: python-pcapng>=2.1.1
 Requires-Dist: plumbum
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: typer>=0.20.0
-Requires-Dist: click>=8.2.0
 Requires-Dist: typer-injector>=0.2.0
 Requires-Dist: defusedxml
 Provides-Extra: test
@@ -143,13 +142,14 @@ pymobiledevice3 apps list
     [wsl2]
     networkingMode=mirrored
     ```
-
 - Linux:
   - Install `usbmuxd`: <https://github.com/libimobiledevice/usbmuxd>
-  - Recovery/DFU support requires `libusb`.
 
 - OpenSSL:
   - OpenSSL is explicitly required for older iOS versions (`< 13`).
+
+- Recovery/DFU support
+  - Requires `libusb`.
 
 ### Support Matrix (Developer Services)
 

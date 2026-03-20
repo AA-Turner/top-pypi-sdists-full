@@ -2,11 +2,15 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 from types import NoneType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 
-from hera.shared._pydantic import BaseModel, get_field_annotations, get_fields
+from pydantic import BaseModel as V2BaseModel
+from pydantic.v1 import BaseModel as V1BaseModel
+
+from hera.shared._pydantic import get_field_annotations, get_fields, model_dump
 from hera.shared._type_util import (
     get_unsubscripted_type,
     get_workflow_annotation,
@@ -16,12 +20,12 @@ from hera.shared._type_util import (
 from hera.shared.serialization import serialize
 from hera.workflows import Artifact, Parameter
 from hera.workflows.artifact import ArtifactLoader
-from hera.workflows.io.v1 import Output as OutputV1
+from hera.workflows.io.v2 import Output as OutputV2
 
-try:
-    from hera.workflows.io.v2 import Output as OutputV2
-except ImportError:
-    from hera.workflows.io.v1 import Output as OutputV2  # type: ignore
+if sys.version_info >= (3, 14):
+    from hera.workflows.io.v2 import Output as OutputV1
+else:
+    from hera.workflows.io.v1 import Output as OutputV1
 
 
 def _get_outputs_path(destination: Union[Parameter, Artifact]) -> Path:
@@ -124,11 +128,11 @@ def get_annotated_artifact_value(param_name: str, artifact_annotation: Artifact)
     if artifact_annotation.loadb is not None:
         return artifact_annotation.loadb(path.read_bytes())
 
-    if artifact_annotation.loader == ArtifactLoader.json.value:
+    if artifact_annotation.loader == ArtifactLoader.json:
         with path.open() as f:
             return json.load(f)
 
-    if artifact_annotation.loader == ArtifactLoader.file.value:
+    if artifact_annotation.loader == ArtifactLoader.file:
         return path.read_text()
 
     if artifact_annotation.loader is None:
@@ -137,7 +141,7 @@ def get_annotated_artifact_value(param_name: str, artifact_annotation: Artifact)
     raise RuntimeError(f"Artifact {artifact_annotation.name} was not given a value")
 
 
-T = TypeVar("T", bound=Type[BaseModel])
+T = TypeVar("T", bound=Type[V1BaseModel] | Type[V2BaseModel])
 
 
 def map_runner_input(
@@ -193,7 +197,11 @@ def map_runner_input(
     for field in get_fields(runner_input_class):
         input_model_obj[field] = map_field(field, kwargs)
 
-    return cast(T, runner_input_class.parse_obj(input_model_obj))
+    if issubclass(runner_input_class, V1BaseModel):
+        return cast(T, cast(V1BaseModel, runner_input_class).parse_obj(input_model_obj))
+
+    assert issubclass(runner_input_class, V2BaseModel)
+    return cast(T, runner_input_class.model_validate(input_model_obj))
 
 
 def _save_annotated_return_outputs(
@@ -213,17 +221,13 @@ def _save_annotated_return_outputs(
     if len(function_outputs) != len(output_annotations):
         raise ValueError("The number of outputs does not match the annotation")
 
-    if os.environ.get("hera__script_pydantic_io", None) is not None:
-        return_obj = None
+    return_obj = None
 
     for output_value, dest in zip(function_outputs, output_annotations):
         if isinstance(output_value, (OutputV1, OutputV2)):
-            if os.environ.get("hera__script_pydantic_io", None) is None:
-                raise ValueError("hera__script_pydantic_io environment variable is not set")
-
             return_obj = output_value
 
-            for field, value in output_value.dict().items():
+            for field, value in model_dump(output_value).items():
                 if field in {"exit_code", "result"}:
                     continue
 
@@ -245,7 +249,7 @@ def _save_annotated_return_outputs(
             path = _get_outputs_path(dest[1])
             _write_to_path(path, output_value, _get_dumper_function(dest[1]))
 
-    if os.environ.get("hera__script_pydantic_io", None) is not None:
+    if return_obj is not None:
         return return_obj
 
     return None
@@ -277,9 +281,6 @@ def _save_dummy_outputs(
     """
     for dest in output_annotations:
         if isinstance(dest, type) and issubclass(dest, (OutputV1, OutputV2)):
-            if os.environ.get("hera__script_pydantic_io", None) is None:
-                raise ValueError("hera__script_pydantic_io environment variable is not set")
-
             for field in get_fields(dest):
                 if field in {"exit_code", "result"}:
                     continue

@@ -64,21 +64,24 @@ class InstanceSizing(_message.Message):
     def __init__(self, min_instances: _Optional[int] = ..., max_instances: _Optional[int] = ...) -> None: ...
 
 class SourceImageSpec(_message.Message):
-    __slots__ = ("requirements", "dependencies_hash", "runtime", "python_version")
+    __slots__ = ("requirements", "dependencies_hash", "runtime", "python_version", "venv_download_uri")
     REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
     DEPENDENCIES_HASH_FIELD_NUMBER: _ClassVar[int]
     RUNTIME_FIELD_NUMBER: _ClassVar[int]
     PYTHON_VERSION_FIELD_NUMBER: _ClassVar[int]
+    VENV_DOWNLOAD_URI_FIELD_NUMBER: _ClassVar[int]
     requirements: str
     dependencies_hash: str
     runtime: str
     python_version: str
+    venv_download_uri: str
     def __init__(
         self,
         requirements: _Optional[str] = ...,
         dependencies_hash: _Optional[str] = ...,
         runtime: _Optional[str] = ...,
         python_version: _Optional[str] = ...,
+        venv_download_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class SourceImageSpecs(_message.Message):

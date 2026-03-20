@@ -6867,10 +6867,10 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     )
     """Return alerts that are on tables belong to these data products."""
 
-    slo_statuses = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(SloStatus)), graphql_name="sloStatuses"
-    )
-    """Return alerts with the specified SLO statuses."""
+    slo_statuses = sgqlc.types.Field(sgqlc.types.list_of(SloStatus), graphql_name="sloStatuses")
+    """Return alerts with the specified SLO statuses. Use null to include
+    alerts with no SLO.
+    """
 
 
 class AlertsFilterDataFilterType(sgqlc.types.Input):
@@ -17688,6 +17688,40 @@ class BulkMonitorConnection(sgqlc.types.relay.Connection):
         sgqlc.types.non_null(sgqlc.types.list_of("BulkMonitorEdge")), graphql_name="edges"
     )
     """Contains the nodes in this connection."""
+
+
+class BulkMonitorDomainAssignment(sgqlc.types.Type):
+    """Assign multiple monitors to a single domain, with partial success
+    support.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success", "updated_monitor_uuids", "failed_monitors")
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+    updated_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(UUID), graphql_name="updatedMonitorUuids"
+    )
+    """Monitors successfully updated"""
+
+    failed_monitors = sgqlc.types.Field(
+        sgqlc.types.list_of("BulkMonitorDomainAssignmentError"), graphql_name="failedMonitors"
+    )
+    """Monitors that failed with error details"""
+
+
+class BulkMonitorDomainAssignmentError(sgqlc.types.Type):
+    """Error detail for a single monitor that failed bulk domain
+    assignment.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "error")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """UUID of the monitor that failed"""
+
+    error = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="error")
+    """Reason for failure"""
 
 
 class BulkMonitorEdge(sgqlc.types.Type):
@@ -30614,6 +30648,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_monitor_comment",
         "delete_monitor_comment",
         "set_monitor_visibility_for_asset",
+        "bulk_assign_monitors_domain",
         "create_custom_user",
         "create_unified_user_assignment",
         "delete_unified_user_assignment",
@@ -38842,6 +38877,38 @@ class Mutation(sgqlc.types.Type):
     * `is_hidden` (`Boolean!`): True to hide the monitor, False to
       unhide it
     * `monitor_uuid` (`UUID!`): UUID of the monitor to hide or unhide
+    """
+
+    bulk_assign_monitors_domain = sgqlc.types.Field(
+        BulkMonitorDomainAssignment,
+        graphql_name="bulkAssignMonitorsDomain",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "monitor_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="monitorUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Bulk assign monitors to a domain
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the domain to assign monitors
+      to
+    * `monitor_uuids` (`[UUID!]!`): UUIDs of the monitors to assign to
+      the domain
     """
 
     create_custom_user = sgqlc.types.Field(

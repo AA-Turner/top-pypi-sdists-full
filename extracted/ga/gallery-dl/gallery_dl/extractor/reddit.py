@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2017-2025 Mike Fährmann
+# Copyright 2017-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -155,8 +155,7 @@ class RedditExtractor(Extractor):
                     if match := match_submission(url):
                         extra.append(match[1])
                     elif not match_user(url) and not match_subreddit(url):
-                        if previews and "comment" not in data and \
-                                "preview" in data:
+                        if previews and "preview" in data:
                             data["_fallback"] = self._previews(data)
                         yield Message.Queue, text.unescape(url), data
                         if "_fallback" in data:
@@ -305,7 +304,7 @@ class RedditUserExtractor(RedditExtractor):
     subcategory = "user"
     directory_fmt = ("{category}", "Users", "{user[name]}")
     pattern = (r"(?:https?://)?(?:\w+\.)?reddit\.com/u(?:ser)?/"
-               r"([^/?#]+)(/[a-z]+)?/?(?:\?([^#]*))?")
+               r"([^/?#]+)(/[a-z]+)?/?(?:\?([^#]*))?$")
     example = "https://www.reddit.com/user/USER/"
 
     def __init__(self, match):

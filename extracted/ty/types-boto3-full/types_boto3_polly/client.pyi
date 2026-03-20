@@ -44,6 +44,8 @@ from .type_defs import (
     ListSpeechSynthesisTasksInputTypeDef,
     ListSpeechSynthesisTasksOutputTypeDef,
     PutLexiconInputTypeDef,
+    StartSpeechSynthesisStreamInputTypeDef,
+    StartSpeechSynthesisStreamOutputTypeDef,
     StartSpeechSynthesisTaskInputTypeDef,
     StartSpeechSynthesisTaskOutputTypeDef,
     SynthesizeSpeechInputTypeDef,
@@ -75,11 +77,14 @@ class Exceptions(BaseClientExceptions):
     MaxLexemeLengthExceededException: type[BotocoreClientError]
     MaxLexiconsNumberExceededException: type[BotocoreClientError]
     ServiceFailureException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SsmlMarksNotSupportedForTextTypeException: type[BotocoreClientError]
     SynthesisTaskNotFoundException: type[BotocoreClientError]
     TextLengthExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
     UnsupportedPlsAlphabetException: type[BotocoreClientError]
     UnsupportedPlsLanguageException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class PollyClient(BaseClient):
     """
@@ -182,6 +187,17 @@ class PollyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/put_lexicon.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#put_lexicon)
+        """
+
+    def start_speech_synthesis_stream(
+        self, **kwargs: Unpack[StartSpeechSynthesisStreamInputTypeDef]
+    ) -> StartSpeechSynthesisStreamOutputTypeDef:
+        """
+        Synthesizes UTF-8 input, plain text, or SSML over a bidirectional streaming
+        connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/start_speech_synthesis_stream.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_polly/client/#start_speech_synthesis_stream)
         """
 
     def start_speech_synthesis_task(

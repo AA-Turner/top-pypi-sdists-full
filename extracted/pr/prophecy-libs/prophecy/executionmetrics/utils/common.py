@@ -66,20 +66,20 @@ def get_spark_property_with_logging(
     conf_key: str, spark: SparkSession, logger: Logger
 ) -> Optional[str]:
     """Get spark property with logging."""
-    logger.info(f"Getting spark property {conf_key}")
+    logger.debug(f"Getting spark property {conf_key}")
     conf_without_prefix = re.sub(r"^spark\.", "", conf_key, count=1)
 
     value = spark.conf.get(conf_without_prefix, None)
     if value is not None:
-        logger.info(f"spark conf has value of `{conf_without_prefix}` is {value}")
+        logger.debug(f"spark conf has value of `{conf_without_prefix}` is {value}")
         return value
 
-    logger.info(f"Spark conf doesn't have `{conf_without_prefix}`")
+    logger.debug(f"Spark conf doesn't have `{conf_without_prefix}`")
 
     value = spark.conf.get(conf_key, None)
     if value is not None:
-        logger.info(f"spark conf has value of `{conf_key}` is {value}")
+        logger.debug(f"spark conf has value of `{conf_key}` is {value}")
         return value
 
-    logger.info(f"Spark conf doesn't have `{conf_key}`")
+    logger.debug(f"Spark conf doesn't have `{conf_key}`")
     return None

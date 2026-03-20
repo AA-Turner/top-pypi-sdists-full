@@ -54,6 +54,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
     apply_metadata_exclusion_pattern,
     generate_stage_path_groups,
     get_spark_column_names_from_snowpark_columns,
+    normalize_stage_path,
     rename_columns_as_snowflake_standard,
 )
 from snowflake.snowpark_connect.type_support import (
@@ -360,7 +361,7 @@ def _read_csv_with_partitions(
     Returns:
         A tuple of (DataFrame, bool) where the bool indicates if external table was used.
     """
-    filename = path.strip("/").split("/")[-1]
+    filename = normalize_stage_path(path).split("/")[-1]
 
     # Case 1: Schema is provided by user
     if schema is not None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nicegui
-Version: 3.8.0
+Version: 3.9.0
 Summary: Create web-based user interfaces with Python. The nice way.
 License-Expression: MIT
 License-File: LICENSE
@@ -35,9 +35,10 @@ Requires-Dist: httpx (>=0.24.0)
 Requires-Dist: ifaddr (>=0.2.0)
 Requires-Dist: itsdangerous (>=2.1.2,<3)
 Requires-Dist: jinja2 (>=3.1.6,<4)
+Requires-Dist: lxml-html-clean (>=0.4.4)
 Requires-Dist: markdown2 (>=2.4.7,!=2.4.11)
 Requires-Dist: matplotlib (>=3.5.0,<4) ; extra == "matplotlib"
-Requires-Dist: nicegui-highcharts (>=2.0.2,<3) ; extra == "highcharts"
+Requires-Dist: nicegui-highcharts (>=3.2.1,<4) ; extra == "highcharts"
 Requires-Dist: orjson (>=3.11.5) ; platform_machine != "i386" and platform_machine != "i686" and platform_python_implementation != "PyPy"
 Requires-Dist: plotly (>=5.13,<7.0) ; extra == "plotly"
 Requires-Dist: pydantic-core (>=2.35.0)

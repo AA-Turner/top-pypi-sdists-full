@@ -597,10 +597,13 @@ CONFLICTING_DYNAMIC_PATHS = [
     # Player routes
     "error/",
     "_player/",
+    "_page/",
     "form/",
     "forms/",
     "hook/",
     "hooks/",
+    "page/",
+    "pages/",
     # Editor routes
     "_editor/",
 ]

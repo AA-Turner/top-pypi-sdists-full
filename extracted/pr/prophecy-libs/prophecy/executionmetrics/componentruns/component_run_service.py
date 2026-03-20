@@ -247,7 +247,7 @@ class ComponentRunService:
             component_runs = self.dao.add_values(component_runs_entities)
 
         interims_data = []
-        if offload_flags.should_offload_interims():
+        if offload_flags.should_offload_interims() and interims:
             # Create interims table for user
             interims_table = create_interims_table(
                 spark_session=self.spark,

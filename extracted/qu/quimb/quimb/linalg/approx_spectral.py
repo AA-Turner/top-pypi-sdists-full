@@ -375,8 +375,8 @@ def calc_trace_fn_tridiag(tl, tv, f, pos=True):
     )
 
 
-@njit
-def ext_per_trim(x, p=0.6, s=1.0):  # pragma: no cover
+@njit  # pragma: no cover
+def ext_per_trim(x, p=0.6, s=1.0):
     r"""Extended percentile trimmed-mean. Makes the mean robust to asymmetric
     outliers, while using all data when it is nicely clustered. This can be
     visualized roughly as::
@@ -506,7 +506,7 @@ def single_random_estimate(
     info=None,
     **lanczos_opts,
 ):
-    from ..tensor.tensor_1d import MatrixProductOperator
+    from ..tensor.tn1d.core import MatrixProductOperator
 
     # choose normal (any LinearOperator) or MPO lanczos tridiag construction
     if isinstance(A, MatrixProductOperator):

@@ -1,11 +1,10 @@
 """Implementation of Rule CV12."""
 
 import collections
-from typing import Deque, Iterator, List
+from collections.abc import Iterator
+from typing import Deque
 
-from sqlfluff.core.parser import (
-    BaseSegment,
-)
+from sqlfluff.core.parser import BaseSegment
 from sqlfluff.core.parser.segments.common import (
     BinaryOperatorSegment,
     WhitespaceSegment,
@@ -14,6 +13,11 @@ from sqlfluff.core.parser.segments.keyword import KeywordSegment
 from sqlfluff.core.rules import BaseRule, EvalResultType, LintResult, RuleContext
 from sqlfluff.core.rules.crawlers import SegmentSeekerCrawler
 from sqlfluff.core.rules.fix import LintFix
+from sqlfluff.dialects.dialect_ansi import (
+    ExpressionSegment,
+    JoinClauseSegment,
+    JoinOnConditionSegment,
+)
 
 
 class Rule_CV12(BaseRule):
@@ -98,14 +102,12 @@ class Rule_CV12(BaseRule):
             "join_clause", no_recursive_seg_type=["select_statement"]
         ):
             # mark table reference as seen
-            join_table_references = [
-                *join_clause.recursive_crawl(
+            join_table_reference = next(
+                join_clause.recursive_crawl(
                     "from_expression_element",
                     no_recursive_seg_type=["select_statement"],
                 )
-            ]
-            assert len(join_table_references) == 1
-            join_table_reference = join_table_references[0]
+            )
             encountered_references.add(
                 self._get_from_expression_element_alias(join_table_reference)
             )
@@ -114,12 +116,13 @@ class Rule_CV12(BaseRule):
             ]
 
             if any(
-                kw.raw_upper in ("CROSS", "POSITIONAL", "USING")
+                kw.raw_upper in ("CROSS", "POSITIONAL", "USING", "APPLY")
                 for kw in join_clause_keywords
             ):
                 # If explicit CROSS JOIN is used, disregard lack of condition
                 # If explicit POSITIONAL JOIN is used, disregard lack of condition
                 # If explicit JOIN USING is used, disregard lack of condition
+                # If explicit CROSS/OUTER APPLY is used, disregard lack of condition
                 continue
 
             this_join_condition = join_clause.get_child("join_on_condition")
@@ -174,18 +177,30 @@ class Rule_CV12(BaseRule):
                     ].is_type("whitespace", "binary_operator"):
                         join_clause_fix_segments.pop()
 
+                    join_on_expression = ExpressionSegment(
+                        tuple(join_clause_fix_segments),
+                    )
+                    join_on = JoinOnConditionSegment(
+                        (
+                            KeywordSegment("ON"),
+                            WhitespaceSegment(),
+                            join_on_expression,
+                        )
+                    )
+                    join_clause_segment = JoinClauseSegment(
+                        (
+                            *join_clause.segments,
+                            WhitespaceSegment(),
+                            join_on,
+                        )
+                    )
+
                     yield LintResult(
                         anchor=join_clause,
                         fixes=[
                             LintFix.replace(
                                 join_clause,
-                                edit_segments=[
-                                    *join_clause.segments,
-                                    WhitespaceSegment(),
-                                    KeywordSegment("ON"),
-                                    WhitespaceSegment(),
-                                    *join_clause_fix_segments,
-                                ],
+                                edit_segments=[join_clause_segment],
                             )
                         ],
                     )
@@ -259,7 +274,7 @@ class Rule_CV12(BaseRule):
         return all(op.raw_upper == "AND" for op in ops)
 
     @staticmethod
-    def _get_subexpression_chunks(expr: BaseSegment) -> List[List[BaseSegment]]:
+    def _get_subexpression_chunks(expr: BaseSegment) -> list[list[BaseSegment]]:
         expr_segments = expr.segments
         bin_op_indices = [
             i for i, e in enumerate(expr_segments) if e.is_type("binary_operator")

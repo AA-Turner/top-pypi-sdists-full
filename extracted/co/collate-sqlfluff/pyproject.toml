@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "collate-sqlfluff"
-version = "3.3.7"
+version = "3.5.0"
 description = "The SQL Linter for Humans"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   {name = "open-metadata"},
 ]
@@ -45,8 +45,10 @@ keywords = [
     "clickhouse",
     "databricks",
     "db2",
+    "doris",
     "duckdb",
     "exasol",
+    "flink",
     "greenplum",
     "hive",
     "impala",
@@ -71,7 +73,9 @@ dependencies = [
     "platformdirs",
     # To get the encoding of files.
     "chardet",
-    "click",
+    # Click can include breaking changes in minor releases. Make sure to test
+    # well before updating upper bound.
+    "click<=8.3.0",
     "colorama>=0.3",
     # Used for diffcover plugin
     "diff-cover>=2.5.0",
@@ -92,7 +96,7 @@ dependencies = [
     # For returning exceptions from multiprocessing.Pool.map()
     "tblib",
     # For parsing pyproject.toml
-    "toml; python_version < '3.11'",
+    "tomli; python_version < '3.11'",
     # For handling progress bars
     "tqdm",
 ]
@@ -131,7 +135,7 @@ sqlfluff_rules_tsql = "sqlfluff.rules.tsql"
 
 [tool.sqlfluff_docs]
 # NOTE: Stable version is used by docs/conf.py
-stable_version = "3.3.1"
+stable_version = "3.5.0"
 
 
 [tool.setuptools.package-data]
@@ -205,7 +209,11 @@ ignore_imports = [
     # The plugin host need the BaseRule type for type checking, because one
     # of the hooks returns rules. It's otherwise not something we can import
     # at this layer.
-    "sqlfluff.core.plugin.hookspecs -> sqlfluff.core.rules.base"
+    "sqlfluff.core.plugin.hookspecs -> sqlfluff.core.rules.base",
+    # The formatter needs the LintedFile type for type checking (and the
+    # formatter is imported by lots of other things), and we aren't otherwise
+    # allowed to depend on the linter at this layer.
+    "sqlfluff.core.formatter -> sqlfluff.core.linter",
 ]
 
 
@@ -234,6 +242,7 @@ extend-select = ["I", "D"]
 # D107: Missing docstring in __init__
 # D418: Function/ Method decorated with @overload shouldn’t contain a docstring
 ignore = ["D107", "D105", "D418"]
+
 
 [tool.ruff.lint.isort]
 # Mark sqlfluff, test and it's plugins as known first party

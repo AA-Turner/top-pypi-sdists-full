@@ -229,6 +229,8 @@ class CreditGrantType(str, Enum):
 
 class CreditLedgerEventType(str, Enum):
     CREDITS_CONSUMED = "CREDITS_CONSUMED"
+    CREDITS_CONSUMPTION_TRANSFER_SOURCE = "CREDITS_CONSUMPTION_TRANSFER_SOURCE"
+    CREDITS_CONSUMPTION_TRANSFER_TARGET = "CREDITS_CONSUMPTION_TRANSFER_TARGET"
     CREDITS_EXPIRED = "CREDITS_EXPIRED"
     CREDITS_GRANTED = "CREDITS_GRANTED"
     CREDITS_UPDATED = "CREDITS_UPDATED"
@@ -547,8 +549,6 @@ class ErrorCode(str, Enum):
     )
     CheckoutIsNotSupported = "CheckoutIsNotSupported"
     CouponNotFound = "CouponNotFound"
-    CreditChargeCoexistenceError = "CreditChargeCoexistenceError"
-    CreditChargeValidationError = "CreditChargeValidationError"
     CreditGrantAlreadyVoided = "CreditGrantAlreadyVoided"
     CreditGrantCannotBeVoided = "CreditGrantCannotBeVoided"
     CreditGrantNotFound = "CreditGrantNotFound"

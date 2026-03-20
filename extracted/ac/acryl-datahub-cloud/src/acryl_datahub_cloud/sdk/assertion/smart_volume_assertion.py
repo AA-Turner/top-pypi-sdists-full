@@ -49,6 +49,10 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
         detection_mechanism: Optional[
             _DetectionMechanismTypes
         ] = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: Optional[
+            models.AssertionTimeBucketingStrategyClass
+        ] = None,
+        backfill_config: Optional[models.AssertionMonitorBootstrapConfigClass] = None,
         tags: list[TagUrn],
         created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
@@ -71,21 +75,22 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
             training_data_lookback_days: The max number of days of data to use for training the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
             detection_mechanism: The detection mechanism of the assertion.
+            time_bucketing_strategy: Optional time bucketing strategy for data partitioning.
+            backfill_config: Optional backfill configuration for bootstrapping historical metrics.
             tags: The tags applied to the assertion.
             created_by: The urn of the user that created the assertion.
             created_at: The timestamp of when the assertion was created.
             updated_by: The urn of the user that updated the assertion.
             updated_at: The timestamp of when the assertion was updated.
         """
-        # Initialize the mixins first
         _HasSchedule.__init__(self, schedule=schedule)
         _HasSmartFunctionality.__init__(
             self,
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
             training_data_lookback_days=training_data_lookback_days,
+            backfill_config=backfill_config,
         )
-        # Then initialize the parent class
         _AssertionPublic.__init__(
             self,
             urn=urn,
@@ -94,6 +99,7 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
             mode=mode,
             incident_behavior=incident_behavior,
             detection_mechanism=detection_mechanism,
+            time_bucketing_strategy=time_bucketing_strategy,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
@@ -104,7 +110,7 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
     @classmethod
     def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
-        Create a smart freshness assertion from the assertion and monitor entities.
+        Create a smart volume assertion from the assertion and monitor entities.
 
         Note: This is a private method since it is intended to be called internally by the client.
         """
@@ -119,6 +125,8 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
             training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
             incident_behavior=cls._get_incident_behavior(assertion),
             detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
+            time_bucketing_strategy=cls._get_time_bucketing_strategy(monitor),
+            backfill_config=_HasSmartFunctionality._get_backfill_config(monitor),
             created_by=cls._get_created_by(assertion),
             created_at=cls._get_created_at(assertion),
             updated_by=cls._get_updated_by(assertion),

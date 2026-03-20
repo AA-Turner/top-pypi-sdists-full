@@ -11,6 +11,7 @@ from .....schema_classes import EntityChangeDetailsClass
 from .....schema_classes import EntityChangeDetailsFilterClass
 from .....schema_classes import EntityChangeTypeClass
 from .....schema_classes import SubscriptionInfoClass
+from .....schema_classes import SubscriptionManagedByClass
 from .....schema_classes import SubscriptionNotificationConfigClass
 from .....schema_classes import SubscriptionTypeClass
 
@@ -19,6 +20,7 @@ EntityChangeDetails = EntityChangeDetailsClass
 EntityChangeDetailsFilter = EntityChangeDetailsFilterClass
 EntityChangeType = EntityChangeTypeClass
 SubscriptionInfo = SubscriptionInfoClass
+SubscriptionManagedBy = SubscriptionManagedByClass
 SubscriptionNotificationConfig = SubscriptionNotificationConfigClass
 SubscriptionType = SubscriptionTypeClass
 

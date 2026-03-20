@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmdb
-Version: 2.1.0
+Version: 2.1.1
 Summary: Universal Python binding for the LMDB 'Lightning' Database
 Home-page: http://github.com/jnwatson/py-lmdb/
 Author: David Wilson

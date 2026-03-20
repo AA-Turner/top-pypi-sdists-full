@@ -195,8 +195,9 @@ class AdvancedFieldSelectorTypeDef(TypedDict):
     NotEndsWith: NotRequired[Sequence[str]]
 
 class SourceLogsConfigurationTypeDef(TypedDict):
-    LogGroupSelectionCriteria: str
     EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
+    LogGroupSelectionCriteria: NotRequired[str]
+    DataSourceSelectionCriteria: NotRequired[str]
 
 class CentralizationRuleSummaryTypeDef(TypedDict):
     RuleName: NotRequired[str]

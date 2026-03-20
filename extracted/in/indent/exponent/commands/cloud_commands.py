@@ -14,61 +14,12 @@ from exponent.commands.utils import (
 )
 from exponent.core.config import Settings
 from exponent.core.graphql.client import GraphQLClient
-from exponent.core.graphql.generated_client import (
-    RepositoryInput,
-)
-from exponent.core.graphql.generated_client.enable_cloud_repository import (
-    EnableCloudRepositoryEnableCloudRepository,
-)
 from exponent.utils.version import check_exponent_version_and_upgrade
 
 
 @exponent_cli_group(hidden=True)
 def cloud_cli() -> None:
     pass
-
-
-async def enable_cloud_repository(
-    api_key: str,
-    base_api_url: str,
-    base_ws_url: str,
-    org_name: str,
-    repo_name: str,
-) -> dict[str, Any]:
-    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
-
-    result = await graphql_client.enable_cloud_repository(
-        repositories=[RepositoryInput(orgName=org_name, repoName=repo_name)]
-    )
-
-    enable_result = result.enable_cloud_repository
-    if isinstance(
-        enable_result,
-        EnableCloudRepositoryEnableCloudRepository,
-    ):
-        if enable_result.results and enable_result.results[0].success:
-            repo_result = enable_result.results[0]
-            return {
-                "__typename": "EnableCloudRepositoriesResult",
-                "buildRef": repo_result.images[0].build_ref if repo_result.images else None,
-                "createdAt": repo_result.images[0].created_at if repo_result.images else None,
-                "updatedAt": repo_result.images[0].updated_at if repo_result.images else None,
-            }
-        elif enable_result.results:
-            return {
-                "__typename": "Error",
-                "message": enable_result.results[0].error_message or "Unknown error",
-            }
-        else:
-            return {
-                "__typename": "Error",
-                "message": "No results returned",
-            }
-    else:
-        return {
-            "__typename": enable_result.typename__,
-            "message": enable_result.message if hasattr(enable_result, "message") else "Unknown error",
-        }
 
 
 async def list_github_repositories(
@@ -138,54 +89,6 @@ async def start_chat_turn_with_prompt(
         "chatUuid": str(cu) if (cu := getattr(result.start_chat_turn, "chat_uuid", None)) else None,
         "message": getattr(result.start_chat_turn, "message", None),
     }
-
-
-@cloud_cli.command(hidden=True)
-@click.option(
-    "--org-name",
-    help="GitHub organization name",
-    required=True,
-)
-@click.option(
-    "--repo-name",
-    help="GitHub repository name",
-    required=True,
-)
-@use_settings
-def enable_repo(
-    settings: Settings,
-    org_name: str,
-    repo_name: str,
-) -> None:
-    """Test utility for enabling cloud repository."""
-    check_exponent_version_and_upgrade(settings)
-
-    if not settings.api_key:
-        redirect_to_login(settings)
-        return
-
-    api_key = settings.api_key
-    base_api_url = settings.get_base_api_url()
-    base_ws_url = settings.get_base_ws_url()
-
-    try:
-        result = asyncio.run(enable_cloud_repository(api_key, base_api_url, base_ws_url, org_name, repo_name))
-
-        if result["__typename"] == "EnableCloudRepositoriesResult":
-            click.secho(f"✓ Successfully enabled repository {org_name}/{repo_name}", fg="green")
-            click.echo(f"  Build ref: {result.get('buildRef', 'N/A')}")
-            click.echo(f"  Created at: {result.get('createdAt', 'N/A')}")
-            click.echo(f"  Updated at: {result.get('updatedAt', 'N/A')}")
-        else:
-            click.secho(
-                f"✗ Failed to enable repository: {result.get('message', 'Unknown error')}",
-                fg="red",
-            )
-            click.echo(f"  Error type: {result['__typename']}")
-
-    except Exception as e:
-        click.secho(f"✗ Error enabling repository: {e!s}", fg="red")
-        sys.exit(1)
 
 
 @cloud_cli.command(hidden=True)

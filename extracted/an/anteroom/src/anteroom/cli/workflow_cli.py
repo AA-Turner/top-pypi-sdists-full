@@ -199,7 +199,10 @@ def _print_run_progress(db: Any, run: dict[str, Any]) -> None:
             else:
                 icon = f"[dim]{status}[/dim]"
 
-            line = f"  [{icon}] {step_id}{dur_str}"
+            prefix = ""
+            if step.get("is_compensation"):
+                prefix = "[dim]<-[/dim] "
+            line = f"  [{icon}] {prefix}{step_id}{dur_str}"
             if summary:
                 line += f"  {summary}"
             console.print(line)
@@ -208,6 +211,12 @@ def _print_run_progress(db: Any, run: dict[str, Any]) -> None:
     run_status = run.get("status", "unknown")
     if run_status == "completed":
         console.print("\n[green]Workflow completed successfully[/green]")
+    elif run_status == "compensated":
+        console.print("\n[yellow]Workflow compensated[/yellow] (steps rolled back after failure)")
+    elif run_status == "compensation_failed":
+        console.print(f"\n[red]Workflow compensation failed:[/red] {run.get('stop_reason', 'unknown')}")
+    elif run_status == "compensating":
+        console.print("\n[cyan]Compensating...[/cyan] (rolling back completed steps)")
     elif run_status == "blocked":
         console.print(f"\n[yellow]Workflow blocked:[/yellow] {run.get('stop_reason', 'unknown')}")
     elif run_status == "failed":
@@ -308,6 +317,15 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
     if issue_number is not None:
         inputs["issue_number"] = issue_number
 
+    # Parse --param key=value overrides (#958)
+    param_overrides: dict[str, str] = {}
+    for raw_param in getattr(args, "param", []):
+        if "=" not in raw_param:
+            console.print(f"[red]Error:[/red] --param must be KEY=VALUE, got: {raw_param!r}")
+            return
+        key, _, value = raw_param.partition("=")
+        param_overrides[key.strip()] = value.strip()
+
     # Determine target from inputs or definition
     target_kind = "workflow"
     target_ref = workflow_id
@@ -381,6 +399,7 @@ def _handle_run(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
                 target_ref=target_ref,
                 inputs=inputs,
                 space_id=current_space_id,
+                param_overrides=param_overrides or None,
             )
         )
     except (ValueError, RuntimeError) as exc:
@@ -573,8 +592,11 @@ def _handle_history(db: Any, args: argparse.Namespace) -> None:
             step_type_display = step["step_type"]
             if artifacts.get("structured_output") is not None:
                 step_type_display += " (json)"
+            step_id_display = step["step_id"]
+            if step.get("is_compensation"):
+                step_id_display = f"<- {step_id_display}"
             table.add_row(
-                step["step_id"],
+                step_id_display,
                 step_type_display,
                 step.get("runner_type") or "-",
                 step["status"],

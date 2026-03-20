@@ -3,6 +3,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import link_pb2 as _link_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -408,21 +409,24 @@ class UpsertUserByEmailResponse(_message.Message):
     def __init__(self, user: _Optional[_Union[AdapterUser, _Mapping]] = ...) -> None: ...
 
 class GetTokenRequest(_message.Message):
-    __slots__ = ("client_id", "client_secret", "grant_type", "scope")
+    __slots__ = ("client_id", "client_secret", "grant_type", "scope", "expires_at")
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     CLIENT_SECRET_FIELD_NUMBER: _ClassVar[int]
     GRANT_TYPE_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     client_secret: str
     grant_type: str
     scope: str
+    expires_at: _duration_pb2.Duration
     def __init__(
         self,
         client_id: _Optional[str] = ...,
         client_secret: _Optional[str] = ...,
         grant_type: _Optional[str] = ...,
         scope: _Optional[str] = ...,
+        expires_at: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class GetTokenResponse(_message.Message):

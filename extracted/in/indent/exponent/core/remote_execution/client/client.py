@@ -126,6 +126,8 @@ class RemoteExecutionClient:
         self._background_tracker = BackgroundProcessTracker(on_complete=self._on_background_process_complete)
         self._terminal_controller: TerminalControllerServer | None = None
 
+        self._executed_idempotency_keys: set[str] = set()
+
     @property
     def working_directory(self) -> str:
         return self.current_session.working_directory
@@ -478,6 +480,15 @@ class RemoteExecutionClient:
             while True:
                 async with requests_lock:
                     request = await requests.get()
+
+                key = request.idempotency_key
+                if key is not None and key in self._executed_idempotency_keys:
+                    logger.warning(
+                        f"Duplicate idempotency key={key} reached CLI, skipping request_id={request.request_id}"
+                    )
+                    continue
+                if key is not None:
+                    self._executed_idempotency_keys.add(key)
 
                 try:
                     from exponent.core.remote_execution.cli_rpc_types import (
@@ -848,6 +859,7 @@ class RemoteExecutionClient:
     async def handle_request(self, request: CliRpcRequest) -> CliRpcResponse:
         self._last_request_time = time.time()
 
+        response: CliRpcResponse | None = None
         try:
             if isinstance(request.request, ToolExecutionRequest):
                 if isinstance(request.request.tool_input, BashToolInput):
@@ -876,7 +888,7 @@ class RemoteExecutionClient:
                 else:
                     raw_result = await execute_tool(request.request.tool_input, self.working_directory, self)
                 tool_result = truncate_result(raw_result)
-                return CliRpcResponse(
+                response = CliRpcResponse(
                     request_id=request.request_id,
                     response=ToolExecutionResponse(
                         tool_result=tool_result,
@@ -884,7 +896,7 @@ class RemoteExecutionClient:
                 )
             elif isinstance(request.request, GetAllFilesRequest):
                 files_list = await file_walk(self.working_directory)
-                return CliRpcResponse(
+                response = CliRpcResponse(
                     request_id=request.request_id,
                     response=GetAllFilesResponse(files=files_list),
                 )
@@ -929,7 +941,7 @@ class RemoteExecutionClient:
                     else:
                         processed_results.append(truncate_result(result))
 
-                return CliRpcResponse(
+                response = CliRpcResponse(
                     request_id=request.request_id,
                     response=BatchToolExecutionResponse(
                         tool_results=processed_results,
@@ -937,13 +949,13 @@ class RemoteExecutionClient:
                 )
             elif isinstance(request.request, HttpRequest):
                 http_response = await fetch_http_content(request.request)
-                return CliRpcResponse(
+                response = CliRpcResponse(
                     request_id=request.request_id,
                     response=http_response,
                 )
             elif isinstance(request.request, DownloadFromUrlRequest):
                 download_response = await download_file_from_url(request.request)
-                return CliRpcResponse(
+                response = CliRpcResponse(
                     request_id=request.request_id,
                     response=download_response,
                 )
@@ -962,8 +974,8 @@ class RemoteExecutionClient:
                 raise ValueError("StopTerminalRequest should not be handled by handle_request")
             elif isinstance(request.request, ListTerminalsRequest):
                 raise ValueError("ListTerminalsRequest should not be handled by handle_request")
-
-            raise ValueError(f"Unhandled request type: {type(request)}")
+            else:
+                raise ValueError(f"Unhandled request type: {type(request)}")
 
         except Exception as e:
             logger.error(f"Error handling request {request}:\n\n{e}")
@@ -976,6 +988,8 @@ class RemoteExecutionClient:
             elif isinstance(request.request, BatchToolExecutionRequest):
                 if any(isinstance(tool_input, BashToolInput) for tool_input in request.request.tool_inputs):
                     await self.clear_halt_state(request.request_id)
+
+        return response
 
     async def handle_streaming_request(
         self,

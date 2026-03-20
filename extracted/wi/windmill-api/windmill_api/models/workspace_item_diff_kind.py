@@ -4,6 +4,7 @@ from enum import Enum
 class WorkspaceItemDiffKind(str, Enum):
     APP = "app"
     FLOW = "flow"
+    RAW_APP = "raw_app"
     RESOURCE = "resource"
     RESOURCE_TYPE = "resource_type"
     SCRIPT = "script"

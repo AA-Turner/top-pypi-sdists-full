@@ -12,6 +12,59 @@ logger = logging.getLogger(__name__)
 is_serverless = bool(int(os.environ.get("DATABRICKS_SERVERLESS_MODE_ENABLED", "0")))
 logger.debug(f'is_serverless is {is_serverless}')
 
+_scala_available_cache = None
+
+
+def is_scala_enabled() -> bool:
+    global _scala_available_cache
+
+    if _scala_available_cache is not None:
+        return _scala_available_cache
+
+    if os.getenv("ENABLE_SCALA_CONTEXT", "true").lower().strip() == "false":
+        _scala_available_cache = False
+        return False
+
+    return True
+
+
+def is_scala_disabled() -> bool:
+    return not is_scala_enabled()
+
+
+def mark_scala_available(available: bool, reason: str = None):
+    global _scala_available_cache
+    if _scala_available_cache is None:
+        _scala_available_cache = available
+
+
+def get_scala_disabled_error(operation: str) -> str:
+    return (
+        f"Cannot perform '{operation}': Scala prophecy-libs not available in classpath. "
+        f"This operation requires Scala Prophecy libraries. "
+        f"Ensure prophecy-libs JAR is in Spark classpath for Scala operations."
+    )
+
+
+def force_scala_mode(enabled: bool):
+    global _scala_available_cache
+    _scala_available_cache = enabled
+
+
+def reset_scala_detection():
+    global _scala_available_cache
+    _scala_available_cache = None
+
+
+def get_detection_info() -> dict:
+    global _scala_available_cache
+    return {
+        "scala_enabled": _scala_available_cache,
+        "detected": _scala_available_cache is not None,
+        "detection_method": "runtime auto-detection on first JVM access",
+        "explicit_override": os.getenv("ENABLE_SCALA_CONTEXT", ""),
+    }
+
 
 class ProjectConfig:
 
@@ -102,6 +155,12 @@ class ConfigBase:
 
             if (self.prophecy_spark is not None and self.prophecy_spark.sparkContext.getConf().get("prophecy.schema.analysis") == "True"):
                 return f"{self.secretScope}:{self.secretKey}"
+            
+            if is_scala_disabled():
+                from prophecy.utils.secrets import ProphecySecrets
+                self.secret_manager = ProphecySecrets
+                return self.secret_manager.get(self.secretScope, self.secretKey, self.providerType)
+            
             self.jvm = self.prophecy_spark.sparkContext._jvm
             self.secret_manager = self.jvm.io.prophecy.libs.secrets.ProphecySecrets
             return self.secret_manager.get(self.secretScope, self.secretKey, self.providerType)

@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: prophecy_libs
-Version: 2.1.11
+Version: 2.1.14
 Summary: Helper library for prophecy generated code
 Home-page: https://github.com/SimpleDataLabsInc/prophecy-python-libs
 License: GPL-3.0
 Keywords: python,prophecy
 License-File: LICENSE
-Requires-Dist: pyhocon>=0.3.59
+Requires-Dist: pyhocon<0.3.62,>=0.3.59
 Requires-Dist: requests>=2.10.0
 Requires-Dist: hvac==2.3.0
 Requires-Dist: zstandard>=0.23.0
 Requires-Dist: msgspec>=0.18.6
+Requires-Dist: websocket-client>=1.0.0
 Dynamic: description
 Dynamic: home-page
 Dynamic: keywords

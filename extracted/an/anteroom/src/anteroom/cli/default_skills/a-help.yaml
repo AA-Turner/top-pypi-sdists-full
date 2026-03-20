@@ -162,6 +162,7 @@ prompt: |
   | /upload          | Upload a file as context                            |
   | /reprocess       | Re-extract and re-chunk a source                    |
   | /model NAME      | Switch AI model                                     |
+  | /clear           | Clear screen and reset message history              |
   | /compact         | Compact conversation to reduce token usage          |
   | /usage           | Show token usage and cost statistics                |
   | /tools           | Show available tools with tier assignments          |

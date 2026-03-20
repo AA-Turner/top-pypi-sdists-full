@@ -7,6 +7,15 @@ At the moment the SDK provides services to inspect and interact with the Semanti
 import logging
 
 from gooddata_sdk._version import __version__
+from gooddata_sdk.catalog.appearance.entity_model.color_palette import (
+    CatalogColorPalette,
+    CatalogColorPaletteAttributes,
+)
+from gooddata_sdk.catalog.appearance.entity_model.theme import (
+    CatalogTheme,
+    CatalogThemeAttributes,
+)
+from gooddata_sdk.catalog.appearance.service import CatalogAppearanceService
 from gooddata_sdk.catalog.data_source.action_model.requests.ldm_request import (
     CatalogGenerateLdmRequest,
     CatalogPdmLdmRequest,
@@ -29,6 +38,7 @@ from gooddata_sdk.catalog.data_source.entity_model.data_source import (
     CatalogDataSource,
     CatalogDataSourceBigQuery,
     CatalogDataSourceDatabricks,
+    CatalogDataSourceGdStorage,
     CatalogDataSourceGreenplum,
     CatalogDataSourceMariaDb,
     CatalogDataSourceMotherDuck,
@@ -66,6 +76,7 @@ from gooddata_sdk.catalog.export.request import (
     ExportCustomOverride,
     ExportRequest,
     ExportSettings,
+    GrandTotalsPosition,
     SlidesExportRequest,
     VisualExportRequest,
 )
@@ -98,10 +109,6 @@ from gooddata_sdk.catalog.organization.entity_model.jwk import (
     CatalogJwkAttributes,
     CatalogJwkDocument,
     CatalogRsaSpecification,
-)
-from gooddata_sdk.catalog.organization.entity_model.llm_endpoint import (
-    CatalogLlmEndpoint,
-    CatalogLlmEndpointDocument,
 )
 from gooddata_sdk.catalog.organization.entity_model.llm_provider import (
     CatalogAwsBedrockProviderConfig,

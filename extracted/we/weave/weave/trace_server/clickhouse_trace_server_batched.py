@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -29,6 +30,7 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+from typing_extensions import Self
 
 from weave.shared import refs_internal as ri
 from weave.shared.digest import (
@@ -112,6 +114,7 @@ from weave.trace_server.datadog import (
     set_current_span_dd_tags,
     set_root_span_dd_tags,
 )
+from weave.trace_server.digest_validation import validate_expected_digest
 from weave.trace_server.errors import (
     CallsCompleteModeRequired,
     InsertTooLarge,
@@ -154,6 +157,12 @@ from weave.trace_server.llm_completion import (
     resolve_and_apply_prompt,
 )
 from weave.trace_server.methods.evaluation_status import evaluation_status
+from weave.trace_server.methods.feedback_stats import (
+    feedback_payload_schema as feedback_payload_schema_handler,
+)
+from weave.trace_server.methods.feedback_stats import (
+    feedback_stats as feedback_stats_handler,
+)
 from weave.trace_server.model_providers.model_providers import (
     VERTEX_PROVIDER_NAMES,
     LLMModelProviderInfo,
@@ -233,6 +242,7 @@ logger.setLevel(logging.INFO)
 # maxsize: Maximum connections per pool (set higher than thread count to avoid blocking)
 # num_pools: Number of distinct connection pools (for different hosts/configs)
 _CH_POOL_MANAGER = get_pool_manager(maxsize=50, num_pools=2)
+
 
 # Precomputed list of (column_index, field_name) for every sentinel field that appears
 # in ALL_CALL_COMPLETE_INSERT_COLUMNS.  Used by _insert_call_complete_batch to enforce
@@ -339,12 +349,8 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         self._thread_local.calls_complete_batch = value
 
     @classmethod
-    def from_env(
-        cls, use_async_insert: bool = False, **kwargs: Any
-    ) -> "ClickHouseTraceServer":
-        # Explicitly calling `RemoteHTTPTraceServer` constructor here to ensure
-        # that type checking is applied to the constructor.
-        return ClickHouseTraceServer(
+    def from_env(cls, use_async_insert: bool = False, **kwargs: Any) -> Self:
+        return cls(
             host=wf_env.wf_clickhouse_host(),
             port=wf_env.wf_clickhouse_port(),
             user=wf_env.wf_clickhouse_user(),
@@ -464,7 +470,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                         project_id=project_id,
                         name=obj.object_id,
                         version=obj.digest,
-                    ).uri()
+                    ).uri
                     self._op_ref_cache[project_id, obj.object_id] = uri
                     resolved[obj.object_id] = uri
 
@@ -592,7 +598,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 project_id=req.project_id,
                 name=result.object_id,
                 version=result.digest,
-            ).uri()
+            ).uri
             for idx in obj_id_idx_map[result.object_id]:
                 calls[idx][0].op_name = op_ref_uri
             # Cache newly created ops so subsequent batches skip the CH query
@@ -1153,6 +1159,21 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             call_buckets=call_buckets,
         )
 
+    def feedback_stats(self, req: tsi.FeedbackStatsReq) -> tsi.FeedbackStatsRes:
+        """Return aggregated feedback statistics over time buckets.
+
+        Extracts numeric values from payload_dump via json_path and aggregates
+        by time bucket. Filters by project_id, optional feedback_type and trigger_ref.
+        Also includes window-level stats (min, max, avg, percentiles) over the full range.
+        """
+        return feedback_stats_handler(self, req)
+
+    def feedback_payload_schema(
+        self, req: tsi.FeedbackPayloadSchemaReq
+    ) -> tsi.FeedbackPayloadSchemaRes:
+        """Discover feedback payload schema from sample rows."""
+        return feedback_payload_schema_handler(self, req)
+
     @ddtrace.tracer.wrap(name="clickhouse_trace_server_batched.trace_usage")
     def trace_usage(self, req: tsi.TraceUsageReq) -> tsi.TraceUsageRes:
         """Compute per-call usage for a trace, with descendant rollup.
@@ -1453,8 +1474,8 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 # Filter out non-unique refs
                 unique_ref_map = {}
                 for ref in refs_to_resolve.values():
-                    if ref.uri() not in unique_ref_map:
-                        unique_ref_map[ref.uri()] = ref
+                    if ref.uri not in unique_ref_map:
+                        unique_ref_map[ref.uri] = ref
 
                 # Fetch values only for the unique refs
                 vals = self._refs_read_batch_within_project(
@@ -1464,15 +1485,15 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 # update the ref map with the fetched values
                 ref_val_map = {}
                 for ref, val in zip(unique_ref_map.values(), vals, strict=False):
-                    ref_val_map[ref.uri()] = val
+                    ref_val_map[ref.uri] = val
 
                 # Replace the refs with values and add ref key
                 for (i, col), ref in refs_to_resolve.items():
                     # Look up the value using the ref's URI
-                    val = ref_val_map.get(ref.uri())
+                    val = ref_val_map.get(ref.uri)
                     if val is not None:
                         if isinstance(val, dict) and "_ref" not in val:
-                            val["_ref"] = ref.uri()
+                            val["_ref"] = ref.uri
                         set_nested_key(calls[i], col, val)
 
     @ddtrace.tracer.wrap(name="clickhouse_trace_server_batched.calls_delete")
@@ -1620,6 +1641,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         processed_val = digest_result.processed_val
         json_val = digest_result.json_val
         digest = digest_result.digest
+        validate_expected_digest(
+            expected=req.obj.expected_digest,
+            actual=digest,
+            label=f"obj {req.obj.object_id!r}",
+        )
 
         ch_obj = ObjCHInsertable(
             project_id=req.obj.project_id,
@@ -2113,15 +2139,19 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 )
             )
 
+        row_digests = [r[1] for r in insert_rows]
+        digest = compute_table_digest(row_digests)
+        validate_expected_digest(
+            expected=req.table.expected_digest,
+            actual=digest,
+            label=f"table ({len(row_digests)} rows)",
+        )
+
         self._insert(
             "table_rows",
             data=insert_rows,
             column_names=["project_id", "digest", "refs", "val_dump"],
         )
-
-        row_digests = [r[1] for r in insert_rows]
-
-        digest = compute_table_digest(row_digests)
 
         self._insert(
             "tables",
@@ -2220,6 +2250,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         """Create a table by specifying row digests, instead actual rows."""
         # Calculate table digest from row digests
         digest = compute_table_digest(req.row_digests)
+        validate_expected_digest(
+            expected=req.expected_digest,
+            actual=digest,
+            label=f"table ({len(req.row_digests)} rows)",
+        )
 
         # Insert into tables table
         self._insert(
@@ -3370,7 +3405,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         table_ref = ri.InternalTableRef(
             project_id=req.project_id,
             digest=table_res.digest,
-        ).uri()
+        ).uri
 
         # Create the dataset object
         dataset_val = object_creation_utils.build_dataset_val(
@@ -3453,14 +3488,18 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         for obj in obj_res.objs:
             if not hasattr(obj, "val") or not obj.val:
                 logger.warning(
-                    f"Skipping dataset object {obj.object_id} with digest {obj.digest}: missing or empty val"
+                    "Skipping dataset object %s with digest %s: missing or empty val",
+                    obj.object_id,
+                    obj.digest,
                 )
                 continue
 
             val = obj.val
             if not isinstance(val, dict):
                 logger.warning(
-                    f"Skipping dataset object {obj.object_id} with digest {obj.digest}: val is not a dict"
+                    "Skipping dataset object %s with digest %s: val is not a dict",
+                    obj.object_id,
+                    obj.digest,
                 )
                 continue
 
@@ -3545,7 +3584,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             project_id=req.project_id,
             name=scorer_id,
             version=obj_result.digest,
-        ).uri()
+        ).uri
         return tsi.ScorerCreateRes(
             digest=obj_result.digest,
             object_id=scorer_id,
@@ -3665,7 +3704,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             project_id=req.project_id,
             name=evaluation_id,
             version=obj_result.digest,
-        ).uri()
+        ).uri
         return tsi.EvaluationCreateRes(
             digest=obj_result.digest,
             object_id=evaluation_id,
@@ -3811,7 +3850,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             project_id=req.project_id,
             name=object_id,
             version=obj_result.digest,
-        ).uri()
+        ).uri
 
         return tsi.ModelCreateRes(
             digest=obj_result.digest,
@@ -3972,7 +4011,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 project_id=req.project_id,
                 id=evaluation_run_id,
                 trace_id=evaluation_run_id,
-                op_name=op_ref.uri(),
+                op_name=op_ref.uri,
                 started_at=datetime.datetime.now(datetime.timezone.utc),
                 attributes={
                     constants.WEAVE_ATTRIBUTES_NAMESPACE: {
@@ -4304,7 +4343,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                     id=predict_and_score_id,
                     trace_id=trace_id,
                     parent_id=req.evaluation_run_id,
-                    op_name=predict_and_score_op_ref.uri(),
+                    op_name=predict_and_score_op_ref.uri,
                     started_at=datetime.datetime.now(datetime.timezone.utc),
                     attributes={
                         constants.WEAVE_ATTRIBUTES_NAMESPACE: {
@@ -4375,7 +4414,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 id=prediction_id,
                 trace_id=trace_id,
                 parent_id=parent_id,
-                op_name=predict_op_ref.uri(),
+                op_name=predict_op_ref.uri,
                 started_at=datetime.datetime.now(datetime.timezone.utc),
                 attributes=prediction_attributes,
                 inputs={
@@ -4773,7 +4812,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 id=score_id,
                 trace_id=trace_id,
                 parent_id=parent_id,
-                op_name=score_op_ref.uri(),
+                op_name=score_op_ref.uri,
                 started_at=datetime.datetime.now(datetime.timezone.utc),
                 attributes=score_attributes,
                 inputs={
@@ -4814,7 +4853,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
 
         feedback_req = tsi.FeedbackCreateReq(
             project_id=req.project_id,
-            weave_ref=prediction_call_ref.uri(),
+            weave_ref=prediction_call_ref.uri,
             feedback_type=f"{RUNNABLE_FEEDBACK_TYPE_PREFIX}.{scorer_name}",
             payload={"output": req.value},
             runnable_ref=req.scorer,
@@ -5026,7 +5065,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         final_result_cache: dict[str, Any] = {}
 
         def make_ref_cache_key(ref: ri.InternalObjectRef) -> str:
-            return ref.uri()
+            return ref.uri
 
         for project, project_refs in refs_by_project_id.items():
             project_results = self._refs_read_batch_within_project(
@@ -5289,6 +5328,9 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
 
     def file_create(self, req: tsi.FileCreateReq) -> tsi.FileCreateRes:
         digest = compute_file_digest(req.content)
+        validate_expected_digest(
+            expected=req.expected_digest, actual=digest, label="file"
+        )
 
         # During a batch, _file_batch accumulates chunks. If we already have
         # chunks for this (project_id, digest), the content is identical and
@@ -5756,7 +5798,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 req.inputs.messages = combined_messages
 
             except Exception as e:
-                logger.error(f"Failed to resolve prompt: {e}", exc_info=True)
+                logger.exception("Failed to resolve prompt")
                 return tsi.CompletionsCreateRes(
                     response={"error": f"Failed to resolve prompt: {e!s}"}
                 )
@@ -5903,7 +5945,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 obj_read_func=self.obj_read,
             )
         except Exception as e:
-            logger.error(f"Failed to resolve and apply prompt: {e}", exc_info=True)
+            logger.exception("Failed to resolve and apply prompt")
 
             # Yield error as single chunk then stop.
             def _single_error_iter(err: Exception) -> Iterator[dict[str, str]]:
@@ -6319,6 +6361,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
 
         summary = None
         parameters = _process_parameters(parameters)
+        start = time.monotonic()
         try:
             with self.ch_client.query_rows_stream(
                 query,
@@ -6329,9 +6372,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             ) as stream:
                 if isinstance(stream.source, QueryResult):
                     summary = stream.source.summary
+                duration_ms = round((time.monotonic() - start) * 1000, 1)
                 logger.info(
                     "clickhouse_stream_query",
                     extra={
+                        "trace_duration_ms": duration_ms,
                         "query": query,
                         "parameters": parameters,
                         "summary": summary,
@@ -6339,9 +6384,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 )
                 yield from stream
         except Exception as e:
+            duration_ms = round((time.monotonic() - start) * 1000, 1)
             logger.exception(
                 "clickhouse_stream_query_error",
                 extra={
+                    "trace_duration_ms": duration_ms,
                     "error_str": str(e),
                     "query": query,
                     "parameters": parameters,
@@ -6364,6 +6411,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         settings.update(ch_settings.CLICKHOUSE_DEFAULT_QUERY_SETTINGS)
 
         parameters = _process_parameters(parameters)
+        start = time.monotonic()
         try:
             res = self.ch_client.query(
                 query,
@@ -6373,17 +6421,25 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 settings=settings,
             )
         except Exception as e:
+            duration_ms = round((time.monotonic() - start) * 1000, 1)
             logger.exception(
                 "clickhouse_query_error",
-                extra={"error_str": str(e), "query": query, "parameters": parameters},
+                extra={
+                    "trace_duration_ms": duration_ms,
+                    "error_str": str(e),
+                    "query": query,
+                    "parameters": parameters,
+                },
             )
             # always raises, optionally with custom error class
             handle_clickhouse_query_error(e)
             return None
 
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
         logger.info(
             "clickhouse_query",
             extra={
+                "trace_duration_ms": duration_ms,
                 "query": query,
                 "parameters": parameters,
                 "summary": res.summary,
@@ -6410,6 +6466,7 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
         settings.update(ch_settings.CLICKHOUSE_DEFAULT_QUERY_SETTINGS)
 
         processed_params = _process_parameters(parameters) if parameters else None
+        start = time.monotonic()
         try:
             self.ch_client.command(
                 command,
@@ -6417,9 +6474,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 settings=settings,
             )
         except Exception as e:
+            duration_ms = round((time.monotonic() - start) * 1000, 1)
             logger.exception(
                 "clickhouse_command_error",
                 extra={
+                    "trace_duration_ms": duration_ms,
                     "error_str": str(e),
                     "command": command,
                     "parameters": processed_params,
@@ -6428,9 +6487,11 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             handle_clickhouse_query_error(e)
             return
 
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
         logger.info(
             "clickhouse_command",
             extra={
+                "trace_duration_ms": duration_ms,
                 "command": command,
                 "parameters": processed_params,
             },
@@ -6452,7 +6513,8 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             }
         )
 
-        if self._use_async_insert and not do_sync_insert:
+        async_insert = self._use_async_insert and not do_sync_insert
+        if async_insert:
             settings = ch_settings.update_settings_for_async_insert(settings)
             set_current_span_dd_tags(
                 {
@@ -6460,9 +6522,10 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
                 }
             )
 
+        start = time.monotonic()
         for attempt in range(ch_settings.INSERT_MAX_RETRIES):
             try:
-                return self.ch_client.insert(
+                result = self.ch_client.insert(
                     table, data=data, column_names=column_names, settings=settings
                 )
 
@@ -6481,6 +6544,19 @@ class ClickHouseTraceServer(tsi.FullTraceServerInterface):
             # All other errors: raise immediately, no retry
             except Exception as e:
                 _log_and_raise_insert_error(e, table, data)
+
+            else:
+                duration_ms = round((time.monotonic() - start) * 1000, 1)
+                logger.info(
+                    "clickhouse_insert",
+                    extra={
+                        "trace_duration_ms": duration_ms,
+                        "table": table,
+                        "row_count": len(data),
+                        "async_insert": async_insert,
+                    },
+                )
+                return result
 
     @ddtrace.tracer.wrap(name="clickhouse_trace_server_batched._insert_call")
     def _insert_call(self, ch_call: CallCHInsertable) -> None:

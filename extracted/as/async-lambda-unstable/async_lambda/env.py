@@ -206,3 +206,34 @@ def get_batch_failure_retry_count() -> int:
         int: The number of times to retry batch failures. Defaults to 20 if the environment variable is not set.
     """
     return int(os.environ.get("ASYNC_LAMBDA_BATCH_FAILURE_RETRY_COUNT", 20))
+
+
+def get_delay_scheduler_role_arn() -> str:
+    """
+    Retrieves the IAM role ARN used by EventBridge Scheduler to send messages to SQS.
+
+    The role must have sqs:SendMessage permission on the target queues.
+
+    Returns:
+        str: The value of the 'ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN' environment variable.
+
+    Raises:
+        KeyError: If 'ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN' is not set in the environment.
+    """
+    return os.environ["ASYNC_LAMBDA_DELAY_SCHEDULER_ROLE_ARN"]
+
+
+def get_delay_schedule_group_name() -> str:
+    """
+    Retrieves the EventBridge Scheduler delay schedule group name for this stack.
+
+    One group is provisioned per CloudFormation stack (set via AWS::Scheduler::ScheduleGroup
+    in the SAM template) and injected as ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP when there internally managed queues.
+
+    Returns:
+        str: The value of the 'ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP' environment variable.
+
+    Raises:
+        KeyError: If 'ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP' is not set in the environment.
+    """
+    return os.environ["ASYNC_LAMBDA_DELAY_SCHEDULE_GROUP"]

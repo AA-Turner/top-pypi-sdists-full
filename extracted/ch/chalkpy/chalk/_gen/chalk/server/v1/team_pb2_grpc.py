@@ -90,6 +90,26 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenResponse.FromString,
         )
+        self.CreateServiceTokenTeamScoped = channel.unary_unary(
+            "/chalk.server.v1.TeamService/CreateServiceTokenTeamScoped",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedResponse.FromString,
+        )
+        self.UpdateServiceTokenTeamScoped = channel.unary_unary(
+            "/chalk.server.v1.TeamService/UpdateServiceTokenTeamScoped",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedResponse.FromString,
+        )
+        self.DeleteServiceTokenTeamScoped = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeleteServiceTokenTeamScoped",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedResponse.FromString,
+        )
+        self.ListServiceTokensTeamScoped = channel.unary_unary(
+            "/chalk.server.v1.TeamService/ListServiceTokensTeamScoped",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedResponse.FromString,
+        )
         self.DeleteServiceToken = channel.unary_unary(
             "/chalk.server.v1.TeamService/DeleteServiceToken",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenRequest.SerializeToString,
@@ -285,6 +305,30 @@ class TeamServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateServiceToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateServiceTokenTeamScoped(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateServiceTokenTeamScoped(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteServiceTokenTeamScoped(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListServiceTokensTeamScoped(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -498,6 +542,26 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.CreateServiceToken,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenResponse.SerializeToString,
+        ),
+        "CreateServiceTokenTeamScoped": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateServiceTokenTeamScoped,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedResponse.SerializeToString,
+        ),
+        "UpdateServiceTokenTeamScoped": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateServiceTokenTeamScoped,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedResponse.SerializeToString,
+        ),
+        "DeleteServiceTokenTeamScoped": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteServiceTokenTeamScoped,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedResponse.SerializeToString,
+        ),
+        "ListServiceTokensTeamScoped": grpc.unary_unary_rpc_method_handler(
+            servicer.ListServiceTokensTeamScoped,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedResponse.SerializeToString,
         ),
         "DeleteServiceToken": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteServiceToken,
@@ -1038,6 +1102,122 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/CreateServiceToken",
             chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateServiceTokenTeamScoped(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/CreateServiceTokenTeamScoped",
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateServiceTokenTeamScopedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateServiceTokenTeamScoped(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/UpdateServiceTokenTeamScoped",
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateServiceTokenTeamScopedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteServiceTokenTeamScoped(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeleteServiceTokenTeamScoped",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteServiceTokenTeamScopedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListServiceTokensTeamScoped(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/ListServiceTokensTeamScoped",
+            chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.ListServiceTokensTeamScopedResponse.FromString,
             options,
             channel_credentials,
             insecure,

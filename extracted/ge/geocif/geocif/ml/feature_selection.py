@@ -1,3 +1,4 @@
+import logging
 import os
 os.environ["MPLBACKEND"] = "Agg"
 
@@ -9,6 +10,8 @@ from pathlib import Path
 import pandas as pd
 
 from .gomp import gomp_select
+
+logger = logging.getLogger(__name__)
 
 
 def are_all_features_non_eo(features):
@@ -85,12 +88,16 @@ def select_features(
         import matplotlib.pyplot as plt
         import seaborn as sns
 
+        logger.info("[multi] Starting multi-method feature selection for region=%s (%d features, %d samples)",
+                     region, X_clean.shape[1], X_clean.shape[0])
+
         counter = Counter()
         selections = {}
 
         models = ["BorutaPy", "mrmr", "gOMP"]
         # run three selectors and count feature picks
         for sub_m in models:
+            logger.info("[multi] Running %s ...", sub_m)
             try:
                 _, _, feats = select_features(
                     X_clean, y,
@@ -99,14 +106,17 @@ def select_features(
                     threshold_nan=threshold_nan,
                     threshold_unique=threshold_unique
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning("[multi] %s failed: %s", sub_m, e)
                 feats = []
 
             selections[sub_m] = set(feats)
             counter.update(feats)
+            logger.info("[multi] %s selected %d features", sub_m, len(feats))
 
         # union of all features
         combined = sorted(counter.keys())
+        logger.info("[multi] Union of all methods: %d features", len(combined))
         X_out = X_clean.loc[:, combined]
 
         # plot and save histogram

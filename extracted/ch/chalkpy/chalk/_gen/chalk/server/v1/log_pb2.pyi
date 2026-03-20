@@ -279,21 +279,24 @@ class GetLogFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
 
 class GetLogFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
+    query: str
     def __init__(
         self,
         path: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class LogFacetValue(_message.Message):
@@ -347,21 +350,24 @@ class GetAccessLogFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
 
 class GetAccessLogFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
+    query: str
     def __init__(
         self,
         path: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class GetAccessLogFacetValuesResponse(_message.Message):

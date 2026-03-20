@@ -618,6 +618,7 @@ from .. import (
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
     ITaggableV2 as _ITaggableV2_4e6798f8,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     RemovalPolicy as _RemovalPolicy_9f93c814,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
@@ -14778,6 +14779,28 @@ class LogGroupGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("LogGroupGrants", jsii.sinvoke(cls, "fromLogGroup", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__166dbba2743b3a70d26f9f62fa0eef0a2cbeefa812f7d7876589dd3666e62439)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="read")
     def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Give permissions to read and filter events from this log group.
@@ -21899,6 +21922,15 @@ def _typecheckingstub__afd13314ef52ff283429f1992d9ab29ab14998262e884015dc1d0af12
 
 def _typecheckingstub__3293bcead504975da671f98c622a841ad2febddc84d56e8a3716c294446041b5(
     resource: _ILogGroupRef_874d025a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__166dbba2743b3a70d26f9f62fa0eef0a2cbeefa812f7d7876589dd3666e62439(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

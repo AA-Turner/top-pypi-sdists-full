@@ -26,6 +26,7 @@ from .security import (
 
 if TYPE_CHECKING:
     from clerk_backend_api.actortokens import ActorTokens
+    from clerk_backend_api.agenttasks import AgentTasks
     from clerk_backend_api.allowlistidentifiers import AllowlistIdentifiers
     from clerk_backend_api.api_keys import APIKeys
     from clerk_backend_api.betafeatures import BetaFeatures
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from clerk_backend_api.emailaddresses import EmailAddresses
     from clerk_backend_api.emailandsmstemplates import EmailAndSmsTemplates
     from clerk_backend_api.emailsmstemplates import EmailSMSTemplates
+    from clerk_backend_api.enterpriseconnections_sdk import EnterpriseConnectionsSDK
     from clerk_backend_api.instancesettings_sdk import InstanceSettingsSDK
     from clerk_backend_api.invitations import Invitations
     from clerk_backend_api.jwks_sdk import JwksSDK
@@ -110,7 +112,9 @@ class Clerk(BaseSDK):
     sign_ups: "SignUps"
     oauth_applications: "OauthApplicationsSDK"
     saml_connections: "SamlConnectionsSDK"
+    enterprise_connections: "EnterpriseConnectionsSDK"
     testing_tokens: "TestingTokens"
+    agent_tasks: "AgentTasks"
     waitlist_entries: "WaitlistEntriesSDK"
     billing: "Billing"
     organization_permissions: "OrganizationPermissions"
@@ -184,7 +188,12 @@ class Clerk(BaseSDK):
             "clerk_backend_api.samlconnections_sdk",
             "SamlConnectionsSDK",
         ),
+        "enterprise_connections": (
+            "clerk_backend_api.enterpriseconnections_sdk",
+            "EnterpriseConnectionsSDK",
+        ),
         "testing_tokens": ("clerk_backend_api.testingtokens", "TestingTokens"),
+        "agent_tasks": ("clerk_backend_api.agenttasks", "AgentTasks"),
         "waitlist_entries": (
             "clerk_backend_api.waitlistentries_sdk",
             "WaitlistEntriesSDK",
@@ -207,8 +216,8 @@ class Clerk(BaseSDK):
         self,
         bearer_auth: Optional[Union[Optional[str], Callable[[], Optional[str]]]] = None,
         server_idx: Optional[int] = None,
-        server_url: Optional[str] = None,
         url_params: Optional[Dict[str, str]] = None,
+        server_url: Optional[str] = None,
         client: Optional[HttpClient] = None,
         async_client: Optional[AsyncHttpClient] = None,
         retry_config: OptionalNullable[RetryConfig] = UNSET,

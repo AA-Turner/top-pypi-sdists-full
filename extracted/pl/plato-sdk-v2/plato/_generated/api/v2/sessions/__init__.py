@@ -32,6 +32,7 @@ from . import (
     snapshot_store,
     state,
     upload_session_documents,
+    vm_shutdown_callback_schema,
     wait_for_ready,
 )
 
@@ -68,4 +69,5 @@ __all__ = [
     "get_session_logs",
     "get_presigned_url",
     "get_s3_content",
+    "vm_shutdown_callback_schema",
 ]

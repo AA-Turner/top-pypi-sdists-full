@@ -6,7 +6,7 @@ import operator
 import autoray as ar
 
 import quimb.tensor as qtn
-from quimb.utils import oset
+from quimb.utils import ensure_dict, oset
 
 from .bp_common import (
     BeliefPropagationCommon,
@@ -382,14 +382,18 @@ class D2BP(BeliefPropagationCommon):
         self,
         strip_exponent=False,
         check_zero=True,
+        **kwargs,
     ):
-        """Estimate the total contraction, i.e. the 2-norm.
+        """Contract the frobenius norm squared of the target tensor network via
+        BP.
 
         Parameters
         ----------
         strip_exponent : bool, optional
             Whether to strip the exponent from the final result. If ``True``
             then the returned result is ``(mantissa, exponent)``.
+        check_zero : bool, optional
+            Whether to check for zero values and return zero early.
 
         Returns
         -------
@@ -416,10 +420,11 @@ class D2BP(BeliefPropagationCommon):
         return combine_local_contractions(
             zvals,
             backend=self.backend,
-            mantissa=self.sign,
-            exponent=self.exponent,
             strip_exponent=strip_exponent,
             check_zero=check_zero,
+            mantissa=self.sign**2,
+            exponent=self.exponent * 2,
+            **kwargs,
         )
 
     def get_cluster_excited(
@@ -751,8 +756,8 @@ class D2BP(BeliefPropagationCommon):
 
         return combine_local_contractions(
             zvals,
-            mantissa=self.sign,
-            exponent=self.exponent,
+            mantissa=self.sign**2,
+            exponent=self.exponent * 2,
             backend=self.backend,
             strip_exponent=strip_exponent,
             check_zero=check_zero,
@@ -762,12 +767,22 @@ class D2BP(BeliefPropagationCommon):
         self,
         max_bond,
         cutoff=0.0,
-        cutoff_mode=4,
+        cutoff_mode="rsum2",
         renorm=0,
+        reduce_opts=None,
+        compress_opts=None,
         inplace=False,
+        **kwargs,
     ):
         """Compress the initial tensor network using the current messages."""
         tn = self.tn if inplace else self.tn.copy()
+
+        reduce_opts = ensure_dict(reduce_opts)
+        compress_opts = kwargs | ensure_dict(compress_opts)
+        compress_opts.setdefault("max_bond", max_bond)
+        compress_opts.setdefault("cutoff", cutoff)
+        compress_opts.setdefault("cutoff_mode", cutoff_mode)
+        compress_opts.setdefault("renorm", renorm)
 
         for ix, tids in tn.ind_map.items():
             if len(tids) != 2:
@@ -780,24 +795,19 @@ class D2BP(BeliefPropagationCommon):
             dl = ta.size // dm
             ml = self.messages[ix, tidb]
             Rl = qtn.decomp.squared_op_to_reduced_factor(
-                ml, dl, dm, right=True
+                ml, dl, dm, right=True, **reduce_opts
             )
 
             tb = tn.tensor_map[tidb]
             dr = tb.size // dm
             mr = self.messages[ix, tida].T
             Rr = qtn.decomp.squared_op_to_reduced_factor(
-                mr, dm, dr, right=False
+                mr, dm, dr, right=False, **reduce_opts
             )
 
             # compute the compressors
             Pl, Pr = qtn.decomp.compute_oblique_projectors(
-                Rl,
-                Rr,
-                max_bond=max_bond,
-                cutoff=cutoff,
-                cutoff_mode=cutoff_mode,
-                renorm=renorm,
+                Rl, Rr, **compress_opts
             )
 
             # contract the compressors into the tensors

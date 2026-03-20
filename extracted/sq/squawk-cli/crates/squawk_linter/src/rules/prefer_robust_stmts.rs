@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use squawk_syntax::{
     Parse, SourceFile,
@@ -17,7 +17,7 @@ enum Constraint {
 pub(crate) fn prefer_robust_stmts(ctx: &mut Linter, parse: &Parse<SourceFile>) {
     let file = parse.tree();
     let mut inside_transaction = ctx.settings.assume_in_transaction;
-    let mut constraint_names: HashMap<Identifier, Constraint> = HashMap::new();
+    let mut constraint_names: FxHashMap<Identifier, Constraint> = FxHashMap::default();
 
     enum ActionErrorMessage {
         IfExists,
@@ -277,10 +277,10 @@ DROP TABLE users;
     #[test]
     fn fix_create_index_if_not_exists() {
         assert_snapshot!(fix("
-create index idx on table (col);
+create index idx on items (col);
 CREATE INDEX CONCURRENTLY idx2 ON users (email);
 "), @r"
-        create index if not exists idx on table (col);
+        create index if not exists idx on items (col);
         CREATE INDEX CONCURRENTLY if not exists idx2 ON users (email);
         ");
     }

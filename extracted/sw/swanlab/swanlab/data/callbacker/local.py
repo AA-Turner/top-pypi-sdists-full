@@ -35,6 +35,7 @@ if package_version != "0.1.9b3":
 
 import json
 import os
+import tempfile
 from datetime import datetime
 from typing import Tuple, Optional, TextIO
 from swanlab.toolkit import RuntimeInfo, MetricInfo
@@ -78,7 +79,8 @@ class LocalRunCallback(SwanLabRunCallback):
         run_store.tags = [] if run_store.tags is None else run_store.tags
         exp_count = random.randint(0, 20)
         run_store.run_name = N.generate_name(exp_count) if run_store.run_name is None else run_store.run_name
-        run_store.run_colors = generate_colors(random.randint(0, 20))
+        if run_store.run_colors is None:
+            run_store.run_colors = generate_colors(exp_count)
         run_store.run_id = N.generate_run_id()
         run_store.new = True
 
@@ -129,10 +131,49 @@ class LocalRunCallback(SwanLabRunCallback):
         os.makedirs(os.path.dirname(metric_info.summary_file_path), exist_ok=True)
         with open(metric_info.summary_file_path, "w+", encoding="utf-8") as f:
             f.write(json.dumps(metric_info.metric_summary, ensure_ascii=False))
-        with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
+        if metric_info.metric_overwrite:
+            self._rewrite_metric_file(metric_info)
+        else:
+            with open(metric_info.metric_file_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(metric_info.metric, ensure_ascii=False) + "\n")
         # ---------------------------------- 保存媒体字节流数据 ----------------------------------
         self.porter.trace_metric(metric_info)
+
+    @staticmethod
+    def _rewrite_metric_file(metric_info: MetricInfo) -> None:
+        serialized = json.dumps(metric_info.metric, ensure_ascii=False) + "\n"
+        metric_path = metric_info.metric_file_path
+
+        try:
+            f_in = open(metric_path, "r", encoding="utf-8")
+        except FileNotFoundError:
+            with open(metric_path, "w", encoding="utf-8") as f:
+                f.write(serialized)
+            return
+
+        dir_path = os.path.dirname(metric_path)
+        with f_in, tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=dir_path, delete=False) as tmp:
+            tmp_path = tmp.name
+            replaced = False
+
+            for line in f_in:
+                try:
+                    existing = json.loads(line)
+                except json.JSONDecodeError:
+                    swanlog.warning(f"Failed to decode JSON from line in {metric_path}: {line.strip()}")
+                    tmp.write(line)
+                    continue
+
+                if existing.get("index") != metric_info.metric_step:
+                    tmp.write(line)
+                elif not replaced:
+                    tmp.write(serialized)
+                    replaced = True
+
+            if not replaced:
+                tmp.write(serialized)
+
+        os.replace(tmp_path, metric_path)
 
     def on_stop(self, error: str = None, *args, **kwargs):
         """

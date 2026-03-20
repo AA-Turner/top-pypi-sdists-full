@@ -4,19 +4,8 @@ import fnmatch
 import logging
 import os
 import time
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    cast,
-)
+from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, Optional, cast
 
 import regex
 from tqdm import tqdm
@@ -30,6 +19,7 @@ from sqlfluff.core.errors import (
     SQLParseError,
     SQLTemplaterError,
 )
+from sqlfluff.core.formatter import FormatterInterface
 from sqlfluff.core.helpers.file import get_encoding
 from sqlfluff.core.linter.common import (
     ParsedString,
@@ -58,7 +48,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from sqlfluff.core.templaters import RawTemplater, TemplatedFile
 
 
-RuleTimingsType = List[Tuple[str, str, float]]
+RuleTimingsType = list[tuple[str, str, float]]
 
 # Instantiate the linter logger
 linter_logger: logging.Logger = logging.getLogger("sqlfluff.linter")
@@ -73,11 +63,11 @@ class Linter:
     def __init__(
         self,
         config: Optional[FluffConfig] = None,
-        formatter: Any = None,
+        formatter: Optional[FormatterInterface] = None,
         dialect: Optional[str] = None,
-        rules: Optional[List[str]] = None,
-        user_rules: Optional[List[Type[BaseRule]]] = None,
-        exclude_rules: Optional[List[str]] = None,
+        rules: Optional[list[str]] = None,
+        user_rules: Optional[list[type[BaseRule]]] = None,
+        exclude_rules: Optional[list[str]] = None,
     ) -> None:
         if config and (dialect or rules or exclude_rules):
             raise ValueError(  # pragma: no cover
@@ -116,7 +106,7 @@ class Linter:
         cfg = config or self.config
         return rs.get_rulepack(config=cfg)
 
-    def rule_tuples(self) -> List[RuleTuple]:
+    def rule_tuples(self) -> list[RuleTuple]:
         """A simple pass through to access the rule tuples of the rule set."""
         rs = self.get_rulepack()
         return [
@@ -130,14 +120,33 @@ class Linter:
     @staticmethod
     def load_raw_file_and_config(
         fname: str, root_config: FluffConfig
-    ) -> Tuple[str, FluffConfig, str]:
+    ) -> tuple[str, FluffConfig, str]:
         """Load a raw file and the associated config."""
         file_config = root_config.make_child_from_path(fname)
         config_encoding: str = file_config.get("encoding", default="autodetect")
         encoding = get_encoding(fname=fname, config_encoding=config_encoding)
         # Check file size before loading.
         limit = file_config.get("large_file_skip_byte_limit")
+
         if limit:
+            # make sure the limit becomes an integer
+            try:
+                limit = int(limit)
+            except ValueError:
+                raise ValueError(
+                    f"""
+                large_file_skip_byte_limit parameter from config
+                cannot be converted to integer,
+                current value {limit}, type {type(limit)}
+                """
+                )
+            except TypeError:
+                raise TypeError(
+                    f"""
+                failed to get large_file_skip_byte_limit parameter from config,
+                or it is of invalid type {type(limit)}
+                """
+                )
             # Get the file size
             file_size = os.path.getsize(fname)
             if file_size > limit:
@@ -163,7 +172,7 @@ class Linter:
     @staticmethod
     def _lex_templated_file(
         templated_file: "TemplatedFile", config: FluffConfig
-    ) -> Tuple[Optional[Sequence[BaseSegment]], List[SQLLexError]]:
+    ) -> tuple[Optional[Sequence[BaseSegment]], list[SQLLexError]]:
         """Lex a templated file."""
         violations = []
         linter_logger.info("LEXING RAW (%s)", templated_file.fname)
@@ -224,7 +233,7 @@ class Linter:
         config: FluffConfig,
         fname: Optional[str] = None,
         parse_statistics: bool = False,
-    ) -> Tuple[Optional[BaseSegment], List[SQLParseError]]:
+    ) -> tuple[Optional[BaseSegment], list[SQLParseError]]:
         parser = Parser(config=config)
         violations = []
         # Parse the file and log any problems
@@ -273,11 +282,11 @@ class Linter:
 
     @staticmethod
     def remove_templated_errors(
-        linting_errors: List[SQLBaseError],
-    ) -> List[SQLBaseError]:
+        linting_errors: list[SQLBaseError],
+    ) -> list[SQLBaseError]:
         """Filter a list of lint errors, removing those from the templated slices."""
         # Filter out any linting errors in templated sections if relevant.
-        result: List[SQLBaseError] = []
+        result: list[SQLBaseError] = []
         for e in linting_errors:
             if isinstance(e, SQLLintError):
                 assert e.segment.pos_marker
@@ -317,7 +326,7 @@ class Linter:
     ) -> ParsedString:
         """Parse a rendered file."""
         tokens: Optional[Sequence[BaseSegment]]
-        parsed_variants: List[ParsedVariant] = []
+        parsed_variants: list[ParsedVariant] = []
         _lexing_time = 0.0
         _parsing_time = 0.0
 
@@ -376,8 +385,8 @@ class Linter:
         fix: bool = False,
         fname: Optional[str] = None,
         templated_file: Optional["TemplatedFile"] = None,
-        formatter: Any = None,
-    ) -> Tuple[BaseSegment, List[SQLBaseError], Optional[IgnoreMask], RuleTimingsType]:
+        formatter: Optional[FormatterInterface] = None,
+    ) -> tuple[BaseSegment, list[SQLBaseError], Optional[IgnoreMask], RuleTimingsType]:
         """Lint and optionally fix a tree object."""
         # Keep track of the linting errors on the very first linter pass. The
         # list of issues output by "lint" and "fix" only includes issues present
@@ -385,9 +394,9 @@ class Linter:
         # the fixes themselves.
         initial_linting_errors = []
         # A placeholder for the fixes we had on the previous loop
-        last_fixes: Optional[List[LintFix]] = None
+        last_fixes: Optional[list[LintFix]] = None
         # Keep a set of previous versions to catch infinite loops.
-        previous_versions: Set[Tuple[str, Tuple["SourceFix", ...]]] = {(tree.raw, ())}
+        previous_versions: set[tuple[str, tuple["SourceFix", ...]]] = {(tree.raw, ())}
         # Keep a buffer for recording rule timings.
         rule_timings: RuleTimingsType = []
 
@@ -397,7 +406,9 @@ class Linter:
 
         # Dispatch the output for the lint header
         if formatter:
-            formatter.dispatch_lint_header(fname, sorted(rule_pack.codes()))
+            formatter.dispatch_lint_header(
+                fname or "<filename>", sorted(rule_pack.codes())
+            )
 
         # Look for comment segments which might indicate lines to ignore.
         disable_noqa_except: Optional[str] = config.get("disable_noqa_except")
@@ -437,8 +448,7 @@ class Linter:
                 # Additional newlines are to assist in scanning linting loops
                 # during debugging.
                 linter_logger.info(
-                    f"\n\nEntering linter phase {phase}, "
-                    f"loop {loop + 1}/{loop_limit}\n"
+                    f"\n\nEntering linter phase {phase}, loop {loop + 1}/{loop_limit}\n"
                 )
                 changed = False
 
@@ -623,7 +633,7 @@ class Linter:
         parsed: ParsedString,
         rule_pack: RulePack,
         fix: bool = False,
-        formatter: Any = None,
+        formatter: Optional[FormatterInterface] = None,
         encoding: str = "utf8",
     ) -> LintedFile:
         """Lint a ParsedString and return a LintedFile."""
@@ -759,14 +769,17 @@ class Linter:
             fixable=True if fix else None, types=SQLParseError
         ):
             if formatter:  # pragma: no cover TODO?
-                formatter.dispatch_dialect_warning(parsed.config.get("dialect"))
+                formatter.dispatch_dialect_warning(
+                    # The dialect property is the string, not the dialect object
+                    cast(str, parsed.config.get("dialect"))
+                )
 
         return linted_file
 
     @classmethod
     def allowed_rule_ref_map(
-        cls, reference_map: Dict[str, Set[str]], disable_noqa_except: Optional[str]
-    ) -> Dict[str, Set[str]]:
+        cls, reference_map: dict[str, set[str]], disable_noqa_except: Optional[str]
+    ) -> dict[str, set[str]]:
         """Generate a noqa rule reference map."""
         # disable_noqa_except is not set, return the entire map.
         if not disable_noqa_except:
@@ -774,7 +787,7 @@ class Linter:
         output_map = reference_map
         # Add the special rules so they can be excluded for `disable_noqa_except` usage
         for special_rule in ["PRS", "LXR", "TMP"]:
-            output_map[special_rule] = set([special_rule])
+            output_map[special_rule] = {special_rule}
         # Expand glob usage of rules
         unexpanded_rules = tuple(r.strip() for r in disable_noqa_except.split(","))
         noqa_set = set()
@@ -790,7 +803,7 @@ class Linter:
         rendered: RenderedFile,
         rule_pack: RulePack,
         fix: bool = False,
-        formatter: Any = None,
+        formatter: Optional[FormatterInterface] = None,
     ) -> LintedFile:
         """Take a RenderedFile and return a LintedFile."""
         parsed = cls.parse_rendered(rendered)
@@ -827,19 +840,17 @@ class Linter:
         config.verify_dialect_specified()
         if not config.get("templater_obj") == self.templater:
             linter_logger.warning(
-                (
-                    f"Attempt to set templater to {config.get('templater_obj').name} "
-                    f"failed. Using {self.templater.name} templater. Templater cannot "
-                    "be set in a .sqlfluff file in a subdirectory of the current "
-                    "working directory. It can be set in a .sqlfluff in the current "
-                    "working directory. See Nesting section of the docs for more "
-                    "details."
-                )
+                f"Attempt to set templater to {config.get('templater_obj').name} "
+                f"failed. Using {self.templater.name} templater. Templater cannot "
+                "be set in a .sqlfluff file in a subdirectory of the current "
+                "working directory. It can be set in a .sqlfluff in the current "
+                "working directory. See Nesting section of the docs for more "
+                "details."
             )
 
         variant_limit = config.get("render_variant_limit")
-        templated_variants: List[TemplatedFile] = []
-        templater_violations: List[SQLTemplaterError] = []
+        templated_variants: list[TemplatedFile] = []
+        templater_violations: list[SQLTemplaterError] = []
 
         try:
             for variant, templater_errs in self.templater.process_with_variants(
@@ -897,7 +908,7 @@ class Linter:
         parse_statistics: bool = False,
     ) -> ParsedString:
         """Parse a string."""
-        violations: List[SQLBaseError] = []
+        violations: list[SQLBaseError] = []
 
         # Dispatch the output for the template header (including the config diff)
         if self.formatter:
@@ -923,7 +934,7 @@ class Linter:
         config: Optional[FluffConfig] = None,
         fname: Optional[str] = None,
         templated_file: Optional["TemplatedFile"] = None,
-    ) -> Tuple[BaseSegment, List[SQLBaseError]]:
+    ) -> tuple[BaseSegment, list[SQLBaseError]]:
         """Return the fixed tree and violations from lintfix when we're fixing."""
         config = config or self.config
         rule_pack = self.get_rulepack(config=config)
@@ -944,7 +955,7 @@ class Linter:
         config: Optional[FluffConfig] = None,
         fname: Optional[str] = None,
         templated_file: Optional["TemplatedFile"] = None,
-    ) -> List[SQLBaseError]:
+    ) -> list[SQLBaseError]:
         """Return just the violations from lintfix when we're only linting."""
         config = config or self.config
         rule_pack = self.get_rulepack(config=config)
@@ -997,11 +1008,23 @@ class Linter:
         string: str,
         fname: str = "<string input>",
         fix: bool = False,
+        stdin_filename: Optional[str] = None,
     ) -> LintingResult:
         """Lint strings directly."""
         result = LintingResult()
         linted_path = LintedDir(fname)
-        linted_path.add(self.lint_string(string, fname=fname, fix=fix))
+        if stdin_filename:
+            # This opens up additional files like `Untitled` in vscode where linting
+            # may be desired.
+            sql_exts = ("",)
+            for _ in paths_from_path(
+                stdin_filename, target_file_exts=sql_exts, check_non_existent_file=True
+            ):
+                linted_path.add(self.lint_string(string, fname=fname, fix=fix))
+                # Only return the first item, as stdin should only be one
+                break
+        else:
+            linted_path.add(self.lint_string(string, fname=fname, fix=fix))
         result.add(linted_path)
         result.stop_timer()
         return result
@@ -1021,7 +1044,7 @@ class Linter:
 
     def lint_paths(
         self,
-        paths: Tuple[str, ...],
+        paths: tuple[str, ...],
         fix: bool = False,
         ignore_non_existent_files: bool = False,
         ignore_files: bool = True,
@@ -1038,7 +1061,7 @@ class Linter:
         # Set up the result to hold what we get back
         result = LintingResult()
 
-        expanded_paths: List[str] = []
+        expanded_paths: list[str] = []
         expanded_path_to_linted_dir = {}
         sql_exts = self.config.get("sql_file_exts", default=".sql").lower().split(",")
 

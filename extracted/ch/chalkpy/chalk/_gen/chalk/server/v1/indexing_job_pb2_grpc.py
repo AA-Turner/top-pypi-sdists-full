@@ -20,6 +20,11 @@ class IndexingJobServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.FromString,
         )
+        self.CancelIndexingJob = channel.unary_unary(
+            "/chalk.server.v1.IndexingJobService/CancelIndexingJob",
+            request_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobResponse.FromString,
+        )
 
 
 class IndexingJobServiceServicer(object):
@@ -31,6 +36,12 @@ class IndexingJobServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CancelIndexingJob(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_IndexingJobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +49,11 @@ def add_IndexingJobServiceServicer_to_server(servicer, server):
             servicer.GetIndexingJobStatus,
             request_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.SerializeToString,
+        ),
+        "CancelIndexingJob": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelIndexingJob,
+            request_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.IndexingJobService", rpc_method_handlers)
@@ -67,6 +83,35 @@ class IndexingJobService(object):
             "/chalk.server.v1.IndexingJobService/GetIndexingJobStatus",
             chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelIndexingJob(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IndexingJobService/CancelIndexingJob",
+            chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobResponse.FromString,
             options,
             channel_credentials,
             insecure,

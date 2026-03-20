@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: speechmatics-rt
-Version: 0.5.3
+Version: 1.0.0
 Summary: Speechmatics Real-Time API Client
 Author-email: Speechmatics <support@speechmatics.com>
 License-Expression: MIT

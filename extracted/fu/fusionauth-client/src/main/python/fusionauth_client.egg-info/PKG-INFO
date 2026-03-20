@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fusionauth-client
-Version: 1.63.0
+Version: 1.64.0
 Summary: A client library for FusionAuth
 Home-page: https://github.com/FusionAuth/fusionauth-python-client
 Author: FusionAuth
@@ -26,6 +26,7 @@ Dynamic: summary
 # FusionAuth Python Client ![semver 2.0.0 compliant](http://img.shields.io/badge/semver-2.0.0-brightgreen.svg?style=flat-square)
 
 ## Intro
+
 
 <!--
 tag::forDocSite[]

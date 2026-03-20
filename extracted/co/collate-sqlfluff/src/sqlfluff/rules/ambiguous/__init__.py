@@ -3,14 +3,12 @@
 NOTE: Yes the title of this bundle is ...ambiguous. 😁
 """
 
-from typing import Any, Dict, List, Type
-
 from sqlfluff.core.plugin import hookimpl
-from sqlfluff.core.rules import BaseRule
+from sqlfluff.core.rules import BaseRule, ConfigInfo
 
 
 @hookimpl
-def get_configs_info() -> Dict[str, Any]:
+def get_configs_info() -> dict[str, ConfigInfo]:
     """Get additional rule config validations and descriptions."""
     return {
         "fully_qualify_join_types": {
@@ -28,7 +26,7 @@ def get_configs_info() -> Dict[str, Any]:
 
 
 @hookimpl
-def get_rules() -> List[Type[BaseRule]]:
+def get_rules() -> list[type[BaseRule]]:
     """Get plugin rules.
 
     NOTE: Rules are imported only on fetch to manage import times
@@ -42,6 +40,7 @@ def get_rules() -> List[Type[BaseRule]]:
     from sqlfluff.rules.ambiguous.AM06 import Rule_AM06
     from sqlfluff.rules.ambiguous.AM07 import Rule_AM07
     from sqlfluff.rules.ambiguous.AM08 import Rule_AM08
+    from sqlfluff.rules.ambiguous.AM09 import Rule_AM09
 
     return [
         Rule_AM01,
@@ -52,4 +51,5 @@ def get_rules() -> List[Type[BaseRule]]:
         Rule_AM06,
         Rule_AM07,
         Rule_AM08,
+        Rule_AM09,
     ]

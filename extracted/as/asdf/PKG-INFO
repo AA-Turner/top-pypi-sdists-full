@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf
-Version: 5.1.0
+Version: 5.2.0
 Summary: Python implementation of the ASDF Standard
 Author: The ASDF Developers
 Project-URL: documentation, https://asdf.readthedocs.io/en/stable/
@@ -9,16 +9,15 @@ Project-URL: tracker, https://github.com/asdf-format/asdf/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: asdf-standard>=1.1.0
-Requires-Dist: asdf-transform-schemas>=0.3
 Requires-Dist: importlib-metadata>=4.11.4; python_version <= "3.11"
 Requires-Dist: jmespath>=0.6.2
 Requires-Dist: numpy>=1.22
 Requires-Dist: packaging>=19
-Requires-Dist: pyyaml>=5.4.1
+Requires-Dist: pyyaml>=6.0
 Requires-Dist: semantic_version>=2.8
 Requires-Dist: attrs>=22.2.0
 Provides-Extra: all
@@ -38,7 +37,6 @@ Provides-Extra: tests
 Requires-Dist: asdf[all]; extra == "tests"
 Requires-Dist: psutil; extra == "tests"
 Requires-Dist: pytest>=8; extra == "tests"
-Requires-Dist: pytest-remotedata; extra == "tests"
 Provides-Extra: test
 Requires-Dist: asdf[tests]; extra == "test"
 Provides-Extra: benchmark

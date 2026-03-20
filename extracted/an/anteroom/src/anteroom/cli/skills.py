@@ -39,6 +39,7 @@ _BUILTIN_COMMANDS = frozenset(
         "quit",
         "exit",
         "new",
+        "clear",
         "append",
         "tools",
         "conventions",

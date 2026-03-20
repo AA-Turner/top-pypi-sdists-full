@@ -362,11 +362,15 @@ def _create_otlp_exporters(
     if protocol == "grpc":
         # Import all gRPC exporters
         try:
-            from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter as GRPCLogExporter
-            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-                OTLPMetricExporter as GRPCMetricExporter,
+            from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (  # type: ignore[reportMissingImports]
+                OTLPLogExporter as GRPCLogExporter,  # type: ignore[reportUnknownVariableType]
             )
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GRPCSpanExporter
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (  # type: ignore[reportMissingImports]
+                OTLPMetricExporter as GRPCMetricExporter,  # type: ignore[reportUnknownVariableType]
+            )
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # type: ignore[reportMissingImports]
+                OTLPSpanExporter as GRPCSpanExporter,  # type: ignore[reportUnknownVariableType]
+            )
         except ImportError as exc:
             raise ImportError(
                 "opentelemetry-exporter-otlp-proto-grpc is required for OTLP gRPC exporters. "
@@ -375,21 +379,21 @@ def _create_otlp_exporters(
 
         if actual_logs_endpoint:
             exporters.append(
-                GRPCLogExporter(
+                GRPCLogExporter(  # type: ignore[reportUnknownArgumentType]
                     endpoint=actual_logs_endpoint,
                     headers=actual_logs_headers if actual_logs_headers else None,
                 )
             )
         if actual_traces_endpoint:
             exporters.append(
-                GRPCSpanExporter(
+                GRPCSpanExporter(  # type: ignore[reportUnknownArgumentType]
                     endpoint=actual_traces_endpoint,
                     headers=actual_traces_headers if actual_traces_headers else None,
                 )
             )
         if actual_metrics_endpoint:
             exporters.append(
-                GRPCMetricExporter(
+                GRPCMetricExporter(  # type: ignore[reportUnknownArgumentType]
                     endpoint=actual_metrics_endpoint,
                     headers=actual_metrics_headers if actual_metrics_headers else None,
                 )
@@ -899,6 +903,25 @@ def get_meter(
 OBSERVABILITY_SETTINGS: ObservabilitySettings = ObservabilitySettings()
 
 
+def _read_bool_env(name: str, *, default: bool = False) -> bool:
+    """Read a boolean from an environment variable."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes", "on")
+
+
+def _read_int_env(name: str, *, default: int | None = None) -> int | None:
+    """Read an optional integer from an environment variable."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 def enable_instrumentation(
     *,
     enable_sensitive_data: bool | None = None,
@@ -920,11 +943,15 @@ def enable_instrumentation(
     OBSERVABILITY_SETTINGS.enable_instrumentation = True
     if enable_sensitive_data is not None:
         OBSERVABILITY_SETTINGS.enable_sensitive_data = enable_sensitive_data
+    else:
+        # Re-read from current environment in case env vars were set after import (e.g. load_dotenv())
+        OBSERVABILITY_SETTINGS.enable_sensitive_data = _read_bool_env("ENABLE_SENSITIVE_DATA")
 
 
 def configure_otel_providers(
     *,
     enable_sensitive_data: bool | None = None,
+    enable_console_exporters: bool | None = None,
     exporters: list[LogRecordExporter | SpanExporter | MetricExporter] | None = None,
     views: list[View] | None = None,
     vs_code_extension_port: int | None = None,
@@ -963,6 +990,8 @@ def configure_otel_providers(
     Keyword Args:
         enable_sensitive_data: Enable OpenTelemetry sensitive events. Overrides
             the environment variable ENABLE_SENSITIVE_DATA if set. Default is None.
+        enable_console_exporters: Enable console exporters for traces, logs, and metrics.
+            Overrides the environment variable ENABLE_CONSOLE_EXPORTERS if set. Default is None.
         exporters: A list of custom exporters for logs, metrics or spans, or any combination.
             These will be added in addition to exporters configured via environment variables.
             Default is None.
@@ -1051,6 +1080,8 @@ def configure_otel_providers(
             settings_kwargs["env_file_encoding"] = env_file_encoding
         if enable_sensitive_data is not None:
             settings_kwargs["enable_sensitive_data"] = enable_sensitive_data
+        if enable_console_exporters is not None:
+            settings_kwargs["enable_console_exporters"] = enable_console_exporters
         if vs_code_extension_port is not None:
             settings_kwargs["vs_code_extension_port"] = vs_code_extension_port
 
@@ -1064,12 +1095,22 @@ def configure_otel_providers(
         OBSERVABILITY_SETTINGS._resource = updated_settings._resource  # type: ignore[reportPrivateUsage]
         OBSERVABILITY_SETTINGS._executed_setup = False  # type: ignore[reportPrivateUsage]
     else:
-        # Update the observability settings with the provided values
+        # Re-read settings from current environment in case env vars were set
+        # after import (e.g. via load_dotenv()). Explicit parameters take precedence.
         OBSERVABILITY_SETTINGS.enable_instrumentation = True
-        if enable_sensitive_data is not None:
-            OBSERVABILITY_SETTINGS.enable_sensitive_data = enable_sensitive_data
-        if vs_code_extension_port is not None:
-            OBSERVABILITY_SETTINGS.vs_code_extension_port = vs_code_extension_port
+        OBSERVABILITY_SETTINGS.enable_sensitive_data = (
+            enable_sensitive_data if enable_sensitive_data is not None else _read_bool_env("ENABLE_SENSITIVE_DATA")
+        )
+        OBSERVABILITY_SETTINGS.enable_console_exporters = (
+            enable_console_exporters
+            if enable_console_exporters is not None
+            else _read_bool_env("ENABLE_CONSOLE_EXPORTERS")
+        )
+        OBSERVABILITY_SETTINGS.vs_code_extension_port = (
+            vs_code_extension_port if vs_code_extension_port is not None else _read_int_env("VS_CODE_EXTENSION_PORT")
+        )
+        OBSERVABILITY_SETTINGS._resource = create_resource()  # type: ignore[reportPrivateUsage]
+        OBSERVABILITY_SETTINGS._executed_setup = False  # type: ignore[reportPrivateUsage]
 
     OBSERVABILITY_SETTINGS._configure(  # type: ignore[reportPrivateUsage]
         additional_exporters=exporters,
@@ -1162,11 +1203,35 @@ class ChatTelemetryLayer(Generic[OptionsCoT]):
         tokenizer: TokenizerProtocol | None = None,
         **kwargs: Any,
     ) -> Awaitable[ChatResponse[Any]] | ResponseStream[ChatResponseUpdate, ChatResponse[Any]]:
-        """Trace chat responses with OpenTelemetry spans and metrics."""
+        """Trace chat responses with OpenTelemetry spans and metrics.
+
+        Args:
+            messages: The message or messages to send to the model.
+            stream: Whether to stream the response. Defaults to False.
+            options: Chat options as a TypedDict.
+            compaction_strategy: Optional compaction strategy to apply before model calls.
+            tokenizer: Optional tokenizer used by token-aware compaction strategies.
+
+        Keyword Args:
+            kwargs: Compatibility keyword arguments from higher client layers. This layer does
+                not consume ``function_invocation_kwargs`` directly; if present, it is ignored
+                because function invocation has already been processed above. If a ``client_kwargs``
+                mapping is present, it is flattened into ordinary keyword arguments for tracing and
+                forwarding so clients that use those values continue to work while clients that
+                ignore extra kwargs remain compatible.
+        """
         from ._types import ChatResponse, ChatResponseUpdate, ResponseStream  # type: ignore[reportUnusedImport]
 
         global OBSERVABILITY_SETTINGS
         super_get_response = super().get_response  # type: ignore[misc]
+        compatibility_client_kwargs = kwargs.pop("client_kwargs", None)
+        kwargs.pop("function_invocation_kwargs", None)
+        merged_client_kwargs = (
+            dict(cast(Mapping[str, Any], compatibility_client_kwargs))
+            if isinstance(compatibility_client_kwargs, Mapping)
+            else {}
+        )
+        merged_client_kwargs.update(kwargs)
 
         if not OBSERVABILITY_SETTINGS.ENABLED:
             return super_get_response(  # type: ignore[no-any-return]
@@ -1175,12 +1240,14 @@ class ChatTelemetryLayer(Generic[OptionsCoT]):
                 options=options,
                 compaction_strategy=compaction_strategy,
                 tokenizer=tokenizer,
-                **kwargs,
+                **merged_client_kwargs,
             )
 
         opts: dict[str, Any] = options or {}  # type: ignore[assignment]
         provider_name = str(getattr(self, "otel_provider_name", "unknown"))
-        model_id = kwargs.get("model_id") or opts.get("model_id") or getattr(self, "model_id", None) or "unknown"
+        model_id = (
+            merged_client_kwargs.get("model_id") or opts.get("model_id") or getattr(self, "model_id", None) or "unknown"
+        )
         service_url_func = getattr(self, "service_url", None)
         service_url = str(service_url_func() if callable(service_url_func) else "unknown")
         attributes = _get_span_attributes(
@@ -1188,7 +1255,7 @@ class ChatTelemetryLayer(Generic[OptionsCoT]):
             provider_name=provider_name,
             model=model_id,
             service_url=service_url,
-            **kwargs,
+            **merged_client_kwargs,
         )
 
         if stream:
@@ -1200,7 +1267,7 @@ class ChatTelemetryLayer(Generic[OptionsCoT]):
                     options=opts,
                     compaction_strategy=compaction_strategy,
                     tokenizer=tokenizer,
-                    **kwargs,
+                    **merged_client_kwargs,
                 ),
             )
 
@@ -1291,7 +1358,7 @@ class ChatTelemetryLayer(Generic[OptionsCoT]):
                             options=opts,
                             compaction_strategy=compaction_strategy,
                             tokenizer=tokenizer,
-                            **kwargs,
+                            **merged_client_kwargs,
                         ),
                     )
                 except Exception as exception:
@@ -1420,6 +1487,8 @@ class AgentTelemetryLayer:
         session: AgentSession | None = None,
         compaction_strategy: CompactionStrategy | None = None,
         tokenizer: TokenizerProtocol | None = None,
+        function_invocation_kwargs: Mapping[str, Any] | None = None,
+        client_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> Awaitable[AgentResponse[Any]]: ...
 
@@ -1432,6 +1501,8 @@ class AgentTelemetryLayer:
         session: AgentSession | None = None,
         compaction_strategy: CompactionStrategy | None = None,
         tokenizer: TokenizerProtocol | None = None,
+        function_invocation_kwargs: Mapping[str, Any] | None = None,
+        client_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> ResponseStream[AgentResponseUpdate, AgentResponse[Any]]: ...
 
@@ -1443,6 +1514,8 @@ class AgentTelemetryLayer:
         session: AgentSession | None = None,
         compaction_strategy: CompactionStrategy | None = None,
         tokenizer: TokenizerProtocol | None = None,
+        function_invocation_kwargs: Mapping[str, Any] | None = None,
+        client_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> Awaitable[AgentResponse[Any]] | ResponseStream[AgentResponseUpdate, AgentResponse[Any]]:
         """Trace agent runs with OpenTelemetry spans and metrics."""
@@ -1463,11 +1536,15 @@ class AgentTelemetryLayer:
                 session=session,
                 compaction_strategy=compaction_strategy,
                 tokenizer=tokenizer,
+                function_invocation_kwargs=function_invocation_kwargs,
+                client_kwargs=client_kwargs,
                 **kwargs,
             )
 
         default_options = getattr(self, "default_options", {})
         options = kwargs.get("options")
+        merged_client_kwargs = dict(client_kwargs) if client_kwargs is not None else {}
+        merged_client_kwargs.update(kwargs)
         merged_options: dict[str, Any] = merge_chat_options(default_options, options or {})
         attributes = _get_span_attributes(
             operation_name=OtelAttr.AGENT_INVOKE_OPERATION,
@@ -1477,7 +1554,7 @@ class AgentTelemetryLayer:
             agent_description=getattr(self, "description", None),
             thread_id=session.service_session_id if session else None,
             all_options=merged_options,
-            **kwargs,
+            **merged_client_kwargs,
         )
 
         if stream:
@@ -1487,6 +1564,8 @@ class AgentTelemetryLayer:
                 session=session,
                 compaction_strategy=compaction_strategy,
                 tokenizer=tokenizer,
+                function_invocation_kwargs=function_invocation_kwargs,
+                client_kwargs=client_kwargs,
                 **kwargs,
             )
             if isinstance(run_result, ResponseStream):
@@ -1578,6 +1657,8 @@ class AgentTelemetryLayer:
                         session=session,
                         compaction_strategy=compaction_strategy,
                         tokenizer=tokenizer,
+                        function_invocation_kwargs=function_invocation_kwargs,
+                        client_kwargs=client_kwargs,
                         **kwargs,
                     )
                 except Exception as exception:

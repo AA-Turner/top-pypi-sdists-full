@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: promptlayer
-Version: 1.1.1
+Version: 1.2.2
 Summary: PromptLayer is a platform for prompt engineering and tracks your LLM requests.
 License: Apache-2.0
 License-File: LICENSE
@@ -15,11 +15,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Provides-Extra: claude-agents
 Provides-Extra: openai-agents
 Requires-Dist: ably (>=2.0.11,<3.0.0)
 Requires-Dist: aiohttp (>=3.10.10,<4.0.0)
 Requires-Dist: cachetools (>=5.0.0,<6.0.0)
 Requires-Dist: centrifuge-python (>=0.4.1,<0.5.0)
+Requires-Dist: claude-agent-sdk (>=0.1.45,<1.0.0) ; (python_version >= "3.10" and python_version < "4.0") and (extra == "claude-agents")
 Requires-Dist: eval-type-backport (>=0.3.1,<0.4.0) ; extra == "openai-agents"
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: nest-asyncio (>=1.6.0,<2.0.0)
@@ -62,6 +64,30 @@ pip install promptlayer
 ### Installing PromptLayer Locally
 
 Use `pip install .` to install locally.
+
+### Claude Agents Integration
+
+PromptLayer also ships an optional Claude Agents integration that exposes a vendored PromptLayer Claude plugin configuration.
+
+This integration currently supports Linux and macOS. Windows is not supported.
+
+```bash
+pip install "promptlayer[claude-agents]"
+```
+
+```python
+from claude_agent_sdk import ClaudeAgentOptions
+from promptlayer.integrations.claude_agents import get_claude_config
+
+pl_claude_config = get_claude_config()
+
+options = ClaudeAgentOptions(
+  model="sonnet",
+  cwd=".",
+  plugins=[pl_claude_config.plugin],
+  env={**pl_claude_config.env},
+)
+```
 
 ### Using PromptLayer
 

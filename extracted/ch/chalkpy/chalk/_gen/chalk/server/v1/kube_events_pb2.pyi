@@ -1,4 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -72,8 +74,24 @@ class KubeEvent(_message.Message):
         count: _Optional[int] = ...,
     ) -> None: ...
 
+class ListKubeEventsPageToken(_message.Message):
+    __slots__ = ("next_page_token",)
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    def __init__(self, next_page_token: _Optional[str] = ...) -> None: ...
+
 class ListKubeEventsRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "namespaces", "pod_names", "message_filter", "limit", "offset")
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "namespaces",
+        "pod_names",
+        "message_filter",
+        "limit",
+        "offset",
+        "query",
+        "page_token",
+    )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACES_FIELD_NUMBER: _ClassVar[int]
@@ -81,6 +99,8 @@ class ListKubeEventsRequest(_message.Message):
     MESSAGE_FILTER_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     OFFSET_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     namespaces: _containers.RepeatedScalarFieldContainer[str]
@@ -88,6 +108,8 @@ class ListKubeEventsRequest(_message.Message):
     message_filter: str
     limit: int
     offset: int
+    query: str
+    page_token: ListKubeEventsPageToken
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -97,13 +119,21 @@ class ListKubeEventsRequest(_message.Message):
         message_filter: _Optional[str] = ...,
         limit: _Optional[int] = ...,
         offset: _Optional[int] = ...,
+        query: _Optional[str] = ...,
+        page_token: _Optional[_Union[ListKubeEventsPageToken, _Mapping]] = ...,
     ) -> None: ...
 
 class ListKubeEventsResponse(_message.Message):
-    __slots__ = ("events",)
+    __slots__ = ("events", "next_page_token")
     EVENTS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     events: _containers.RepeatedCompositeFieldContainer[KubeEvent]
-    def __init__(self, events: _Optional[_Iterable[_Union[KubeEvent, _Mapping]]] = ...) -> None: ...
+    next_page_token: ListKubeEventsPageToken
+    def __init__(
+        self,
+        events: _Optional[_Iterable[_Union[KubeEvent, _Mapping]]] = ...,
+        next_page_token: _Optional[_Union[ListKubeEventsPageToken, _Mapping]] = ...,
+    ) -> None: ...
 
 class KubeEventFacet(_message.Message):
     __slots__ = ("path", "name")
@@ -124,21 +154,24 @@ class GetKubeEventFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[KubeEventFacet, _Mapping]]] = ...) -> None: ...
 
 class GetKubeEventFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
+    query: str
     def __init__(
         self,
         path: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class KubeEventFacetValue(_message.Message):
@@ -154,3 +187,29 @@ class GetKubeEventFacetValuesResponse(_message.Message):
     VALUES_FIELD_NUMBER: _ClassVar[int]
     values: _containers.RepeatedCompositeFieldContainer[KubeEventFacetValue]
     def __init__(self, values: _Optional[_Iterable[_Union[KubeEventFacetValue, _Mapping]]] = ...) -> None: ...
+
+class ListKubeEventsAggregatedRequest(_message.Message):
+    __slots__ = ("query", "start_time", "end_time", "window_period")
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    window_period: _duration_pb2.Duration
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListKubeEventsAggregatedResponse(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    def __init__(
+        self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
+    ) -> None: ...

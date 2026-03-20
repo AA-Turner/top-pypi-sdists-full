@@ -84,6 +84,7 @@ from snowflake.snowpark_connect.utils import context
 from snowflake.snowpark_connect.utils.context import (
     clear_lca_alias_map,
     register_lca_alias,
+    was_lca_used,
 )
 from snowflake.snowpark_connect.utils.expression_transformer import (
     is_child_agg_function_expression,
@@ -417,9 +418,9 @@ def map_project(
             column_is_hidden=[True],
         )
 
-    if pending_aliases:
-        # LCA case: create intermediate DataFrame with aliases, then do final projection
-        # pending_aliases contains (spark_name, snowpark_column, aliased_col, mapper.types)
+    if pending_aliases and was_lca_used():
+        # LCA case: a later expression actually referenced an earlier alias,
+        # so we need the intermediate DataFrame to make those aliases available.
         old_cols = [alias[1] for alias in pending_aliases]
         new_cols = [alias[2] for alias in pending_aliases]
 

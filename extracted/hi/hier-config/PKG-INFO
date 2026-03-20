@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hier-config
-Version: 3.4.2
+Version: 3.5.0
 Summary: A network configuration query and comparison library, used to build remediation configurations.
 License: MIT
 Author: Andrew Edwards

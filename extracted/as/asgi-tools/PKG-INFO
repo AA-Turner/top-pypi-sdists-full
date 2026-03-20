@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgi-tools
-Version: 2.1.0
+Version: 2.1.1
 Summary: ASGI Toolkit to build web applications
 Author-email: Kirill Klenov <horneds@gmail.com>
 License: MIT License

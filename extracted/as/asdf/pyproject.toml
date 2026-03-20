@@ -4,7 +4,7 @@ description = "Python implementation of the ASDF Standard"
 readme = 'README.rst'
 license-files = ['LICENSE']
 authors = [{ name = 'The ASDF Developers' }]
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 classifiers = [
   'Development Status :: 5 - Production/Stable',
   'Programming Language :: Python',
@@ -15,12 +15,11 @@ dynamic = [
 ]
 dependencies = [
   "asdf-standard>=1.1.0",
-  "asdf-transform-schemas>=0.3",  # required for asdf-1.0.0 schema
   "importlib-metadata>=4.11.4 ; python_version<='3.11'",
   "jmespath>=0.6.2",
   "numpy>=1.22",
   "packaging>=19",
-  "pyyaml>=5.4.1",
+  "pyyaml>=6.0",
   "semantic_version>=2.8",
   # for vendorized jsonschema
   "attrs>=22.2.0",
@@ -48,7 +47,6 @@ tests = [
   "asdf[all]",
   "psutil",
   "pytest>=8",
-  "pytest-remotedata",
 ]
 test = [
   "asdf[tests]",
@@ -107,7 +105,6 @@ force-exclude = '''
 [tool.pytest.ini_options]
 testpaths = ['asdf', 'docs']
 minversion = 4.6
-remote_data_strict = true
 filterwarnings = [
     'error',  # also set in _tests/conftest to work with pyargs
     'ignore:numpy.ndarray size changed:RuntimeWarning',
@@ -170,7 +167,7 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 120
 extend-exclude = ["asdf/_extern/*", "asdf/_jsonschema/*", "docs/*"]
 

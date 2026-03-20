@@ -12,10 +12,12 @@ from acryl_datahub_cloud.sdk.assertion.smart_column_metric_assertion import (
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
+    BackfillConfig,
     CalendarInterval,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
+    TimeBucketingStrategy,
     TimeWindowSize,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
@@ -26,6 +28,7 @@ from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import (
 from acryl_datahub_cloud.sdk.assertion_input.column_value_assertion_input import (
     FailThresholdType,
     FieldTransformType,
+    SqlExpression,
 )
 from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
     FreshnessAssertionScheduleCheckType,
@@ -59,6 +62,7 @@ __all__ = [
     "SubscriptionClient",
     "SqlAssertion",
     "SqlAssertionCriteria",
+    "SqlExpression",
     "VolumeAssertionCondition",
     "SqlAssertionCondition",
     "FreshnessAssertionScheduleCheckType",
@@ -66,4 +70,6 @@ __all__ = [
     "ColumnValueAssertion",
     "FailThresholdType",
     "FieldTransformType",
+    "TimeBucketingStrategy",
+    "BackfillConfig",
 ]

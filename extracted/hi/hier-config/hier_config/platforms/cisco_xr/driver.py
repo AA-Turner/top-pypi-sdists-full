@@ -1,4 +1,6 @@
-from collections.abc import Iterable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from hier_config.child import HConfigChild
 from hier_config.models import (
@@ -13,6 +15,28 @@ from hier_config.models import (
     SectionalOverwriteRule,
 )
 from hier_config.platforms.driver_base import HConfigDriverBase, HConfigDriverRules
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from hier_config.root import HConfig
+
+
+def _fixup_xr_comments(config: HConfig) -> None:
+    """Move ``!`` comment lines into the next sibling's comments set."""
+    for parent in (config, *config.all_children()):
+        siblings = list(parent.children)
+        comment_buffer: list[str] = []
+        for sibling in siblings:
+            if sibling.text.startswith("!"):
+                comment_text = sibling.text.removeprefix("!").lstrip(" ")
+                if comment_text:
+                    comment_buffer.append(comment_text)
+                sibling.delete()
+            elif comment_buffer:
+                for comment in comment_buffer:
+                    sibling.comments.add(comment)
+                comment_buffer.clear()
 
 
 class HConfigDriverCiscoIOSXR(HConfigDriverBase):  # pylint: disable=too-many-instance-attributes
@@ -49,30 +73,42 @@ class HConfigDriverCiscoIOSXR(HConfigDriverBase):  # pylint: disable=too-many-in
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="route-policy"),),
                     exit_text="end-policy",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="prefix-set"),),
                     exit_text="end-set",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="policy-map"),),
                     exit_text="end-policy-map",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="class-map"),),
                     exit_text="end-class-map",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="community-set"),),
                     exit_text="end-set",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="extcommunity-set"),),
                     exit_text="end-set",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="template"),),
                     exit_text="end-template",
+                    exit_text_parent_level=True,
+                ),
+                SectionalExitingRule(
+                    match_rules=(MatchRule(startswith="group"),),
+                    exit_text="end-group",
+                    exit_text_parent_level=True,
                 ),
                 SectionalExitingRule(
                     match_rules=(MatchRule(startswith="interface"),),
@@ -140,9 +176,12 @@ class HConfigDriverCiscoIOSXR(HConfigDriverBase):  # pylint: disable=too-many-in
                 PerLineSubRule(search=".*parity none.*", replace=""),
                 PerLineSubRule(search="^end-policy$", replace=" end-policy"),
                 PerLineSubRule(search="^end-set$", replace=" end-set"),
+                PerLineSubRule(search="^end-group$", replace=" end-group"),
                 PerLineSubRule(search="^end$", replace=""),
-                PerLineSubRule(search="^\\s*[#!].*", replace=""),
+                PerLineSubRule(search="^\\s*#.*", replace=""),
+                PerLineSubRule(search="^!\\s*$", replace=""),
             ],
+            post_load_callbacks=[_fixup_xr_comments],
             idempotent_commands=[
                 IdempotentCommandsRule(
                     match_rules=(

@@ -21,7 +21,19 @@ from plato.chronos.analysis import (
 from plato.chronos.api.events import list_session_events
 from plato.chronos.api.jobs import launch_job
 from plato.chronos.api.otel import (
+    get_session_metrics_api_otel_sessions__session_id__metrics_get as get_metrics_api,
+)
+from plato.chronos.api.otel import (
     get_session_traces_api_otel_sessions__session_id__traces_get as get_traces_api,
+)
+from plato.chronos.api.reviews import (
+    create_annotation_api_annotations_post as create_annotation_api,
+)
+from plato.chronos.api.reviews import (
+    create_review_api_reviews_post as create_review_api,
+)
+from plato.chronos.api.reviews import (
+    list_annotations_api_annotations_get as list_annotations_api,
 )
 from plato.chronos.api.sessions import (
     complete_session,
@@ -44,14 +56,18 @@ from plato.chronos.api.workspace_repos import (
     list_audit_events as list_audit_events_api,
 )
 from plato.chronos.models import (
+    AnnotationResponse,
     AuditEventsListResponse,
     AuditSummaryResponse,
     CompleteSessionRequest,
+    CreateAnnotationRequest,
+    CreateReviewRequest,
     LaunchJobRequest,
     LaunchJobResponse,
     LogsDownloadResponse,
     OTelSpanSchema,
     OTelTraceResponse,
+    ReviewResponse,
     SessionEnvsResponse,
     SessionListResponse,
     SessionLogsResponse,
@@ -63,6 +79,12 @@ from plato.chronos.models import (
     UpdateNotesRequest,
     WorldConfig,
     WorldRuntimeConfig,
+)
+from plato.chronos.models import (
+    AuthorType as _AuthorType,
+)
+from plato.chronos.models import (
+    Kind6 as _Kind6,
 )
 
 logger = logging.getLogger(__name__)
@@ -116,12 +138,13 @@ class _ChronosBase:
         runtime: dict[str, Any] | None,
         allow_prerelease: bool,
         parent_session_id: str | None,
+        world_name: str | None = None,
     ) -> LaunchJobRequest:
         if parent_session_id is None:
             parent_session_id = os.environ.get("SESSION_ID")
         world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
         return LaunchJobRequest(
-            world=WorldConfig(package=package, config=config, runtime=world_runtime),
+            world=WorldConfig(package=package, config=config, runtime=world_runtime, world_name=world_name),
             tags=[_normalize_tag(t) for t in tags] if tags else None,
             allow_prerelease=allow_prerelease or None,
             parent_session_id=parent_session_id,
@@ -239,8 +262,11 @@ class Chronos(_ChronosBase):
         runtime: dict[str, Any] | None = None,
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
+        world_name: str | None = None,
     ) -> LaunchJobResponse:
-        body = self._build_launch_body(package, config, tags, runtime, allow_prerelease, parent_session_id)
+        body = self._build_launch_body(
+            package, config, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
+        )
         resp = launch_job.sync(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
         return resp
@@ -400,6 +426,18 @@ class Chronos(_ChronosBase):
         """One-call comprehensive session analysis."""
         spans = self.get_all_traces(session_id)
         return analyze_session(spans, session_id)
+
+    def get_session_metrics(
+        self,
+        session_id: str,
+        env_alias: str | None = None,
+    ) -> dict[str, Any]:
+        """Get VM metrics (CPU, memory, etc.) for a session."""
+        return get_metrics_api.sync(
+            self._client,
+            session_id=session_id,
+            env_alias=env_alias,
+        )
 
     def get_events(self, session_id: str) -> list[OTelSpanSchema]:
         return list_session_events.sync(self._client, session_public_id=session_id).events
@@ -596,8 +634,11 @@ class AsyncChronos(_ChronosBase):
         runtime: dict[str, Any] | None = None,
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
+        world_name: str | None = None,
     ) -> LaunchJobResponse:
-        body = self._build_launch_body(package, config, tags, runtime, allow_prerelease, parent_session_id)
+        body = self._build_launch_body(
+            package, config, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
+        )
         resp = await launch_job.asyncio(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
         return resp
@@ -760,6 +801,18 @@ class AsyncChronos(_ChronosBase):
         spans = await self.get_all_traces(session_id)
         return analyze_session(spans, session_id)
 
+    async def get_session_metrics(
+        self,
+        session_id: str,
+        env_alias: str | None = None,
+    ) -> dict[str, Any]:
+        """Get VM metrics (CPU, memory, etc.) for a session."""
+        return await get_metrics_api.asyncio(
+            self._client,
+            session_id=session_id,
+            env_alias=env_alias,
+        )
+
     async def get_events(self, session_id: str) -> list[OTelSpanSchema]:
         resp = await list_session_events.asyncio(self._client, session_public_id=session_id)
         return resp.events
@@ -773,6 +826,71 @@ class AsyncChronos(_ChronosBase):
         """Get aggregated cost and token metrics for a session."""
         traj = await self.get_trajectory(session_id)
         return traj.total_metrics
+
+    # -- Reviews & Annotations --
+
+    async def create_review(
+        self,
+        session_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        author_type: str = "agent",
+    ) -> ReviewResponse:
+        """Create a review on a session."""
+        body = CreateReviewRequest(
+            session_id=session_id,
+            name=name,
+            description=description,
+            tags=tags,
+            author_type=_AuthorType(author_type),
+        )
+        return await create_review_api.asyncio(self._client, body=body)
+
+    async def create_annotation(
+        self,
+        session_id: str,
+        *,
+        kind: str = "observation",
+        content: str = "",
+        review_id: str | None = None,
+        signal: str | None = None,
+        tags: list[str] | None = None,
+        span_ids: list[str] | None = None,
+        data: dict[str, Any] | None = None,
+        author_type: str = "agent",
+    ) -> AnnotationResponse:
+        """Create an annotation on a session."""
+        from plato.chronos.models import AnnotationTarget
+        from plato.chronos.models import Type as _TargetType
+
+        targets = [AnnotationTarget(type=_TargetType.span, span_id=sid) for sid in (span_ids or [])]
+        body = CreateAnnotationRequest(
+            session_id=session_id,
+            kind=_Kind6(kind),
+            content=content,
+            review_id=review_id,
+            signal=signal,
+            tags=tags or [],
+            targets=targets or None,
+            data=data,
+            author_type=_AuthorType(author_type),
+        )
+        return await create_annotation_api.asyncio(self._client, body=body)
+
+    async def list_annotations(
+        self,
+        session_id: str,
+        *,
+        review_id: str | None = None,
+    ) -> list[AnnotationResponse]:
+        """List annotations for a session, optionally filtered by review."""
+        params: dict[str, str] = {"session_id": session_id}
+        if review_id:
+            params["review_id"] = review_id
+        resp = await list_annotations_api.asyncio(self._client, **params)
+        return resp.annotations if hasattr(resp, "annotations") else []
 
     # -- State --
 

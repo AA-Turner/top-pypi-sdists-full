@@ -90,14 +90,15 @@ def _find_copyright(
     """Match the line for the copyright_regex"""
     copyright_match = re.search(copyright_regex, line)
     if copyright_match:
-        return (
-            True,
-            CopyrightMatch(
-                creation_year=copyright_match.group(2),
-                modification_year=copyright_match.group(3),
-                company=copyright_match.group(4),
-            ),
-        )
+        if copyright_match.group(2) and copyright_match.group(4):
+            return (
+                True,
+                CopyrightMatch(
+                    creation_year=copyright_match.group(2),
+                    modification_year=copyright_match.group(3),
+                    company=copyright_match.group(4),
+                ),
+            )
     return False, None
 
 
@@ -257,11 +258,19 @@ def update_file(
                     _substitute_license_text(
                         fp, line, copyright_regex, copyright_term
                     )
-                    print(
-                        f"{file}: Changed License Header Copyright Year "
-                        f"{copyright_match.modification_year} -> "
-                        f"{year}"
-                    )
+                    if with_multi_year:
+                        print(
+                            f"{file}: Changed License Header Copyright Year "
+                            f"{copyright_match.creation_year}-"
+                            f"{copyright_match.modification_year} -> "
+                            f"{copyright_match.creation_year}-{year}"
+                        )
+                    else:
+                        print(
+                            f"{file}: Changed License Header Copyright Year "
+                            f"{copyright_match.creation_year} -> "
+                            f"{copyright_match.creation_year}-{year}"
+                        )
                 else:
                     print(f"{file}: License Header is ok.")
 

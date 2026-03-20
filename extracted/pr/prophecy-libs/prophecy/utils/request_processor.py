@@ -3,11 +3,9 @@ import json
 import logging
 import threading
 import traceback
-from types import MappingProxyType
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Dict, Optional, Type
 from uuid import uuid4
 
-# from prophecy.utils.json_rpc_layer import *
 from prophecy.executionmetrics.execution_metrics_handler import ExecutionMetricsHandler
 from prophecy.jsonrpc.models import (
     DatasetRunsDetailedRequest,
@@ -31,33 +29,73 @@ from prophecy.jsonrpc.models import (
 from prophecy.utils.secrets import SecretCrudRequest, handle_secrets_crud
 
 
-execution_metrics_handler = {}
-try:
-    from server_rest import SparkSessionProxy  # lazy import
-
-    spark_proxy = SparkSessionProxy.get_instance()
-    execution_metrics_handler = ExecutionMetricsHandler(spark_proxy)
-except Exception as e:
-    logging.info(f"Error creaating execution_metrics_handler: {e}")
+_execution_metrics_handler: Optional[ExecutionMetricsHandler] = None
+_handler_init_lock = threading.Lock()
 
 
-_HANDLER_REGISTRY: MappingProxyType[
-    type[RequestMethod], Callable[[Any], Awaitable[JsonRpcResult]]
-] = MappingProxyType(
-    {
-        DatasetRunsRequest: execution_metrics_handler._handle_dataset_runs,
-        DatasetRunsDetailedRequest: execution_metrics_handler._handle_dataset_runs_detailed,
-        InterimsRequest: execution_metrics_handler.find_interim_response_for_pipeline,
-        HistoricalGemProgressRequest: execution_metrics_handler.get_gem_progress_for_pipeline,
-        HistoricalViewRequest: execution_metrics_handler._handle_historical_view,
-        PipelineRunsRequest: execution_metrics_handler._handle_pipeline_runs,
-        DeleteDatasetRunRequest: execution_metrics_handler._handle_delete_dataset_run,
-        DeletePipelineRunRequest: execution_metrics_handler._handle_delete_pipeline_run,
-        LoadLastPipelineRunInterimsRequest: execution_metrics_handler._handle_load_last_pipeline_run_interims,
+def _get_spark_session():
+    # Try serverless mode first
+    try:
+        from server_rest import SparkSessionProxy
+        return SparkSessionProxy.get_instance()
+    except ImportError:
+        pass
+    except Exception as e:
+        logging.debug(f"SparkSessionProxy not available: {e}")
+
+    # Try getting active SparkSession (interactive mode)
+    try:
+        from pyspark.sql import SparkSession
+        spark = SparkSession.getActiveSession()
+        if spark is not None:
+            return spark
+    except ImportError:
+        pass
+    except Exception as e:
+        logging.debug(f"Failed to get active SparkSession: {e}")
+
+    return None
+
+
+def _get_execution_metrics_handler() -> Optional[ExecutionMetricsHandler]:
+    """Lazy-initialize and return the ExecutionMetricsHandler."""
+    global _execution_metrics_handler
+
+    if _execution_metrics_handler is not None:
+        return _execution_metrics_handler
+
+    with _handler_init_lock:
+        if _execution_metrics_handler is not None:
+            return _execution_metrics_handler
+
+        spark = _get_spark_session()
+        if spark is not None:
+            try:
+                _execution_metrics_handler = ExecutionMetricsHandler(spark)
+            except Exception as e:
+                logging.error(f"Failed to create ExecutionMetricsHandler: {e}")
+    return _execution_metrics_handler
+
+
+def _get_handler_for_request(request_type: Type[RequestMethod]) -> Optional[Callable]:
+    """Get the appropriate handler for a request type."""
+    handler = _get_execution_metrics_handler()
+    if handler is None:
+        return None
+
+    handler_map: Dict[Type[RequestMethod], Callable] = {
+        DatasetRunsRequest: handler._handle_dataset_runs,
+        DatasetRunsDetailedRequest: handler._handle_dataset_runs_detailed,
+        InterimsRequest: handler.find_interim_response_for_pipeline,
+        HistoricalGemProgressRequest: handler.get_gem_progress_for_pipeline,
+        HistoricalViewRequest: handler._handle_historical_view,
+        PipelineRunsRequest: handler._handle_pipeline_runs,
+        DeleteDatasetRunRequest: handler._handle_delete_dataset_run,
+        DeletePipelineRunRequest: handler._handle_delete_pipeline_run,
+        LoadLastPipelineRunInterimsRequest: handler._handle_load_last_pipeline_run_interims,
         SecretCrudRequest: handle_secrets_crud,
-        # add more: AnotherRequest: handle_another,
     }
-)
+    return handler_map.get(request_type)
 
 
 # ----- 2.2  async dispatcher (runs inside a background event‑loop) ---------
@@ -66,12 +104,17 @@ async def dispatch_em_request_async(
 ) -> ResponseMessage:  # noqa: D401
     req = req_msg.method
 
-    if isinstance(req, EMRequest):
-        execution_metrics_handler.refresh_tables_with_filters(req.filters)
+    em_handler = _get_execution_metrics_handler()
 
-    handler = _HANDLER_REGISTRY.get(type(req))
+    if isinstance(req, EMRequest) and em_handler is not None:
+        try:
+            em_handler.refresh_tables_with_filters(req.filters)
+        except Exception as e:
+            logging.warning(f"Failed to refresh tables: {e}")
+
+    handler = _get_handler_for_request(type(req))
     if handler is None:
-        raise RuntimeError(f"No handler registered for {type(req).__name__}")
+        raise RuntimeError(f"No handler registered for {type(req).__name__} (SparkSession may not be available)")
     try:
         result = await handler(req)  # type: ignore[arg-type]
         return SuccessResponse(id=req_msg.id, result=result)  # type: ignore[return-value]
@@ -97,8 +140,27 @@ def _schedule(coro: Awaitable[Any]):  # noqa: D401
 ###############################################################################
 
 
+def _send_ws_response(ws, response_json: str) -> None:
+    """Send response via WebSocket - supports both interactive and serverless modes."""
+    if ws is not None:
+        try:
+            ws.send(response_json)
+            return
+        except Exception as e:
+            logging.warning(f"Failed to send via interactive WS: {e}")
+
+    # Fall back to serverless mode
+    try:
+        from websocket_runner import send_message_via_ws
+        send_message_via_ws(response_json)
+    except ImportError:
+        logging.error("No WebSocket available to send response")
+    except Exception as e:
+        logging.error(f"Failed to send response: {e}")
+
+
 def _process_request(payload_raw: str, ws) -> None:  # noqa: D401
-    """Handle one frame coming from Scala, send back a response frame."""
+    """Handle one frame coming from server, send back a response frame."""
 
     try:
         payload_str = (
@@ -107,16 +169,13 @@ def _process_request(payload_raw: str, ws) -> None:  # noqa: D401
         req_msg = RequestMessage.from_json(payload_str)
 
         resp_msg = _schedule(dispatch_em_request_async(req_msg))
-        logging.info(f"Sending back success response : {resp_msg.to_json()}")
-        from websocket_runner import send_message_via_ws
+        logging.info(f"Sending back success response")
+        _send_ws_response(ws, resp_msg.to_json())
 
-        send_message_via_ws(resp_msg.to_json())
     except Exception as exc:  # catch‑all: malformed frame
         logging.info(f"Error processing request {exc} -- {traceback.format_exc()}")
         err_resp = ErrorResponse(
             id=str(uuid4()),
             error=JsonRpcError.from_exception(exc),
         )
-        from websocket_runner import send_message_via_ws
-
-        send_message_via_ws(err_resp.to_json())
+        _send_ws_response(ws, err_resp.to_json())

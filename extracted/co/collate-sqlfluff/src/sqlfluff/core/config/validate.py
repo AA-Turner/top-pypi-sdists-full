@@ -12,6 +12,7 @@ ALLOWABLE_LAYOUT_CONFIG_KEYS = (
     "align_within",
     "align_scope",
     "keyword_line_position",
+    "keyword_line_position_exclusions",
 )
 
 
@@ -45,7 +46,7 @@ def _validate_layout_config(config: ConfigMappingType, logging_reference: str) -
         )
 
     # The sections within layout can only be "type" (currently).
-    non_type_keys = set(layout_section.keys()) - set(("type",))
+    non_type_keys = set(layout_section.keys()) - {"type"}
     type_section = layout_section.get("type", {})
     if non_type_keys or not type_section or not isinstance(type_section, dict):
         raise SQLFluffUserError(

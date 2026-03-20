@@ -1,11 +1,10 @@
 from __future__ import print_function
-import six
 import sys
 import inspect
 from collections import namedtuple
 
 from pprint import pprint
-from six import StringIO
+from io import StringIO
 from insights import _COLOR, dr, datasource, rule, condition, incident, parser
 from insights.core.context import ExecutionContext
 from insights.formats import Formatter, FormatterAdapter, render
@@ -28,10 +27,10 @@ try:
             def __getattr__(*args):
                 return ""
 
-        class Fore(six.with_metaclass(Default)):
+        class Fore(object, metaclass=Default):
             pass
 
-        class Style(six.with_metaclass(Default)):
+        class Style(object, metaclass=Default):
             pass
 
 except ImportError:
@@ -41,10 +40,10 @@ except ImportError:
         def __getattr__(*args):
             return ""
 
-    class Fore(six.with_metaclass(Default)):
+    class Fore(object, metaclass=Default):
         pass
 
-    class Style(six.with_metaclass(Default)):
+    class Style(object, metaclass=Default):
         pass
 
 

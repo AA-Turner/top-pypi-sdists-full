@@ -15,11 +15,13 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     DEFAULT_CREATED_BY,
     _merge_field,
     _validate_required_field,
+    extract_existing_time_bucketing_strategy,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
+    TimeBucketingStrategyInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
     ColumnMetricAssertionParameters,
@@ -109,6 +111,7 @@ class ColumnMetricAssertionClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> ColumnMetricAssertion:
         now_utc = datetime.now(timezone.utc)
 
@@ -135,6 +138,7 @@ class ColumnMetricAssertionClient:
             updated_by=updated_by,
             now_utc=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         # 2. Upsert the assertion and monitor entities:
@@ -273,6 +277,7 @@ class ColumnMetricAssertionClient:
         updated_by: Union[str, CorpUserUrn],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> _ColumnMetricAssertionInput:
         # 1. If urn is not provided, validate required fields and build a new assertion input directly
         if urn is None:
@@ -303,6 +308,7 @@ class ColumnMetricAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
                 gms_criteria_type_info=None,
             )
 
@@ -363,6 +369,7 @@ class ColumnMetricAssertionClient:
                 updated_by=updated_by,
                 updated_at=now_utc,
                 schedule=schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
                 gms_criteria_type_info=None,
             )
 
@@ -384,6 +391,7 @@ class ColumnMetricAssertionClient:
             updated_by=updated_by,
             updated_at=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
             gms_criteria_type_info=gms_criteria_type_info,
         )
 
@@ -425,6 +433,7 @@ class ColumnMetricAssertionClient:
             maybe_monitor_entity=maybe_monitor_entity,
             existing_assertion=existing_assertion,
             gms_criteria_type_info=gms_criteria_type_info,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         return merged_assertion_input
@@ -449,6 +458,7 @@ class ColumnMetricAssertionClient:
         maybe_monitor_entity: Optional[Monitor],
         existing_assertion: ColumnMetricAssertion,
         gms_criteria_type_info: Optional[tuple] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> _ColumnMetricAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -475,6 +485,16 @@ class ColumnMetricAssertionClient:
         Returns:
             The merged assertion input.
         """
+        existing_time_bucketing = extract_existing_time_bucketing_strategy(
+            maybe_monitor_entity
+        )
+
+        effective_time_bucketing = (
+            time_bucketing_strategy
+            if time_bucketing_strategy is not None
+            else existing_time_bucketing
+        )
+
         merged_assertion_input = _ColumnMetricAssertionInput(
             urn=urn,
             entity_client=assertion_input.entity_client,
@@ -539,6 +559,7 @@ class ColumnMetricAssertionClient:
             or now_utc,  # Override with the existing assertion's created_at or now if not set
             updated_by=assertion_input.updated_by,  # Override with the input's updated_by
             updated_at=assertion_input.updated_at,  # Override with the input's updated_at (now)
+            time_bucketing_strategy=effective_time_bucketing,
             gms_criteria_type_info=gms_criteria_type_info,
         )
 

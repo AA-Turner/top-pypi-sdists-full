@@ -69,7 +69,7 @@ import anyio.abc
 import yaml
 from pydantic import BaseModel, Field, model_validator
 from slugify import slugify
-from tenacity import retry, stop_after_attempt, wait_fixed, wait_random
+from tenacity import Retrying, stop_after_attempt, wait_fixed, wait_random
 from typing_extensions import Literal, Self
 
 from prefect.client.schemas.objects import FlowRun
@@ -85,6 +85,7 @@ from prefect.workers.base import (
 )
 from prefect_aws.credentials import AwsCredentials
 from prefect_aws.observers.ecs import start_observer, stop_observer
+from prefect_aws.settings import EcsWorkerSettings
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -139,11 +140,6 @@ taskDefinition: "{{ task_definition_arn }}"
 capacityProviderStrategy: "{{ capacity_provider_strategy }}"
 """
 
-# Create task run retry settings
-MAX_CREATE_TASK_RUN_ATTEMPTS = 3
-CREATE_TASK_RUN_MIN_DELAY_SECONDS = 1
-CREATE_TASK_RUN_MIN_DELAY_JITTER_SECONDS = 0
-CREATE_TASK_RUN_MAX_DELAY_JITTER_SECONDS = 3
 
 _TASK_DEFINITION_CACHE: Dict[UUID, str] = {}
 _TAG_REGEX = r"[^a-zA-Z0-9_./=+:@-]"
@@ -851,7 +847,17 @@ class ECSWorker(BaseWorker[ECSJobConfiguration, ECSVariables, ECSWorkerResult]):
         )
 
         try:
-            task = self._create_task_run(ecs_client, task_run_request)
+            settings = EcsWorkerSettings()
+            retrying = Retrying(
+                stop=stop_after_attempt(settings.create_task_run_max_attempts),
+                wait=wait_fixed(settings.create_task_run_min_delay_seconds)
+                + wait_random(
+                    settings.create_task_run_min_delay_jitter_seconds,
+                    settings.create_task_run_max_delay_jitter_seconds,
+                ),
+                reraise=True,
+            )
+            task = retrying(self._create_task_run, ecs_client, task_run_request)
             task_arn = task["taskArn"]
             cluster_arn = task["clusterArn"]
         except Exception as exc:
@@ -868,14 +874,17 @@ class ECSWorker(BaseWorker[ECSJobConfiguration, ECSVariables, ECSWorkerResult]):
         """
         # AWS generates exception types at runtime so they must be captured a bit
         # differently than normal.
-        if "ClusterNotFoundException" in str(exc):
+        exc_str = str(exc)
+        exc_str_lower = exc_str.lower()
+
+        if "ClusterNotFoundException" in exc_str:
             cluster = task_run.get("cluster", "default")
             raise RuntimeError(
                 f"Failed to run ECS task, cluster {cluster!r} not found. "
                 "Confirm that the cluster is configured in your region."
             ) from exc
         elif (
-            "No Container Instances" in str(exc) and task_run.get("launchType") == "EC2"
+            "No Container Instances" in exc_str and task_run.get("launchType") == "EC2"
         ):
             cluster = task_run.get("cluster", "default")
             raise RuntimeError(
@@ -884,8 +893,8 @@ class ECSWorker(BaseWorker[ECSJobConfiguration, ECSVariables, ECSWorkerResult]):
                 "have EC2 container instances available."
             ) from exc
         elif (
-            "failed to validate logger args" in str(exc)
-            and "AccessDeniedException" in str(exc)
+            "failed to validate logger args" in exc_str
+            and "AccessDeniedException" in exc_str
             and configuration.configure_cloudwatch_logs
         ):
             raise RuntimeError(
@@ -894,6 +903,29 @@ class ECSWorker(BaseWorker[ECSJobConfiguration, ECSVariables, ECSWorkerResult]):
                 f" {configuration.execution_role!r} has permissions"
                 " logs:CreateLogStream, logs:CreateLogGroup, and logs:PutLogEvents."
             )
+        elif "TaskDefinition is inactive" in exc_str:
+            raise RuntimeError(
+                "Failed to run ECS task, the task definition is inactive. "
+                "Re-register the task definition or remove the "
+                "`task_definition_arn` from your work pool configuration to "
+                "allow Prefect to register a new task definition automatically."
+            ) from exc
+        elif "no capacity" in exc_str_lower or "capacity provider" in exc_str_lower:
+            raise RuntimeError(
+                "Failed to run ECS task due to a capacity provider error. "
+                "Verify that your Fargate or EC2 capacity providers are "
+                "correctly configured for the cluster and that the requested "
+                "capacity is available."
+            ) from exc
+        elif "InvalidParameterException" in exc_str and any(
+            keyword in exc_str_lower
+            for keyword in ("subnet", "security group", "network")
+        ):
+            raise RuntimeError(
+                "Failed to run ECS task due to a network configuration error. "
+                "Verify the subnets and security groups in your work pool's "
+                "network configuration are valid and belong to the expected VPC."
+            ) from exc
         else:
             raise
 
@@ -1521,15 +1553,6 @@ class ECSWorker(BaseWorker[ECSJobConfiguration, ECSVariables, ECSWorkerResult]):
 
         return task_run_request
 
-    @retry(
-        stop=stop_after_attempt(MAX_CREATE_TASK_RUN_ATTEMPTS),
-        wait=wait_fixed(CREATE_TASK_RUN_MIN_DELAY_SECONDS)
-        + wait_random(
-            CREATE_TASK_RUN_MIN_DELAY_JITTER_SECONDS,
-            CREATE_TASK_RUN_MAX_DELAY_JITTER_SECONDS,
-        ),
-        reraise=True,
-    )
     def _create_task_run(self, ecs_client: "ECSClient", task_run_request: dict) -> str:
         """
         Create a run of a task definition.

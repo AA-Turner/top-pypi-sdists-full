@@ -21,6 +21,7 @@ from plato.runtime import (
     VMRuntimeConfig,
 )
 from plato.v2.async_.session import SerializedSession
+from plato.worlds.review.spec import ReviewSpec
 from plato.worlds.schema import get_field_annotations, get_world_config_schema
 
 # Union type for environment configurations
@@ -114,25 +115,6 @@ class PreviewConfig(BaseModel):
         default=600,
         ge=1,
         description="Preview lifetime in seconds (default: 10 minutes).",
-    )
-
-
-class VerifyConfig(BaseModel):
-    """Configuration for world verify mode.
-
-    Verify restores workspaces and calls the world's verify() method
-    instead of the normal reset/step loop. Verifiers run against the
-    restored state and publish findings as annotations.
-    """
-
-    enabled: bool = False
-    target_session_id: str | None = Field(
-        default=None,
-        description="Session ID to publish verification annotations against. Defaults to current session.",
-    )
-    publish_annotations: bool = Field(
-        default=True,
-        description="Whether to publish verifier findings as annotations.",
     )
 
 
@@ -263,8 +245,13 @@ class RunConfig(BaseModel):
     # Preview mode settings
     preview: PreviewConfig = Field(default_factory=PreviewConfig)
 
-    # Verify mode settings
-    verify: VerifyConfig = Field(default_factory=VerifyConfig)
+    # Review specification — defines how this session should be reviewed.
+    # When set, the world runs verify() instead of the normal reset/step loop.
+    # The spec is recursive: the reviewer can itself have a review spec.
+    review: ReviewSpec | None = Field(
+        default=None,
+        description="How this session should be reviewed. None = no auto-review.",
+    )
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
     tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)

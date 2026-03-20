@@ -1,8 +1,12 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import SQLContext
 from pyspark.sql.functions import array, lit, struct, expr, concat_ws, collect_list
+import logging
 
 from prophecy.config import ConfigBase
+from prophecy.config import is_scala_enabled, is_scala_disabled, get_scala_disabled_error
+
+logger = logging.getLogger(__name__)
 
 
 def typed_lit(obj):
@@ -33,23 +37,33 @@ def has_column(df, col):
 
 
 def createScalaList(spark, l):
+    if is_scala_disabled():
+        return list(l) if l is not None else []
     return spark.sparkContext._jvm.PythonUtils.toList(l)
 
 
 def createScalaColumnList(spark, cols):
+    if is_scala_disabled():
+        return list(cols) if cols is not None else []
     return spark.sparkContext._jvm.PythonUtils.toList([item._jc for item in list(cols)])
 
 
-def createScalaMap(spark, dict):
-    return spark.sparkContext._jvm.PythonUtils.toScalaMap(dict)
+def createScalaMap(spark, mapping):
+    if is_scala_disabled():
+        return mapping if mapping is not None else {}
+    return spark.sparkContext._jvm.PythonUtils.toScalaMap(mapping)
 
 
-def createScalaColumnMap(spark, dict):
-    jcolDict = {k: col._jc for k, col in dict.items()}
+def createScalaColumnMap(spark, mapping):
+    if is_scala_disabled():
+        return mapping if mapping is not None else {}
+    jcolDict = {k: col._jc for k, col in mapping.items()}
     return spark.sparkContext._jvm.PythonUtils.toScalaMap(jcolDict)
 
 
 def createScalaColumnOption(spark, value):
+    if is_scala_disabled():
+        return value
     if value is None:
         return spark.sparkContext._jvm.scala.Option.apply(None)
     else:
@@ -57,6 +71,8 @@ def createScalaColumnOption(spark, value):
 
 
 def createScalaOption(spark, value):
+    if is_scala_disabled():
+        return value
     if value is None:
         return spark.sparkContext._jvm.scala.Option.apply(None)
     else:
@@ -70,6 +86,11 @@ def isBlank(myString):
 
 
 def directory_listing(spark, directory_path, recursive, pattern):
+    if is_scala_disabled():
+        from prophecy.libs.uc_shared_utils import directory_listing as shared_directory_listing
+        return shared_directory_listing(spark=spark, directory_path=directory_path, recursive=recursive,
+                                        pattern=pattern)
+    
     try:
         if spark.sparkContext.emptyRDD():
             df_java = spark.sparkContext._jvm.io.prophecy.abinitio.ScalaFunctions._directory_listing_v2(
@@ -88,6 +109,10 @@ def directory_listing(spark, directory_path, recursive, pattern):
 
 
 def filter_columns_by_expr(spark, df, expr):
+    if is_scala_disabled():
+        from prophecy.libs.uc_shared_utils import filter_columns_by_expr as shared_filter_columns_by_expr
+        return shared_filter_columns_by_expr(spark=spark, dataframe=df, expression=expr)
+    
     try:
         if spark.sparkContext.emptyRDD():
             df_java = spark.sparkContext._jvm.io.prophecy.abinitio.ScalaFunctions.filterColumnsByExpr(
@@ -105,6 +130,10 @@ def filter_columns_by_expr(spark, df, expr):
 
 
 def filter_columns_by_type(spark, df, types):
+    if is_scala_disabled():
+        from prophecy.libs.uc_shared_utils import filter_columns_by_type as shared_filter_columns_by_type
+        return shared_filter_columns_by_type(dataframe=df, types=types)
+    
     try:
         if spark.sparkContext.emptyRDD():
             df_java = spark.sparkContext._jvm.io.prophecy.abinitio.ScalaFunctions.filterColumnsByType(
@@ -125,6 +154,9 @@ def send_email_with_attachment(spark, smtp_host, smtp_port, username, password,
                                email_from, email_to, subject, body,
                                attachment_paths, cc, bcc,
                                isBodyHtml=False, cleanLocalFiles=False):
+    if is_scala_disabled():
+        raise RuntimeError(get_scala_disabled_error("send_email_with_attachment"))
+    
     spark.sparkContext._jvm.io.prophecy.abinitio.ScalaFunctions.sendEmailWithAttachment(
         spark._jsparkSession,
         smtp_host, smtp_port,

@@ -35,6 +35,7 @@ dependencies = [
   "pip==25.3",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
+  "protobuf>=5.29.6,<6",
   "pydantic==2.12.5",
   "requests==2.32.4",
   "requirements-parser==0.13.0",
@@ -45,7 +46,7 @@ dependencies = [
   "snowflake.core==1.10.0",
   "tomlkit==0.13.3",
   "typer==0.17.3",
-  "urllib3>=1.24.3,<2.6",
+  "urllib3>=2.6.3,<3",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -74,7 +75,7 @@ development = [
   "pytest-randomly==3.16.0",
   "pytest==8.4.1",
   "syrupy==4.9.1",
-  "uv>0.8.0",
+  "uv==0.10.9",
 ]
 packaging = []
 
@@ -166,6 +167,20 @@ test_container_services = [
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
+]
+
+[tool.hatch.envs.ud]
+template = "ud"
+pre-install-commands = [
+  "pip install pytest-xdist",
+]
+features = ["development"]
+
+[tool.hatch.envs.ud.scripts]
+check = [
+  'pip uninstall --yes snowflake-connector-python',
+  'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
 ]
 
 [[tool.hatch.envs.local.matrix]]

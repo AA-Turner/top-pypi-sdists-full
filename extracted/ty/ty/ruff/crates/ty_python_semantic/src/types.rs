@@ -1306,7 +1306,7 @@ impl<'db> Type<'db> {
         matches!(self, Type::Union(_))
     }
 
-    pub(crate) const fn as_union(self) -> Option<UnionType<'db>> {
+    pub const fn as_union(self) -> Option<UnionType<'db>> {
         match self {
             Type::Union(union_type) => Some(union_type),
             _ => None,
@@ -3368,6 +3368,35 @@ impl<'db> Type<'db> {
         }
     }
 
+    // Returns the value type of a `__getitem__` dunder call on this object.
+    //
+    // Returns `None` if `__getitem__` is undefined or results in a call error.
+    fn getitem_dunder_call(self, db: &'db dyn Db, key: Option<&str>) -> Option<Type<'db>> {
+        let key = key
+            .map(|key| Type::string_literal(db, key))
+            .unwrap_or(Type::unknown());
+
+        match self
+            .member_lookup_with_policy(
+                db,
+                Name::new_static("__getitem__"),
+                MemberLookupPolicy::NO_INSTANCE_FALLBACK,
+            )
+            .place
+        {
+            Place::Defined(DefinedPlace {
+                ty: getitem_method,
+                definedness: Definedness::AlwaysDefined,
+                ..
+            }) => getitem_method
+                .try_call(db, &CallArguments::positional([key]))
+                .ok()
+                .map(|bindings| bindings.return_type(db)),
+
+            _ => None,
+        }
+    }
+
     /// Returns the key and value types of this object if it was unpacked using `**`,
     /// or `None` if the object does not support unpacking.
     fn unpack_keys_and_items(self, db: &'db dyn Db) -> Option<(Type<'db>, Type<'db>)> {
@@ -3399,25 +3428,9 @@ impl<'db> Type<'db> {
             _ => return None,
         };
 
-        let value_ty = match self
-            .member_lookup_with_policy(
-                db,
-                Name::new_static("__getitem__"),
-                MemberLookupPolicy::NO_INSTANCE_FALLBACK,
-            )
-            .place
-        {
-            Place::Defined(DefinedPlace {
-                ty: getitem_method,
-                definedness: Definedness::AlwaysDefined,
-                ..
-            }) => getitem_method
-                .try_call(db, &CallArguments::positional([Type::unknown()]))
-                .ok()
-                .map_or_else(Type::unknown, |bindings| bindings.return_type(db)),
-
-            _ => Type::unknown(),
-        };
+        let value_ty = self
+            .getitem_dunder_call(db, None)
+            .unwrap_or(Type::unknown());
 
         Some((key_ty, value_ty))
     }
@@ -5338,9 +5351,23 @@ impl<'db> Type<'db> {
             }
 
             // TODO(jelle): Materialize should be handled differently, since TypeIs is invariant
-            Type::TypeIs(type_is) => type_is.with_type(db, type_is.return_type(db).apply_type_mapping(db, type_mapping, tcx)),
+            Type::TypeIs(type_is) => visitor.visit(self, || {
+                type_is.with_type(
+                    db,
+                    type_is
+                        .return_type(db)
+                        .apply_type_mapping_impl(db, type_mapping, tcx, visitor),
+                )
+            }),
 
-            Type::TypeGuard(type_guard) => type_guard.with_type(db, type_guard.return_type(db).apply_type_mapping(db, type_mapping, tcx)),
+            Type::TypeGuard(type_guard) => visitor.visit(self, || {
+                type_guard.with_type(
+                    db,
+                    type_guard
+                        .return_type(db)
+                        .apply_type_mapping_impl(db, type_mapping, tcx, visitor),
+                )
+            }),
 
             Type::TypeAlias(alias) => {
                 // For EagerExpansion, expand the raw value type. This path relies on Salsa's cycle
@@ -6725,7 +6752,7 @@ impl<'db> InvalidTypeExpression<'db> {
         // casing for this function.
         } else if let InvalidTypeExpression::InvalidType(Type::FunctionLiteral(function), _) = self
             && function.name(db) == "callable"
-            && let function_body_scope = function.literal(db).last_definition(db).body_scope(db)
+            && let function_body_scope = function.literal(db).last_definition.body_scope(db)
             && function_body_scope
                 .scope(db)
                 .parent()

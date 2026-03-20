@@ -23,6 +23,7 @@ class BuildLogStatus(msgspec.Struct, tag="container_build_log_status"):
     status: Literal["started", "completed", "failed", "cancelled"]
     timestamp: float
     message: str | None = None
+    test_chat_uuid: str | None = None
 
 
 BuildLogMessage = BuildLogOutput | BuildLogStatus

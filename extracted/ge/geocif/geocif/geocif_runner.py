@@ -225,6 +225,15 @@ def main(logger, parser):
     ensure_metadata(parser)
 
     pool_countries = parser.getboolean("ML", "pool_countries", fallback=False)
+    check_yield_trend = parser.getboolean("ML", "check_yield_trend", fallback=True)
+
+    if pool_countries and not check_yield_trend:
+        logger.error(
+            "pool_countries=True requires check_yield_trend=True. "
+            "Pooling without detrending mixes raw yield scales across countries, "
+            "producing unreliable models. Enable detrending or disable pooling."
+        )
+        return
 
     if pool_countries:
         inputs = gather_pooled_inputs(parser)

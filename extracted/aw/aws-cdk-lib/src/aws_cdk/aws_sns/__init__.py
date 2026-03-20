@@ -428,6 +428,7 @@ from .. import (
     CfnResource as _CfnResource_9df397a6,
     CfnTag as _CfnTag_f6864754,
     Duration as _Duration_4839e8c3,
+    EncryptedPermissionsOptions as _EncryptedPermissionsOptions_b31d980a,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
@@ -6257,6 +6258,32 @@ class TopicGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sns.TopicG
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("TopicGrants", jsii.sinvoke(cls, "fromTopic", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param key_actions: The KMS key actions to grant permissions for. Default: - No permission is added to the KMS key, even if it exists
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e15612f86bfdde98187db06c830dd2c5117d052e0eb030afade92e32259a375)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _EncryptedPermissionsOptions_b31d980a(
+            key_actions=key_actions, resource_arns=resource_arns
+        )
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="publish")
     def publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grant topic publishing permissions to the given identity.
@@ -7977,6 +8004,16 @@ def _typecheckingstub__41d14f58fd3a68985cc9146f591de9ef04f0766e0e4ab580bec4fe74f
 
 def _typecheckingstub__49194548f41ee58482b70d336bbdf1e8bc28d376384415758c6be3ef8ac61af2(
     resource: _ITopicRef_29aa9a88,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e15612f86bfdde98187db06c830dd2c5117d052e0eb030afade92e32259a375(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    key_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

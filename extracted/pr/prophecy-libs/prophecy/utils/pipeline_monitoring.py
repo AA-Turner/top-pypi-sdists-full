@@ -2,6 +2,7 @@ import base64 as base64_std
 import gzip
 import json
 import logging
+import re
 from typing import Any, Dict, Optional
 from dataclasses import dataclass, field
 from typing import Optional, List
@@ -12,6 +13,7 @@ from prophecy.executionmetrics.schemas.em import (
 )
 from prophecy.executionmetrics.utils.common import get_spark_property
 from prophecy.jsonrpc.models import NotificationMessage, SparkEventNotification
+from prophecy.config.config_base import is_serverless
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,199 @@ if not logger.hasHandlers():
 SPARK_CONF_PIPELINE_CODE_KEY = "spark.prophecy.metadata.pipeline.code"
 RecursiveDirectoryContent = Dict[str, str]  # ⇐ Scala type alias
 
+
+_PING_INTERVAL_SECS = 15
+
+
+class _LockedWsSender:
+    """Thread-safe wrapper that serialises all send() calls through a lock."""
+    def __init__(self, ws, lock):
+        self._ws = ws
+        self._lock = lock
+
+    def send(self, data):
+        if self._lock:
+            with self._lock:
+                self._ws.send(data)
+        else:
+            self._ws.send(data)
+
+
+class InteractiveEventSender:
+    def __init__(self):
+        self._ws_url: Optional[str] = None
+        self._session: Optional[str] = None
+        self._ws_connection = None
+        self._ws_lock = None
+        self._receiver_thread = None
+        self._ws_running = False
+
+    def is_connected(self) -> bool:
+        return self._ws_connection is not None
+
+    def initialize(self, execution_url: str, session: str):
+        import threading
+
+        if (
+            self._ws_connection is not None
+            and self._session == session
+            and self._ws_url == execution_url
+        ):
+            try:
+                self._ws_connection.ping("")
+                return
+            except Exception:
+                logger.debug("Existing connection dead, will reconnect")
+
+        if self._ws_connection is not None or self._receiver_thread is not None:
+            self.shutdown()
+
+        self._ws_url = execution_url
+        self._session = session
+        self._ws_lock = threading.Lock()
+
+        try:
+            import websocket
+            ws_url = f"{execution_url}/{session}"
+            self._ws_connection = websocket.create_connection(ws_url, timeout=30)
+            self._ws_running = True
+            self._receiver_thread = threading.Thread(
+                target=self._receiver_loop,
+                daemon=True,
+                name="interactive-ws-receiver"
+            )
+            self._receiver_thread.start()
+        except ImportError:
+            self._ws_connection = None
+        except Exception as e:
+            self._ws_connection = None
+
+    def shutdown(self):
+        self._ws_running = False
+
+        if self._receiver_thread is not None:
+            self._receiver_thread.join(timeout=2.0)
+            self._receiver_thread = None
+
+        if self._ws_connection is not None:
+            try:
+                self._ws_connection.close()
+            except Exception:
+                pass
+            self._ws_connection = None
+
+    def send(self, json_msg: str):
+        final_notification = NotificationMessage(SparkEventNotification(json_msg))
+        final_message = final_notification.to_json()
+
+        if is_serverless:
+            try:
+                from websocket_runner import send_message_via_ws
+                send_message_via_ws(final_message)
+            except Exception as e:
+                logger.error(f"Exception while sending event: {e}")
+            return
+
+        if self._ws_connection is not None:
+            try:
+                self._locked_send(final_message)
+            except Exception as e:
+                self._reconnect()
+                try:
+                    if self._ws_connection is not None:
+                        self._locked_send(final_message)
+                except Exception as retry_e:
+                    logger.debug(f"Failed to send event after reconnect: {retry_e}")
+            return
+
+    def _locked_send(self, message: str):
+        if self._ws_lock:
+            with self._ws_lock:
+                self._ws_connection.send(message)
+        else:
+            self._ws_connection.send(message)
+
+    def _reconnect(self):
+        if self._ws_url and self._session:
+            try:
+                import websocket
+                ws_url = f"{self._ws_url}/{self._session}"
+                new_conn = websocket.create_connection(ws_url, timeout=30)
+                if self._ws_lock:
+                    with self._ws_lock:
+                        self._ws_connection = new_conn
+                else:
+                    self._ws_connection = new_conn
+            except Exception as e:
+                self._ws_connection = None
+
+    def _receiver_loop(self):
+        idle_seconds = 0
+
+        while self._ws_running and self._ws_connection is not None:
+            try:
+                self._ws_connection.settimeout(1.0)
+                message = self._ws_connection.recv()
+                if message:
+                    self._handle_incoming_message(self._ws_connection, message)
+                idle_seconds = 0
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'timed out' in error_str or 'timeout' in error_str:
+                    idle_seconds += 1
+                    if idle_seconds >= _PING_INTERVAL_SECS:
+                        if not self._send_keepalive_ping():
+                            break
+                        idle_seconds = 0
+                    continue
+                if 'connection' in error_str and ('closed' in error_str or 'reset' in error_str):
+                    break
+
+    def _send_keepalive_ping(self) -> bool:
+        try:
+            if self._ws_lock:
+                with self._ws_lock:
+                    self._ws_connection.ping("")
+            else:
+                self._ws_connection.ping("")
+            return True
+        except Exception:
+            return False
+
+    def _handle_incoming_message(self, ws, message: str):
+        try:
+            data = json.loads(message)
+
+            if 'method' in data and 'id' in data:
+                try:
+                    from prophecy.utils.request_processor import _process_request
+                    locked_sender = _LockedWsSender(ws, self._ws_lock)
+                    _process_request(message, locked_sender)
+                except ImportError as ie:
+                    logger.warning(f"Request_processor not available: {ie}")
+                except Exception as e:
+                    logger.error(f"Error processing request: {e}")
+            else:
+                logger.debug(f"Received non-request message: {message[:200]}")
+        except json.JSONDecodeError:
+            logger.debug(f"Received non-JSON message: {message[:200]}")
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+
+
+_sender = InteractiveEventSender()
+
+
+def has_interactive_event_sender() -> bool:
+    return _sender.is_connected()
+
+
+def init_interactive_event_sender(execution_url: str, session: str):
+    _sender.initialize(execution_url, session)
+
+
+def shutdown_interactive_event_sender():
+    _sender.shutdown()
 
 # --- tiny utility helpers ---------------------------------------------------
 
@@ -60,10 +255,43 @@ def parse_json_fallback(raw: str) -> Dict[str, str]:
 
 
 def get_session_hack(spark) -> str:
-    for key in spark.conf._conf_override:
-        assert isinstance(key, str)
-        if key.startswith("spark.prophecy.metadata.pipeline.uuid"):
-            return key.replace("spark.prophecy.metadata.pipeline.uuid.", "")
+    prefix = "spark.prophecy.metadata.pipeline.uuid"
+    
+    if hasattr(spark, '_jsparkSession'):
+        try:
+            all_sql_conf = spark._jsparkSession.conf().getAll()
+            iterator = all_sql_conf.iterator()
+            while iterator.hasNext():
+                entry = iterator.next()
+                key = entry._1()
+                if isinstance(key, str) and key.startswith(prefix):
+                    return key.replace(f"{prefix}.", "")
+        except Exception:
+            pass
+
+    if hasattr(spark, 'sparkContext') and spark.sparkContext is not None:
+        spark_conf = spark.sparkContext.getConf()
+        if spark_conf is not None:
+            all_conf = spark_conf.getAll()
+            if all_conf is not None:
+                for key, value in all_conf:
+                    if isinstance(key, str) and key.startswith(prefix):
+                        return key.replace(f"{prefix}.", "")
+    
+    
+    if hasattr(spark.conf, '_conf_override') and spark.conf._conf_override is not None:
+        for key in spark.conf._conf_override:
+            if isinstance(key, str) and key.startswith(prefix):
+                return key.replace(f"{prefix}.", "")
+    
+    if hasattr(spark, 'sparkContext') and hasattr(spark.sparkContext, 'getLocalProperty'):
+        local_props_str = str(spark.sparkContext._jsc.sc().localProperties()) if hasattr(spark.sparkContext, '_jsc') else ""
+        if prefix in local_props_str:
+            match = re.search(rf'{prefix}\.([a-zA-Z0-9_-]+)', local_props_str)
+            if match:
+                return match.group(1)
+    
+    return ""
 
 
 def get_running_code(spark, session: str) -> RecursiveDirectoryContent:
@@ -73,25 +301,26 @@ def get_running_code(spark, session: str) -> RecursiveDirectoryContent:
     """
     # 1️⃣  Multi-part branch ---------------------------------------------------
 
-    logger.info(f"Got session: {session}")
+    logger.debug(f"Got session: {session}")
 
-    logger.info(f"Got spark_type: {type(spark)}")
-    logger.info(f"Got spark.conf type: {type(spark.conf)}")
+    logger.debug(f"Got spark_type: {type(spark)}")
+    logger.debug(f"Got spark.conf type: {type(spark.conf)}")
 
-    session = get_session_hack(spark)
+    if not session:
+        session = get_session_hack(spark)
 
-    logger.info(f"Our personal session id: {session}")
+    logger.debug(f"Our personal session id: {session}")
 
     parts_key = (
         f"{get_session_appended_key(SPARK_CONF_PIPELINE_CODE_KEY, session)}_parts"
     )
-    logger.info(f"Got parts_key: {parts_key}")
+    logger.debug(f"Got parts_key: {parts_key}")
 
     parts = get_spark_property(parts_key, spark)
-    logger.info(f"Got parts: {parts}")
+    logger.debug(f"Got parts: {parts}")
 
     if parts is not None:  # ⇐ Some(parts) in Scala
-        logger.info("Got code split in %s parts", parts)
+        logger.debug("Got code split in %s parts", parts)
 
         # Gather every chunk into an in-memory list
         compressed_chunks: list[str] = []
@@ -116,7 +345,7 @@ def get_running_code(spark, session: str) -> RecursiveDirectoryContent:
                 logger.error("Fallback JSON parser failed as well", exc_info=exc2)
                 rdc = {}
 
-        logger.info("Final code size = %d bytes", len(str(rdc).encode()))
+        logger.debug("Final code size = %d bytes", len(str(rdc).encode()))
         return rdc
 
     # 2️⃣  Single-value branch -------------------------------------------------
@@ -132,28 +361,60 @@ def get_running_code(spark, session: str) -> RecursiveDirectoryContent:
 
 def get_process_from_gem2(spark, gemName: str, userSession: str) -> str:
     rdc = get_running_code(spark, userSession)
-    logger.info(f"RDC Keys - {rdc.keys()}")
+    
+    if not rdc:
+        logger.warning("RDC is empty. Using gemName as process ID.")
+        return gemName
+    
+    logger.debug(f"RDC Keys - {list(rdc.keys())}")
 
-    def find_process_id_by_slug(rdc, slug):
-        wflow_file_json = rdc[".prophecy/workflow.latest.json"]
-        wflow_file_json = json.loads(wflow_file_json)
-
-        def search_processes(processes):
-            for proc_id, proc_val in processes.items():
-                if proc_val.get("metadata", {}).get("slug") == slug:
-                    return proc_id
-                # Recursively search nested processes
-                nested = proc_val.get("processes")
-                if isinstance(nested, dict):
-                    found = search_processes(nested)
-                    if found:
-                        return found
+    workflow_key = ".prophecy/workflow.latest.json"
+    workflow_content = rdc.get(workflow_key)
+    
+    if workflow_content is None:
+        logger.warning(f"Workflow metadata not found in rdc (keys: {list(rdc.keys())}). Using gemName as process ID.")
+        return gemName
+    
+    # Parse workflow JSON
+    if not isinstance(workflow_content, str):
+        logger.warning(f"Workflow content is not a string (type: {type(workflow_content)}). Using gemName as process ID.")
+        return gemName
+    
+    wflow_file_json = json.loads(workflow_content)
+    
+    if not isinstance(wflow_file_json, dict):
+        logger.warning(f"Parsed workflow is not a dict (type: {type(wflow_file_json)}). Using gemName as process ID.")
+        return gemName
+    
+    def search_processes(processes, slug):
+        """Recursively search for process ID by slug."""
+        if not isinstance(processes, dict):
             return None
-
-        processes = wflow_file_json.get("processes", {})
-        return search_processes(processes)
-
-    return find_process_id_by_slug(rdc, gemName)
+        
+        for proc_id, proc_val in processes.items():
+            if not isinstance(proc_val, dict):
+                continue
+            
+            metadata = proc_val.get("metadata")
+            if isinstance(metadata, dict) and metadata.get("slug") == slug:
+                return proc_id
+            
+            # Recursively search nested processes
+            nested = proc_val.get("processes")
+            if isinstance(nested, dict):
+                found = search_processes(nested, slug)
+                if found:
+                    return found
+        
+        return None
+    
+    processes = wflow_file_json.get("processes", {})
+    result = search_processes(processes, gemName)
+    
+    if result:
+        return result
+    
+    return gemName
 
 
 @dataclass
@@ -385,12 +646,4 @@ def sendPipelineProgressEvent2(
 
 
 def send_ws_message(json_msg: str):
-    try:
-        from websocket_runner import send_message_via_ws
-
-        final_notification = NotificationMessage(SparkEventNotification(json_msg))
-        final_message = final_notification.to_json()
-        logger.info(f"SENDING pipeline_monitoring_ws_message: {final_message}")
-        send_message_via_ws(final_message)
-    except Exception as e:
-        logger.info(f"Exception while SENDING pipeline_monitoring_ws_message: {e}")
+    _sender.send(json_msg)

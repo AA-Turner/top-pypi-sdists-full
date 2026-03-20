@@ -31,8 +31,8 @@
         - bindep-ubuntu-noble
         - build-python-release
         - nox-linters
-        - nox-py37:
-            nodeset: ubuntu-bionic
+        - nox-py38:
+            nodeset: ubuntu-focal
         - nox-py312:
             nodeset: ubuntu-noble
         - nox-cover
@@ -42,8 +42,8 @@
         - bindep-ubuntu-noble
         - build-python-release
         - nox-linters
-        - nox-py37:
-            nodeset: ubuntu-bionic
+        - nox-py38:
+            nodeset: ubuntu-focal
         - nox-py312:
             nodeset: ubuntu-noble
         - nox-cover

@@ -340,8 +340,10 @@ def xml_check_schematron(xml, flavor='autodetect', level='autodetect'):
             "The XML file is invalid against the schematron: %d errors found.", len(errors))
         for error_msg in errors:
             logger.error(error_msg)
-        full_error = "The Factur-X XML file is not valid against the official "\
-            f"schematron. {len(errors)} errors found:\n{'\n'.join(errors)}"
+        error_list_str = '\n'.join(errors)
+        full_error = (
+            f"The Factur-X XML file is not valid against the official "
+            f"schematron. {len(errors)} errors found:\n{error_list_str}")
         raise Exception(full_error)
     end_chrono = datetime.now()
     logger.info(

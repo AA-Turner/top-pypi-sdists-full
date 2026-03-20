@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagstermill"
-version = "0.28.19"
+version = "0.28.20"
 description = "run notebooks using the Dagster tools"
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -19,7 +19,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.19",
+    "dagster==1.12.20",
     "ipykernel>=4.9.0,!=5.4.0,!=5.4.1",
     "ipython_genutils>=0.2.0",
     "packaging>=20.9",
@@ -36,5 +36,5 @@ dagstermill = "dagstermill.cli:main"
 test = [
     "matplotlib",
     "scikit-learn>=0.19.0",
-    "tqdm<=4.48",
+    "tqdm",
 ]

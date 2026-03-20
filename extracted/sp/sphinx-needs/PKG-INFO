@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-needs
-Version: 7.0.0
+Version: 8.0.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
 Requires-Python: >=3.10,<4
@@ -36,6 +36,7 @@ Requires-Dist: sphinxcontrib-plantuml~=0.0 ; extra == "docs"
 Requires-Dist: sphinx-copybutton~=0.5 ; extra == "docs"
 Requires-Dist: sphinxcontrib-programoutput~=0.17 ; extra == "docs"
 Requires-Dist: sphinx-design~=0.6 ; extra == "docs"
+Requires-Dist: sphinx-ai-index~=0.1.0 ; extra == "docs"
 Requires-Dist: matplotlib>=3.3.0 ; extra == "plotting"
 Requires-Dist: defusedxml~=0.7.1 ; extra == "test"
 Requires-Dist: matplotlib>=3.3.0 ; extra == "test"

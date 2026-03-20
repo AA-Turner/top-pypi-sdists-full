@@ -35,7 +35,6 @@ from snowflake.snowpark.types import (
     StructField,
     StructType,
     TimestampType,
-    TimeType,
     _NumericType,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -606,7 +605,9 @@ class JdbcDataFrameReader(DataFrameReader):
                 case jdbc_utils.DATE:
                     field = StructField(column_name, DateType(), is_nullable)
                 case jdbc_utils.TIME:
-                    field = StructField(column_name, TimeType(), is_nullable)
+                    # Snowpark doesn't support TimeType for table creation,
+                    # so we store TIME values as strings
+                    field = StructField(column_name, StringType(), is_nullable)
                 case jdbc_utils.DATETIME:
                     field = StructField(column_name, TimestampType(), is_nullable)
                 case jdbc_utils.BINARY:

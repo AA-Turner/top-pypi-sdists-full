@@ -59,8 +59,14 @@ class CLITelemetryField(Enum):
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
+    COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
+    CONFIG_PROVIDER_TYPE = "config_provider_type"
+    CONFIG_SOURCES_USED = "config_sources_used"
+    CONFIG_SOURCE_WINS = "config_source_wins"
+    CONFIG_TOTAL_KEYS_RESOLVED = "config_total_keys_resolved"
+    CONFIG_KEYS_WITH_OVERRIDES = "config_keys_with_overrides"
     # Metrics
     COUNTERS = "counters"
     SPANS = "spans"
@@ -192,7 +198,21 @@ def _get_definition_version() -> str | None:
     return None
 
 
+def _is_interactive_terminal() -> bool:
+    """Check if stdin and stdout are connected to a TTY."""
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except Exception:
+        return False
+
+
+def _is_env_truthy(name: str) -> bool:
+    """Check if an environment variable has a truthy value."""
+    return os.environ.get(name, "").lower() in ("yes", "true", "1", "on")
+
+
 def _get_ci_environment_type() -> str:
+    """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
         return "SF_GITHUB_ACTION"
     if "GITHUB_ACTIONS" in os.environ:
@@ -205,6 +225,39 @@ def _get_ci_environment_type() -> str:
         return "JENKINS"
     if "TF_BUILD" in os.environ:
         return "AZURE_DEVOPS"
+    if "BITBUCKET_BUILD_NUMBER" in os.environ:
+        return "BITBUCKET_PIPELINES"
+    if "CODEBUILD_BUILD_ID" in os.environ:
+        return "AWS_CODEBUILD"
+    if "TEAMCITY_VERSION" in os.environ:
+        return "TEAMCITY"
+    if "BUILDKITE" in os.environ:
+        return "BUILDKITE"
+    if "CF_BUILD_ID" in os.environ:
+        return "CODEFRESH"
+    if "TRAVIS" in os.environ:
+        return "TRAVIS_CI"
+    if _is_env_truthy("CI"):
+        return "UNKNOWN_CI"
+    if _is_interactive_terminal():
+        return "LOCAL"
+    return "UNKNOWN"
+
+
+def _detect_agent_environment() -> str:
+    """Detect AI coding agent based on environment variables."""
+    if "CORTEX_SESSION_ID" in os.environ:
+        return "CORTEX"
+    if _is_env_truthy("CURSOR_AGENT"):
+        return "CURSOR"
+    if _is_env_truthy("CLAUDECODE"):
+        return "CLAUDE_CODE"
+    if _is_env_truthy("GEMINI_CLI"):
+        return "GEMINI_CLI"
+    if _is_env_truthy("OPENCODE"):
+        return "OPENCODE"
+    if "CODEX_API_KEY" in os.environ:
+        return "CODEX"
     return "UNKNOWN"
 
 
@@ -217,6 +270,51 @@ def command_info() -> str:
 def python_version() -> str:
     py_ver = sys.version_info
     return f"{py_ver.major}.{py_ver.minor}.{py_ver.micro}"
+
+
+def _get_config_telemetry() -> TelemetryDict:
+    """Get configuration resolution telemetry data."""
+    try:
+        from snowflake.cli.api.config_provider import (
+            AlternativeConfigProvider,
+            get_config_provider_singleton,
+        )
+
+        provider = get_config_provider_singleton()
+
+        # Identify which config provider is being used
+        provider_type = (
+            "ng" if isinstance(provider, AlternativeConfigProvider) else "legacy"
+        )
+
+        result: TelemetryDict = {CLITelemetryField.CONFIG_PROVIDER_TYPE: provider_type}
+
+        # Get detailed telemetry if using ng config
+        if isinstance(provider, AlternativeConfigProvider):
+            payload = provider.resolution_summary
+
+            # Map payload keys to telemetry fields
+            if payload:
+                if "config_sources_used" in payload:
+                    result[CLITelemetryField.CONFIG_SOURCES_USED] = payload[
+                        "config_sources_used"
+                    ]
+                if "config_source_wins" in payload:
+                    result[CLITelemetryField.CONFIG_SOURCE_WINS] = payload[
+                        "config_source_wins"
+                    ]
+                if "config_total_keys_resolved" in payload:
+                    result[CLITelemetryField.CONFIG_TOTAL_KEYS_RESOLVED] = payload[
+                        "config_total_keys_resolved"
+                    ]
+                if "config_keys_with_overrides" in payload:
+                    result[CLITelemetryField.CONFIG_KEYS_WITH_OVERRIDES] = payload[
+                        "config_keys_with_overrides"
+                    ]
+
+        return result
+    except Exception:
+        return {}
 
 
 class CLITelemetryClient:
@@ -235,10 +333,12 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
+            CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
             **_find_command_info(),
+            **_get_config_telemetry(),
             **telemetry_payload,
         }
         # To map Enum to string, so we don't have to use .value every time

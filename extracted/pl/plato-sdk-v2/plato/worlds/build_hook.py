@@ -59,11 +59,12 @@ class WorldSchemaHook(BuildHookInterface):
                 print("Warning: Could not determine module name for schema generation")
                 return
 
-            # Find and import only the specific .py file with @register_world,
+            # Find and import all .py files with @register_world,
             # bypassing __init__.py to avoid importing heavy runtime deps.
-            world_file = self._find_world_file(src_path / module_name)
-            if world_file:
-                self._import_file(module_name, world_file)
+            world_files = self._find_world_files(src_path / module_name)
+            if world_files:
+                for wf in world_files:
+                    self._import_file(module_name, wf)
             else:
                 # Fallback: import the package (triggers __init__.py)
                 __import__(module_name)
@@ -75,16 +76,10 @@ class WorldSchemaHook(BuildHookInterface):
                 print(f"Warning: No worlds registered after importing {module_name}")
                 return
 
-            # Get the first registered world
-            world_name, world_cls = next(iter(_WORLD_REGISTRY.items()))
-
             # Generate image URL from package name
             image_url = self._get_image_url()
 
-            # Get schema with image URL
             from plato.worlds.schema import get_world_schema
-
-            schema = get_world_schema(world_cls, image=image_url)
 
             # Find the module directory
             module_dir = src_path / module_name
@@ -96,18 +91,31 @@ class WorldSchemaHook(BuildHookInterface):
                         module_name = item.name
                         break
 
-            # Write schema.json
-            schema_path = module_dir / "schema.json"
-            schema_path.write_text(json.dumps(schema, indent=2))
+            # Always emit catalog format — Chronos handles both formats
+            catalog = {"worlds": {}}
+            for wname, wcls in _WORLD_REGISTRY.items():
+                catalog["worlds"][wname] = get_world_schema(wcls, image=image_url)
 
-            # Include schema.json in the wheel
+            # Validate: at most one primary world (type != "review")
+            primary_worlds = [
+                name for name, schema in catalog["worlds"].items() if schema.get("type", "world") != "review"
+            ]
+            if len(primary_worlds) > 1:
+                raise ValueError(
+                    f"Package has multiple primary worlds: {primary_worlds}. "
+                    f"Only one non-review world is allowed per package."
+                )
+
+            schema_path = module_dir / "schema.json"
+            schema_path.write_text(json.dumps(catalog, indent=2))
+
             build_data.setdefault("force_include", {})
             build_data["force_include"][str(schema_path)] = f"{module_name}/schema.json"
 
-            config_schema = schema.get("config_schema", {})
-            props = config_schema.get("properties", {}) if config_schema else {}
-            print(f"Generated schema.json: {len(props)} config properties, image={schema.get('image', 'N/A')}")
+            print(f"Generated schema.json (catalog): {len(catalog['worlds'])} worlds")
 
+        except ValueError:
+            raise
         except Exception as e:
             print(f"Warning: Could not generate schema.json: {e}")
         finally:
@@ -126,26 +134,27 @@ class WorldSchemaHook(BuildHookInterface):
         return None
 
     @staticmethod
-    def _find_world_file(package_dir: Path) -> Path | None:
-        """Find the .py file containing @register_world in a package directory.
+    def _find_world_files(package_dir: Path) -> list[Path]:
+        """Find all .py files containing @register_world in a package directory.
 
         Scans .py files (excluding __init__.py) for the decorator to avoid
         importing the entire package and its heavy dependencies.
         """
         if not package_dir.is_dir():
-            return None
+            return []
 
+        results: list[Path] = []
         for py_file in sorted(package_dir.glob("*.py")):
             if py_file.name == "__init__.py":
                 continue
             try:
                 content = py_file.read_text()
                 if "@register_world" in content:
-                    return py_file
+                    results.append(py_file)
             except Exception:
                 continue
 
-        return None
+        return results
 
     @staticmethod
     def _import_file(package_name: str, file_path: Path) -> None:

@@ -1,5 +1,4 @@
 # -*- coding: UTF-8 -*-
-import six
 from insights.core.ls_parser import parse
 
 
@@ -185,6 +184,11 @@ No such file or directory
 adsf
 """
 
+LS_ERROR_LINES = """
+/bin/ls: unrecognized option '--xx.xx.xxx.xx:/opt/carga_alocacao'
+Try '/bin/ls --help' for more information.
+"""
+
 
 def test_parse_selinux():
     results = parse(SELINUX_DIRECTORY.splitlines(), "/boot")
@@ -263,7 +267,6 @@ def test_parse_multiple_directories_with_break():
     assert len(results) == 4, len(results)
     assert len(results.values()) == 4
     assert len(results.items()) == 4
-    assert len(list(six.iteritems(results))) == 4
     assert results["/etc"]["name"] == "/etc"
     assert results["/etc"]["total"] == 1652
     assert results["/etc/rc.d/rc3.d"]["name"] == "/etc/rc.d/rc3.d"
@@ -338,9 +341,13 @@ def test_bad_line():
 def test_rhel8_selinux():
     results = parse(RHEL8_SELINUX_DIRECTORY.splitlines(), "/var/lib/nova/instances")
     assert len(results) == 1
-    assert results["/var/lib/nova/instances"]["name"] == "/var/lib/nova/instances", results["/var/lib/nova/instances"]["name"]
+    assert results["/var/lib/nova/instances"]["name"] == "/var/lib/nova/instances", results[
+        "/var/lib/nova/instances"
+    ]["name"]
     res = results["/var/lib/nova/instances"]["entries"]["abcd-efgh-ijkl-mnop"]
-    assert results["/var/lib/nova/instances"]["total"] == 0, results["/var/lib/nova/instances"]["total"]
+    assert results["/var/lib/nova/instances"]["total"] == 0, results["/var/lib/nova/instances"][
+        "total"
+    ]
     assert res["type"] == "d"
     assert res["links"] == 2
     assert res["owner"] == "root"
@@ -352,3 +359,10 @@ def test_rhel8_selinux():
     assert res["date"] == "Apr  8 16:41"
     assert res["name"] == "abcd-efgh-ijkl-mnop"
     assert res["dir"] == "/var/lib/nova/instances"
+
+
+def test_error_lines():
+    results = parse(LS_ERROR_LINES.splitlines())
+    assert len(results['error_lines']) == 2
+    assert results['error_lines'][0] == "/bin/ls: unrecognized option '--xx.xx.xxx.xx:/opt/carga_alocacao'"
+    assert results['error_lines'][1] == "Try '/bin/ls --help' for more information."

@@ -1,43 +1,26 @@
 """Built-in review model schemas for session-level reviews.
 
-These are generic review models usable by any world that produces
-session analysis / review outputs. They are included in every world's
-review_models by default via BaseWorld.
+These are the review models produced by the session-reviewer world.
+They use the unified review data system from ``plato.worlds.review``.
 
-Usage from a world::
+Usage from the session-reviewer world::
 
-    # These are already registered by default — no action needed.
-    # To add world-specific models alongside them:
-    class MyWorld(BaseWorld[MyConfig]):
-        review_models = BaseWorld.review_models + [MyCustomReview]
+    class SessionReviewerWorld(BaseReviewWorld[SessionReviewerConfig]):
+        output_models = [
+            SessionReviewIssue,
+            SessionReviewRecommendation,
+            SessionChunkSummary,
+            SessionReviewSummary,
+        ]
 """
 
 from __future__ import annotations
 
 from typing import Annotated, ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from plato.worlds.review import FeedbackField, RenderHint, ReviewData, review_model
-
-# ---------------------------------------------------------------------------
-# Shared feedback models
-# ---------------------------------------------------------------------------
-
-
-class ReviewFindingFeedback(BaseModel):
-    """Feedback for agreeing/disagreeing with a review finding (issue or recommendation)."""
-
-    verdict: Annotated[
-        str,
-        FeedbackField(widget="agree_disagree", label="Do you agree with this finding?"),
-    ] = ""
-    comment: Annotated[str, FeedbackField(widget="textarea", label="Comment")] = ""
-
-
-# Keep old name as alias for backward compat
-ReviewIssueFeedback = ReviewFindingFeedback
-
+from plato.worlds.review import RenderHint, ReviewData, StandardFeedback, review_model
 
 # ---------------------------------------------------------------------------
 # Session review issue
@@ -55,14 +38,14 @@ class SessionReviewIssue(ReviewData):
     description: Annotated[str, RenderHint(widget="markdown", label="Description")] = ""
     severity: Annotated[str, RenderHint(widget="severity_badge", label="Severity")] = "medium"
     category: Annotated[str, RenderHint(widget="tag_list", label="Category")] = ""
-    supporting_span_ids: Annotated[list[str], RenderHint(widget="json_tree", label="Evidence Spans")] = Field(
+    supporting_span_ids: Annotated[list[str], RenderHint(widget="span_list", label="Evidence Spans")] = Field(
         default_factory=list
     )
     chunk_ids: Annotated[list[str], RenderHint(widget="tag_list", label="Inspected Chunks")] = Field(
         default_factory=list
     )
 
-    Feedback: ClassVar[type] = ReviewFindingFeedback
+    Feedback: ClassVar[type] = StandardFeedback
 
 
 # ---------------------------------------------------------------------------
@@ -81,11 +64,11 @@ class SessionReviewRecommendation(ReviewData):
     description: Annotated[str, RenderHint(widget="markdown", label="Description")] = ""
     priority: Annotated[str, RenderHint(widget="severity_badge", label="Priority")] = "medium"
     category: Annotated[str, RenderHint(widget="tag_list", label="Category")] = ""
-    supporting_span_ids: Annotated[list[str], RenderHint(widget="json_tree", label="Evidence Spans")] = Field(
+    supporting_span_ids: Annotated[list[str], RenderHint(widget="span_list", label="Evidence Spans")] = Field(
         default_factory=list
     )
 
-    Feedback: ClassVar[type] = ReviewFindingFeedback
+    Feedback: ClassVar[type] = StandardFeedback
 
 
 # ---------------------------------------------------------------------------
@@ -104,8 +87,11 @@ class SessionChunkSummary(ReviewData):
     summary: Annotated[str, RenderHint(widget="markdown", label="Summary")] = ""
     span_count: Annotated[int, RenderHint(widget="score_bar", label="Spans")] = 0
     highlights: Annotated[str, RenderHint(widget="markdown", label="Highlights")] = ""
+    supporting_span_ids: Annotated[list[str], RenderHint(widget="span_list", label="Evidence Spans")] = Field(
+        default_factory=list
+    )
 
-    Feedback: ClassVar[type] = ReviewFindingFeedback
+    Feedback: ClassVar[type] = StandardFeedback
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +112,7 @@ class SessionReviewSummary(ReviewData):
     inspected_chunks: Annotated[int, RenderHint(widget="score_bar", label="Chunks Inspected")] = 0
     review_kind: Annotated[str, RenderHint(widget="tag_list", label="Review Type")] = ""
 
-    Feedback: ClassVar[type] = ReviewFindingFeedback
+    Feedback: ClassVar[type] = StandardFeedback
 
 
 # All built-in review models — used as default for BaseWorld.review_models

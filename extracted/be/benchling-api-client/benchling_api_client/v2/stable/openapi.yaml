@@ -22682,6 +22682,10 @@ components:
           - $ref: '#/components/schemas/SchemaSummary'
           description: Schema that the result belongs to
           title: SchemaProperty
+        v3Id:
+          description: V3 identifier for the result
+          readOnly: true
+          type: string
         validationComment:
           readOnly: true
           type: string
@@ -22905,6 +22909,11 @@ components:
             name: Assay Run
           nullable: true
           title: SchemaProperty
+        v3Id:
+          description: V3 identifier for the run
+          example: run_21f50003
+          readOnly: true
+          type: string
         validationComment:
           example: Reported valid with no caveats
           nullable: true

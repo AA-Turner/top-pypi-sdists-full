@@ -46,6 +46,7 @@ class SectionalExitingRule(BaseModel):
 
     match_rules: tuple[MatchRule, ...]
     exit_text: str
+    exit_text_parent_level: bool = False
 
 
 class SectionalOverwriteRule(BaseModel):
@@ -95,7 +96,15 @@ class PerLineSubRule(BaseModel):
 
 
 class IdempotentCommandsRule(BaseModel):
-    """Rule declaring that a command family is idempotent (last value wins)."""
+    r"""Rule declaring that a command family is idempotent (last value wins).
+
+    Use regex capture groups in ``MatchRule.re_search`` to parameterize
+    idempotency keys — e.g. ``r"^client (\S+) server-key"`` makes each
+    client IP independently idempotent.
+
+    Prefer separate rules for unrelated command families rather than
+    combining them via a tuple ``startswith`` in a single ``MatchRule``.
+    """
 
     match_rules: tuple[MatchRule, ...]
 
@@ -125,6 +134,48 @@ class NegationDefaultWithRule(BaseModel):
 
     match_rules: tuple[MatchRule, ...]
     use: str
+
+
+class NegationSubRule(BaseModel):
+    r"""Regex substitution applied to a command during negation.
+
+    When a negated command matches ``match_rules``, ``re.sub(search, replace, text)``
+    is applied to transform the negation line.  Useful when a platform requires
+    truncated or reformatted negation commands — e.g. NX-OS SNMP user removal
+    must drop everything after the username.
+
+    The regex is applied to the **already-negated** text (with ``no `` prepended).
+    ``replace`` supports back-references such as ``\1``.
+    """
+
+    match_rules: tuple[MatchRule, ...]
+    search: str
+    replace: str
+
+
+class ReferenceLocation(BaseModel):
+    """A location in the config tree where object name references are searched.
+
+    ``match_rules`` defines a lineage prefix that narrows the search scope.
+    ``reference_re`` is a regex pattern containing ``{name}`` which is
+    interpolated with the extracted object name before matching.
+    """
+
+    match_rules: tuple[MatchRule, ...]
+    reference_re: str
+
+
+class UnusedObjectRule(BaseModel):
+    r"""Rule for detecting unused named objects in a configuration.
+
+    Identifies object definitions via ``match_rules``, extracts the object
+    name using ``name_re`` (a regex with a ``(?P<name>...)`` capture group),
+    and searches for references across all ``reference_locations``.
+    """
+
+    match_rules: tuple[MatchRule, ...]
+    name_re: str
+    reference_locations: tuple[ReferenceLocation, ...]
 
 
 SetLikeOfStr = frozenset[str] | set[str]

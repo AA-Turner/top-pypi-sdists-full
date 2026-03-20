@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: useq-schema
-Version: 0.9.0
+Version: 0.9.1
 Summary: Schema for multi-dimensional microscopy experiments
 Project-URL: Source, https://github.com/pymmcore-plus/useq-schema
 Project-URL: Tracker, https://github.com/pymmcore-plus/useq-schema/issues

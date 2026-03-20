@@ -1,10 +1,13 @@
 """Tests for built-in session review models."""
 
 from plato.worlds.base import BaseWorld
-from plato.worlds.review import collect_review_schemas, get_review_model_meta, review_model_to_json_schema
+from plato.worlds.review import (
+    StandardFeedback,
+    collect_review_schemas,
+    get_review_model_meta,
+    review_model_to_json_schema,
+)
 from plato.worlds.session_review_models import (
-    DEFAULT_REVIEW_MODELS,
-    ReviewFindingFeedback,
     SessionChunkSummary,
     SessionReviewIssue,
     SessionReviewRecommendation,
@@ -15,12 +18,16 @@ from plato.worlds.session_review_models import (
 class TestSessionReviewModels:
     """Test that session review models are properly decorated and structured."""
 
-    def test_default_review_models_has_all_four(self):
-        assert len(DEFAULT_REVIEW_MODELS) == 4
-        assert SessionReviewIssue in DEFAULT_REVIEW_MODELS
-        assert SessionReviewRecommendation in DEFAULT_REVIEW_MODELS
-        assert SessionChunkSummary in DEFAULT_REVIEW_MODELS
-        assert SessionReviewSummary in DEFAULT_REVIEW_MODELS
+    REVIEW_MODELS = [
+        SessionReviewIssue,
+        SessionReviewRecommendation,
+        SessionChunkSummary,
+        SessionReviewSummary,
+    ]
+
+    def test_all_review_models_present(self):
+        for model in self.REVIEW_MODELS:
+            assert model in BaseWorld.review_models
 
     def test_session_review_issue_has_meta(self):
         meta = get_review_model_meta(SessionReviewIssue)
@@ -118,19 +125,15 @@ class TestSessionReviewModels:
         assert summary.type == "session_review_summary"
 
     def test_feedback_model(self):
-        fb = ReviewFindingFeedback(verdict="agree", comment="Looks correct")
-        assert fb.verdict == "agree"
+        fb = StandardFeedback(verdict=True, comment="Looks correct")
+        assert fb.verdict is True
         assert fb.comment == "Looks correct"
 
     def test_all_models_have_feedback(self):
         """Every review model should have a Feedback class for user input."""
-        for model in DEFAULT_REVIEW_MODELS:
+        for model in self.REVIEW_MODELS:
             assert hasattr(model, "Feedback"), f"{model.__name__} missing Feedback"
-            assert model.Feedback is ReviewFindingFeedback
-
-    def test_base_world_has_default_review_models(self):
-        for model in DEFAULT_REVIEW_MODELS:
-            assert model in BaseWorld.review_models
+            assert model.Feedback is StandardFeedback
 
     def test_collect_review_schemas_from_base_world(self):
         schemas = collect_review_schemas(BaseWorld)

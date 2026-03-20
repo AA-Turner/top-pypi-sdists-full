@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from .work_queue import WorkQueue
+from .protocol import WorkQueueProtocol
 
 if TYPE_CHECKING:
     from .api import Keeper
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def process_work_batch(
     keeper: "Keeper",
-    queue: WorkQueue,
+    queue: WorkQueueProtocol,
     *,
     limit: int = 10,
     worker_id: Optional[str] = None,
@@ -78,11 +78,11 @@ def process_work_batch(
     # Log perf summary + queue depth after each batch with actual work
     if stats["processed"] or stats["failed"]:
         from .perf_stats import perf
-        perf.log_summary()
+        perf.log_summary(min_interval=60)
         remaining = queue.count()
         if remaining > 0:
-            by_kind = queue.count_by_kind()
-            parts = [f"{v} {k}" for k, v in sorted(by_kind.items(), key=lambda x: -x[1])]
+            by_kind = queue.count_by_kind()  # pre-sorted by priority
+            parts = [f"{v} {k}" for k, v in by_kind.items()]
             logger.info("Queue: %d remaining (%s)", remaining, ", ".join(parts))
 
     return stats

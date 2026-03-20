@@ -84,6 +84,10 @@ class ExperimentInfo:
         return self.__data["cuid"]
 
     @property
+    def slug(self) -> Optional[str]:
+        return self.__data.get("slug")
+
+    @property
     def name(self):
         return self.__data["name"]
 

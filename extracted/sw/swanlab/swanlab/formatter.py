@@ -188,8 +188,8 @@ def check_group_format(group: str, auto_cut: bool = True) -> str:
 def check_run_id_format(run_id: str = None) -> Optional[str]:
     """
     检查运行ID格式，要求：
-    1. 只能包含小写字母和数字
-    2. 长度为21个字符
+    1. 长度为1-64个字符
+    2. 不能包含 /, \\, #, ?, %, : 字符
     :param run_id: 运行ID字符串
     :return: str 检查后的字符串
     :raises ValueError: 如果运行ID不符合要求
@@ -197,8 +197,10 @@ def check_run_id_format(run_id: str = None) -> Optional[str]:
     if not run_id:
         return None
     run_id_str = str(run_id)
-    if not re.match(r"^[a-z0-9]{21}$", run_id_str):
-        raise ValueError(f"id `{run_id}` is invalid, it must be 21 characters of lowercase letters and digits")
+    if not (1 <= len(run_id_str) <= 64):
+        raise ValueError(f"id `{run_id}` is invalid, length must be between 1 and 64 characters")
+    if re.search(r'[/\\#?%:]', run_id_str):
+        raise ValueError(f"id `{run_id}` is invalid, it must not contain /, \\, #, ?, %, or :")
     return run_id_str
 
 
@@ -256,3 +258,52 @@ def check_callback_format(callback: Optional[Union[SwanKitCallback, List[SwanKit
     if not isinstance(callback, list):
         raise TypeError(f"Only support SwanKitCallback or List[SwanKitCallback], but got {type(callback)}")
     return callback
+
+
+PRESET_COLORS = {
+    "green": "#528d59",
+    "blue": "#587ad2",
+    "red": "#c24d46",
+    "cyan": "#6ebad3",
+    "orange": "#dfb142",
+    "purple": "#6d4ba4",
+    "pink": "#d47694",
+    "brown": "#905f4a",
+    "gray": "#989fa3",
+}
+
+
+def check_color_format(color: str) -> Optional[str]:
+    """
+    验证并转换颜色格式为十六进制
+    支持：预置颜色名、RGB格式、十六进制
+    :param color: 颜色字符串
+    :return: 十六进制颜色字符串
+    :raises ValueError: 颜色格式不正确
+    """
+    if not color:
+        return None
+
+    color = color.strip().lower()
+
+    # 预置颜色
+    if color in PRESET_COLORS:
+        return PRESET_COLORS[color]
+
+    # RGB格式
+    rgb_match = re.match(r'(?:rgb\s*)?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)', color)
+    if rgb_match:
+        r, g, b = map(int, rgb_match.groups())
+        if all(0 <= v <= 255 for v in [r, g, b]):
+            return f"#{r:02x}{g:02x}{b:02x}"
+        raise ValueError(f"RGB values must be 0-255: ({r}, {g}, {b})")
+
+    # 十六进制格式
+    hex_color = color.lstrip("#")
+    if len(hex_color) == 3:
+        hex_color = "".join(c * 2 for c in hex_color)
+
+    if re.fullmatch(r'[0-9a-f]{6}', hex_color):
+        return f"#{hex_color}"
+
+    raise ValueError(f"Invalid color format: {color}")

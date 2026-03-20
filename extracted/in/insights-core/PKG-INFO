@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: insights-core
-Version: 3.7.4
+Version: 3.7.5
 Summary: Insights Core is a data collection and analysis framework
 Home-page: https://github.com/redhatinsights/insights-core
 Author: Red Hat, Inc.
@@ -213,7 +213,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -226,16 +225,14 @@ Requires-Dist: cachecontrol
 Requires-Dist: cachecontrol[filecache]
 Requires-Dist: cachecontrol[redis]
 Requires-Dist: defusedxml
-Requires-Dist: jinja2; python_version > "2.7" and python_version <= "3.6"
-Requires-Dist: jinja2<=2.11.3; python_version <= "2.7"
+Requires-Dist: jinja2; python_version <= "3.6"
 Requires-Dist: jinja2>=3.1.6; python_version > "3.6"
 Requires-Dist: lockfile
 Requires-Dist: pyyaml
 Requires-Dist: redis
 Requires-Dist: requests
-Requires-Dist: rpm; python_version >= "3.6"
+Requires-Dist: rpm
 Requires-Dist: setuptools; python_version < "3.10"
-Requires-Dist: six
 Provides-Extra: client
 Requires-Dist: oyaml; extra == "client"
 Requires-Dist: python-gnupg==0.4.6; extra == "client"
@@ -256,7 +253,8 @@ Requires-Dist: Pygments; extra == "docs"
 Requires-Dist: Sphinx<=8.2.3; extra == "docs"
 Requires-Dist: colorama; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
-Requires-Dist: ipython; extra == "docs"
+Requires-Dist: ipython<8.7.0; python_version <= "3.6" and extra == "docs"
+Requires-Dist: ipython; python_version > "3.6" and extra == "docs"
 Requires-Dist: jedi; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
@@ -272,10 +270,8 @@ Requires-Dist: python-statsd; extra == "optional"
 Requires-Dist: watchdog; extra == "optional"
 Provides-Extra: testing
 Requires-Dist: coverage; extra == "testing"
-Requires-Dist: mock==2.0.0; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"
-Requires-Dist: pytest; python_version >= "3" and extra == "testing"
-Requires-Dist: pytest~=4.6.0; python_version == "2.7" and extra == "testing"
+Requires-Dist: pytest; extra == "testing"
 Dynamic: author
 Dynamic: home-page
 Dynamic: license-file

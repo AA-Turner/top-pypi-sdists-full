@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygls
-Version: 2.0.1
+Version: 2.1.0
 Summary: A pythonic generic language server (pronounced like 'pie glass')
 License-File: LICENSE.txt
 Author: Open Law Library
@@ -76,7 +76,6 @@ All Pygls sub-tasks require the `uv`: https://docs.astral.sh/uv/getting-started/
 
 * `uv run --all-extras poe test`
 * `uv run --all-extras poe test-pyodide`
-
 
 ## Contributing
 

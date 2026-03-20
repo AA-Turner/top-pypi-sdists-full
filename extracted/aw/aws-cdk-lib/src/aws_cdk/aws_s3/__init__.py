@@ -1836,6 +1836,50 @@ class BucketGrants(
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         return typing.cast("BucketGrants", jsii.sinvoke(cls, "fromBucket", [bucket]))
 
+    @jsii.member(jsii_name="actionsOnBucketAndObjectKeys")
+    def actions_on_bucket_and_object_keys(
+        self,
+        identity: "_IGrantable_71c4f5de",
+        objects_key_pattern: typing.Optional[builtins.str] = None,
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grants the given actions on both the bucket and the bucket's objects to the given principal.
+
+        KMS actions (prefixed with ``kms:``) are automatically separated and granted on the encryption key.
+
+        :param identity: The principal to grant permissions to.
+        :param objects_key_pattern: Restrict the permission to a certain key pattern (default '*').
+        :param actions: The S3 and/or KMS actions to grant.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__686f55a2d0e0d898278fde0bc03f3a68e6a0feaccb483e04ea5cc29535b14226)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+            check_type(argname="argument objects_key_pattern", value=objects_key_pattern, expected_type=type_hints["objects_key_pattern"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actionsOnBucketAndObjectKeys", [identity, objects_key_pattern, *actions]))
+
+    @jsii.member(jsii_name="actionsOnObjectKeys")
+    def actions_on_object_keys(
+        self,
+        identity: "_IGrantable_71c4f5de",
+        objects_key_pattern: typing.Optional[builtins.str] = None,
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grants the given actions on the bucket's objects to the given principal.
+
+        KMS actions (prefixed with ``kms:``) are automatically separated and granted on the encryption key.
+
+        :param identity: The principal to grant permissions to.
+        :param objects_key_pattern: Restrict the permission to a certain key pattern (default '*').
+        :param actions: The S3 and/or KMS actions to grant.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__278b523907ff51fb16481ef90d142dd3cd5a6043bd332b70d6f10625e64ca71a)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+            check_type(argname="argument objects_key_pattern", value=objects_key_pattern, expected_type=type_hints["objects_key_pattern"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actionsOnObjectKeys", [identity, objects_key_pattern, *actions]))
+
     @jsii.member(jsii_name="delete")
     def delete(
         self,
@@ -2544,7 +2588,7 @@ class BucketProps:
         :param encryption_key: External KMS key to use for bucket encryption. The ``encryption`` property must be either not specified or set to ``KMS`` or ``DSSE``. An error will be emitted if ``encryption`` is set to ``UNENCRYPTED`` or ``S3_MANAGED``. Default: - If ``encryption`` is set to ``KMS`` and this property is undefined, a new KMS key will be created and associated with this bucket.
         :param enforce_ssl: Enforces SSL for requests. S3.5 of the AWS Foundational Security Best Practices Regarding S3. Default: false
         :param event_bridge_enabled: Whether this bucket should send notifications to Amazon EventBridge or not. Default: false
-        :param intelligent_tiering_configurations: Intelligent Tiering Configurations. Default: No Intelligent Tiiering Configurations.
+        :param intelligent_tiering_configurations: Intelligent Tiering Configurations. Default: No Intelligent Tiering Configurations.
         :param inventories: The inventory configuration of the bucket. Default: - No inventory configuration
         :param lifecycle_rules: Rules that define how Amazon S3 manages objects during their lifetime. Default: - No lifecycle rules.
         :param metrics: The metrics configuration of this bucket. Default: - No metrics configuration.
@@ -2846,7 +2890,7 @@ class BucketProps:
     ) -> typing.Optional[typing.List["IntelligentTieringConfiguration"]]:
         '''Intelligent Tiering Configurations.
 
-        :default: No Intelligent Tiiering Configurations.
+        :default: No Intelligent Tiering Configurations.
 
         :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering.html
         '''
@@ -23297,7 +23341,7 @@ class Bucket(
         :param encryption_key: External KMS key to use for bucket encryption. The ``encryption`` property must be either not specified or set to ``KMS`` or ``DSSE``. An error will be emitted if ``encryption`` is set to ``UNENCRYPTED`` or ``S3_MANAGED``. Default: - If ``encryption`` is set to ``KMS`` and this property is undefined, a new KMS key will be created and associated with this bucket.
         :param enforce_ssl: Enforces SSL for requests. S3.5 of the AWS Foundational Security Best Practices Regarding S3. Default: false
         :param event_bridge_enabled: Whether this bucket should send notifications to Amazon EventBridge or not. Default: false
-        :param intelligent_tiering_configurations: Intelligent Tiering Configurations. Default: No Intelligent Tiiering Configurations.
+        :param intelligent_tiering_configurations: Intelligent Tiering Configurations. Default: No Intelligent Tiering Configurations.
         :param inventories: The inventory configuration of the bucket. Default: - No inventory configuration
         :param lifecycle_rules: Rules that define how Amazon S3 manages objects during their lifetime. Default: - No lifecycle rules.
         :param metrics: The metrics configuration of this bucket. Default: - No metrics configuration.
@@ -23886,6 +23930,22 @@ def _typecheckingstub__59c6740ee33c114a2242cf5d785c7eb7be508681dd83101b211e8bfd4
 
 def _typecheckingstub__b5e165d4f02416c215cdcf039545906e052d4662c0eb01c198e89851d7b03968(
     bucket: _IBucketRef_3debe44e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__686f55a2d0e0d898278fde0bc03f3a68e6a0feaccb483e04ea5cc29535b14226(
+    identity: _IGrantable_71c4f5de,
+    objects_key_pattern: typing.Optional[builtins.str] = None,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__278b523907ff51fb16481ef90d142dd3cd5a6043bd332b70d6f10625e64ca71a(
+    identity: _IGrantable_71c4f5de,
+    objects_key_pattern: typing.Optional[builtins.str] = None,
+    *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

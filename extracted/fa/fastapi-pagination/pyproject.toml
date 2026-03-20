@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-pagination"
-version = "0.15.10"
+version = "0.15.11"
 description = "FastAPI pagination"
 authors = [
     { name = "Yurii Karabas", email = "1998uriyyo@gmail.com" },
@@ -85,6 +85,13 @@ dev = [
     "ruff>=0.14.0",
     "dirty-equals>=0.9.0",
     "ty>=0.0.11",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.50",
+    "pymdown-extensions~=10.14",
+    "fontawesome-markdown>=0.2.6",
+    "mdx-include",
 ]
 
 [build-system]

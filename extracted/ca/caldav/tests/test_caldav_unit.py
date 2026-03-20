@@ -1148,11 +1148,11 @@ END:VCALENDAR
         assert isinstance(my_event.data, str)
         assert isinstance(my_event.wire_data, bytestr)
         ## this may have side effects, as it converts the internal storage
-        my_event.icalendar_instance
+        my_event.get_icalendar_instance()
         assert isinstance(my_event.data, str)
         assert isinstance(my_event.wire_data, bytestr)
         ## this may have side effects, as it converts the internal storage
-        my_event.vobject_instance
+        my_event.get_vobject_instance()
         assert isinstance(my_event.data, str)
         assert isinstance(my_event.wire_data, bytestr)
         my_event.wire_data = to_wire(ev1)
@@ -1837,6 +1837,233 @@ END:VCALENDAR
             calendar.get_object_by_uid("20010712T182145Z-123401@example.com-nope")
 
 
+class TestAsyncGetObjectByUid:
+    """Tests for async support in get_object_by_uid and friends (issue #642)."""
+
+    def _make_multistatus(self, ical_data, href="/calendar/ev1.ics"):
+        return f"""<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>{href}</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>{ical_data}</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>"""
+
+    def test_get_object_by_uid_returns_coroutine_for_async_client(self):
+        """get_object_by_uid() must return a coroutine (not a result) when the
+        client is an AsyncDAVClient, so that the caller can await it."""
+        import asyncio
+
+        from caldav.async_davclient import AsyncDAVClient
+
+        xml_response = self._make_multistatus(ev1)
+        client = MockedDAVClient(xml_response)
+        # Pretend the client is async by patching the type name
+        client.__class__ = type(
+            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
+        )
+        calendar = Calendar(client, url="/calendar/")
+        assert calendar.is_async_client
+        uid = "20010712T182145Z-123401@example.com"
+        result = calendar.get_object_by_uid(uid)
+        # Must be a coroutine, not an Event/CalendarObjectResource
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from async client, got {type(result)}"
+        )
+        result.close()  # clean up to avoid ResourceWarning
+
+    def test_get_object_by_uid_async_returns_correct_object(self):
+        """Awaiting the coroutine from get_object_by_uid() returns the right object."""
+        import asyncio
+
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = MockedDAVClient("")
+        client.__class__ = type(
+            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
+        )
+        calendar = Calendar(client, url="/calendar/")
+        uid = "20010712T182145Z-123401@example.com"
+
+        # Build a real Event object that the mocked search will return
+        fake_event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
+
+        # Mock calendar.search as an async function returning our fake event
+        async def fake_search(**kwargs):
+            return [fake_event]
+
+        calendar.search = fake_search
+
+        obj = asyncio.run(calendar.get_object_by_uid(uid))
+        assert obj.id == uid
+
+
+class TestAsyncCalendarObjectResource:
+    """Tests that CalendarObjectResource methods return coroutines (not None) for async clients.
+
+    These guard against the pattern where a sync method calls self.save() or
+    self.parent.some_method() without awaiting, silently discarding the coroutine.
+    """
+
+    completed_todo = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+UID:20070313T123432Z-456553@example.com
+DTSTAMP:20070313T123432Z
+DUE;VALUE=DATE:20070501
+SUMMARY:Submit Quebec Income Tax Return for 2006
+STATUS:COMPLETED
+COMPLETED:20070501T000000Z
+END:VTODO
+END:VCALENDAR"""
+
+    todo_with_relation = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+UID:20070313T123432Z-456553@example.com
+DTSTAMP:20070313T123432Z
+DUE;VALUE=DATE:20070501
+SUMMARY:Submit Quebec Income Tax Return for 2006
+RELATED-TO;RELTYPE=PARENT:parent-uid-001
+STATUS:NEEDS-ACTION
+END:VTODO
+END:VCALENDAR"""
+
+    def _make_async_client_and_calendar(self):
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = MockedDAVClient("")
+        client.__class__ = type(
+            "AsyncDAVClient", (MockedDAVClient,), {"__module__": AsyncDAVClient.__module__}
+        )
+        calendar = Calendar(client, url="/calendar/")
+        return client, calendar
+
+    def test_uncomplete_returns_coroutine_for_async_client(self):
+        """uncomplete() must return a coroutine for async clients, not silently discard save()."""
+        import asyncio
+
+        client, calendar = self._make_async_client_and_calendar()
+        todo = Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.completed_todo,
+            parent=calendar,
+        )
+        result = todo.uncomplete()
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from uncomplete(), got {type(result)}"
+        )
+        result.close()
+
+    def test_uncomplete_async_saves_and_clears_status(self):
+        """Awaiting uncomplete() must actually save the object and clear STATUS/COMPLETED."""
+        import asyncio
+
+        client, calendar = self._make_async_client_and_calendar()
+        todo = Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.completed_todo,
+            parent=calendar,
+        )
+
+        saved = False
+
+        async def fake_async_put(*args, **kwargs):
+            nonlocal saved
+            saved = True
+
+        todo._async_put = fake_async_put
+        asyncio.run(todo.uncomplete())
+
+        assert saved, "uncomplete() did not call _async_put for async client"
+        assert todo.icalendar_component.get("STATUS") == "NEEDS-ACTION"
+        assert "COMPLETED" not in todo.icalendar_component
+
+    def test_get_relatives_returns_coroutine_for_async_client(self):
+        """get_relatives(fetch_objects=True) must return a coroutine for async clients."""
+        import asyncio
+
+        client, calendar = self._make_async_client_and_calendar()
+        todo = Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.todo_with_relation,
+            parent=calendar,
+        )
+        result = todo.get_relatives()
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from get_relatives(), got {type(result)}"
+        )
+        result.close()
+
+    def test_get_relatives_async_returns_objects(self):
+        """Awaiting get_relatives() must return fetched objects, not coroutines."""
+        import asyncio
+
+        client, calendar = self._make_async_client_and_calendar()
+        todo = Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.todo_with_relation,
+            parent=calendar,
+        )
+
+        parent_todo = Todo(client=client, url="/calendar/parent.ics", data=ev1, parent=calendar)
+
+        async def fake_get_object_by_uid(uid):
+            return parent_todo
+
+        calendar.get_object_by_uid = fake_get_object_by_uid
+
+        result = asyncio.run(todo.get_relatives())
+        assert "PARENT" in result
+        parent_set = result["PARENT"]
+        assert len(parent_set) == 1
+        obj = next(iter(parent_set))
+        assert obj is parent_todo, f"expected the parent todo object, got {obj!r}"
+
+    def test_set_relation_returns_coroutine_for_async_client(self):
+        """set_relation() must return a coroutine for async clients, not silently drop save()."""
+        import asyncio
+
+        client, calendar = self._make_async_client_and_calendar()
+        todo = Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.completed_todo,
+            parent=calendar,
+        )
+        other_todo = Todo(
+            client=client,
+            url="/calendar/todo2.ics",
+            data=self.completed_todo,
+            parent=calendar,
+        )
+        # Patch id so set_relation can extract a UID without a full ical parse
+        other_todo._id = "some-other-uid"
+
+        result = todo.set_relation(other_todo, reltype="PARENT", set_reverse=False)
+        assert asyncio.iscoroutine(result), (
+            f"expected coroutine from set_relation(), got {type(result)}"
+        )
+        result.close()
+
+    def test_accept_invite_raises_not_implemented_for_async_client(self):
+        """accept_invite() must raise NotImplementedError for async clients (not silently fail)."""
+        client, calendar = self._make_async_client_and_calendar()
+        event = Event(client=client, url="/calendar/ev1.ics", data=ev1, parent=calendar)
+        with pytest.raises(NotImplementedError):
+            event.accept_invite()
+
+
 class TestRateLimitHelpers:
     """Unit tests for the shared rate-limit helper functions in caldav.lib.error."""
 
@@ -2084,3 +2311,321 @@ class TestRateLimiting:
         with mock.patch("caldav.davclient.time.sleep"):
             with pytest.raises(error.RateLimitError):
                 client.request("/")
+
+
+class TestDateToUtcConversion:
+    """
+    RFC 4791 §9.9: time-range start/end MUST be UTC datetime values.
+    Plain date objects must be coerced to midnight UTC before use in
+    REPORT XML and before being stored on the searcher (for client-side
+    filtering).
+    """
+
+    def test_to_utc_date_string_with_date_gives_midnight_utc(self):
+        """_to_utc_date_string(date) must produce a valid UTC datetime string."""
+        from datetime import date
+
+        from caldav.elements.cdav import _to_utc_date_string
+
+        result = _to_utc_date_string(date(2026, 5, 1))
+        assert result == "20260501T000000Z"
+
+    def test_to_utc_date_string_with_datetime_unchanged(self):
+        """_to_utc_date_string(datetime) must still work correctly."""
+        from datetime import datetime, timezone
+
+        from caldav.elements.cdav import _to_utc_date_string
+
+        result = _to_utc_date_string(datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc))
+        assert result == "20260501T120000Z"
+
+    def test_time_range_xml_with_date_produces_utc_attrs(self):
+        """TimeRange built with plain date objects must emit UTC datetime attributes."""
+        from datetime import date
+
+        from caldav.elements.cdav import TimeRange
+
+        tr = TimeRange(start=date(2026, 5, 1), end=date(2026, 6, 1))
+        assert tr.attributes["start"] == "20260501T000000Z"
+        assert tr.attributes["end"] == "20260601T000000Z"
+
+    def test_search_with_date_emits_utc_datetime_in_report_xml(self):
+        """calendar.search(start=date(...)) must send UTC datetime strings in
+        the REPORT body, not bare date strings."""
+        from datetime import date
+
+        class CapturingClient(MockedDAVClient):
+            def __init__(self):
+                super().__init__("<multistatus xmlns='DAV:'/>")
+                self.report_bodies = []
+
+            def request(self, url, method="GET", body=None, headers=None):
+                if method == "REPORT" and body:
+                    self.report_bodies.append(body)
+                return super().request(url, method, body, headers)
+
+        client = CapturingClient()
+        calendar = Calendar(client, url="/cal/")
+        calendar.search(event=True, start=date(2026, 5, 1), end=date(2026, 6, 1))
+
+        assert client.report_bodies, "expected at least one REPORT request"
+        body = client.report_bodies[0]
+        if isinstance(body, bytes):
+            body = body.decode()
+        assert "20260501T000000Z" in body, f"UTC start not found in REPORT body:\n{body}"
+        assert "20260601T000000Z" in body, f"UTC end not found in REPORT body:\n{body}"
+        # Must NOT contain bare date strings without time component
+        assert "20260501Z" not in body
+        assert "20260601Z" not in body
+
+    def test_searcher_coerces_date_to_datetime(self):
+        """calendar.searcher(start=date(...)) must store datetime on the searcher,
+        not bare date objects — otherwise icalendar_searcher warns during
+        client-side filtering (check_component is called per result object)."""
+        from datetime import date, datetime, timezone
+
+        client = MockedDAVClient("<multistatus xmlns='DAV:'/>")
+        calendar = Calendar(client, url="/cal/")
+        searcher = calendar.searcher(
+            event=True,
+            start=date(2026, 5, 1),
+            end=date(2026, 6, 1),
+        )
+        assert isinstance(searcher.start, datetime), (
+            f"searcher.start should be datetime, got {type(searcher.start)}"
+        )
+        assert isinstance(searcher.end, datetime), (
+            f"searcher.end should be datetime, got {type(searcher.end)}"
+        )
+        assert searcher.start == datetime(2026, 5, 1, 0, 0, 0, tzinfo=timezone.utc)
+        assert searcher.end == datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+
+class TestExpandConfigSection:
+    """Unit tests for caldav.config.expand_config_section."""
+
+    def test_normal_section_returns_single_item(self):
+        from caldav.config import expand_config_section
+
+        config = {"default": {"caldav_url": "https://example.com/"}}
+        assert expand_config_section(config, "default") == ["default"]
+
+    def test_meta_section_with_contains(self):
+        from caldav.config import expand_config_section
+
+        config = {
+            "work": {"caldav_url": "https://work.example.com/"},
+            "personal": {"caldav_url": "https://personal.example.com/"},
+            "all": {"contains": ["work", "personal"]},
+        }
+        assert expand_config_section(config, "all") == ["work", "personal"]
+
+    def test_star_returns_all_non_disabled_sections(self):
+        from caldav.config import expand_config_section
+
+        config = {
+            "work": {"caldav_url": "https://work.example.com/"},
+            "personal": {"caldav_url": "https://personal.example.com/"},
+            "hidden": {"caldav_url": "https://hidden.example.com/", "disable": True},
+        }
+        result = expand_config_section(config, "*")
+        assert set(result) == {"work", "personal"}
+
+    def test_glob_pattern(self):
+        from caldav.config import expand_config_section
+
+        config = {
+            "work_a": {"caldav_url": "https://a.example.com/"},
+            "work_b": {"caldav_url": "https://b.example.com/"},
+            "personal": {"caldav_url": "https://c.example.com/"},
+        }
+        result = expand_config_section(config, "work_*")
+        assert set(result) == {"work_a", "work_b"}
+
+    def test_recursive_meta_section(self):
+        from caldav.config import expand_config_section
+
+        config = {
+            "a": {"caldav_url": "https://a.example.com/"},
+            "b": {"caldav_url": "https://b.example.com/"},
+            "ab": {"contains": ["a", "b"]},
+            "c": {"caldav_url": "https://c.example.com/"},
+            "all": {"contains": ["ab", "c"]},
+        }
+        assert set(expand_config_section(config, "all")) == {"a", "b", "c"}
+
+
+class TestConfigSectionInheritance:
+    """Unit tests for caldav.config.config_section (inherits key)."""
+
+    def test_inherits_copies_parent_values(self):
+        from caldav.config import config_section
+
+        config = {
+            "base": {"caldav_url": "https://example.com/", "caldav_username": "alice"},
+            "child": {"inherits": "base", "caldav_username": "bob"},
+        }
+        result = config_section(config, "child")
+        assert result["caldav_url"] == "https://example.com/"
+        # child's own value overrides parent's
+        assert result["caldav_username"] == "bob"
+
+    def test_inherits_does_not_affect_parent(self):
+        from caldav.config import config_section
+
+        config = {
+            "base": {"caldav_url": "https://example.com/", "caldav_username": "alice"},
+            "child": {"inherits": "base", "calendar_name": "Inbox"},
+        }
+        parent = config_section(config, "base")
+        assert "calendar_name" not in parent
+
+    def test_inherits_recursive(self):
+        from caldav.config import config_section
+
+        config = {
+            "grandparent": {"caldav_url": "https://example.com/"},
+            "parent": {"inherits": "grandparent", "caldav_username": "alice"},
+            "child": {"inherits": "parent", "caldav_password": "secret"},
+        }
+        result = config_section(config, "child")
+        assert result["caldav_url"] == "https://example.com/"
+        assert result["caldav_username"] == "alice"
+        assert result["caldav_password"] == "secret"
+
+
+class TestExpandEnvVars:
+    """Unit tests for caldav.config.expand_env_vars."""
+
+    def test_simple_var(self, monkeypatch):
+        from caldav.config import expand_env_vars
+
+        monkeypatch.setenv("TEST_CALDAV_URL", "https://env.example.com/")
+        assert expand_env_vars("${TEST_CALDAV_URL}") == "https://env.example.com/"
+
+    def test_default_when_missing(self):
+        import os
+
+        from caldav.config import expand_env_vars
+
+        os.environ.pop("MISSING_CALDAV_VAR", None)
+        assert expand_env_vars("${MISSING_CALDAV_VAR:-fallback}") == "fallback"
+
+    def test_empty_default_when_missing(self):
+        import os
+
+        from caldav.config import expand_env_vars
+
+        os.environ.pop("MISSING_CALDAV_VAR", None)
+        assert expand_env_vars("${MISSING_CALDAV_VAR}") == ""
+
+    def test_recursive_in_dict(self, monkeypatch):
+        from caldav.config import expand_env_vars
+
+        monkeypatch.setenv("TEST_USER", "alice")
+        result = expand_env_vars({"caldav_username": "${TEST_USER}"})
+        assert result == {"caldav_username": "alice"}
+
+    def test_env_var_in_config_section(self, tmp_path, monkeypatch):
+        """end-to-end: env var in config file is expanded before use."""
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        monkeypatch.setenv("MY_CALDAV_PASS", "s3cr3t")
+        config = {
+            "default": {
+                "caldav_url": "https://example.com/",
+                "caldav_username": "alice",
+                "caldav_password": "${MY_CALDAV_PASS}",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file))
+        assert results[0]["password"] == "s3cr3t"
+
+
+class TestGetAllFileConnectionParams:
+    """Unit tests for caldav.config.get_all_file_connection_params."""
+
+    def test_single_section_returns_one_dict(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        config = {
+            "default": {
+                "caldav_url": "https://example.com/dav/",
+                "caldav_username": "user",
+                "caldav_password": "pass",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file), "default")
+        assert len(results) == 1
+        assert results[0]["url"] == "https://example.com/dav/"
+        assert results[0]["username"] == "user"
+
+    def test_calendar_name_extracted_from_section(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        config = {
+            "default": {
+                "caldav_url": "https://example.com/dav/",
+                "caldav_username": "user",
+                "calendar_name": "My Calendar",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file), "default")
+        assert len(results) == 1
+        assert results[0]["calendar_name"] == "My Calendar"
+
+    def test_calendar_url_extracted_from_section(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        config = {
+            "default": {
+                "caldav_url": "https://example.com/dav/",
+                "caldav_username": "user",
+                "calendar_url": "/dav/user/mycalendar/",
+            }
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file), "default")
+        assert len(results) == 1
+        assert results[0]["calendar_url"] == "/dav/user/mycalendar/"
+
+    def test_meta_section_returns_multiple_dicts(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_file_connection_params
+
+        config = {
+            "work": {
+                "caldav_url": "https://work.example.com/dav/",
+                "caldav_username": "wuser",
+            },
+            "personal": {
+                "caldav_url": "https://personal.example.com/dav/",
+                "caldav_username": "puser",
+            },
+            "all": {"contains": ["work", "personal"]},
+        }
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(json.dumps(config))
+        results = get_all_file_connection_params(str(config_file), "all")
+        assert len(results) == 2
+        urls = {r["url"] for r in results}
+        assert urls == {
+            "https://work.example.com/dav/",
+            "https://personal.example.com/dav/",
+        }

@@ -1,14 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pysubs2
-Version: 1.8.0
+Version: 1.8.1
 Summary: A library for editing subtitle files
-Home-page: https://github.com/tkarabela/pysubs2
-Author: Tomas Karabela
-Author-email: tkarabela@seznam.cz
-License: MIT
+Project-URL: Homepage, https://github.com/tkarabela/pysubs2
 Project-URL: Documentation, https://pysubs2.readthedocs.io
 Project-URL: Bug Tracker, https://github.com/tkarabela/pysubs2/issues
-Keywords: SubStation,SubRip,MicroDVD,MPL2,WebVTT,ass,srt,sub,vtt,subtitles,captions
+Author-email: Tomas Karabela <tkarabela@seznam.cz>
+License-Expression: MIT
+License-File: LICENSE.txt
+Keywords: MPL2,MicroDVD,SubRip,SubStation,WebVTT,ass,captions,srt,sub,subtitles,vtt
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -16,18 +21,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
-Classifier: Topic :: Multimedia :: Video
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: End Users/Desktop
-Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
 
 pysubs2
 =======

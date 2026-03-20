@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-vector-search
-Version: 3.0.72
+Version: 3.0.74
 Summary: CLI-first semantic code search with MCP integration and interactive D3.js visualization for exploring code relationships
 Project-URL: Homepage, https://github.com/bobmatnyc/mcp-vector-search
 Project-URL: Documentation, https://mcp-vector-search.readthedocs.io
@@ -136,6 +136,7 @@ Requires-Dist: rank-bm25>=0.2.2
 Requires-Dist: rich>=13.0.0
 Requires-Dist: sentence-transformers<6.0.0,>=5.2.0
 Requires-Dist: starlette>=0.49.1
+Requires-Dist: torch<2.10.0,>=2.9.0; sys_platform == 'darwin'
 Requires-Dist: transformers<5.0.0,>=4.34.0
 Requires-Dist: tree-sitter-language-pack>=0.9.0
 Requires-Dist: tree-sitter>=0.20.1

@@ -539,14 +539,14 @@ def test_instance_upload_snapshots_on_startup(dagster_cloud_url):
         token="token",
         deployment="sandbox",
     ) as instance:
-        assert instance.user_code_launcher.upload_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
 
     with gen_agent_instance(
         url=dagster_cloud_url,
         token="token",
         user_code_launcher_config={"upload_snapshots_on_startup": False},
     ) as instance:
-        assert not instance.user_code_launcher.upload_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_instance_backcompat(dagster_cloud_url):
@@ -569,7 +569,7 @@ def test_instance_backcompat(dagster_cloud_url):
                 },
             },
         ) as instance:
-            assert instance.user_code_launcher.upload_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
+            assert instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
             assert not instance.agent_queues_config.include_default_queue  # pyright: ignore[reportAttributeAccessIssue]
 
             assert (

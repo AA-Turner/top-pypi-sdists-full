@@ -12,11 +12,13 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
     DEFAULT_CREATED_BY,
     _merge_field,
     _print_experimental_warning,
+    extract_existing_time_bucketing_strategy,
     retrieve_assertion_and_monitor_by_urn,
 )
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
+    TimeBucketingStrategyInputTypes,
 )
 from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     VolumeAssertionCondition,
@@ -56,6 +58,7 @@ class VolumeAssertionClient:
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         criteria_condition: Optional[Union[str, VolumeAssertionCondition]] = None,
         criteria_parameters: Optional[VolumeAssertionDefinitionParameters] = None,
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> VolumeAssertion:
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
@@ -94,6 +97,7 @@ class VolumeAssertionClient:
             updated_by=updated_by,
             now_utc=now_utc,
             schedule=schedule,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         # 3. Upsert the assertion and monitor entities:
@@ -125,6 +129,7 @@ class VolumeAssertionClient:
         updated_by: Union[str, CorpUserUrn],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> _VolumeAssertionInput:
         """Create a new volume assertion input with given criteria."""
         criteria: dict[str, Any] = {
@@ -146,6 +151,7 @@ class VolumeAssertionClient:
             updated_at=now_utc,
             schedule=schedule,
             criteria=criteria,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
     def _create_existing_assertion_from_entities(
@@ -186,6 +192,7 @@ class VolumeAssertionClient:
         updated_by: Union[str, CorpUserUrn],
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> _VolumeAssertionInput:
         use_backend_criteria = criteria_condition is None
 
@@ -210,6 +217,7 @@ class VolumeAssertionClient:
                 updated_by,
                 now_utc,
                 schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
             )
 
         # 2. Prepare temporary criteria for validation
@@ -269,6 +277,7 @@ class VolumeAssertionClient:
                 updated_by,
                 now_utc,
                 schedule,
+                time_bucketing_strategy=time_bucketing_strategy,
             )
 
         # 6. Create existing assertion from entities
@@ -316,6 +325,7 @@ class VolumeAssertionClient:
             existing_assertion=existing_assertion,
             schedule=schedule,
             criteria=effective_criteria,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         return merged_assertion_input
@@ -353,6 +363,7 @@ class VolumeAssertionClient:
         existing_assertion: VolumeAssertion,
         schedule: Optional[Union[str, models.CronScheduleClass]],
         criteria: Optional[VolumeAssertionCriteria],
+        time_bucketing_strategy: TimeBucketingStrategyInputTypes = None,
     ) -> _VolumeAssertionInput:
         """Merge the input with the existing assertion and monitor entities.
 
@@ -370,11 +381,22 @@ class VolumeAssertionClient:
             maybe_monitor_entity: The existing monitor entity from the DataHub instance.
             existing_assertion: The existing assertion from the DataHub instance.
             schedule: The schedule to be applied to the assertion.
-            definition: The volume assertion definition to be applied to the assertion.
+            criteria: The volume assertion criteria to be applied to the assertion.
+            time_bucketing_strategy: The time bucketing strategy input.
 
         Returns:
             The merged assertion input.
         """
+        existing_time_bucketing = extract_existing_time_bucketing_strategy(
+            maybe_monitor_entity
+        )
+
+        effective_time_bucketing = (
+            time_bucketing_strategy
+            if time_bucketing_strategy is not None
+            else existing_time_bucketing
+        )
+
         merged_assertion_input = _VolumeAssertionInput(
             urn=urn,
             entity_client=self.client.entities,
@@ -436,11 +458,10 @@ class VolumeAssertionClient:
                 existing_assertion,
                 existing_assertion.criteria if existing_assertion else None,
             ),
-            created_by=existing_assertion.created_by
-            or DEFAULT_CREATED_BY,  # Override with the existing assertion's created_by or the default created_by if not set
-            created_at=existing_assertion.created_at
-            or now_utc,  # Override with the existing assertion's created_at or now if not set
-            updated_by=assertion_input.updated_by,  # Override with the input's updated_by
-            updated_at=assertion_input.updated_at,  # Override with the input's updated_at (now)
+            created_by=existing_assertion.created_by or DEFAULT_CREATED_BY,
+            created_at=existing_assertion.created_at or now_utc,
+            updated_by=assertion_input.updated_by,
+            updated_at=assertion_input.updated_at,
+            time_bucketing_strategy=effective_time_bucketing,
         )
         return merged_assertion_input

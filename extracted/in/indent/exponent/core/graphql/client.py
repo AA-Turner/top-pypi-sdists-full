@@ -14,13 +14,11 @@ from exponent.core.graphql.generated_client import (
     Chats,
     CreateCloudChatFromRepository,
     CurrentUser,
-    EnableCloudRepository,
     GithubRepositories,
     HaltChatStream,
     IndentGraphQLClient,
     PromptInput,
     RefreshApiKey,
-    RepositoryInput,
     RepositoryResourceConfigInput,
     SetLoginComplete,
     StartChatTurn,
@@ -65,9 +63,6 @@ class GraphQLClient:
                 ),
             ),
         )
-
-    async def enable_cloud_repository(self, repositories: list[RepositoryInput]) -> EnableCloudRepository:
-        return await self._typed_client.enable_cloud_repository(repositories=repositories)
 
     async def set_login_complete(self) -> SetLoginComplete:
         """Set login complete with proper typing."""

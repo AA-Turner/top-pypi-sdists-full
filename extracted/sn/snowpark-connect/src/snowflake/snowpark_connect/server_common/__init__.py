@@ -90,6 +90,11 @@ def _stop_server(stop_event: threading.Event, server: grpc.Server) -> None:
 
 def _get_default_grpc_options() -> List[Tuple[str, Any]]:
     """Get default gRPC server options."""
+    # Set process-level gRPC env vars before the C-core reads them.
+    # setdefault keeps any value the caller already exported.
+    os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+    os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "0")
+
     grpc_max_msg_size = get_int_from_env(
         "SNOWFLAKE_GRPC_MAX_MESSAGE_SIZE",
         _SPARK_CONNECT_GRPC_MAX_MESSAGE_SIZE,

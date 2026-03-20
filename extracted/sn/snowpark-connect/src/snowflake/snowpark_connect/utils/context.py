@@ -96,6 +96,11 @@ _lca_alias_map: ContextVar[dict[str, TypedColumn]] = ContextVar(
     default={},
 )
 
+_lca_resolved: ContextVar[bool] = ContextVar(
+    "_lca_resolved",
+    default=False,
+)
+
 _view_process_context = ContextVar("_view_process_context", default=[])
 
 
@@ -153,6 +158,7 @@ _is_resolving_subquery_exp: ContextVar[bool] = ContextVar(
 
 def clear_lca_alias_map() -> None:
     _lca_alias_map.set({})
+    _lca_resolved.set(False)
 
 
 def _normalize(name: str) -> str:
@@ -168,7 +174,14 @@ def register_lca_alias(name: str, typed_col: TypedColumn) -> None:
 
 
 def resolve_lca_alias(name: str) -> Optional[TypedColumn]:
-    return _lca_alias_map.get().get(_normalize(name))
+    result = _lca_alias_map.get().get(_normalize(name))
+    if result is not None:
+        _lca_resolved.set(True)
+    return result
+
+
+def was_lca_used() -> bool:
+    return _lca_resolved.get()
 
 
 def set_current_grouping_columns(columns: list[str]) -> None:

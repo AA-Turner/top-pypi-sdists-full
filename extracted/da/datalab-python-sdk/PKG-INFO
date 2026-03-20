@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datalab-python-sdk
-Version: 0.3.0
+Version: 0.4.0
 Summary: SDK for the Datalab document intelligence API
 Author-email: Datalab Team <hi@datalab.to>
 License-Expression: MIT
@@ -9,6 +9,7 @@ Keywords: api,datalab,document-intelligence,sdk
 Requires-Python: >=3.10
 Requires-Dist: aiohttp>=3.12.14
 Requires-Dist: click>=8.2.1
+Requires-Dist: ijson>=3.3.0
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: tenacity>=8.2.3

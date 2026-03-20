@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pyspark
-Version: 0.28.19
+Version: 0.28.20
 Summary: Package for PySpark Dagster framework components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/dagster-framework/pyspark
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -11,6 +11,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster-spark==0.28.19
-Requires-Dist: dagster==1.12.19
+Requires-Dist: dagster-spark==0.28.20
+Requires-Dist: dagster==1.12.20
 Requires-Dist: pyspark<5,>=3

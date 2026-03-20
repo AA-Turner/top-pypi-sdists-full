@@ -25,6 +25,16 @@ class ArgoWorkflowServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.FromString,
         )
+        self.GetArgoBuildLogs = channel.unary_unary(
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuildLogs",
+            request_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsResponse.FromString,
+        )
+        self.GetArgoBuildKubeEvents = channel.unary_unary(
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuildKubeEvents",
+            request_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsResponse.FromString,
+        )
 
 
 class ArgoWorkflowServiceServicer(object):
@@ -42,6 +52,18 @@ class ArgoWorkflowServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetArgoBuildLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetArgoBuildKubeEvents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ArgoWorkflowServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +76,16 @@ def add_ArgoWorkflowServiceServicer_to_server(servicer, server):
             servicer.GetArgoBuild,
             request_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.SerializeToString,
+        ),
+        "GetArgoBuildLogs": grpc.unary_unary_rpc_method_handler(
+            servicer.GetArgoBuildLogs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsResponse.SerializeToString,
+        ),
+        "GetArgoBuildKubeEvents": grpc.unary_unary_rpc_method_handler(
+            servicer.GetArgoBuildKubeEvents,
+            request_deserializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ArgoWorkflowService", rpc_method_handlers)
@@ -112,6 +144,64 @@ class ArgoWorkflowService(object):
             "/chalk.server.v1.ArgoWorkflowService/GetArgoBuild",
             chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetArgoBuildLogs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuildLogs",
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetArgoBuildKubeEvents(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ArgoWorkflowService/GetArgoBuildKubeEvents",
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_argo__workflow__pb2.GetArgoBuildKubeEventsResponse.FromString,
             options,
             channel_credentials,
             insecure,

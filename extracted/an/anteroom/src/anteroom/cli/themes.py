@@ -53,6 +53,7 @@ class CliTheme:
     dir_display: str = ""  # directory path in toolbar
     toolbar_sep: str = ""  # toolbar separator
     logo_blue: str = ""  # logo accent color
+    code_inline: str = ""  # inline code foreground in markdown
 
     @classmethod
     def load(cls, name: str) -> CliTheme:
@@ -131,6 +132,7 @@ _MIDNIGHT = CliTheme(
     dir_display="#a0a8b8",
     toolbar_sep="#505868",
     logo_blue="#3B82F6",
+    code_inline="#88C0D0",
 )
 
 _DAWN = CliTheme(
@@ -156,6 +158,7 @@ _DAWN = CliTheme(
     dir_display="#4B5563",
     toolbar_sep="#D1D5DB",
     logo_blue="#2563EB",
+    code_inline="#2E8B57",
 )
 
 _HIGH_CONTRAST = CliTheme(
@@ -181,6 +184,7 @@ _HIGH_CONTRAST = CliTheme(
     dir_display="#E0E0E0",
     toolbar_sep="#666666",
     logo_blue="#00BFFF",
+    code_inline="#00FFFF",
 )
 
 # Accessible theme: CVD-safe palette (blue/orange instead of red/green).
@@ -208,6 +212,7 @@ _ACCESSIBLE = CliTheme(
     dir_display="#a0a8b8",
     toolbar_sep="#505868",
     logo_blue="#648FFF",
+    code_inline="#00CED1",
 )
 
 # NO_COLOR: reuse midnight colors so Rich markup tags remain valid.

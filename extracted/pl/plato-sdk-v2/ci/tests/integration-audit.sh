@@ -1,4 +1,5 @@
 #!/bin/bash
+# CI_WATCH: python-sdk/(plato/(utils/audit|utils/tool_execution|agents/runtime/transport|worlds/workspace)|tests/(test_audit|integration/agent_audit_test_world|integration/configs/.*audit))
 set -e
 export PATH="$HOME/.local/bin:$PATH"
 cd "$(dirname "$0")/../.."

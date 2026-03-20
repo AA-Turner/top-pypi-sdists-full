@@ -34,6 +34,7 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.config import external_table_location, str_to_bool
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.relation.read.utils import normalize_stage_path
 from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
@@ -133,9 +134,6 @@ def _read_partitioned_file_with_partitions(
             True,
         )
     else:
-        # TODO: SNOW-2736756 support user schema
-        if schema is not None and file_format == "parquet":
-            assert schema is None, "Read PARQUET does not support user schema"
         return _get_df(), partition_columns, False
 
 
@@ -243,8 +241,7 @@ def _is_external_stage(session: Session, path: str) -> bool:
 def _get_count_of_non_partition_path_parts(path: str) -> int:
     """Count the number of path parts before the first partition column."""
     count = 0
-    # First element of a path is a stage identifier we need to ignore it to count relative path parts
-    for element in path.split("/")[1:]:
+    for element in normalize_stage_path(path).split("/")[1:]:
         if "=" in element:
             break
         count += 1
@@ -320,14 +317,21 @@ def read_partitioned_file_from_external_table(
         """
     ).collect()
     register_request_external_table(table_name)
-    map_fields = ", ".join(
-        [
-            f"{field.name}::{_map_snowpark_type_to_snowflake(field.datatype)} as {field.name}"
-            if isinstance(field.datatype, (StructType, MapType, ArrayType))
-            else field.name
-            for field in schema.fields
-        ]
-    )
+    map_fields_list = [
+        f"{field.name}::{_map_snowpark_type_to_snowflake(field.datatype)} as {field.name}"
+        if isinstance(field.datatype, (StructType, MapType, ArrayType))
+        else field.name
+        for field in schema.fields
+    ]
+    # Ensure partition columns appear in the SELECT even when the user schema
+    # omits them.  The external table definition includes them (via
+    # snowpark_typed_partition_columns), but the SELECT above only iterates
+    # schema.fields.
+    schema_field_names = {unquote_if_quoted(f.name) for f in schema.fields}
+    for part_col in partition_columns:
+        if part_col not in schema_field_names:
+            map_fields_list.append(quote_name_without_upper_casing(part_col))
+    map_fields = ", ".join(map_fields_list)
     return session.sql(f"SELECT {map_fields} FROM {table_name}")
 
 
@@ -404,10 +408,13 @@ def _discover_partition_columns(
     dir_level_to_column_name = {}
     base_partitions = _extract_partitions_from_path(stage_path)
 
-    path_segments_to_skip = len(stage_path.strip("/").split("/"))
-    if stage_path.startswith("@"):
+    # Normalize for segment counting so that '@stage/dir/' produces the same
+    # segment count as '@stage/dir'.
+    count_path = normalize_stage_path(stage_path)
+    path_segments_to_skip = len(count_path.split("/"))
+    if count_path.startswith("@"):
         path_segments_to_skip = 1
-        stage_parts = stage_path.split("/", 2)
+        stage_parts = count_path.split("/", 2)
         if len(stage_parts) > 2:
             additional_segments = len(stage_parts[2].strip("/").split("/"))
             path_segments_to_skip += additional_segments

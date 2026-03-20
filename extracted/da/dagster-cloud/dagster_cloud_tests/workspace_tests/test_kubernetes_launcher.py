@@ -210,6 +210,7 @@ def test_construct_code_location_service():
                     "annotations": {"foo_service": "bar"},
                     "labels": {"extra_label": "extra_value"},
                 },
+                "service_spec_config": {"cluster_ip": "None"},
             }
         ),
     )
@@ -236,6 +237,37 @@ def test_construct_code_location_service():
         assert obj["metadata"]["labels"]["extra_label"] == "extra_value"
 
         assert obj["metadata"]["annotations"] == {"foo_service": "bar"}
+        assert obj["spec"]["cluster_ip"] == "None"
+
+
+def test_construct_code_location_service_with_service_spec_config():
+    resource_name = unique_k8s_resource_name("sandbox", "biz.buz")
+
+    container_context = K8sContainerContext(
+        server_k8s_config=UserDefinedDagsterK8sConfig.from_dict(
+            {
+                "service_spec_config": {"cluster_ip": "None"},
+            }
+        ),
+    )
+
+    with k8s_instance() as instance:
+        server_timestamp = time.time()
+
+        obj = construct_code_location_service(
+            "sandbox",
+            "biz.buz",
+            resource_name,
+            container_context,
+            instance,
+            server_timestamp,
+        ).to_dict()
+
+        assert obj
+        assert obj["spec"]["cluster_ip"] == "None"
+        assert obj["spec"]["selector"] == {"user-deployment": resource_name}
+        assert obj["spec"]["ports"][0]["name"] == "grpc"
+        assert obj["spec"]["ports"][0]["protocol"] == "TCP"
 
 
 def test_construct_code_location_deployment():
@@ -475,6 +507,7 @@ def test_construct_code_location_deployment_with_raw_k8s_config():
                         "scheduler_name": "my_custom_scheduler_name",
                     },
                     "service_metadata": {"annotations": {"foo_service": "bar"}},
+                    "service_spec_config": {"cluster_ip": "None"},
                     "deployment_metadata": {"annotations": {"foo_deployment": "baz"}},
                 }
             ),
@@ -560,6 +593,7 @@ def test_launch_k8s_server(kubeconfig_file):
                 "pod_spec_config": {"dns_policy": "server_value"},
                 "deployment_metadata": {"annotations": {"foo_deployment": "bar_value"}},
                 "service_metadata": {"annotations": {"foo_service": "bar_value"}},
+                "service_spec_config": {"cluster_ip": "None"},
             },
             run_k8s_config={
                 "container_config": {"command": ["echo", "RUN"]},
@@ -576,6 +610,7 @@ def test_launch_k8s_server(kubeconfig_file):
                 },
                 "deployment_metadata": {"annotations": True},
                 "service_metadata": {"annotations": True},
+                "service_spec_config": {"cluster_ip": True},
                 "namespace": True,
             },
             only_allow_user_defined_env_vars=["FOO", "BAR"],
@@ -607,6 +642,13 @@ def test_launch_k8s_server(kubeconfig_file):
 
         assert pod_spec["dns_policy"] == "server_value"
         assert pod_metadata["namespace"] == "my_server_namespace"
+
+        # Verify service creation includes service_spec_config
+        service_method_calls = mock_k8s_core_api_client.method_calls
+        service_method_name, service_args, _service_kwargs = service_method_calls[0]
+        assert service_method_name == "create_namespaced_service"
+        service_body = service_args[1].to_dict()
+        assert service_body["spec"]["cluster_ip"] == "None"
 
         assert (
             user_code_launcher.run_launcher().run_k8s_config == user_code_launcher._run_k8s_config  # noqa: SLF001
@@ -713,6 +755,43 @@ def test_launch_k8s_server(kubeconfig_file):
         # Ensure that agent_id was properly set on deployment
         deployment_labels = body["metadata"]["labels"]
         assert deployment_labels["agent_id"] == instance.instance_uuid  # pyright: ignore[reportAttributeAccessIssue]
+
+        # Verify service_spec_config from location-level container_context is applied
+        # This exercises the persisted code-location container_context path
+        # (K8sContainerContext.create_from_config -> job.py config_type_container_context)
+
+        user_code_launcher._start_new_server_spinup(  # noqa: SLF001
+            deployment_name="acme",
+            location_name="sandbox",
+            desired_entry=UserCodeLauncherEntry(
+                CodeLocationDeployData(
+                    "bizbuz",
+                    package_name="blim",
+                    container_context={
+                        "k8s": {
+                            "namespace": "my_override_namespace",
+                            "server_k8s_config": {
+                                "container_config": {
+                                    "command": ["echo", "SERVER_OVERRIDE"],
+                                },
+                                "service_spec_config": {"cluster_ip": "None"},
+                            },
+                        }
+                    },
+                ),
+                time.time(),
+            ),
+        )
+
+        # Verify the service was created with service_spec_config from location context
+        service_calls = [
+            call
+            for call in mock_k8s_core_api_client.method_calls
+            if call[0] == "create_namespaced_service"
+        ]
+        latest_service = service_calls[-1]
+        service_body = latest_service[1][1].to_dict()
+        assert service_body["spec"]["cluster_ip"] == "None"
 
         # Create a server with merge_behavior SHALLOW - labels are replaced rather than added
 

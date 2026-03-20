@@ -16721,7 +16721,7 @@ class TableV2MultiAccountReplica(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_dynamodb.TableV2MultiAccountReplica",
 ):
-    '''A nulti-account replica of a DynamoDB table.
+    '''A multi-account replica of a DynamoDB table.
 
     This construct represents a replica table in a different AWS account from the source table.
     It inherits the schema (partition key, sort key, and indexes) from the source table.

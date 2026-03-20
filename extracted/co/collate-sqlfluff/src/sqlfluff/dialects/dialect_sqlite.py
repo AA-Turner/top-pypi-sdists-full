@@ -537,6 +537,7 @@ class DatatypeSegment(ansi.DatatypeSegment):
                 Ref("DatatypeIdentifierSegment"),
             ),
             Ref("BracketedArguments", optional=True),
+            OneOf("UNSIGNED", optional=True),
         ),
     )
 
@@ -640,6 +641,7 @@ class UpsertClauseSegment(BaseSegment):
             Sequence(
                 "UPDATE",
                 "SET",
+                Indent,
                 Delimited(
                     Sequence(
                         OneOf(
@@ -650,6 +652,7 @@ class UpsertClauseSegment(BaseSegment):
                         Ref("ExpressionSegment"),
                     ),
                 ),
+                Dedent,
                 Sequence(
                     "WHERE",
                     Ref("ExpressionSegment"),
@@ -873,7 +876,11 @@ class PragmaStatementSegment(BaseSegment):
     match_grammar = Sequence(
         "PRAGMA",
         Ref("PragmaReferenceSegment"),
-        Bracketed(_pragma_value, optional=True),
+        OneOf(
+            Bracketed(_pragma_value),
+            Bracketed(Ref("ObjectReferenceSegment")),
+            optional=True,
+        ),
         Sequence(
             Ref("EqualsSegment"), OptionallyBracketed(_pragma_value), optional=True
         ),
@@ -912,8 +919,15 @@ class CreateTriggerStatementSegment(ansi.CreateTriggerStatementSegment):
         "ON",
         Ref("TableReferenceSegment"),
         Sequence("FOR", "EACH", "ROW", optional=True),
-        Sequence("WHEN", OptionallyBracketed(Ref("ExpressionSegment")), optional=True),
+        Sequence(
+            "WHEN",
+            Indent,
+            OptionallyBracketed(Ref("ExpressionSegment")),
+            Dedent,
+            optional=True,
+        ),
         "BEGIN",
+        Indent,
         Delimited(
             Ref("UpdateStatementSegment"),
             Ref("InsertStatementSegment"),
@@ -923,6 +937,7 @@ class CreateTriggerStatementSegment(ansi.CreateTriggerStatementSegment):
             allow_gaps=True,
             allow_trailing=True,
         ),
+        Dedent,
         "END",
     )
 

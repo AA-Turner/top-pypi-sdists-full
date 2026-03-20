@@ -25,6 +25,10 @@ from .....schema_classes import InviteTokenClass
 from .....schema_classes import NativeGroupMembershipClass
 from .....schema_classes import RoleMembershipClass
 from .....schema_classes import TokenTypeClass
+from .....schema_classes import UserAiPluginConfigClass
+from .....schema_classes import UserAiPluginSettingsClass
+from .....schema_classes import UserApiKeyConnectionConfigClass
+from .....schema_classes import UserOAuthConnectionConfigClass
 
 
 CorpGroupEditableInfo = CorpGroupEditableInfoClass
@@ -45,5 +49,9 @@ InviteToken = InviteTokenClass
 NativeGroupMembership = NativeGroupMembershipClass
 RoleMembership = RoleMembershipClass
 TokenType = TokenTypeClass
+UserAiPluginConfig = UserAiPluginConfigClass
+UserAiPluginSettings = UserAiPluginSettingsClass
+UserApiKeyConnectionConfig = UserApiKeyConnectionConfigClass
+UserOAuthConnectionConfig = UserOAuthConnectionConfigClass
 
 # fmt: on

@@ -80,15 +80,17 @@ def _load_hvstat(parser):
         logger.warning("hvstat missing columns %s — month data will be blank", missing)
         return pd.DataFrame()
 
-    # Keep only needed columns, drop NaN months, take most recent per group
-    df = df[needed + ["harvest_year"]].dropna(subset=["planting_month", "harvest_month"])
+    # Keep needed columns + area-related columns for national yield computation
+    keep = needed + ["harvest_year", "country", "admin_1", "area"]
+    keep = [c for c in keep if c in df.columns]
+    df = df[keep].dropna(subset=["planting_month", "harvest_month"])
     df = (
         df.sort_values("harvest_year")
         .groupby(["fnid", "product", "season_name"])
         .last()
         .reset_index()
     )
-    return df[needed]
+    return df
 
 
 def _build_shapefile_lookup(dg, country_admin_levels):
@@ -127,6 +129,74 @@ def _compute_planted_year(harvest_year, planting_month, harvest_month):
     if int(planting_month) > int(harvest_month):
         return int(harvest_year) - 1
     return int(harvest_year)
+
+
+def _query_area_weights(parser, crop, n_years=5):
+    """Compute average area per (Country, Region) from CID indices CSVs.
+
+    Reads {dir_output}/{project_name}/cid/indices/{method}/global/{Country}_{Crop}_statistics_{method}.csv
+    for each country, extracts Area (ha), and computes the mean over the last
+    n_years per region.
+
+    Returns DataFrame with columns: Country, Region, avg_area.
+    Country uses DB convention (lowercase with underscores).
+    """
+    empty = pd.DataFrame(columns=["Country", "Region", "avg_area"])
+
+    dir_output = Path(parser.get("PATHS", "dir_output"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    method = parser.get("DEFAULT", "method", fallback="monthly_r")
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+
+    csv_dir = dir_output / project_name / "cid" / "indices" / method / "global"
+    crop_title = crop.title().replace("_", " ")
+
+    frames = []
+    for country in countries:
+        # CSV filenames use title case: "South Africa", "Madagascar"
+        country_title = country.title().replace("_", " ")
+        fname = f"{country_title}_{crop_title}_statistics_{method}.csv"
+        csv_path = csv_dir / fname
+
+        if not csv_path.exists():
+            logger.warning("CID indices CSV not found: %s", csv_path)
+            continue
+
+        logger.info("Reading CID area data: %s", csv_path)
+        df = pd.read_csv(csv_path, low_memory=False)
+        if "Area (ha)" not in df.columns or "Region" not in df.columns:
+            logger.warning("CID CSV missing required columns: %s", csv_path)
+            continue
+
+        df["Area (ha)"] = pd.to_numeric(df["Area (ha)"], errors="coerce")
+        df = df[df["Area (ha)"].notna() & (df["Area (ha)"] > 0)]
+        if df.empty:
+            continue
+
+        if "Harvest Year" not in df.columns:
+            logger.warning("CID CSV missing 'Harvest Year': %s", csv_path)
+            continue
+        df["Harvest Year"] = pd.to_numeric(df["Harvest Year"], errors="coerce")
+        # Normalize country to DB convention (lowercase with underscores)
+        df["Country"] = country.lower().replace(" ", "_")
+
+        frames.append(df[["Country", "Region", "Harvest Year", "Area (ha)"]])
+
+    if not frames:
+        return empty
+
+    all_df = pd.concat(frames, ignore_index=True)
+
+    # Per (Country, Region): take last n_years with data, compute mean area
+    def _last_n_mean(g):
+        return g.nlargest(n_years, "Harvest Year")["Area (ha)"].mean()
+
+    avg = (
+        all_df.groupby(["Country", "Region"])
+        .apply(_last_n_mean)
+        .reset_index(name="avg_area")
+    )
+    return avg
 
 
 def _parse_model_run_date(date_str):
@@ -348,6 +418,155 @@ def export_forecast(
     return csv_path
 
 
+def export_national_forecast(
+    parser,
+    db_path=None,
+    forecast_year=None,
+    forecast_issue_date=None,
+    source_name_version="FDW",
+    group="NASA Harvest",
+    dir_out=None,
+):
+    """Export area-weighted national yield forecasts as FDW Template 1 CSV.
+
+    Computes national yield per country as the weighted average of regional
+    yields, using the 5-year average area per region as weights.
+
+    Returns:
+        Path to the saved CSV, or None if no data.
+    """
+    from geocif.yield_outlook import _load_shapefiles
+
+    if forecast_year is None:
+        forecast_year = ar.utcnow().to("America/New_York").year
+    if forecast_issue_date is None:
+        forecast_issue_date = ar.utcnow().to("America/New_York").format("YYYY-MM-DD")
+
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+
+    if db_path is None:
+        dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
+        db_name = parser.get("DEFAULT", "db")
+        db_path = dir_output / "ml" / "db" / db_name
+    else:
+        db_path = Path(db_path)
+        dir_output = Path(parser.get("PATHS", "dir_output")) / project_name
+
+    if dir_out is None:
+        today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
+        dir_out = dir_output / "ml" / "analysis" / today / "fdw"
+    else:
+        dir_out = Path(dir_out)
+    os.makedirs(dir_out, exist_ok=True)
+
+    model_version = f"geocif v{__version__}"
+
+    _, dict_config = _load_shapefiles(parser)
+    df_hvstat = _load_hvstat(parser)
+
+    all_rows = []
+
+    for country_crop, config in dict_config.items():
+        crop = config["crops"]
+
+        # Query area weights from CID indices CSVs
+        df_area = _query_area_weights(parser, crop)
+
+        for model in config["models"]:
+            df_pred = _query_forecast(
+                db_path, country_crop, model, experiment_name, forecast_year
+            )
+            if df_pred.empty:
+                continue
+
+            # Keep latest stage per (Country, Region)
+            df_latest = (
+                df_pred.sort_values("Stage Name")
+                .groupby(["Country", "Region"])
+                .last()
+                .reset_index()
+            )
+
+            # Parse model run date
+            date_model_run = ""
+            if "Date" in df_latest.columns:
+                date_model_run = _parse_model_run_date(df_latest["Date"].iloc[0])
+
+            # Blank out negative yields
+            pred_col = "Predicted Yield (tn per ha)"
+            df_latest.loc[df_latest[pred_col] < 0, pred_col] = np.nan
+
+            # Join with area weights
+            df_weighted = df_latest.merge(df_area, on=["Country", "Region"], how="left")
+            df_weighted = df_weighted.dropna(subset=[pred_col, "avg_area"])
+
+            if df_weighted.empty:
+                logger.warning("No area weights for %s %s — skipping national yield", country_crop, model)
+                continue
+
+            # Compute national yield per country
+            df_weighted["_production"] = df_weighted[pred_col] * df_weighted["avg_area"]
+            national = (
+                df_weighted.groupby("Country")
+                .agg({"_production": "sum", "avg_area": "sum", "Harvest Year": "first"})
+                .reset_index()
+            )
+            national["national_yield"] = national["_production"] / national["avg_area"]
+
+            # Build one row per country
+            for _, nat_row in national.iterrows():
+                country_name = nat_row["Country"]
+                harvest_year = nat_row["Harvest Year"]
+
+                # Get planting/harvest months from hvstat for planted_year computation
+                planting_month = np.nan
+                harvest_month = np.nan
+                season_name = ""
+                if not df_hvstat.empty:
+                    crop_title = crop.title().replace("_", " ")
+                    hvstat_country = df_hvstat[
+                        df_hvstat["product"].str.lower() == crop_title.lower()
+                    ]
+                    if not hvstat_country.empty:
+                        planting_month = hvstat_country["planting_month"].iloc[0]
+                        harvest_month = hvstat_country["harvest_month"].iloc[0]
+                        season_name = hvstat_country["season_name"].iloc[0]
+
+                fdw_row = {
+                    "source_name_version": source_name_version,
+                    "admin_0": country_name.title().replace("_", " "),
+                    "planted_year": _compute_planted_year(harvest_year, planting_month, harvest_month),
+                    "harvest_year": harvest_year,
+                    "crop": crop.title().replace("_", " "),
+                    "crop_season": season_name if pd.notna(season_name) else "",
+                    "forecast_issue_date": forecast_issue_date,
+                    "date_model_run": date_model_run,
+                    "input_croptype_product": "",
+                    "group": group,
+                    "model_version": model_version,
+                    "yield_fcst": round(nat_row["national_yield"], 3),
+                    "is_final": "yes",
+                    "notes": "",
+                }
+                all_rows.append(fdw_row)
+
+    if not all_rows:
+        logger.warning("No national FDW data to export.")
+        return None
+
+    df_fdw = pd.DataFrame(all_rows).fillna("")
+
+    scope = "africa" if len(countries) > 1 else countries[0].lower().replace(" ", "_")
+    fname = f"geocif_{scope}_national_forecast_{forecast_issue_date}.csv"
+    csv_path = dir_out / fname
+    df_fdw.to_csv(csv_path, index=False)
+    logger.info("FDW national forecast CSV saved to %s (%d rows)", csv_path, len(df_fdw))
+
+    return csv_path
+
+
 def run(path_config_files=None, db_path=None, forecast_year=None, **kwargs):
     """Convenience entry point — accepts config file paths.
 
@@ -361,4 +580,6 @@ def run(path_config_files=None, db_path=None, forecast_year=None, **kwargs):
         path_config_files = [Path("../config/geocif.txt")]
 
     _, parser = log.setup_logger_parser(path_config_files)
-    return export_forecast(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
+    regional_csv = export_forecast(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
+    national_csv = export_national_forecast(parser, db_path=db_path, forecast_year=forecast_year, **kwargs)
+    return regional_csv, national_csv

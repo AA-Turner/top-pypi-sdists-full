@@ -104,6 +104,7 @@ class _HasSmartFunctionality:
         sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
         exclusion_windows: list[ExclusionWindowTypes],
         training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+        backfill_config: Optional[models.AssertionMonitorBootstrapConfigClass] = None,
     ) -> None:
         """
         Initialize the smart functionality mixin.
@@ -112,13 +113,12 @@ class _HasSmartFunctionality:
             sensitivity: The sensitivity of the assertion (low, medium, high).
             exclusion_windows: The exclusion windows of the assertion.
             training_data_lookback_days: The max number of days of data to use for training the assertion.
-            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
-            detection_mechanism: The detection mechanism of the assertion.
-            **kwargs: Additional arguments to pass to the parent class (_Assertion).
+            backfill_config: Optional backfill configuration for bootstrapping historical metrics.
         """
         self._sensitivity = sensitivity
         self._exclusion_windows = exclusion_windows
         self._training_data_lookback_days = training_data_lookback_days
+        self._backfill_config = backfill_config
 
     @property
     def sensitivity(self) -> InferenceSensitivity:
@@ -131,6 +131,29 @@ class _HasSmartFunctionality:
     @property
     def training_data_lookback_days(self) -> int:
         return self._training_data_lookback_days
+
+    @property
+    def backfill_config(
+        self,
+    ) -> Optional[models.AssertionMonitorBootstrapConfigClass]:
+        return self._backfill_config
+
+    @staticmethod
+    def _get_backfill_config(
+        monitor: Monitor,
+    ) -> Optional[models.AssertionMonitorBootstrapConfigClass]:
+        try:
+            assertion_monitor = monitor.info.assertionMonitor
+            if assertion_monitor is None:
+                return None
+            return assertion_monitor.bootstrapConfig
+        except AttributeError:
+            logger.debug(
+                "Failed to extract backfill config from monitor %s",
+                monitor.urn if monitor else None,
+                exc_info=True,
+            )
+        return None
 
     @staticmethod
     def _get_sensitivity(monitor: Monitor) -> InferenceSensitivity:
@@ -357,6 +380,9 @@ class _AssertionPublic(ABC):
         detection_mechanism: Optional[
             _DetectionMechanismTypes
         ] = DEFAULT_DETECTION_MECHANISM,
+        time_bucketing_strategy: Optional[
+            models.AssertionTimeBucketingStrategyClass
+        ] = None,
         created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
         updated_by: Optional[CorpUserUrn] = None,
@@ -371,6 +397,9 @@ class _AssertionPublic(ABC):
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
             tags: The tags of the assertion.
+            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
+            detection_mechanism: The detection mechanism of the assertion.
+            time_bucketing_strategy: Optional time bucketing strategy for partitioning data into time buckets.
             created_by: The urn of the user that created the assertion.
             created_at: The timestamp of when the assertion was created.
             updated_by: The urn of the user that updated the assertion.
@@ -382,6 +411,7 @@ class _AssertionPublic(ABC):
         self._mode = mode
         self._incident_behavior = incident_behavior
         self._detection_mechanism = detection_mechanism
+        self._time_bucketing_strategy = time_bucketing_strategy
         self._created_by = created_by
         self._created_at = created_at
         self._updated_by = updated_by
@@ -431,6 +461,35 @@ class _AssertionPublic(ABC):
     @property
     def tags(self) -> list[TagUrn]:
         return self._tags
+
+    @property
+    def time_bucketing_strategy(
+        self,
+    ) -> Optional[models.AssertionTimeBucketingStrategyClass]:
+        return self._time_bucketing_strategy
+
+    @staticmethod
+    def _get_time_bucketing_strategy(
+        monitor: Monitor,
+    ) -> Optional[models.AssertionTimeBucketingStrategyClass]:
+        try:
+            assertion_monitor = monitor.info.assertionMonitor
+            if assertion_monitor is None or not assertion_monitor.assertions:
+                return None
+            params = assertion_monitor.assertions[0].parameters
+            if params is None:
+                return None
+            if params.datasetVolumeParameters is not None:
+                return params.datasetVolumeParameters.timeBucketingStrategy
+            if params.datasetFieldParameters is not None:
+                return params.datasetFieldParameters.timeBucketingStrategy
+        except AttributeError:
+            logger.debug(
+                "Failed to extract time bucketing strategy from monitor %s",
+                monitor.urn if monitor else None,
+                exc_info=True,
+            )
+        return None
 
     @staticmethod
     def _get_incident_behavior(assertion: Assertion) -> list[AssertionIncidentBehavior]:

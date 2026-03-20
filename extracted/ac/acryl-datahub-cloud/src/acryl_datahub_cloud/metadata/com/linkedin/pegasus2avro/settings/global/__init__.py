@@ -11,7 +11,12 @@ from ......schema_classes import AiAssistantSettingsClass
 from ......schema_classes import AiInstructionClass
 from ......schema_classes import AiInstructionStateClass
 from ......schema_classes import AiInstructionTypeClass
+from ......schema_classes import AiPluginAuthTypeClass
+from ......schema_classes import AiPluginConfigClass
+from ......schema_classes import AiPluginSettingsClass
+from ......schema_classes import AiPluginTypeClass
 from ......schema_classes import ApplicationsSettingsClass
+from ......schema_classes import AuthInjectionLocationClass
 from ......schema_classes import DocPropagationFeatureSettingsClass
 from ......schema_classes import DocumentationAiSettingsClass
 from ......schema_classes import EmailIntegrationSettingsClass
@@ -23,23 +28,34 @@ from ......schema_classes import GlobalSettingsInfoClass
 from ......schema_classes import GlobalViewsSettingsClass
 from ......schema_classes import GlobalVisualSettingsClass
 from ......schema_classes import HelpLinkClass
+from ......schema_classes import MaintenanceSeverityClass
+from ......schema_classes import MaintenanceWindowSettingsClass
+from ......schema_classes import OAuthAiPluginConfigClass
 from ......schema_classes import OAuthProviderClass
 from ......schema_classes import OAuthSettingsClass
 from ......schema_classes import OidcSettingsClass
 from ......schema_classes import SampleDataSettingsClass
 from ......schema_classes import SampleDataStatusClass
+from ......schema_classes import SharedApiKeyAiPluginConfigClass
 from ......schema_classes import SlackIntegrationSettingsClass
+from ......schema_classes import SlackUserClass
 from ......schema_classes import SsoSettingsClass
 from ......schema_classes import TeamsChannelClass
 from ......schema_classes import TeamsIntegrationSettingsClass
 from ......schema_classes import TeamsUserClass
+from ......schema_classes import UserApiKeyAiPluginConfigClass
 
 
 AiAssistantSettings = AiAssistantSettingsClass
 AiInstruction = AiInstructionClass
 AiInstructionState = AiInstructionStateClass
 AiInstructionType = AiInstructionTypeClass
+AiPluginAuthType = AiPluginAuthTypeClass
+AiPluginConfig = AiPluginConfigClass
+AiPluginSettings = AiPluginSettingsClass
+AiPluginType = AiPluginTypeClass
 ApplicationsSettings = ApplicationsSettingsClass
+AuthInjectionLocation = AuthInjectionLocationClass
 DocPropagationFeatureSettings = DocPropagationFeatureSettingsClass
 DocumentationAiSettings = DocumentationAiSettingsClass
 EmailIntegrationSettings = EmailIntegrationSettingsClass
@@ -51,15 +67,21 @@ GlobalSettingsInfo = GlobalSettingsInfoClass
 GlobalViewsSettings = GlobalViewsSettingsClass
 GlobalVisualSettings = GlobalVisualSettingsClass
 HelpLink = HelpLinkClass
+MaintenanceSeverity = MaintenanceSeverityClass
+MaintenanceWindowSettings = MaintenanceWindowSettingsClass
+OAuthAiPluginConfig = OAuthAiPluginConfigClass
 OAuthProvider = OAuthProviderClass
 OAuthSettings = OAuthSettingsClass
 OidcSettings = OidcSettingsClass
 SampleDataSettings = SampleDataSettingsClass
 SampleDataStatus = SampleDataStatusClass
+SharedApiKeyAiPluginConfig = SharedApiKeyAiPluginConfigClass
 SlackIntegrationSettings = SlackIntegrationSettingsClass
+SlackUser = SlackUserClass
 SsoSettings = SsoSettingsClass
 TeamsChannel = TeamsChannelClass
 TeamsIntegrationSettings = TeamsIntegrationSettingsClass
 TeamsUser = TeamsUserClass
+UserApiKeyAiPluginConfig = UserApiKeyAiPluginConfigClass
 
 # fmt: on

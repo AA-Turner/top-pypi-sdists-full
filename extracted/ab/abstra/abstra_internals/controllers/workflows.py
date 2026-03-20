@@ -12,6 +12,7 @@ from abstra_internals.repositories.project.project import (
     HookStage,
     JobStage,
     NotificationTrigger,
+    PageStage,
     Project,
     ScriptStage,
     Stage,
@@ -134,11 +135,11 @@ class WorkflowController:
     def make_stage_dto(self, stage: Stage) -> StageDTO:
         filename = None
         props = {}
-        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage)):
+        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage, PageStage)):
             filename = stage.file
             props["filename"] = filename
         path = None
-        if isinstance(stage, (FormStage, HookStage)):
+        if isinstance(stage, (FormStage, HookStage, PageStage)):
             path = stage.path
             props["path"] = path
         if isinstance(stage, ComponentStage):
@@ -164,15 +165,12 @@ class WorkflowController:
         for stage in project.workflow_stages:
             stage_dto = self.make_stage_dto(stage)
 
-            if (
-                isinstance(stage, FormStage)
-                or isinstance(stage, ScriptStage)
-                or isinstance(stage, HookStage)
-                or isinstance(stage, JobStage)
+            if isinstance(
+                stage, (FormStage, ScriptStage, HookStage, JobStage, PageStage)
             ):
                 stage_dto["props"]["filename"] = stage.file
 
-            if isinstance(stage, FormStage) or isinstance(stage, HookStage):
+            if isinstance(stage, (FormStage, HookStage, PageStage)):
                 stage_dto["props"]["path"] = stage.path
 
             if isinstance(stage, ComponentStage):
@@ -537,16 +535,13 @@ class WorkflowController:
                     stage_dto["position"]["y"],
                 )
                 stage.title = stage_dto["title"]
-                if (
-                    isinstance(stage, FormStage)
-                    or isinstance(stage, ScriptStage)
-                    or isinstance(stage, HookStage)
-                    or isinstance(stage, JobStage)
+                if isinstance(
+                    stage, (FormStage, ScriptStage, HookStage, JobStage, PageStage)
                 ):
                     stage.update({"file": f"{stage_dto['props']['filename']}"})
                     stage.file = f"{stage_dto['props']['filename']}"
-                if isinstance(stage, FormStage) or isinstance(stage, HookStage):
-                    stage.path = stage_dto["props"]["path"]
+                if isinstance(stage, (FormStage, HookStage, PageStage)):
+                    stage.path = stage_dto["props"].get("path") or stage.path
                 if isinstance(stage, ComponentStage):
                     package_name = stage_dto.get("props", {}).get("packageName")
                     if package_name is not None:
@@ -610,6 +605,22 @@ class WorkflowController:
                     workflow_transitions=[],
                 )
                 project.jobs.append(stage)
+            elif stage_dto["type"] == "pages":
+                page_id = stage_dto["id"]
+                stage = PageStage(
+                    id=page_id,
+                    enabled=True,
+                    file=stage_dto["props"]["filename"],
+                    is_initial=False,
+                    path=stage_dto["props"].get("path", page_id),
+                    title=stage_dto["title"],
+                    workflow_position=(
+                        stage_dto["position"]["x"],
+                        stage_dto["position"]["y"],
+                    ),
+                    workflow_transitions=[],
+                )
+                project.pages.append(stage)
             elif stage_dto["type"] == "components":
                 stage = ComponentStage(
                     id=stage_dto["id"],

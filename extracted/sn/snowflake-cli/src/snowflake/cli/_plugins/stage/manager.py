@@ -38,7 +38,6 @@ from snowflake.cli.api.commands.common import (
     OnErrorType,
     Variable,
 )
-from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.exceptions import CliError
@@ -367,11 +366,12 @@ class StageManager(SqlExecutionMixin):
         and switch back to the original role for the next commands to run.
         """
         if "*" not in str(local_path):
-            local_path = (
-                os.path.join(local_path, "*")
-                if Path(local_path).is_dir()
-                else str(local_path)
-            )
+            local_path_obj = Path(local_path)
+            if local_path_obj.is_dir():
+                escaped_local_path = glob.escape(str(local_path_obj))
+                local_path = os.path.join(escaped_local_path, "*")
+            else:
+                local_path = str(local_path)
         with self.use_role(role) if role else nullcontext():
             spath = self.build_path(stage_path)
             local_resolved_path = path_resolver(str(local_path))
@@ -405,7 +405,8 @@ class StageManager(SqlExecutionMixin):
 
         if local_path.is_dir():
             root = local_path
-            glob_pattern = str(local_path / "**/*")
+            escaped_local_path = glob.escape(str(local_path))
+            glob_pattern = os.path.join(escaped_local_path, "**", "*")
         else:
             root = Path([p for p in local_path.parents if p.is_dir()][0])
             glob_pattern = str(local_path)
@@ -564,8 +565,18 @@ class StageManager(SqlExecutionMixin):
         for file in self.list_files(stage_path.absolute_path()).fetchall():
             if stage_path.is_user_stage():
                 path = StagePath.get_user_stage() / file["name"]
-            else:
+            elif stage_path.is_git_repo():
                 path = self.build_path(file["name"])
+            else:
+                # Snowflake `ls` returns unqualified names; re-attach the original FQN.
+                file_name = file["name"]
+                parts = file_name.split("/", maxsplit=1)
+                relative_path = parts[1] if len(parts) > 1 else ""
+                path = (
+                    stage_path.root_path() / relative_path
+                    if relative_path
+                    else stage_path.root_path()
+                )
             yield path
 
     def execute(
@@ -608,7 +619,12 @@ class StageManager(SqlExecutionMixin):
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
-        parsed_variables = parse_key_value_variables(variables)
+        from snowflake.cli.api.config_ng import get_merged_variables
+
+        # Get merged variables from SnowSQL config and CLI -D parameters
+        merged_vars_dict = get_merged_variables(variables)
+        # Convert dict back to List[Variable] for compatibility with existing methods
+        parsed_variables = [Variable(k, v) for k, v in merged_vars_dict.items()]
         sql_variables = self.parse_execute_variables(parsed_variables)
         python_variables = self._parse_python_variables(parsed_variables)
         results = []

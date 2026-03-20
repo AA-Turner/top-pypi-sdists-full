@@ -15,7 +15,9 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.markup import escape
 from rich.status import Status
+from rich.style import Style
 from rich.text import Text
+from rich.theme import Theme
 
 from .themes import CliTheme
 
@@ -37,6 +39,7 @@ def set_theme(theme: CliTheme) -> None:
     global _theme
     _theme = theme
     _refresh_aliases()
+    _apply_markdown_theme()
 
 
 # Backward-compatible module-level aliases for code that imports these.
@@ -60,8 +63,30 @@ def _refresh_aliases() -> None:
     ERROR_RED = _theme.error
 
 
-_ESC_HINT_DELAY: float = 3.0  # seconds before showing "esc to cancel" hint
+def _apply_markdown_theme() -> None:
+    """Apply the active theme's inline-code color onto both consoles.
+
+    Rich uses the ``markdown.code`` style for inline code spans.  The default
+    is ``bold cyan on black`` which creates a harsh filled-chip look.  We
+    override it with a subtle themed foreground and no background.
+
+    This helper runs during startup and on theme changes, so it must be
+    idempotent rather than stacking repeated ``push_theme()`` calls.
+    """
+    color = _theme.code_inline or _theme.secondary
+    if not color:
+        return
+    override = Theme({"markdown.code": Style(color=color, bold=True)})
+    for c in (console, _stdout_console):
+        if getattr(c, "_anteroom_markdown_theme_applied", False):
+            c.pop_theme()
+        c.push_theme(override)
+        setattr(c, "_anteroom_markdown_theme_applied", True)
+
+
+_ESC_HINT_DELAY: float = 8.0  # seconds before showing "esc to cancel" hint
 _STALL_THRESHOLD: float = 15.0  # seconds before showing API stall warning
+_REPL_THINKING_REVEAL_DELAY: float = 2.0  # seconds before first REPL thinking line
 
 
 def use_stdout_console() -> None:
@@ -88,6 +113,7 @@ def use_stdout_console() -> None:
     _real_stderr = os.fdopen(os.dup(sys.stderr.fileno()), "w", newline="")
     _stdout = _real_stderr
     _repl_mode = True
+    _apply_markdown_theme()
 
 
 def write_raw(text: str) -> None:
@@ -128,6 +154,7 @@ _spinner: Status | None = None
 _last_spinner_update: float = 0
 _thinking_ticker_task: asyncio.Task[None] | None = None
 _thinking_cancelled: bool = False  # guard flag to suppress stale ticker output (#937)
+_thinking_line_visible: bool = False
 
 # Lifecycle phase tracking
 _thinking_phase: str = ""  # current phase: connecting, waiting, streaming
@@ -517,7 +544,7 @@ def start_thinking(*, newline: bool = False) -> None:
     """
     global _thinking_start, _spinner, _last_spinner_update, _tool_batch_active, _thinking_ticker_task
     global _thinking_phase, _thinking_tokens, _streaming_chars, _last_chunk_time, _phase_start_time, _retrying_info
-    global _plan_written_lines, _thinking_cancelled
+    global _plan_written_lines, _thinking_cancelled, _thinking_line_visible
     _flush_dedup()
     _thinking_cancelled = False
     # Emit spacing after tool call block before AI narration text (#680).
@@ -535,6 +562,7 @@ def start_thinking(*, newline: bool = False) -> None:
     _retrying_info = {}
     _throughput_window.clear()
     _last_spinner_update = _thinking_start
+    _thinking_line_visible = False
     # Reset plan written lines — the block will be freshly written
     _plan_written_lines = 0
     if _repl_mode:
@@ -543,17 +571,15 @@ def start_thinking(*, newline: bool = False) -> None:
         # via ANSI escape codes as the timer ticks.
         if newline and _stdout:
             # Atomic \n + initial thinking block prevents prompt_toolkit race (#249).
-            gold = _theme.ansi_fg("accent")
-            rst = _theme.ansi_reset
             if _plan_visible and _plan_steps:
                 # Write newline then full plan + thinking block
                 _stdout.write("\n")
                 _stdout.flush()
                 _write_thinking_block(0.0)
             else:
-                _stdout.write(f"\n\r\033[2K{gold}Thinking...{rst}")
+                _stdout.write("\n")
                 _stdout.flush()
-        else:
+        elif _plan_visible and _plan_steps:
             _write_thinking_line(0.0)
         _spinner = None
     else:
@@ -585,7 +611,16 @@ def _build_thinking_text(
     err_c = _theme.ansi_fg("error")
     rst = _theme.ansi_reset
 
-    if elapsed < 0.5 and not error_msg and not cancel_msg:
+    if (
+        elapsed < _REPL_THINKING_REVEAL_DELAY
+        and not error_msg
+        and not cancel_msg
+        and countdown <= 0
+        and not _plan_visible
+    ):
+        return ""
+
+    if elapsed < 3.0 and not error_msg and not cancel_msg:
         return f"{gold}Thinking...{rst}"
 
     timer = f"{timer_c}{elapsed:.0f}s{rst}"
@@ -616,7 +651,7 @@ def _write_thinking_block(
 
     Uses cursor-up ANSI codes to redraw the block in place.
     """
-    global _plan_written_lines
+    global _plan_written_lines, _thinking_line_visible
     if not _stdout:
         return
 
@@ -625,9 +660,21 @@ def _write_thinking_block(
 
     if height == 0:
         # No plan — single-line thinking only
+        if not thinking_text:
+            if _thinking_line_visible:
+                _stdout.write("\r\033[2K")
+                _stdout.flush()
+            _thinking_line_visible = False
+            return
         _stdout.write(f"\r\033[2K{thinking_text}")
         _stdout.flush()
+        _thinking_line_visible = True
         return
+
+    if not thinking_text:
+        gold = _theme.ansi_fg("accent")
+        rst = _theme.ansi_reset
+        thinking_text = f"{gold}Thinking...{rst}"
 
     # Multi-line block: plan header + steps + thinking line
     buf: list[str] = []
@@ -666,6 +713,7 @@ def _write_thinking_block(
     _stdout.write("".join(buf))
     _stdout.flush()
     _plan_written_lines = height  # remember how many plan lines we wrote
+    _thinking_line_visible = True
 
 
 def _write_thinking_line(
@@ -689,10 +737,31 @@ def _write_thinking_line(
         _write_thinking_block(elapsed, error_msg=error_msg, countdown=countdown, cancel_msg=cancel_msg)
         return
 
-    text = f"\r\033[2K{_build_thinking_text(elapsed, error_msg=error_msg, countdown=countdown, cancel_msg=cancel_msg)}"
+    text_body = _build_thinking_text(elapsed, error_msg=error_msg, countdown=countdown, cancel_msg=cancel_msg)
+    if not text_body:
+        global _thinking_line_visible
+        if _stdout and _thinking_line_visible:
+            _stdout.write("\r\033[2K")
+            _stdout.flush()
+        _thinking_line_visible = False
+        return
+
+    text = f"\r\033[2K{text_body}"
     if _stdout:
         _stdout.write(text)
         _stdout.flush()
+    _thinking_line_visible = True
+
+
+def _detach_thinking_line_for_output() -> bool:
+    """Move subsequent normal output onto a fresh line when thinking is visible."""
+    global _thinking_line_visible
+    if not (_repl_mode and _stdout and _thinking_start and _thinking_line_visible):
+        return False
+    _stdout.write("\n")
+    _stdout.flush()
+    _thinking_line_visible = False
+    return True
 
 
 def update_thinking() -> None:
@@ -722,6 +791,7 @@ async def stop_thinking(
     error_msg: str = "",
     cancel_msg: str = "",
     collapse_plan: bool = False,
+    quiet: bool = False,
 ) -> float:
     """Stop the spinner, return elapsed seconds.
 
@@ -732,8 +802,10 @@ async def stop_thinking(
     - ``cancel_msg``: muted message (user-initiated cancel)
     - ``collapse_plan``: if True, collapse the plan to a one-line summary
     - Neither: clean final line (just "Thinking... Ns")
+    - ``quiet``: clear the current thinking line without printing a final status
     """
-    global _spinner, _thinking_ticker_task, _thinking_phase, _plan_written_lines, _thinking_start
+    global _spinner, _thinking_ticker_task, _thinking_phase, _plan_written_lines
+    global _thinking_start, _thinking_line_visible
     elapsed = 0.0
     # Await ticker termination to prevent race conditions
     if _thinking_ticker_task is not None:
@@ -764,7 +836,11 @@ async def stop_thinking(
             if collapse_plan:
                 _collapse_plan()
 
-            if error_msg:
+            if quiet:
+                if _thinking_line_visible or _plan_written_lines > 0:
+                    _stdout.write("\r\033[2K")
+                    _stdout.flush()
+            elif error_msg:
                 _write_thinking_line(elapsed, error_msg=error_msg)
                 _stdout.write("\n")
                 _stdout.flush()
@@ -781,6 +857,7 @@ async def stop_thinking(
                 _stdout.write(f"\r\033[2K{gold}Thinking...{rst} {timer_c}{elapsed:.0f}s{rst}\n")
                 _stdout.flush()
     _thinking_start = 0
+    _thinking_line_visible = False
     return elapsed
 
 
@@ -789,7 +866,8 @@ def stop_thinking_sync() -> float:
 
     Does not await the ticker — use only when an event loop is unavailable.
     """
-    global _spinner, _thinking_ticker_task, _plan_written_lines, _thinking_start, _thinking_cancelled
+    global _spinner, _thinking_ticker_task, _plan_written_lines, _thinking_start
+    global _thinking_cancelled, _thinking_line_visible
     elapsed = 0.0
     _thinking_cancelled = True  # suppress stale ticker output before cancel propagates (#937)
     if _thinking_ticker_task is not None:
@@ -812,6 +890,7 @@ def stop_thinking_sync() -> float:
             _stdout.write("\r\033[2K")
             _stdout.flush()
     _thinking_start = 0
+    _thinking_line_visible = False
     return elapsed
 
 
@@ -911,26 +990,26 @@ def _phase_elapsed_str() -> str:
 def _phase_suffix(elapsed: float) -> str:
     """Build the dim phase text appended to the thinking line.
 
-    Connection health status is always shown (all verbosity levels).
-    Returns an empty string only when no phase is set.
+    Retry and stall conditions are always shown immediately.  Normal phase
+    detail (connecting, waiting, streaming char count) is suppressed for the
+    first 5 seconds to keep short waits calm (#1052).
     """
     if not _thinking_phase:
         return ""
     phase = _thinking_phase
+    # Retry is always shown immediately regardless of elapsed time
+    if phase == "retrying":
+        attempt = _retrying_info.get("attempt", 2)
+        max_attempts = _retrying_info.get("max_attempts", 3)
+        return f"retry {attempt}/{max_attempts}"
     pe = _phase_elapsed_str()
-    if phase == "connecting":
-        return f"connecting{pe}"
-    if phase == "waiting":
-        return f"connected · waiting for first token{pe}"
     if phase == "streaming":
         now = time.monotonic()
-        # Gap-based stall: no chunks at all for > threshold
+        # Gap-based stall: always shown immediately
         if _last_chunk_time and now - _last_chunk_time > _MID_STREAM_STALL:
             stall_secs = now - _last_chunk_time
             return f"streaming · {_streaming_chars:,} chars · stalled {stall_secs:.0f}s"
-        # Throughput-based stall (#774): chunks trickle in but throughput is
-        # extremely low (e.g. 6 chars/sec).  Only check after warmup period
-        # so we have enough data for a meaningful measurement.
+        # Throughput-based stall (#774): always shown after warmup
         if _phase_start_time and now - _phase_start_time > _THROUGHPUT_WARMUP_SECS and _throughput_window:
             window_span = now - _throughput_window[0][0]
             if window_span > 0:
@@ -938,11 +1017,17 @@ def _phase_suffix(elapsed: float) -> str:
                 throughput = window_chars / window_span
                 if throughput < _THROUGHPUT_STALL_THRESHOLD:
                     return f"streaming · {_streaming_chars:,} chars · slow ({throughput:.0f} chars/s)"
+        # Normal streaming detail suppressed during calm window
+        if elapsed < 5.0:
+            return ""
         return f"streaming · {_streaming_chars:,} chars"
-    if phase == "retrying":
-        attempt = _retrying_info.get("attempt", 2)
-        max_attempts = _retrying_info.get("max_attempts", 3)
-        return f"retry {attempt}/{max_attempts}"
+    # connecting/waiting suppressed during calm window
+    if elapsed < 5.0:
+        return ""
+    if phase == "connecting":
+        return f"connecting{pe}"
+    if phase == "waiting":
+        return f"connected · waiting for first token{pe}"
     return phase
 
 
@@ -1284,9 +1369,12 @@ def render_tool_call_start(tool_name: str, arguments: dict[str, Any]) -> None:
         }
     )
 
+    detached = _detach_thinking_line_for_output()
+
     # Add spacing before the first tool call in a batch
     if not _tool_batch_active:
-        console.print()
+        if not detached:
+            console.print()
         _tool_batch_active = True
 
     if _verbosity == Verbosity.VERBOSE:
@@ -1307,6 +1395,7 @@ def render_tool_call_start(tool_name: str, arguments: dict[str, Any]) -> None:
 def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
     """Show tool call result. Style depends on verbosity."""
     stop_tool_ticker_sync()
+    _detach_thinking_line_for_output()
 
     # Update history — find the first *running* entry that matches tool_name.
     # Using [-1] would grab the wrong entry when parallel tools complete
@@ -1374,6 +1463,12 @@ def render_tool_call_end(tool_name: str, status: str, output: Any) -> None:
     # Inline diff for file-modifying tools (all verbosity levels)
     if status == "success" and _has_diff_data(tool_name, output):
         _render_inline_diff(tool_name, output)
+        _dedup_key = ""
+        _dedup_count = 0
+        _dedup_summary = ""
+        return
+
+    if status == "success" and _verbosity == Verbosity.COMPACT and tool_name in ("ask_user", "ask_human"):
         _dedup_key = ""
         _dedup_count = 0
         _dedup_summary = ""
@@ -1469,7 +1564,6 @@ def render_welcome(
     display_dir = _short_path(working_dir)
     branch = f" ({git_branch})" if git_branch else ""
 
-    console.print()
     console.print(Text("      \u25b2", style=GOLD))
     console.print(Text("     / \\", style=GOLD))
     console.print(Text("    /   \\", style=GOLD))
@@ -1492,9 +1586,8 @@ def render_welcome(
         version_parts.append(f"v{version}")
     if build_date:
         version_parts.append(f"Built {build_date}")
-    if version_parts:
-        console.print(f"  [{MUTED}]{_SEP.join(version_parts)}[/{MUTED}]")
-    console.print(f"  [{MUTED}]github.com/troylar/anteroom[/{MUTED}]")
+    version_parts.append("github.com/troylar/anteroom")
+    console.print(f"  [{MUTED}]{_SEP.join(version_parts)}[/{MUTED}]")
     console.print()
 
     console.print(f"  [{SLATE}]{escape(display_dir)}{branch}[/]")
@@ -1516,7 +1609,7 @@ def render_welcome(
         console.print(f"  [{MUTED}]/help         \u2014 see all commands[/{MUTED}]")
         console.print()
     else:
-        console.print(f"  [{MUTED}]Type /help for commands[/{MUTED}]\n")
+        console.print(f"  [{MUTED}]Type a message, or /help for commands[/{MUTED}]\n")
 
 
 def render_update_available(current: str, latest: str) -> None:
@@ -1963,7 +2056,19 @@ def render_rag_sources(chunks: list[Any]) -> None:
 
 
 def render_rag_status(status: str, chunk_count: int = 0, reason: str | None = None) -> None:
-    """Render RAG retrieval status with consistent formatting."""
+    """Render RAG retrieval status with consistent formatting.
+
+    In COMPACT mode (default), suppress low-value diagnostics and soften
+    failure wording.  DETAILED/VERBOSE modes show full diagnostic output.
+    """
+    if _verbosity == Verbosity.COMPACT:
+        # Only surface actionable status; suppress ok/no_results noise
+        if status == "failed":
+            console.print(f"  [{MUTED}]Knowledge search unavailable[/{MUTED}]")
+        elif status == "no_vec_support":
+            console.print(f"  [{MUTED}]Knowledge search not configured[/{MUTED}]")
+        return
+    # DETAILED / VERBOSE — full diagnostic output
     if status == "ok" and chunk_count > 0:
         console.print(f"  [{MUTED}][RAG: {chunk_count} relevant chunk(s) retrieved][/{MUTED}]")
     elif status == "no_results":

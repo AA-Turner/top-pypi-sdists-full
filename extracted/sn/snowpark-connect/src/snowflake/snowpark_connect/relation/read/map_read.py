@@ -388,6 +388,23 @@ def _read_file(
         session,
     )
     upload_files_if_needed(paths, clean_source_paths, session, read_format)
+
+    # Snowflake stage operations use prefix matching. A read from
+    # "@stage/dir" also matches "@stage/dir_v2/file.csv". Appending a
+    # trailing slash ensures the reader only picks up files directly
+    # inside the intended directory and not sibling directories whose
+    # names share the same prefix.
+    paths = [
+        path + "/"
+        if (
+            not is_cloud_path(source_path)
+            and os.path.isdir(convert_file_prefix_path(source_path))
+            and not path.endswith("/")
+        )
+        else path
+        for source_path, path in zip(clean_source_paths, paths)
+    ]
+
     paths = [_quote_stage_path(path) for path in paths]
 
     if read_format in ("csv", "text", "json", "parquet"):

@@ -23,6 +23,11 @@ class SelectiveTestRunner:
         # trigger any tests (the Full Suite already covers them).
         self.skip_patterns = [
             r"policyengine_us/parameters/gov/states/household/",
+            # Registry files only import reforms; the Full Suite covers them.
+            r"policyengine_us/reforms/reforms\.py$",
+            r"policyengine_us/reforms/[^/]+/__init__\.py$",
+            # Lock files have no test relevance.
+            r"uv\.lock$",
         ]
 
         self.test_patterns = [
@@ -336,6 +341,14 @@ class SelectiveTestRunner:
                 if test_dir:
                     test_paths.add(test_dir)
 
+        # Directories that the parent walk must never climb above
+        stop_dirs = {
+            Path("policyengine_us/tests/policy/baseline"),
+            Path("policyengine_us/tests/policy/contrib"),
+            Path("policyengine_us/tests/policy/reform"),
+            Path("policyengine_us/tests"),
+        }
+
         # Filter out non-existent paths and return
         existing_test_paths = set()
         for path in test_paths:
@@ -345,6 +358,9 @@ class SelectiveTestRunner:
                 # Try to find the closest existing parent directory
                 path_obj = Path(path)
                 while path_obj.parent != path_obj:
+                    # Stop walking if we've reached a base test directory
+                    if path_obj in stop_dirs:
+                        break
                     if path_obj.exists() and path_obj.is_dir():
                         # Check if this directory contains test files
                         if any(path_obj.glob("**/test_*.py")) or any(

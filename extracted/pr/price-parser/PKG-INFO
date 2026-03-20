@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: price-parser
-Version: 0.5.0
+Version: 0.5.1
 Summary: Extract price and currency from a raw string
 Project-URL: Homepage, https://github.com/scrapinghub/price-parser
 Project-URL: Source, https://github.com/scrapinghub/price-parser

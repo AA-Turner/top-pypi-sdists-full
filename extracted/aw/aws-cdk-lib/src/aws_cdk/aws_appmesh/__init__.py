@@ -995,6 +995,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    PermissionsOptions as _PermissionsOptions_0351e60e,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
@@ -27872,6 +27873,28 @@ class VirtualGatewayGrants(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("VirtualGatewayGrants", jsii.sinvoke(cls, "fromVirtualGateway", [resource]))
 
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a3eaca0e4df20c51406f4aa7e8a62b361bbec4d6edd976a92b2d8966ff78306)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+
     @jsii.member(jsii_name="streamAggregatedResources")
     def stream_aggregated_resources(
         self,
@@ -28752,6 +28775,28 @@ class VirtualNodeGrants(
             type_hints = typing.get_type_hints(_typecheckingstub__6b5ea97525af5eb915a6dee865f1a5423f324780772aca0be9a31987c14d46ba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("VirtualNodeGrants", jsii.sinvoke(cls, "fromVirtualNode", [resource]))
+
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9571224f48408b5f7c676449eab6bfb92343aa4029f3d31f0ddd29dee908336f)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="streamAggregatedResources")
     def stream_aggregated_resources(
@@ -34009,6 +34054,15 @@ def _typecheckingstub__55d4d33ff41b6a90fa03f27a4fee92847478cbb71aae1ad4e6201af64
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5a3eaca0e4df20c51406f4aa7e8a62b361bbec4d6edd976a92b2d8966ff78306(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__842cffde7813c7f79cac957edd6daf3b93b11b2ebec34fbb36a1b8aff765620b(
     grantee: _IGrantable_71c4f5de,
 ) -> None:
@@ -34112,6 +34166,15 @@ def _typecheckingstub__b9a4ff7b3d2e69da9413534947c31a0f3a8f6670678a20055c42f5918
 
 def _typecheckingstub__6b5ea97525af5eb915a6dee865f1a5423f324780772aca0be9a31987c14d46ba(
     resource: _IVirtualNodeRef_5162bf48,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9571224f48408b5f7c676449eab6bfb92343aa4029f3d31f0ddd29dee908336f(
+    grantee: _IGrantable_71c4f5de,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

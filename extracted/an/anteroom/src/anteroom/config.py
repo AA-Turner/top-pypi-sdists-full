@@ -258,7 +258,7 @@ class AIConfig:
     chunk_stall_timeout: int = 30  # seconds; max silence between chunks mid-stream
     retry_max_attempts: int = 3  # retries on transient errors (0 = disabled)
     retry_backoff_base: float = 1.0  # seconds; base for exponential backoff
-    narration_cadence: int = 5  # progress updates every N tool calls; 0 = disabled
+    narration_cadence: int = 8  # progress updates every N tool calls; 0 = disabled
     max_tools: int = 128  # hard cap on tools per request; 0 = unlimited
     temperature: float | None = None  # None = provider default; 0.0-2.0
     top_p: float | None = None  # None = provider default; 0.0-1.0
@@ -362,7 +362,7 @@ class CliConfig:
     tool_dedup: bool = True  # collapse consecutive similar tool calls; False = show all
     retry_delay: float = 5.0  # seconds between CLI auto-retry countdown ticks
     max_retries: int = 3  # max CLI auto-retry attempts for retryable errors
-    esc_hint_delay: float = 3.0  # seconds before showing "esc to cancel" hint
+    esc_hint_delay: float = 8.0  # seconds before showing "esc to cancel" hint
     stall_display_threshold: float = 5.0  # seconds of chunk silence before showing "stalled"
     stall_warning_threshold: float = 15.0  # seconds before showing full stall warning
     stall_throughput_threshold: float = 30.0  # chars/sec below which "slow" indicator shows
@@ -1138,10 +1138,10 @@ def load_config(
         retry_backoff_base = 1.0
 
     try:
-        narration_cadence = int(ai_raw.get("narration_cadence", os.environ.get("AI_CHAT_NARRATION_CADENCE", 5)))
+        narration_cadence = int(ai_raw.get("narration_cadence", os.environ.get("AI_CHAT_NARRATION_CADENCE", 8)))
         narration_cadence = max(0, narration_cadence)
     except (ValueError, TypeError):
-        narration_cadence = 5
+        narration_cadence = 8
 
     try:
         max_tools = int(ai_raw.get("max_tools", os.environ.get("AI_CHAT_MAX_TOOLS", 128)))
@@ -1196,9 +1196,10 @@ def load_config(
     if narration_cadence > 0:
         system_prompt += (
             "\n\n<narration>\n"
-            f"During multi-step tasks with tool calls, give a brief 1-2 sentence progress update every "
-            f"{narration_cadence} tool calls — what you've found so far and what you're doing next. "
-            f"Keep updates concise and actionable.\n"
+            f"During multi-step tasks with tool calls, give a short progress update every "
+            f"{narration_cadence} tool calls only when it adds user-visible value. "
+            "Use one sentence when possible, focus on what changed and the next concrete step, "
+            "and avoid repeating prior status.\n"
             "</narration>"
         )
 
@@ -1345,9 +1346,9 @@ def load_config(
     except (ValueError, TypeError):
         max_retries = 3
     try:
-        esc_hint_delay = max(0.0, float(cli_raw.get("esc_hint_delay", 3.0)))
+        esc_hint_delay = max(0.0, float(cli_raw.get("esc_hint_delay", 8.0)))
     except (ValueError, TypeError):
-        esc_hint_delay = 3.0
+        esc_hint_delay = 8.0
     try:
         stall_display_threshold = max(1.0, float(cli_raw.get("stall_display_threshold", 5.0)))
     except (ValueError, TypeError):

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import copy
 import decimal
+import importlib.util
 import math
 import pprint
+import subprocess
+import sys
 
 import pytest
 
@@ -1392,3 +1395,83 @@ def test_issue2228(func_registry):
         UnitsContainer({"meter": 1, "centimeter": -1})
     )
     assert ok_factor == 100.0
+
+
+def test_issue2261(func_registry):
+    func_registry.define("truckload = nan kg")
+
+    # Converting to a prefixed form of a NaN unit should give a numeric result
+    q = func_registry.Quantity("1000 truckloads")
+    result = q.to("kilotruckload")
+    assert result.magnitude == 1.0
+
+    # Reverse direction should also work
+    q2 = func_registry.Quantity("1 kilotruckload")
+    result2 = q2.to("truckload")
+    assert result2.magnitude == 1000.0
+
+    # NaN should still propagate when converting to a non-NaN unit
+    q3 = func_registry.Quantity("2 truckloads")
+    result3 = q3.to("kg")
+    assert math.isnan(result3.magnitude)
+
+    # Compound units containing a NaN unit should also convert correctly
+    q4 = func_registry.Quantity("1000 truckload/day")
+    result4 = q4.to("kilotruckload/day")
+    assert result4.magnitude == 1.0
+
+
+def test_issue2265():
+    """Check that dask.array is not imported with pint."""
+    if importlib.util.find_spec("dask") is None:
+        pytest.skip("dask is not available")
+
+    command = [
+        sys.executable,
+        "-c",
+        "import pint, sys; print('dask.array' in sys.modules)",
+    ]
+    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    assert result.stdout.strip() == "False"
+
+
+def test_issue2265_2():
+    """Verify that lazy-loaded dask_array.Array works when accessed."""
+    if importlib.util.find_spec("dask") is None:
+        pytest.skip("dask is not available")
+
+    from pint.compat import HAS_DASK, dask_array
+
+    if not HAS_DASK:
+        pytest.skip("dask is not available")
+
+    # Access dask_array.Array to trigger lazy import
+    dask_array_class = dask_array.Array
+    assert dask_array_class is not None
+    # Verify it's the actual dask Array class by checking module
+    assert dask_array_class.__module__ == "dask.array.core"
+
+
+def test_issue2256():
+    ureg = UnitRegistry()
+
+    from pint import formatting as fmt
+    from pint.delegates.formatter.plain import PrettyFormatter
+
+    @fmt.register_unit_format("test2256")
+    def _test_format(unit, registry, **options):
+        pf = PrettyFormatter(registry)
+        return pf.format_unit(unit, "~", as_ratio=False)
+
+    q = 2.3e-6 * ureg.m**3 / (ureg.s**2 * ureg.kg)
+    assert f"{q:test2256}" == "2.3e-06 kg⁻¹·m³·s⁻²"
+    assert f"{q:~P}" == "2.3×10⁻⁶ m³/kg/s²"
+
+
+def test_issue2256_2():
+    ureg = UnitRegistry()
+
+    q = 2.3e-6 * ureg.m**3 / (ureg.s**2 * ureg.kg)
+    assert f"{q:~P}" == "2.3×10⁻⁶ m³/kg/s²"
+    assert f"{q:~^P}" == "2.3×10⁻⁶ kg⁻¹·m³·s⁻²"
+    assert f"{q:^}" == "2.3e-06 kilogram ** -1 * meter ** 3 * second ** -2"

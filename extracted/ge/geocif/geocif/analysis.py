@@ -63,8 +63,14 @@ class Geoanalysis:
         self.dir_ml = self.dir_out / "ml"
         self.dir_db = self.dir_ml / "db"
         self.dir_analysis = self.dir_ml / "analysis" / self.today
+        self.dir_plots = self.dir_analysis / "plots"
+        self.dir_maps = self.dir_analysis / "maps"
+        self.dir_config = self.dir_analysis / "config"
         os.makedirs(self.dir_db, exist_ok=True)
         os.makedirs(self.dir_analysis, exist_ok=True)
+        os.makedirs(self.dir_plots, exist_ok=True)
+        os.makedirs(self.dir_maps, exist_ok=True)
+        os.makedirs(self.dir_config, exist_ok=True)
 
         self.db_forecasts = self.parser.get("DEFAULT", "db")
         self.db_path = self.dir_db / self.db_forecasts
@@ -483,7 +489,7 @@ class Geoanalysis:
 
             # Save the plot
             fname = f"scatter_all_regions_{self.country}_{self.crop}.png"
-            plt.savefig(self.dir_analysis / fname, dpi=250)
+            plt.savefig(self.dir_country_plots / fname, dpi=250)
             plt.close()
 
     def _plot_scatter_by_region(self, df):
@@ -557,7 +563,7 @@ class Geoanalysis:
         plt.tight_layout()
 
         fname = f"scatter_by_region_{self.country}_{self.crop}.png"
-        fig.savefig(self.dir_analysis / fname, dpi=250)
+        fig.savefig(self.dir_country_plots / fname, dpi=250)
         plt.close(fig)
 
     def _plot_scatter_by_country(self, df):
@@ -630,7 +636,7 @@ class Geoanalysis:
         plt.tight_layout()
 
         fname = f"scatter_by_country_{self.crop}.png"
-        fig.savefig(self.dir_analysis / fname, dpi=250)
+        fig.savefig(self.dir_plots / fname, dpi=250)
         plt.close(fig)
 
     def _plot_mape_by_region(self, df_regional_metrics):
@@ -665,7 +671,7 @@ class Geoanalysis:
         plt.tight_layout()
 
         fname = f"mape_by_region_{self.country}_{self.crop}.png"
-        fig.savefig(self.dir_analysis / fname, dpi=250)
+        fig.savefig(self.dir_country_plots / fname, dpi=250)
         plt.close(fig)
 
     def _plot_national_yield(self, df_national_yield):
@@ -751,7 +757,7 @@ class Geoanalysis:
 
             # Save the plot
             fname = f"scatter_{self.country}_{self.crop}.png"
-            plt.savefig(self.dir_analysis / fname, dpi=250)
+            plt.savefig(self.dir_country_plots / fname, dpi=250)
             plt.close()
 
     def get_historic_production(self):
@@ -1203,10 +1209,12 @@ class Geoanalysis:
             metric = metric.replace("\n", " ")
             fname = f"{self.country}_{self.crop}_{metric}.png"
 
-            plt.savefig(self.dir_analysis / fname, dpi=250)
+            plt.savefig(self.dir_country_plots / fname, dpi=250)
             plt.close()
 
     def execute(self):
+        self.dir_country_plots = self.dir_plots / self.country
+        os.makedirs(self.dir_country_plots, exist_ok=True)
         self.query()
         df = self.preprocess()
         self.analyze()
@@ -1297,6 +1305,30 @@ class Geoanalysis:
                         "name_shapefile": name_shapefile,
                     }
 
+            # Load this country's shapefile
+            shp_file = self.parser.get(country, "boundary_file")
+            dg_country = gpd.read_file(
+                self.dir_boundary_files / shp_file,
+                engine="pyogrio",
+            )
+
+            # Rename columns using config-driven mapping
+            from geoprepare.georegion import get_boundary_col_mapping
+            rename = get_boundary_col_mapping(self.parser, shp_file)
+            # Drop columns that would create duplicates after rename
+            # (e.g. shapefile has both name0 and ADM0_NAME; renaming name0→ADM0_NAME would duplicate)
+            targets = set(rename.values())
+            sources = set(rename.keys())
+            conflicting = [c for c in dg_country.columns if c in targets and c not in sources]
+            if conflicting:
+                dg_country = dg_country.drop(columns=conflicting)
+            dg_country = dg_country.rename(columns=rename)
+
+            if "ADM0_NAME" not in dg_country.columns:
+                dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")
+
+            all_shapefiles.append(dg_country)
+
         # Check for pooled tables (pooled_{crop})
         if pool_countries:
             all_crops = set()
@@ -1322,30 +1354,6 @@ class Geoanalysis:
                         "admin_zone": first_admin,
                         "name_shapefile": first_shp,
                     }
-
-            # Load this country's shapefile
-            shp_file = self.parser.get(country, "boundary_file")
-            dg_country = gpd.read_file(
-                self.dir_boundary_files / shp_file,
-                engine="pyogrio",
-            )
-
-            # Rename columns using config-driven mapping
-            from geoprepare.georegion import get_boundary_col_mapping
-            rename = get_boundary_col_mapping(self.parser, shp_file)
-            # Drop columns that would create duplicates after rename
-            # (e.g. shapefile has both name0 and ADM0_NAME; renaming name0→ADM0_NAME would duplicate)
-            targets = set(rename.values())
-            sources = set(rename.keys())
-            conflicting = [c for c in dg_country.columns if c in targets and c not in sources]
-            if conflicting:
-                dg_country = dg_country.drop(columns=conflicting)
-            dg_country = dg_country.rename(columns=rename)
-
-            if "ADM0_NAME" not in dg_country.columns:
-                dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")
-
-            all_shapefiles.append(dg_country)
 
         # Concatenate all country shapefiles for consolidated maps
         self.dg = pd.concat(all_shapefiles, ignore_index=True)
@@ -1385,6 +1393,7 @@ class RegionalMapper(Geoanalysis):
 
         self.clean_data()
         if not self.df_regional.empty and not self.df_regional_by_year.empty:
+            self.crop = self.df_regional["Crop"].iloc[0].lower()
             self.plot_heatmap()
             self.plot_kde()
             self.plot_mape_map()
@@ -1478,7 +1487,7 @@ class RegionalMapper(Geoanalysis):
         ax.invert_yaxis()
 
         plt.tight_layout()
-        plt.savefig(self.dir_analysis / f"heatmap_{model}.png", dpi=250)
+        plt.savefig(self.dir_plots / f"heatmap_{model}_{self.crop}.png", dpi=250)
         plt.close()
 
     def plot_kde(self):
@@ -1526,7 +1535,7 @@ class RegionalMapper(Geoanalysis):
 
                 plt.tight_layout()
                 plt.savefig(
-                    self.dir_analysis / f"histogram_region_{model}_mape.png", dpi=250
+                    self.dir_plots / f"histogram_region_{model}_{self.crop}.png", dpi=250
                 )
                 plt.close()
 
@@ -1552,20 +1561,23 @@ class RegionalMapper(Geoanalysis):
             df_model = df_model.drop(df_tmp.index)
 
             col = "Mean Absolute Percentage Error"
+            # Blank out MAPE scores above 100% so they appear empty on the map
+            df_model = df_model.copy()
+            df_model.loc[df_model[col] > 100, col] = np.nan
             countries = df_model["Country"].unique().tolist()
             countries = [country.title().replace("_", " ") for country in countries]
             crop = df_model["Crop"].unique()[0].title().replace("_", " ")
             df = df_model[df_model["Country"].isin(countries)]
             self.dg = self.dg[self.dg["ADM0_NAME"].isin(countries)]
 
-            fname = f"map_{crop}_{df_model['Model'].iloc[0]}_mape.png"
+            fname = f"map_{self.crop}_{df_model['Model'].iloc[0]}_mape.png"
             plot.plot_map(
                 self.dg,
                 df,
                 merge_col="Country Region",
                 name_country=countries,
                 name_col=col,
-                dir_out=self.dir_analysis,
+                dir_out=self.dir_maps,
                 fname=fname,
                 label="MAPE (%)",
                 vmin=df[col].min(),
@@ -1601,7 +1613,7 @@ class RegionalMapper(Geoanalysis):
             plt.xticks(rotation=0)
 
             plt.tight_layout()
-            plt.savefig(self.dir_analysis / "bar_mape_by_year.png", dpi=250)
+            plt.savefig(self.dir_plots / f"bar_mape_by_year_{self.crop}.png", dpi=250)
             plt.close()
 
 
@@ -1651,7 +1663,7 @@ def run(path_config_files=[Path("../config/geocif.txt")]):
     for cfg in path_config_files:
         cfg = Path(cfg)
         if cfg.is_file():
-            shutil.copy2(cfg, obj.dir_analysis / cfg.name)
+            shutil.copy2(cfg, obj.dir_config / cfg.name)
 
     """ Loop over each country, crop, model combination in dict_config """
     frames = []

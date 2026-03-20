@@ -5,8 +5,6 @@ import operator
 import os
 import re
 import shlex
-import six
-import sys
 import yaml
 
 from collections import OrderedDict
@@ -22,7 +20,6 @@ from insights.core.exceptions import (
 from insights.core.serde import deserializer, serializer
 from insights.parsr import iniparser
 from insights.parsr.query import Directive, Entry, Result, Section, compile_queries
-from insights.util import deprecated
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -794,14 +791,12 @@ class YAMLParser(Parser, LegacyItemAccess):
             if not isinstance(self.data, (dict, list)):
                 raise ParseException("YAML didn't produce a dictionary or list.")
         except SkipComponent as se:
-            tb = sys.exc_info()[2]
-            six.reraise(SkipComponent, SkipComponent(str(se)), tb)
-        except:
-            tb = sys.exc_info()[2]
+            raise SkipComponent(str(se))
+        except Exception:
             cls = self.__class__
             name = ".".join([cls.__module__, cls.__name__])
             msg = "%s couldn't parse yaml." % name
-            six.reraise(ParseException, ParseException(msg), tb)
+            raise ParseException(msg)
 
 
 class JSONParser(Parser, LegacyItemAccess):
@@ -835,12 +830,11 @@ class JSONParser(Parser, LegacyItemAccess):
                 self.data = json.loads('\n'.join(content[actual_start_index:]))
             else:
                 self.data = json.loads(content)
-        except:
-            tb = sys.exc_info()[2]
+        except Exception:
             cls = self.__class__
             name = ".".join([cls.__module__, cls.__name__])
             msg = "%s couldn't parse json." % name
-            six.reraise(ParseException, ParseException(msg), tb)
+            raise ParseException(msg)
         # Kept for backwards compatibility;
         # JSONParser used to raise an exception for valid "null" JSON string
         if self.data is None:
@@ -853,7 +847,7 @@ class ScanMeta(type):
         return super(ScanMeta, cls).__new__(cls, name, parents, dct)
 
 
-class Scannable(six.with_metaclass(ScanMeta, Parser)):
+class Scannable(Parser, metaclass=ScanMeta):
     """
     A class to enable early and easy collection of data in a file.
 
@@ -913,7 +907,6 @@ class Scannable(six.with_metaclass(ScanMeta, Parser)):
     """
 
     def __init__(self, *args, **kwargs):
-        deprecated(Scannable, "Please use the :class:`insights.core.Parser` instead.", "3.3.0")
         super(Scannable, self).__init__(*args, **kwargs)
 
     @classmethod
@@ -973,7 +966,7 @@ class Scannable(six.with_metaclass(ScanMeta, Parser)):
                 scanner(self, obj)
 
 
-class TextFileOutput(six.with_metaclass(ScanMeta, Parser)):
+class TextFileOutput(Parser, metaclass=ScanMeta):
     """
     Class for parsing general text file content.
 
@@ -1052,21 +1045,17 @@ class TextFileOutput(six.with_metaclass(ScanMeta, Parser)):
         """
         Parse the line into a dictionary and return it. Only wrap with
         `raw_line` by default.
-
-        .. warning::
-            The key `raw_message` is deprecated and will be removed from
-            version `3.7.0`
         """
-        return {'raw_line': line, 'raw_message': line}
+        return {'raw_line': line}
 
     def _valid_search(self, s, check=all):
         """
         Check this given `s`, it must be a string or a list of strings.
         Otherwise, a TypeError will be raised.
         """
-        if isinstance(s, six.string_types):
+        if isinstance(s, str):
             return lambda l: s in l
-        elif isinstance(s, list) and len(s) > 0 and all(isinstance(w, six.string_types) for w in s):
+        elif isinstance(s, list) and len(s) > 0 and all(isinstance(w, str) for w in s):
             return lambda l: check(w in l for w in s)
         elif s is not None:
             raise TypeError('Search items must be given as a string or a list of strings')
@@ -1090,7 +1079,7 @@ class TextFileOutput(six.with_metaclass(ScanMeta, Parser)):
             TypeError: When `s` is not a string or a list of strings, or `num`
                 is not an integer.
         """
-        if num is not None and not isinstance(num, six.integer_types):
+        if num is not None and not isinstance(num, int):
             raise TypeError('Required numbers must be given as a integer')
         ret = []
         search_by_expression = self._valid_search(s, check)
@@ -1333,7 +1322,7 @@ class LogFileOutput(TextFileOutput):
         # Grab values of dict as a list first
         if isinstance(time_format, dict):
             time_format = list(time_format.values())
-        if isinstance(time_format, six.string_types):
+        if isinstance(time_format, str):
             logs_have_year = '%Y' in time_format or '%y' in time_format
             time_re = re.compile('(' + timefmt_re.sub(replacer, time_format) + ')')
 
@@ -1406,77 +1395,6 @@ class LogFileOutput(TextFileOutput):
                 # If we're including lines, add this continuation line
                 if including_lines:
                     yield self._parse_line(line)
-
-
-class LazyLogFileOutput(LogFileOutput):
-    """
-    Another class for parsing log file content. Doesn't like the LogFileOutput,
-    this LazyLogFileOutput doesn't load the content during initialization.
-    Its content will be loaded later whenever the parser instance being used.
-    It's useful for the cases where need to load thousands of files that
-    belong to one single Spec in one pass of running.
-    If any "scan" functions are pre-defined with it, to ensure the "scan"
-    results being available, the `do_scan` method should be called explicitly
-    before using them.
-    Other than the lazy content loading feature, it's the same as its base
-    LogFileOutput.
-
-    Examples:
-        >>> class LzayLogOne(LazyLogFileOutput):
-        >>> LazyLogOne.keep_scan('get_one', 'one')
-        >>> LazyLogOne.last_scan('last_match', 'file')
-        >>> LazyLogOne.token_scan('find_it', 'more')
-        >>> my_log1 = LazyLogOne(context_wrap(contents, path='/var/log/log1'))
-        >>> hasattr(my_log1, 'get_one')
-        False
-        >>> hasattr(my_log1, 'last_match')
-        False
-        >>> hasattr(my_log1, 'find_id')
-        False
-        >>> my_log1.do_scan('get_one')
-        >>> my_log1.get_one
-        [{'raw_line': 'Text file line one'}]
-        >>> my_log1.do_scan()
-        >>> hasattr(my_log1, 'last_match')
-        True
-        >>> hasattr(my_log1, 'find_id')
-        True
-        >>> my_log2 = LazyLogOne(context_wrap(contents, path='/var/log/log2'))
-        >>> my_log2.get(['three', 'more'])
-        [{'raw_line': 'Text file line three, and more'}]
-    """
-
-    def __init__(self, *args, **kwargs):
-        deprecated(LazyLogFileOutput, "Use LogFileOutput instead.", "3.7.0")
-        super(LazyLogFileOutput, self).__init__(*args, **kwargs)
-
-    def _handle_content(self, context):
-        self._lines = None
-        self._context = context
-        self._scanned = set()
-
-    def do_scan(self, result_key=None):
-        """
-        Do the actual scanning operations as per the specified `result_key`.
-        When `result_key` is not specified, all registered scanners will be
-        executed.  Each registered scanner can only be executed once.
-        """
-        if result_key:
-            if result_key not in self._scanned and result_key in self.scanners:
-                self.scanners[result_key](self)
-                self._scanned.add(result_key)
-        else:
-            for key, scanner in self.scanners.items():
-                if key not in self._scanned:
-                    self._scanned.add(key)
-                    scanner(self)
-
-    @property
-    def lines(self):
-        if self._lines is None:
-            # one-shot load all content lines here
-            self._lines = self._context.content
-        return self._lines
 
 
 class Syslog(LogFileOutput):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.33
+Version: 0.52.35
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -230,7 +230,7 @@ Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.10
 Requires-Dist: cachetools>=6.2.4
 Requires-Dist: click
-Requires-Dist: diskcache==5.6.3
+Requires-Dist: diskcache-weave==5.6.3.post1
 Requires-Dist: gql[httpx]>=3.0.0
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: packaging>=21.0
@@ -341,6 +341,7 @@ Requires-Dist: litellm>=1.36.1; extra == 'trace-server'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'trace-server'
 Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'trace-server'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'trace-server'
+Requires-Dist: redis>=5.0.0; extra == 'trace-server'
 Provides-Extra: verdict
 Requires-Dist: verdict>=0.2.3; (platform_python_implementation != 'PyPy' and python_version < '3.13') and extra == 'verdict'
 Provides-Extra: verifiers

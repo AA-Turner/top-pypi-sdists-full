@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.25
+Version: 0.2.26
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
@@ -176,6 +176,18 @@ If you find GLiNER useful in your research, please consider citing our papers:
       archivePrefix={arXiv},
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2406.12925}, 
+}
+```
+
+```bibtex
+@misc{stepanov2026millionlabelnerbreakingscale,
+      title={The Million-Label NER: Breaking Scale Barriers with GLiNER bi-encoder}, 
+      author={Ihor Stepanov and Mykhailo Shtopko and Dmytro Vodianytskyi and Oleksandr Lukashov},
+      year={2026},
+      eprint={2602.18487},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2602.18487}, 
 }
 ```
 ## Support and funding

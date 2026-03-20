@@ -20,6 +20,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetChartSnapshotResponse,
     GetFeatureMetricsRequest,
     GetFeatureMetricsResponse,
+    GetFormulaOptionsRequest,
+    GetFormulaOptionsResponse,
     GetMetricOptionsRequest,
     GetMetricOptionsResponse,
     GetQueryMetricsRequest,
@@ -28,6 +30,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetResolverMetricsResponse,
     ListChartsRequest,
     ListChartsResponse,
+    ListChartsWithCronAlertsRequest,
+    ListChartsWithCronAlertsResponse,
     UpdateMetricConfigRequest,
     UpdateMetricConfigResponse,
 )
@@ -83,6 +87,14 @@ class ChartsServiceStub:
     GetMetricOptions: UnaryUnaryMultiCallable[
         GetMetricOptionsRequest,
         GetMetricOptionsResponse,
+    ]
+    GetFormulaOptions: UnaryUnaryMultiCallable[
+        GetFormulaOptionsRequest,
+        GetFormulaOptionsResponse,
+    ]
+    ListChartsWithCronAlerts: UnaryUnaryMultiCallable[
+        ListChartsWithCronAlertsRequest,
+        ListChartsWithCronAlertsResponse,
     ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
@@ -152,5 +164,17 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetMetricOptionsRequest,
         context: ServicerContext,
     ) -> GetMetricOptionsResponse: ...
+    @abstractmethod
+    def GetFormulaOptions(
+        self,
+        request: GetFormulaOptionsRequest,
+        context: ServicerContext,
+    ) -> GetFormulaOptionsResponse: ...
+    @abstractmethod
+    def ListChartsWithCronAlerts(
+        self,
+        request: ListChartsWithCronAlertsRequest,
+        context: ServicerContext,
+    ) -> ListChartsWithCronAlertsResponse: ...
 
 def add_ChartsServiceServicer_to_server(servicer: ChartsServiceServicer, server: Server) -> None: ...

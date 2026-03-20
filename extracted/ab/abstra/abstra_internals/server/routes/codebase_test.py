@@ -207,12 +207,10 @@ class TestCodebaseControllerListFiles(unittest.TestCase):
         SettingsController._root_path = self.original_root_path
 
     @patch("abstra_internals.controllers.codebase.FileSystemService")
-    def test_list_files_skips_paths_outside_root(self, mock_fs):
-        """Regression: list_files must not crash when FileSystemService returns
-        paths outside the project root (e.g. resolved symlinks like /tmp/.wsdl)."""
+    def test_list_files_inside_root_uses_relative_path_parts(self, mock_fs):
+        """Files inside root are returned with relative path_parts."""
         mock_fs.list_files.return_value = [
-            Path("/tmp/foo/form.py"),  # inside root → included
-            Path("/tmp/.wsdl"),  # outside root → must be skipped, not crash
+            Path("/tmp/foo/form.py"),
         ]
 
         result = self.controller.list_files(None)
@@ -221,11 +219,26 @@ class TestCodebaseControllerListFiles(unittest.TestCase):
         self.assertEqual(result[0].file.path_parts, ["form.py"])
 
     @patch("abstra_internals.controllers.codebase.FileSystemService")
-    def test_list_files_does_not_raise_for_outside_root_paths(self, mock_fs):
-        """Before the fix, calling relative_to() on a path outside root raised ValueError."""
+    def test_list_files_outside_root_uses_absolute_path_parts(self, mock_fs):
+        """Files outside root are returned with absolute path_parts instead of being skipped."""
         mock_fs.list_files.return_value = [
-            Path("/tmp/.wsdl"),
-            Path("/etc/passwd"),
+            Path("/tmp/foo/form.py"),  # inside root
+            Path("/tmp/agent_work_abc/script.py"),  # outside root
+        ]
+
+        result = self.controller.list_files(None)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].file.path_parts, ["form.py"])
+        self.assertEqual(
+            result[1].file.path_parts, ["/", "tmp", "agent_work_abc", "script.py"]
+        )
+
+    @patch("abstra_internals.controllers.codebase.FileSystemService")
+    def test_list_files_does_not_raise_for_outside_root_paths(self, mock_fs):
+        """list_files must not crash when paths outside root are returned."""
+        mock_fs.list_files.return_value = [
+            Path("/tmp/agent_work_abc/file.py"),
         ]
 
         try:
@@ -233,7 +246,53 @@ class TestCodebaseControllerListFiles(unittest.TestCase):
         except ValueError as e:
             self.fail(f"list_files raised ValueError: {e}")
 
-        self.assertEqual(result, [])
+        self.assertEqual(len(result), 1)
+
+
+class TestCodebaseControllerGetFile(unittest.TestCase):
+    """Unit tests for CodebaseController.get_file logic."""
+
+    def setUp(self):
+        self.original_root_path = SettingsController._root_path
+        SettingsController._root_path = Path("/tmp/foo")
+        self.repos = MagicMock()
+        self.controller = CodebaseController(self.repos)
+
+        self.bp = get_editor_bp(self.repos)
+        self.app = flask.Flask(__name__)
+        self.app.register_blueprint(self.bp, url_prefix="/codebase")
+        self.client = self.app.test_client()
+
+    def tearDown(self):
+        SettingsController._root_path = self.original_root_path
+
+    def test_get_file_outside_root_returns_200(self):
+        """Files outside root can be read (no 403)."""
+        with patch("abstra_internals.controllers.codebase.flask") as mock_flask:
+            mock_flask.abort = flask.abort
+            mock_flask.send_file.return_value = flask.Response("content")
+
+            outside_file = Path("/tmp/agent_work_abc/script.py")
+            with (
+                patch.object(outside_file.__class__, "exists", return_value=True),
+                patch.object(
+                    outside_file.__class__, "resolve", return_value=outside_file
+                ),
+            ):
+                self.controller.get_file(str(outside_file))
+                mock_flask.send_file.assert_called()
+
+    def test_get_file_missing_outside_root_returns_404(self):
+        """Missing files outside root still return 404."""
+        resp = self.client.get(
+            "/codebase/read-file?path=/tmp/agent_work_abc/nonexistent.py"
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_get_file_relative_path_traversal_returns_403(self):
+        """Relative paths escaping root (path traversal) are still blocked."""
+        resp = self.client.get("/codebase/read-file?path=../../etc/passwd")
+        self.assertEqual(resp.status_code, 403)
 
 
 if __name__ == "__main__":

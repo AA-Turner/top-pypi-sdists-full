@@ -2,8 +2,6 @@ import argparse
 import os
 import json
 
-from pyhocon import ConfigFactory, ConfigTree
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Spark Application")
@@ -84,6 +82,8 @@ def get_resource_file_content(resource_file_name, config_package):
 
 # 1 arg parse_config() for backward compatibility.
 def parse_config(args, pipeline_dot_conf=None, config_package=None):
+    from pyhocon import ConfigFactory, ConfigTree
+
     config_package = "prophecy_config_instances" if config_package is None else config_package
     if args.file is not None:
         if hasattr(args, "defaultConfFile"):

@@ -19,7 +19,7 @@ class FocusedWave(AcousticField):
         """
         super().__init__(**kwargs)
         self.waveType = WaveType.FocusedWave
-        self.medium.kgrid.setTime(int(self.medium.kgrid.Nt*2),self.medium.kgrid.dt) # Extend the time grid to allow for delays
+        # self.medium.kgrid.setTime(int(self.medium.kgrid.Nt*2),self.medium.kgrid.dt) # Extend the time grid to allow for delays
         self.focal_line = focal_line
         self.delayedSignal = self._apply_delay()
 
@@ -31,7 +31,7 @@ class FocusedWave(AcousticField):
             str: File name for the system matrix file.
         """
         try:
-            return f"field_focused_X{self.focal_line*1000:.2f}"
+            return f"field_focused_X{self.focal_line*1000:.2f}_Z{self.params.acoustic['emission']['Foc']*1000:.2f}"
         except Exception as e:
             print(f"Error generating file name: {e}")
             return None
@@ -69,9 +69,8 @@ class FocusedWave(AcousticField):
             )
 
             # 3. Sélection des éléments actifs (focalisation)
-            TxWidth = self.params.acoustic['emission']['Foc'] / 2  # Largeur active en mètres
-            pitch = self.params.acoustic['probe']['element_width']  # Pas entre éléments (en mètres)
-            N_piezoFocal = int(round(TxWidth / pitch))  # Nombre d'éléments actifs de chaque côté
+            N_piezoFocal = self.params.acoustic['emission']['N_piezoFocal']  # Utilisation directe du paramètre
+
 
             center_idx = np.argmin(np.abs(element_positions - self.focal_line))
             start_idx = max(0, center_idx - N_piezoFocal)
@@ -109,7 +108,7 @@ class FocusedWave(AcousticField):
                     if shift >= 0 and shift + len(self.burst) <= delayed_signals.shape[1]:
                         delayed_signals[grid_idx, shift:shift + len(self.burst)] = self.burst
 
-            print(f"Retard maximum (échantillons): {max_delay_samples}")
+
             return delayed_signals
 
         except Exception as e:
@@ -223,10 +222,9 @@ class FocusedWave(AcousticField):
         """
         try:
             t_ex = 1 / self.params.acoustic['f_US']
-            x_focal, z_focal = self.focal_point
-
-            # Define file names (img and hdr)
-            file_name = f"field_focused_{x_focal:.2f}_{z_focal:.2f}"
+            x_focal = self.focal_line
+            z_focal = self.params.acoustic['emission']['Foc']
+            file_name = self.getName_field()
 
             img_path = os.path.join(filePath, file_name + ".img")
             hdr_path = os.path.join(filePath, file_name + ".hdr")

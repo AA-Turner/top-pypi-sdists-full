@@ -39,11 +39,10 @@ from snowflake.connector.errors import ProgrammingError
 from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLException
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_mapping import ERROR_MAPPINGS_JSON
-from snowflake.snowpark_connect.utils.context import get_is_python_client
 
-# Limit size of serialized status payloads to 4 KB to stay below typical 8 KB
+# Limit size of serialized status payloads to ~3 KB to stay below typical 8 KB
 # header/metadata limits (e.g., HTTP/2 / gRPC) and leave room for overhead.
-STATUS_SIZE_LIMIT = 4000
+STATUS_SIZE_LIMIT = 3250
 
 # Thread-local storage for custom error codes when we can't attach them directly to exceptions
 _thread_local = threading.local()
@@ -465,7 +464,7 @@ def build_grpc_error_response(ex: Exception) -> status_pb2.Status:
 
     # gRPC status is passed via response headers, which have an ~8KB limit for TCP connections.
     # If the status exceeds that, the client throws a generic exception that hides the real error.
-    # To prevent this, truncate the status to fit within STATUS_SIZE_LIMIT (4KB).
+    # To prevent this, truncate the status to fit within STATUS_SIZE_LIMIT (~3KB).
     if rich_status.ByteSize() >= STATUS_SIZE_LIMIT:
         rich_status = _truncate_grpc_status(
             rich_status, error_info, detail, include_stack_trace
@@ -480,11 +479,8 @@ def _truncate_grpc_status(
     detail: any_pb2.Any,
     include_stack_trace: bool,
 ) -> status_pb2.Status:
-    is_python_client = get_is_python_client()
 
-    # Scala/Java clients serialize the status into trailing metadata with extra overhead,
-    # so they need a tighter size cap than the Python client.
-    max_size = STATUS_SIZE_LIMIT if is_python_client else STATUS_SIZE_LIMIT // 2
+    max_size = STATUS_SIZE_LIMIT
 
     details_size = sum(d.ByteSize() for d in rich_status.details)
     message_limit = max(0, max_size - details_size)

@@ -1,3 +1,12 @@
+"""Predefined hamiltonians for various models:
+
+- Heisenberg model
+- Fermi-Hubbard model
+- Spinless Fermi-Hubbard model
+- Random operators
+
+"""
+
 from .builder import SparseOperatorBuilder
 from .hilbertspace import HilbertSpace, parse_edges_to_unique
 
@@ -64,7 +73,7 @@ def heisenberg_from_edges(
         \left(
         J_x S^x_i S^x_j + J_y S^y_i S^y_j + J_z S^z_i S^z_j
         \right)
-        +
+        -
         \sum_{i}^{|V|}
         \left(
         B_x S^x_i + B_y S^y_i + B_z S^z_i
@@ -153,9 +162,9 @@ def heisenberg_from_edges(
             bx, by, bz = b
         except TypeError:
             bx, by, bz = 0, 0, b
-        H += bx, ("sx", site)
-        H += by, ("sy", site)
-        H += bz, ("sz", site)
+        H -= bx, ("sx", site)
+        H -= by, ("sy", site)
+        H -= bz, ("sz", site)
 
     return H
 

@@ -2,6 +2,7 @@ import os
 
 import setuptools
 
+
 dir_name = os.path.abspath(os.path.dirname(__file__))
 
 version_contents = {}
@@ -17,6 +18,7 @@ install_requires = [
     "chevron",
     "tqdm",
     "exceptiongroup>=1.2.0",
+    "jsonschema",
     "python-dotenv",
     "sseclient-py",
     "python-slugify",

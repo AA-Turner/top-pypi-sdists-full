@@ -268,12 +268,11 @@ def extend_needs_data(
                             )
                             need[option_name] = []
                         else:
+                            existing = need.get_links(option_name, as_str=False)
                             need[option_name] = [
-                                *need[option_name],
+                                *existing,
                                 *(  # keep unique
-                                    v
-                                    for v in link_value.value
-                                    if v not in need[option_name]
+                                    v for v in link_value.value if v not in existing
                                 ),
                             ]
                     case (ExtendType.APPEND, LinksFunctionArray()):
@@ -286,13 +285,12 @@ def extend_needs_data(
                             )
                             need[option_name] = []
                         else:
+                            existing = need.get_links(option_name, as_str=False)
                             need._dynamic_fields[option_name] = LinksFunctionArray(
                                 (
-                                    *need[option_name],
+                                    *existing,
                                     *(  # keep unique
-                                        v
-                                        for v in link_value.value
-                                        if v not in need[option_name]
+                                        v for v in link_value.value if v not in existing
                                     ),
                                 )
                             )

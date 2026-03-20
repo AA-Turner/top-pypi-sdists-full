@@ -521,6 +521,7 @@ class _VolumeAssertionInput(_AssertionInput):
         created_at: datetime,
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
+        time_bucketing_strategy=None,
     ):
         _AssertionInput.__init__(
             self,
@@ -533,11 +534,12 @@ class _VolumeAssertionInput(_AssertionInput):
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            source_type=models.AssertionSourceTypeClass.NATIVE,  # Native assertions are of type native, not inferred
+            source_type=models.AssertionSourceTypeClass.NATIVE,
             created_by=created_by,
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
+            time_bucketing_strategy=time_bucketing_strategy,
         )
 
         self.criteria = VolumeAssertionCriteria.parse(criteria)
@@ -583,7 +585,8 @@ class _VolumeAssertionInput(_AssertionInput):
                             str(source_type), field
                         ),
                     )
-                ]
+                ],
+                bootstrapConfig=None,
             ),
         )
 
@@ -607,7 +610,8 @@ class _VolumeAssertionInput(_AssertionInput):
         return models.AssertionEvaluationParametersClass(
             type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
             datasetVolumeParameters=models.DatasetVolumeAssertionParametersClass(
-                sourceType=source_type
+                sourceType=source_type,
+                timeBucketingStrategy=self.time_bucketing_strategy,
             ),
         )
 

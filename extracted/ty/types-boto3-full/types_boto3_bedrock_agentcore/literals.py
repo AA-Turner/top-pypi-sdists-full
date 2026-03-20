@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AutomationStreamStatusType",
     "BedrockAgentCoreServiceName",
+    "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
@@ -53,6 +54,7 @@ __all__ = (
 
 
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
+BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]

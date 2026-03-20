@@ -32,6 +32,19 @@ class SpecMode(str, enum.Enum):
 
 VALID_PHASE_NAMES = frozenset({"requirements", "design", "tasks"})
 
+PENDING_SENTINEL = "[pending — to be derived from design]"
+
+
+def is_pending_content(phase: str, content: SpecContent) -> bool:
+    """Check whether the given phase still contains placeholder sentinel content."""
+    if phase == "requirements":
+        return content.requirements.strip() == PENDING_SENTINEL
+    if phase == "design":
+        return content.design.strip() == PENDING_SENTINEL
+    if phase == "tasks":
+        return len(content.tasks) == 1 and content.tasks[0].summary.startswith("[pending")
+    return False
+
 
 # ---------------------------------------------------------------------------
 # Authored content dataclasses
@@ -217,6 +230,18 @@ FEATURE_TEMPLATE = (
     "requirements: |\n  Describe requirements here.\n\n"
     "design: |\n  Describe the design here.\n\n"
     "tasks:\n  - id: t1\n    summary: First task\n"
+)
+
+DESIGN_FIRST_TEMPLATE = (
+    'requirements: "' + PENDING_SENTINEL + '"\n\n'
+    "design: |\n"
+    "  ## Architecture\n"
+    "  Describe the system architecture.\n\n"
+    "  ## Constraints\n"
+    "  List technical constraints.\n\n"
+    "  ## Approach\n"
+    "  Describe the implementation approach.\n\n"
+    "tasks:\n  - id: t1\n    summary: First task derived from design\n"
 )
 
 BUGFIX_TEMPLATE = (

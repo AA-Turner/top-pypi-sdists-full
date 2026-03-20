@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
 
-import six
-import mock
+import sys
 import pytest
 from .helpers import insights_upload_conf
-from mock.mock import patch, Mock, call
+from unittest import mock
+from unittest.mock import patch, Mock, call
 from insights.client.collection_rules import correct_format, load_yaml, verify_permissions
 
 
@@ -15,12 +15,7 @@ removed_files = ["/etc/some_file", "/tmp/another_file"]
 
 
 def patch_open(filedata):
-    if six.PY3:
-        open_name = 'builtins.open'
-    else:
-        open_name = '__builtin__.open'
-
-    return patch(open_name, mock.mock_open(read_data=filedata), create=True)
+    return patch('builtins.open', mock.mock_open(read_data=filedata), create=True)
 
 
 # Tests for the correct_format function
@@ -266,7 +261,7 @@ def test_rm_conf_old_nofile(isfile):
     assert result is None
 
 
-@pytest.mark.skipif(mock.version_info < (3, 0, 5), reason="Old mock_open has no iteration control")
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Old mock_open has no iteration control")
 @patch('insights.client.collection_rules.verify_permissions', return_value=True)
 @patch_isfile(True)
 def test_rm_conf_old_emptyfile(isfile, verify):
@@ -281,7 +276,7 @@ def test_rm_conf_old_emptyfile(isfile, verify):
     assert result is None
 
 
-@pytest.mark.skipif(mock.version_info < (3, 0, 5), reason="Old mock_open has no iteration control")
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Old mock_open has no iteration control")
 @patch('insights.client.collection_rules.verify_permissions', return_value=True)
 @patch_isfile(True)
 def test_rm_conf_old_load_bad_invalidsection(isfile, verify):
@@ -297,7 +292,7 @@ def test_rm_conf_old_load_bad_invalidsection(isfile, verify):
     assert 'ERROR: invalid section(s)' in str(e.value)
 
 
-@pytest.mark.skipif(mock.version_info < (3, 0, 5), reason="Old mock_open has no iteration control")
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Old mock_open has no iteration control")
 @patch('insights.client.collection_rules.verify_permissions', return_value=True)
 @patch_isfile(True)
 def test_rm_conf_old_load_bad_keysnosection(isfile, verify):
@@ -313,7 +308,7 @@ def test_rm_conf_old_load_bad_keysnosection(isfile, verify):
     assert 'ERROR: Cannot parse' in str(e.value)
 
 
-@pytest.mark.skipif(mock.version_info < (3, 0, 5), reason="Old mock_open has no iteration control")
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Old mock_open has no iteration control")
 @patch('insights.client.collection_rules.verify_permissions', return_value=True)
 @patch_isfile(True)
 def test_rm_conf_old_load_bad_invalidkey(isfile, verify):
@@ -328,7 +323,7 @@ def test_rm_conf_old_load_bad_invalidkey(isfile, verify):
     assert 'ERROR: Unknown key' in str(e.value)
 
 
-@pytest.mark.skipif(mock.version_info < (3, 0, 5), reason="Old mock_open has no iteration control")
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="Old mock_open has no iteration control")
 @patch('insights.client.collection_rules.verify_permissions', return_value=True)
 @patch_isfile(True)
 def test_rm_conf_old_load_ok(isfile, verify):

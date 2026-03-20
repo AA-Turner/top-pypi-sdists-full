@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.kube_events_pb2 import (
     GetKubeEventFacetValuesResponse,
     GetKubeEventFacetsRequest,
     GetKubeEventFacetsResponse,
+    ListKubeEventsAggregatedRequest,
+    ListKubeEventsAggregatedResponse,
     ListKubeEventsRequest,
     ListKubeEventsResponse,
 )
@@ -36,6 +38,10 @@ class KubeEventsServiceStub:
         GetKubeEventFacetValuesRequest,
         GetKubeEventFacetValuesResponse,
     ]
+    ListKubeEventsAggregated: UnaryUnaryMultiCallable[
+        ListKubeEventsAggregatedRequest,
+        ListKubeEventsAggregatedResponse,
+    ]
 
 class KubeEventsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -56,5 +62,11 @@ class KubeEventsServiceServicer(metaclass=ABCMeta):
         request: GetKubeEventFacetValuesRequest,
         context: ServicerContext,
     ) -> GetKubeEventFacetValuesResponse: ...
+    @abstractmethod
+    def ListKubeEventsAggregated(
+        self,
+        request: ListKubeEventsAggregatedRequest,
+        context: ServicerContext,
+    ) -> ListKubeEventsAggregatedResponse: ...
 
 def add_KubeEventsServiceServicer_to_server(servicer: KubeEventsServiceServicer, server: Server) -> None: ...

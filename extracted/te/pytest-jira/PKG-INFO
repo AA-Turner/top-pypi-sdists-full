@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-jira
-Version: 0.3.23
+Version: 0.3.24
 Summary: py.test JIRA integration plugin, using markers
 Project-URL: Homepage, https://github.com/rhevm-qe-automation/pytest_jira
 Author-email: James Laska <james.laska@gmail.com>, Lukas Bednar <lukyn17@gmail.com>

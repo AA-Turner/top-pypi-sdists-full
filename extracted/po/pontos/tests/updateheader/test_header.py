@@ -73,6 +73,14 @@ class FindCopyRightTestCase(TestCase):
             "# This program is free software: "
             "you can redistribute it and/or modify"
         )
+        not_a_copyright_line = """
+package product
+
+type FooProduct struct {
+	Version       string     `json:"version"`
+	SPDXLicenseID string     `json:"spdx-license-identifier"`
+	Copyright     string     `json:"copyright"`
+"""  # noqa: E501
 
         # Full match
         found, match = find_copyright(
@@ -97,6 +105,13 @@ class FindCopyRightTestCase(TestCase):
         # No match
         found, match = find_copyright(
             copyright_regex=self.regex, line=invalid_line
+        )
+        self.assertFalse(found)
+        self.assertIsNone(match)
+
+        # Looks like a copyright, but isn't
+        found, match = find_copyright(
+            copyright_regex=self.regex, line=not_a_copyright_line
         )
         self.assertFalse(found)
         self.assertIsNone(match)
@@ -312,7 +327,7 @@ class UpdateFileTestCase(TestCase):
             )
 
     @patch("sys.stdout", new_callable=StringIO)
-    def test_update_header_in_file(self, mock_stdout):
+    def test_update_header_in_file_from_single_year(self, mock_stdout):
         year = "2021"
         license_id = "AGPL-3.0-or-later"
 
@@ -331,7 +346,7 @@ class UpdateFileTestCase(TestCase):
             self.assertEqual(
                 ret,
                 f"{test_file}: Changed License Header "
-                "Copyright Year None -> 2021\n",
+                "Copyright Year 2020 -> 2020-2021\n",
             )
             self.assertIn(
                 "# SPDX-FileCopyrightText: 2020-2021 Greenbone AG",
@@ -339,7 +354,34 @@ class UpdateFileTestCase(TestCase):
             )
 
     @patch("sys.stdout", new_callable=StringIO)
-    def test_update_header_in_file_single_year(self, mock_stdout):
+    def test_update_header_in_file_from_multi_year(self, mock_stdout):
+        year = "2021"
+        license_id = "AGPL-3.0-or-later"
+
+        header = HEADER.format(date="2018-2020")
+        with temp_file(
+            content=header, name="test.py", change_into=True
+        ) as test_file:
+            update_file(
+                test_file,
+                year,
+                license_id,
+                self.company,
+            )
+
+            ret = mock_stdout.getvalue()
+            self.assertEqual(
+                ret,
+                f"{test_file}: Changed License Header "
+                "Copyright Year 2018-2020 -> 2018-2021\n",
+            )
+            self.assertIn(
+                "# SPDX-FileCopyrightText: 2018-2021 Greenbone AG",
+                test_file.read_text(encoding="utf-8"),
+            )
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_update_header_in_file_to_single_year(self, mock_stdout):
         year = "2021"
         license_id = "AGPL-3.0-or-later"
 

@@ -12,10 +12,19 @@ class UnboundSDK(Exception):
         super().__init__(self.message)
 
 
-class GetUserFailed(Exception):
-    def __init__(self):
-        self.message = "Failed to get the current user."
+class AuthorizationRequired(Exception):
+    """Raised when a stage requires authentication but no valid credentials were provided."""
+
+    status_code = 401
+
+    def __init__(self, message: str = "Authentication required."):
+        self.message = message
         super().__init__(self.message)
+
+
+class GetUserFailed(AuthorizationRequired):
+    def __init__(self):
+        super().__init__("Failed to get the current user.")
 
 
 class IncompatibleSDK(Exception):

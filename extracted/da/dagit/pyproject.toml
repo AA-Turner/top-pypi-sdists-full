@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagit"
-version = "1.12.19"
+version = "1.12.20"
 description = "Web UI for dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -23,7 +23,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster-webserver==1.12.19",
+    "dagster-webserver==1.12.20",
 ]
 
 [project.urls]
@@ -35,8 +35,8 @@ dagit-debug = "dagster_webserver.debug:main"
 
 [project.optional-dependencies]
 notebook = [
-    "dagster-webserver[notebook]==1.12.19",
+    "dagster-webserver[notebook]==1.12.20",
 ]
 test = [
-    "dagster-webserver[test]==1.12.19",
+    "dagster-webserver[test]==1.12.20",
 ]

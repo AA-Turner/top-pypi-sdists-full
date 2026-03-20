@@ -8,7 +8,7 @@ import httpx
 
 from ..types import email_send_params, email_reply_params
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -73,7 +73,7 @@ class EmailsResource(SyncAPIResource):
         if not email_id:
             raise ValueError(f"Expected a non-empty value for `email_id` but received {email_id!r}")
         return self._get(
-            f"/emails/{email_id}",
+            path_template("/emails/{email_id}", email_id=email_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -122,7 +122,7 @@ class EmailsResource(SyncAPIResource):
         if not email_id:
             raise ValueError(f"Expected a non-empty value for `email_id` but received {email_id!r}")
         return self._post(
-            f"/emails/{email_id}/reply",
+            path_template("/emails/{email_id}/reply", email_id=email_id),
             body=maybe_transform(
                 {
                     "from_": from_,
@@ -266,7 +266,7 @@ class AsyncEmailsResource(AsyncAPIResource):
         if not email_id:
             raise ValueError(f"Expected a non-empty value for `email_id` but received {email_id!r}")
         return await self._get(
-            f"/emails/{email_id}",
+            path_template("/emails/{email_id}", email_id=email_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -315,7 +315,7 @@ class AsyncEmailsResource(AsyncAPIResource):
         if not email_id:
             raise ValueError(f"Expected a non-empty value for `email_id` but received {email_id!r}")
         return await self._post(
-            f"/emails/{email_id}/reply",
+            path_template("/emails/{email_id}/reply", email_id=email_id),
             body=await async_maybe_transform(
                 {
                     "from_": from_,

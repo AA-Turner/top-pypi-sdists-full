@@ -34,6 +34,7 @@ from .paginator import (
     ListConsumableResourcesPaginator,
     ListJobsByConsumableResourcePaginator,
     ListJobsPaginator,
+    ListQuotaSharesPaginator,
     ListSchedulingPoliciesPaginator,
     ListServiceJobsPaginator,
 )
@@ -45,6 +46,8 @@ from .type_defs import (
     CreateConsumableResourceResponseTypeDef,
     CreateJobQueueRequestTypeDef,
     CreateJobQueueResponseTypeDef,
+    CreateQuotaShareRequestTypeDef,
+    CreateQuotaShareResponseTypeDef,
     CreateSchedulingPolicyRequestTypeDef,
     CreateSchedulingPolicyResponseTypeDef,
     CreateServiceEnvironmentRequestTypeDef,
@@ -52,6 +55,7 @@ from .type_defs import (
     DeleteComputeEnvironmentRequestTypeDef,
     DeleteConsumableResourceRequestTypeDef,
     DeleteJobQueueRequestTypeDef,
+    DeleteQuotaShareRequestTypeDef,
     DeleteSchedulingPolicyRequestTypeDef,
     DeleteServiceEnvironmentRequestTypeDef,
     DeregisterJobDefinitionRequestTypeDef,
@@ -65,6 +69,8 @@ from .type_defs import (
     DescribeJobQueuesResponseTypeDef,
     DescribeJobsRequestTypeDef,
     DescribeJobsResponseTypeDef,
+    DescribeQuotaShareRequestTypeDef,
+    DescribeQuotaShareResponseTypeDef,
     DescribeSchedulingPoliciesRequestTypeDef,
     DescribeSchedulingPoliciesResponseTypeDef,
     DescribeServiceEnvironmentsRequestTypeDef,
@@ -79,6 +85,8 @@ from .type_defs import (
     ListJobsByConsumableResourceResponseTypeDef,
     ListJobsRequestTypeDef,
     ListJobsResponseTypeDef,
+    ListQuotaSharesRequestTypeDef,
+    ListQuotaSharesResponseTypeDef,
     ListSchedulingPoliciesRequestTypeDef,
     ListSchedulingPoliciesResponseTypeDef,
     ListServiceJobsRequestTypeDef,
@@ -101,9 +109,13 @@ from .type_defs import (
     UpdateConsumableResourceResponseTypeDef,
     UpdateJobQueueRequestTypeDef,
     UpdateJobQueueResponseTypeDef,
+    UpdateQuotaShareRequestTypeDef,
+    UpdateQuotaShareResponseTypeDef,
     UpdateSchedulingPolicyRequestTypeDef,
     UpdateServiceEnvironmentRequestTypeDef,
     UpdateServiceEnvironmentResponseTypeDef,
+    UpdateServiceJobRequestTypeDef,
+    UpdateServiceJobResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -191,6 +203,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#create_job_queue)
         """
 
+    def create_quota_share(
+        self, **kwargs: Unpack[CreateQuotaShareRequestTypeDef]
+    ) -> CreateQuotaShareResponseTypeDef:
+        """
+        Creates an Batch quota share.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/create_quota_share.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#create_quota_share)
+        """
+
     def create_scheduling_policy(
         self, **kwargs: Unpack[CreateSchedulingPolicyRequestTypeDef]
     ) -> CreateSchedulingPolicyResponseTypeDef:
@@ -237,6 +259,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_job_queue.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#delete_job_queue)
+        """
+
+    def delete_quota_share(
+        self, **kwargs: Unpack[DeleteQuotaShareRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified quota share.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_quota_share.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#delete_quota_share)
         """
 
     def delete_scheduling_policy(
@@ -319,6 +351,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#describe_jobs)
         """
 
+    def describe_quota_share(
+        self, **kwargs: Unpack[DescribeQuotaShareRequestTypeDef]
+    ) -> DescribeQuotaShareResponseTypeDef:
+        """
+        Returns a description of the specified quota share.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/describe_quota_share.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#describe_quota_share)
+        """
+
     def describe_scheduling_policies(
         self, **kwargs: Unpack[DescribeSchedulingPoliciesRequestTypeDef]
     ) -> DescribeSchedulingPoliciesResponseTypeDef:
@@ -353,9 +395,9 @@ class BatchClient(BaseClient):
         self, **kwargs: Unpack[GetJobQueueSnapshotRequestTypeDef]
     ) -> GetJobQueueSnapshotResponseTypeDef:
         """
-        Provides a list of the first 100 <code>RUNNABLE</code> jobs associated to a
-        single job queue and includes capacity utilization, including total usage and
-        breakdown by share for fairshare scheduling job queues.
+        Provides a snapshot of job queue state, including ordering of
+        <code>RUNNABLE</code> jobs, as well as capacity utilization for already
+        dispatched jobs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_job_queue_snapshot.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#get_job_queue_snapshot)
@@ -387,6 +429,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_jobs_by_consumable_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#list_jobs_by_consumable_resource)
+        """
+
+    def list_quota_shares(
+        self, **kwargs: Unpack[ListQuotaSharesRequestTypeDef]
+    ) -> ListQuotaSharesResponseTypeDef:
+        """
+        Returns a list of Batch quota shares associated with a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_quota_shares.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#list_quota_shares)
         """
 
     def list_scheduling_policies(
@@ -512,6 +564,16 @@ class BatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_job_queue)
         """
 
+    def update_quota_share(
+        self, **kwargs: Unpack[UpdateQuotaShareRequestTypeDef]
+    ) -> UpdateQuotaShareResponseTypeDef:
+        """
+        Updates a quota share.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/update_quota_share.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_quota_share)
+        """
+
     def update_scheduling_policy(
         self, **kwargs: Unpack[UpdateSchedulingPolicyRequestTypeDef]
     ) -> dict[str, Any]:
@@ -530,6 +592,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/update_service_environment.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_service_environment)
+        """
+
+    def update_service_job(
+        self, **kwargs: Unpack[UpdateServiceJobRequestTypeDef]
+    ) -> UpdateServiceJobResponseTypeDef:
+        """
+        Updates the priority of a specified service job in an Batch job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/update_service_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#update_service_job)
         """
 
     @overload  # type: ignore[override]
@@ -602,6 +674,17 @@ class BatchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_jobs"]
     ) -> ListJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_quota_shares"]
+    ) -> ListQuotaSharesPaginator:
         """
         Create a paginator for an operation.
 

@@ -8,6 +8,10 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.argo_workflow_pb2 import (
+    GetArgoBuildKubeEventsRequest,
+    GetArgoBuildKubeEventsResponse,
+    GetArgoBuildLogsRequest,
+    GetArgoBuildLogsResponse,
     GetArgoBuildRequest,
     GetArgoBuildResponse,
     ListArgoBuildsRequest,
@@ -30,6 +34,14 @@ class ArgoWorkflowServiceStub:
         GetArgoBuildRequest,
         GetArgoBuildResponse,
     ]
+    GetArgoBuildLogs: UnaryUnaryMultiCallable[
+        GetArgoBuildLogsRequest,
+        GetArgoBuildLogsResponse,
+    ]
+    GetArgoBuildKubeEvents: UnaryUnaryMultiCallable[
+        GetArgoBuildKubeEventsRequest,
+        GetArgoBuildKubeEventsResponse,
+    ]
 
 class ArgoWorkflowServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +56,17 @@ class ArgoWorkflowServiceServicer(metaclass=ABCMeta):
         request: GetArgoBuildRequest,
         context: ServicerContext,
     ) -> GetArgoBuildResponse: ...
+    @abstractmethod
+    def GetArgoBuildLogs(
+        self,
+        request: GetArgoBuildLogsRequest,
+        context: ServicerContext,
+    ) -> GetArgoBuildLogsResponse: ...
+    @abstractmethod
+    def GetArgoBuildKubeEvents(
+        self,
+        request: GetArgoBuildKubeEventsRequest,
+        context: ServicerContext,
+    ) -> GetArgoBuildKubeEventsResponse: ...
 
 def add_ArgoWorkflowServiceServicer_to_server(servicer: ArgoWorkflowServiceServicer, server: Server) -> None: ...

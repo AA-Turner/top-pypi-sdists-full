@@ -1,0 +1,4 @@
+---
+features:
+  - |
+    A new exit code (2) is added to the CLI when a parse error occurs from the input file.

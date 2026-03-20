@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: runez
-Version: 5.6.1
+Version: 5.6.2
 Summary: Friendly misc/utils/convenience library
 Author-email: Zoran Simic <zoran@simicweb.com>
-License-Expression: MIT
+License: MIT
 Project-URL: Source, https://github.com/codrsquad/runez
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -12,6 +12,8 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -19,10 +21,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: license
 Dynamic: license-file
 
 Friendly misc/utils/convenience library

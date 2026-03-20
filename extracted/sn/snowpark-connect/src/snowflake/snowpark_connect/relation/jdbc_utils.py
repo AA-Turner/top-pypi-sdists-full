@@ -115,6 +115,7 @@ ROWID = _DBAPITypeObject("ROWID")
 ROWID._name = "ROWID"
 
 # Mapping from JDBC type name to DB-API type object
+# These are standard JDBC types from java.sql.Types
 _JDBC_TYPE_TO_DBAPI = {
     # String types
     "CHAR": STRING,
@@ -149,10 +150,19 @@ _JDBC_TYPE_TO_DBAPI = {
     "TIME_WITH_TIMEZONE": TIME,
     "TIMESTAMP": DATETIME,
     "TIMESTAMP_WITH_TIMEZONE": DATETIME,
-    # Other
+    # Other standard JDBC types
     "ROWID": ROWID,
     "BIT": NUMBER,  # BIT is often used as boolean/integer
     "BOOLEAN": NUMBER,
+    "JAVA_OBJECT": STRING,  # Generic object, convert to string
+    "OTHER": STRING,  # Database-specific types, convert to string
+    "ARRAY": STRING,  # Arrays, convert to string representation
+    "STRUCT": STRING,  # Structured types, convert to string
+    "REF": STRING,  # References, convert to string
+    "DATALINK": STRING,  # URLs/links, convert to string
+    "DISTINCT": STRING,  # Distinct types, convert to string
+    "REF_CURSOR": STRING,  # Cursor references, convert to string
+    "NULL": STRING,  # Null type placeholder
 }
 
 
@@ -1095,6 +1105,7 @@ def _from_jdbc_decimal(rs, col: int) -> Optional[Union[int, float]]:
 
 
 # Default converters for JDBC types
+# These are standard JDBC types from java.sql.Types
 _DEFAULT_JDBC_CONVERTERS = {
     # String types
     "CHAR": _from_jdbc_string,
@@ -1105,6 +1116,7 @@ _DEFAULT_JDBC_CONVERTERS = {
     "LONGNVARCHAR": _from_jdbc_string,
     "CLOB": _from_jdbc_string,
     "NCLOB": _from_jdbc_string,
+    "SQLXML": _from_jdbc_string,
     # Binary types
     "BINARY": _from_jdbc_binary,
     "VARBINARY": _from_jdbc_binary,
@@ -1131,6 +1143,17 @@ _DEFAULT_JDBC_CONVERTERS = {
     "TIME_WITH_TIMEZONE": _from_jdbc_time,
     "TIMESTAMP": _from_jdbc_datetime,
     "TIMESTAMP_WITH_TIMEZONE": _from_jdbc_datetime,
+    # Other standard JDBC types - use generic object converter
+    # JAVA_OBJECT and OTHER may contain complex objects (e.g., Neo4j's ArrayList)
+    # that need to be returned as-is for the caller to handle
+    "JAVA_OBJECT": _from_jdbc_object,
+    "OTHER": _from_jdbc_object,
+    "ARRAY": _from_jdbc_object,
+    "STRUCT": _from_jdbc_object,
+    "REF": _from_jdbc_object,
+    "DATALINK": _from_jdbc_string,
+    "DISTINCT": _from_jdbc_object,
+    "REF_CURSOR": _from_jdbc_object,
 }
 
 

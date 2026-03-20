@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hera
-Version: 5.27.0
+Version: 6.0.0
 Summary: Hera makes Python code easy to orchestrate on Argo Workflows through native Python integrations. It lets you construct and submit your Workflows entirely in Python.
 License: Apache-2.0
 License-File: LICENSE
@@ -22,15 +22,14 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Provides-Extra: async-client
 Provides-Extra: cli
-Provides-Extra: experimental
 Provides-Extra: yaml
 Requires-Dist: black (>=24.1.0) ; extra == "cli"
 Requires-Dist: cappa (>=0.22.1,<0.32.0) ; extra == "cli"
 Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "async-client"
-Requires-Dist: pydantic[email] (>=1.10.15,<3.0)
+Requires-Dist: pydantic (>=2.0,<3.0)
 Requires-Dist: pyyaml (>=6.0) ; extra == "yaml" or extra == "cli"
 Requires-Dist: requests
-Requires-Dist: varname (>=0.13.1,<0.16.0) ; extra == "experimental"
+Requires-Dist: typing-extensions (>=4.5.0) ; python_version < "3.13"
 Project-URL: Bug Tracker, https://github.com/argoproj-labs/hera/issues
 Project-URL: Documentation, https://hera.readthedocs.io/en/stable/
 Project-URL: Homepage, https://github.com/argoproj-labs/hera
@@ -153,11 +152,6 @@ w.create()
   and `hera generate python --help` for more information.
 - **_The CLI is an experimental feature and subject to change!_**
 
-#### `experimental`
-
-- Install via `hera[experimental]`. The `[experimental]` option adds dependencies required for experimental features
-  that have not yet graduated into stable features.
-
 #### `async-client`
 
 - Install via `hera[async-client]`. The `[async-client]` option installs `httpx` to allow the use of the `async_*`
@@ -173,6 +167,7 @@ w.create()
 
 <details><summary><i>More presentations</i></summary>
 
+- [KubeCon/ArgoCon NA 2023 - Orchestrating Rocket Simulations with Argo Workflows and Hera](https://www.youtube.com/watch?v=ue1L420ORRk)
 - [CNCF TAG App-Delivery @ KubeCon NA 2023 - Automating the Deployment of Data Workloads to Kubernetes with ArgoCD, Argo Workflows, and Hera](https://www.youtube.com/watch?v=NZCmYRVziGY&t=12481s&ab_channel=CNCFTAGAppDelivery)
 - [KubeCon/ArgoCon NA 2023 - How to Train an LLM with Argo Workflows and Hera](https://www.youtube.com/watch?v=nRYf3GkKpss&ab_channel=CNCF%5BCloudNativeComputingFoundation%5D)
     - [Featured code](https://github.com/flaviuvadan/kubecon_na_23_llama2_finetune)

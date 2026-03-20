@@ -14,7 +14,7 @@ from ..types import (
     chat_agent_retrieve_params,
 )
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -117,11 +117,13 @@ class ChatAgentResource(SyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -284,7 +286,7 @@ class ChatAgentResource(SyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return self._get(
-            f"/get-chat-agent/{agent_id}",
+            path_template("/get-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -362,11 +364,13 @@ class ChatAgentResource(SyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -472,7 +476,7 @@ class ChatAgentResource(SyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return self._patch(
-            f"/update-chat-agent/{agent_id}",
+            path_template("/update-chat-agent/{agent_id}", agent_id=agent_id),
             body=maybe_transform(
                 {
                     "agent_name": agent_name,
@@ -590,7 +594,7 @@ class ChatAgentResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
-            f"/delete-chat-agent/{agent_id}",
+            path_template("/delete-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -623,7 +627,7 @@ class ChatAgentResource(SyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return self._get(
-            f"/get-chat-agent-versions/{agent_id}",
+            path_template("/get-chat-agent-versions/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -658,7 +662,7 @@ class ChatAgentResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
-            f"/publish-chat-agent/{agent_id}",
+            path_template("/publish-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -752,11 +756,13 @@ class AsyncChatAgentResource(AsyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -919,7 +925,7 @@ class AsyncChatAgentResource(AsyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return await self._get(
-            f"/get-chat-agent/{agent_id}",
+            path_template("/get-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -999,11 +1005,13 @@ class AsyncChatAgentResource(AsyncAPIResource):
                 "gpt-4.1-mini",
                 "gpt-4.1-nano",
                 "gpt-5",
+                "gpt-5-mini",
+                "gpt-5-nano",
                 "gpt-5.1",
                 "gpt-5.2",
                 "gpt-5.4",
-                "gpt-5-mini",
-                "gpt-5-nano",
+                "gpt-5.4-mini",
+                "gpt-5.4-nano",
                 "claude-4.5-sonnet",
                 "claude-4.6-sonnet",
                 "claude-4.5-haiku",
@@ -1109,7 +1117,7 @@ class AsyncChatAgentResource(AsyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return await self._patch(
-            f"/update-chat-agent/{agent_id}",
+            path_template("/update-chat-agent/{agent_id}", agent_id=agent_id),
             body=await async_maybe_transform(
                 {
                     "agent_name": agent_name,
@@ -1227,7 +1235,7 @@ class AsyncChatAgentResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
-            f"/delete-chat-agent/{agent_id}",
+            path_template("/delete-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1260,7 +1268,7 @@ class AsyncChatAgentResource(AsyncAPIResource):
         if not agent_id:
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         return await self._get(
-            f"/get-chat-agent-versions/{agent_id}",
+            path_template("/get-chat-agent-versions/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -1295,7 +1303,7 @@ class AsyncChatAgentResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `agent_id` but received {agent_id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
-            f"/publish-chat-agent/{agent_id}",
+            path_template("/publish-chat-agent/{agent_id}", agent_id=agent_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

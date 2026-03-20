@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-redis
-Version: 1.0.0b260311
+Version: 1.0.0b260319
 Summary: Redis integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,10 +16,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.0.0rc4
-Requires-Dist: redis>=6.4.0
-Requires-Dist: redisvl>=0.8.2
-Requires-Dist: numpy>=2.2.6
+Requires-Dist: agent-framework-core>=1.0.0rc5
+Requires-Dist: redis>=6.4.0,<7.2.1
+Requires-Dist: redisvl>=0.11.0,<0.16
+Requires-Dist: numpy>=2.2.6,<3
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -37,15 +37,15 @@ pip install agent-framework-redis --pre
 
 ### Memory Context Provider
 
-The `RedisProvider` enables persistent context & memory capabilities for your agents, allowing them to remember user preferences and conversation context across sessions and threads.
+The `RedisContextProvider` enables persistent context and memory capabilities for your agents, allowing them to remember user preferences and conversation context across sessions and threads.
 
 #### Basic Usage Examples
 
 Review the set of [getting started examples](../../samples/02-agents/context_providers/redis/README.md) for using the Redis context provider.
 
-### Redis Chat Message Store
+### Redis History Provider
 
-The `RedisChatMessageStore` provides persistent conversation storage using Redis Lists, enabling chat history to survive application restarts and support distributed applications.
+The `RedisHistoryProvider` provides persistent conversation storage using Redis Lists, enabling chat history to survive application restarts and support distributed applications.
 
 #### Key Features
 

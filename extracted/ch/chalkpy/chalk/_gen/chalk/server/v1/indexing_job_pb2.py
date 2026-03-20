@@ -14,11 +14,12 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.artifacts.v1 import export_pb2 as chalk_dot_artifacts_dot_v1_dot_export__pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/server/v1/indexing_job.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\x99\x01\n\x1bGetIndexingJobStatusRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12U\n\x15\x64irectory_prefix_enum\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DirectoryOptionsR\x13\x64irectoryPrefixEnum"\x8e\x01\n\x1cGetIndexingJobStatusResponse\x12\x32\n\x06\x65xport\x18\x01 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportR\x06\x65xport\x12:\n\x06status\x18\x02 \x01(\x0e\x32".chalk.server.v1.IndexingJobStatusR\x06status*\xd7\x01\n\x10\x44irectoryOptions\x12!\n\x1d\x44IRECTORY_OPTIONS_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x44IRECTORY_OPTIONS_MAIN\x10\x01\x12\x1c\n\x18\x44IRECTORY_OPTIONS_SHADOW\x10\x02\x12\x1d\n\x19\x44IRECTORY_OPTIONS_DRY_RUN\x10\x03\x12"\n\x1e\x44IRECTORY_OPTIONS_INDEXING_JOB\x10\x04\x12#\n\x1f\x44IRECTORY_OPTIONS_VENV_INDEXING\x10\x05*\xde\x01\n\x11IndexingJobStatus\x12#\n\x1fINDEXING_JOB_STATUS_UNSPECIFIED\x10\x00\x12\x1f\n\x1bINDEXING_JOB_STATUS_PENDING\x10\x01\x12\x1f\n\x1bINDEXING_JOB_STATUS_RUNNING\x10\x02\x12!\n\x1dINDEXING_JOB_STATUS_SUCCEEDED\x10\x03\x12\x1e\n\x1aINDEXING_JOB_STATUS_FAILED\x10\x04\x12\x1f\n\x1bINDEXING_JOB_STATUS_UNKNOWN\x10\x05\x32\x91\x01\n\x12IndexingJobService\x12{\n\x14GetIndexingJobStatus\x12,.chalk.server.v1.GetIndexingJobStatusRequest\x1a-.chalk.server.v1.GetIndexingJobStatusResponse"\x06\x90\x02\x01\x80}\x0b\x42\x99\x01\n\x13\x63om.chalk.server.v1B\x10IndexingJobProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n"chalk/server/v1/indexing_job.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\x99\x01\n\x1bGetIndexingJobStatusRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12U\n\x15\x64irectory_prefix_enum\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DirectoryOptionsR\x13\x64irectoryPrefixEnum"\x8e\x01\n\x1cGetIndexingJobStatusResponse\x12\x32\n\x06\x65xport\x18\x01 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportR\x06\x65xport\x12:\n\x06status\x18\x02 \x01(\x0e\x32".chalk.server.v1.IndexingJobStatusR\x06status"Z\n\x18\x43\x61ncelIndexingJobRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12\x19\n\x08\x62uild_id\x18\x02 \x01(\tR\x07\x62uildId"\x1b\n\x19\x43\x61ncelIndexingJobResponse*\xd7\x01\n\x10\x44irectoryOptions\x12!\n\x1d\x44IRECTORY_OPTIONS_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x44IRECTORY_OPTIONS_MAIN\x10\x01\x12\x1c\n\x18\x44IRECTORY_OPTIONS_SHADOW\x10\x02\x12\x1d\n\x19\x44IRECTORY_OPTIONS_DRY_RUN\x10\x03\x12"\n\x1e\x44IRECTORY_OPTIONS_INDEXING_JOB\x10\x04\x12#\n\x1f\x44IRECTORY_OPTIONS_VENV_INDEXING\x10\x05*\xde\x01\n\x11IndexingJobStatus\x12#\n\x1fINDEXING_JOB_STATUS_UNSPECIFIED\x10\x00\x12\x1f\n\x1bINDEXING_JOB_STATUS_PENDING\x10\x01\x12\x1f\n\x1bINDEXING_JOB_STATUS_RUNNING\x10\x02\x12!\n\x1dINDEXING_JOB_STATUS_SUCCEEDED\x10\x03\x12\x1e\n\x1aINDEXING_JOB_STATUS_FAILED\x10\x04\x12\x1f\n\x1bINDEXING_JOB_STATUS_UNKNOWN\x10\x05\x32\x88\x02\n\x12IndexingJobService\x12{\n\x14GetIndexingJobStatus\x12,.chalk.server.v1.GetIndexingJobStatusRequest\x1a-.chalk.server.v1.GetIndexingJobStatusResponse"\x06\x90\x02\x01\x80}\x0b\x12u\n\x11\x43\x61ncelIndexingJob\x12).chalk.server.v1.CancelIndexingJobRequest\x1a*.chalk.server.v1.CancelIndexingJobResponse"\t\x80}\x0e\x8a\xd3\x0e\x02\x08\x02\x42\x99\x01\n\x13\x63om.chalk.server.v1B\x10IndexingJobProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,14 +34,22 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_INDEXINGJOBSERVICE"].methods_by_name[
         "GetIndexingJobStatus"
     ]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_DIRECTORYOPTIONS"]._serialized_start = 423
-    _globals["_DIRECTORYOPTIONS"]._serialized_end = 638
-    _globals["_INDEXINGJOBSTATUS"]._serialized_start = 641
-    _globals["_INDEXINGJOBSTATUS"]._serialized_end = 863
-    _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_start = 122
-    _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_end = 275
-    _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_start = 278
-    _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_end = 420
-    _globals["_INDEXINGJOBSERVICE"]._serialized_start = 866
-    _globals["_INDEXINGJOBSERVICE"]._serialized_end = 1011
+    _globals["_INDEXINGJOBSERVICE"].methods_by_name["CancelIndexingJob"]._options = None
+    _globals["_INDEXINGJOBSERVICE"].methods_by_name[
+        "CancelIndexingJob"
+    ]._serialized_options = b"\200}\016\212\323\016\002\010\002"
+    _globals["_DIRECTORYOPTIONS"]._serialized_start = 571
+    _globals["_DIRECTORYOPTIONS"]._serialized_end = 786
+    _globals["_INDEXINGJOBSTATUS"]._serialized_start = 789
+    _globals["_INDEXINGJOBSTATUS"]._serialized_end = 1011
+    _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_start = 149
+    _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_end = 302
+    _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_start = 305
+    _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_end = 447
+    _globals["_CANCELINDEXINGJOBREQUEST"]._serialized_start = 449
+    _globals["_CANCELINDEXINGJOBREQUEST"]._serialized_end = 539
+    _globals["_CANCELINDEXINGJOBRESPONSE"]._serialized_start = 541
+    _globals["_CANCELINDEXINGJOBRESPONSE"]._serialized_end = 568
+    _globals["_INDEXINGJOBSERVICE"]._serialized_start = 1014
+    _globals["_INDEXINGJOBSERVICE"]._serialized_end = 1278
 # @@protoc_insertion_point(module_scope)

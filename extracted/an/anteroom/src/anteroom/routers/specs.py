@@ -23,6 +23,7 @@ class CreateSpecBody(BaseModel):
     namespace: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=64)
     content: str = Field(min_length=1)
+    creation_flow: str | None = None
 
 
 class LaunchFromTaskBody(BaseModel):
@@ -73,7 +74,10 @@ async def create_spec(request: Request, body: CreateSpecBody) -> dict[str, Any]:
     from ..services.spec_service import create_spec as _create_spec
 
     try:
-        art = _create_spec(db, body.namespace, body.name, body.content)
+        kwargs: dict[str, Any] = {}
+        if body.creation_flow is not None:
+            kwargs["creation_flow"] = body.creation_flow
+        art = _create_spec(db, body.namespace, body.name, body.content, **kwargs)
     except SpecValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
@@ -81,6 +85,46 @@ async def create_spec(request: Request, body: CreateSpecBody) -> dict[str, Any]:
             raise HTTPException(status_code=409, detail="Spec with this FQN already exists")
         raise
     return art
+
+
+@router.get("/specs/queue")
+async def get_spec_queue(
+    request: Request,
+    space_id: str | None = Query(None),
+) -> dict[str, Any]:
+    """Return the spec review queue, filtered by attachment context."""
+    db = request.app.state.db
+    from ..services.spec_queue import get_review_queue
+
+    # Auto-populate space context from app state (same pattern as list_specs)
+    if space_id is None:
+        space_id = getattr(request.app.state, "space_id", None)
+    project_path: str | None = None
+    if space_id:
+        from ..services.space_storage import get_space_local_dirs
+
+        local_dirs = get_space_local_dirs(db, space_id)
+        if local_dirs:
+            project_path = local_dirs[0]
+
+    queue = get_review_queue(db, space_id=space_id, project_path=project_path)
+    return {
+        "needs_review": [_queue_item_to_dict(i) for i in queue.needs_review],
+        "stale": [_queue_item_to_dict(i) for i in queue.stale],
+        "blocked": [_queue_item_to_dict(i) for i in queue.blocked],
+        "total": queue.total,
+    }
+
+
+def _queue_item_to_dict(item: Any) -> dict[str, Any]:
+    return {
+        "fqn": item.fqn,
+        "category": item.category,
+        "phases": item.phases,
+        "stale_reasons": item.stale_reasons,
+        "blocked_runs": item.blocked_runs,
+        "updated_at": item.updated_at,
+    }
 
 
 @router.get("/specs/{fqn:path}/traceability")
@@ -255,6 +299,107 @@ async def get_spec_diff(
             for tc in diff.task_changes
         ],
     }
+
+
+@router.patch("/specs/{fqn:path}")
+async def update_spec(request: Request, fqn: str) -> dict[str, Any]:
+    """Update spec content."""
+    if not validate_fqn(fqn):
+        raise HTTPException(status_code=400, detail="Invalid FQN format")
+    db = request.app.state.db
+    body = await request.json()
+    content_yaml = body.get("content_yaml")
+    if not content_yaml:
+        raise HTTPException(status_code=422, detail="'content_yaml' is required")
+    from ..services.spec_service import update_spec_content
+
+    try:
+        result = update_spec_content(db, fqn, content_yaml)
+    except SpecValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return {"fqn": fqn, "updated": True, "version": result.get("version")}
+
+
+@router.post("/specs/{fqn:path}/conformance")
+async def check_spec_conformance(request: Request, fqn: str) -> dict[str, Any]:
+    """Run deterministic conformance checks against a spec."""
+    if not validate_fqn(fqn):
+        raise HTTPException(status_code=400, detail="Invalid FQN format")
+    db = request.app.state.db
+    from ..services.spec_conformance import run_conformance_check
+
+    result = run_conformance_check(db, fqn)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return result.to_dict()
+
+
+@router.get("/specs/{fqn:path}/links")
+async def get_spec_links(request: Request, fqn: str) -> dict[str, Any]:
+    """List all git links for a spec."""
+    if not validate_fqn(fqn):
+        raise HTTPException(status_code=400, detail="Invalid FQN format")
+    db = request.app.state.db
+    from ..services.spec_linkage import get_spec_links as _get_links
+
+    links = _get_links(db, fqn)
+    return {
+        "fqn": fqn,
+        "links": [
+            {
+                "id": l.id,
+                "type": l.type,
+                "ref": l.ref,
+                "url": l.url,
+                "linked_at": l.linked_at,
+                "linked_by": l.linked_by,
+                "auto": l.auto,
+            }
+            for l in links  # noqa: E741
+        ],
+    }
+
+
+@router.post("/specs/{fqn:path}/links", status_code=201)
+async def create_spec_link(request: Request, fqn: str) -> dict[str, Any]:
+    """Create a manual git link for a spec."""
+    if not validate_fqn(fqn):
+        raise HTTPException(status_code=400, detail="Invalid FQN format")
+    db = request.app.state.db
+    body = await request.json()
+    link_type = body.get("type")
+    ref = body.get("ref")
+    if not link_type or not ref:
+        raise HTTPException(status_code=422, detail="'type' and 'ref' are required")
+    if link_type not in ("branch", "pr"):
+        raise HTTPException(status_code=422, detail="'type' must be 'branch' or 'pr'")
+    from ..services.spec_linkage import link_branch_to_spec, link_pr_to_spec
+
+    if link_type == "branch":
+        result = link_branch_to_spec(db, fqn, str(ref))
+    else:
+        result = link_pr_to_spec(db, fqn, str(ref), pr_url=body.get("url"))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return {"fqn": fqn, "linked": True}
+
+
+@router.delete("/specs/{fqn:path}/links/{link_id}")
+async def delete_spec_link(request: Request, fqn: str, link_id: str) -> dict[str, Any]:
+    """Remove a git link from a spec."""
+    if not validate_fqn(fqn):
+        raise HTTPException(status_code=400, detail="Invalid FQN format")
+    db = request.app.state.db
+    from ..services.spec_linkage import unlink_from_spec
+
+    result = unlink_from_spec(db, fqn, link_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return {"fqn": fqn, "unlinked": True}
 
 
 @router.get("/specs/{fqn:path}")

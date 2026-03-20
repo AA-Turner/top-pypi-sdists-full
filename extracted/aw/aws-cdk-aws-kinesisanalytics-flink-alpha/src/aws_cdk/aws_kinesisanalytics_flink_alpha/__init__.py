@@ -34,7 +34,7 @@ import aws_cdk.aws_kinesisanalytics_flink_alpha as flink
 app = core.App()
 stack = core.Stack(app, "FlinkAppTest")
 
-flink_runtimes = [flink.Runtime.FLINK_1_6, flink.Runtime.FLINK_1_8, flink.Runtime.FLINK_1_11, flink.Runtime.FLINK_1_13, flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20
+flink_runtimes = [flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20
 ]
 
 flink_runtimes.for_each((runtime) => {
@@ -3916,18 +3916,15 @@ class Runtime(
         # bucket: s3.Bucket
         
         flink_app = flink.Application(self, "Application",
-            code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
+            property_groups={
+                "FlinkApplicationProperties": {
+                    "input_stream_name": "my-input-kinesis-stream",
+                    "output_stream_name": "my-output-kinesis-stream"
+                }
+            },
+            # ...
             runtime=flink.Runtime.FLINK_1_20,
-            checkpointing_enabled=True,  # default is true
-            checkpoint_interval=Duration.seconds(30),  # default is 1 minute
-            min_pause_between_checkpoints=Duration.seconds(10),  # default is 5 seconds
-            log_level=flink.LogLevel.ERROR,  # default is INFO
-            metrics_level=flink.MetricsLevel.PARALLELISM,  # default is APPLICATION
-            auto_scaling_enabled=False,  # default is true
-            parallelism=32,  # default is 1
-            parallelism_per_kpu=2,  # default is 1
-            snapshots_enabled=False,  # default is true
-            log_group=logs.LogGroup(self, "LogGroup")
+            code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
         )
     '''
 
@@ -3948,18 +3945,24 @@ class Runtime(
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_11")
     def FLINK_1_11(cls) -> "Runtime":
-        '''(experimental) Flink Version 1.11.
+        '''(deprecated) Flink Version 1.11.
 
-        :stability: experimental
+        :deprecated: Apache Flink 1.11 is deprecated by Amazon Managed Service for Apache Flink. Use {@link FLINK_1_20 } or later.
+
+        :see: https://docs.aws.amazon.com/managed-flink/latest/java/release-version-list.html
+        :stability: deprecated
         '''
         return typing.cast("Runtime", jsii.sget(cls, "FLINK_1_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_13")
     def FLINK_1_13(cls) -> "Runtime":
-        '''(experimental) Flink Version 1.13.
+        '''(deprecated) Flink Version 1.13.
 
-        :stability: experimental
+        :deprecated: Apache Flink 1.13 is deprecated by Amazon Managed Service for Apache Flink. Use {@link FLINK_1_20 } or later.
+
+        :see: https://docs.aws.amazon.com/managed-flink/latest/java/release-version-list.html
+        :stability: deprecated
         '''
         return typing.cast("Runtime", jsii.sget(cls, "FLINK_1_13"))
 
@@ -4002,18 +4005,24 @@ class Runtime(
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_6")
     def FLINK_1_6(cls) -> "Runtime":
-        '''(experimental) Flink Version 1.6.
+        '''(deprecated) Flink Version 1.6.
 
-        :stability: experimental
+        :deprecated: Apache Flink 1.6 is deprecated by Amazon Managed Service for Apache Flink. Use {@link FLINK_1_20 } or later.
+
+        :see: https://docs.aws.amazon.com/managed-flink/latest/java/release-version-list.html
+        :stability: deprecated
         '''
         return typing.cast("Runtime", jsii.sget(cls, "FLINK_1_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_8")
     def FLINK_1_8(cls) -> "Runtime":
-        '''(experimental) Flink Version 1.8.
+        '''(deprecated) Flink Version 1.8.
 
-        :stability: experimental
+        :deprecated: Apache Flink 1.8 is deprecated by Amazon Managed Service for Apache Flink. Use {@link FLINK_1_20 } or later.
+
+        :see: https://docs.aws.amazon.com/managed-flink/latest/java/release-version-list.html
+        :stability: deprecated
         '''
         return typing.cast("Runtime", jsii.sget(cls, "FLINK_1_8"))
 

@@ -1336,6 +1336,15 @@ def _handle_config_command(
     renderer.console.print(f"  [{MUTED}]Available scopes: {', '.join(scopes)}[/{MUTED}]\n")
 
 
+def _phase_badge(status: str) -> str:
+    """Return a Rich-markup badge for a spec phase status."""
+    if status == "approved":
+        return f"[{_SUCCESS}]approved[/{_SUCCESS}]"
+    elif status == "stale":
+        return "[#fbbf24]stale[/#fbbf24]"
+    return f"[{CHROME}]draft[/{CHROME}]"
+
+
 async def _handle_spec_command(
     user_input: str,
     *,
@@ -1442,11 +1451,13 @@ async def _handle_spec_command(
     elif sub == "create":
         _all_parts = user_input.split()
         _is_bugfix = "--bugfix" in _all_parts
+        _is_design_first = "--design-first" in _all_parts
         _non_flag_parts = [p for p in _all_parts if not p.startswith("--")]
         _ns = _non_flag_parts[2].strip() if len(_non_flag_parts) >= 3 else ""
         _name = _non_flag_parts[3].strip() if len(_non_flag_parts) >= 4 else ""
         if not _ns or not _name:
-            renderer.console.print(f"[{CHROME}]Usage: /spec create [--bugfix] <namespace> <name>[/{CHROME}]\n")
+            _msg = f"[{CHROME}]Usage: /spec create [--bugfix|--design-first] <namespace> <name>[/{CHROME}]\n"
+            renderer.console.print(_msg)
             return
         import os
         import subprocess
@@ -1454,7 +1465,14 @@ async def _handle_spec_command(
 
         from ..services.spec_schema import BUGFIX_TEMPLATE, FEATURE_TEMPLATE
 
-        _template = BUGFIX_TEMPLATE if _is_bugfix else FEATURE_TEMPLATE
+        if _is_design_first:
+            from ..services.spec_schema import DESIGN_FIRST_TEMPLATE
+
+            _template = DESIGN_FIRST_TEMPLATE
+        elif _is_bugfix:
+            _template = BUGFIX_TEMPLATE
+        else:
+            _template = FEATURE_TEMPLATE
         _editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
         try:
             with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _tf:
@@ -1472,8 +1490,9 @@ async def _handle_spec_command(
             return
         from ..services.spec_service import create_spec as _cs
 
+        _creation_flow = "design_first" if _is_design_first else None
         try:
-            _new = _cs(db, _ns, _name, _content)
+            _new = _cs(db, _ns, _name, _content, creation_flow=_creation_flow)
             renderer.console.print(f"[{_SUCCESS}]Created[/{_SUCCESS}] {_new['fqn']}\n")
         except Exception as _e:
             renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
@@ -1619,10 +1638,228 @@ async def _handle_spec_command(
         finally:
             _cleanup_event_bus(_event_bus)
 
+    elif sub == "queue":
+        import os as _os_q
+
+        from ..services.spec_queue import get_review_queue as _grq
+
+        _space_id_q = space["id"] if space else None
+        _project_path_q = working_dir or _os_q.getcwd()
+        _queue = _grq(db, space_id=_space_id_q, project_path=_project_path_q)
+        if _queue.total == 0 and not _queue.blocked:
+            renderer.console.print(f"[{CHROME}]All specs are up to date.[/{CHROME}]\n")
+            return
+
+        from rich.table import Table as _QTable
+
+        if _queue.needs_review:
+            _qt = _QTable(title="Needs Review", show_lines=False)
+            _qt.add_column("FQN", style="bold")
+            _qt.add_column("Requirements")
+            _qt.add_column("Design")
+            _qt.add_column("Tasks")
+            for _item in _queue.needs_review:
+                _qt.add_row(
+                    _item.fqn,
+                    _phase_badge(_item.phases.get("requirements", "draft")),
+                    _phase_badge(_item.phases.get("design", "draft")),
+                    _phase_badge(_item.phases.get("tasks", "draft")),
+                )
+            renderer.console.print(_qt)
+
+        if _queue.stale:
+            renderer.console.print(f"\n[#fbbf24]Stale specs: {len(_queue.stale)}[/#fbbf24]")
+            for _item in _queue.stale:
+                for _phase, _reason in _item.stale_reasons.items():
+                    renderer.console.print(f"  {_item.fqn} — {_reason}")
+
+        if _queue.blocked:
+            renderer.console.print(f"\n[{_ERROR}]Blocked by spec gates: {len(_queue.blocked)}[/{_ERROR}]")
+            for _item in _queue.blocked:
+                for _brun in _item.blocked_runs:
+                    _rid = _brun.get("id", "?")[:8]
+                    _reason = _brun.get("stop_reason", "blocked")
+                    renderer.console.print(f"  {_item.fqn} — run {_rid}: {_reason}")
+
+        renderer.console.print()
+
+    elif sub == "edit":
+        _edit_rest = user_input.split()[2:]
+        if not _edit_rest:
+            renderer.console.print(f"[{CHROME}]Usage: /spec edit <fqn> [phase][/{CHROME}]\n")
+            return
+        _edit_fqn = _edit_rest[0]
+        _edit_phase = _edit_rest[1] if len(_edit_rest) > 1 else None
+
+        from ..services.spec_schema import serialize_spec_content as _ssc
+        from ..services.spec_service import get_spec as _get_spec_edit
+        from ..services.spec_service import update_spec_content as _usc
+        from ..services.spec_service import update_spec_phase as _usp
+
+        _edit_result = _get_spec_edit(db, _edit_fqn)
+        if _edit_result is None:
+            renderer.console.print(f"[{_ERROR}]Spec not found: {_edit_fqn}[/{_ERROR}]\n")
+            return
+        _edit_art, _edit_spec = _edit_result
+
+        import os as _os_edit
+        import tempfile as _tf_edit
+
+        if _edit_phase:
+            if _edit_phase not in ("requirements", "design"):
+                _emsg = "Phase must be 'requirements' or 'design'. Use full edit for tasks."
+                renderer.console.print(f"[{_ERROR}]{_emsg}[/{_ERROR}]\n")
+                return
+            _current_content = getattr(_edit_spec, _edit_phase)
+            with _tf_edit.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _etf:
+                _etf.write(_current_content)
+                _etf_path = _etf.name
+            _editor = _os_edit.environ.get("EDITOR", _os_edit.environ.get("VISUAL", "vi"))
+            _os_edit.system(f'{_editor} "{_etf_path}"')
+            with open(_etf_path) as _ef:
+                _new_content = _ef.read()
+            _os_edit.unlink(_etf_path)
+            if _new_content.strip() == _current_content.strip():
+                renderer.console.print(f"[{CHROME}]No changes.[/{CHROME}]\n")
+                return
+            try:
+                _usp(db, _edit_fqn, _edit_phase, _new_content)
+            except (ValueError, Exception) as _e:
+                renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+                return
+            renderer.console.print(f"[{_SUCCESS}]Updated {_edit_phase} for {_edit_fqn}[/{_SUCCESS}]\n")
+        else:
+            _yaml_content = _ssc(_edit_spec)
+            with _tf_edit.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _etf:
+                _etf.write(_yaml_content)
+                _etf_path = _etf.name
+            _editor = _os_edit.environ.get("EDITOR", _os_edit.environ.get("VISUAL", "vi"))
+            _os_edit.system(f'{_editor} "{_etf_path}"')
+            with open(_etf_path) as _ef:
+                _new_yaml = _ef.read()
+            _os_edit.unlink(_etf_path)
+            if _new_yaml.strip() == _yaml_content.strip():
+                renderer.console.print(f"[{CHROME}]No changes.[/{CHROME}]\n")
+                return
+            try:
+                _usc(db, _edit_fqn, _new_yaml)
+            except (ValueError, Exception) as _e:
+                renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+                return
+            renderer.console.print(f"[{_SUCCESS}]Updated {_edit_fqn}[/{_SUCCESS}]\n")
+
+    elif sub == "link":
+        _link_rest = user_input.split()[2:]
+        if not _link_rest:
+            _lusage = "Usage: /spec link <fqn> [branch <name> | pr <number> [url]]"
+            renderer.console.print(f"[{CHROME}]{_lusage}[/{CHROME}]\n")
+            return
+        _link_fqn = _link_rest[0]
+        from ..services.spec_linkage import detect_current_branch as _dcb
+        from ..services.spec_linkage import link_branch_to_spec as _lbs
+        from ..services.spec_linkage import link_pr_to_spec as _lps
+
+        if len(_link_rest) == 1:
+            _branch = _dcb()
+            if not _branch:
+                _emsg = "Not in a git repo or detached HEAD. Specify: /spec link <fqn> branch <name>"
+                renderer.console.print(f"[{_ERROR}]{_emsg}[/{_ERROR}]\n")
+                return
+            _lr = _lbs(db, _link_fqn, _branch, auto=True)
+            if _lr is None:
+                renderer.console.print(f"[{_ERROR}]Spec not found: {_link_fqn}[/{_ERROR}]\n")
+                return
+            renderer.console.print(f"[{_SUCCESS}]Linked branch '{_branch}' to {_link_fqn}[/{_SUCCESS}]\n")
+        elif _link_rest[1] == "branch" and len(_link_rest) >= 3:
+            _lr = _lbs(db, _link_fqn, _link_rest[2])
+            if _lr is None:
+                renderer.console.print(f"[{_ERROR}]Spec not found: {_link_fqn}[/{_ERROR}]\n")
+                return
+            renderer.console.print(f"[{_SUCCESS}]Linked branch '{_link_rest[2]}' to {_link_fqn}[/{_SUCCESS}]\n")
+        elif _link_rest[1] == "pr" and len(_link_rest) >= 3:
+            _pr_url = _link_rest[3] if len(_link_rest) >= 4 else None
+            _lr = _lps(db, _link_fqn, _link_rest[2], pr_url=_pr_url)
+            if _lr is None:
+                renderer.console.print(f"[{_ERROR}]Spec not found: {_link_fqn}[/{_ERROR}]\n")
+                return
+            renderer.console.print(f"[{_SUCCESS}]Linked PR #{_link_rest[2]} to {_link_fqn}[/{_SUCCESS}]\n")
+        else:
+            _lusage = "Usage: /spec link <fqn> [branch <name> | pr <number> [url]]"
+            renderer.console.print(f"[{CHROME}]{_lusage}[/{CHROME}]\n")
+
+    elif sub == "unlink":
+        _unlink_rest = user_input.split()[2:]
+        if len(_unlink_rest) < 2:
+            renderer.console.print(f"[{CHROME}]Usage: /spec unlink <fqn> <link_id>[/{CHROME}]\n")
+            return
+        from ..services.spec_linkage import unlink_from_spec as _ufs
+
+        _ur = _ufs(db, _unlink_rest[0], _unlink_rest[1])
+        if _ur is None:
+            renderer.console.print(f"[{_ERROR}]Spec not found: {_unlink_rest[0]}[/{_ERROR}]\n")
+            return
+        renderer.console.print(f"[{_SUCCESS}]Removed link {_unlink_rest[1][:8]} from {_unlink_rest[0]}[/{_SUCCESS}]\n")
+
+    elif sub == "links":
+        _links_rest = user_input.split()[2:]
+        if not _links_rest:
+            renderer.console.print(f"[{CHROME}]Usage: /spec links <fqn>[/{CHROME}]\n")
+            return
+        from ..services.spec_linkage import get_spec_links as _gsl
+
+        _links = _gsl(db, _links_rest[0])
+        if not _links:
+            renderer.console.print(f"[{CHROME}]No links.[/{CHROME}]\n")
+            return
+        for _lnk in _links:
+            _auto_tag = " (auto)" if _lnk.auto else ""
+            _url_tag = f" — {_lnk.url}" if _lnk.url else ""
+            renderer.console.print(f"  {_lnk.type}: {_lnk.ref}{_url_tag}{_auto_tag} [{_lnk.id[:8]}]")
+        renderer.console.print()
+
+    elif sub == "conformance":
+        _conf_rest = user_input.split()[2:]
+        if not _conf_rest:
+            renderer.console.print(f"[{CHROME}]Usage: /spec conformance <fqn>[/{CHROME}]\n")
+            return
+        _conf_fqn = _conf_rest[0]
+        from ..services.spec_conformance import ConformanceSeverity as _CSev
+        from ..services.spec_conformance import run_conformance_check as _rcc
+
+        _conf_result = _rcc(db, _conf_fqn)
+        if _conf_result is None:
+            renderer.console.print(f"[{_ERROR}]Spec not found: {_conf_fqn}[/{_ERROR}]\n")
+            return
+
+        renderer.console.print(f"\n[bold]Spec Conformance: {_conf_fqn}[/bold] (v{_conf_result.spec_version})\n")
+
+        _by_cat: dict[str, list] = {}
+        for _f in _conf_result.findings:
+            _by_cat.setdefault(_f.category, []).append(_f)
+
+        for _cat, _findings in _by_cat.items():
+            renderer.console.print(f"[bold]{_cat.replace('_', ' ').title()}[/bold]")
+            for _f in _findings:
+                if _f.severity == _CSev.ERROR:
+                    _icon = f"[{_ERROR}][FAIL][/{_ERROR}]"
+                elif _f.severity == _CSev.WARNING:
+                    _icon = "[#fbbf24][WARN][/#fbbf24]"
+                else:
+                    _icon = f"[{CHROME}][INFO][/{CHROME}]"
+                renderer.console.print(f"  {_icon} {_f.message}")
+            renderer.console.print()
+
+        if _conf_result.conformant:
+            renderer.console.print(f"[{_SUCCESS}]CONFORMANT[/{_SUCCESS}]\n")
+        else:
+            _cerrors = sum(1 for _f in _conf_result.findings if _f.severity == _CSev.ERROR)
+            _cwarnings = sum(1 for _f in _conf_result.findings if _f.severity == _CSev.WARNING)
+            _cmsg = f"NOT CONFORMANT — {_cerrors} error(s), {_cwarnings} warning(s)"
+            renderer.console.print(f"[{_ERROR}]{_cmsg}[/{_ERROR}]\n")
+
     else:
-        renderer.console.print(
-            f"[{CHROME}]Usage: /spec {{list,show,create [--bugfix],approve,unapprove,diff,launch}}[/{CHROME}]\n"
-        )
+        _subs = "list,show,create,edit,approve,unapprove,diff,launch,queue,link,unlink,links,conformance"
+        renderer.console.print(f"[{CHROME}]Usage: /spec {{{_subs}}}[/{CHROME}]\n")
 
 
 async def run_cli(
@@ -1764,6 +2001,7 @@ async def run_cli(
     from ..tools.safety import SafetyVerdict
 
     _approval_lock = asyncio.Lock()
+    thinking = False
 
     async def _sub_prompt_async(prompt_text: str) -> str | None:
         """Read one line of input using a nested PromptSession.
@@ -1785,6 +2023,7 @@ async def run_cli(
             return None
 
     async def _confirm_destructive(verdict: SafetyVerdict) -> bool:
+        nonlocal thinking
         from rich.markup import escape
 
         def _apply_choice(choice: str) -> bool:
@@ -1803,23 +2042,24 @@ async def run_cli(
             renderer.console.print(f"  [{MUTED}]✗ Denied: {escape(verdict.tool_name)}[/{MUTED}]\n")
             return False
 
-        await renderer.stop_thinking()
+        await renderer.stop_thinking(quiet=True)
+        thinking = False
         renderer.stop_tool_ticker_sync()
 
         async with _approval_lock:
-            renderer.console.print(f"\n[yellow bold]Warning:[/yellow bold] {verdict.reason}")
+            renderer.console.print(f"\n  [{GOLD}]── Approval Needed ──[/{GOLD}]")
+            renderer.console.print(f"  {escape(verdict.reason)}")
             if verdict.details.get("command"):
-                renderer.console.print(f"  Command: [{MUTED}]{verdict.details['command']}[/{MUTED}]")
+                renderer.console.print(f"  Command: [{MUTED}]{escape(verdict.details['command'])}[/{MUTED}]")
             elif verdict.details.get("path"):
-                renderer.console.print(f"  Path: [{MUTED}]{verdict.details['path']}[/{MUTED}]")
-            renderer.console.print("  \\[y] Allow once  \\[s] Allow for session  \\[a] Allow always  \\[n] Deny")
-            answer = await _sub_prompt_async("  > ")
+                renderer.console.print(f"  Path: [{MUTED}]{escape(verdict.details['path'])}[/{MUTED}]")
+            renderer.console.print(f"  [{MUTED}]y once   s session   a always   n deny[/{MUTED}]")
+            renderer.console.print(f"  [{MUTED}]ctrl-d to deny[/{MUTED}]")
+            answer = await _sub_prompt_async("  Choice [y/s/a/n] > ")
             if answer is None:
                 renderer.console.print(f"  [{MUTED}]✗ Denied: {escape(verdict.tool_name)}[/{MUTED}]\n")
-                renderer.start_thinking()
                 return False
             result = _apply_choice(answer.lower())
-            renderer.start_thinking()
             return result
 
     def _persist_allowed_tool(tool_name: str) -> None:
@@ -1836,38 +2076,47 @@ async def run_cli(
 
     # Set up ask_user callback for mid-turn questions
     async def _ask_user_callback(question: str, options: list[str] | None = None) -> str:
+        nonlocal thinking
+
         def _resolve_choice(answer: str, opts: list[str] | None) -> str:
-            if opts and answer.isdigit():
+            if not opts:
+                return answer
+            if answer.isdigit():
                 idx = int(answer)
                 if 1 <= idx <= len(opts):
                     return opts[idx - 1]
                 renderer.console.print(f"  [{MUTED}]Invalid choice #{idx}, using as freeform answer[/{MUTED}]")
+                return answer
+            lowered = answer.strip().lower()
+            matches = [opt for opt in opts if opt.lower().startswith(lowered)]
+            if len(matches) == 1:
+                return matches[0]
             return answer
 
-        await renderer.stop_thinking()
+        await renderer.stop_thinking(quiet=True)
+        thinking = False
         renderer.stop_tool_ticker_sync()
 
-        renderer.console.print(f"\n[yellow bold]Question:[/yellow bold] {question}")
+        renderer.console.print(f"\n  [{MUTED}]── Input Needed ──[/{MUTED}]")
+        renderer.console.print(f"  [{GOLD}]{escape(question)}[/{GOLD}]")
         if options:
             for i, opt in enumerate(options, 1):
-                renderer.console.print(f"  [{MUTED}]{i}.[/{MUTED}] {opt}")
-            hint = "(enter number to select, or type a custom answer; ctrl-d to cancel)"
-            renderer.console.print(f"  [{MUTED}]{hint}[/{MUTED}]")
-            answer = await _sub_prompt_async("  > ")
+                renderer.console.print(f"    [{MUTED}]{i}.[/{MUTED}] {escape(opt)}")
+            prompt_text = f"  Choice [1-{len(options)} or text] > "
+            renderer.console.print(f"  [{MUTED}]ctrl-d to cancel[/{MUTED}]")
+            answer = await _sub_prompt_async(prompt_text)
         else:
-            renderer.console.print(f"  [{MUTED}](ctrl-d to cancel)[/{MUTED}]")
-            answer = await _sub_prompt_async("  > ")
+            renderer.console.print(f"  [{MUTED}]ctrl-d to cancel[/{MUTED}]")
+            answer = await _sub_prompt_async("  Answer > ")
 
         if answer is None:
             renderer.console.print(f"  [{MUTED}](cancelled)[/{MUTED}]\n")
-            renderer.start_thinking()
             return ""
 
         if options:
             answer = _resolve_choice(answer, options)
 
-        renderer.console.print()
-        renderer.start_thinking()
+        renderer.console.print(f"  [{MUTED}]→ {answer}[/{MUTED}]")
         return str(answer)
 
     # Build unified tool executor
@@ -2625,6 +2874,7 @@ async def _run_repl(
         "rename": "rename a conversation",
         "slug": "show conversation slug",
         "rewind": "undo messages",
+        "clear": "clear screen and reset history",
         "compact": "compress context",
         "conventions": "show directory conventions",
         "instructions": "show directory conventions (alias)",
@@ -2760,6 +3010,7 @@ async def _run_repl(
         "rename",
         "slug",
         "rewind",
+        "clear",
         "compact",
         "conventions",
         "instructions",
@@ -3077,6 +3328,8 @@ async def _run_repl(
                 (desc, "           Roll back to an earlier message\n"),
                 ("", "\n"),
                 ("bold", " Session\n"),
+                (cmd, "  /clear"),
+                (desc, "           Clear screen and reset message history\n"),
                 (cmd, "  /compact"),
                 (desc, "          Summarize history to free context\n"),
                 (cmd, "  /model <name>"),
@@ -5429,6 +5682,38 @@ async def _run_repl(
                         for sf in rewind_result.skipped_files:
                             renderer.console.print(f"  [yellow]Skipped: {sf}[/yellow]")
                         renderer.console.print()
+                    continue
+
+                elif cmd == "/clear":
+                    active_sid = _active_space[0]["id"] if _active_space[0] else None
+                    conv = storage.create_conversation(
+                        db,
+                        title="New Conversation",
+                        conversation_type="chat",
+                        working_dir=working_dir,
+                        **id_kw,
+                    )
+                    if active_sid:
+                        from ..services.space_storage import update_conversation_space
+
+                        update_conversation_space(db, conv["id"], active_sid)
+                    ai_messages = []
+                    is_first_message = True
+                    # Strip conversation-scoped additions from extra_system_prompt
+                    # (preserves session-level content: canary tokens, codebase index, skill catalog)
+                    extra_system_prompt = _strip_planning_prompt(extra_system_prompt)
+                    extra_system_prompt = _strip_space_instructions(extra_system_prompt)
+                    extra_system_prompt = re.sub(
+                        r"\n*<approved_plan>.*?</approved_plan>", "", extra_system_prompt, flags=re.DOTALL
+                    )
+                    from ..services.rag import strip_rag_context
+
+                    extra_system_prompt = strip_rag_context(extra_system_prompt)
+                    _refresh_artifact_prompt()
+                    if _plan_active[0]:
+                        _apply_plan_mode(conv["id"])
+                    renderer.console.clear()
+                    renderer.console.print(f"[{CHROME}]Screen and message history cleared[/{CHROME}]\n")
                     continue
 
             # Check for skill invocation — preserve original for title generation

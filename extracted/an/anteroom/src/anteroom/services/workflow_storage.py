@@ -34,10 +34,15 @@ _VALID_RUN_STATUSES = frozenset(
         "completed",
         "failed",
         "cancelled",
+        "compensating",
+        "compensated",
+        "compensation_failed",
     }
 )
 
-_TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "cancelled", "blocked"})
+_TERMINAL_RUN_STATUSES = frozenset(
+    {"completed", "failed", "cancelled", "blocked", "compensated", "compensation_failed"}
+)
 
 _VALID_STEP_STATUSES = frozenset({"pending", "running", "completed", "failed", "interrupted", "skipped"})
 
@@ -82,10 +87,12 @@ def create_workflow_run(
     budget: dict[str, Any] | None = None,
     trigger_source: str | None = None,
     trigger_meta: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rid = _uuid()
     now = _now()
     inputs_json = json.dumps(inputs) if inputs else None
+    params_json = json.dumps(params) if params else None
     budget_json = json.dumps(budget) if budget else None
     budget_usage_json = (
         json.dumps(
@@ -104,10 +111,10 @@ def create_workflow_run(
     db.execute(
         "INSERT INTO workflow_runs"
         " (id, workflow_id, workflow_version, status, target_kind, target_ref,"
-        "  inputs_json, space_id, definition_hash, definition_content,"
+        "  inputs_json, params_json, space_id, definition_hash, definition_content,"
         "  budget_json, budget_usage_json, trigger_source, trigger_meta_json,"
         "  created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             rid,
             workflow_id,
@@ -116,6 +123,7 @@ def create_workflow_run(
             target_kind,
             target_ref,
             inputs_json,
+            params_json,
             space_id,
             definition_hash,
             definition_content,
@@ -139,6 +147,7 @@ def create_workflow_run(
         "attempt_count": 0,
         "stop_reason": None,
         "inputs": inputs,
+        "params": params,
         "space_id": space_id,
         "created_at": now,
         "updated_at": now,
@@ -165,6 +174,8 @@ def get_workflow_run(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | 
 def _deserialize_run(d: dict[str, Any]) -> dict[str, Any]:
     raw_inputs = d.pop("inputs_json", None)
     d["inputs"] = json.loads(raw_inputs) if raw_inputs else None
+    raw_params = d.pop("params_json", None)
+    d["params"] = json.loads(raw_params) if raw_params else None
     raw_budget = d.pop("budget_json", None)
     d["budget"] = json.loads(raw_budget) if raw_budget else None
     raw_usage = d.pop("budget_usage_json", None)
@@ -302,12 +313,13 @@ def find_stale_runs(
     db: ThreadSafeConnection,
     stale_threshold_seconds: int = 60,
 ) -> list[dict[str, Any]]:
-    """Find runs stuck in 'running' with heartbeat older than threshold."""
+    """Find runs stuck in 'running' or 'compensating' with heartbeat older than threshold."""
     from datetime import timedelta
 
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_threshold_seconds)).isoformat()
     rows = db.execute_fetchall(
-        "SELECT * FROM workflow_runs WHERE status = 'running' AND (heartbeat_at IS NULL OR heartbeat_at < ?)",
+        "SELECT * FROM workflow_runs WHERE status IN ('running', 'compensating')"
+        " AND (heartbeat_at IS NULL OR heartbeat_at < ?)",
         (cutoff,),
     )
     return [_deserialize_run(dict(r)) for r in rows]
@@ -342,7 +354,7 @@ def list_completed_step_ids(
 # ---------------------------------------------------------------------------
 
 
-_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish", "llm"})
+_VALID_STEP_TYPES = frozenset({"runner", "gate", "loop", "human_gate", "publish", "llm", "parallel"})
 
 
 def create_workflow_step(
@@ -354,6 +366,8 @@ def create_workflow_step(
     runner_type: str | None = None,
     attempt: int = 1,
     idempotency_key: str | None = None,
+    branch_id: str | None = None,
+    is_compensation: int = 0,
 ) -> dict[str, Any]:
     if step_type not in _VALID_STEP_TYPES:
         raise ValueError(f"Invalid step_type: {step_type!r}")
@@ -361,9 +375,22 @@ def create_workflow_step(
     now = _now()
     db.execute(
         "INSERT INTO workflow_steps"
-        " (id, run_id, step_id, step_type, runner_type, status, attempt, idempotency_key, created_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (sid, run_id, step_id, step_type, runner_type, "pending", attempt, idempotency_key, now),
+        " (id, run_id, step_id, step_type, runner_type, status, attempt,"
+        "  idempotency_key, branch_id, is_compensation, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            sid,
+            run_id,
+            step_id,
+            step_type,
+            runner_type,
+            "pending",
+            attempt,
+            idempotency_key,
+            branch_id,
+            is_compensation,
+            now,
+        ),
     )
     db.commit()
     return {
@@ -381,6 +408,8 @@ def create_workflow_step(
         "raw_output_path": None,
         "duration_ms": None,
         "idempotency_key": idempotency_key,
+        "branch_id": branch_id,
+        "is_compensation": is_compensation,
         "created_at": now,
         "started_at": None,
         "completed_at": None,
@@ -397,6 +426,31 @@ def get_workflow_step(db: ThreadSafeConnection, step_record_id: str) -> dict[str
 def list_workflow_steps(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
     rows = db.execute_fetchall(
         "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY created_at",
+        (run_id,),
+    )
+    return [_deserialize_step(dict(r)) for r in rows]
+
+
+def list_branch_steps(
+    db: ThreadSafeConnection,
+    run_id: str,
+    branch_id: str,
+) -> list[dict[str, Any]]:
+    """Return step records for a specific branch within a parallel step (#976)."""
+    rows = db.execute_fetchall(
+        "SELECT * FROM workflow_steps WHERE run_id = ? AND branch_id = ? ORDER BY created_at",
+        (run_id, branch_id),
+    )
+    return [_deserialize_step(dict(r)) for r in rows]
+
+
+def list_compensation_steps(
+    db: ThreadSafeConnection,
+    run_id: str,
+) -> list[dict[str, Any]]:
+    """Return step records for compensation steps within a run (#978)."""
+    rows = db.execute_fetchall(
+        "SELECT * FROM workflow_steps WHERE run_id = ? AND is_compensation = 1 ORDER BY created_at",
         (run_id,),
     )
     return [_deserialize_step(dict(r)) for r in rows]
@@ -872,6 +926,24 @@ def list_runs_by_spec(db: ThreadSafeConnection, spec_fqn: str) -> list[dict[str,
     return results
 
 
+def list_spec_blocked_runs(db: ThreadSafeConnection, spec_fqn: str) -> list[dict[str, Any]]:
+    """List workflow runs blocked at spec-gate steps for a specific spec."""
+    sql = (
+        "SELECT r.id, r.workflow_id, r.status, r.stop_reason,"
+        "       r.current_step_id, r.created_at"
+        " FROM workflow_runs r"
+        " JOIN workflow_steps s ON s.run_id = r.id"
+        " WHERE json_extract(r.inputs_json, '$.spec_fqn') = ?"
+        "   AND r.status = 'blocked'"
+        "   AND s.step_type = 'gate'"
+        "   AND s.result_status = 'blocked'"
+        "   AND s.result_summary LIKE 'Phase%'"
+        " ORDER BY r.created_at DESC"
+    )
+    rows = db.execute_fetchall(sql, (spec_fqn,))
+    return [dict(r) for r in rows]
+
+
 def _checkpoint_row_to_dict(row: Any) -> dict[str, Any]:
     if isinstance(row, dict):
         d = dict(row)
@@ -1122,7 +1194,7 @@ def check_pending_advances(db: ThreadSafeConnection) -> list[dict[str, Any]]:
         "SELECT s.* FROM workflow_schedules s"
         " JOIN workflow_runs r ON s.advance_after_run_id = r.id"
         " WHERE s.advance_after_run_id IS NOT NULL"
-        " AND r.status IN ('completed', 'failed', 'cancelled', 'blocked')"
+        " AND r.status IN ('completed', 'failed', 'cancelled', 'blocked', 'compensated', 'compensation_failed')"
         " LIMIT 20",
     )
     return [_deserialize_schedule(dict(r)) for r in rows]

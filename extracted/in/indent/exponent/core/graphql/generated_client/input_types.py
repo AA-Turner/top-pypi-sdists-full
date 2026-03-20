@@ -62,8 +62,8 @@ class ChatConfigInput(BaseModel):
         alias="requireConfirmation", default=False
     )
     depth_limit: int = Field(alias="depthLimit", default=6)
-    reasoning_level: ReasoningLevel = Field(
-        alias="reasoningLevel", default=ReasoningLevel.MEDIUM
+    reasoning_level: Optional[ReasoningLevel] = Field(
+        alias="reasoningLevel", default=None
     )
     internal_settings: Optional[Any] = Field(alias="internalSettings", default=None)
 
@@ -183,11 +183,6 @@ class PromptAttachmentInput(BaseModel):
 class PromptInput(BaseModel):
     message: str
     attachments: list["AttachmentInput"]
-
-
-class RepositoryInput(BaseModel):
-    org_name: str = Field(alias="orgName")
-    repo_name: str = Field(alias="repoName")
 
 
 class RepositoryResourceConfigInput(BaseModel):

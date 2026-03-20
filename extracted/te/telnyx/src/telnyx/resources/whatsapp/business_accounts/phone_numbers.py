@@ -7,7 +7,7 @@ from typing_extensions import Literal
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from ...._utils import maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -18,7 +18,7 @@ from ...._response import (
 )
 from ....pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.whatsapp.business_accounts import phone_number_list_params, phone_number_initialize_verification_params
+from ....types.whatsapp.business_accounts import phone_number_list_params, phone_number_create_verification_params
 from ....types.whatsapp.business_accounts.phone_number_list_response import PhoneNumberListResponse
 
 __all__ = ["PhoneNumbersResource", "AsyncPhoneNumbersResource"]
@@ -72,7 +72,7 @@ class PhoneNumbersResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get_api_list(
-            f"/v2/whatsapp/business_accounts/{id}/phone_numbers",
+            path_template("/v2/whatsapp/business_accounts/{id}/phone_numbers", id=id),
             page=SyncDefaultFlatPagination[PhoneNumberListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -90,7 +90,7 @@ class PhoneNumbersResource(SyncAPIResource):
             model=PhoneNumberListResponse,
         )
 
-    def initialize_verification(
+    def create_verification(
         self,
         id: str,
         *,
@@ -121,7 +121,7 @@ class PhoneNumbersResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
-            f"/v2/whatsapp/business_accounts/{id}/phone_numbers",
+            path_template("/v2/whatsapp/business_accounts/{id}/phone_numbers", id=id),
             body=maybe_transform(
                 {
                     "display_name": display_name,
@@ -129,7 +129,7 @@ class PhoneNumbersResource(SyncAPIResource):
                     "language": language,
                     "verification_method": verification_method,
                 },
-                phone_number_initialize_verification_params.PhoneNumberInitializeVerificationParams,
+                phone_number_create_verification_params.PhoneNumberCreateVerificationParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -186,7 +186,7 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get_api_list(
-            f"/v2/whatsapp/business_accounts/{id}/phone_numbers",
+            path_template("/v2/whatsapp/business_accounts/{id}/phone_numbers", id=id),
             page=AsyncDefaultFlatPagination[PhoneNumberListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -204,7 +204,7 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
             model=PhoneNumberListResponse,
         )
 
-    async def initialize_verification(
+    async def create_verification(
         self,
         id: str,
         *,
@@ -235,7 +235,7 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
-            f"/v2/whatsapp/business_accounts/{id}/phone_numbers",
+            path_template("/v2/whatsapp/business_accounts/{id}/phone_numbers", id=id),
             body=await async_maybe_transform(
                 {
                     "display_name": display_name,
@@ -243,7 +243,7 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
                     "language": language,
                     "verification_method": verification_method,
                 },
-                phone_number_initialize_verification_params.PhoneNumberInitializeVerificationParams,
+                phone_number_create_verification_params.PhoneNumberCreateVerificationParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -259,8 +259,8 @@ class PhoneNumbersResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             phone_numbers.list,
         )
-        self.initialize_verification = to_raw_response_wrapper(
-            phone_numbers.initialize_verification,
+        self.create_verification = to_raw_response_wrapper(
+            phone_numbers.create_verification,
         )
 
 
@@ -271,8 +271,8 @@ class AsyncPhoneNumbersResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             phone_numbers.list,
         )
-        self.initialize_verification = async_to_raw_response_wrapper(
-            phone_numbers.initialize_verification,
+        self.create_verification = async_to_raw_response_wrapper(
+            phone_numbers.create_verification,
         )
 
 
@@ -283,8 +283,8 @@ class PhoneNumbersResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             phone_numbers.list,
         )
-        self.initialize_verification = to_streamed_response_wrapper(
-            phone_numbers.initialize_verification,
+        self.create_verification = to_streamed_response_wrapper(
+            phone_numbers.create_verification,
         )
 
 
@@ -295,6 +295,6 @@ class AsyncPhoneNumbersResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             phone_numbers.list,
         )
-        self.initialize_verification = async_to_streamed_response_wrapper(
-            phone_numbers.initialize_verification,
+        self.create_verification = async_to_streamed_response_wrapper(
+            phone_numbers.create_verification,
         )

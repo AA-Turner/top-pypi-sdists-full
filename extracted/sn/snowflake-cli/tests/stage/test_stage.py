@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import glob
 from pathlib import Path
 from typing import Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.stage.manager import StageManager, TemporaryDirectory
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.stage_path import StagePath
@@ -30,6 +32,7 @@ if IS_WINDOWS:
 
 
 STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
+GIT_MANAGER = "snowflake.cli._plugins.git.manager.GitManager"
 
 
 @pytest.mark.parametrize(
@@ -426,6 +429,52 @@ def test_copy_stage_to_stage(mock_execute, runner, mock_cursor):
                 "get @exe/s1.sql file://{}/ parallel=4",
             ],
         ),
+        (
+            "@db.schema.exe",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@db.schema.exe",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/",
+            ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
+            "@db.schema.exe/",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
+                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/a/",
+            ["a/s2.sql", "a/b/s3.sql"],
+            "@db.schema.exe/a/",
+            [
+                "get @db.schema.exe/a/s2.sql file://{}/ parallel=4",
+                "get @db.schema.exe/a/b/s3.sql file://{}/b/ parallel=4",
+            ],
+        ),
+        (
+            "@db.schema.exe/a/b/s3.sql",
+            ["a/b/s3.sql"],
+            "@db.schema.exe/a/b/s3.sql",
+            [
+                "get @db.schema.exe/a/b/s3.sql file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@schema.exe",
+            ["a/s2.sql", "s1.sql"],
+            "@schema.exe",
+            [
+                "get @schema.exe/a/s2.sql file://{}/a/ parallel=4",
+                "get @schema.exe/s1.sql file://{}/ parallel=4",
+            ],
+        ),
     ],
 )
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -509,6 +558,63 @@ def test_copy_get_recursive_from_user_stage(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
+
+
+@pytest.mark.parametrize(
+    "stage_path, files_on_stage, expected_stage_path, expected_calls",
+    [
+        (
+            "@repo/tags/v3.6.0/Casks",
+            [
+                "repo/tags/v3.6.0/Casks/snowcli.rb",
+                "repo/tags/v3.6.0/Casks/snowcli.tmpl.rb",
+            ],
+            "@repo/tags/v3.6.0/Casks",
+            [
+                "get @repo/tags/v3.6.0/Casks/snowcli.rb file://{}/ parallel=4",
+                "get @repo/tags/v3.6.0/Casks/snowcli.tmpl.rb file://{}/ parallel=4",
+            ],
+        ),
+        (
+            "@repo/branches/main/",
+            ["repo/branches/main/README.md", "repo/branches/main/dir/file.txt"],
+            "@repo/branches/main/",
+            [
+                "get @repo/branches/main/README.md file://{}/ parallel=4",
+                "get @repo/branches/main/dir/file.txt file://{}/dir/ parallel=4",
+            ],
+        ),
+        (
+            "@repo/tags/v3.6.0/README.md",
+            ["repo/tags/v3.6.0/README.md"],
+            "@repo/tags/v3.6.0/README.md",
+            [
+                "get @repo/tags/v3.6.0/README.md file://{}/ parallel=4",
+            ],
+        ),
+    ],
+)
+@mock.patch(f"{GIT_MANAGER}.execute_query")
+def test_copy_get_recursive_from_git_repo(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+    stage_path,
+    files_on_stage,
+    expected_stage_path,
+    expected_calls,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": file} for file in files_on_stage], []
+    )
+
+    GitManager().get_recursive(stage_path, Path(temporary_directory))
+
+    ls_call, *copy_calls = mock_execute.mock_calls
+    assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
     assert copy_calls == [
         mock.call(c.format(temporary_directory)) for c in expected_calls
     ]
@@ -1409,9 +1515,10 @@ def test_recursive_unbalanced_tree(temporary_directory):
 
 
 def test_recursive_upload_with_provided_temp_directory():
-    with TemporaryDirectory("src") as source_directory, TemporaryDirectory(
-        "temp"
-    ) as temp_directory:
+    with (
+        TemporaryDirectory("src") as source_directory,
+        TemporaryDirectory("temp") as temp_directory,
+    ):
         temp_directory_path = Path(temp_directory)
         tester = RecursiveUploadTester(
             source_directory, temp_directory=temp_directory_path
@@ -1450,3 +1557,91 @@ def test_stage_create_with_encryption_and_directory_options(
     mock_execute.assert_called_once_with(
         "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = true)"
     )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_square_brackets_in_directory_name(mock_execute, mock_cursor):
+    """Test that directory paths with square brackets are glob-escaped before upload."""
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        bracket_dir = Path(tmp_dir) / "campaigns" / "[id]"
+        bracket_dir.mkdir(parents=True)
+        (bracket_dir / "test.txt").write_text("test content")
+
+        sm = StageManager()
+        sm.put(bracket_dir, "stageName")
+
+        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        mock_execute.assert_called_with(
+            f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False",
+            cursor_class=SnowflakeCursor,
+        )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_recursive_with_square_brackets(
+    mock_execute, mock_cursor, temporary_directory
+):
+    """Test that recursive upload correctly handles directories with square brackets."""
+    structure = {
+        "app": {
+            "campaigns": {
+                "[id]": {
+                    "template.html": "content1",
+                    "config.json": "content2",
+                },
+                "[slug]": {
+                    "data.txt": "content3",
+                },
+            }
+        }
+    }
+
+    tester = RecursiveUploadTester(temporary_directory)
+    tester.prepare(structure=structure)
+    tmp_created_by_copy = tester.execute(local_path=temporary_directory)
+
+    actual_paths = [call["local_path"] for call in tester.calls]
+    assert tmp_created_by_copy / "app/campaigns/[id]" in actual_paths
+    assert tmp_created_by_copy / "app/campaigns/[slug]" in actual_paths
+    assert len(tester.calls) >= 2
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_preserves_user_glob_patterns_with_wildcard(
+    mock_execute, mock_cursor
+):
+    """Test that user-provided glob patterns containing wildcards are passed through unchanged."""
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        (tmp_path / "file1.py").write_text("test")
+        (tmp_path / "file2.py").write_text("test")
+        (tmp_path / "file3.txt").write_text("test")
+
+        sm = StageManager()
+        sm.put(str(tmp_path) + "/*.py", "stageName")
+
+        call_args = mock_execute.call_args[0][0]
+        assert "*.py" in call_args, f"Expected *.py in call, got: {call_args}"
+        assert "file://" in call_args
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cursor):
+    """Test that a directory with square brackets and a trailing slash is correctly escaped."""
+    mock_execute.return_value = mock_cursor([("old_role",)], [])
+    with TemporaryDirectory() as tmp_dir:
+        bracket_dir = Path(tmp_dir) / "campaigns" / "[id]"
+        bracket_dir.mkdir(parents=True)
+        (bracket_dir / "test.txt").write_text("content")
+
+        sm = StageManager()
+        sm.put(str(bracket_dir) + "/", "stageName")
+
+        expected_path = glob.escape(str(bracket_dir.resolve())) + "/*"
+        call_args = mock_execute.call_args[0][0]
+        assert "//*" not in call_args, f"Double slash found in: {call_args}"
+        assert call_args == (
+            f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False"
+        )

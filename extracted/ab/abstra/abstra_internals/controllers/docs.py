@@ -46,6 +46,45 @@ class DocsController:
         menu_content = requests.get(url).text
         return menu_content
 
+    def get_pages_guide(self):
+        """
+        Returns the guide for writing Abstra Page stages.
+
+        Call this before writing any Page code. Pages are the PREFERRED way to
+        build user-facing interfaces (dashboards, tools, data viz). Contains:
+        - @register_function decorator and __render__ pattern
+        - Streaming with generator functions (yield)
+        - JavaScript consumption patterns (forEach, for await...of, await)
+        - Authentication with get_user() and query params
+        - Full examples (dashboard, progress bar, file streaming)
+
+        Returns:
+            str: Markdown guide for Page best practices.
+
+        Copywritings:
+            Get the pages guide
+            Reading pages guide...
+        """
+        return self.read_abstra_docs("/docs/md/workflow/pages/pages.md")
+
+    def get_pages_examples(self):
+        """
+        Returns annotated code examples for common Abstra Page patterns.
+
+        Call this before writing any Page code, alongside get_pages_guide.
+        Contains real-world examples: treasury dashboard, authenticated task
+        manager, expense form, status monitor, filtered table, streaming
+        progress bar, and streaming file download.
+
+        Returns:
+            str: Annotated Page code examples.
+
+        Copywritings:
+            Get pages examples
+            Reading pages examples...
+        """
+        return self.read_abstra_docs("/docs/md/workflow/pages/examples.md")
+
     def get_forms_guide(self):
         """
         Returns the guide for writing Abstra Form stages.

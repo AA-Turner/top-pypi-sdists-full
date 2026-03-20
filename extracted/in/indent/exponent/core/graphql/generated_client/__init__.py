@@ -15,12 +15,6 @@ from .create_cloud_chat_from_repository import (
     CreateCloudChatFromRepositoryCreateChatWithResourceConfig,
 )
 from .current_user import CurrentUser, CurrentUserCurrentUser
-from .enable_cloud_repository import (
-    EnableCloudRepository,
-    EnableCloudRepositoryEnableCloudRepository,
-    EnableCloudRepositoryEnableCloudRepositoryResults,
-    EnableCloudRepositoryEnableCloudRepositoryResultsImages,
-)
 from .enums import (
     AgentSubtype,
     ChatMode,
@@ -58,7 +52,6 @@ from .input_types import (
     PermissionResponseInput,
     PromptAttachmentInput,
     PromptInput,
-    RepositoryInput,
     RepositoryResourceConfigInput,
     SkillAttachmentInput,
     SkillConfigInput,
@@ -93,10 +86,6 @@ __all__ = [
     "CurrentUser",
     "CurrentUserCurrentUser",
     "DatabaseResourceConfigInput",
-    "EnableCloudRepository",
-    "EnableCloudRepositoryEnableCloudRepository",
-    "EnableCloudRepositoryEnableCloudRepositoryResults",
-    "EnableCloudRepositoryEnableCloudRepositoryResultsImages",
     "EnvironmentVariableResponseEntry",
     "EnvironmentVariableResponseInput",
     "FileAttachmentInput",
@@ -118,7 +107,6 @@ __all__ = [
     "ReasoningLevel",
     "RefreshApiKey",
     "RefreshApiKeyRefreshApiKey",
-    "RepositoryInput",
     "RepositoryResourceConfigInput",
     "SQLAttachmentInput",
     "SandboxProvider",
